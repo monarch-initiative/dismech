@@ -95,6 +95,10 @@ EXCLUDED_ROOTS = {
     # that every value is a member of the declared enum -- is checked by
     # `tests/test_gene_classifications.py` instead.
     "kb/gene_classifications": "source transcriptions; no entity-ref slots",
+    # Gene pages: TSV ingest tables reloaded from HGNC and ai-gene-review, and
+    # Markdown summaries whose claims (including every node name they cite)
+    # are re-checked against the KB by `just genes-verify` instead.
+    "kb/genes": "ingest TSVs + provedown-checked Markdown; no YAML",
 }
 
 

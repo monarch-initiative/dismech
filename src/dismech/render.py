@@ -47,6 +47,7 @@ from dismech.module_collections import (
 )
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
+from dismech.research_reports import strip_run_suffix
 from dismech.term_labels import label_restates_title
 from dismech.term_tooltips import sample_type_descriptor, term_tooltip
 from dismech.treatment_platform import treatment_platform_label
@@ -405,6 +406,28 @@ def _build_dismech_page_url_filter(
         )
 
     return _curie_to_dismech_url
+
+
+def _build_gene_page_url_filter(disorders_dir: Path) -> Callable[[str], str | None]:
+    """Resolve an HGNC CURIE to its ``pages/genes/`` page, if the gene has one.
+
+    Uses the gene-page rule itself (``dismech.genes.render.gene_page_ids``), so
+    a disorder page links exactly the genes the gene build writes pages for.
+    """
+    from dismech.genes.render import gene_page_ids, gene_page_name
+    from dismech.genes.slice import normalize_hgnc_id
+
+    kb_root = str(disorders_dir.resolve().parent)
+
+    def _gene_page_url(curie: str) -> str | None:
+        hgnc_id = normalize_hgnc_id(curie)
+        # Resolved on first use, not when the filter is built, so a page
+        # with no gene chip never pays for the KB walk. Memoised per KB root.
+        if hgnc_id is None or hgnc_id not in gene_page_ids(kb_root):
+            return None
+        return f"../genes/{gene_page_name(hgnc_id)}"
+
+    return _gene_page_url
 
 
 def _build_has_local_disorder_filter(
@@ -1057,6 +1080,65 @@ def _annotate_model_links(
                 )
 
             model["_modeled_mechanisms_resolved"] = resolved_links
+
+    _annotate_proposed_experiment_model_links(disorder, patho_by_name)
+
+
+def _annotate_proposed_experiment_model_links(
+    disorder: dict, patho_by_name: dict[str, dict]
+) -> None:
+    """Resolve pathograph-link anchors for model systems inside a *proposed* experiment.
+
+    A ``Discussion.proposed_experiments`` entry may declare ``model_systems``
+    with ``modeled_mechanisms``, carrying the same ``ModelMechanismLink`` — and
+    so the same ``fidelity``, ``model_scale``, ``limitations`` and typed
+    ``divergences`` — as a curated model. Without this, those caveats are in the
+    YAML and in the exports but invisible on the page, which makes recording a
+    limitation structurally *worse* for a reader than writing it as prose.
+
+    Deliberately resolves the anchor only, and does **not** append to the node's
+    ``_experimental_model_links``. That back-link draws the "models informing
+    this mechanism" crosslink on a pathophysiology card, and a model system that
+    exists solely inside a proposal has not informed anything: listing it there
+    would present a hypothetical as curated evidence. The experiment is reached
+    from the discussion that proposes it, which is the honest route to it.
+    """
+    discussions = disorder.get("discussions") or []
+    if not isinstance(discussions, list):
+        return
+
+    for discussion in discussions:
+        if not isinstance(discussion, dict):
+            continue
+        for experiment in discussion.get("proposed_experiments") or []:
+            if not isinstance(experiment, dict):
+                continue
+            # Controls carry their own model systems with the same shape.
+            model_holders = [experiment]
+            model_holders.extend(
+                control
+                for control in experiment.get("controls") or []
+                if isinstance(control, dict)
+            )
+            for holder in model_holders:
+                for model in holder.get("model_systems") or []:
+                    if not isinstance(model, dict):
+                        continue
+                    resolved_links: list[dict] = []
+                    for link in model.get("modeled_mechanisms") or []:
+                        if not isinstance(link, dict):
+                            continue
+                        target = link.get("target")
+                        if not target:
+                            continue
+                        target_item = patho_by_name.get(str(target))
+                        if target_item is None:
+                            continue
+                        resolved_link = dict(link)
+                        resolved_link["_target_anchor"] = target_item["_anchor_id"]
+                        resolved_links.append(resolved_link)
+                    if resolved_links:
+                        model["_modeled_mechanisms_resolved"] = resolved_links
 
 
 def _coerce_string_list(value: object) -> list[str]:
@@ -2588,6 +2670,7 @@ def render_disorder(
     env.filters["has_local_disorder_page"] = _build_has_local_disorder_filter(
         yaml_path.parent,
     )
+    env.filters["gene_page_url"] = _build_gene_page_url_filter(yaml_path.parent)
 
     # Load and render template
     template = env.get_template(template_name)
@@ -3051,7 +3134,9 @@ def _scan_research_reports(
             continue
 
         slug = match.group("slug")
-        provider_raw = match.group("provider")
+        # A re-run beside an existing report carries the run date
+        # (`Foo-deep-research-falcon-2026-10-08.md`, #12700); it is still falcon.
+        provider_raw = strip_run_suffix(match.group("provider"))
         category = _display_name_from_provider(provider_raw)
         key = _normalize_provider_key(category)
         lookup = _normalize_disorder_lookup(_display_name_from_slug(slug))
