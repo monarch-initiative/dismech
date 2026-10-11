@@ -2250,7 +2250,7 @@ gen-gene-pages *ARGS:
 genes-ingest-refresh *ARGS:
     uv run python -m dismech.genes ingest-refresh {{ARGS}}
 
-# Rewrite kb/genes/ingest/*.tsv for every gene the KB names (never hand-edit)
+# Rewrite kb/genes/ingest/*.tsv for every gene the KB names or curates (never hand-edit)
 [group('Genes')]
 genes-ingest-build:
     uv run python -m dismech.genes ingest-build
