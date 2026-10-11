@@ -336077,6 +336077,104 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Talc Pneumoconiosis",
+    "disease_id": "MONDO:0001003",
+    "category": "Environmental",
+    "parents": [
+      "pneumoconiosis"
+    ],
+    "creation_date": "2026-10-07T17:11:49Z",
+    "updated_date": null,
+    "subtypes": [
+      "Inhalational Talcosis",
+      "Intravascular Talcosis"
+    ],
+    "description": "Talc pneumoconiosis is a mineral dust lung disease caused by deposition of respirable talc, a hydrated magnesium silicate. Retained particles are taken up by alveolar macrophages but cleared poorly, provoking a foreign-body giant cell reaction and centrilobular granulomas that progress to stellate interstitial fibrosis. Two routes deliver talc to the lung and produce anatomically distinct disease: occupational or heavy cosmetic inhalation deposits dust in the distal airways and interstitium, whereas intravenous injection of crushed oral tablets embolizes talc and other insoluble excipients into pulmonary arterioles, producing perivascular granulomas that can lead to pulmonary arterial hypertension. A persistent attribution problem runs through the occupational literature, because commercial talc ore frequently carries quartz and amphibole minerals whose own fibrogenicity is not separable from talc's in most cohorts.",
+    "pathophysiology": [
+      "Respirable talc deposition in the distal lung",
+      "Alveolar macrophage uptake with impaired clearance",
+      "Foreign-body giant cell granuloma formation",
+      "Stellate centrilobular interstitial fibrosis",
+      "Intravascular excipient embolization",
+      "Perivascular foreign-body granulomatosis"
+    ],
+    "cell_types": [
+      "alveolar macrophage",
+      "neutrophil",
+      "multinucleated giant cell",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000583",
+      "CL:0000775",
+      "CL:0000647",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "response to toxic substance",
+      "macrophage activation",
+      "inflammatory response",
+      "granuloma formation",
+      "collagen fibril organization",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Dyspnea",
+      "Cough",
+      "Pulmonary fibrosis",
+      "Granulomatosis",
+      "Lower lobe panacinar emphysema",
+      "Pulmonary arterial hypertension",
+      "Reduced forced expiratory volume in one second",
+      "Small rounded and irregular radiographic opacities",
+      "Centrilobular nodules on computed tomography"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Cardiovascular",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Immune",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002094",
+      "HP:0012735",
+      "HP:0002206",
+      "HP:0002955",
+      "HP:0032967",
+      "HP:0002092",
+      "HP:0032342",
+      "HP:0002207",
+      "HP:0025392"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Cessation of talc exposure",
+      "Supportive management of established disease",
+      "Lung transplantation for end-stage disease"
+    ],
+    "environmental": [
+      "Non-occupational inhalation of cosmetic and household talcum powder",
+      "Ambient fibrous talc in non-occupationally exposed lungs",
+      "Occupational inhalation of respirable talc dust",
+      "Intravenous injection of crushed oral tablets"
+    ],
+    "biochemical": [],
+    "source_file": "Talc_Pneumoconiosis.yaml",
+    "page_url": "../pages/disorders/Talc_Pneumoconiosis.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Tall Stature-Intellectual Disability-Renal Anomalies Syndrome",
     "disease_id": "MONDO:0014918",
     "category": "Developmental Disorder",
@@ -360647,17 +360745,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3340,
-  "total_subtypes": 4696,
-  "total_disorders_and_subtypes": 8036,
-  "total_unique_evidence_sources": 50390,
-  "total_unique_publications": 46924,
+  "total_disorder_pages": 3341,
+  "total_subtypes": 4698,
+  "total_disorders_and_subtypes": 8039,
+  "total_unique_evidence_sources": 50414,
+  "total_unique_publications": 46948,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
-  "total_pathographs": 3336,
-  "total_unique_pathological_events": 22079,
+  "total_pathographs": 3337,
+  "total_unique_pathological_events": 22085,
   "total_modules": 191,
-  "total_research_reports": 3457,
+  "total_research_reports": 3458,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
