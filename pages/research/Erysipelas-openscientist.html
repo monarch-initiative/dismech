@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Erysipelas · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/genes/">Genes</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Erysipelas</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Erysipelas</h1>
+                
+                <p class="report-subtitle">Key Findings</p>
+                
+                
+                <div class="report-date">2026-09-26</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0001266" target="_blank" rel="noopener noreferrer">MONDO:0001266</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">38 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>Key Findings</h2>
+<h3>Finding 1 — β-hemolytic streptococci are the predominant cause</h3>
+<p>Erysipelas is overwhelmingly a <strong>streptococcal</strong> infection. In a large retrospective cohort of 1,142 erysipelas episodes (981 patients), wound cultures grew group A streptococci (GAS, n=56), group G streptococci (GGS, n=53), group C streptococci (GCS, n=11), and <em>Staphylococcus aureus</em> (n=153); blood cultures (obtained in 49% of episodes) were positive in 50, most commonly GGS (n=21) followed by GAS (n=13) (<a href="https://pubmed.ncbi.nlm.nih.gov/26424182/">PMID: 26424182</a>). Because superficial cultures frequently recover skin-colonizing <em>S. aureus</em> that is not the true pathogen, serologic and prospective data are decisive. In a prospective cellulitis study (n=216), β-hemolytic streptococcal etiology was confirmed serologically or by culture in <strong>72% (146/203)</strong> of cases, rising to <strong>85%</strong> when probable cases were included; in lower-extremity infection, GCS/GGS were actually more common than GAS (36 vs 22) (<a href="https://pubmed.ncbi.nlm.nih.gov/26734653/">PMID: 26734653</a>).</p>
+<blockquote>
+<p>"<em>Wound cultures were taken in 343 episodes and 56 grew group A streptococci (GAS), 53 grew group G streptococci (GGS), 11 grew group C streptococci (GCS), and 153 grew Staphylococcus aureus.</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/26424182/">PMID: 26424182</a>)</p>
+<p>"<em>Serology or blood or tissue culture confirmed β-hemolytic streptococcal (BHS) etiology in 72% (146 of 203) of cases.</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/26734653/">PMID: 26734653</a>)</p>
+</blockquote>
+<p>The relevant pathogens (NCBITaxon suggestions): <em>Streptococcus pyogenes</em> (NCBITaxon:1314), <em>Streptococcus dysgalactiae</em> subsp. <em>equisimilis</em> (NCBITaxon:119602). Group C/G streptococci carry virulence factors closely paralleling GAS — M protein, streptolysin O, streptolysin S, streptokinase, hyaluronidase, and C5a peptidase (<a href="https://pubmed.ncbi.nlm.nih.gov/20607346/">PMID: 20607346</a>).</p>
+<h3>Finding 2 — Skin barrier disruption and leg edema/lymphedema are the dominant risk factors</h3>
+<p>The two strongest, most reproducible risk factors are a <strong>breach in the skin barrier</strong> and <strong>leg edema</strong>. In a Tunisian multicenter case-control study (114 cases, 208 matched controls), multivariate analysis showed that disruption of the cutaneous barrier (traumatic wound, toe-web intertrigo, excoriated dermatosis, plantar squamous lesions) carried an odds ratio of <strong>13.6 (95% CI 6.0–31)</strong> and leg edema an OR of <strong>7.0 (95% CI 1.3–38)</strong>; notably there was <strong>no</strong> association with diabetes, alcoholism, or smoking (<a href="https://pubmed.ncbi.nlm.nih.gov/16484815/">PMID: 16484815</a>). A large population-based case-control study of severe lower-leg cellulitis (29,062 case-control pairs) independently confirmed <strong>tinea pedis (AOR 3.05, 95% CI 1.45–6.42)</strong>, <strong>varicose veins (AOR 2.95)</strong>, <strong>lymphoedema (AOR 2.65)</strong>, and <strong>obesity (AOR 2.05)</strong>; incidence reached 204.8/100,000 by 2013, rising 4.7%/year (<a href="https://pubmed.ncbi.nlm.nih.gov/29427797/">PMID: 29427797</a>).</p>
+<blockquote>
+<p>"<em>disruption of the cutaneous barrier ... and leg edema were independently associated with erysipelas of the leg, with respective odds ratios of 13.6 (95% confidence interval: 6.0-31) and 7.0 (1.3-38)</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/16484815/">PMID: 16484815</a>)</p>
+<p>"<em>varicose veins (AOR 2.95, 95% CI 2.50-3.48, p &lt; 0.001), lymphoedema (AOR 2.65, 95% CI 1.71-4.10, p &lt; 0.001), tinea pedis (AOR 3.05, 95% CI 1.45-6.42, p 0.003)</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/29427797/">PMID: 29427797</a>)</p>
+</blockquote>
+<p>The clinical corollary is that <strong>toe-web intertrigo is a high-attributable-risk, modifiable portal of entry</strong>, and secondary prevention targeting it has long been advocated (<a href="https://pubmed.ncbi.nlm.nih.gov/11319357/">PMID: 11319357</a>).</p>
+<h3>Finding 3 — Prophylactic low-dose penicillin V reduces recurrence</h3>
+<p>Recurrence prevention is evidence-based. In the <strong>PATCH I</strong> double-blind RCT (n=274, patients with ≥2 prior episodes), penicillin V 250 mg twice daily for 12 months reduced recurrence during prophylaxis to <strong>22% (30/136) vs 37% (51/138)</strong> on placebo — <strong>HR 0.55 (95% CI 0.35–0.86, P=0.01)</strong>, number-needed-to-treat ≈5 (<a href="https://pubmed.ncbi.nlm.nih.gov/23635049/">PMID: 23635049</a>). The protective effect <strong>waned after stopping</strong> the drug. <strong>PATCH II</strong> (n=123, mostly patients with a single prior episode) showed a concordant but non-significant 47% risk reduction (<strong>HR 0.53, 95% CI 0.26–1.07, P=0.08</strong>) (<a href="https://pubmed.ncbi.nlm.nih.gov/21910701/">PMID: 21910701</a>). A pooled economic analysis (n=397) found a <strong>29% reduction in recurrences (IRR 0.71, 95% CI 0.53–0.90, P=0.02)</strong> and cost-effectiveness (<a href="https://pubmed.ncbi.nlm.nih.gov/24551029/">PMID: 24551029</a>).</p>
+<blockquote>
+<p>"<em>30 of 136 participants in the penicillin group (22%) had a recurrence, as compared with 51 of 138 participants in the placebo group (37%) (hazard ratio, 0.55; ... P=0.01)</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/23635049/">PMID: 23635049</a>)</p>
+</blockquote>
+<h3>Finding 4 — Rapid penicillin response; narrow-spectrum guideline adherence improves outcomes</h3>
+<p>Erysipelas responds rapidly to penicillin: in a retrospective study, <strong>98.3% of erysipelas patients responded within 2 days to Penicillin G</strong>, and constitutional symptoms (chills/fever) preceded or coincided with erythema in 91.4% of erysipelas vs only 36.2% of cellulitis patients — supporting clinical differentiation (<a href="https://pubmed.ncbi.nlm.nih.gov/41562377/">PMID: 41562377</a>). In prospective facial cellulitis (n=65), β-hemolytic streptococcal etiology was probable/confirmed in <strong>75%</strong> and penicillin(-class) monotherapy cured 68% (<a href="https://pubmed.ncbi.nlm.nih.gov/28768452/">PMID: 28768452</a>). In a cohort of 630 erysipelas/cellulitis cases, <strong>adherence to narrow-spectrum guidelines was associated with fewer poor outcomes (6.3% vs 12.7%, p=0.007)</strong>; bacteremia (AOR 5.21) and peripheral arterial disease (AOR 4.80) predicted poor outcome (<a href="https://pubmed.ncbi.nlm.nih.gov/30685804/">PMID: 30685804</a>).</p>
+<blockquote>
+<p>"<em>Of patients with erysipelas, 98.3% responded within 2 days to penicillin</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/41562377/">PMID: 41562377</a>)</p>
+<p>"<em>A poor outcome was recorded in 54 (8.5%) patients, less frequently in case of adherence to guidelines: 26/410 (6.3%) vs 28/220 (12.7%), p = 0.007</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/30685804/">PMID: 30685804</a>)</p>
+</blockquote>
+<h3>Finding 5 — Erysipelas and lymphedema form a self-reinforcing vicious cycle</h3>
+<p>Lymphatic dysfunction is both <strong>cause and consequence</strong>. Lymphoscintigraphy of 106 post-erysipelas patients found <strong>subclinical lymphedema in the clinically unaffected leg in 82%</strong>, rising from 74% after a single episode to <strong>100% after ≥3 episodes</strong> — implicating pre-existing lymphatic impairment as a primary trigger and demonstrating cumulative damage (<a href="https://pubmed.ncbi.nlm.nih.gov/40542699/">PMID: 40542699</a>). A prospective cohort of 428 patients identified <strong>obesity, diabetes mellitus, venous insufficiency, lymphedema, and prior surgery</strong> as independent risk factors for recurrence (Cox model, all p&lt;0.05) (<a href="https://pubmed.ncbi.nlm.nih.gov/33413190/">PMID: 33413190</a>). A retrospective-prospective cohort (n=313) found recurrent erysipelas significantly associated with <strong>obesity (p&lt;0.0001)</strong>, chronic edema/lymphedema, peripheral arterial disease, fungal foot infection, and tonsillectomy (p=0.000001) (<a href="https://pubmed.ncbi.nlm.nih.gov/30976336/">PMID: 30976336</a>).</p>
+<blockquote>
+<p>"<em>Subclinical lymphedema on the unaffected leg was found in 82% of patients</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/40542699/">PMID: 40542699</a>)</p>
+</blockquote>
+<h3>Finding 6 — Epidemiology: adult/elderly, female-predominant, leg-predominant, seasonal</h3>
+<p>Hospital cohorts converge: 428 patients (mean age 58.6 y, 51% women; hypertension 51.6%, diabetes 41.6%, venous insufficiency 36.2%, obesity 12.1%, lymphedema 4.2%; seasonal) (<a href="https://pubmed.ncbi.nlm.nih.gov/20147345/">PMID: 20147345</a>); a Tunisian series of 647 patients (mean age 44.7 y, M:F ≈1.55, <strong>lower limbs 91.2%</strong>, portal of entry 76.7% mainly toe-web intertrigo, prior erysipelas 26.1%, good outcome 87.8% on IM penicillin G ×10 days) (<a href="https://pubmed.ncbi.nlm.nih.gov/15822466/">PMID: 15822466</a>); and a 10-year study (n=319, median age 63 y, 65% female, summer-predominant, lower limb 59.2%, recurrence 67.3%, <strong>complications 25%</strong> including abscess, lymphangitis, and elephantiasis) (<a href="https://pubmed.ncbi.nlm.nih.gov/18069381/">PMID: 18069381</a>).</p>
+<blockquote>
+<p>"<em>Erysipelas predominately involved in the lower limbs (91.2%). Antecedents of erysipelas were found in 26.12 %. Portal of entry was found in 76.66% represented essentially by toe-web intertrigo.</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/15822466/">PMID: 15822466</a>)</p>
+<p>"<em>Complications, such as abscess formation, lymphangitis, venous insufficiency, osteitis, arthritis, septic tendonitis and elephantiasis were found in 25%.</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/18069381/">PMID: 18069381</a>)</p>
+</blockquote>
+<h3>Finding 7 — Streptococcal erysipelas is distinct from Erysipelothrix disease</h3>
+<p><strong>Erysipeloid</strong> (Baker-Rosenbach disease) is an occupational human skin infection caused by traumatic penetration of <em>Erysipelothrix rhusiopathiae</em>, presenting as a violaceous, well-demarcated erythematous edema usually on the hand/fingers, often self-limited and penicillin-responsive; it can rarely cause endocarditis (aortic valve predilection) (<a href="https://pubmed.ncbi.nlm.nih.gov/19663854/">PMID: 19663854</a>). In animals, <em>E. rhusiopathiae</em> causes <strong>swine erysipelas</strong>, with domestic pigs the principal host; 30–50% of healthy/convalescent pigs carry the organism in tonsils/lymphoid tissue, and wild boar are a potential reservoir (<a href="https://pubmed.ncbi.nlm.nih.gov/42687202/">PMID: 42687202</a>). It is a zoonosis affecting farmers, butchers, fishers, and veterinarians (<a href="https://pubmed.ncbi.nlm.nih.gov/20171435/">PMID: 20171435</a>).</p>
+<blockquote>
+<p>"<em>Erysipeloid is an occupational infection of the skin caused by traumatic penetration of Erysipelothrix rhusiopathiae. The disease is characterized clinically by an erythematous oedema, with well-defined and raised borders, usually localized to the back of one hand and/or fingers.</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/19663854/">PMID: 19663854</a>)</p>
+</blockquote>
+<h3>Finding 8 — Cochrane meta-analysis supports antibiotic prophylaxis</h3>
+<p>A 2017 Cochrane systematic review (6 RCTs, 573 evaluable participants, mean age 50–70) concluded that antibiotic prophylaxis (mainly penicillin/erythromycin) reduces recurrence risk <strong>while on treatment</strong>, with the protective effect diminishing after prophylaxis is stopped — consistent with PATCH I/II (<a href="https://pubmed.ncbi.nlm.nih.gov/28631307/">PMID: 28631307</a>).</p>
+<blockquote>
+<p>"<em>We included six trials, with a total of 573 evaluable participants, who were aged on average between 50 and 70.</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/28631307/">PMID: 28631307</a>)</p>
+</blockquote>
+<hr />
+<h2>Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> Erysipelas is an acute, non-necrotizing bacterial infection of the <strong>upper dermis and superficial dermal lymphatics</strong>, classically presenting as a fiery-red, raised, well-demarcated, indurated plaque with an advancing border, warmth, tenderness, and abrupt systemic symptoms (high fever, chills). The sharp elevation and clear demarcation distinguish it from cellulitis, which involves deeper dermis and subcutaneous fat with less distinct borders. It is a <strong>clinical diagnosis</strong> made at the disease level (case series, cohorts), not from molecular/EHR variant data.</p>
+<p><strong>Key identifiers:</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0001266" target="_blank" rel="noopener noreferrer">MONDO:0001266</a>
+- <strong>ICD-10:</strong> A46 (Erysipelas); <strong>ICD-11:</strong> 1B70.0
+- <strong>MeSH:</strong> Erysipelas (D004886)
+- <strong>SNOMED CT:</strong> 33438006 (Erysipelas)
+- <strong>OMIM / Orphanet:</strong> Not applicable — erysipelas is an acquired infectious disease with no Mendelian OMIM entry and is not a rare disease with an Orphanet number.</p>
+<p><strong>Synonyms / alternative names:</strong> St. Anthony's fire (historical), "ignis sacer," "the rose" (regional). Note that "erysipelas" in a veterinary/occupational context refers to <em>Erysipelothrix</em> disease (see Section 14), which must not be conflated with this streptococcal entity.</p>
+<p><strong>Source type:</strong> Aggregated disease-level evidence (cohorts, case-control studies, RCTs, systematic reviews); no patient-level EHR dataset was supplied for this investigation.</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factors.</strong> Erysipelas is an <strong>infectious disease</strong> caused predominantly by β-hemolytic streptococci — <em>S. pyogenes</em> (GAS) and groups C/G (<em>S. dysgalactiae</em>); <em>S. aureus</em> is a less common contributor and often a colonizer (Finding 1). There is <strong>no genetic causal factor</strong> and no Mendelian inheritance.</p>
+<p><strong>Risk factors (environmental / host):</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Risk factor</th>
+<th>Effect size</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cutaneous barrier disruption (wound, toe-web intertrigo, dermatosis)</td>
+<td>OR 13.6 (6.0–31)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16484815/">PMID: 16484815</a></td>
+</tr>
+<tr>
+<td>Leg edema</td>
+<td>OR 7.0 (1.3–38)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16484815/">PMID: 16484815</a></td>
+</tr>
+<tr>
+<td>Tinea pedis</td>
+<td>AOR 3.05 (1.45–6.42)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29427797/">PMID: 29427797</a></td>
+</tr>
+<tr>
+<td>Varicose veins</td>
+<td>AOR 2.95 (2.50–3.48)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29427797/">PMID: 29427797</a></td>
+</tr>
+<tr>
+<td>Lymphoedema</td>
+<td>AOR 2.65 (1.71–4.10)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29427797/">PMID: 29427797</a></td>
+</tr>
+<tr>
+<td>Obesity</td>
+<td>AOR 2.05</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29427797/">PMID: 29427797</a></td>
+</tr>
+<tr>
+<td>Diabetes, venous insufficiency, prior surgery</td>
+<td>Recurrence RFs (p&lt;0.05)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33413190/">PMID: 33413190</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Genetic risk factors:</strong> None established. The Tunisian case-control study found no association with diabetes, alcoholism, or smoking after multivariate adjustment (<a href="https://pubmed.ncbi.nlm.nih.gov/16484815/">PMID: 16484815</a>), underlining the environmental/host-mechanical rather than genetic basis.</p>
+<p><strong>Protective factors:</strong> Treatment of the portal of entry (antifungal therapy for tinea pedis), edema/lymphedema control (compression, elevation), weight reduction, and — for recurrence — antibiotic prophylaxis (Findings 3, 8). No genetic protective alleles are described.</p>
+<p><strong>Gene–environment interactions:</strong> Not applicable in the classical sense; the disease is driven by pathogen–host barrier–lymphatic interactions rather than genotype-by-environment effects.</p>
+<h3>3. Phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Frequency / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sharply demarcated erythematous plaque</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a> (Skin rash) / <a href="http://purl.obolibrary.org/obo/HP_0011121" target="_blank" rel="noopener noreferrer">HP:0011121</a> (Abnormal skin morphology)</td>
+<td>Defining feature</td>
+</tr>
+<tr>
+<td>Fever</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> (Fever)</td>
+<td>~91% report chills/fever at/before onset (<a href="https://pubmed.ncbi.nlm.nih.gov/41562377/">PMID: 41562377</a>)</td>
+</tr>
+<tr>
+<td>Chills</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025143" target="_blank" rel="noopener noreferrer">HP:0025143</a> (Chills)</td>
+<td>Common, precedes rash</td>
+</tr>
+<tr>
+<td>Local warmth / edema</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" rel="noopener noreferrer">HP:0000969</a> (Edema)</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Regional lymphangitis / lymphadenopathy</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a> (Lymphadenopathy)</td>
+<td>Component of complications (<a href="https://pubmed.ncbi.nlm.nih.gov/18069381/">PMID: 18069381</a>)</td>
+</tr>
+<tr>
+<td>Leukocytosis / elevated CRP</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" rel="noopener noreferrer">HP:0001974</a> (Leukocytosis)</td>
+<td>Inflammatory response, higher in recurrent cases (<a href="https://pubmed.ncbi.nlm.nih.gov/19694769/">PMID: 19694769</a>)</td>
+</tr>
+<tr>
+<td>"Milian's ear sign" (auricle involvement in facial erysipelas)</td>
+<td>Clinical sign</td>
+<td>—</td>
+<td>Localizing sign (<a href="https://pubmed.ncbi.nlm.nih.gov/32241881/">PMID: 32241881</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Characteristics:</strong> Adult/elderly onset; acute onset (hours to 1–2 days); severity mild-to-severe (bullous, hemorrhagic, or abscess-forming variants); course episodic/recurrent. <strong>Quality-of-life impact:</strong> recurrent episodes and resulting chronic lymphedema/elephantiasis impose substantial disability, repeated hospitalization, and reduced mobility. Disease-specific QoL instruments were not identified in the reviewed literature.</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>Not applicable.</strong> Erysipelas has no causal genes, no pathogenic germline/somatic variants, no modifier genes, no disease-associated epigenetic signature, and no chromosomal abnormalities. It is an acquired infectious disease. (The molecular determinants of virulence reside in the <em>bacterial</em> genome — e.g., streptolysin O/S, M protein, streptokinase, hyaluronidase, C5a peptidase — <a href="https://pubmed.ncbi.nlm.nih.gov/20607346/">PMID: 20607346</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/20385762/">PMID: 20385762</a> — not the human host.)</p>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental / occupational:</strong> breaks in skin from trauma, animal bites/stings (insect bites are a recognized portal → erysipelas <a href="https://pubmed.ncbi.nlm.nih.gov/16679881/">PMID: 16679881</a>), and use of depigmenting agents (in some populations <a href="https://pubmed.ncbi.nlm.nih.gov/21695874/">PMID: 21695874</a>).</li>
+<li><strong>Lifestyle:</strong> obesity is a strong, reproducible factor (Findings 2, 5). Smoking/alcohol were <strong>not</strong> independently associated (<a href="https://pubmed.ncbi.nlm.nih.gov/16484815/">PMID: 16484815</a>).</li>
+<li><strong>Infectious agents (NCBITaxon):</strong> <em>Streptococcus pyogenes</em> (NCBITaxon:1314); <em>S. dysgalactiae</em> subsp. <em>equisimilis</em> (groups C/G, NCBITaxon:119602); occasionally <em>Staphylococcus aureus</em> (NCBITaxon:1280). Interdigital dermatophytes (<em>Trichophyton</em> spp.) act as facilitators by breaching the barrier.</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain:</strong></p>
+<ol>
+<li><strong>Predisposing lymphatic impairment</strong> (pre-existing subclinical lymphedema, venous insufficiency, obesity) <strong>reduces local immune clearance</strong> in the dermis — <em>demonstrated</em> by 82% subclinical lymphedema in the unaffected leg (<a href="https://pubmed.ncbi.nlm.nih.gov/40542699/">PMID: 40542699</a>).</li>
+<li>A <strong>breach in the cutaneous barrier</strong> (toe-web tinea, wound, dermatosis) <strong>provides a portal of entry</strong> → <em>leads to</em> streptococcal inoculation of the dermis (<a href="https://pubmed.ncbi.nlm.nih.gov/16484815/">PMID: 16484815</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/15822466/">PMID: 15822466</a>).</li>
+<li><strong>β-hemolytic streptococci proliferate</strong> in the superficial dermis and <strong>spread along dermal lymphatics</strong> → <em>results in</em> the characteristic sharply demarcated, raised, advancing plaque (<a href="https://pubmed.ncbi.nlm.nih.gov/26424182/">PMID: 26424182</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/26734653/">PMID: 26734653</a>).</li>
+<li><strong>Streptococcal virulence factors</strong> (streptolysin O/S, M protein, streptokinase, hyaluronidase, C5a peptidase) <strong>promote tissue spread and impair neutrophil recruitment</strong> → <em>drives</em> local injury and dissemination (<em>inferred</em> for human erysipelas from GAS biology and animal models: <a href="https://pubmed.ncbi.nlm.nih.gov/20607346/">PMID: 20607346</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28947648/">PMID: 28947648</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/11801184/">PMID: 11801184</a>).</li>
+<li>The <strong>innate immune / inflammatory response</strong> (neutrophil influx, cytokine release) <strong>produces erythema, warmth, edema, and systemic fever/chills and leukocytosis/↑CRP</strong> → <em>causes</em> the clinical syndrome (<a href="https://pubmed.ncbi.nlm.nih.gov/41562377/">PMID: 41562377</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/19694769/">PMID: 19694769</a>).</li>
+<li><strong>Inflammatory injury to lymphatic vessels</strong> <strong>further impairs lymphatic drainage</strong> → <em>worsens</em> edema. <strong>[BRANCH → vicious cycle]</strong> This cumulative lymphatic damage <strong>increases susceptibility to the next episode</strong>, and repeated episodes drive <strong>chronic lymphedema → elephantiasis nostras verrucosa</strong> (subclinical lymphedema rises to 100% after ≥3 episodes: <a href="https://pubmed.ncbi.nlm.nih.gov/40542699/">PMID: 40542699</a>; complications incl. elephantiasis in 25%: <a href="https://pubmed.ncbi.nlm.nih.gov/18069381/">PMID: 18069381</a>).</li>
+<li><strong>[BRANCH → systemic]</strong> In a minority, bacteremia (blood cultures positive in ~6.9% overall) <strong>leads to invasive complications</strong> — abscess, necrotizing fasciitis, rarely myocarditis (<a href="https://pubmed.ncbi.nlm.nih.gov/23498835/">PMID: 23498835</a>) — associated with poor outcome (<a href="https://pubmed.ncbi.nlm.nih.gov/30685804/">PMID: 30685804</a>).</li>
+</ol>
+<pre><code>Lymphatic impairment ─┐
+      ├─► Barrier breach ─► Strep dermal invasion ─► Lymphatic spread
+Skin breach ──────────┘                                                    │
+                                                           ▼
+     ┌──────────────────  Inflammation (fever, chills, erythema)  ◄────────┤
+     │                                                                     ▼
+     │                                            Lymphatic vessel injury
+     │                                                     │
+     └──────────  VICIOUS CYCLE  ◄── worsening edema ◄─────┘
+        │
+        └─► chronic lymphedema ─► elephantiasis (~25%)
+</code></pre>
+<ul>
+<li><strong>Molecular pathways / cellular processes:</strong> innate inflammatory signaling (NF-κB–driven cytokine production), neutrophil chemotaxis and phagocytosis. GO suggestions: <strong><a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a></strong> (inflammatory response), <strong><a href="http://purl.obolibrary.org/obo/GO_0006935" target="_blank" rel="noopener noreferrer">GO:0006935</a></strong> (chemotaxis), <strong><a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" rel="noopener noreferrer">GO:0050900</a></strong> (leukocyte migration), <strong><a href="http://purl.obolibrary.org/obo/GO_0001945" target="_blank" rel="noopener noreferrer">GO:0001945</a></strong> (lymph vessel development, relevant to damage/repair).</li>
+<li><strong>Immune involvement:</strong> acute innate response; no autoimmunity or immunodeficiency required, though HIV can predispose to severe disease/necrotizing fasciitis (<a href="https://pubmed.ncbi.nlm.nih.gov/21695874/">PMID: 21695874</a>).</li>
+<li><strong>Cell types (CL):</strong> neutrophil (<strong><a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a></strong>), keratinocyte (<strong><a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a></strong>), dermal lymphatic endothelial cell (<strong><a href="http://purl.obolibrary.org/obo/CL_0002138" target="_blank" rel="noopener noreferrer">CL:0002138</a></strong>), macrophage (<strong><a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a></strong>).</li>
+</ul>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Primary organ:</strong> skin (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a></strong>), specifically the superficial dermis (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002067" target="_blank" rel="noopener noreferrer">UBERON:0002067</a></strong>) and dermal lymphatic vessels (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0001473" target="_blank" rel="noopener noreferrer">UBERON:0001473</a></strong> lymphatic vessel).</li>
+<li><strong>Body systems:</strong> integumentary and <strong>lymphatic/lymphoid system</strong> (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002465" target="_blank" rel="noopener noreferrer">UBERON:0002465</a></strong> lymphoid system).</li>
+<li><strong>Localization:</strong> lower limb / leg (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0000978" target="_blank" rel="noopener noreferrer">UBERON:0000978</a></strong> leg) in ~90% of cases (<a href="https://pubmed.ncbi.nlm.nih.gov/15822466/">PMID: 15822466</a>); face (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0000033" target="_blank" rel="noopener noreferrer">UBERON:0000033</a></strong> head) is the classic second site (Milian's ear sign, <a href="https://pubmed.ncbi.nlm.nih.gov/32241881/">PMID: 32241881</a>).</li>
+<li><strong>Lateralization:</strong> typically <strong>unilateral</strong>; bilateral leg erysipelas is rare and should prompt reconsideration of the diagnosis (pseudocellulitis/stasis dermatitis, <a href="https://pubmed.ncbi.nlm.nih.gov/36800152/">PMID: 36800152</a>).</li>
+<li><strong>Tissue/cell level:</strong> epithelial (epidermis/keratinocytes) and lymphatic endothelium; <strong>secondary organ involvement</strong> — abscess, osteitis, arthritis, septic tendonitis, rarely myocarditis (Finding 6; <a href="https://pubmed.ncbi.nlm.nih.gov/23498835/">PMID: 23498835</a>).</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> adult/elderly predominance (mean age 44–63 y across series); <strong>acute</strong> onset over hours, often with prodromal chills/fever preceding the rash (<a href="https://pubmed.ncbi.nlm.nih.gov/41562377/">PMID: 41562377</a>).</li>
+<li><strong>Progression:</strong> rapid local spread over 1–3 days; <strong>self-limited with treatment</strong> (≈98% respond to penicillin within 2 days, <a href="https://pubmed.ncbi.nlm.nih.gov/41562377/">PMID: 41562377</a>), but strongly <strong>recurrent/episodic</strong> (recurrence 26–67% across cohorts; <a href="https://pubmed.ncbi.nlm.nih.gov/15822466/">PMID: 15822466</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/18069381/">PMID: 18069381</a>).</li>
+<li><strong>Patterns:</strong> treatment-induced remission is the norm; the critical intervention window is early narrow-spectrum antibiotics plus portal-of-entry and edema management to interrupt the vicious cycle. <strong>Seasonal</strong> (summer) clustering is reported (<a href="https://pubmed.ncbi.nlm.nih.gov/18069381/">PMID: 18069381</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/20147345/">PMID: 20147345</a>).</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology:</strong> population-based incidence of severe lower-leg cellulitis reached <strong>204.8/100,000 (2013), rising 4.7%/year</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29427797/">PMID: 29427797</a>).</li>
+<li><strong>Inheritance:</strong> none — not a genetic disease (no AD/AR/X-linked/mitochondrial pattern; no penetrance/expressivity/anticipation/founder/consanguinity/carrier-frequency parameters apply).</li>
+<li><strong>Demographics:</strong> adult/elderly; <strong>female predominance</strong> in most hospital series (51–65% women); leg-predominant (~90%); comorbidities hypertension (~52%), diabetes (~42%), venous insufficiency (~36%), obesity (~12%), lymphedema (~4%) (<a href="https://pubmed.ncbi.nlm.nih.gov/20147345/">PMID: 20147345</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/15822466/">PMID: 15822466</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/18069381/">PMID: 18069381</a>).</li>
+<li><strong>Geographic:</strong> cosmopolitan; toe-web intertrigo as portal of entry is prominent in warm-climate series (Tunisia, Togo).</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical diagnosis</strong> based on the characteristic sharply demarcated, raised, fiery-red plaque with acute fever/chills; constitutional symptoms preceding erythema favor erysipelas over cellulitis (<a href="https://pubmed.ncbi.nlm.nih.gov/41562377/">PMID: 41562377</a>).</li>
+<li><strong>Laboratory:</strong> leukocytosis, elevated CRP (LOINC 1988-5), often higher in recurrent cases (<a href="https://pubmed.ncbi.nlm.nih.gov/19694769/">PMID: 19694769</a>). <strong>Blood cultures positive in only ~6.9%</strong> and generally low-yield (<a href="https://pubmed.ncbi.nlm.nih.gov/30685804/">PMID: 30685804</a>); serology (anti-streptolysin O, anti-DNase B) increases etiologic confirmation (<a href="https://pubmed.ncbi.nlm.nih.gov/26734653/">PMID: 26734653</a>).</li>
+<li><strong>Imaging:</strong> ultrasound/MRI to exclude abscess or necrotizing fasciitis in atypical/severe presentations (<a href="https://pubmed.ncbi.nlm.nih.gov/28865532/">PMID: 28865532</a>).</li>
+<li><strong>Differential diagnosis (critical):</strong> stasis dermatitis and other "pseudocellulitis" are frequently misdiagnosed as cellulitis/erysipelas — bilateral presentation, chronicity, and lack of fever favor pseudocellulitis; misdiagnosis drives ~$195–515M/yr in avoidable US spending and unnecessary antibiotics (<a href="https://pubmed.ncbi.nlm.nih.gov/27806170/">PMID: 27806170</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36800152/">PMID: 36800152</a>). Also exclude DVT, contact dermatitis, and necrotizing fasciitis.</li>
+<li><strong>Genetic/omics testing:</strong> not applicable.</li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<ul>
+<li><strong>Favorable</strong> with prompt therapy: good outcome in 87.8% (<a href="https://pubmed.ncbi.nlm.nih.gov/15822466/">PMID: 15822466</a>); poor outcome in ~8.5%, reduced by guideline adherence (<a href="https://pubmed.ncbi.nlm.nih.gov/30685804/">PMID: 30685804</a>).</li>
+<li><strong>Complications (~25%):</strong> abscess, lymphangitis, osteitis, arthritis, septic tendonitis, chronic venous insufficiency, and <strong>elephantiasis nostras verrucosa</strong>; rare systemic sequelae include myocarditis and necrotizing fasciitis (<a href="https://pubmed.ncbi.nlm.nih.gov/18069381/">PMID: 18069381</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/23498835/">PMID: 23498835</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/21695874/">PMID: 21695874</a>).</li>
+<li><strong>Prognostic factors for poor outcome:</strong> bacteremia (AOR 5.21), peripheral arterial disease (AOR 4.80) (<a href="https://pubmed.ncbi.nlm.nih.gov/30685804/">PMID: 30685804</a>); obesity, diabetes, lymphedema for recurrence (Finding 5).</li>
+<li>Mortality is low for uncomplicated disease; deaths cluster in necrotizing fasciitis and immunocompromised patients (<a href="https://pubmed.ncbi.nlm.nih.gov/21695874/">PMID: 21695874</a>).</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>First-line pharmacotherapy:</strong> <strong>penicillin</strong> (penicillin G IV/IM, or oral penicillin V / amoxicillin) — narrow-spectrum, rapidly effective (Finding 4). NCIT: <strong>C692</strong> (Penicillin), <strong>C61785</strong> (Penicillin V). Duration typically 10 days (<a href="https://pubmed.ncbi.nlm.nih.gov/15822466/">PMID: 15822466</a>).</li>
+<li><strong>Penicillin-allergic:</strong> macrolides (erythromycin/roxithromycin), clindamycin, or pristinamycin; a network meta-analysis found no significant cure-rate differences among first/second-line agents for cellulitis, with <strong>pristinamycin showing the highest cure rates for erysipelas</strong> (at some cost in rash) (<a href="https://pubmed.ncbi.nlm.nih.gov/39240378/">PMID: 39240378</a>).</li>
+<li><strong>Adjunctive/emerging:</strong> omadacycline and iclaprim have activity in skin/soft-tissue infection including erysipelas (90% clinical success at end of treatment for omadacycline) (<a href="https://pubmed.ncbi.nlm.nih.gov/42413095/">PMID: 42413095</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/35928265/">PMID: 35928265</a>).</li>
+<li><strong>Supportive:</strong> limb elevation, edema/compression management, analgesia, and <strong>treatment of the portal of entry</strong> (topical antifungals for tinea pedis).</li>
+<li><strong>Recurrence prophylaxis:</strong> low-dose penicillin V 250 mg BID (Findings 3, 8). NCIT: <strong>C15329</strong> (Antibiotic Therapy).</li>
+<li><strong>Pharmacogenomics:</strong> not applicable.</li>
+</ul>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary:</strong> foot hygiene, prompt treatment of tinea pedis and interdigital intertrigo, wound care, weight management, and edema/venous-insufficiency control (compression) — targeting the highest-attributable, modifiable risk factors (<a href="https://pubmed.ncbi.nlm.nih.gov/11319357/">PMID: 11319357</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/16484815/">PMID: 16484815</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/29427797/">PMID: 29427797</a>).</li>
+<li><strong>Secondary/tertiary:</strong> interrupting the erysipelas–lymphedema cycle through lymphedema therapy and, after ≥2 episodes, <strong>antibiotic prophylaxis</strong> with effect confirmed by RCTs and Cochrane review (Findings 3, 8). Protection wanes once prophylaxis stops, so long-term strategy must combine antibiotics with durable risk-factor modification.</li>
+<li><strong>Immunization:</strong> no licensed vaccine; GAS vaccine development is ongoing but not erysipelas-specific.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<p><strong>Important distinction (Finding 7):</strong> Streptococcal erysipelas (this entry) is a human disease. The name "erysipelas" is also applied to <em>Erysipelothrix rhusiopathiae</em> disease:
+- <strong>Swine erysipelas</strong> — a veterinary disease of <strong>domestic pigs</strong> (<em>Sus scrofa domesticus</em>, NCBITaxon:9825); 30–50% of healthy/convalescent pigs are tonsillar carriers; wild boar (<em>Sus scrofa</em>) are a reservoir (45.5% tonsil culture-positive) (<a href="https://pubmed.ncbi.nlm.nih.gov/42687202/">PMID: 42687202</a>).
+- <strong>Human erysipeloid</strong> (Baker-Rosenbach disease) — a <strong>zoonotic</strong> occupational skin infection of farmers, butchers, fishers, and veterinarians, with rare systemic forms (endocarditis with aortic-valve predilection; paravertebral abscess/spondylitis) (<a href="https://pubmed.ncbi.nlm.nih.gov/19663854/">PMID: 19663854</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/20171435/">PMID: 20171435</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/30542523/">PMID: 30542523</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/22526696/">PMID: 22526696</a>).</p>
+<p>For <strong>streptococcal</strong> erysipelas itself, there is no significant naturally occurring companion-animal counterpart; GAS/GCS/GGS are human-adapted (GCS/GGS also colonize animals, but streptococcal erysipelas as a clinical entity is essentially human).</p>
+<h3>15. Model Organisms</h3>
+<p>Human streptococcal erysipelas is not modeled as a discrete named disease, but <strong>murine skin-infection models</strong> of <em>S. pyogenes</em> recapitulate key mechanistic steps: dermonecrotic/subcutaneous mouse models demonstrate the roles of <strong>streptolysin S</strong> and <strong>platelet-activating-factor acetylhydrolase Sse</strong> in inhibiting neutrophil recruitment and enabling systemic spread (<a href="https://pubmed.ncbi.nlm.nih.gov/28947648/">PMID: 28947648</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/11801184/">PMID: 11801184</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/20385762/">PMID: 20385762</a>). These are <strong>pathogen-focused</strong> models (studying bacterial virulence and innate immune evasion) rather than models of the host lymphedema cycle. Resource: MGI for mouse strains; no dedicated erysipelas model database exists. <strong>Limitation:</strong> mouse dermonecrosis models capture bacterial invasion/immune evasion but not the chronic lymphatic-damage/recurrence dynamics central to human erysipelas.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>Erysipelas is best understood as a <strong>two-hit, self-amplifying disease</strong>. The <em>first hit</em> is a susceptible host terrain — impaired lymphatic drainage (often subclinical), venous insufficiency, and obesity — that locally weakens immune surveillance. The <em>second hit</em> is a <strong>portal of entry</strong> (usually toe-web tinea) admitting β-hemolytic streptococci to the dermis. The organism's virulence arsenal drives rapid lymphatic spread and a brisk innate inflammatory response producing the pathognomonic plaque and systemic toxicity. Critically, that same inflammation <strong>injures lymphatics</strong>, so each episode leaves the host more vulnerable — the empirical signature being subclinical lymphedema in 74% of single-episode patients rising to 100% after ≥3 episodes. This explains why erysipelas is simultaneously highly treatable (near-universal rapid penicillin response) and highly recurrent, and why durable prevention requires attacking <em>both hits</em> (antifungal/portal care + edema management) alongside antibiotic prophylaxis whose benefit is real but reverses on discontinuation.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Axis</th>
+<th>Upstream driver</th>
+<th>Downstream consequence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Host terrain</td>
+<td>Lymphedema, venous insufficiency, obesity</td>
+<td>Reduced dermal immune clearance</td>
+</tr>
+<tr>
+<td>Portal</td>
+<td>Tinea pedis, wounds, dermatoses</td>
+<td>Streptococcal inoculation</td>
+</tr>
+<tr>
+<td>Pathogen</td>
+<td>SLO/SLS, M protein, spreading factors</td>
+<td>Lymphatic spread, neutrophil evasion</td>
+</tr>
+<tr>
+<td>Response</td>
+<td>Innate inflammation</td>
+<td>Plaque + fever + <strong>lymphatic injury → cycle</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26424182/">26424182</a></td>
+<td>Bacteriologic spectrum (n=1142); GGS common in blood</td>
+<td>Human, retrospective</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26734653/">26734653</a></td>
+<td>72–85% BHS etiology; GCS/GGS &gt; GAS in legs</td>
+<td>Human, prospective</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16484815/">16484815</a></td>
+<td>Barrier breach OR 13.6, edema OR 7.0</td>
+<td>Human, case-control</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29427797/">29427797</a></td>
+<td>Tinea pedis, varicose veins, lymphoedema, obesity; incidence 204.8/100k</td>
+<td>Human, population case-control</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23635049/">23635049</a></td>
+<td>PATCH I: penicillin HR 0.55</td>
+<td>Human RCT</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21910701/">21910701</a></td>
+<td>PATCH II: HR 0.53 (NS)</td>
+<td>Human RCT</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24551029/">24551029</a></td>
+<td>Pooled IRR 0.71; cost-effective</td>
+<td>Human, economic analysis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28631307/">28631307</a></td>
+<td>Cochrane: prophylaxis reduces recurrence on-treatment</td>
+<td>Systematic review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41562377/">41562377</a></td>
+<td>98.3% penicillin response ≤2 days</td>
+<td>Human, retrospective</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30685804/">30685804</a></td>
+<td>Guideline adherence improves outcomes</td>
+<td>Human, cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28768452/">28768452</a></td>
+<td>75% BHS, penicillin cure in facial disease</td>
+<td>Human, prospective</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40542699/">40542699</a></td>
+<td>82%→100% subclinical lymphedema</td>
+<td>Human, imaging</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33413190/">33413190</a></td>
+<td>Recurrence risk factors</td>
+<td>Human, prospective cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30976336/">30976336</a></td>
+<td>Comorbidities in recurrence</td>
+<td>Human, cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20147345/">20147345</a></td>
+<td>Age/sex/comorbidity epidemiology (n=428)</td>
+<td>Human, cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15822466/">15822466</a></td>
+<td>Leg 91%, toe-web portal 77% (n=647)</td>
+<td>Human, retrospective</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18069381/">18069381</a></td>
+<td>Recurrence 67%, complications 25%</td>
+<td>Human, retrospective</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19663854/">19663854</a></td>
+<td>Erysipeloid definition</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42687202/">42687202</a></td>
+<td>Pig reservoir for <em>Erysipelothrix</em></td>
+<td>Veterinary</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39240378/">39240378</a></td>
+<td>Antibiotic network meta-analysis</td>
+<td>Systematic review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27806170/">27806170</a></td>
+<td>Misdiagnosis cost/harm</td>
+<td>Human, cross-sectional</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Consistency:</strong> All etiologic sources converge on β-hemolytic streptococcal predominance; all risk-factor studies converge on barrier breach + edema/lymphedema + obesity; both RCTs and the Cochrane review agree on prophylaxis benefit with post-treatment waning. No reviewed study contradicted the core model.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Etiologic uncertainty at the bedside:</strong> blood/wound cultures are low-yield (bacteremia ~6.9%); much etiologic attribution is serologic or presumptive, and <em>S. aureus</em> isolates may be colonizers rather than pathogens.</li>
+<li><strong>Erysipelas vs cellulitis overlap:</strong> many studies pool the two entities; findings are partly extrapolated across the boundary.</li>
+<li><strong>No molecular/host-genetic layer:</strong> because erysipelas is non-genetic, entire template sections (causal genes, variants, inheritance, pharmacogenomics) are not applicable — a structural mismatch with a genetics-oriented template, not a gap in the literature.</li>
+<li><strong>Prophylaxis durability:</strong> benefit reverses off-treatment; optimal duration and the role of combined risk-factor modification are not fully defined.</li>
+<li><strong>QoL data</strong> specific to erysipelas are sparse; no validated disease-specific instrument was identified.</li>
+<li><strong>Model systems</strong> capture bacterial virulence but not the chronic lymphedema/recurrence cycle.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Prospective interventional trial</strong> combining tinea pedis eradication + compression lymphedema therapy vs standard care to quantify reduction in first and recurrent episodes (targets the highest-attributable, modifiable factors).</li>
+<li><strong>Biomarker study</strong> correlating baseline lymphoscintigraphy and CRP kinetics with recurrence, to risk-stratify candidates for prophylaxis.</li>
+<li><strong>Comparative-effectiveness / duration study</strong> of penicillin prophylaxis (e.g., 12 vs 24 months, continuous vs intermittent) with off-treatment follow-up to address waning.</li>
+<li><strong>Curation action:</strong> ensure the knowledge base cleanly separates <a href="http://purl.obolibrary.org/obo/MONDO_0001266" target="_blank" rel="noopener noreferrer">MONDO:0001266</a> (streptococcal erysipelas) from <em>Erysipelothrix</em> erysipeloid/swine erysipelas to prevent conflation.</li>
+<li><strong>Diagnostic stewardship:</strong> deploy/validate clinical decision tools to reduce pseudocellulitis misdiagnosis and unnecessary antibiotic use.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 5 discovery iterations, 8 confirmed findings, and 44 reviewed papers. Evidence is predominantly human clinical (cohort, case-control, RCT, systematic review), supplemented by murine pathogen-virulence models and veterinary/zoonotic sources for the nosological distinction.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Erysipelas-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Erysipelas-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc2.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>38</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:11801184</code> (5 mentions) - Mouse skin passage of a Streptococcus pyogenes Tn917 mutant of sagA/pel restores virulence, beta-hemolysis and sagA/pel expression without altering the position or sequence of the transposon.</li>
+<li>shared terms: streptococcal</li>
+<li><code>PMID:27806170</code> (4 mentions) - Costs and Consequences Associated With Misdiagnosed Lower Extremity Cellulitis.</li>
+<li>shared terms: antibiotic, cellulitis</li>
+<li><code>PMID:30542523</code> (3 mentions) - Aortic valve endocarditis with Erysipelothrix rhusiopathiae: A rare zoonosis.</li>
+<li>shared terms: human</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>erysipelas</code>, <code>disease</code>, <code>lymphedema</code>, <code>recurrence</code>, <code>edema</code>, <code>streptococcal</code>, <code>penicillin</code>, <code>obesity</code>, <code>clinical</code>, <code>portal</code>, <code>episode</code>, <code>human</code>, <code>prophylaxis</code>, <code>tinea</code>, <code>antibiotic</code>, <code>cohort</code>, <code>lymphatic</code>, <code>cellulitis</code>, <code>fever</code>, <code>pedis</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>26</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>26</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>MONDO:0001266</code> (4 mentions) - the report calls it "streptococcal erysipelas"; MONDO calls it <strong>erysipelas</strong></li>
+<li><code>NCBITaxon:119602</code> (2 mentions) - the report calls it "equisimilis"; NCBITaxon calls it <strong>Streptococcus dysgalactiae subsp. equisimilis</strong>, and lists "Streptococcus equisimilis" among its other names</li>
+<li><code>HP:0001974</code> (1 mention) - the report calls it "Leukocytosis"; HP calls it <strong>Increased total leukocyte count</strong>, and lists "Leukocytosis" among its other names</li>
+</ul>
+<p>Every term resolved, and every label the report gave matched.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Ergotism-claude_code.html">← Ergotism (Claude Code)</a>
+                
+                
+                <a href="Erysipelothrix_Rhusiopathiae_Infectious_Disease-openscientist.html">Erysipelothrix Rhusiopathiae Infectious Disease (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Erysipelas.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Erysipelas-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

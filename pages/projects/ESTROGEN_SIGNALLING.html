@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estrogen Signalling Gap Filling - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        nav {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100; padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); text-decoration: none; }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+        a.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; text-decoration: none; }
+        a.tag-nih:hover { background: #dfeaff; }
+        span.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            nav { padding: 0.7rem 1rem; }
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="index.html" class="active">Projects</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/groupings/">Groupings</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/genes/">Genes</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Estrogen Signalling Gap Filling</h1>
+            <div class="hero-meta">
+                <span class="badge status-COMPLETE">Complete</span>
+                <span class="tag">MECHANISM_GAP</span><span class="tag">ENDOCRINE</span><span class="tag">ENDOCRINE_DISRUPTION</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Estrogen Signalling Gap Filling</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (16)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/46,XX_Gonadal_Dysgenesis.html">46 XX Gonadal Dysgenesis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Aromatase_Deficiency.html">Aromatase Deficiency</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Breast_Carcinoma.html">Breast Carcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Breast_Fibroadenoma.html">Breast Fibroadenoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/ER-Positive_Breast_Cancer.html">ER Positive Breast Cancer</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Endometrial_Carcinoma.html">Endometrial Carcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Endometrial_Endometrioid_Adenocarcinoma.html">Endometrial Endometrioid Adenocarcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Estrogen_Resistance_Syndrome.html">Estrogen Resistance Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Heart_Failure.html">Heart Failure</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Lymphangioleiomyomatosis.html">Lymphangioleiomyomatosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Osteoporosis.html">Osteoporosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/PIK3CA-Mutant_Breast_Cancer.html">PIK3CA Mutant Breast Cancer</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Premenstrual_Dysphoric_Disorder.html">Premenstrual Dysphoric Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Skeletal_Fluorosis.html">Skeletal Fluorosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Testicular_Sex_Cord-Stromal_Neoplasm.html">Testicular Sex Cord Stromal Neoplasm</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Triple-Negative_Breast_Cancer.html">Triple Negative Breast Cancer</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Modules (6)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../modules/cdk46_inhibitor_resistance.html">cdk46 inhibitor resistance</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/cholestatic_liver_injury.html">cholestatic liver injury</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/deep_placentation_defect.html">deep placentation defect</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/deregulated_nutrient_sensing.html">deregulated nutrient sensing</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/osteoporosis_bone_resorption.html">osteoporosis bone resorption</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/sex_steroid_driven_proliferation.html">sex steroid driven proliferation</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/ESTROGEN_SIGNALLING.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="estrogen-signalling-gap-filling">Estrogen Signalling Gap Filling</h1>
+<p>Estrogen receptor 1 is among the most heavily assayed targets in ToxCast and the
+receptor the US endocrine-disruptor screening statute was written around
+(the evidence for both claims is in
+<a href="#endocrine-disruptor-screening-history">Endocrine Disruptor Screening History</a>
+below). It has almost no presence in the dismech pathograph. This project closes that gap, and
+this page is the scope and worklist for it.</p>
+<p>The measurement behind that claim is
+<a href="../../elements/reports/estrogen-signalling-coverage-census-2026-09-29/">the coverage census</a>,
+regenerated with <code>just estrogen-census</code>. The numbers below move with every
+curation PR, so read the report for current figures rather than trusting a
+number quoted here.</p>
+<h2 id="what-the-census-found">What the census found</h2>
+<p>Six tiers over <code>kb/disorders/</code>, loosest to strictest. When the gap was first
+measured, 115 entries mentioned estrogen somewhere and 57 built a
+pathophysiology node around it, but only 12 bound <code>GO:0030520</code> <em>estrogen
+receptor signaling pathway</em>, and exactly <strong>one</strong> put a receptor gene on a
+pathograph node.</p>
+<p>The gap was between those last two: the pathway was recorded and the receptor
+driving it was not. That is what the ToxCast mapping needs and what this project
+was mostly about. The pathograph worklist below closed it, and the node-bound
+count has moved off one. Read the census report for current figures.</p>
+<h2 id="endocrine-disruptor-screening-history">Endocrine Disruptor Screening History</h2>
+<p>The opening claim of this page, that estrogen receptor 1 is among the most
+heavily assayed ToxCast targets and the receptor the US screening statute was
+written around, rests on five independent lines of evidence. They are worth
+keeping separate because they carry different weight. Every identifier below was
+confirmed against PubMed for identifier and exact title on 2026-09-29.</p>
+<p><strong>The screening mandate names estrogen in the statute.</strong> The Food Quality
+Protection Act of 1996 amended the Federal Food, Drug, and Cosmetic Act to
+require EPA to develop a screening program determining whether substances "may
+have an effect in humans that is similar to an effect produced by a naturally
+occurring estrogen" (21 U.S.C. 346a(p)(1), quoted in 80 FR 35350, 2015-06-19).
+Androgen and thyroid screening entered later, through the advisory committee that
+designed the program, not through the enabling text. Estrogen is the endocrine
+axis the regulation was written around.</p>
+<p><strong>The receptor has the deepest validated assay stack of any endocrine target.</strong>
+OECD maintains three guidelines for it: TG 455 for receptor transactivation,
+TG 493 for human recombinant receptor binding, and TG 440 for the rodent
+uterotrophic bioassay. Two of the three are <em>performance-based</em>, meaning the
+pathway is characterised well enough that new assays can be validated against a
+standard rather than adopted individually. TG 440 records that the bioassay
+"originated in the 1930's and was first standardized for screening by an expert
+committee in 1962", and its modern international ring trial was published across
+four papers in <em>Environmental Health Perspectives</em>: phase 1 (<a href="https://pubmed.ncbi.nlm.nih.gov/11564613/">PMID:11564613</a>), the
+programme overview (<a href="https://pubmed.ncbi.nlm.nih.gov/12948895/">PMID:12948895</a>), the phase 2 dose-response studies
+(<a href="https://pubmed.ncbi.nlm.nih.gov/12948896/">PMID:12948896</a>) and the phase 2 coded single-dose studies (<a href="https://pubmed.ncbi.nlm.nih.gov/12948897/">PMID:12948897</a>). A
+fifth paper covers the dietary phytoestrogen confound (<a href="https://pubmed.ncbi.nlm.nih.gov/12948898/">PMID:12948898</a>).</p>
+<p><strong>ToxCast built its first pathway model on this receptor, and it is the only
+endocrine target where high-throughput data replaced a guideline animal study.</strong>
+Judson and colleagues integrated 18 in vitro assays spanning receptor binding,
+dimerisation, chromatin binding, transactivation and receptor-dependent
+proliferation into a single pathway model (<a href="https://pubmed.ncbi.nlm.nih.gov/26272952/">PMID:26272952</a>), closing with the
+observation that the approach "is generalizable to any molecular pathway" — the
+estrogen receptor was the proving ground. Browne and colleagues then reported
+that "EPA is accepting ToxCast ER model data for 1812 chemicals as alternatives
+for EDSP Tier 1 ER binding, ER transactivation, and uterotrophic assays"
+(<a href="https://pubmed.ncbi.nlm.nih.gov/26066997/">PMID:26066997</a>; cite alongside its correction, <a href="https://pubmed.ncbi.nlm.nih.gov/28767231/">PMID:28767231</a>). The androgen
+receptor model that followed used 11 assays (<a href="https://pubmed.ncbi.nlm.nih.gov/27933809/">PMID:27933809</a>). Assay-minimisation
+work ran in the same order, estrogen in 2017 (<a href="https://pubmed.ncbi.nlm.nih.gov/28993267/">PMID:28993267</a>) and androgen in 2020
+(<a href="https://pubmed.ncbi.nlm.nih.gov/32798611/">PMID:32798611</a>).</p>
+<p><strong>The modelling consortia ran estrogen first and named the successor after it.</strong>
+CERAPP pooled 17 groups across the US and Europe, 48 models, and screened 32,464
+structures against a training set drawn from the ToxCast data (<a href="https://pubmed.ncbi.nlm.nih.gov/26908244/">PMID:26908244</a>).
+CoMPARA applied the same methodology to the androgen receptor four years later
+(<a href="https://pubmed.ncbi.nlm.nih.gov/32074470/">PMID:32074470</a>). No comparable consortium exists for any other endocrine
+receptor.</p>
+<p><strong>The receptor dominates the mechanistic pathway literature.</strong> In the AOP-Wiki
+snapshot of 2026-09-15, 26 of 597 Adverse Outcome Pathways declare an
+estrogen-receptor-related molecular initiating event, drawn from 8 distinct key
+events — more than the androgen receptor (16) or the aryl hydrocarbon receptor
+(23), and comparable to the whole thyroid axis (25) despite that axis spanning
+seven target proteins. This is cited as evidence of how heavily the receptor has
+been studied. <strong>Mapping those pathways onto dismech entries is not in this
+project's scope</strong>, and is tracked separately alongside the ToxCast work in #12858
+and #12682.</p>
+<p>The historical reason for all of this is chemical promiscuity rather than
+regulatory accident. The founding xenoestrogen observations were incidental
+contamination findings — nonylphenol leaching from modified polystyrene
+(<a href="https://pubmed.ncbi.nlm.nih.gov/1935846/">PMID:1935846</a>) and bisphenol A from autoclaved polycarbonate (<a href="https://pubmed.ncbi.nlm.nih.gov/8504731/">PMID:8504731</a>) — and
+Katzenellenbogen set out the underlying argument the same decade in "The
+structural pervasiveness of estrogenic activity" (<a href="https://pubmed.ncbi.nlm.nih.gov/8593885/">PMID:8593885</a>): the receptor's
+ligand tolerance is broad enough that structurally unrelated industrial chemicals
+hit it. Shanle and Xu's review of endocrine disrupting chemicals targeting this
+signalling pathway is the best single entry point (<a href="https://pubmed.ncbi.nlm.nih.gov/21053929/">PMID:21053929</a>).</p>
+<h3 id="two-things-not-to-claim">Two things not to claim</h3>
+<ul>
+<li><strong>These AOPs are not the most OECD-endorsed — they are the least.</strong> None of the
+  26 carries WPHA/WNT endorsement; the endorsed endocrine set is androgen
+  receptor, aromatase, thyroperoxidase, deiodinase and sodium-iodide symporter.
+  The strongest estrogen pathways sit at <em>Under Review</em>. "Most studied" and "most
+  formally endorsed" point in opposite directions here.</li>
+<li><strong>The 40-endpoint figure for ESR1 is ours, not the literature's.</strong> It is
+  computed from the ToxCast assay annotation table. Present it as a derived count
+  with the invitrodb version stated, never as a citation. No published source
+  ranks ToxCast targets by endpoint count; the citable within-programme
+  comparison is 18 assays in the estrogen model against 11 in the androgen model.</li>
+</ul>
+<h2 id="scope">Scope</h2>
+<p>In scope:</p>
+<ul>
+<li>Binding ESR1 or ESR2 on the pathophysiology nodes that already carry
+  <code>GO:0030520</code>, where the literature supports it.</li>
+<li>Wiring the receptor into the pathograph for entries that bind it in <code>genetic:</code>
+  only.</li>
+<li>Curating estrogen resistance syndrome (MONDO:0014148), the one disease where
+  the receptor sits on a mechanism node by definition. Curated as
+  <a href="../disorders/Estrogen_Resistance_Syndrome.html">Estrogen Resistance Syndrome</a>; its stub was added and retired in the same PR.</li>
+<li>Deciding whether estrogen receptor signalling needs its own mechanism module.
+  Decided against; see <em>Module decision</em> below. Every item in scope is now
+  worked.</li>
+</ul>
+<p>Not in scope, and deliberately left to the issues that already own them: the
+estrogen-adjacent findings listed under <em>Related issues</em> below.</p>
+<h2 id="the-pathograph-worklist">The pathograph worklist</h2>
+<p>Each row is a research task, not a mechanical backfill. A <code>genes:</code> descriptor
+asserts that this receptor drives this mechanism in this disease, so each one
+needs a source read at the time of writing and an evidence item quoting it.</p>
+<p>Three traps apply throughout:</p>
+<ul>
+<li><strong>A gene binding only has to be self-consistent to validate.</strong> <code>just
+  validate-terms</code> checks that a <code>term.label</code> is HGNC's canonical label for the
+  CURIE; it does not check that the gene is the one the node means. ESR1
+  (<code>hgnc:3467</code>) and ESR2 (<code>hgnc:3468</code>) are paralogues with different tissue
+  distributions, so the wrong one passes every gate while making a false claim.
+  Run <code>just list-gene-term-mismatches</code> on each changed file.</li>
+<li><strong>The direction of the claim has to match.</strong> A receptor-activation node and a
+  loss-of-signalling node are opposite claims about the same gene. Evidence for
+  one does not support the other.</li>
+<li><strong>A node that should stay unbound is a finished task,</strong> provided <code>notes</code>
+  records the search actually run and what it returned.</li>
+</ul>
+<h3 id="nodes-binding-the-pathway-with-no-gene">Nodes binding the pathway with no gene</h3>
+<p>All twelve rows are worked. Six took a receptor binding and six are recorded
+declines; each decline carries its reason and the searches run in the node's
+<code>notes</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Entry</th>
+<th>Node</th>
+<th>Outcome</th>
+<th>PR</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../disorders/ER-Positive_Breast_Cancer.html">ER Positive Breast Cancer</a></td>
+<td>ESR1 Mutation-Driven Endocrine Resistance</td>
+<td>ESR1 bound</td>
+<td>#13116</td>
+</tr>
+<tr>
+<td><a href="../disorders/ER-Positive_Breast_Cancer.html">ER Positive Breast Cancer</a></td>
+<td>Estrogen Receptor Activation</td>
+<td>ESR1 bound</td>
+<td>#13116</td>
+</tr>
+<tr>
+<td><a href="../disorders/Breast_Carcinoma.html">Breast Carcinoma</a></td>
+<td>ER and HER2 Receptor Heterogeneity</td>
+<td>declined, three receptors would belong equally</td>
+<td>#13128</td>
+</tr>
+<tr>
+<td><a href="../disorders/Breast_Fibroadenoma.html">Breast Fibroadenoma</a></td>
+<td>Dysregulated Stromal Estrogen Signaling and ECM Organization</td>
+<td>declined, MED12 is the causal gene</td>
+<td>#13128</td>
+</tr>
+<tr>
+<td><a href="../disorders/PIK3CA-Mutant_Breast_Cancer.html">PIK3CA Mutant Breast Cancer</a></td>
+<td>Endocrine Resistance</td>
+<td>declined, PIK3CA acts on the receptor</td>
+<td>#13128</td>
+</tr>
+<tr>
+<td><a href="../disorders/Triple-Negative_Breast_Cancer.html">Triple Negative Breast Cancer</a></td>
+<td>Loss of Hormone Receptor Signaling</td>
+<td>declined, the receptor is not expressed</td>
+<td>#13128</td>
+</tr>
+<tr>
+<td><a href="../disorders/Endometrial_Carcinoma.html">Endometrial Carcinoma</a></td>
+<td>Unopposed Estrogen Signaling</td>
+<td>ESR1 bound</td>
+<td>#13132</td>
+</tr>
+<tr>
+<td><a href="../disorders/Endometrial_Endometrioid_Adenocarcinoma.html">Endometrial Endometrioid Adenocarcinoma</a></td>
+<td>Unopposed Estrogen Signaling</td>
+<td>ESR1 bound</td>
+<td>#13132</td>
+</tr>
+<tr>
+<td><a href="../disorders/Aromatase_Deficiency.html">Aromatase Deficiency</a></td>
+<td>Estrogen Deficiency and Androgen Excess</td>
+<td>declined, ligand-supply defect</td>
+<td>#13151</td>
+</tr>
+<tr>
+<td><a href="../disorders/Heart_Failure.html">Heart Failure</a></td>
+<td>Loss of Myocardial Oestrogen Receptor Signalling</td>
+<td>ESR1 and ESR2 bound</td>
+<td>#13151</td>
+</tr>
+<tr>
+<td><a href="../disorders/Lymphangioleiomyomatosis.html">Lymphangioleiomyomatosis</a></td>
+<td>Estrogen-Driven LAM Cell Survival and Dissemination</td>
+<td>ESR1 bound</td>
+<td>#13151</td>
+</tr>
+<tr>
+<td><a href="../disorders/Testicular_Sex_Cord-Stromal_Neoplasm.html">Testicular Sex Cord Stromal Neoplasm</a></td>
+<td>Estrogen-Mediated Clinical Manifestations</td>
+<td>declined, ligand excess on two unlocalized tissues</td>
+<td>#13151</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>46_XX_Gonadal_Dysgenesis</code> row the issue also listed was not gene-less: it
+already carried <code>genes: PSMC3IP</code>, and that correction is recorded in #13132.</p>
+<p>The six declines are exactly the six rows the census still reports as binding
+the pathway with no receptor gene on any node. That table is a record of
+decisions taken, not of work outstanding.</p>
+<h3 id="bound-in-genetic-only">Bound in <code>genetic:</code> only</h3>
+<p>Five entries bound ESR1 without the gene reaching any mechanism node, and all
+five are now dispositioned.</p>
+<table>
+<thead>
+<tr>
+<th>Entry</th>
+<th>Outcome</th>
+<th>PR</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../disorders/ER-Positive_Breast_Cancer.html">ER Positive Breast Cancer</a></td>
+<td>wired by the receptor bindings above</td>
+<td>#13116</td>
+</tr>
+<tr>
+<td><a href="../disorders/Breast_Carcinoma.html">Breast Carcinoma</a></td>
+<td>not wired; the pathophysiology models dissemination and carries no hormone-driven node</td>
+<td>#13128</td>
+</tr>
+<tr>
+<td><a href="../disorders/Osteoporosis.html">Osteoporosis</a></td>
+<td>ESR1 wired on RANKL/OPG Dysregulation</td>
+<td>#13159</td>
+</tr>
+<tr>
+<td><a href="../disorders/Premenstrual_Dysphoric_Disorder.html">Premenstrual Dysphoric Disorder</a></td>
+<td>not wired; a preliminary intron-4 association, and the target node binds the generic steroid pathway</td>
+<td>#13159</td>
+</tr>
+<tr>
+<td><a href="../disorders/Skeletal_Fluorosis.html">Skeletal Fluorosis</a></td>
+<td>not wired; a single unreplicated protective allele and no estrogen-dependent mechanism in the entry</td>
+<td>#13159</td>
+</tr>
+</tbody>
+</table>
+<p>A genotype-association paper does not by itself support a causal edge, so
+three of the five stop at a recorded reason rather than an edge. That was the
+expected outcome for this half of the worklist.</p>
+<h3 id="already-on-the-pathograph">Already on the pathograph</h3>
+<p><a href="../disorders/46,XX_Gonadal_Dysgenesis.html">46 XX Gonadal Dysgenesis</a> was the single entry binding a receptor gene on a
+pathophysiology node, via ESR2, when this project started. It was the pattern
+the rest of the worklist was trying to reach, and it is no longer alone.</p>
+<h2 id="modules">Modules</h2>
+<p>Six modules mention estrogen or the receptor. <strong>None binds either gene.</strong> Only
+<a href="../modules/sex_steroid_driven_proliferation.html">sex steroid driven proliferation</a> binds <code>GO:0030520</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Mention is</th>
+<th>Binds <code>GO:0030520</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../modules/sex_steroid_driven_proliferation.html">sex steroid driven proliferation</a></td>
+<td>core to the module's mechanism</td>
+<td>yes</td>
+</tr>
+<tr>
+<td><a href="../modules/cdk46_inhibitor_resistance.html">cdk46 inhibitor resistance</a></td>
+<td>core to the module's mechanism</td>
+<td>no</td>
+</tr>
+<tr>
+<td><a href="../modules/osteoporosis_bone_resorption.html">osteoporosis bone resorption</a></td>
+<td>core to the module's mechanism</td>
+<td>no</td>
+</tr>
+<tr>
+<td><a href="../modules/cholestatic_liver_injury.html">cholestatic liver injury</a></td>
+<td>incidental</td>
+<td>no</td>
+</tr>
+<tr>
+<td><a href="../modules/deregulated_nutrient_sensing.html">deregulated nutrient sensing</a></td>
+<td>incidental</td>
+<td>no</td>
+</tr>
+<tr>
+<td><a href="../modules/deep_placentation_defect.html">deep placentation defect</a></td>
+<td>only in quoted source metadata</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<p>Issue #12925 names the first two and deep_placentation_defect. The census finds
+three more. Two of those, <a href="../modules/cholestatic_liver_injury.html">cholestatic liver injury</a> and
+<a href="../modules/deregulated_nutrient_sensing.html">deregulated nutrient sensing</a>, are incidental mentions and are listed here only
+so a later reader does not have to re-derive that they were considered.
+<a href="../modules/deep_placentation_defect.html">deep placentation defect</a> names ESR1 only inside a <code>reference_title</code> and a quoted
+<code>snippet</code>, so the module cites a paper about the receptor rather than modelling
+it.</p>
+<p><a href="../modules/osteoporosis_bone_resorption.html">osteoporosis bone resorption</a> is the one worth attention. It treats estrogen
+withdrawal as a named upstream driver across several nodes, and it is a
+non-proliferative bone mechanism, which is exactly the territory the module
+decision below considers.</p>
+<h2 id="module-decision-no-estrogen-receptor-signalling-module">Module decision: no estrogen receptor signalling module</h2>
+<p>The question was whether estrogen receptor signalling needs its own module.
+<a href="../modules/sex_steroid_driven_proliferation.html">sex steroid driven proliferation</a> is the nearest existing module, but it is
+scoped to proliferation of a hormone-responsive tissue and tagged <code>ONCOLOGY</code>.
+The non-proliferative mechanisms in the corpus — myocardial signalling in
+<a href="../disorders/Heart_Failure.html">Heart Failure</a>, bone in <a href="../disorders/Osteoporosis.html">Osteoporosis</a>, the CNS mechanisms in
+<a href="../disorders/Premenstrual_Dysphoric_Disorder.html">Premenstrual Dysphoric Disorder</a> — sit outside that scope.</p>
+<p>The census adds one fact the question was framed without: bone already has a
+module home in <a href="../modules/osteoporosis_bone_resorption.html">osteoporosis bone resorption</a>, which models estrogen withdrawal
+without binding the receptor. Whether that argues for a new module, for widening
+an existing one, or for neither is a curation call to make after the worklist
+above has been worked, since that is what shows whether these mechanisms cluster
+or are one-offs.</p>
+<p><strong>The worklist is now worked, so the question is answerable.</strong> What it produced:
+three non-proliferative receptor bindings in different tissues (myocardium in
+<a href="../disorders/Heart_Failure.html">Heart Failure</a>, bone lining cells in <a href="../disorders/Osteoporosis.html">Osteoporosis</a>, and the systemic
+loss-of-signalling state in <a href="../disorders/Estrogen_Resistance_Syndrome.html">Estrogen Resistance Syndrome</a>), against four
+proliferative ones that already have <code>sex_steroid_driven_proliferation</code> as a
+home. <strong>Decided: no estrogen receptor signalling module in dismech.</strong> Three tissues
+and one monogenic receptor disease do not cluster tightly enough to earn one.
+Below the shared node the three diverge immediately - to profibrotic effectors in
+<code>Heart_Failure</code>, to RANKL/OPG dysregulation in <code>Osteoporosis</code>, and to six
+target-tissue arms in <code>Estrogen_Resistance_Syndrome</code> - so what they have in
+common is a single node and nothing after it. A module here earns its place by
+saving conforming entries from duplicating a shared chain, and one node is
+thinner than that. <code>Estrogen_Resistance_Syndrome</code> could not conform in any case,
+because the existing module's chain is sustained signalling driving mitosis and
+that disease is loss of signalling.</p>
+<p>The receptor-keyed view is real, but its home is elsewhere. dismech organises on
+the disease, and its modules on the outcome; the receptor is the axis ToxCast
+assays and AOP initiating events are keyed on. That view is now tracked as
+<a href="https://github.com/monarch-initiative/enviromech/issues/3">EnviroMech issue #3</a>,
+where the fan-out across tissues is the object of interest rather than a reason
+the cluster is too thin.</p>
+<p><code>sex_steroid_driven_proliferation#Nuclear Steroid Receptor Hyperactivation</code>
+accordingly keeps no receptor gene, and its node <code>notes</code> now records why: the
+receptor is the substitution a conforming entry makes, so naming one would fix
+the choice the module leaves open.</p>
+<h2 id="related-issues">Related issues</h2>
+<p>Cross-referenced, not absorbed. Each is its own issue and none overlaps the
+pathograph work above.</p>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Subject</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>#6338</td>
+<td>Sex-hormone modulation of dopaminergic mechanisms in Parkinson disease</td>
+</tr>
+<tr>
+<td>#5848</td>
+<td>Endometriosis / adenomyosis divergence</td>
+</tr>
+<tr>
+<td>#6190</td>
+<td>The same source paper, a second scan hit</td>
+</tr>
+<tr>
+<td>#7365</td>
+<td>PCOS insulin resistance</td>
+</tr>
+<tr>
+<td>#7038</td>
+<td>PCOS mitophagy</td>
+</tr>
+<tr>
+<td>#11705</td>
+<td><code>NCIT:C15599</code>, a menopause-scoped hormone replacement term used by 46 entries for growth hormone, thyroid and adrenal replacement</td>
+</tr>
+</tbody>
+</table>
+<p>Issue #11705 has a direct consequence for any treatment this project adds: use
+<code>NCIT:C15986</code> Pharmacotherapy with a <code>therapeutic_agent</code>, or <code>NCIT:C15445</code> where
+the axis is unspecified. Do not reintroduce the menopause-scoped <code>NCIT:C15599</code>
+for a non-menopausal indication.</p>
+<h2 id="related-project-pages">Related project pages</h2>
+<p>This project <strong>cross-references</strong> the estrogen mentions already in other project
+pages and supersedes none of them. Each is tracking something other than
+estrogen signalling.</p>
+<ul>
+<li><code>CHRONIC.md</code> carries one table row for Endometriosis whose mechanism column
+  reads "Ectopic endometrium, estrogen dependence". That is a chronic-disease
+  tracking row, not receptor curation.</li>
+<li><code>GWAS_MECHANISMS.md</code> names Oestradiol once, as one of 28 UK Biobank serum
+  biomarkers. That is the hormone as a GWAS trait, not the receptor. Issue
+  #12925 describes this as an estrogen mention, which it is, but it is the
+  ligand rather than anything this project curates.</li>
+<li><code>REACTOME_DISEASES.md</code> carries an unchecked box for "estrogen-receptor
+  positive breast cancer (DOID:0060075)". <a href="../disorders/ER-Positive_Breast_Cancer.html">ER Positive Breast Cancer</a> is curated
+  in dismech and is the first entry on this project's worklist. Whether that box
+  is therefore checkable depends on what Reactome coverage means in that
+  project, which is its owner's call, not this one's.</li>
+</ul>
+<h2 id="regenerating-the-census">Regenerating the census</h2>
+<pre><code class="language-bash">just estrogen-census                   # markdown to stdout
+just estrogen-census --format tsv      # one row per entry
+just estrogen-census --out docs/reports/estrogen-signalling-coverage-census-&lt;date&gt;.md
+</code></pre>
+<p>The script reads only committed YAML. It is offline, report-only, and exits 0.</p>
+        </article>
+    </div>
+</body>
+</html>

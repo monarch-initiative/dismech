@@ -1,0 +1,2268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aquarium Granuloma · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/genes/">Genes</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Aquarium Granuloma</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Aquarium Granuloma</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-09-28</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0043314" target="_blank" rel="noopener noreferrer">MONDO:0043314</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-fable-5-1, claude-haiku-4-5-20251001, claude-opus-5</span>
+                    
+                    
+                    <span class="meta-chip">34 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<h3>Overview</h3>
+<p>Aquarium granuloma is a localized, chronic, granulomatous skin and soft-tissue infection caused by <em>Mycobacterium marinum</em>, a slow-growing, photochromogenic nontuberculous mycobacterium (NTM) of fresh and salt water. It is an inoculation infection: the organism enters through a pre-existing break in the skin during contact with aquarium water, fish, shellfish, or non-chlorinated pools. Because <em>M. marinum</em> grows optimally near 30 °C and poorly at core body temperature, disease is confined almost entirely to the cool, distal skin — above all the hand and forearm — and progression to deep structures or dissemination is the exception rather than the rule.</p>
+<p>Two conditions are jointly necessary, which is the single most useful framing for curation:</p>
+<blockquote>
+<p>"Two conditions are required to develop M. marinum infection: (1) skin solution of continuity and (2) exposure to the contaminated water or direct contact with fish or shellfish." <strong>[A]</strong> — Canetti et al. 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/35864075/" target="_blank" rel="noopener noreferrer">PMID:35864075</a></p>
+</blockquote>
+<p>Among NTM, it occupies a distinctive epidemiological position:</p>
+<blockquote>
+<p>"Among nontuberculous mycobacteria (NTM), it is the leading cause of extrarespiratory human infections worldwide." <strong>[A]</strong> — Aubry et al. 2017, <a href="https://pubmed.ncbi.nlm.nih.gov/28387180/" target="_blank" rel="noopener noreferrer">PMID:28387180</a></p>
+</blockquote>
+<h3>Key identifiers (all resolved in this session)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+<th>Label</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0043314" target="_blank" rel="noopener noreferrer">MONDO:0043314</a></td>
+<td>aquarium granuloma</td>
+</tr>
+<tr>
+<td>MeSH (supplementary concept)</td>
+<td>C535526</td>
+<td>—</td>
+</tr>
+<tr>
+<td>SNOMED CT</td>
+<td>240417004</td>
+<td>—</td>
+</tr>
+<tr>
+<td>UMLS</td>
+<td>C0275708</td>
+<td>—</td>
+</tr>
+<tr>
+<td>MedGen</td>
+<td>78814</td>
+<td>—</td>
+</tr>
+<tr>
+<td>ICD-10-CM</td>
+<td>A31.1</td>
+<td>Cutaneous mycobacterial infection</td>
+</tr>
+<tr>
+<td>NCBI Taxonomy (agent)</td>
+<td>NCBITaxon:1781</td>
+<td><em>Mycobacterium marinum</em></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>MONDO's own definition: "A skin condition caused by Mycobacterium marinum, characterized by a skin lesion that presents roughly three weeks after exposure." MONDO places the term under two parents, both verified: <a href="http://purl.obolibrary.org/obo/MONDO_0020590" target="_blank" rel="noopener noreferrer">MONDO:0020590</a> (mycobacterial infectious disease) and <a href="http://purl.obolibrary.org/obo/MONDO_0024295" target="_blank" rel="noopener noreferrer">MONDO:0024295</a> (skin disease caused by bacterial infection). The term conforms to MONDO's <code>infectious_disease_by_agent</code> design pattern, which is the correct model for a dismech <code>disease_term</code> binding here.</p>
+<p><strong>ICD-11:</strong> not verified in this session. The WHO ICD-11 API requires OAuth, so no ICD-11 code should be written into the entry from this report. ICD-10-CM A31.1 was confirmed against the NLM Clinical Tables service and is exact.</p>
+<p><strong>OMIM / Orphanet:</strong> not applicable. This is an acquired environmental infection with no Mendelian basis, so no OMIM phenotype number exists, and the concept is not a rare-disease entity in the Orphanet sense.</p>
+<h3>Synonyms</h3>
+<p>MONDO records: <em>fish tank granuloma</em>, <em>Mycobacterium marinum infection</em>, <em>Mycobacterium marinum skin disease</em>, <em>Mycobacterium marinum caused skin disease</em>, <em>M. marinum</em>, <em>aquarium granuloma</em>.</p>
+<p>Additional names in the literature but <strong>not</strong> in MONDO's synonym list: <em>swimming pool granuloma</em>, <em>fish fancier's finger</em>, <em>fish handler's disease</em>, <em>fish gambler's tenosynovitis</em>. The name tracks the exposure rather than the biology:</p>
+<blockquote>
+<p>"M. marinum causes the so-called 'fish finger's fancier' or fish tank granuloma, or swimming pool granuloma in humans, depending on where the infection was contracted." <strong>[F]</strong> — search snippet, Hashish et al. 2018, <a href="https://pubmed.ncbi.nlm.nih.gov/29493404/" target="_blank" rel="noopener noreferrer">PMID:29493404</a></p>
+</blockquote>
+<p><em>M. balnei</em> and <em>M. platypoecilus</em> are historical taxonomic synonyms of the organism.</p>
+<h3>Level of aggregation</h3>
+<p>All quantitative data below are <strong>individual-patient case series and retrospective cohorts</strong>, not registry or EHR-derived aggregates. There is no disease registry for aquarium granuloma. The largest denominators available are laboratory-based: a nationwide Dutch laboratory cohort (n=40) and single-centre dermatology series from China (n=145 and n=200 isolates), Thailand (n=27), France (n=63), Taiwan (n=27), and the USA (n=31). Prevalence figures therefore rest on culture-confirmed case counts, which systematically undercount because culture sensitivity is poor (see §10).</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Causal factor</h3>
+<p>A single necessary and sufficient agent: <strong><em>Mycobacterium marinum</em></strong> (NCBITaxon:1781). This is a monomicrobial infectious etiology; there is no genetic cause and no known non-infectious mimic of the entity itself.</p>
+<p>Microbiological properties that drive the clinical picture:</p>
+<blockquote>
+<p>"Microbiological characteristics include the fact that it grows in 7 to 14 days with photochromogenic colonies and is difficult to differentiate from Mycobacterium ulcerans and other mycolactone-producing NTM on a molecular basis." <strong>[A]</strong> — Aubry et al. 2017, <a href="https://pubmed.ncbi.nlm.nih.gov/28387180/" target="_blank" rel="noopener noreferrer">PMID:28387180</a></p>
+</blockquote>
+<p>The organism is a Runyon group I photochromogen. Its restricted thermal optimum (roughly 30–33 °C) is the single most important physiological fact for this disease, since it both explains the anatomical distribution of lesions and defeats routine mycobacterial culture at 37 °C.</p>
+<p>Historical first description (two dates circulate and should be recorded carefully — they refer to different events):</p>
+<blockquote>
+<p>"The first human cases of M. marinum infection were reported from skin lesions of swimmers in a contaminated pool, in 1951, in Sweden by Norden and Linell." <strong>[A]</strong> — Canetti et al. 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/35864075/" target="_blank" rel="noopener noreferrer">PMID:35864075</a></p>
+<p>"Mycobacterium marinum was first described in humans in 1954, known to infect fish species and contaminate water and fish products." <strong>[A]</strong> — Kravvas et al. 2024, <a href="https://pubmed.ncbi.nlm.nih.gov/39759953/" target="_blank" rel="noopener noreferrer">PMID:39759953</a></p>
+</blockquote>
+<h3>Risk factors — environmental and behavioural (the dominant axis)</h3>
+<p>Exposure source distribution, from the largest systematic exposure review (193 infections with a known exposure):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Exposure</th>
+<th>Share</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Aquarium-related</td>
+<td>49%</td>
+</tr>
+<tr>
+<td>Fish or shellfish injury</td>
+<td>27.4%</td>
+</tr>
+<tr>
+<td>Saltwater or brackish-water injury</td>
+<td>8.8%</td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p>"Of 193 infections with known exposures, 49% were aquarium-related, 27.4% were related to fish or shellfish injuries, and 8.8% were related to injuries associated with saltwater or brackish water." <strong>[A]</strong> — Jernigan &amp; Farr 2000, <a href="https://pubmed.ncbi.nlm.nih.gov/10987702/" target="_blank" rel="noopener noreferrer">PMID:10987702</a></p>
+</blockquote>
+<p>In the French national series, fish-tank exposure dominated even more heavily:</p>
+<blockquote>
+<p>"In 53 (84%) of the patients, inoculation was related to fish tank exposure." <strong>[A]</strong> — Aubry et al. 2002, <a href="https://pubmed.ncbi.nlm.nih.gov/12153378/" target="_blank" rel="noopener noreferrer">PMID:12153378</a></p>
+</blockquote>
+<p>Occupational and hobby exposures recorded across series: home aquarium keeping and tank cleaning, ornamental-fish trade, commercial fishing, fish mongering and fish processing, seafood preparation, shellfish handling, aquaculture work, and swimming in non-chlorinated pools. In a Chinese series of 35, fish-bone puncture wounds accounted for 54.3% and an aquatic-related occupation for 37.1% (<a href="https://pubmed.ncbi.nlm.nih.gov/39262684/" target="_blank" rel="noopener noreferrer">PMID:39262684</a>). In the Thai cohort, only 59.3% of patients reported any fish or water exposure at all — meaning roughly 40% of culture-confirmed cases had no elicited aquatic history (<a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a>). A negative exposure history does not exclude the diagnosis.</p>
+<p><strong>Iatrogenic risk factor of particular importance — intralesional corticosteroid.</strong> This is both a risk factor for deep extension and a diagnostic trap, because trigger-finger injection sites are exactly where tenosynovitis then appears:</p>
+<blockquote>
+<p>"Tenosynovitis occurred in 22.2% of patients, with a female preponderance (adjusted p = 0.028), advanced age (p = 0.032), and prior steroid injections at the lesion site (p = 0.007) being common factors." <strong>[A]</strong> — Jirawattanadon et al. 2025, <a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a></p>
+<p>"Additionally, three patients (11.1%) developed lesions at the same site as previously reported for intralesional triamcinolone injections, which had been administered 3–8 weeks before the onset of the lesion for the treatment of stenosing tenosynovitis (or trigger fingers)." <strong>[F]</strong> — Jirawattanadon et al. 2025, <a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a></p>
+</blockquote>
+<p>The 2017 review makes the same point for deep disease generally: lesions "disseminated to joint and bone" are "often related with the local use of corticosteroids" <strong>[A]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/28387180/" target="_blank" rel="noopener noreferrer">PMID:28387180</a>).</p>
+<p><strong>Systemic immunosuppression.</strong> TNF-α inhibitors, systemic corticosteroids, solid-organ and haematopoietic stem-cell transplantation, HIV infection, poorly controlled diabetes, and autoimmune disease on immunosuppressants. These do not appear to greatly increase susceptibility to the ordinary cutaneous form but strongly shift the disease toward deep, multifocal, and disseminated presentations and toward longer treatment:</p>
+<blockquote>
+<p>"The mean duration of cure was 5.6 ± 3.1 months, with immunosuppression significantly associated with a longer duration (p = 0.047)." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a></p>
+<p>"Systemic dissemination is exceptional and has been reported to occur only in immunocompromised patients (e.g., solid-organ and hematopoietic stem cell transplant recipients or those on anti-TNF treatment)." <strong>[F]</strong> — search snippet, Aubry et al. 2017, <a href="https://pubmed.ncbi.nlm.nih.gov/28387180/" target="_blank" rel="noopener noreferrer">PMID:28387180</a></p>
+</blockquote>
+<p><strong>Demographic factors.</strong> Female sex is associated with tenosynovitis specifically (adjusted OR 16.8, p=0.028; <a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a>), plausibly confounded by trigger-finger injection practice. Advancing age is associated with tenosynovitis (p=0.032). Mean or median ages across recent series cluster between 45 and 55 years.</p>
+<h3>Genetic risk factors</h3>
+<p><strong>No established human genetic risk factor is specific to <em>M. marinum</em>.</strong> A targeted PubMed search combining <em>M. marinum</em> with Mendelian susceptibility to mycobacterial disease (MSMD) genes (<code>IFNGR1</code>, <code>STAT1</code>, <code>IL12RB1</code>, "host genetics", "polymorphism", "innate immune") returned no study establishing a <em>M. marinum</em>-specific susceptibility locus; the top hits were antimicrobial-susceptibility papers about the bacterium, not the host. Two things follow for curation:</p>
+<ol>
+<li>Do <strong>not</strong> populate a <code>genetic:</code> section with MSMD genes for this entry. Any inference from the broader NTM/MSMD literature would be an extrapolation this disease's own literature does not support.</li>
+<li>The generic IL-12/IFN-γ-axis argument is mechanistically plausible and worth recording as a <code>discussions:</code> <code>KNOWLEDGE_GAP</code>, not as a curated gene.</li>
+</ol>
+<p>One host-genetic finding from the closely related zebrafish model is worth flagging as mechanistically informative but non-human: <code>LTA4H</code> (leukotriene A4 hydrolase) genotype modulates the inflammatory set-point in mycobacterial disease, with heterozygote advantage and both extremes disadvantaged (Tobin et al. 2012, <a href="https://pubmed.ncbi.nlm.nih.gov/22304914/" target="_blank" rel="noopener noreferrer">PMID:22304914</a>). That work was done in zebrafish–<em>M. marinum</em> and human tuberculosis cohorts, not in aquarium granuloma patients.</p>
+<h3>Protective factors</h3>
+<ul>
+<li><strong>Mechanical barrier.</strong> Intact skin is fully protective given the requirement for a "skin solution of continuity" <strong>[A]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/35864075/" target="_blank" rel="noopener noreferrer">PMID:35864075</a>). Waterproof gloves during tank maintenance and fish handling are therefore primary prevention, not adjunct advice.</li>
+<li><strong>Water chlorination.</strong> The disease's swimming-pool form essentially disappeared with routine pool chlorination; the organism persists in non-chlorinated water. ECTO has a term for the relevant exposure: <a href="https://bioregistry.io/ECTO:5000002" target="_blank" rel="noopener noreferrer">ECTO:5000002</a> (exposure to public swimming pool).</li>
+<li><strong>Post-exposure skin antisepsis.</strong> The 2017 review recommends "use of alcohol disinfection after contact" <strong>[A]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/28387180/" target="_blank" rel="noopener noreferrer">PMID:28387180</a>).</li>
+<li><strong>Genetic protective factors:</strong> none identified; not applicable.</li>
+</ul>
+<h3>Gene–environment interaction</h3>
+<p>Not applicable in the usual GxE sense. The interaction that matters is <strong>drug–environment</strong>: an environmental inoculation event whose outcome is determined by pharmacological interference with host TNF signalling. This is mechanistically grounded rather than merely epidemiological — TNF is the cytokine the zebrafish model shows to be rate-limiting for containment (§6) — and it has a direct management consequence:</p>
+<blockquote>
+<p>"It should be recommended to stop TNF-α inhibitor or other immunosuppressive therapy during the course of antibiotics when M. marinum infection occurs in patients treated with these medications." <strong>[F]</strong> — search snippet, Aubry et al. 2017, <a href="https://pubmed.ncbi.nlm.nih.gov/28387180/" target="_blank" rel="noopener noreferrer">PMID:28387180</a></p>
+</blockquote>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Core cutaneous phenotypes with frequencies</h3>
+<p>Frequencies differ substantially between series, and the differences are informative rather than noise: the Chinese series recruited through a dermatology mycobacterium referral centre (sporotrichoid 71.4%), the Thai series through a general tertiary hospital (sporotrichoid 29.6%). Curate both, stratified by <code>population</code>.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Suggested HP term</th>
+<th>Frequency</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Skin nodule</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200036" target="_blank" rel="noopener noreferrer">HP:0200036</a> Skin nodule</td>
+<td>27/35 (77.1%)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39262684/" target="_blank" rel="noopener noreferrer">PMID:39262684</a></td>
+</tr>
+<tr>
+<td>Papules and nodules</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200034" target="_blank" rel="noopener noreferrer">HP:0200034</a> Papule</td>
+<td>8/27 (29.6%)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a></td>
+</tr>
+<tr>
+<td>Skin plaque</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200035" target="_blank" rel="noopener noreferrer">HP:0200035</a> Skin plaque</td>
+<td>14/27 (51.9%)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a></td>
+</tr>
+<tr>
+<td>Erythema</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0010783" target="_blank" rel="noopener noreferrer">HP:0010783</a> Erythema</td>
+<td>20/35 (57.1%)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39262684/" target="_blank" rel="noopener noreferrer">PMID:39262684</a></td>
+</tr>
+<tr>
+<td>Abscess</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025615" target="_blank" rel="noopener noreferrer">HP:0025615</a> Abscess</td>
+<td>18.5% (Thai); 1/35 (2.9%) (Chinese)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39262684/" target="_blank" rel="noopener noreferrer">PMID:39262684</a></td>
+</tr>
+<tr>
+<td>Skin ulcer</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" rel="noopener noreferrer">HP:0200042</a> Skin ulcer</td>
+<td>3.7%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a></td>
+</tr>
+<tr>
+<td>Pustule</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200039" target="_blank" rel="noopener noreferrer">HP:0200039</a> Pustule</td>
+<td>3.7%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a></td>
+</tr>
+<tr>
+<td>Granuloma (histological)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0032252" target="_blank" rel="noopener noreferrer">HP:0032252</a> Granuloma</td>
+<td>35/35 (100%) histology; 22/35 (63%) biopsies</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39262684/" target="_blank" rel="noopener noreferrer">PMID:39262684</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/8002687/" target="_blank" rel="noopener noreferrer">PMID:8002687</a></td>
+</tr>
+<tr>
+<td>Tenosynovitis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_6001438" target="_blank" rel="noopener noreferrer">HP:6001438</a> Tenosynovitis</td>
+<td>6/27 (22.2%)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a></td>
+</tr>
+<tr>
+<td>Arthritis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" rel="noopener noreferrer">HP:0001369</a> Arthritis</td>
+<td>reported, not quantified in these series</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28387180/" target="_blank" rel="noopener noreferrer">PMID:28387180</a></td>
+</tr>
+<tr>
+<td>Osteomyelitis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002754" target="_blank" rel="noopener noreferrer">HP:0002754</a> Osteomyelitis</td>
+<td>reported, not quantified in these series</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25664190/" target="_blank" rel="noopener noreferrer">PMID:25664190</a></td>
+</tr>
+<tr>
+<td>Joint swelling</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001386" target="_blank" rel="noopener noreferrer">HP:0001386</a> Joint swelling</td>
+<td>all tenosynovitis patients had pain and soft-tissue swelling</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a></td>
+</tr>
+<tr>
+<td>Unusual mycobacterial skin infection</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_5210242" target="_blank" rel="noopener noreferrer">HP:5210242</a></td>
+<td>the entity-level descriptor</td>
+<td>OLS4, verified</td>
+</tr>
+<tr>
+<td>Disseminated NTM infection</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0032283" target="_blank" rel="noopener noreferrer">HP:0032283</a></td>
+<td>exceptional; immunocompromised only</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28387180/" target="_blank" rel="noopener noreferrer">PMID:28387180</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>The sporotrichoid pattern has no HPO term.</strong> Explicit OLS4 searches of the HP ontology for <code>Sporotrichoid</code> and for <code>Lymphangitis</code> returned <strong>no</strong> defining-ontology match (the latter returned only lymphangioma, lymphangiectasis, and pulmonary lymphangiomyomatosis, which are different concepts). Record the ascending linear arrangement of nodules in <code>preferred_term</code> and <code>description</code>, bind the nodule itself to <a href="http://purl.obolibrary.org/obo/HP_0200036" target="_blank" rel="noopener noreferrer">HP:0200036</a>, and put the searched-and-absent finding in <code>notes</code> naming both queries. Do not stretch a lymphatic-malformation term to cover it.</p>
+<p>Frequency of the pattern, both series:</p>
+<blockquote>
+<p>"Nodules were the most common cutaneous manifestation (27/35, 77.1%)" and, of those, a sporotrichoid arrangement in 25/27 — 71.4% of the whole series <strong>[F]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/39262684/" target="_blank" rel="noopener noreferrer">PMID:39262684</a>).</p>
+<p>"A linear arrangement, indicative of a lymphocutaneous or sporotrichoid pattern, was noted in 8 cases (29.6%)." <strong>[F]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a></p>
+</blockquote>
+<p>An older US series found local or lymphatic spread even more often:</p>
+<blockquote>
+<p>"The upper extremity was affected in 90% of cases, and lymphatic or local spread was seen during the initial examination or during observation in 25 patients (81%)." <strong>[A]</strong> — Edelstein 1994, <a href="https://pubmed.ncbi.nlm.nih.gov/8002687/" target="_blank" rel="noopener noreferrer">PMID:8002687</a></p>
+</blockquote>
+<h3>Phenotype characteristics</h3>
+<p><strong>Onset.</strong> Age of onset is exposure-determined, not developmental: adult-onset in essentially all series (mean 45.5 ± 15.4 years, Thailand; median 55 years, IQR 49–59, China). Paediatric cases occur with aquarium exposure but are not the reported norm. There is no congenital, neonatal, or late-onset pattern to record.</p>
+<p><strong>Incubation period — a key curation number.</strong></p>
+<blockquote>
+<p>"Forty cases had known incubation periods (median, 21 days; range, 5-270 days). Thirty-five percent of cases had an incubation period &gt; or =30 days." <strong>[A]</strong> — Jernigan &amp; Farr 2000, <a href="https://pubmed.ncbi.nlm.nih.gov/10987702/" target="_blank" rel="noopener noreferrer">PMID:10987702</a></p>
+</blockquote>
+<p>The practical consequence, which is the reason the paper exists:</p>
+<blockquote>
+<p>"Because the incubation period for cutaneous M. marinum infection can be prolonged, patients with atypical cutaneous infections should be questioned about high-risk exposures that may have occurred up to 9 months before the onset of symptoms." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/10987702/" target="_blank" rel="noopener noreferrer">PMID:10987702</a></p>
+</blockquote>
+<p>Note that MONDO's definition ("roughly three weeks after exposure") matches the 21-day median and understates the tail.</p>
+<p><strong>Severity.</strong> Variable, and best modelled as a staged spectrum rather than a severity grade. The Dutch cohort used a four-stage scheme in which stage IV (deep) disease was 15% of cases (6/40; <a href="https://pubmed.ncbi.nlm.nih.gov/35308482/" target="_blank" rel="noopener noreferrer">PMID:35308482</a>). The veterinary/human review describes a type I–IV clinical classification <strong>[A]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29493404/" target="_blank" rel="noopener noreferrer">PMID:29493404</a>). Most disease is mild and localized; morbidity concentrates in the deep-infection minority.</p>
+<p><strong>Progression.</strong> Chronic, indolent, and slowly progressive if untreated. Lesions evolve over weeks to months from a papule to a nodule, then plaque, with possible superficial crusting, verrucous change, or ulceration; sporotrichoid spread follows lymphatic drainage proximally. Deep extension unfolds over months:</p>
+<blockquote>
+<p>"These infections can progress over several months to involve deeper soft tissues, resulting in arthritis, tenosynovitis, and osteomyelitis, irrespective of the patient's immunological status." <strong>[F]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a></p>
+</blockquote>
+<p>Spontaneous resolution over months to years is described but is not a reliable outcome, and the untreated course can run for years — one report documents a 20-year infection.</p>
+<p><strong>Quality-of-life impact.</strong> No EQ-5D, SF-36, or PROMIS data exist for this disease; a search of the clinical literature surfaces none. What is documented is functional rather than instrumented: hand and finger involvement in 81.5–82.9% of cases, pain and soft-tissue swelling in all tenosynovitis patients, surgical debridement in 28–48% of cohorts, and treatment courses of 4–6 months minimum. Record the absence of formal QoL measurement as a gap rather than substituting a plausible-sounding estimate.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>This section is largely not applicable and should be curated as such.</strong> Aquarium granuloma is an acquired bacterial infection. There are no causal human genes, no pathogenic variants, no inheritance pattern, no carrier frequency, no ACMG variant classifications, no allele frequencies in gnomAD, and no chromosomal abnormalities. Populating a <code>genetic:</code> section with human genes would be a category error.</p>
+<p>Two genuinely relevant molecular-genetic topics exist, and both belong to the <strong>pathogen</strong>, not the host.</p>
+<h3>Pathogen genome (the substrate for §6's mechanism)</h3>
+<blockquote>
+<p>"The genome of the M strain of M. marinum comprises a 6,636,827-bp circular chromosome with 5424 CDS, 10 prophages, and a 23-kb mercury-resistance plasmid. Prominent features are the very large number of genes (57) encoding polyketide synthases (PKSs) and nonribosomal peptide synthases (NRPSs) and the most extensive repertoire yet reported of the mycobacteria-restricted PE and PPE proteins, and related-ESX secretion systems." <strong>[A]</strong> — Stinear et al. 2008, <a href="https://pubmed.ncbi.nlm.nih.gov/18403782/" target="_blank" rel="noopener noreferrer">PMID:18403782</a></p>
+</blockquote>
+<p>Relatedness to <em>M. tuberculosis</em> (NCBITaxon:1773) is the reason this organism matters beyond dermatology:</p>
+<blockquote>
+<p>"Genome comparisons confirmed the close genetic relationship between these two species, as they share 3000 orthologs with an average amino acid identity of 85%." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/18403782/" target="_blank" rel="noopener noreferrer">PMID:18403782</a></p>
+</blockquote>
+<p>And the evolutionary asymmetry:</p>
+<blockquote>
+<p>"M. tuberculosis has undergone genome downsizing and extensive lateral gene transfer to become a specialized pathogen of humans and other primates without retaining an environmental niche. M. marinum has maintained a large genome so as to retain the capacity for environmental survival while becoming a broad host range pathogen that produces disease strikingly similar to M. tuberculosis." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/18403782/" target="_blank" rel="noopener noreferrer">PMID:18403782</a></p>
+</blockquote>
+<p><em>M. marinum</em> is also the direct progenitor of <em>M. ulcerans</em> (NCBITaxon:1809), which arose by plasmid acquisition and reductive evolution — the basis for the molecular-identification difficulty noted in §1. Reported figures of &gt;97% nucleotide identity with <em>M. ulcerans</em>, &gt;85% with <em>M. tuberculosis</em>, and 29 <em>esx</em> genes in <em>M. marinum</em> against 23 in <em>M. tuberculosis</em> come from <strong>[F]</strong> secondary-review snippets and must be sourced to the primary paper before use.</p>
+<h3>Antimicrobial resistance genotypes</h3>
+<p>Acquired resistance is genuinely rare in <em>M. marinum</em>, which distinguishes it sharply from <em>M. abscessus</em>:</p>
+<blockquote>
+<p>"All strains showed the same susceptibility pattern without acquired resistance." <strong>[A]</strong> — Aubry et al. 2002, <a href="https://pubmed.ncbi.nlm.nih.gov/12153378/" target="_blank" rel="noopener noreferrer">PMID:12153378</a></p>
+</blockquote>
+<p>The largest modern isolate panel (200 <em>M. marinum</em>) confirms a broadly susceptible wild-type phenotype and, notably, found no resistance determinant worth sequencing in <em>M. marinum</em> — the <code>erm(41)</code>, <code>rrl</code>, <code>rrs</code>, <code>gyrA</code>, <code>gyrB</code> sequencing in that study was applied to the <em>M. abscessus</em> comparator arm only (<a href="https://pubmed.ncbi.nlm.nih.gov/41135669/" target="_blank" rel="noopener noreferrer">PMID:41135669</a>). See §12 for the MIC data.</p>
+<p><strong>Epigenetics, modifier genes, chromosomal abnormalities:</strong> not applicable.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<h3>Infectious agent</h3>
+<p><em>Mycobacterium marinum</em>, NCBITaxon:1781. Environmental niche is aquatic and extremely broad:</p>
+<blockquote>
+<p>"M. marinum is a nontuberculous mycobacterium (NTM) and zoonotic pathogen that has been isolated from mammals, fish, amphibians, reptiles, birds, invertebrates, and protists; M. marinum is also widely distributed in nature, especially in aquatic environments." <strong>[F]</strong> — search snippet, Hashish et al. 2018, <a href="https://pubmed.ncbi.nlm.nih.gov/29493404/" target="_blank" rel="noopener noreferrer">PMID:29493404</a></p>
+</blockquote>
+<p>Reservoirs: fresh, brackish, and marine water; aquarium water, gravel, and biofilm; fish and their mucus and viscera; shellfish; non-chlorinated swimming pools; aquaculture ponds. Tank biofilm matters more than free water, which is why cleaning is the risk activity.</p>
+<h3>Exposure routes and ECTO term availability</h3>
+<p>Transmission to humans is <strong>percutaneous inoculation only</strong>. There is no human-to-human transmission, no respiratory route, and no foodborne route for this disease; the oral route described in the fish literature is fish-to-fish.</p>
+<blockquote>
+<p>"Inoculation to humans occurs through injured skin resulting in the formation of a solitary nodule known as 'fish tank granuloma.'" <strong>[A]</strong> — Kravvas et al. 2024, <a href="https://pubmed.ncbi.nlm.nih.gov/39759953/" target="_blank" rel="noopener noreferrer">PMID:39759953</a></p>
+</blockquote>
+<p><strong>ECTO binding is a real gap, and the searches are recorded here so the note can be honest.</strong> OLS4 searches of the ECTO ontology returned:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Query</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Mycobacterium marinum</code></td>
+<td>no match</td>
+</tr>
+<tr>
+<td><code>marinum</code></td>
+<td>no match</td>
+</tr>
+<tr>
+<td><code>aquarium</code></td>
+<td>no match</td>
+</tr>
+<tr>
+<td><code>seafood</code></td>
+<td>no match</td>
+</tr>
+<tr>
+<td><code>wound</code></td>
+<td>no match</td>
+</tr>
+<tr>
+<td><code>exposure to fish</code></td>
+<td>only ingestion terms (<a href="https://bioregistry.io/ECTO:0070164" target="_blank" rel="noopener noreferrer">ECTO:0070164</a> fish oil supplement, <a href="https://bioregistry.io/ECTO:0070209" target="_blank" rel="noopener noreferrer">ECTO:0070209</a> dark fish flesh, <a href="https://bioregistry.io/ECTO:0070189" target="_blank" rel="noopener noreferrer">ECTO:0070189</a> whitefish)</td>
+</tr>
+<tr>
+<td><code>exposure to bacterium</code></td>
+<td>only unrelated taxa</td>
+</tr>
+<tr>
+<td><code>exposure to Mycobacterium</code></td>
+<td><a href="https://bioregistry.io/ECTO:3000134" target="_blank" rel="noopener noreferrer">ECTO:3000134</a> <em>M. tuberculosis</em>, <a href="https://bioregistry.io/ECTO:3000132" target="_blank" rel="noopener noreferrer">ECTO:3000132</a> <em>M. avium</em> subsp. <em>paratuberculosis</em>, <a href="https://bioregistry.io/ECTO:3000133" target="_blank" rel="noopener noreferrer">ECTO:3000133</a> <em>M. tuberculosis</em> subsp. <em>tuberculosis</em> — <strong>no <em>M. marinum</em></strong></td>
+</tr>
+<tr>
+<td><code>exposure to water</code></td>
+<td><strong><a href="https://bioregistry.io/ECTO:9000156" target="_blank" rel="noopener noreferrer">ECTO:9000156</a> exposure to water</strong></td>
+</tr>
+<tr>
+<td><code>swimming pool</code></td>
+<td><strong><a href="https://bioregistry.io/ECTO:5000002" target="_blank" rel="noopener noreferrer">ECTO:5000002</a> exposure to public swimming pool</strong></td>
+</tr>
+<tr>
+<td><code>shellfish</code></td>
+<td><a href="https://bioregistry.io/ECTO:0070188" target="_blank" rel="noopener noreferrer">ECTO:0070188</a> exposure to shellfish via ingestion (ingestion route — wrong route)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>So: two usable terms (<a href="https://bioregistry.io/ECTO:9000156" target="_blank" rel="noopener noreferrer">ECTO:9000156</a> for the generic aquatic exposure, <a href="https://bioregistry.io/ECTO:5000002" target="_blank" rel="noopener noreferrer">ECTO:5000002</a> for the swimming-pool form), no term for aquarium-water contact, fish handling by contact, or <em>M. marinum</em> exposure. Bind what exists, leave the aquarium-contact exposure with a free-text <code>preferred_term</code> and no <code>term:</code>, and record these exact queries in <code>notes</code>. A new ECTO term request for aquarium-water contact exposure is the right follow-up.</p>
+<h3>Lifestyle factors</h3>
+<p>Home aquarium keeping is the single dominant behavioural exposure (49% of known exposures, <a href="https://pubmed.ncbi.nlm.nih.gov/10987702/" target="_blank" rel="noopener noreferrer">PMID:10987702</a>). Recreational fishing, seafood preparation at home, and swimming in untreated water follow. Smoking, alcohol, diet, and exercise have no established role and should not be curated.</p>
+<h3>Non-aquatic exposure — a 2024 addition worth recording</h3>
+<p>A reptile-associated case with no aquatic history at all was reported as the first of its kind:</p>
+<blockquote>
+<p>"Our patient had no history of exposure to aquatic organisms but had previously cared for an inland bearded dragon with an unknown illness. Although infection with M. marinum has been reported in reptiles, cases of nonaquatic zoonotic transmission have not been described in the literature." <strong>[A]</strong> — Kravvas et al. 2024, <a href="https://pubmed.ncbi.nlm.nih.gov/39759953/" target="_blank" rel="noopener noreferrer">PMID:39759953</a></p>
+</blockquote>
+<p>That patient had rheumatoid arthritis and bronchiectasis, was initially diagnosed with Sweet's syndrome, improved on prednisolone and then deteriorated — a clean worked example of the immunosuppression-plus-misdiagnosis trajectory.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<p>The chain below is assembled from human clinicopathological data for steps 1–3 and 9–12, and from the zebrafish–<em>M. marinum</em> model for steps 4–8. The species provenance of each step is stated because it is the central translational caveat of this entry: the granuloma biology is known in extraordinary molecular detail, but almost all of that detail comes from zebrafish infected with the same organism, not from human aquarium granuloma lesions.</p>
+<ol>
+<li><strong>Skin barrier breach</strong> (abrasion, laceration, fish-spine or fish-bone puncture) <strong>leads to</strong> direct inoculation of <em>M. marinum</em> into the dermis. <em>Human; necessary condition, <a href="https://pubmed.ncbi.nlm.nih.gov/35864075/" target="_blank" rel="noopener noreferrer">PMID:35864075</a>.</em></li>
+<li><strong>Dermal inoculation leads to</strong> phagocytosis of bacilli by resident dermal macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>) and recruited monocytes (<a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a>). <em>Human inference from histology; mechanism demonstrated in model.</em></li>
+<li><strong>Local tissue temperature near 30–33 °C in distal skin permits replication</strong>, whereas 37 °C core temperature restricts it. This <strong>results in</strong> the confinement of disease to hand, forearm, and other cool distal sites, and is the reason ~90% of lesions are on the upper extremity. <em>Human; inferred from the organism's growth optimum plus lesion distribution, <a href="https://pubmed.ncbi.nlm.nih.gov/3840985/" target="_blank" rel="noopener noreferrer">PMID:3840985</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/8002687/" target="_blank" rel="noopener noreferrer">PMID:8002687</a>.</em></li>
+<li><strong>Surface phthiocerol dimycocerosate (PDIM) masks pathogen-associated molecular patterns, which leads to</strong> evasion of microbicidal macrophages, while <strong>phenolic glycolipids (PGL) lead to</strong> CCR2-dependent recruitment of <em>permissive</em> macrophages. The bacterium thus selects its own host cell. <em>Demonstrated in zebrafish and mice, <a href="https://pubmed.ncbi.nlm.nih.gov/24336213/" target="_blank" rel="noopener noreferrer">PMID:24336213</a>.</em></li>
+</ol>
+<blockquote>
+<p>"This immune evasion is accomplished by using cell-surface-associated phthiocerol dimycoceroserate (PDIM) lipids to mask underlying pathogen-associated molecular patterns (PAMPs)... Concordantly, the related phenolic glycolipids (PGLs) promote the recruitment of permissive macrophages through a host chemokine receptor 2 (CCR2)-mediated pathway." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/24336213/" target="_blank" rel="noopener noreferrer">PMID:24336213</a></p>
+</blockquote>
+<ol>
+<li><strong>ESX-1/RD1 secretion of ESAT-6 (EsxA) induces MMP9 in neighbouring epithelial cells, which leads to</strong> further macrophage recruitment and nascent granuloma maturation. This is the branch point where the granuloma becomes a bacterial asset rather than a host defence. <em>Zebrafish, <a href="https://pubmed.ncbi.nlm.nih.gov/20007864/" target="_blank" rel="noopener noreferrer">PMID:20007864</a>.</em></li>
+</ol>
+<blockquote>
+<p>"The bacterial secreted protein 6-kD early secreted antigenic target (ESAT-6), which has long been implicated in virulence, induced matrix metalloproteinase-9 (MMP9) in epithelial cells neighboring infected macrophages. MMP9 enhanced recruitment of macrophages, which contributed to nascent granuloma maturation and bacterial growth." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/20007864/" target="_blank" rel="noopener noreferrer">PMID:20007864</a></p>
+</blockquote>
+<ol>
+<li><strong>Arriving macrophages phagocytose infected apoptotic macrophages, which results in</strong> iterative expansion of the infected-macrophage pool and hence of bacterial numbers. <em>Zebrafish intravital microscopy, <a href="https://pubmed.ncbi.nlm.nih.gov/19135887/" target="_blank" rel="noopener noreferrer">PMID:19135887</a>.</em></li>
+</ol>
+<blockquote>
+<p>"This motility enables multiple arriving macrophages to efficiently find and phagocytose infected macrophages undergoing apoptosis, leading to rapid, iterative expansion of infected macrophages and thereby bacterial numbers. The primary granuloma then seeds secondary granulomas via egress of infected macrophages." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/19135887/" target="_blank" rel="noopener noreferrer">PMID:19135887</a></p>
+</blockquote>
+<ol>
+<li><strong>TNF signalling restricts intramacrophage bacterial growth, which leads to</strong> maintenance of granuloma integrity — indirectly, not by organizing the structure. <em>Zebrafish, <a href="https://pubmed.ncbi.nlm.nih.gov/18691913/" target="_blank" rel="noopener noreferrer">PMID:18691913</a>.</em></li>
+</ol>
+<blockquote>
+<p>"TNF is not required for tuberculous granuloma formation, but maintains granuloma integrity indirectly by restricting mycobacterial growth within macrophages and preventing their necrosis." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/18691913/" target="_blank" rel="noopener noreferrer">PMID:18691913</a></p>
+</blockquote>
+<p><strong>Branch — TNF loss (the anti-TNF-drug arm):</strong> loss of TNF signalling <strong>leads to</strong> accelerated intracellular growth, then necrotic death of overladen macrophages and granuloma breakdown. This is the mechanistic account of why TNF-inhibitor-treated patients get deep and disseminated disease.</p>
+<p><strong>Branch — TNF excess:</strong> excess TNF <strong>induces</strong> mitochondrial ROS through RIP1–RIP3, driven by reverse electron transport at complex I after TNF-activated glutamine uptake raises succinate; mROS then <strong>induces</strong> macrophage necroptosis via cyclophilin D and acid-sphingomyelinase–ceramide, <strong>which releases</strong> bacteria into the permissive extracellular milieu. <em>Zebrafish, <a href="https://pubmed.ncbi.nlm.nih.gov/23582643/" target="_blank" rel="noopener noreferrer">PMID:23582643</a> and <a href="https://pubmed.ncbi.nlm.nih.gov/35737799/" target="_blank" rel="noopener noreferrer">PMID:35737799</a>.</em></p>
+<blockquote>
+<p>"TNF excess induces mitochondrial reactive oxygen species (ROS) in infected macrophages through RIP1-RIP3-dependent pathways. While initially increasing macrophage microbicidal activity, ROS rapidly induce programmed necrosis (necroptosis) and release mycobacteria into the growth-permissive extracellular milieu." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/23582643/" target="_blank" rel="noopener noreferrer">PMID:23582643</a></p>
+<p>"Excess TNF in mycobacterium-infected macrophages elevates mROS production by reverse electron transport (RET) through complex I. TNF-activated cellular glutamine uptake leads to an increased concentration of succinate, a Krebs cycle intermediate. Oxidation of this elevated succinate by complex II drives RET, thereby generating the mROS superoxide at complex I." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/35737799/" target="_blank" rel="noopener noreferrer">PMID:35737799</a></p>
+</blockquote>
+<ol>
+<li><strong>Granuloma core enlargement leads to</strong> hypoxia, HIF-1 induction, suppressed mitochondrial respiration, and sensitization of macrophages to EsxA mitotoxicity, <strong>which results in</strong> caseous necrosis. <em>Zebrafish; this is the most recently characterized step and the least established in human aquarium granuloma.</em> <strong>[F]</strong> — search snippet, granuloma-hypoxia work.</li>
+<li><strong>Granulomatous dermal inflammation produces</strong> the clinically visible nodule, plaque, or verrucous lesion, with a histological spectrum from suppurative to well-formed granulomatous. <em>Human, <a href="https://pubmed.ncbi.nlm.nih.gov/3840985/" target="_blank" rel="noopener noreferrer">PMID:3840985</a>.</em></li>
+<li><strong>Egress of infected macrophages into dermal lymphatics (<a href="http://purl.obolibrary.org/obo/UBERON_0001473" target="_blank" rel="noopener noreferrer">UBERON:0001473</a>) leads to</strong> seeding of successive nodules along the lymphatic drainage — the sporotrichoid pattern. <em>Mechanism of egress from zebrafish (<a href="https://pubmed.ncbi.nlm.nih.gov/19135887/" target="_blank" rel="noopener noreferrer">PMID:19135887</a>); the lymphatic distribution itself is a human observation (<a href="https://pubmed.ncbi.nlm.nih.gov/8002687/" target="_blank" rel="noopener noreferrer">PMID:8002687</a>).</em></li>
+<li><strong>Contiguous extension to tendon sheath (<a href="http://purl.obolibrary.org/obo/UBERON_0000304" target="_blank" rel="noopener noreferrer">UBERON:0000304</a>), synovium (<a href="http://purl.obolibrary.org/obo/UBERON_0002018" target="_blank" rel="noopener noreferrer">UBERON:0002018</a>), and bone (<a href="http://purl.obolibrary.org/obo/UBERON_0001474" target="_blank" rel="noopener noreferrer">UBERON:0001474</a>) results in</strong> tenosynovitis, arthritis, bursitis, and osteomyelitis. Local corticosteroid injection and systemic immunosuppression are the permissive conditions. <em>Human, <a href="https://pubmed.ncbi.nlm.nih.gov/28387180/" target="_blank" rel="noopener noreferrer">PMID:28387180</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a>.</em></li>
+<li><strong>In profound immunosuppression, escape from thermal and immune restriction leads to</strong> disseminated infection. Exceptional. <em>Human, <a href="https://pubmed.ncbi.nlm.nih.gov/28387180/" target="_blank" rel="noopener noreferrer">PMID:28387180</a>.</em></li>
+</ol>
+<h3>Molecular pathways and cellular processes, with suggested GO terms</h3>
+<p>All GO CURIEs below were resolved in OLS4 in this session.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Process</th>
+<th>GO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Granuloma formation</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0002432" target="_blank" rel="noopener noreferrer">GO:0002432</a> granuloma formation</td>
+</tr>
+<tr>
+<td>Macrophage activation</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0042116" target="_blank" rel="noopener noreferrer">GO:0042116</a> macrophage activation</td>
+</tr>
+<tr>
+<td>Phagocytosis</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" rel="noopener noreferrer">GO:0006909</a> phagocytosis</td>
+</tr>
+<tr>
+<td>Macrophage chemotaxis (MMP9/CCR2-driven recruitment)</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0048246" target="_blank" rel="noopener noreferrer">GO:0048246</a> macrophage chemotaxis</td>
+</tr>
+<tr>
+<td>Necroptosis of infected macrophages</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0070266" target="_blank" rel="noopener noreferrer">GO:0070266</a> necroptotic process</td>
+</tr>
+<tr>
+<td>Apoptosis of infected macrophages</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> apoptotic process</td>
+</tr>
+<tr>
+<td>TNF production</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0032640" target="_blank" rel="noopener noreferrer">GO:0032640</a> tumor necrosis factor production</td>
+</tr>
+<tr>
+<td>Positive regulation of TNF production</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0032760" target="_blank" rel="noopener noreferrer">GO:0032760</a></td>
+</tr>
+<tr>
+<td>Type II interferon (IFN-γ) production</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0032609" target="_blank" rel="noopener noreferrer">GO:0032609</a> type II interferon production</td>
+</tr>
+<tr>
+<td>Cellular response to IFN-γ</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0071346" target="_blank" rel="noopener noreferrer">GO:0071346</a> cellular response to type II interferon</td>
+</tr>
+<tr>
+<td>Mitochondrial ROS generation</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0072593" target="_blank" rel="noopener noreferrer">GO:0072593</a> reactive oxygen species metabolic process</td>
+</tr>
+<tr>
+<td>Granuloma-core hypoxia</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" rel="noopener noreferrer">GO:0001666</a> response to hypoxia</td>
+</tr>
+<tr>
+<td>MMP9-mediated matrix remodelling</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" rel="noopener noreferrer">GO:0022617</a> extracellular matrix disassembly</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Note <a href="http://purl.obolibrary.org/obo/GO_0002432" target="_blank" rel="noopener noreferrer">GO:0002432</a>'s own definition names the cell types the granuloma contains — "compactly grouped T lymphocytes and modified phagocytes such as epithelioid cells, giant cells, and other macrophages" — which makes it the right anchor for the central pathophysiology node.</p>
+<h3>Cell types with suggested CL terms</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Cell type</th>
+<th>CL term</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>macrophage</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a></td>
+<td>primary host cell; site of replication and of necroptosis</td>
+</tr>
+<tr>
+<td>monocyte</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a></td>
+<td>recruited precursor</td>
+</tr>
+<tr>
+<td>epithelioid macrophage</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0002150" target="_blank" rel="noopener noreferrer">CL:0002150</a></td>
+<td>granuloma architecture</td>
+</tr>
+<tr>
+<td>multinucleated giant cell</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000647" target="_blank" rel="noopener noreferrer">CL:0000647</a></td>
+<td>granuloma architecture (Langhans-type)</td>
+</tr>
+<tr>
+<td>neutrophil</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a></td>
+<td>suppurative pole of the histological spectrum; necrosis-associated program</td>
+</tr>
+<tr>
+<td>T cell</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a></td>
+<td>adaptive control; sparse in fish granulomas, prominent in human</td>
+</tr>
+<tr>
+<td>keratinocyte</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a></td>
+<td>epidermal compartment; epithelial MMP9 source in the model</td>
+</tr>
+<tr>
+<td>fibroblast</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a></td>
+<td>granuloma-associated fibroblast population (2026 single-cell work)</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Protein dysfunction, metabolic changes, biochemical abnormalities</h3>
+<p>These categories apply to the <strong>pathogen's effectors and the host's infected-cell metabolism</strong>, not to a host protein defect. Key molecules: EsxA/ESAT-6 and EsxB/CFP-10 (ESX-1 substrates, mitotoxic and MMP9-inducing); PDIM and PGL cell-wall lipids; host MMP9; host RIPK1/RIPK3; cyclophilin D (mitochondrial permeability transition); acid sphingomyelinase and ceramide; HIF-1. The metabolic lesion is specific and druggable: TNF-driven glutamine uptake → succinate accumulation → complex II oxidation → reverse electron transport at complex I → superoxide. There are no systemic metabolic abnormalities in patients.</p>
+<h3>Immune system involvement</h3>
+<p>Chronic granulomatous inflammation with a demonstrated Th1 component in human lesions, plus signals that complicate a pure-Th1 reading:</p>
+<blockquote>
+<p>Immunohistochemistry on lesional tissue showed significant upregulation of IFN-γ (p&lt;0.01), IL-4 (p&lt;0.05), IL-9 (p&lt;0.05) and FOXP3 (p&lt;0.05), with no significant difference for IL-17 or IL-22. <strong>[F]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/39262684/" target="_blank" rel="noopener noreferrer">PMID:39262684</a></p>
+</blockquote>
+<p>The co-elevation of IL-4, IL-9 and FOXP3 alongside IFN-γ is worth curating as a mixed Th1/Th2/Treg lesional profile rather than flattening it to "Th1 response".</p>
+<p>Adaptive immunity is required for control, established genetically in the model:</p>
+<blockquote>
+<p>"However, like rag1 mutant mice infected with M. tuberculosis, we find that rag1 mutant zebrafish are hypersusceptible to M. marinum infection, demonstrating that the control of fish tuberculosis is dependent on adaptive immunity." <strong>[A]</strong> — Swaim et al. 2006, <a href="https://pubmed.ncbi.nlm.nih.gov/17057088/" target="_blank" rel="noopener noreferrer">PMID:17057088</a></p>
+</blockquote>
+<p>Peripheral IFN-γ release is measurable and clinically exploitable — T-SPOT.TB is positive in 71% of cutaneous cases, reflecting ESAT-6/CFP-10 cross-reactivity between <em>M. marinum</em> and <em>M. tuberculosis</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41147233/" target="_blank" rel="noopener noreferrer">PMID:41147233</a>). This is a direct clinical readout of step 5 of the causal chain.</p>
+<h3>Molecular profiling — datasets available</h3>
+<p>All accessions below were retrieved from NCBI GEO in this session and are real. Note that all but two are zebrafish or mouse; <strong>no human lesional transcriptomic dataset for aquarium granuloma was found</strong>.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Accession</th>
+<th>Organism</th>
+<th>n</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GSE289727</td>
+<td><em>Danio rerio</em>; <em>M. marinum</em></td>
+<td>17</td>
+<td>Granuloma dual RNA-seq; neutrophil- and necrosis-driven composite transcriptional programs in necrotic granulomas</td>
+</tr>
+<tr>
+<td>GSE296119</td>
+<td><em>Danio rerio</em></td>
+<td>15</td>
+<td>Paired single-cell and spatial profiling; osteopontin (<em>spp1</em>) macrophage response mediating granuloma formation</td>
+</tr>
+<tr>
+<td>GSE314022</td>
+<td><em>Danio rerio</em></td>
+<td>1</td>
+<td>Wild-type granuloma cells from <em>M. marinum</em>-infected zebrafish</td>
+</tr>
+<tr>
+<td>GSE324157 / GSE299987</td>
+<td><em>Danio rerio</em></td>
+<td>2 / 1</td>
+<td>Single-cell; eicosanoid-defined granuloma-associated fibroblast population, <em>apodb</em> mutant vs WT</td>
+</tr>
+<tr>
+<td>GSE328953</td>
+<td><em>Homo sapiens</em></td>
+<td>15</td>
+<td>THP-1-derived macrophages infected with mycobacteria (cell line, not lesion)</td>
+</tr>
+<tr>
+<td>GSE235124</td>
+<td><em>Mus musculus</em></td>
+<td>11</td>
+<td>Single-cell RNA-seq of infected vs bystander monocytes; WT, <em>espK</em>::tn, ΔRD1 <em>M. marinum</em></td>
+</tr>
+<tr>
+<td>GSE289727, GSE287594, GSE189627</td>
+<td><em>Danio rerio</em></td>
+<td>17/12/24</td>
+<td><em>pycard</em> (inflammasome) mutant neutrophil and kidney responses</td>
+</tr>
+<tr>
+<td>GSE270105 / GSE269547</td>
+<td><em>Danio rerio</em></td>
+<td>15 / 6</td>
+<td>mRNA vaccine inducing antimycobacterial immunity via DNA damage repair and autophagy</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>GSE296119's own summary states the finding compactly: "mycobacterial infection induces spp1 expression in macrophages and that spp1 ablation results in granuloma formation defects and reduced survival in adult animals." <strong>[F]</strong></p>
+<p><strong>Proteomics, metabolomics, lipidomics, epigenomics of human lesions:</strong> none found. Curate as absent.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>Organ and regional level</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Structure</th>
+<th>UBERON term</th>
+<th>Involvement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Primary</td>
+<td>skin of manus</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001519" target="_blank" rel="noopener noreferrer">UBERON:0001519</a></td>
+<td>hand lesions 81.5%; fingers/hands 82.9%</td>
+</tr>
+<tr>
+<td>Primary</td>
+<td>manual digit skin</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0003533" target="_blank" rel="noopener noreferrer">UBERON:0003533</a></td>
+<td>commonest single site</td>
+</tr>
+<tr>
+<td>Primary</td>
+<td>skin of forearm</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0003403" target="_blank" rel="noopener noreferrer">UBERON:0003403</a></td>
+<td>sporotrichoid extension target</td>
+</tr>
+<tr>
+<td>Primary</td>
+<td>manus</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002398" target="_blank" rel="noopener noreferrer">UBERON:0002398</a></td>
+<td>regional container</td>
+</tr>
+<tr>
+<td>Primary</td>
+<td>dermis</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002067" target="_blank" rel="noopener noreferrer">UBERON:0002067</a></td>
+<td>the granuloma's compartment</td>
+</tr>
+<tr>
+<td>Primary</td>
+<td>hypodermis</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002072" target="_blank" rel="noopener noreferrer">UBERON:0002072</a></td>
+<td>deeper cutaneous extension</td>
+</tr>
+<tr>
+<td>Secondary</td>
+<td>tendon sheath</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0000304" target="_blank" rel="noopener noreferrer">UBERON:0000304</a></td>
+<td>tenosynovitis, 22.2%</td>
+</tr>
+<tr>
+<td>Secondary</td>
+<td>synovial membrane of synovial tendon sheath</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0011233" target="_blank" rel="noopener noreferrer">UBERON:0011233</a></td>
+<td>tenosynovitis, precise site</td>
+</tr>
+<tr>
+<td>Secondary</td>
+<td>synovial membrane of synovial joint</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002018" target="_blank" rel="noopener noreferrer">UBERON:0002018</a></td>
+<td>arthritis</td>
+</tr>
+<tr>
+<td>Secondary</td>
+<td>bone element</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001474" target="_blank" rel="noopener noreferrer">UBERON:0001474</a></td>
+<td>osteomyelitis</td>
+</tr>
+<tr>
+<td>Secondary</td>
+<td>olecranon</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0006810" target="_blank" rel="noopener noreferrer">UBERON:0006810</a></td>
+<td>bursitis site</td>
+</tr>
+<tr>
+<td>Secondary</td>
+<td>lymphatic vessel</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001473" target="_blank" rel="noopener noreferrer">UBERON:0001473</a></td>
+<td>route of sporotrichoid spread</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Body systems: integumentary (primary), musculoskeletal (secondary), lymphatic (spread route). Respiratory, cardiovascular, nervous, endocrine, and digestive systems are uninvolved except in exceptional dissemination.</p>
+<p>The upper-limb predominance is one of the most reproducible numbers in this literature:</p>
+<blockquote>
+<p>"The site of infection was mainly the upper limb (in 60 [95%] of the 63 patients), and infection was spread to deeper structures in 18 (29%) of the patients." <strong>[A]</strong> — Aubry et al. 2002, <a href="https://pubmed.ncbi.nlm.nih.gov/12153378/" target="_blank" rel="noopener noreferrer">PMID:12153378</a></p>
+</blockquote>
+<p>Independent series: 90% upper extremity (<a href="https://pubmed.ncbi.nlm.nih.gov/8002687/" target="_blank" rel="noopener noreferrer">PMID:8002687</a>), 97.1% upper extremities with 82.9% fingers/hands (<a href="https://pubmed.ncbi.nlm.nih.gov/39262684/" target="_blank" rel="noopener noreferrer">PMID:39262684</a>), 81.5% hand (<a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a>). Lower-limb and knee cases occur — the Thai series includes a leg wound in an agricultural worker and a sporotrichoid plaque on a knee.</p>
+<h3>Tissue, cell, and subcellular level</h3>
+<p>Tissues: dermal connective tissue (<a href="http://purl.obolibrary.org/obo/UBERON_0003585" target="_blank" rel="noopener noreferrer">UBERON:0003585</a> dermis connective tissue), subcutaneous adipose tissue (<a href="http://purl.obolibrary.org/obo/UBERON_0002190" target="_blank" rel="noopener noreferrer">UBERON:0002190</a>), synovium, tendon, bone. Cell populations as tabulated in §6.</p>
+<p>Subcellular compartments matter unusually much here, because the necrosis mechanism is mitochondrial. Relevant GO cellular components to bind at curation time if a subcellular node is created: the mitochondrion and the phagosome. These two were <strong>not</strong> resolved in this session — look them up before writing the CURIEs rather than carrying them over from this report.</p>
+<h3>Localization and lateralization</h3>
+<p>Predominantly <strong>unilateral</strong>, matching a single inoculation event, and right-sided more often than left in the one series that reported laterality: right 18/35 (51.4%), left 12/35 (34.3%), bilateral 5/35 (14.3%) — with multiple lesions in 71.4% (<a href="https://pubmed.ncbi.nlm.nih.gov/39262684/" target="_blank" rel="noopener noreferrer">PMID:39262684</a>). Bilateral disease should prompt a search for immunosuppression or repeated exposure. The lesion distribution is <strong>acral and distal</strong>, which is a thermal constraint rather than an anatomical affinity.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>Onset</h3>
+<ul>
+<li><strong>Age:</strong> adult-onset; means and medians 45–55 years across recent series. Exposure-determined, not age-determined.</li>
+<li><strong>Incubation:</strong> median 21 days, range 5–270 days; ≥30 days in 35% (<a href="https://pubmed.ncbi.nlm.nih.gov/10987702/" target="_blank" rel="noopener noreferrer">PMID:10987702</a>).</li>
+<li><strong>Pattern:</strong> subacute to chronic and insidious. Never acute in the sepsis sense.</li>
+</ul>
+<h3>Stages</h3>
+<p>The Dutch cohort's four-stage scheme, with stage IV (deep structures) at 15% of cases, is the most usable staging for a <code>stages:</code> block (<a href="https://pubmed.ncbi.nlm.nih.gov/35308482/" target="_blank" rel="noopener noreferrer">PMID:35308482</a>). A four-type clinical classification (type I–IV) is also described <strong>[A]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29493404/" target="_blank" rel="noopener noreferrer">PMID:29493404</a>). Deep-structure involvement rates across cohorts: 29% (France, <a href="https://pubmed.ncbi.nlm.nih.gov/12153378/" target="_blank" rel="noopener noreferrer">PMID:12153378</a>), 22.2% (Thailand, tenosynovitis only, <a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a>), 15% (Netherlands stage IV, <a href="https://pubmed.ncbi.nlm.nih.gov/35308482/" target="_blank" rel="noopener noreferrer">PMID:35308482</a>); a review states 20–40% <strong>[F]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/28387180/" target="_blank" rel="noopener noreferrer">PMID:28387180</a>).</p>
+<h3>Progression and diagnostic delay</h3>
+<p>Diagnostic delay is a defining temporal feature and should be curated as such, not as an aside. Reported time from lesion onset to diagnosis:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Series</th>
+<th>Delay</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>China, n=35</td>
+<td>median 3 months (IQR 2.0–4.0)</td>
+</tr>
+<tr>
+<td>Thailand, n=27</td>
+<td>median 6 months, range 1–120</td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p>"The median onset duration, defined as the time between the initial appearance of lesions and the culture report, was 6 (1, 120) months." <strong>[F]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a></p>
+</blockquote>
+<p>The 120-month outlier is not an error; multi-year untreated infections are documented. The mechanism of delay is structural:</p>
+<blockquote>
+<p>"The diagnosis of cutaneous Mycobacterium marinum infection is often delayed for months after presentation, perhaps because important clinical clues in the patient's history are frequently overlooked." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/10987702/" target="_blank" rel="noopener noreferrer">PMID:10987702</a></p>
+<p>"Its non-specific cutaneous manifestations frequently lead to diagnostic delay and misdiagnosis." <strong>[A]</strong> — Yang et al. 2026, <a href="https://pubmed.ncbi.nlm.nih.gov/42639276/" target="_blank" rel="noopener noreferrer">PMID:42639276</a></p>
+</blockquote>
+<h3>Duration and course</h3>
+<p>Treated disease resolves over months. Treatment durations (a proxy for disease duration, since therapy runs until resolution): mean 25 weeks (~5.8 months) in the Netherlands, mean 5.6 ± 3.1 months in Thailand, median 4.0 months (IQR 3.0–6.0) in China, median 3.5 months in France. Untreated disease is chronic and can persist for years; spontaneous remission is described but unreliable.</p>
+<h3>Remission patterns and critical windows</h3>
+<p>Remission is essentially <strong>treatment-induced</strong>. Relapse after adequate therapy is uncommon — the Thai series reported no recurrence in any tenosynovitis patient across 1 year of follow-up after debridement plus antibiotics (<a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a>); the Dutch cohort had 3/40 failures or relapses (<a href="https://pubmed.ncbi.nlm.nih.gov/35308482/" target="_blank" rel="noopener noreferrer">PMID:35308482</a>).</p>
+<p>Two critical windows are worth recording:</p>
+<ol>
+<li><strong>The nine-month exposure-history window.</strong> Asking about aquatic exposure up to 9 months back is what converts an "atypical cutaneous infection" into a diagnosis (<a href="https://pubmed.ncbi.nlm.nih.gov/10987702/" target="_blank" rel="noopener noreferrer">PMID:10987702</a>).</li>
+<li><strong>The pre-deep-extension window.</strong> Failure is tied to deep involvement, so the interval before extension is where intervention changes outcome: "Failure was related to deep structure involvement (3 of 45 vs 5 of 18 patients; P =.04) but not to any antibiotic regimen." <strong>[A]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/12153378/" target="_blank" rel="noopener noreferrer">PMID:12153378</a>).</li>
+</ol>
+<p>A third pattern deserves a note: a persistent sterile necrotizing granulomatous dermatitis has been reported <em>after</em> successful treatment of a long-standing infection, i.e. an apparent paradoxical/immunopathological reaction rather than treatment failure. Confirm the primary source before curating.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology</h3>
+<p><strong>Incidence.</strong> One population-denominated figure is solid:</p>
+<blockquote>
+<p>"The annual incidence rate was 0.15/100 000/year during the study period." <strong>[A]</strong> — Hendrikx et al. 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/35308482/" target="_blank" rel="noopener noreferrer">PMID:35308482</a> (Netherlands, 2011–2018, laboratory-based)</p>
+</blockquote>
+<p>A figure of 0.04 per 100,000 per year attributed to a French study appeared in search summaries in this session but was <strong>not verified against a primary source</strong>; do not curate it without confirmation.</p>
+<p>For a <code>Prevalence</code> record, use <code>measure_type: ANNUAL_INCIDENCE</code>, <code>rate_per_100000: 0.15</code>, and set <code>rate_denominator</code> explicitly — the Dutch figure is per population per year, so <code>POPULATION_PER_YEAR</code>. Do <strong>not</strong> attach a qualitative tier such as RARE to an incidence record. <code>prevalence_class: BAND_1_9_PER_1000000</code> is the Orphanet-aligned magnitude band for 0.15/100,000 (= 1.5 per million).</p>
+<p><strong>Prevalence.</strong> No point-prevalence estimate exists. Case counts are the only available measure for most regions, so <code>CASES_IN_LITERATURE</code> is the honest <code>measure_type</code> for series-derived records.</p>
+<p><strong>Underestimation.</strong> Every incidence figure here is a culture-confirmed count, and culture is insensitive (culture-positive in only 74.3% of a clinically diagnosed series, <a href="https://pubmed.ncbi.nlm.nih.gov/39262684/" target="_blank" rel="noopener noreferrer">PMID:39262684</a>; AFB-positive in 2/22 and 6/35 biopsies). True incidence is higher by an unknown factor.</p>
+<h3>Inheritance</h3>
+<p><strong>Not applicable.</strong> No inheritance pattern, penetrance, expressivity, anticipation, germline mosaicism, founder effect, consanguinity role, or carrier frequency. Leave the <code>inheritance:</code> section absent rather than populating it with a placeholder.</p>
+<h3>Population demographics</h3>
+<p><strong>Sex ratio — genuinely discordant between series, and the discordance is a finding.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Series</th>
+<th>Male : Female</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Thailand, n=27</td>
+<td>20 : 7 (male-predominant)</td>
+</tr>
+<tr>
+<td>China (Han), n=35</td>
+<td>6 : 29 (82.9% female)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The Chinese series' female predominance tracks its exposure profile — fish-bone puncture wounds during food preparation (54.3%) — whereas male predominance elsewhere tracks aquarium keeping and fishing. Curate both with <code>population</code> set, and do not average them into a single ratio.</p>
+<p><strong>Age distribution.</strong> Adults, mode in the fifth and sixth decades. Median 55 (IQR 49–59) in China; mean 45.5 ± 15.4 in Thailand.</p>
+<p><strong>Geographic distribution.</strong> Worldwide, wherever people keep aquaria, handle fish, or swim in untreated water. There is no endemic focus in the vector-borne sense. Published series come from France, the Netherlands, the USA, Taiwan, China, Thailand, India (Kerala), the UK, and Egypt. Regional case mix is driven by local exposure practice, not by organism distribution. Geographic variation in <em>variants</em> of the organism is not established.</p>
+<p><strong>Ethnic predisposition.</strong> None. The Han Chinese series (<a href="https://pubmed.ncbi.nlm.nih.gov/39262684/" target="_blank" rel="noopener noreferrer">PMID:39262684</a>) reflects the recruiting centre, not a susceptibility.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>The central diagnostic fact</h3>
+<p>Routine mycobacterial workup misses this organism, for a specific and correctable reason:</p>
+<blockquote>
+<p>"Therefore, culture of the biopsy tissue at 30 degrees C is crucial in establishing the diagnosis." <strong>[A]</strong> — Travis et al. 1985, <a href="https://pubmed.ncbi.nlm.nih.gov/3840985/" target="_blank" rel="noopener noreferrer">PMID:3840985</a></p>
+<p>"In clinical microbiology, microscopy and culture are often negative because growth requires low temperature (30°C) and several weeks to succeed in primary cultivation." <strong>[A]</strong> — Aubry et al. 2017, <a href="https://pubmed.ncbi.nlm.nih.gov/28387180/" target="_blank" rel="noopener noreferrer">PMID:28387180</a></p>
+</blockquote>
+<p><strong>The laboratory must be told to incubate at 30 °C.</strong> This is the single highest-yield action in the diagnostic pathway and belongs in the entry's <code>definitions</code> or <code>notes</code> as such.</p>
+<h3>Microbiological tests, with sensitivities</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Yield</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tissue culture at 30 °C</td>
+<td>26/35 (74.3%)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39262684/" target="_blank" rel="noopener noreferrer">PMID:39262684</a></td>
+</tr>
+<tr>
+<td>qPCR on tissue</td>
+<td>17/35 (48.6%)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39262684/" target="_blank" rel="noopener noreferrer">PMID:39262684</a></td>
+</tr>
+<tr>
+<td>AFB (Ziehl-Neelsen) on biopsy</td>
+<td>6/35 (17.1%)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39262684/" target="_blank" rel="noopener noreferrer">PMID:39262684</a></td>
+</tr>
+<tr>
+<td>AFB on biopsy</td>
+<td>2/22 (9%)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8002687/" target="_blank" rel="noopener noreferrer">PMID:8002687</a></td>
+</tr>
+<tr>
+<td>Organisms visible on histology</td>
+<td>1/9 cases</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/3840985/" target="_blank" rel="noopener noreferrer">PMID:3840985</a></td>
+</tr>
+<tr>
+<td>T-SPOT.TB (IFN-γ release)</td>
+<td>71% (95% CI 63.2–77.8)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41147233/" target="_blank" rel="noopener noreferrer">PMID:41147233</a></td>
+</tr>
+<tr>
+<td>Targeted NGS</td>
+<td>evaluated 2022–2024; cross-sectional</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40833738/" target="_blank" rel="noopener noreferrer">PMID:40833738</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Culture turnaround is 7–14 days for colonies from a growing subculture but 2–8 weeks for primary isolation <strong>[F]</strong>, which is why molecular methods matter clinically. Species identification uses <em>hsp65</em> PCR, <em>rpoB</em> sequencing, line-probe assay (e.g. INNO-LiPA MYCOBACTERIA), and increasingly NGS. Be aware of the identification pitfall: <em>M. marinum</em> "is difficult to differentiate from Mycobacterium ulcerans and other mycolactone-producing NTM on a molecular basis" <strong>[A]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/28387180/" target="_blank" rel="noopener noreferrer">PMID:28387180</a>).</p>
+<h3>Histopathology</h3>
+<p>The pattern is a spectrum, not a single picture — which is exactly why biopsy alone under-diagnoses:</p>
+<blockquote>
+<p>"A range of inflammatory changes were seen in both synovial and skin lesions, varying from mostly acute inflammation with suppuration to a more chronic process with numerous, well-formed granulomas." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/3840985/" target="_blank" rel="noopener noreferrer">PMID:3840985</a></p>
+<p>"These cases emphasize the importance of considering mycobacterial infection and performing cultures even when granulomatous changes in the synovium or skin are subtle." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/3840985/" target="_blank" rel="noopener noreferrer">PMID:3840985</a></p>
+</blockquote>
+<p>Granulomatous inflammation was present in 100% of the Chinese series (<a href="https://pubmed.ncbi.nlm.nih.gov/39262684/" target="_blank" rel="noopener noreferrer">PMID:39262684</a>) and 63% of biopsies in the Kaiser series (<a href="https://pubmed.ncbi.nlm.nih.gov/8002687/" target="_blank" rel="noopener noreferrer">PMID:8002687</a>) — the difference reflecting lesion age and sampling.</p>
+<h3>Immunological adjunct — T-SPOT.TB</h3>
+<p>A 2025 study of 145 patients supports IFN-γ release assays both diagnostically and as a treatment-response monitor:</p>
+<blockquote>
+<p>"The baseline T-SPOT.TB positivity rate was 71% (95% CI: 63.2-77.8%). Among 17 patients retested at 3 months, positivity was 64.7% (p = 0.125), with median spot-forming cells (SFCs) significantly decreasing from 20.0 (IQR 8.5-41.0) to 8.0 (IQR 2.5-28.0) (p = 0.0007)." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/41147233/" target="_blank" rel="noopener noreferrer">PMID:41147233</a></p>
+<p>"The T-SPOT.TB assay shows significant diagnostic value for cutaneous M. marinum infections and facilitates early diagnosis. Declining SFC counts post-treatment provide useful reference for evaluating therapeutic response." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/41147233/" target="_blank" rel="noopener noreferrer">PMID:41147233</a></p>
+</blockquote>
+<p>Interpretive caveat for curation: a positive T-SPOT.TB reflects ESAT-6/CFP-10 responses shared with <em>M. tuberculosis</em>, so it cannot distinguish the two. That study explicitly excluded tuberculosis cases.</p>
+<h3>Imaging and functional tests</h3>
+<p>MRI and ultrasound for suspected tenosynovitis, and plain radiography or MRI for osteomyelitis. No imaging finding is specific. Electrophysiology, pulmonary function, and cardiac testing are not applicable.</p>
+<h3>Genetic testing</h3>
+<p><strong>Not applicable to the host.</strong> No WGS, WES, gene panel, single-gene test, chromosomal microarray, karyotype, FISH, mtDNA, or repeat-expansion testing has any role. <em>Pathogen</em> sequencing (<code>hsp65</code>, <code>rpoB</code>, targeted NGS, metagenomic NGS) is the relevant molecular testing and should be curated under diagnostics, not under genetic testing.</p>
+<h3>Omics-based diagnostics</h3>
+<p>Targeted NGS is the one omics modality with a 2025 diagnostic evaluation (<a href="https://pubmed.ncbi.nlm.nih.gov/40833738/" target="_blank" rel="noopener noreferrer">PMID:40833738</a>); it is a JAMA Dermatology research letter, so extract its sensitivity and specificity from the full text before curating numbers. Proteomic, metabolomic, epigenomic, and liquid-biopsy diagnostics: none.</p>
+<h3>Clinical criteria and differential diagnosis</h3>
+<p>There are <strong>no formal consensus diagnostic criteria</strong>. Diagnosis rests on the triad of a compatible acral lesion, an aquatic exposure history within nine months, and microbiological or molecular confirmation. The pragmatic rule:</p>
+<blockquote>
+<p>"Careful patient's history collection, high clinical suspicion and appropriate sample (e.g. cutaneous biopsy) for microbiological culture are crucial for a timely diagnosis." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/35864075/" target="_blank" rel="noopener noreferrer">PMID:35864075</a></p>
+</blockquote>
+<p><strong>Differential diagnosis</strong>, with the distinguishing feature in each case:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Alternative</th>
+<th>Distinguishing feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sporotrichosis (<em>Sporothrix</em>)</td>
+<td>fungal culture; soil/plant exposure; the classic sporotrichoid mimic</td>
+</tr>
+<tr>
+<td>Nocardiosis</td>
+<td>branching filamentous GPR; modified AFB</td>
+</tr>
+<tr>
+<td>Cutaneous leishmaniasis</td>
+<td>travel history; Giemsa amastigotes</td>
+</tr>
+<tr>
+<td>Cutaneous tuberculosis</td>
+<td><em>M. tuberculosis</em> on culture/PCR; note IGRA cannot separate them</td>
+</tr>
+<tr>
+<td>Other NTM (<em>M. abscessus</em>, <em>M. chelonae</em>, <em>M. fortuitum</em>, <em>M. ulcerans</em>)</td>
+<td>species identification; <em>M. abscessus</em> is far more drug-resistant</td>
+</tr>
+<tr>
+<td>Sweet's syndrome / neutrophilic dermatosis</td>
+<td>the documented misdiagnosis in <a href="https://pubmed.ncbi.nlm.nih.gov/39759953/" target="_blank" rel="noopener noreferrer">PMID:39759953</a> — biopsy showed neutrophilic dermatosis before AFB were found</td>
+</tr>
+<tr>
+<td>Pyoderma gangrenosum</td>
+<td>steroid response is misleading; consider before immunosuppressing</td>
+</tr>
+<tr>
+<td>Foreign-body granuloma, sea-urchin or fish-sting granuloma</td>
+<td>history and imaging</td>
+</tr>
+<tr>
+<td>Squamous cell carcinoma, keratoacanthoma</td>
+<td>verrucous lesions can mimic; biopsy</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Two of these are actively dangerous: treating a presumed neutrophilic dermatosis or pyoderma gangrenosum with corticosteroids accelerates <em>M. marinum</em> disease, which is precisely the reported trajectory in the bearded-dragon case.</p>
+<h3>Screening</h3>
+<p>Not applicable. There is no asymptomatic carrier state, no newborn or carrier screening, and no basis for population screening. Occupational health education is prevention, not screening.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<h3>Survival and mortality</h3>
+<p><strong>Mortality from aquarium granuloma is essentially zero</strong> in immunocompetent hosts, and no series in this review reported a disease-attributable death. No 5-year or 10-year survival figures exist because survival is not the relevant endpoint. Death is confined to exceptional disseminated disease in profoundly immunocompromised patients; the bearded-dragon case reached neutropenic sepsis (<a href="https://pubmed.ncbi.nlm.nih.gov/39759953/" target="_blank" rel="noopener noreferrer">PMID:39759953</a>). Curate mortality as not established rather than as a number.</p>
+<h3>Cure rates</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Cohort</th>
+<th>Cure</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Netherlands, n=40</td>
+<td>36/40 (90%)</td>
+<td>mean 25 weeks; susceptibility-guided</td>
+</tr>
+<tr>
+<td>France, n=63</td>
+<td>55/63 (87%)</td>
+<td>median 3.5 months; 48% surgery</td>
+</tr>
+<tr>
+<td>China (Han), n=35</td>
+<td>29/35 (82.9%)</td>
+<td>6 lost to follow-up</td>
+</tr>
+<tr>
+<td>USA (Kaiser), n=31</td>
+<td>22/27 (81%) evaluable</td>
+<td>cure or improvement</td>
+</tr>
+<tr>
+<td>Taiwan, n=27</td>
+<td>18/27 (67%)</td>
+<td>8 failures, 1 lost</td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p>"Antibiotic treatment cured 36/40 patients (90%) after a mean treatment duration of 25 weeks. Failure/relapse occurred in 3 patients, and 1 patient was lost to follow-up." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/35308482/" target="_blank" rel="noopener noreferrer">PMID:35308482</a></p>
+<p>"Prolonged and susceptibility-guided treatment results in a 90% cure rate in M. marinum disease." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/35308482/" target="_blank" rel="noopener noreferrer">PMID:35308482</a></p>
+</blockquote>
+<h3>Prognostic factors</h3>
+<p><strong>Depth of involvement is the dominant prognostic factor</strong>, and it is the one that survives multivariable framing:</p>
+<blockquote>
+<p>"Failure was related to deep structure involvement (3 of 45 vs 5 of 18 patients; P =.04) but not to any antibiotic regimen." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/12153378/" target="_blank" rel="noopener noreferrer">PMID:12153378</a></p>
+</blockquote>
+<p>The 2017 review reaches the same conclusion: therapy achieves "successful outcome in most of the skin diseases but less frequently in deep tissue infections" <strong>[A]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/28387180/" target="_blank" rel="noopener noreferrer">PMID:28387180</a>).</p>
+<p>Other factors with supporting data:</p>
+<ul>
+<li><strong>Treatment duration.</strong> Longer therapy predicted cure in the Taiwanese cohort: "The duration of clarithromycin (147 vs. 28; p = 0.0297), and rifampicin (201 vs. 91; p = 0.0266) treatment in the cured patients was longer than that in the others." <strong>[A]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/22911774/" target="_blank" rel="noopener noreferrer">PMID:22911774</a>). Read the direction of causality cautiously — failures may have been stopped early <em>because</em> they were failing.</li>
+<li><strong>Surgical debridement.</strong> "Surgical debridement was performed in 10 out of the 18 cured patients, and in 1 of another group (p = 0.0417)." <strong>[A]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/22911774/" target="_blank" rel="noopener noreferrer">PMID:22911774</a>).</li>
+<li><strong>In vitro susceptibility, specifically to tetracyclines.</strong> "Tetracycline resistance seemed correlated with poor response to tetracycline monotherapy." <strong>[A]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/35308482/" target="_blank" rel="noopener noreferrer">PMID:35308482</a>).</li>
+<li><strong>Immunosuppression</strong> prolongs time to cure (p=0.047; <a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a>).</li>
+</ul>
+<h3>Morbidity, disability, and complications</h3>
+<p>Complications: tenosynovitis (the commonest deep complication, 22.2%), septic arthritis, osteomyelitis, bursitis, tendon rupture, scarring and disfigurement of the hand, and — rarely — dissemination. Functional hand morbidity plus a 4–6 month treatment course is the realistic burden.</p>
+<p>No ICF-coded disability data, no GBD estimate, and no validated QoL instrument has been applied to this disease. Record the gap.</p>
+<h3>Recovery potential</h3>
+<p>Excellent with appropriate therapy. Recurrence after adequate treatment plus debridement was zero across one year in the Thai tenosynovitis subgroup (<a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a>). Prognostic biomarkers: declining T-SPOT.TB spot-forming counts are the only candidate treatment-response biomarker with supporting data (<a href="https://pubmed.ncbi.nlm.nih.gov/41147233/" target="_blank" rel="noopener noreferrer">PMID:41147233</a>), and the authors frame it as a "useful reference", not a validated endpoint.</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>The honest headline</h3>
+<blockquote>
+<p>"The treatment is not standardized, and no randomized control trials have been done." <strong>[A]</strong> — Aubry et al. 2017, <a href="https://pubmed.ncbi.nlm.nih.gov/28387180/" target="_blank" rel="noopener noreferrer">PMID:28387180</a></p>
+</blockquote>
+<p>Every regimen below rests on retrospective cohorts and expert consensus. The 2020 ATS/ERS/ESCMID/IDSA guideline (<a href="https://pubmed.ncbi.nlm.nih.gov/32797222/" target="_blank" rel="noopener noreferrer">PMID:32797222</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/32636299/" target="_blank" rel="noopener noreferrer">PMID:32636299</a>) covers <strong>NTM pulmonary disease only</strong> and does not address <em>M. marinum</em> skin infection; the 2007 ATS/IDSA statement (<a href="https://pubmed.ncbi.nlm.nih.gov/17277290/" target="_blank" rel="noopener noreferrer">PMID:17277290</a>) is the guideline document that does. Do not cite the 2020 guideline as the source of a skin-infection recommendation.</p>
+<h3>Pharmacotherapy</h3>
+<p><strong>Principle:</strong> two active agents, guided by susceptibility testing where available, continued for months, with surgery for deep disease. Monotherapy is used for limited disease but is increasingly discouraged.</p>
+<blockquote>
+<p>"Therapy is a combination of surgery and antimicrobial agents such as cyclines and rifampin, with successful outcome in most of the skin diseases but less frequently in deep tissue infections." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/28387180/" target="_blank" rel="noopener noreferrer">PMID:28387180</a></p>
+<p>"The treatment is not standardized yet and relies on administration of two active antimycobacterial agents, always guided by antimicrobial susceptibility test on culture, with macrolides and rifampin as pivotal drugs, as well as prompt surgery when feasible." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/35864075/" target="_blank" rel="noopener noreferrer">PMID:35864075</a></p>
+<p>"Two-drug regimens of ethambutol and a macrolide are effective for moderately severe infections. Tetracycline monotherapy in limited disease should be used vigilantly, preferably with proven in vitro susceptibility." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/35308482/" target="_blank" rel="noopener noreferrer">PMID:35308482</a></p>
+</blockquote>
+<p><strong>Regimens actually used, with frequencies</strong> (China, n=35; <a href="https://pubmed.ncbi.nlm.nih.gov/39262684/" target="_blank" rel="noopener noreferrer">PMID:39262684</a>):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Regimen tier</th>
+<th>Share</th>
+<th>Composition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Monotherapy</td>
+<td>9/35 (25.7%)</td>
+<td>minocycline 6, clarithromycin 2, doxycycline 1</td>
+</tr>
+<tr>
+<td>Dual</td>
+<td>17/35 (48.6%)</td>
+<td>clarithromycin+rifampin 13, clarithromycin+minocycline 4</td>
+</tr>
+<tr>
+<td>Triple</td>
+<td>9/35 (25.7%)</td>
+<td>clarithromycin+rifampin+doxycycline 8, clarithromycin+rifampin+ethambutol 1</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Agent frequency in that series: clarithromycin 80.0%, rifampin 62.9%, minocycline 28.6%, doxycycline 25.7%. Median duration 4.0 months (IQR 3.0–6.0). In the Netherlands, final regimens were most often ethambutol–macrolide (35%), with monotherapy in 35% and two drugs in 63% (<a href="https://pubmed.ncbi.nlm.nih.gov/35308482/" target="_blank" rel="noopener noreferrer">PMID:35308482</a>).</p>
+<p>One older comparison favoured the ethambutol–rifampin pair over minocycline, without reaching significance:</p>
+<blockquote>
+<p>"Treatment with ethambutol plus rifampin appeared more successful (effective in five [100%] of five cases) than minocycline treatment (effective in 10 [71%] of 14 cases), although not significantly so (P = .28)." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/8002687/" target="_blank" rel="noopener noreferrer">PMID:8002687</a></p>
+</blockquote>
+<h3>Antimicrobial susceptibility — and a genuine geographical conflict on doxycycline</h3>
+<p>Modern, large panel (200 isolates, China):</p>
+<blockquote>
+<p>"M. marinum demonstrated high susceptibility (82.5%-100%) to clarithromycin, rifampin, rifabutin, moxifloxacin, linezolid, trimethoprim-sulfamethoxazole, with moderate susceptibility to tetracyclines and ciprofloxacin. Ethambutol showed favourable activity against M. marinum with MIC90 of 2 µg/mL." <strong>[A]</strong> — Peng et al. 2025, <a href="https://pubmed.ncbi.nlm.nih.gov/41135669/" target="_blank" rel="noopener noreferrer">PMID:41135669</a></p>
+</blockquote>
+<p>MIC90 values from the French national panel:</p>
+<blockquote>
+<p>"The 90% minimum inhibitory concentrations of rifampin and rifabutin were far lower (0.5 and 0.06 micro g/mL, respectively) than the 90% minimum inhibitory concentrations of clarithromycin (2 micro g/mL) and the cyclines (minocycline, 4 micro g/mL; and doxycycline, 8 micro g/mL)." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/12153378/" target="_blank" rel="noopener noreferrer">PMID:12153378</a></p>
+</blockquote>
+<p><strong>The tetracycline discordance is large and should be curated as a real disagreement, not resolved by picking one number.</strong> Three independent panels disagree sharply:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Panel</th>
+<th>Doxycycline susceptibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Taiwan, 30 isolates</td>
+<td><strong>1/30 (3.3%)</strong></td>
+</tr>
+<tr>
+<td>Netherlands, 40 isolates</td>
+<td>36% of isolates <em>resistant</em> to tetracyclines</td>
+</tr>
+<tr>
+<td>China, 200 isolates</td>
+<td>"moderate" susceptibility to tetracyclines</td>
+</tr>
+<tr>
+<td>Thailand cohort</td>
+<td>doxycycline named among the most effective drugs</td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p>"All the 30 isolates were susceptible to clarithromycin, amikacin, and linezolid; 29 (96.7%) were susceptible to ethambutol; 28 (93.3%) were susceptible to sulfamethoxazole; and 26 (86.7%) were susceptible to rifampicin. However, only 1 (3.3%) isolate was susceptible to doxycycline." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/22911774/" target="_blank" rel="noopener noreferrer">PMID:22911774</a></p>
+</blockquote>
+<p>Part of this is breakpoint-driven: the Thai study used a CLSI doxycycline breakpoint of ≤1 µg/mL against a French MIC90 of 8 µg/mL, so "resistant" and "effective" can both be defensible statements about the same organism. Curate each panel as its own evidence item with its population and, where known, its breakpoint, rather than asserting a single susceptibility.</p>
+<p>Note also that "routine susceptibility testing is not recommended and should be reserved for cases of treatment failure" <strong>[F]</strong> is longstanding advice that the Dutch cohort's tetracycline finding directly challenges. This is a live disagreement worth a <code>discussions:</code> entry.</p>
+<h3>Suggested NCIT and CHEBI bindings (all resolved in OLS4 this session)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Treatment</th>
+<th>NCIT <code>treatment_term</code></th>
+<th>CHEBI/NCIT <code>therapeutic_agent</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Combination antimycobacterial therapy</td>
+<td>NCIT:C15986 Pharmacotherapy</td>
+<td>see below</td>
+</tr>
+<tr>
+<td>Clarithromycin</td>
+<td>NCIT:C15986</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_3732" target="_blank" rel="noopener noreferrer">CHEBI:3732</a> clarithromycin (or NCIT:C1054 Clarithromycin)</td>
+</tr>
+<tr>
+<td>Rifampicin</td>
+<td>NCIT:C15986</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_28077" target="_blank" rel="noopener noreferrer">CHEBI:28077</a> rifampicin (or NCIT:C811 Rifampin)</td>
+</tr>
+<tr>
+<td>Rifabutin</td>
+<td>NCIT:C15986</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_45367" target="_blank" rel="noopener noreferrer">CHEBI:45367</a> rifabutin</td>
+</tr>
+<tr>
+<td>Ethambutol</td>
+<td>NCIT:C15986</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_4877" target="_blank" rel="noopener noreferrer">CHEBI:4877</a> ethambutol (or NCIT:C61755 Ethambutol)</td>
+</tr>
+<tr>
+<td>Doxycycline</td>
+<td>NCIT:C15986</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" rel="noopener noreferrer">CHEBI:50845</a> doxycycline (or NCIT:C457 Doxycycline)</td>
+</tr>
+<tr>
+<td>Minocycline</td>
+<td>NCIT:C15986</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_50694" target="_blank" rel="noopener noreferrer">CHEBI:50694</a> minocycline (or NCIT:C61849 Minocycline)</td>
+</tr>
+<tr>
+<td>Trimethoprim-sulfamethoxazole</td>
+<td>NCIT:C15986</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_3770" target="_blank" rel="noopener noreferrer">CHEBI:3770</a> co-trimoxazole</td>
+</tr>
+<tr>
+<td>Moxifloxacin</td>
+<td>NCIT:C15986</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_63611" target="_blank" rel="noopener noreferrer">CHEBI:63611</a> moxifloxacin</td>
+</tr>
+<tr>
+<td>Linezolid</td>
+<td>NCIT:C15986</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_63607" target="_blank" rel="noopener noreferrer">CHEBI:63607</a> linezolid</td>
+</tr>
+<tr>
+<td>Amikacin</td>
+<td>NCIT:C15986</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_2637" target="_blank" rel="noopener noreferrer">CHEBI:2637</a> amikacin</td>
+</tr>
+<tr>
+<td>Azithromycin</td>
+<td>NCIT:C15986</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_2955" target="_blank" rel="noopener noreferrer">CHEBI:2955</a> azithromycin</td>
+</tr>
+<tr>
+<td>Surgical debridement</td>
+<td>NCIT:C51682 Debridement</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Surgical excision / tenosynovectomy</td>
+<td>NCIT:C15329 Surgical Procedure</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Cryosurgery (historical adjunct)</td>
+<td>NCIT:C15215 Cryosurgery</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Supportive care</td>
+<td>NCIT:C15747 Supportive Care</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Patient/occupational education</td>
+<td>NCIT:C16664 Health Education</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Drug-class alternatives if a class-level <code>therapeutic_agent</code> is wanted: NCIT:C261 Macrolide Antibiotic, NCIT:C1595 Tetracycline Antibiotic, NCIT:C280 Antitubercular Agent. <strong>Caution:</strong> <code>therapeutic_agent</code> binds the <code>ChemicalEntityTerm</code> enum rooted at NCIT:C1909 (Pharmacologic Substance), and NCIT files some classes elsewhere. Run <code>just validate-terms</code> after binding any NCIT class term here rather than trusting this table. <code>NCIT:C51682</code> Debridement likewise needs an enum check against the <code>NCIT:C25218</code> root before use as a <code>treatment_term</code>.</p>
+<p>Therapeutic modality for every pharmacological entry here is <code>SMALL_MOLECULE</code>; debridement and excision are <code>SURGERY</code>. No oligonucleotide, biologic, or delivery-system detail applies.</p>
+<h3>Surgery</h3>
+<p>Adjunctive and often decisive, especially for tenosynovitis. Surgery rates: 48% (France), 28% (Netherlands), 10/18 of cured patients (Taiwan).</p>
+<blockquote>
+<p>"Surgical debridement combined with oral antibiotics successfully treated all tenosynovitis patients, with no recurrence during the 1-year follow-up." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a></p>
+</blockquote>
+<h3>Management of immunosuppression — a treatment decision, not a footnote</h3>
+<p>Discontinuing or reducing TNF-α inhibitors and other immunosuppressants during antimicrobial therapy is recommended, with the caveat that the evidence base is small (<a href="https://pubmed.ncbi.nlm.nih.gov/28387180/" target="_blank" rel="noopener noreferrer">PMID:28387180</a> <strong>[F]</strong>). The 2026 review "summarize[s] adjustments to immunosuppressive agents for immunocompromised patients with M. marinum infection" <strong>[A]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42639276/" target="_blank" rel="noopener noreferrer">PMID:42639276</a>) and is the place to look for current practical guidance. A counterpoint exists in the literature — a report proposing a possible therapeutic role for anti-TNF monoclonal antibodies in <em>M. marinum</em> infection — which fits the model's finding that both TNF excess and TNF deficiency are harmful (<a href="https://pubmed.ncbi.nlm.nih.gov/23582643/" target="_blank" rel="noopener noreferrer">PMID:23582643</a>). Curate that as a genuine open question rather than an error.</p>
+<h3>Advanced therapeutics, pharmacogenomics, experimental treatment</h3>
+<ul>
+<li><strong>Gene therapy, cell therapy, RNA therapeutics, targeted therapy, immunotherapy:</strong> none for this disease. Not applicable.</li>
+<li><strong>Pharmacogenomics:</strong> no PharmGKB/CPIC guidance specific to this indication. Generic considerations apply — rifampicin is a potent CYP3A4 inducer with major interaction potential, and clarithromycin is a CYP3A4 inhibitor; that interaction is pharmacological rather than pharmacogenomic.</li>
+<li><strong>Host-directed therapy — the most interesting experimental direction, and it is preclinical.</strong> The zebrafish work identifies repurposable drugs that block TNF-driven necrosis: alisporivir (cyclophilin D), desipramine (acid sphingomyelinase), and metformin (complex I).</li>
+</ul>
+<blockquote>
+<p>"Similarly, the cyclophilin D-inhibiting drug alisporivir and the acid sphingomyelinase-inactivating drug, desipramine, synergize to reverse susceptibility, suggesting the therapeutic potential of these orally active drugs against tuberculosis and possibly other TNF-mediated diseases." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/23582643/" target="_blank" rel="noopener noreferrer">PMID:23582643</a></p>
+<p>"The complex I inhibitor metformin, a widely used antidiabetic drug, prevents TNF-induced mROS and necrosis of Mycobacterium tuberculosis-infected zebrafish and human macrophages; metformin may therefore be useful in tuberculosis therapy." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/35737799/" target="_blank" rel="noopener noreferrer">PMID:35737799</a></p>
+</blockquote>
+<p>Both are framed for <strong>tuberculosis</strong>, not aquarium granuloma. Record them as model-derived host-directed candidates with an explicit <code>HUMAN_MODEL_MISMATCH</code> framing; do not curate them as treatments for this disease.</p>
+<ul>
+<li><strong>Clinical trials:</strong> no interventional trial of aquarium granuloma treatment was identified in this session. No NCT or ICTRP identifier should be curated without a targeted registry search.</li>
+</ul>
+<h3>Adverse events</h3>
+<blockquote>
+<p>"Adverse reactions, most of which were gastrointestinal, occurred in five patients (18%)." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/8002687/" target="_blank" rel="noopener noreferrer">PMID:8002687</a></p>
+</blockquote>
+<p>Regimen changes are common — the initial regimen was modified in 22/63 (35%) of the French cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/12153378/" target="_blank" rel="noopener noreferrer">PMID:12153378</a>).</p>
+<h3>Treatment algorithm (synthesis; no formal published algorithm exists)</h3>
+<ol>
+<li>Biopsy for histology <strong>and</strong> culture, specifying 30 °C incubation; add tissue PCR or targeted NGS.</li>
+<li>Limited superficial disease: two active oral agents, commonly clarithromycin plus either rifampicin or ethambutol; a single tetracycline only with documented in vitro susceptibility.</li>
+<li>Moderate disease: ethambutol plus a macrolide.</li>
+<li>Deep disease (tenosynovitis, arthritis, osteomyelitis): three agents including rifampicin, plus surgical debridement.</li>
+<li>Continue 1–2 months beyond clinical resolution; expect total 4–6 months, longer in immunosuppressed patients.</li>
+<li>Stop or reduce TNF inhibitors and other immunosuppressants during therapy.</li>
+<li>Reserve susceptibility testing for failure — but obtain it early where tetracycline monotherapy is contemplated.</li>
+</ol>
+<hr />
+<h2>13. Prevention</h2>
+<h3>Primary prevention</h3>
+<p>This is the level that matters, because primary prevention is nearly fully effective and rests on interrupting one necessary step: skin breach plus aquatic contact.</p>
+<blockquote>
+<p>"Prevention can be useful with hand protection recommendations for professionals and all persons manipulating fishes or fish tank water and use of alcohol disinfection after contact." <strong>[A]</strong> — Aubry et al. 2017, <a href="https://pubmed.ncbi.nlm.nih.gov/28387180/" target="_blank" rel="noopener noreferrer">PMID:28387180</a></p>
+</blockquote>
+<p>Concrete measures:</p>
+<ul>
+<li>Waterproof gloves for aquarium cleaning, fish handling, and seafood preparation. Long gloves for tank work.</li>
+<li>Do not put a hand with a cut, abrasion, or eczematous skin into tank water; cover breaks with a waterproof dressing.</li>
+<li>Alcohol-based hand disinfection immediately after contact.</li>
+<li>Chlorinate and maintain public and domestic swimming pools — the intervention that historically removed the swimming-pool form.</li>
+<li>Targeted risk counselling for people on TNF inhibitors or other immunosuppressants who keep fish, where the downside is deep or disseminated disease rather than a nodule.</li>
+<li>Occupational hygiene in ornamental-fish retail, aquaculture, and fish processing.</li>
+</ul>
+<p>Suggested NCIT bindings: NCIT:C16664 Health Education, NCIT:C18975 Public Health Education.</p>
+<h3>Secondary prevention</h3>
+<p>Early recognition is the whole of secondary prevention, and the actionable form of it is a history question rather than a test: ask about aquatic exposure in the preceding <strong>nine months</strong> in any patient with an atypical, non-resolving acral nodule or plaque (<a href="https://pubmed.ncbi.nlm.nih.gov/10987702/" target="_blank" rel="noopener noreferrer">PMID:10987702</a>). The second element is a laboratory instruction — request 30 °C mycobacterial culture on the biopsy. Together these two habits address the 3–6 month median diagnostic delay.</p>
+<p>A specific, avoidable harm to flag: <strong>do not inject a corticosteroid into an undiagnosed acral nodule or an unexplained trigger finger in someone with aquatic exposure.</strong> Intralesional triamcinolone preceded lesion onset in 11.1% of the Thai cohort, and prior steroid injection at the site was associated with tenosynovitis (p=0.007) (<a href="https://pubmed.ncbi.nlm.nih.gov/40535516/" target="_blank" rel="noopener noreferrer">PMID:40535516</a>).</p>
+<h3>Tertiary prevention</h3>
+<p>Adequate duration of two-drug therapy, timely surgical debridement for deep disease, susceptibility-guided regimen selection, and withdrawal of immunosuppression during treatment. Together these carry cure rates to 87–90% and prevent the tenosynovitis-to-osteomyelitis progression.</p>
+<h3>Immunization, genetic screening, counselling, prophylaxis</h3>
+<ul>
+<li><strong>Vaccination:</strong> no vaccine exists or is in development for human <em>M. marinum</em> disease. Not applicable. A zebrafish mRNA vaccine study exists (GEO GSE270105, GSE269547) but is a tuberculosis-model experiment, not a human product.</li>
+<li><strong>Genetic screening, carrier screening, PGD, prenatal testing, genetic counselling:</strong> not applicable.</li>
+<li><strong>Antimicrobial prophylaxis after fish-related injury:</strong> no evidence base; not recommended. Wound cleaning and observation are the practice.</li>
+<li><strong>Risk stratification:</strong> informal only — immunosuppressed aquarists are the group worth counselling.</li>
+</ul>
+<h3>Public health and environmental interventions</h3>
+<p>Pool chlorination and maintenance standards; hygiene guidance at point of sale for ornamental fish; aquaculture biosecurity and culling of infected stock (which protects fish health and reduces the human exposure reservoir); no notifiable-disease reporting requirement in most jurisdictions.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>This is unusually rich for a human dermatological infection, because the human disease is a spillover from a major fish disease, and the fish disease is the source of the mechanism in §6.</p>
+<h3>Taxonomy of susceptible hosts</h3>
+<p><em>M. marinum</em> (NCBITaxon:1781) has been isolated from "mammals, fish, amphibians, reptiles, birds, invertebrates, and protists" <strong>[F]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29493404/" target="_blank" rel="noopener noreferrer">PMID:29493404</a>). Host range is exceptionally broad, which the genome explains — <em>M. marinum</em> "has maintained a large genome so as to retain the capacity for environmental survival while becoming a broad host range pathogen" <strong>[A]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/18403782/" target="_blank" rel="noopener noreferrer">PMID:18403782</a>).</p>
+<p>Verified taxonomy identifiers for the entities relevant to this entry:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Organism</th>
+<th>NCBITaxon</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>Mycobacterium marinum</em></td>
+<td>NCBITaxon:1781</td>
+</tr>
+<tr>
+<td><em>Danio rerio</em> (zebrafish)</td>
+<td>NCBITaxon:7955</td>
+</tr>
+<tr>
+<td><em>Mus musculus</em></td>
+<td>NCBITaxon:10090</td>
+</tr>
+<tr>
+<td><em>Mycobacterium tuberculosis</em></td>
+<td>NCBITaxon:1773</td>
+</tr>
+<tr>
+<td><em>Mycobacterium ulcerans</em></td>
+<td>NCBITaxon:1809</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Natural disease in fish — piscine mycobacteriosis ("fish tuberculosis")</h3>
+<blockquote>
+<p>"Mycobacterium marinum is an opportunistic pathogen inducing infection in fresh and marine water fish. This pathogen causes necrotizing granuloma like tuberculosis, morbidity and mortality in fish." <strong>[A]</strong> — Hashish et al. 2018, <a href="https://pubmed.ncbi.nlm.nih.gov/29493404/" target="_blank" rel="noopener noreferrer">PMID:29493404</a></p>
+<p>"Mycobacterium species have long been recognized as a significant source of morbidity and mortality in finfish aquaculture, as well as in wild finfishes." <strong>[F]</strong> — search snippet, fish mycobacteriosis review</p>
+</blockquote>
+<p>All fish species should be considered susceptible; documented outbreaks include striped bass in the USA, sturgeon in China, and captive-bred Australian lungfish <strong>[F]</strong>. Clinical signs in fish: emaciation, skin ulceration, scale loss, spinal deformity, exophthalmos, and disseminated visceral granulomas. In fish, the route is oral and branchial rather than percutaneous: "The primary route of infection is the oral one via consumption of infected dead fish, contact with affected fish skin or through gills" <strong>[F]</strong>.</p>
+<p>Reptile infection is established, and is the source of the first reported non-aquatic human transmission (bearded dragon, <a href="https://pubmed.ncbi.nlm.nih.gov/39759953/" target="_blank" rel="noopener noreferrer">PMID:39759953</a>).</p>
+<h3>Veterinary relevance</h3>
+<p>Substantial: economic losses in ornamental-fish and food-fish aquaculture, and no practical treatment for infected stock, so management is culling and biosecurity. Nine different NTM species were isolated from sixteen aquatic animals including fish, frogs, and a crocodile in one South African farmed-animal survey <strong>[F]</strong>.</p>
+<h3>Comparative biology and evolutionary conservation</h3>
+<p>The comparative pathology is the reason this organism became a model system. Zebrafish infected with <em>M. marinum</em> develop caseating granulomas that are structurally homologous to human tuberculous granulomas:</p>
+<blockquote>
+<p>"Zebrafish tuberculous granulomas undergo caseous necrosis, similar to human tuberculous granulomas." <strong>[A]</strong> — Swaim et al. 2006, <a href="https://pubmed.ncbi.nlm.nih.gov/17057088/" target="_blank" rel="noopener noreferrer">PMID:17057088</a></p>
+</blockquote>
+<p>The conserved virulence machinery spans the species: "The cell wall-associated lipid phthiocerol dimycocerosates, phenolic glycolipids and ESAT-6 secretion system 1 (ESX-1) are the conserved virulence determinant of the organism" <strong>[A]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29493404/" target="_blank" rel="noopener noreferrer">PMID:29493404</a>). The RD1/ESX-1 locus is syntenic between <em>M. marinum</em> and <em>M. tuberculosis</em>, with EsxB and EsxA sharing 97% and 91% amino-acid identity respectively <strong>[F]</strong> — a figure to verify against the primary ESX-1 review before curating.</p>
+<p>One important divergence: zebrafish granulomas "contain few lymphocytes" in contrast to mammalian tuberculous granulomas <strong>[A]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/17057088/" target="_blank" rel="noopener noreferrer">PMID:17057088</a>), even though adaptive immunity is required for control. This is the key fidelity caveat for any model link.</p>
+<h3>Zoonotic potential and cross-species susceptibility</h3>
+<p>Zoonotic, unidirectionally: fish, amphibians, and reptiles to humans, by percutaneous inoculation. There is <strong>no</strong> human-to-human and no human-to-animal transmission of concern. Not a foodborne zoonosis — eating fish does not transmit it; handling and injury do. Immunocompromised people are the group for whom the zoonotic risk is materially higher.</p>
+<blockquote>
+<p>"Mycobacteria infecting fishes include zoonotic pathogens that can cause protracted illness, especially in immunocompromised individuals." <strong>[F]</strong> — search snippet, fish mycobacteriosis review</p>
+</blockquote>
+<h3>Orthologous genes</h3>
+<p>Not applicable in the usual sense — there is no human disease gene to find an ortholog of. The relevant cross-species gene mapping is of <em>host defence</em> genes used in the model: zebrafish <em>tnfa</em>, <em>tnfr1</em>, <em>tnfr2</em>, <em>rag1</em>, <em>pycard</em>, <em>spp1</em>, <em>apodb</em>, and <em>hif1a</em>. If a <code>genetic:</code> or <code>animal_models</code> section names these, use ZFIN identifiers, and note that dismech's gene descriptors are HGNC-bound, so a zebrafish gene cannot be bound the same way a human gene is.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>Zebrafish (<em>Danio rerio</em>, NCBITaxon:7955) — the flagship model</h3>
+<p>This is a <strong>natural-host</strong> model, not an engineered one, which is why its fidelity is unusual:</p>
+<blockquote>
+<p>"The zebrafish, a genetically tractable model vertebrate, is naturally susceptible to tuberculosis caused by Mycobacterium marinum, a close genetic relative of the causative agent of human tuberculosis, Mycobacterium tuberculosis." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/17057088/" target="_blank" rel="noopener noreferrer">PMID:17057088</a></p>
+</blockquote>
+<p><strong>Two distinct preparations, and they answer different questions.</strong></p>
+<p><em>Larval/embryo model</em> — optically transparent, innate immunity only, permits intravital microscopy of single macrophages. This is where granuloma initiation, macrophage recruitment, and necroptosis were worked out (<a href="https://pubmed.ncbi.nlm.nih.gov/19135887/" target="_blank" rel="noopener noreferrer">PMID:19135887</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/20007864/" target="_blank" rel="noopener noreferrer">PMID:20007864</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/18691913/" target="_blank" rel="noopener noreferrer">PMID:18691913</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/23582643/" target="_blank" rel="noopener noreferrer">PMID:23582643</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/24336213/" target="_blank" rel="noopener noreferrer">PMID:24336213</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/35737799/" target="_blank" rel="noopener noreferrer">PMID:35737799</a>).</p>
+<p><em>Adult model</em> — innate plus adaptive immunity, caseating granulomas, dose-dependent acute versus chronic disease:</p>
+<blockquote>
+<p>"Intraperitoneal injection of five organisms produces persistent granulomatous tuberculosis, while the injection of approximately 9,000 organisms leads to acute, fulminant disease. Bacterial burden, extent of disease, pathology, and host mortality progress in a time- and dose-dependent fashion." <strong>[A]</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/17057088/" target="_blank" rel="noopener noreferrer">PMID:17057088</a></p>
+</blockquote>
+<p><strong>Genetic models available:</strong> <em>rag1</em> mutant (adaptive-immunity-deficient, hypersusceptible), <em>tnfa</em> / <em>tnfr1</em> / <em>tnfr2</em> mutants and morphants, <em>pycard</em> (inflammasome) mutants, <em>spp1</em> (osteopontin) ablation, <em>apodb</em> mutants, <em>hif1a</em> manipulation, plus transgenic macrophage and neutrophil reporter lines. On the pathogen side: ΔRD1 and ESX-1 substrate mutants (e.g. <em>espK</em>::tn).</p>
+<p><strong>Phenotype recapitulation — what it captures:</strong> granuloma formation and maturation; caseous necrosis; macrophage-centred pathogenesis; ESX-1 dependence; dose-dependent acute versus chronic course; adaptive-immunity dependence; TNF's dual protective and pathogenic roles.</p>
+<p><strong>Limitations — what it does not capture.</strong> These matter for any <code>modeled_mechanisms</code> link and belong in <code>divergences</code>:</p>
+<ul>
+<li><strong>Few lymphocytes in lesions</strong>, unlike mammalian granulomas (<a href="https://pubmed.ncbi.nlm.nih.gov/17057088/" target="_blank" rel="noopener noreferrer">PMID:17057088</a>) — a <code>POPULATION_MISMATCH</code>/<code>INCOMPLETE_PHENOTYPE</code>-shaped gap.</li>
+<li><strong>The model is a systemic/visceral tuberculosis model, not a cutaneous inoculation model.</strong> Infection is intraperitoneal or by caudal-vein injection, and the disease is disseminated and lethal. Human aquarium granuloma is a localized, self-limited-to-the-skin, non-lethal infection. This is the single most important caveat: the zebrafish model reproduces <em>granuloma biology</em> faithfully while reproducing <em>this disease's clinical form</em> hardly at all.</li>
+<li><strong>No thermal restriction.</strong> Zebrafish are housed near the organism's growth optimum, so the temperature constraint that shapes the entire human anatomical distribution is absent.</li>
+<li><strong>ΔRD1 produces "nonnecrotizing, loose macrophage aggregates"</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/17057088/" target="_blank" rel="noopener noreferrer">PMID:17057088</a>), a useful negative control but a divergence from any wild-type human lesion.</li>
+<li>Fidelity for a human <em>cutaneous</em> pathophysiology node should be recorded as <code>MODERATE</code> at best, with <code>relationship: PARTIALLY_RECAPITULATES</code>, and <code>model_scale</code> set to <code>CELLULAR</code> or <code>MOLECULAR</code> for the larval intravital work — which makes most links to a tissue-level node an <strong>upward extrapolation</strong> requiring <code>limitations</code>.</li>
+</ul>
+<h3>Mouse (<em>Mus musculus</em>, NCBITaxon:10090)</h3>
+<p>The mouse tail-lesion model exploits the same thermal biology that shapes human disease: the tail is cool enough to support <em>M. marinum</em> growth, which makes it a better anatomical analogue of the human acral lesion than any zebrafish preparation. Recent single-cell work used mice infected with wild-type, <em>espK</em>::tn, and ΔRD1 <em>M. marinum</em>, sorting infected and bystander monocytes 14 days post infection (GEO GSE235124). Mice are not natural hosts and control the infection well, which limits chronic-disease modelling.</p>
+<h3>In vitro and cellular systems</h3>
+<p>Human THP-1-derived macrophages infected with mycobacteria (GEO GSE328953, 15 samples) — the only human-cell dataset found. Primary human monocyte-derived macrophages are used in the TNF/mROS work (<a href="https://pubmed.ncbi.nlm.nih.gov/35737799/" target="_blank" rel="noopener noreferrer">PMID:35737799</a> tested human macrophages alongside zebrafish). No organoid, iPSC-derived, or organ-on-chip model of <em>M. marinum</em> skin infection was identified; a human skin-equivalent model would be the obvious gap to name in a <code>discussions:</code> entry.</p>
+<h3>Research applications</h3>
+<p>Granuloma initiation and maturation; macrophage–pathogen interaction and immune evasion by cell-wall lipids; necroptosis and its pharmacological blockade; host-directed therapy screening (alisporivir, desipramine, metformin); ESX-1 secretion biology; inflammasome and neutrophil contributions to necrosis; antimycobacterial drug screening; TB vaccine candidate testing.</p>
+<h3>Resources</h3>
+<p>ZFIN (zebrafish genes, alleles, and lines), Alliance of Genome Resources, MGI and IMSR (mouse), IMPC/KOMP (mouse knockouts), Cellosaurus and ATCC (cell lines), GEO (the eleven datasets listed in §6).</p>
+<hr />
+<h2>Curation Notes for the dismech Entry</h2>
+<p><strong>Ontology bindings — status.</strong> Every CURIE in this report was resolved in this session against OLS4 (HP, GO, CL, UBERON, CHEBI, NCIT, ECTO, MONDO) or NCBI (Taxonomy, ICD-10-CM via NLM Clinical Tables). The working tree already carries <code>MONDO:0043314</code> and <code>NCBITaxon:1781</code> in <code>cache/mondo/terms.csv</code> and <code>cache/ncbitaxon/terms.csv</code>. Two bindings still need verification before use: the GO cellular-component terms for mitochondrion and phagosome (§7) were <strong>not</strong> looked up, and every NCIT term intended for a <code>treatment_term</code> or <code>therapeutic_agent</code> slot needs <code>just validate-terms</code> to confirm dynamic-enum membership (NCIT:C51682 Debridement against the <code>NCIT:C25218</code> root; any NCIT drug class against <code>NCIT:C1909</code>).</p>
+<p><strong>Recorded negative searches</strong> (so the <code>notes</code> can state them rather than assert absence): ECTO has no term for <em>M. marinum</em> exposure, aquarium exposure, seafood exposure, or wound exposure — queries run were <code>Mycobacterium marinum</code>, <code>marinum</code>, <code>aquarium</code>, <code>seafood</code>, <code>wound</code>, <code>exposure to fish</code>, <code>exposure to bacterium</code>, <code>exposure to Mycobacterium</code>; usable terms found were <a href="https://bioregistry.io/ECTO:9000156" target="_blank" rel="noopener noreferrer">ECTO:9000156</a> and <a href="https://bioregistry.io/ECTO:5000002" target="_blank" rel="noopener noreferrer">ECTO:5000002</a>. HPO has no term for a sporotrichoid pattern or for lymphangitis — queries run were <code>Sporotrichoid</code> and <code>Lymphangitis</code>.</p>
+<p><strong>Three deliberate disagreements to curate as such</strong>, rather than resolving by preference: the doxycycline susceptibility conflict across four panels (§12), the sex-ratio reversal between the Chinese and Thai series (§9), and whether routine susceptibility testing is warranted (§12). Each is a real divergence in the literature with a plausible methodological explanation, and flattening any of them would misrepresent the evidence.</p>
+<p><strong>The dominant model-fidelity caveat</strong>, which should appear as a <code>HUMAN_MODEL_MISMATCH</code> discussion rather than buried in a <code>limitations</code> string: the mechanism in §6 steps 4–8 is known in molecular detail from zebrafish infected with this exact organism, but as <em>disseminated visceral tuberculosis</em>, not as a localized cool-skin granuloma. The pathogen is identical; the disease is not.</p>
+<p><strong>Sources</strong></p>
+<ul>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/28387180/">Aubry A et al. <em>Mycobacterium marinum</em>. Microbiol Spectr 2017 — PMID:28387180</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/12153378/">Aubry A et al. Sixty-three cases of <em>Mycobacterium marinum</em> infection. Arch Intern Med 2002 — PMID:12153378</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/35864075/">Canetti D et al. <em>Mycobacterium marinum</em>: a brief update for clinical purposes. Eur J Intern Med 2022 — PMID:35864075</a></li>
+<li><a href="https://academic.oup.com/ofid/article/9/4/ofac077/6549659">Hendrikx L et al. Treatment and Outcome of Culture-Confirmed <em>Mycobacterium marinum</em> Disease. Open Forum Infect Dis 2022 — PMID:35308482</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12174614/">Jirawattanadon P et al. Cutaneous Infection Caused by <em>Mycobacterium marinum</em> in Thailand. Health Sci Rep 2025 — PMID:40535516</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11390208/">A Series of 35 Cutaneous Infections Caused by <em>Mycobacterium marinum</em> in Han Chinese Population. J Trop Med 2023 — PMID:39262684</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/10987702/">Jernigan JA, Farr BM. Incubation period and sources of exposure. Clin Infect Dis 2000 — PMID:10987702</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/8002687/">Edelstein H. <em>Mycobacterium marinum</em> skin infections. Report of 31 cases. Arch Intern Med 1994 — PMID:8002687</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/22911774/">Wu TS et al. Fish tank granuloma caused by <em>Mycobacterium marinum</em>. PLoS One 2012 — PMID:22911774</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/3840985/">Travis WD et al. The histopathologic spectrum in <em>Mycobacterium marinum</em> infection. Arch Pathol Lab Med 1985 — PMID:3840985</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12579364/">Cen C et al. Application of T-SPOT.TB in cutaneous <em>M. marinum</em> infections. Acta Derm Venereol 2025 — PMID:41147233</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41135669/">Peng J et al. Antimicrobial susceptibility patterns and genotypic characteristics. J Glob Antimicrob Resist 2025 — PMID:41135669</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12368782/">Gu AK et al. Targeted Next-Generation Sequencing for Etiologic Diagnosis. JAMA Dermatol 2025 — PMID:40833738</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13502333/">Yang X et al. <em>Mycobacterium marinum</em> Infection: Case Report and 5-Year Systematic Review (2021–2025). Clin Cosmet Investig Dermatol 2026 — PMID:42639276</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11698610/">Kravvas G et al. A Novel, Nonaquatic Zoonotic Transmission of <em>Mycobacterium marinum</em>. Case Rep Infect Dis 2024 — PMID:39759953</a></li>
+<li><a href="https://onlinelibrary.wiley.com/doi/10.1111/tmi.14033">Jagadeesan S et al. Cutaneous infection due to <em>Mycobacterium marinum</em>: four cases from Kerala. Trop Med Int Health 2024 — PMID:39039624</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9780696/">Mycobacterium marinum Cutaneous Infection: Three Cases and Literature Review. Cureus 2022 — PMID:36579262</a></li>
+<li><a href="https://genome.cshlp.org/content/18/5/729">Stinear TP et al. Complete genome sequence of <em>Mycobacterium marinum</em>. Genome Res 2008 — PMID:18403782</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/19135887/">Davis JM, Ramakrishnan L. The role of the granuloma. Cell 2009 — PMID:19135887</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/20007864/">Volkman HE et al. Tuberculous granuloma induction via ESAT-6/MMP9. Science 2010 — PMID:20007864</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/18691913/">Clay H et al. TNF signaling mediates resistance to mycobacteria. Immunity 2008 — PMID:18691913</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/23582643/">Roca FJ, Ramakrishnan L. TNF dually mediates resistance and susceptibility. Cell 2013 — PMID:23582643</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/35737799/">Roca FJ et al. TNF induces pathogenic mitochondrial ROS through reverse electron transport. Science 2022 — PMID:35737799</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/24336213/">Cambier CJ et al. Mycobacteria manipulate macrophage recruitment. Nature 2014 — PMID:24336213</a></li>
+<li><a href="https://journals.asm.org/doi/10.1128/iai.00887-06">Swaim LE et al. <em>M. marinum</em> infection of adult zebrafish. Infect Immun 2006 — PMID:17057088</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/22304914/">Tobin DM et al. LTA4H and inflammation in mycobacterial disease. Cell 2012 — PMID:22304914</a></li>
+<li><a href="https://www.tandfonline.com/doi/full/10.1080/01652176.2018.1447171">Hashish E et al. <em>Mycobacterium marinum</em> infection in fish and man. Vet Q 2018 — PMID:29493404</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/17277290/">Griffith DE et al. ATS/IDSA statement on nontuberculous mycobacterial diseases. Am J Respir Crit Care Med 2007 — PMID:17277290</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/32797222/">Daley CL et al. Treatment of NTM Pulmonary Disease: ATS/ERS/ESCMID/IDSA guideline. Clin Infect Dis 2020 — PMID:32797222</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4312609/">Osteomyelitis Infection of <em>Mycobacterium marinum</em>: Case Report and Review — PMID:25664190</a></li>
+<li><a href="https://journals.asm.org/doi/full/10.1128/jb.00047-25">Mycobacterium marinum as a model for mycobacterial pathogenesis. J Bacteriol 2025</a></li>
+<li><a href="https://journals.asm.org/doi/full/10.1128/mmbr.00082-19">Modeling Tubercular ESX-1 Secretion Using <em>Mycobacterium marinum</em>. Microbiol Mol Biol Rev</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/S109002330800186X">Mycobacteriosis in fishes: A review. Vet J</a></li>
+<li><a href="https://www.ebi.ac.uk/ols4/ontologies/mondo/classes?obo_id=MONDO:0043314">MONDO:0043314, EBI OLS4</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc3.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>55</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>55</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>55</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>94</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>94</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>6</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0043314</code> (6 mentions) - the report calls it "MONDO"; MONDO calls it <strong>aquarium granuloma</strong></li>
+<li><code>NCBITaxon:1781</code> (6 mentions) - the report calls it "NCBI Taxonomy (agent)", "M. marinum", "Mycobacterium marinum"; NCBITaxon calls it <strong>Mycobacterium marinum</strong></li>
+<li><code>UBERON:0001473</code> (2 mentions) - the report calls it "Egress of infected macrophages into dermal lymphatics", "lymphatic vessel"; UBERON calls it <strong>lymphatic vessel</strong></li>
+<li><code>NCIT:C15986</code> (12 mentions) - the report calls it "Clarithromycin", "Rifampicin", "Rifabutin", "Ethambutol", "Doxycycline", "Minocycline", "Trimethoprim-sulfamethoxazole", "Moxifloxacin", "Linezolid", "Amikacin", "Azithromycin"; NCIT calls it <strong>Pharmacotherapy</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0032283</code> (1 mention) - the report calls it "Disseminated NTM infection"; HP calls it <strong>Disseminated non-tuberculous mycobacterial infection</strong>, and lists "Disseminated NTM infection" among its other names</li>
+<li><code>NCBITaxon:1773</code> (2 mentions) - the report calls it "M. tuberculosis", "Mycobacterium tuberculosis"; NCBITaxon calls it <strong>Mycobacterium tuberculosis</strong>, and lists "Bacterium tuberculosis" among its other names</li>
+<li><code>NCBITaxon:1809</code> (2 mentions) - the report calls it "M. ulcerans", "Mycobacterium ulcerans"; NCBITaxon calls it <strong>Mycobacterium ulcerans</strong></li>
+<li><code>UBERON:0000304</code> (2 mentions) - the report calls it "Contiguous extension to tendon sheath", "tendon sheath"; UBERON calls it <strong>tendon sheath</strong>, and lists "synovial tendon sheath" among its other names</li>
+<li><code>GO:0032760</code> (1 mention) - the report calls it "Positive regulation of TNF production"; GO calls it <strong>positive regulation of tumor necrosis factor production</strong>, and lists "positive regulation of TNF production" among its other names</li>
+<li><code>NCBITaxon:7955</code> (2 mentions) - the report calls it "Danio rerio<em> (zebrafish)"; NCBITaxon calls it </em><em>Danio rerio</em>*, and lists "Danio rerio frankei" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>NCBITaxon:1781</code> - called "NCBI Taxonomy (agent)", "M. marinum", "Mycobacterium marinum"</li>
+<li><code>NCBITaxon:1773</code> - called "M. tuberculosis", "Mycobacterium tuberculosis"</li>
+<li><code>NCBITaxon:1809</code> - called "M. ulcerans", "Mycobacterium ulcerans"</li>
+<li><code>UBERON:0001473</code> - called "Egress of infected macrophages into dermal lymphatics", "lymphatic vessel"</li>
+<li><code>UBERON:0000304</code> - called "Contiguous extension to tendon sheath", "tendon sheath"</li>
+<li><code>NCIT:C15986</code> - called "Clarithromycin", "Rifampicin", "Rifabutin", "Ethambutol", "Doxycycline", "Minocycline", "Trimethoprim-sulfamethoxazole", "Moxifloxacin", "Linezolid", "Amikacin", "Azithromycin"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Appendiceal_Neuroendocrine_Tumor-falcon.html">← Appendiceal Neuroendocrine Tumor (Falcon)</a>
+                
+                
+                <a href="Arboleda-Tham_Syndrome-falcon.html">Arboleda-Tham Syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Aquarium_Granuloma.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Aquarium_Granuloma-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

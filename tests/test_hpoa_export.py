@@ -612,3 +612,476 @@ def test_marfan_pneumothorax_exports_no_exclusion():
         f"got NOT row(s) from {[r['reference'] for r in excluded]}. A frequency-band "
         "disagreement is not an absence claim -- see docs/frequency-evidence-guidelines.md."
     )
+
+
+# --- subtype propagation -----------------------------------------------------
+
+
+def _ev(ref="PMID:1", supports="SUPPORT"):
+    return [{"reference": ref, "supports": supports, "evidence_source": "HUMAN_CLINICAL"}]
+
+
+def _subtyped_entry(phenotypes, subtypes=None):
+    return {
+        "disease_term": {"term": {"id": "MONDO:0000001", "label": "parent disease"}},
+        "creation_date": "2026-01-01T00:00:00Z",
+        "has_subtypes": subtypes
+        if subtypes is not None
+        else [
+            {"name": "Type 1", "subtype_term": {"term": {"id": "MONDO:0000011", "label": "type 1"}}},
+            {"name": "Type 2", "subtype_term": {"term": {"id": "MONDO:0000012", "label": "type 2"}}},
+            {"name": "Unbound"},
+        ],
+        "phenotypes": phenotypes,
+    }
+
+
+def _by_disease(rows):
+    out = {}
+    for r in rows:
+        out.setdefault(r["database_id"], []).append(r)
+    return out
+
+
+def test_unscoped_phenotype_propagates_to_every_mondo_subtype(tmp_path):
+    path = _write(
+        tmp_path / "d.yaml",
+        _subtyped_entry(
+            [
+                {
+                    "name": "Seizure",
+                    "frequency": "FREQUENT",
+                    "phenotype_term": {"term": {"id": "HP:0001250", "label": "Seizure"}},
+                    "evidence": _ev(),
+                }
+            ]
+        ),
+    )
+    rows, _ = hpoa_rows_for_disorder(path)
+    by = _by_disease(rows)
+    assert set(by) == {"MONDO:0000001", "MONDO:0000011", "MONDO:0000012"}
+    parent = by["MONDO:0000001"][0]
+    assert parent["inherited_from"] == ""
+    assert parent["frequency"] == "HP:0040282"
+    for sub_id, label in (("MONDO:0000011", "type 1"), ("MONDO:0000012", "type 2")):
+        (row,) = by[sub_id]
+        assert row["inherited_from"] == "MONDO:0000001"
+        assert row["disease_name"] == label
+        assert row["reference"] == "PMID:1"
+        # The parent's frequency is across all subtypes; it is not inherited.
+        assert row["frequency"] == ""
+
+
+def test_obligate_frequency_and_absence_are_inherited(tmp_path):
+    path = _write(
+        tmp_path / "d.yaml",
+        _subtyped_entry(
+            [
+                {
+                    "name": "Always",
+                    "frequency": "OBLIGATE",
+                    "phenotype_term": {"term": {"id": "HP:0000001", "label": "A"}},
+                    "evidence": _ev(),
+                },
+                {
+                    "name": "Never",
+                    "frequency": "EXCLUDED",
+                    "phenotype_term": {"term": {"id": "HP:0000002", "label": "B"}},
+                    "evidence": _ev(),
+                },
+            ]
+        ),
+    )
+    rows, _ = hpoa_rows_for_disorder(path)
+    sub = {r["hpo_id"]: r for r in rows if r["database_id"] == "MONDO:0000011"}
+    assert sub["HP:0000001"]["frequency"] == "HP:0040280"
+    assert sub["HP:0000002"]["qualifier"] == "NOT"
+
+
+def test_scoped_phenotype_goes_to_its_subtype_and_parent_only(tmp_path):
+    path = _write(
+        tmp_path / "d.yaml",
+        _subtyped_entry(
+            [
+                {
+                    "name": "Cataract",
+                    "subtype": "Type 2",
+                    "description": "Seen in 40% of type 2 patients.",
+                    "phenotype_term": {"term": {"id": "HP:0000518", "label": "Cataract"}},
+                    "evidence": _ev(),
+                }
+            ]
+        ),
+    )
+    rows, _ = hpoa_rows_for_disorder(path)
+    by = _by_disease(rows)
+    assert set(by) == {"MONDO:0000001", "MONDO:0000012"}
+    (row,) = by["MONDO:0000012"]
+    assert row["inherited_from"] == ""
+    # Stated of the subtype itself, so its own frequency is kept.
+    assert row["frequency"] == "40%"
+
+
+def test_subtype_statement_overrides_inherited_row(tmp_path):
+    path = _write(
+        tmp_path / "d.yaml",
+        _subtyped_entry(
+            [
+                {
+                    "name": "Hearing loss",
+                    "phenotype_term": {"term": {"id": "HP:0000365", "label": "Hearing impairment"}},
+                    "evidence": _ev("PMID:1"),
+                },
+                {
+                    "name": "No hearing loss in type 1",
+                    "subtype": "Type 1",
+                    "frequency": "EXCLUDED",
+                    "phenotype_term": {"term": {"id": "HP:0000365", "label": "Hearing impairment"}},
+                    "evidence": _ev("PMID:2"),
+                },
+            ]
+        ),
+    )
+    rows, _ = hpoa_rows_for_disorder(path)
+    type1 = [r for r in rows if r["database_id"] == "MONDO:0000011"]
+    assert [(r["qualifier"], r["reference"]) for r in type1] == [("NOT", "PMID:2")]
+    type2 = [r for r in rows if r["database_id"] == "MONDO:0000012"]
+    assert [(r["qualifier"], r["inherited_from"]) for r in type2] == [("", "MONDO:0000001")]
+
+
+def test_scoped_phenotype_reaches_children_via_unbound_grouping(tmp_path):
+    subtypes = [
+        {"name": "Group A", "children": ["A1", "A2"]},
+        {"name": "A1", "subtype_term": {"term": {"id": "MONDO:0000021", "label": "a1"}}},
+        {"name": "A2", "subtype_term": {"term": {"id": "MONDO:0000022", "label": "a2"}}},
+        {"name": "B", "subtype_term": {"term": {"id": "MONDO:0000023", "label": "b"}}},
+    ]
+    path = _write(
+        tmp_path / "d.yaml",
+        _subtyped_entry(
+            [
+                {
+                    "name": "Anemia",
+                    "subtype": "Group A",
+                    "phenotype_term": {"term": {"id": "HP:0001903", "label": "Anemia"}},
+                    "evidence": _ev(),
+                }
+            ],
+            subtypes,
+        ),
+    )
+    rows, _ = hpoa_rows_for_disorder(path)
+    by = _by_disease(rows)
+    assert set(by) == {"MONDO:0000001", "MONDO:0000021", "MONDO:0000022"}
+    # Group A has no identifier of its own, so the rows name the parent.
+    assert by["MONDO:0000021"][0]["inherited_from"] == "MONDO:0000001"
+
+
+def test_pointer_and_self_mapped_subtypes_receive_nothing(tmp_path):
+    subtypes = [
+        {
+            "name": "Promoted",
+            "curated_in": "Other_Entry",
+            "subtype_term": {"term": {"id": "MONDO:0000031", "label": "promoted"}},
+        },
+        {"name": "Same", "subtype_term": {"term": {"id": "MONDO:0000001", "label": "parent"}}},
+        {"name": "Ncit", "subtype_term": {"term": {"id": "NCIT:C1", "label": "x"}}},
+    ]
+    path = _write(
+        tmp_path / "d.yaml",
+        _subtyped_entry(
+            [
+                {
+                    "name": "A",
+                    "phenotype_term": {"term": {"id": "HP:0000001", "label": "A"}},
+                    "evidence": _ev(),
+                }
+            ],
+            subtypes,
+        ),
+    )
+    rows, _ = hpoa_rows_for_disorder(path)
+    assert {r["database_id"] for r in rows} == {"MONDO:0000001"}
+
+
+def test_two_subtype_names_on_one_term_emit_once(tmp_path):
+    subtypes = [
+        {"name": "X", "subtype_term": {"term": {"id": "MONDO:0000041", "label": "x"}}},
+        {"name": "X alias", "subtype_term": {"term": {"id": "MONDO:0000041", "label": "x"}}},
+    ]
+    path = _write(
+        tmp_path / "d.yaml",
+        _subtyped_entry(
+            [
+                {
+                    "name": "A",
+                    "phenotype_term": {"term": {"id": "HP:0000001", "label": "A"}},
+                    "evidence": _ev(),
+                }
+            ],
+            subtypes,
+        ),
+    )
+    rows, _ = hpoa_rows_for_disorder(path)
+    assert sum(r["database_id"] == "MONDO:0000041" for r in rows) == 1
+
+
+def test_propagation_can_be_turned_off(tmp_path):
+    path = _write(
+        tmp_path / "d.yaml",
+        _subtyped_entry(
+            [
+                {
+                    "name": "A",
+                    "phenotype_term": {"term": {"id": "HP:0000001", "label": "A"}},
+                    "evidence": _ev(),
+                }
+            ]
+        ),
+    )
+    rows, _ = hpoa_rows_for_disorder(path, propagate_subtypes=False)
+    assert {r["database_id"] for r in rows} == {"MONDO:0000001"}
+
+
+def test_subtype_with_its_own_entry_inherits_nothing(tmp_path):
+    kb = tmp_path / "kb"
+    kb.mkdir()
+    _write(
+        kb / "Parent.yaml",
+        _subtyped_entry(
+            [
+                {
+                    "name": "A",
+                    "phenotype_term": {"term": {"id": "HP:0000001", "label": "A"}},
+                    "evidence": _ev(),
+                },
+                {
+                    "name": "B",
+                    "subtype": "Type 1",
+                    "phenotype_term": {"term": {"id": "HP:0000002", "label": "B"}},
+                    "evidence": _ev(),
+                },
+            ]
+        ),
+    )
+    _write(
+        kb / "Type1.yaml",
+        {
+            "disease_term": {"term": {"id": "MONDO:0000011", "label": "type 1"}},
+            "phenotypes": [
+                {
+                    "name": "C",
+                    "phenotype_term": {"term": {"id": "HP:0000003", "label": "C"}},
+                    "evidence": _ev(),
+                }
+            ],
+        },
+    )
+    out = tmp_path / "out"
+    export(kb, out)
+    lines = [
+        line.split("\t")
+        for line in (out / "phenotype.dismech.hpoa").read_text().splitlines()
+        if not line.startswith("#")
+    ]
+    header, body = lines[0], lines[1:]
+    rows = [dict(zip(header, line)) for line in body]
+    type1 = sorted(r["hpo_id"] for r in rows if r["database_id"] == "MONDO:0000011")
+    # Its own entry's C, plus B stated of it directly by the parent; not A.
+    assert type1 == ["HP:0000002", "HP:0000003"]
+    type2 = [r["hpo_id"] for r in rows if r["database_id"] == "MONDO:0000012"]
+    assert type2 == ["HP:0000001"]
+
+
+def _chain_subtypes():
+    return [
+        {
+            "name": "A",
+            "children": ["A1"],
+            "subtype_term": {"term": {"id": "MONDO:0000002", "label": "a"}},
+        },
+        {"name": "A1", "subtype_term": {"term": {"id": "MONDO:0000003", "label": "a1"}}},
+    ]
+
+
+def test_nearest_statement_wins_for_grandchildren(tmp_path):
+    seizure = {"term": {"id": "HP:0001250", "label": "Seizure"}}
+    path = _write(
+        tmp_path / "d.yaml",
+        _subtyped_entry(
+            [
+                {"name": "Seizure", "phenotype_term": seizure, "evidence": _ev("PMID:1")},
+                {
+                    "name": "No seizures in A",
+                    "subtype": "A",
+                    "phenotype_term": seizure,
+                    "evidence": _ev("PMID:2", "REFUTE"),
+                },
+            ],
+            _chain_subtypes(),
+        ),
+    )
+    rows, _ = hpoa_rows_for_disorder(path)
+    a1 = [(r["qualifier"], r["inherited_from"]) for r in rows if r["database_id"] == "MONDO:0000003"]
+    # A states the term, so the parent's positive row stops at A.
+    assert a1 == [("NOT", "MONDO:0000002")]
+
+
+def test_unrelated_term_still_reaches_grandchildren(tmp_path):
+    path = _write(
+        tmp_path / "d.yaml",
+        _subtyped_entry(
+            [
+                {
+                    "name": "Seizure",
+                    "phenotype_term": {"term": {"id": "HP:0001250", "label": "Seizure"}},
+                    "evidence": _ev(),
+                },
+                {
+                    "name": "Cataract in A",
+                    "subtype": "A",
+                    "phenotype_term": {"term": {"id": "HP:0000518", "label": "Cataract"}},
+                    "evidence": _ev(),
+                },
+            ],
+            _chain_subtypes(),
+        ),
+    )
+    rows, _ = hpoa_rows_for_disorder(path)
+    a1 = sorted(
+        (r["hpo_id"], r["inherited_from"]) for r in rows if r["database_id"] == "MONDO:0000003"
+    )
+    assert a1 == [("HP:0000518", "MONDO:0000002"), ("HP:0001250", "MONDO:0000001")]
+
+
+def test_mixed_parent_evidence_is_not_inherited(tmp_path):
+    path = _write(
+        tmp_path / "d.yaml",
+        _subtyped_entry(
+            [
+                {
+                    "name": "Immunodeficiency",
+                    "phenotype_term": {"term": {"id": "HP:0002721", "label": "Immunodeficiency"}},
+                    "evidence": _ev("PMID:1") + _ev("PMID:2", "REFUTE"),
+                },
+                {
+                    "name": "Clean absence",
+                    "phenotype_term": {"term": {"id": "HP:0000002", "label": "B"}},
+                    "evidence": _ev("PMID:3", "REFUTE"),
+                },
+            ]
+        ),
+    )
+    rows, _ = hpoa_rows_for_disorder(path)
+    parent = sorted((r["hpo_id"], r["qualifier"]) for r in rows if r["database_id"] == "MONDO:0000001")
+    assert parent == [("HP:0000002", "NOT"), ("HP:0002721", ""), ("HP:0002721", "NOT")]
+    sub = [(r["hpo_id"], r["qualifier"]) for r in rows if r["database_id"] == "MONDO:0000011"]
+    assert sub == [("HP:0000002", "NOT")]
+
+
+# --- OMIM keying -------------------------------------------------------------
+
+
+def _sssom(path: Path, rows) -> Path:
+    lines = [
+        "# curie_map:",
+        "#   OMIM: https://omim.org/entry/",
+        "subject_id\tsubject_label\tpredicate_id\tobject_id\tobject_label\tmapping_justification",
+    ]
+    lines += ["\t".join(r) + "\tsemapv:UnspecifiedMatching" for r in rows]
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+def _read_tsv(path: Path) -> list[dict]:
+    lines = [ln for ln in path.read_text().splitlines() if not ln.startswith("#")]
+    header = lines[0].split("\t")
+    return [dict(zip(header, ln.split("\t"))) for ln in lines[1:]]
+
+
+def test_omim_key_rewrites_ids_and_reports_unmapped(tmp_path):
+    kb = tmp_path / "kb"
+    kb.mkdir()
+    _write(
+        kb / "Parent.yaml",
+        _subtyped_entry(
+            [
+                {
+                    "name": "Seizure",
+                    "phenotype_term": {"term": {"id": "HP:0001250", "label": "Seizure"}},
+                    "evidence": _ev(),
+                },
+                {
+                    "name": "No evidence",
+                    "phenotype_term": {"term": {"id": "HP:0000002", "label": "B"}},
+                },
+            ]
+        ),
+    )
+    sssom = _sssom(
+        tmp_path / "mondo.sssom.tsv",
+        [
+            # Type 1: a single exact OMIM match.
+            ("MONDO:0000011", "type 1", "skos:exactMatch", "OMIM:100001", "TYPE 1 SYNDROME"),
+            # Type 2: only a phenotypic series, and a non-exact OMIM match.
+            ("MONDO:0000012", "type 2", "skos:exactMatch", "OMIMPS:100000", "SERIES"),
+            ("MONDO:0000012", "type 2", "skos:closeMatch", "OMIM:100002", "CLOSE"),
+            # Parent: two exact OMIM matches.
+            ("MONDO:0000001", "parent", "skos:exactMatch", "OMIM:100003", "A"),
+            ("MONDO:0000001", "parent", "skos:exactMatch", "OMIM:100004", "B"),
+        ],
+    )
+    out = tmp_path / "out"
+    export(kb, out, key="omim", sssom_path=sssom)
+
+    rows = _read_tsv(out / "phenotype.dismech.omim.hpoa")
+    assert {r["database_id"] for r in rows} == {"OMIM:100001"}
+    by_hpo = {r["hpo_id"]: r for r in rows}
+    assert by_hpo["HP:0001250"]["disease_name"] == "TYPE 1 SYNDROME"
+    assert by_hpo["HP:0001250"]["mondo_id"] == "MONDO:0000011"
+    assert by_hpo["HP:0001250"]["reference"] == "PMID:1"
+    # Provenance stays in dismech's own namespace.
+    assert by_hpo["HP:0001250"]["inherited_from"] == "MONDO:0000001"
+    # An IEA row citing the parent itself keeps that citation: it names the
+    # source disease, not this one.
+    assert by_hpo["HP:0000002"]["reference"] == "MONDO:0000001"
+
+    report = {r["mondo_id"]: r for r in _read_tsv(out / "omim_unmapped.tsv")}
+    assert report["MONDO:0000001"]["reason"] == "multiple_omim"
+    assert report["MONDO:0000001"]["candidates"] == "OMIM:100003 OMIM:100004"
+    assert report["MONDO:0000001"]["rows_withheld"] == "2"
+    assert report["MONDO:0000012"]["reason"] == "phenotypic_series_only"
+    assert "MONDO:0000011" not in report
+
+
+def test_omim_key_rewrites_self_citation(tmp_path):
+    kb = tmp_path / "kb"
+    kb.mkdir()
+    _write(
+        kb / "D.yaml",
+        {
+            "disease_term": {"term": {"id": "MONDO:0000001", "label": "d"}},
+            "phenotypes": [
+                {"name": "A", "phenotype_term": {"term": {"id": "HP:0000001", "label": "A"}}}
+            ],
+        },
+    )
+    sssom = _sssom(
+        tmp_path / "s.tsv",
+        [("MONDO:0000001", "d", "skos:exactMatch", "OMIM:200000", "D SYNDROME")],
+    )
+    out = tmp_path / "out"
+    n_hpoa, _ = export(kb, out, key="omim", sssom_path=sssom)
+    (row,) = _read_tsv(out / "phenotype.dismech.omim.hpoa")
+    assert n_hpoa == 1
+    assert (row["database_id"], row["reference"], row["evidence"]) == (
+        "OMIM:200000",
+        "OMIM:200000",
+        "IEA",
+    )
+    assert _read_tsv(out / "omim_unmapped.tsv") == []
+
+
+def test_omim_key_needs_sssom(tmp_path):
+    with pytest.raises(ValueError, match="sssom"):
+        export(tmp_path, tmp_path / "out", key="omim")

@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anaerobic Pneumonia · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/genes/">Genes</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Anaerobic Pneumonia</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Anaerobic Pneumonia</h1>
+                
+                <p class="report-subtitle">Anaerobic Pneumonia (MONDO:0004649): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0004649" target="_blank" rel="noopener noreferrer">MONDO:0004649</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">38 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Anaerobic Pneumonia (<a href="http://purl.obolibrary.org/obo/MONDO_0004649" target="_blank" rel="noopener noreferrer">MONDO:0004649</a>): A Comprehensive Disease Characteristics Report</h1>
+<p><em>Category: Infectious Disease | Evidence base: 51 papers reviewed, 10 confirmed findings</em></p>
+<hr />
+<h2>Summary</h2>
+<p><strong>Anaerobic pneumonia is an acquired, non-genetic infectious lung disease caused by aspiration of oropharyngeal and gingival anaerobic bacteria into dependent lung segments.</strong> It is fundamentally a <em>polymicrobial</em> infection, dominated by obligate anaerobes—principally pigmented and nonpigmented <em>Prevotella</em> species, <em>Fusobacterium nucleatum</em>, <em>Peptostreptococcus</em> species, and <em>Bacteroides</em> species—that frequently co-exist with microaerophilic streptococci and aerobic Gram-negative bacilli. Because the causative organisms are members of the normal mouth flora, the disease has no Mendelian genetic basis; instead its "etiology" is a chain that begins with a breach of airway protective reflexes (impaired consciousness, dysphagia, impaired cough) combined with a large oral bacterial inoculum (periodontal disease), which permits aspirated anaerobes to establish a synergistic, tissue-destructive infection in the lung.</p>
+<p>The disease follows a characteristic <strong>subacute course</strong>: over roughly 8–14 days after the aspiration event, an initial aspiration pneumonitis evolves into necrotizing pneumonia, then to cavitary lung abscess, and can progress to empyema and bronchopleural fistula. The clinical hallmark is <em>foul-smelling, putrid sputum</em> with fever and productive cough, and the diagnostic hallmark is a cavitary lesion with an air–fluid level in a dependent lung segment on chest imaging. Anaerobic culture is often falsely negative because specimens are contaminated by upper-airway flora, and modern comprehensive metagenomic next-generation sequencing (mNGS) of bronchoalveolar lavage fluid can recover fastidious anaerobes missed by culture and targeted panels.</p>
+<p><strong>Antibiotic therapy cures 80–90% of cases</strong>, with clindamycin and β-lactam/β-lactamase-inhibitor combinations as first-line agents; surgery/drainage is reserved for complications such as empyema. Prevention rests on oral hygiene (professional oral care in long-term-care settings) and dysphagia management. A notable epidemiologic trend is a <em>shift in microbial etiology</em> away from classical anaerobes toward Gram-negative bacilli (e.g., <em>Klebsiella pneumoniae</em>), and mortality in severe aspiration-related disease remains high (20–50% in critically ill patients). The disease occurs naturally across mammalian species, with dogs (post-anesthetic aspiration, laryngeal paralysis, megaesophagus) and horses (transport-associated pleuropneumonia) serving as informative veterinary counterparts.</p>
+<hr />
+<h2>Section 1. Disease Information</h2>
+<p><strong>Overview.</strong> Anaerobic pneumonia is a lower-respiratory-tract infection of the lung parenchyma caused predominantly by obligate anaerobic bacteria that normally colonize the oral cavity, gingival crevice, and upper airway. It is most often the consequence of aspiration of oropharyngeal secretions, and it sits on a clinical-pathological continuum with aspiration pneumonitis, necrotizing pneumonia, lung abscess, and empyema. Anaerobes "are involved in infections such as pneumonia, aspiration pneumonia, lung abscess and empyema" and "lower respiratory infections are usually either polymicrobial or mixed anaerobic-aerobic infections" (<a href="https://pubmed.ncbi.nlm.nih.gov/12959026/">PMID: 12959026</a>).</p>
+<p><strong>Key identifiers.</strong>
+- <strong>MONDO:</strong> 0004649
+- <strong>MeSH:</strong> "Pneumonia, Aspiration" / anaerobic bacterial infections (closest indexing terms; there is no dedicated OMIM entry).
+- <strong>ICD-10:</strong> J69.0 (Pneumonitis due to inhalation of food and vomit / aspiration pneumonia) is the code used in mortality databases for the aspiration process (<a href="https://pubmed.ncbi.nlm.nih.gov/42740601/">PMID: 42740601</a>); anaerobic bacterial pneumonia maps to J15.8/J15.9 (other/unspecified bacterial pneumonia).
+- <strong>OMIM / Orphanet:</strong> Not applicable — this is an acquired infectious disease, not a Mendelian or rare genetic disorder.</p>
+<p><strong>Synonyms / alternative names.</strong> Anaerobic pleuropulmonary infection; anaerobic lung infection; aspiration pneumonia (overlapping term); putrid/necrotizing pneumonia; anaerobic lung abscess (when cavitary).</p>
+<p><strong>Source of information.</strong> The knowledge here is derived from <em>aggregated disease-level</em> clinical and microbiological literature — bacteriologic case series, cohort studies, systematic reviews, and mechanistic/animal studies — rather than from individual patient EHR records.</p>
+<hr />
+<h2>Section 2. Etiology</h2>
+<p><strong>Primary cause — infectious/mechanistic, not genetic.</strong> The proximate cause is aspiration of oropharyngeal/gingival flora into the lower respiratory tract in a host with impaired airway protection. There is <strong>no causal gene, no Mendelian inheritance, and no defined pathogenic variant</strong> for anaerobic pneumonia itself (see Section 4). The dominant organisms are obligate anaerobes; a retrospective bacteriologic study of 116 specimens from 110 patients found that "cultures yielded an average of 3.0 anaerobes and 0.6 nonanaerobes per specimen. The most commonly encountered anaerobes were pigmented <em>Prevotella</em> species, nonpigmented <em>Prevotella</em> species, <em>Fusobacterium nucleatum</em>, <em>Peptostreptococcus</em> species, and <em>Bacteroides</em> species" (<a href="https://pubmed.ncbi.nlm.nih.gov/8324128/">PMID: 8324128</a>). In acute community-acquired lung abscess, a mean of 2.3 bacterial species per patient was isolated, with "anaerobes alone being isolated in 44% of cases, aerobes alone in 19%, and mixed aerobic and anaerobic isolates in 22%" (<a href="https://pubmed.ncbi.nlm.nih.gov/7555164/">PMID: 7555164</a>).</p>
+<p><strong>Environmental / clinical risk factors.</strong> The classic predisposing conditions reduce or defeat airway protective reflexes:
+- <strong>Compromised mental status</strong> — "alcoholism, sedatives, stroke" — and <strong>esophageal dysfunction</strong> — "herniation, vomiting" — are important risk factors (<a href="https://pubmed.ncbi.nlm.nih.gov/11695090/">PMID: 11695090</a>).
+- <strong>Swallowing dysfunction, impaired cough reflex, and degenerative neurological diseases</strong> predispose to aspiration pneumonia (<a href="https://pubmed.ncbi.nlm.nih.gov/39536943/">PMID: 39536943</a>).
+- <strong>Oral frailty / dysphagia markers</strong> carry measurable risk: in long-term-care residents, "inability to gargle (OR = 1.991; 95% CI: 1.139–3.479) and unclear speech (OR = 1.752; 95% CI: 1.085–2.829) remained significantly associated with" aspiration pneumonia (<a href="https://pubmed.ncbi.nlm.nih.gov/42548261/">PMID: 42548261</a>).
+- <strong>Periodontal disease / large oral bacterial inoculum</strong> supplies the pathogens; anaerobes "are predominant components of normal oral cavity, upper respiratory tract" flora (<a href="https://pubmed.ncbi.nlm.nih.gov/12959026/">PMID: 12959026</a>).
+- <strong>Diabetes mellitus</strong> is a risk factor for the Gram-negative (<em>Klebsiella</em>) subset of lung abscess: "Lung abscess due to K. pneumoniae was associated with underlying diabetes mellitus (odds ratio [OR], 4.3; 95% confidence interval [CI], 1.0–18.4; P = .039)" (<a href="https://pubmed.ncbi.nlm.nih.gov/15824979/">PMID: 15824979</a>).
+- <strong>Age / functional dependence</strong> — older, functionally dependent inpatients are heavily affected; ~20% of dementia-care-eligible hospitalizations were for pneumonia or aspiration pneumonia (<a href="https://pubmed.ncbi.nlm.nih.gov/42711657/">PMID: 42711657</a>).</p>
+<p><strong>Genetic risk factors.</strong> None established in humans. (In dogs, a heritable predisposition to megaesophagus indirectly raises aspiration risk — see Section 14.)</p>
+<p><strong>Protective factors.</strong> Environmental/behavioral: professional oral health care and dysphagia rehabilitation reduce risk (Sections 5, 13). No genetic protective variants are defined.</p>
+<p><strong>Gene–environment interactions.</strong> Not applicable in humans; the disease is driven by host functional state (consciousness, swallowing) interacting with oral microbial burden rather than by host genotype.</p>
+<hr />
+<h2>Section 3. Phenotypes</h2>
+<p>The clinical phenotype is a <strong>subacute febrile pneumonia with productive, putrid sputum</strong>, often progressing to cavitary disease. Phenotype frequencies (largely from lung-abscess cohorts) and suggested HPO terms:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype (type)</th>
+<th>Frequency / characteristics</th>
+<th>Suggested HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever (symptom/sign)</td>
+<td>91% in a pediatric lung-abscess cohort (n=23); subacute onset</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> (Fever)</td>
+</tr>
+<tr>
+<td>Productive cough (symptom)</td>
+<td>87% ("Cough was reported in 87% of cases")</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031245" target="_blank" rel="noopener noreferrer">HP:0031245</a> (Productive cough) / <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" rel="noopener noreferrer">HP:0012735</a> (Cough)</td>
+</tr>
+<tr>
+<td>Hypoactivity / malaise (sign)</td>
+<td>91%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025406" target="_blank" rel="noopener noreferrer">HP:0025406</a> (Fatigue-related); constitutional</td>
+</tr>
+<tr>
+<td>Foul-smelling / putrid sputum (sign)</td>
+<td>Characteristic; appears 8–14 days post-aspiration</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031246" target="_blank" rel="noopener noreferrer">HP:0031246</a> (Purulent sputum); putrid odor is disease-specific</td>
+</tr>
+<tr>
+<td>Cavitary pulmonary lesion (radiographic/physical manifestation)</td>
+<td>Hallmark; air–fluid level on CT</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025426" target="_blank" rel="noopener noreferrer">HP:0025426</a> (Pulmonary cavity)</td>
+</tr>
+<tr>
+<td>Pleural effusion / empyema (sign)</td>
+<td>Complication; loculated fluid</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002202" target="_blank" rel="noopener noreferrer">HP:0002202</a> (Pleural effusion); <a href="http://purl.obolibrary.org/obo/HP_0032247" target="_blank" rel="noopener noreferrer">HP:0032247</a> (Empyema)</td>
+</tr>
+<tr>
+<td>Hemoptysis, chest pain (symptoms)</td>
+<td>Reported in abscess series</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" rel="noopener noreferrer">HP:0002105</a> (Hemoptysis); <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" rel="noopener noreferrer">HP:0100749</a> (Chest pain)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Symptom characteristics.</strong> Onset is typically <em>adult</em> (and geriatric), though pediatric cases occur; the pattern is <em>subacute/insidious</em>. Classic anaerobic infection produces "the characteristic, foul-smelling, putrid discharge [that] only occur[s] 8–14 days after the initial aspiration event," together with "necrotizing pneumonia [and] pulmonary abscesses" (<a href="https://pubmed.ncbi.nlm.nih.gov/20477271/">PMID: 20477271</a>). In pediatric lung abscess, "systemic symptoms such as fever (91%) and hypoactivity (91%) were common. Cough was reported in 87% of cases" (<a href="https://pubmed.ncbi.nlm.nih.gov/41886424/">PMID: 41886424</a>). Severity ranges from mild pneumonitis to severe necrotizing/cavitary disease; progression without treatment is <em>progressive</em>, but with antibiotics is usually resolving (radiologic resolution in 91% after ~4.8 weeks of antibiotics in the pediatric cohort).</p>
+<p><strong>Quality-of-life impact.</strong> Not formally quantified with EQ-5D/SF-36 in the reviewed literature. Indirect impact is substantial: aspiration pneumonia drives prolonged hospitalization, ICU admission, nasogastric-tube dependence, and functional decline in frail and dementia populations (<a href="https://pubmed.ncbi.nlm.nih.gov/42472523/">PMID: 42472523</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42711657/">PMID: 42711657</a>).</p>
+<hr />
+<h2>Section 4. Genetic / Molecular Information</h2>
+<p><strong>Not applicable — this is an acquired bacterial infection.</strong> There are no causal human genes, no pathogenic germline or somatic variants (no ClinVar/HGMD entries), no modifier genes, no disease-defining epigenetic marks, and no chromosomal abnormalities associated with anaerobic pneumonia. Host susceptibility is determined by <em>functional</em> states (level of consciousness, swallowing and cough reflexes, oral hygiene, comorbidities such as diabetes) rather than by genotype.</p>
+<p>The only genetic finding in the broader disease space concerns an <strong>animal model of a predisposing condition</strong>: canine congenital idiopathic megaesophagus (which causes recurrent aspiration pneumonia) is associated with an intronic VNTR in <em>MCHR2</em> (Melanin-Concentrating Hormone Receptor 2) in German Shepherd dogs, with "The single-copy allele … strongly associated with CIM (P-val = 1.32×10⁻¹⁷)" (<a href="https://pubmed.ncbi.nlm.nih.gov/35271580/">PMID: 35271580</a>). This is a susceptibility locus for aspiration risk in dogs, <strong>not</strong> for anaerobic pneumonia per se, and has no human ortholog association with the disease.</p>
+<hr />
+<h2>Section 5. Environmental Information</h2>
+<p><strong>Environmental / occupational factors.</strong> None of the classical toxicologic type (no CTD toxin associations). The relevant "exposure" is the microbial reservoir of the oral cavity plus events that provoke aspiration (sedation, anesthesia, alcohol intoxication, vomiting).</p>
+<p><strong>Lifestyle factors.</strong> Alcoholism (compromised consciousness), sedative use, and smoking are contributors. Long-term smoking was common (75%) in an mNGS-confirmed anaerobic lung-abscess series, in which "all patients had oral diseases, and 75% were long-term smokers" (<a href="https://pubmed.ncbi.nlm.nih.gov/41054501/">PMID: 41054501</a>). Poor oral hygiene/periodontal disease is a modifiable lifestyle-linked exposure.</p>
+<p><strong>Infectious agents (NCBI Taxonomy).</strong> The pathogens are the etiologic core of the disease:
+- <em>Prevotella</em> spp. (e.g., <em>Prevotella intermedia</em>) — pigmented and nonpigmented (NCBI:txid838 genus)
+- <em>Fusobacterium nucleatum</em> (NCBI:txid851)
+- <em>Peptostreptococcus</em> spp. (NCBI:txid1257)
+- <em>Bacteroides</em> spp. (NCBI:txid816)
+- Microaerophilic/anaerobic streptococci (co-pathogens)
+- <em>Actinomyces</em> spp. (e.g., <em>A. graevenitzii</em>) in actinomycosis-type presentations (<a href="https://pubmed.ncbi.nlm.nih.gov/40923736/">PMID: 40923736</a>)
+- Increasingly, aerobic Gram-negative bacilli — <em>Klebsiella pneumoniae</em> (NCBI:txid573) — in the shifting etiology (<a href="https://pubmed.ncbi.nlm.nih.gov/15824979/">PMID: 15824979</a>)</p>
+<p>"<em>Peptostreptococcus</em>, <em>Fusobacterium</em>, <em>Prevotella</em> and <em>Bacteroides</em> are the most common anaerobes" in lower respiratory infections (<a href="https://pubmed.ncbi.nlm.nih.gov/12959026/">PMID: 12959026</a>).</p>
+<hr />
+<h2>Section 6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li><strong>Impaired airway protection</strong> (depressed consciousness, dysphagia, impaired cough reflex; alcohol, sedation, stroke, megaesophagus) <strong>leads to</strong> loss of the normal barrier that clears oropharyngeal secretions.</li>
+<li>This <strong>results in aspiration</strong> of oropharyngeal/gingival secretions carrying a high anaerobic bacterial load into the lower respiratory tract — "the process of alveolar inflammation induced by the inhalation of oropharyngeal secretions into the lower respiratory tract" (<a href="https://pubmed.ncbi.nlm.nih.gov/39536943/">PMID: 39536943</a>).</li>
+<li>Aspirated material <strong>deposits by gravity in dependent lung segments</strong> (posterior segments of upper lobes, superior segments of lower lobes), determining lesion location; pulmonary distribution is "determined by a complex interplay between infection routes, lung anatomy and physiology, host defense mechanisms" (<a href="https://pubmed.ncbi.nlm.nih.gov/42279473/">PMID: 42279473</a>).</li>
+<li>Anaerobes <strong>establish a polymicrobial/mixed anaerobic-aerobic community</strong> in the airway (<a href="https://pubmed.ncbi.nlm.nih.gov/12959026/">PMID: 12959026</a>).</li>
+<li><strong>Microbial synergy amplifies infection and inflammation</strong> — <em>inferred from model evidence</em>: supernatant of the periodontopathic anaerobe <em>Prevotella intermedia</em> upregulated alveolar platelet-activating-factor receptor (PAFR) and "in A549 cells, PiSup increased pneumococcal adhesion and PAFR transcript levels," producing more severe bacteremic pneumonia with higher MIP-2 and TNF-α in mice (<a href="https://pubmed.ncbi.nlm.nih.gov/24478074/">PMID: 24478074</a>).</li>
+<li>Sustained mixed infection with anaerobic tissue-destroying enzymes and host neutrophilic inflammation <strong>leads to tissue necrosis</strong> → necrotizing pneumonia (branch point).</li>
+<li>Necrosis <strong>results in liquefaction and cavitation</strong> → lung abscess with an air–fluid level; putrid sputum reflects anaerobic metabolic byproducts; these features "only occur 8–14 days after the initial aspiration event" (<a href="https://pubmed.ncbi.nlm.nih.gov/20477271/">PMID: 20477271</a>).</li>
+<li><strong>Branch:</strong> extension to the pleural space <strong>results in</strong> parapneumonic effusion → empyema; erosion into airways <strong>results in</strong> bronchopleural fistula and metastatic (e.g., subpleural, brain) abscess (<a href="https://pubmed.ncbi.nlm.nih.gov/41174571/">PMID: 41174571</a>).</li>
+</ol>
+<h3>Detail by category</h3>
+<ul>
+<li><strong>Molecular pathways.</strong> PAFR-mediated bacterial adhesion (model evidence) links anaerobe products to enhanced pathogen attachment and cytokine induction (MIP-2/CXCL2, TNF-α) (<a href="https://pubmed.ncbi.nlm.nih.gov/24478074/">PMID: 24478074</a>). Suggested GO terms: <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response), <a href="http://purl.obolibrary.org/obo/GO_0071222" target="_blank" rel="noopener noreferrer">GO:0071222</a> (cellular response to lipopolysaccharide).</li>
+<li><strong>Cellular processes.</strong> Neutrophilic inflammation, phagocytosis, tissue necrosis. <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" rel="noopener noreferrer">GO:0006909</a> (phagocytosis), <a href="http://purl.obolibrary.org/obo/GO_0070265" target="_blank" rel="noopener noreferrer">GO:0070265</a> (necrotic cell death), <a href="http://purl.obolibrary.org/obo/GO_0002438" target="_blank" rel="noopener noreferrer">GO:0002438</a> (acute inflammatory response to antigenic stimulus).</li>
+<li><strong>Immune involvement.</strong> Innate neutrophil-dominated response; no autoimmunity or primary immunodeficiency required, though immunosuppression worsens outcome. <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" rel="noopener noreferrer">GO:0006955</a> (immune response).</li>
+<li><strong>Tissue-damage mechanisms.</strong> Necrosis and abscess formation via bacterial proteases/toxins and host proteolytic burst; suppurative and, in <em>Actinomyces</em>, granulomatous inflammation with sulfur granules (<a href="https://pubmed.ncbi.nlm.nih.gov/40923736/">PMID: 40923736</a>).</li>
+<li><strong>Molecular profiling.</strong> No transcriptomic/proteomic/metabolomic host disease signatures are established for anaerobic pneumonia; the most relevant "omics" tool is <strong>metagenomic sequencing for pathogen detection</strong> (Section 10), not host profiling.</li>
+</ul>
+<p><strong>Cell types involved (CL):</strong> <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> (neutrophil), <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" rel="noopener noreferrer">CL:0000066</a> (epithelial cell — alveolar/airway), <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" rel="noopener noreferrer">CL:0002063</a> (type II pneumocyte; A549 is a type-II-like line).</p>
+<hr />
+<h2>Section 7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organ:</strong> lung (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a></strong>), respiratory system (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0001004" target="_blank" rel="noopener noreferrer">UBERON:0001004</a></strong>).</li>
+<li><strong>Localization:</strong> <em>dependent</em> lung segments — posterior segments of upper lobes and superior segments of lower lobes — reflecting gravitational deposition of aspirate. Right lower lobe is frequently involved (right main bronchus is more vertical); cases document right-lower-lobe abscess (<a href="https://pubmed.ncbi.nlm.nih.gov/41688916/">PMID: 41688916</a>).</li>
+<li><strong>Lateralization:</strong> commonly <em>unilateral</em> and dependent-segment predominant, but may be bilateral.</li>
+<li><strong>Secondary/adjacent structures:</strong> pleura and pleural cavity (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002402" target="_blank" rel="noopener noreferrer">UBERON:0002402</a> / <a href="http://purl.obolibrary.org/obo/UBERON_0002384" target="_blank" rel="noopener noreferrer">UBERON:0002384</a></strong>) → empyema; bronchi (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" rel="noopener noreferrer">UBERON:0002185</a></strong>) → bronchopleural fistula; mediastinum by extension.</li>
+<li><strong>Tissue level:</strong> alveolar and bronchial <strong>epithelium</strong> (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0000483" target="_blank" rel="noopener noreferrer">UBERON:0000483</a></strong>), lung parenchyma/connective tissue; suppurative destruction of parenchyma.</li>
+<li><strong>Subcellular (GO cellular component):</strong> infection is extracellular/luminal; host responses engage plasma-membrane receptors (PAFR, <a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a> plasma membrane) and secretory/inflammatory machinery. No defined organelle-level lesion.</li>
+<li><strong>Body systems:</strong> respiratory (primary); systemic (sepsis/bacteremia) as complication.</li>
+</ul>
+<hr />
+<h2>Section 8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> predominantly <em>adult and geriatric</em>, though pediatric cases occur; pattern is <em>subacute/insidious</em>. The disease characteristically declares itself over <strong>8–14 days</strong> after aspiration, when "necrotizing pneumonia, pulmonary abscesses and the characteristic, foul-smelling, putrid discharge" appear (<a href="https://pubmed.ncbi.nlm.nih.gov/20477271/">PMID: 20477271</a>).</li>
+<li><strong>Stages / progression:</strong> aspiration pneumonitis → necrotizing pneumonia → lung abscess → empyema/bronchopleural fistula. These "bacteria are relatively common in selected types of lung infections including aspiration pneumonia, lung abscess, necrotizing pneumonia and emphyema [empyema]" (<a href="https://pubmed.ncbi.nlm.nih.gov/23398871/">PMID: 23398871</a>).</li>
+<li><strong>Progression rate:</strong> subacute; slower than typical pyogenic (e.g., pneumococcal) pneumonia, contributing to delayed diagnosis.</li>
+<li><strong>Course pattern:</strong> typically <em>progressive</em> if untreated; can be <em>recurrent</em> when the predisposing condition (e.g., megaesophagus, persistent dysphagia) is uncorrected.</li>
+<li><strong>Duration:</strong> treatment courses are prolonged — weeks. Pediatric abscess achieved full radiologic resolution in 91% after ~4.8 weeks of antibiotics (<a href="https://pubmed.ncbi.nlm.nih.gov/41886424/">PMID: 41886424</a>).</li>
+<li><strong>Remission:</strong> treatment-induced remission is the norm with adequate antibiotics ± drainage.</li>
+<li><strong>Critical period for intervention:</strong> the window before cavitation/empyema — early antibiotic therapy and airway protection prevent progression.</li>
+</ul>
+<hr />
+<h2>Section 9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> none — acquired infectious disease; no Mendelian pattern, penetrance, expressivity, anticipation, mosaicism, founder effect, consanguinity, or carrier frequency applies to humans.</li>
+<li><strong>Epidemiology:</strong> anaerobic pneumonia is a subset of aspiration-related pneumonia; exact population prevalence/incidence for the anaerobic subset is not well delineated because of culture blind spots. Aspiration pneumonia is a major burden in elderly, institutionalized, and neurologically impaired populations (~20% of dementia-care hospitalizations involved pneumonia/aspiration pneumonia; <a href="https://pubmed.ncbi.nlm.nih.gov/42711657/">PMID: 42711657</a>).</li>
+<li><strong>Mortality:</strong> high in severe disease — "Aspiration pneumonia is a common and life-threatening condition among critically ill patients, with mortality reaching 20-50%," and a MIMIC-IV ICU cohort of 2,132 patients had 25.5% in-hospital mortality (<a href="https://pubmed.ncbi.nlm.nih.gov/42721055/">PMID: 42721055</a>). US aspiration-pneumonitis mortality with co-listed stroke declined from an age-adjusted 9.20 to 3.55 per 100,000 (1999–2024) (<a href="https://pubmed.ncbi.nlm.nih.gov/42740601/">PMID: 42740601</a>).</li>
+<li><strong>Demographics:</strong> male predominance in aspiration-pneumonitis mortality (AAMR 13.38→4.92 in men vs 6.79→2.46 in women); higher rates in nonmetropolitan/rural counties and the US South (<a href="https://pubmed.ncbi.nlm.nih.gov/42740601/">PMID: 42740601</a>).</li>
+<li><strong>Geographic microbiological variation:</strong> in Taiwan, ~21% of community-acquired lung abscesses were due to <em>Klebsiella pneumoniae</em>, reflecting regional dominance of Gram-negative etiology (<a href="https://pubmed.ncbi.nlm.nih.gov/15824979/">PMID: 15824979</a>).</li>
+</ul>
+<hr />
+<h2>Section 10. Diagnostics</h2>
+<p><strong>The central diagnostic challenge is recovering the causative anaerobes.</strong> Routine culture frequently fails because specimens are contaminated by upper-airway flora and anaerobic bacteriology is technically demanding — anaerobes "are rarely recovered" and "anaerobic bacteriology is inadequate" (<a href="https://pubmed.ncbi.nlm.nih.gov/23398871/">PMID: 23398871</a>).</p>
+<p><strong>Imaging (RadLex/Radiopaedia).</strong> Chest radiograph and CT are the primary tools. The hallmark is a <strong>cavitary lesion with an air–fluid level</strong> in a dependent segment: "Chest CT revealed a cavitary lesion with an air-fluid level in the right lower lobe" (<a href="https://pubmed.ncbi.nlm.nih.gov/41688916/">PMID: 41688916</a>). Non-contrast high-resolution CT distinguishes necrotizing pneumonia, abscess, and other cavitary lesions using features such as irregular borders and pleural-effusion heterogeneity (<a href="https://pubmed.ncbi.nlm.nih.gov/42487366/">PMID: 42487366</a>). Radiographic pattern (lobar, bronchopneumonic, necrotizing, abscess-forming, cavitating) correlates with pathogen and host (<a href="https://pubmed.ncbi.nlm.nih.gov/42279473/">PMID: 42279473</a>).</p>
+<p><strong>Microbiological sampling.</strong> Uncontaminated specimens are needed: pus/purulent fluid, transtracheal aspirate, protected specimen brush, bronchoalveolar lavage (BAL), or pleural fluid (<a href="https://pubmed.ncbi.nlm.nih.gov/12959026/">PMID: 12959026</a>). Fiberoptic bronchoscopy with protected-specimen brushing also helps exclude airway obstruction/neoplasm.</p>
+<p><strong>Molecular / omics diagnostics.</strong> Metagenomic next-generation sequencing (mNGS) of BAL fluid overcomes culture and targeted-panel blind spots: "tNGS was unable to detect anaerobic pathogens due to the limited scope of anaerobic bacterial targets in commercial panels. In contrast, comprehensive mNGS, when correctly interpreted in conjunction with clinical context, can detect anaerobic sequences" (<a href="https://pubmed.ncbi.nlm.nih.gov/42445473/">PMID: 42445473</a>). mNGS has revealed fastidious anaerobes in culture-negative pediatric and adult abscesses (<a href="https://pubmed.ncbi.nlm.nih.gov/39239243/">PMID: 39239243</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41054501/">PMID: 41054501</a>).</p>
+<p><strong>Differential diagnosis of cavitary lung disease.</strong> "Differential diagnosis includes bronchial neoplasms, either as necrotizing carcinoma or as the cause of poststenotic cavernous pneumonia, other infectious diseases like tuberculosis, Pneumocystis carinii pneumonia or endocarditis with septic metastases, and lung artery embolism or vasculitis" (<a href="https://pubmed.ncbi.nlm.nih.gov/11695090/">PMID: 11695090</a>). Additional mimics in the reviewed literature: primary pulmonary osteosarcoma (<a href="https://pubmed.ncbi.nlm.nih.gov/1430451/">PMID: 1430451</a>), tuberculosis with niveau-like shadows (<a href="https://pubmed.ncbi.nlm.nih.gov/8683908/">PMID: 8683908</a>), infected pancreatic pseudocyst (<a href="https://pubmed.ncbi.nlm.nih.gov/17352178/">PMID: 17352178</a>), hydatid cyst, and pulmonary aspergilloma.</p>
+<p><strong>Genetic testing / screening:</strong> not applicable.</p>
+<hr />
+<h2>Section 11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Cure / response:</strong> favorable with adequate therapy — antibiotics "can provide cure in 80-90% of cases" (<a href="https://pubmed.ncbi.nlm.nih.gov/20477271/">PMID: 20477271</a>); pediatric abscess resolved radiologically in 91% (<a href="https://pubmed.ncbi.nlm.nih.gov/41886424/">PMID: 41886424</a>).</li>
+<li><strong>Mortality:</strong> high in severe/critically ill and elderly frail patients (20–50%; ICU in-hospital 25.5%) (<a href="https://pubmed.ncbi.nlm.nih.gov/42721055/">PMID: 42721055</a>); persistent critical illness is common after aspiration-related respiratory failure and confers ~3-fold higher one-year mortality after onset (<a href="https://pubmed.ncbi.nlm.nih.gov/42748124/">PMID: 42748124</a>).</li>
+<li><strong>Complications:</strong> lung abscess, necrotizing pneumonia, empyema, bronchopleural fistula, subpleural/brain abscess (metastatic); severe necrotizing infection can evolve to "necrotizing pneumonia, multiple lung abscesses, bronchopleural fistula, empyema and subpleural abscess" (<a href="https://pubmed.ncbi.nlm.nih.gov/41174571/">PMID: 41174571</a>).</li>
+<li><strong>Prognostic factors:</strong> severity/critical illness, host frailty and comorbidity (diabetes, dementia, neurologic disease), Gram-negative etiology, empyema/loculation, and delayed diagnosis. Systemic inflammatory indices are being explored as ICU prognostic markers (<a href="https://pubmed.ncbi.nlm.nih.gov/42721055/">PMID: 42721055</a>).</li>
+<li><strong>Recovery:</strong> high with timely antibiotics ± drainage; recurrence occurs if the underlying aspiration risk is uncorrected.</li>
+</ul>
+<hr />
+<h2>Section 12. Treatment</h2>
+<p><strong>Pharmacotherapy (first-line).</strong> "Preferred antibiotics for these infections based on clinical experience are clindamycin and any beta-lactam–beta-lactamase inhibitor" (<a href="https://pubmed.ncbi.nlm.nih.gov/23398871/">PMID: 23398871</a>). Equal clinical efficacy is reported for aminopenicillin/β-lactamase-inhibitor combinations, newer anti-anaerobic fluoroquinolones (moxifloxacin), and clindamycin (<a href="https://pubmed.ncbi.nlm.nih.gov/20477271/">PMID: 20477271</a>). Anaerobes are susceptible to "metronidazole … amoxicillin/clavulanate, ampicillin/sulbactam, piperacillin/tazobactam, imipenem and clindamycin" (<a href="https://pubmed.ncbi.nlm.nih.gov/12959026/">PMID: 12959026</a>).</p>
+<p><strong>β-lactamase coverage matters:</strong> "Thirty percent of the anaerobic gram-negative rods were beta-lactamase producers," justifying β-lactamase-inhibitor combinations (<a href="https://pubmed.ncbi.nlm.nih.gov/8324128/">PMID: 8324128</a>).</p>
+<p><strong>Metronidazole caveat:</strong> monotherapy fails because it lacks activity against the microaerophilic/aerobic streptococci in the mixed flora — combination therapy with an agent active against both anaerobes and aerobes is recommended (<a href="https://pubmed.ncbi.nlm.nih.gov/12959026/">PMID: 12959026</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Drug / class</th>
+<th>Role</th>
+<th>NCIT (suggested)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clindamycin (lincosamide)</td>
+<td>First-line</td>
+<td>NCIT:C376</td>
+</tr>
+<tr>
+<td>Amoxicillin-clavulanate</td>
+<td>First-line β-lactam/BLI</td>
+<td>NCIT:C29257 (amoxicillin)</td>
+</tr>
+<tr>
+<td>Ampicillin-sulbactam</td>
+<td>First-line β-lactam/BLI</td>
+<td>NCIT:C47384 (sulbactam)</td>
+</tr>
+<tr>
+<td>Piperacillin-tazobactam</td>
+<td>Broad, incl. Gram-negatives</td>
+<td>NCIT:C61785</td>
+</tr>
+<tr>
+<td>Moxifloxacin</td>
+<td>Anti-anaerobic fluoroquinolone</td>
+<td>NCIT:C1741</td>
+</tr>
+<tr>
+<td>Metronidazole</td>
+<td>Adjunct only (not monotherapy)</td>
+<td>NCIT:C639</td>
+</tr>
+<tr>
+<td>Imipenem/carbapenems</td>
+<td>Severe/mixed/GNB</td>
+<td>NCIT:C1602</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Surgical / interventional.</strong> Reserved for complications: "Since antibiotics can provide cure in 80-90% of cases, surgical procedures are limited to severe complications, such as pleural empyema" (<a href="https://pubmed.ncbi.nlm.nih.gov/20477271/">PMID: 20477271</a>). For empyema, "the presence of loculated pleural fluid determined the need for thoracotomy" and decortication (<a href="https://pubmed.ncbi.nlm.nih.gov/22610800/">PMID: 22610800</a>). Minimally invasive percutaneous/thoracoscopic drainage is effective for abscess plus parapneumonic empyema, with faster recovery and shorter antibiotic courses (<a href="https://pubmed.ncbi.nlm.nih.gov/20223322/">PMID: 20223322</a>).</p>
+<p><strong>Supportive/rehabilitative.</strong> Airway protection, swallowing rehabilitation, nutrition, and treatment of the underlying predisposing condition.</p>
+<p><strong>Pharmacogenomics / advanced (gene, cell, RNA, targeted, immuno) therapies:</strong> not applicable.</p>
+<hr />
+<h2>Section 13. Prevention</h2>
+<p><strong>Primary prevention — oral hygiene.</strong> Professional oral health care reduces respiratory infection in institutionalized populations: a systematic review of 13 studies (10 RCTs) found "moderate-to-strong evidence that onsite POHC in LTC homes, provided mostly by dental hygienists, is effective in preventing" mouth–lung infection (<a href="https://pubmed.ncbi.nlm.nih.gov/38020079/">PMID: 38020079</a>). Mechanistic rationale: "NHAP is associated with poor oral hygiene and may be caused by aspiration of oropharyngeal flora into the lung. Oral care measures to remove or disrupt oral plaque might reduce the risk of NHAP" (<a href="https://pubmed.ncbi.nlm.nih.gov/30264525/">PMID: 30264525</a>). A Cochrane review found low-quality evidence that professional oral care may reduce pneumonia-associated mortality (RR 0.41, 95% CI 0.24–0.72) though effects on incidence were inconclusive (<a href="https://pubmed.ncbi.nlm.nih.gov/30264525/">PMID: 30264525</a>).</p>
+<p><strong>Dysphagia management / secondary prevention.</strong> Comprehensive oral care improved swallowing function and enabled nasogastric-tube removal in dysphagic LTC residents in a multicenter RCT (<a href="https://pubmed.ncbi.nlm.nih.gov/42472523/">PMID: 42472523</a>). Early dysphagia screening and specialist swallow assessment reduce stroke-associated pneumonia risk (<a href="https://pubmed.ncbi.nlm.nih.gov/42500843/">PMID: 42500843</a>).</p>
+<p><strong>Behavioral / positioning.</strong> Meal positioning, aspiration precautions, avoiding oversedation, and careful peri-anesthetic airway management (analogous canine data show ~10-fold pneumonia reduction after protocol changes, <a href="https://pubmed.ncbi.nlm.nih.gov/30375098/">PMID: 30375098</a>).</p>
+<p><strong>Tertiary prevention.</strong> Prompt antibiotics and drainage to prevent progression to empyema/fistula.</p>
+<p><strong>Immunization / genetic screening / chemoprophylaxis:</strong> not applicable (no vaccine targets the polymicrobial oral flora).</p>
+<p>Suggested NCIT: NCIT:C15311 (Preventive Intervention); NCIT:C15234 (Oral Hygiene).</p>
+<hr />
+<h2>Section 14. Other Species / Natural Disease</h2>
+<p>Aspiration/anaerobic pneumonia occurs naturally across mammals, providing veterinary counterparts and models:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Species (NCBI Taxon)</th>
+<th>Setting / finding</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dog — <em>Canis lupus familiaris</em> (txid9615)</td>
+<td>Post-anesthetic aspiration pneumonia in 0.17% of 140,711 cases; risk factors "regurgitation and administration of hydromorphone at induction"</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24588929/">PMID: 24588929</a></td>
+</tr>
+<tr>
+<td>Dog</td>
+<td>Aspiration pneumonia in 18.6–31.8% after arytenoid lateralization for laryngeal paralysis; "Postoperative megaesophagus (hazard ratio [HR], 2.58; 95% CI 1.56 to 3.93)"</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26720085/">PMID: 26720085</a></td>
+</tr>
+<tr>
+<td>Dog (German Shepherd)</td>
+<td>Congenital idiopathic megaesophagus → recurrent aspiration pneumonia; sex-differentiated, <em>MCHR2</em> VNTR (GWAS P=1.32×10⁻¹⁷)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35271580/">PMID: 35271580</a></td>
+</tr>
+<tr>
+<td>Dog</td>
+<td>Generalized megaesophagus: radiographic aspiration pneumonia predicts death before discharge; median survival 90 days</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21671818/">PMID: 21671818</a></td>
+</tr>
+<tr>
+<td>Horse — <em>Equus caballus</em> (txid9796)</td>
+<td>Transport-associated pleuropneumonia; "The finding of anaerobic bacteria in thoracic fluid was not associated with a lower survival rate"; 83% positive cultures</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/7744650/">PMID: 7744650</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Comparative pathology.</strong> The core mechanism — aspiration of oral flora due to impaired airway protection or esophageal dysmotility, followed by mixed/anaerobic lung infection — is conserved across dogs, horses, and humans. <strong>Zoonotic potential:</strong> none (organisms are host-associated oral commensals; disease is not transmissible). Orthologous predisposition gene: <em>MCHR2</em> (dog) has a human ortholog (HGNC MCHR2), but no human disease association is established.</p>
+<hr />
+<h2>Section 15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse (<em>Mus musculus</em>) — mechanistic model.</strong> The best experimental evidence for anaerobe-driven synergy comes from a mouse pneumococcal-pneumonia model in which <em>Prevotella intermedia</em> supernatant upregulated PAFR, increased pneumococcal adhesion, and produced "severe bacteremic pneumococcal pneumonia … with upregulated platelet-activating factor receptor expression," alongside higher MIP-2 and TNF-α (<a href="https://pubmed.ncbi.nlm.nih.gov/24478074/">PMID: 24478074</a>). Companion <strong>in vitro</strong> model: A549 human alveolar epithelial cells ("In A549 cells, PiSup increased pneumococcal adhesion and PAFR transcript levels").</li>
+<li><strong>Naturally occurring animal models (induced/spontaneous).</strong> Canine post-anesthetic aspiration, laryngeal-paralysis, and megaesophagus models (Section 14) recapitulate the <em>predisposition-to-aspiration</em> arm of the disease well, including risk-factor identification and outcome prediction. Equine transport pleuropneumonia models the anaerobic pleural-infection arm.</li>
+<li><strong>Phenotype recapitulation.</strong> Animal models reproduce aspiration risk, mixed/anaerobic lung infection, and complication (pleural) biology; the <em>Prevotella</em> mouse model reproduces anaerobe-driven inflammatory amplification.</li>
+<li><strong>Limitations.</strong> No single genetic model reproduces the full human polymicrobial anaerobic pneumonia; mouse work is largely mechanistic (synergy) rather than a faithful spontaneous-disease model; anaerobic culture/detection limitations apply in animals too.</li>
+<li><strong>Resources:</strong> MGI (mouse), OMIA (canine/equine natural disease), Cellosaurus (A549).</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>  Impaired airway protection            High oral anaerobic load
+  (↓consciousness, dysphagia,           (periodontal disease,
+   ↓cough reflex; alcohol,               poor oral hygiene,
+   sedation, stroke, mega-               smoking)
+   esophagus)
+│                                       │
+└──────────────┬────────────────────────┘
+       ▼
+  ASPIRATION of oropharyngeal / gingival secretions
+       │  (gravity → dependent lung segments;
+       ▼   R-lower &amp; posterior-upper lobes)
+Polymicrobial / mixed anaerobic–aerobic community
+(Prevotella, Fusobacterium, Peptostreptococcus,
+ Bacteroides ± streptococci ± Gram-neg bacilli)
+       │
+       │  microbial SYNERGY
+       │  (Prevotella → ↑PAFR → ↑adhesion,
+       ▼   ↑MIP-2/TNF-α — model evidence)
+Neutrophilic inflammation + tissue proteolysis
+       │  (8–14 days)
+       ▼
+     NECROTIZING PNEUMONIA
+       │
+       ▼
+LUNG ABSCESS (cavity + air–fluid level, putrid sputum)
+  ┌────┴─────┐
+  ▼          ▼
+EMPYEMA          BRONCHOPLEURAL FISTULA / metastatic abscess
+     (loculated →           (severe necrotizing disease)
+      thoracotomy/
+      decortication)
+
+  Treatment: clindamycin OR β-lactam/β-lactamase-inhibitor
+  (± metronidazole as adjunct, never alone) → cure 80–90%;
+  drainage/surgery for empyema.
+  Prevention: oral hygiene + dysphagia management (upstream nodes).
+</code></pre>
+<p><strong>Upstream vs downstream.</strong> The two upstream nodes (impaired airway protection <em>and</em> high oral bacterial load) are the intervention targets — prevention acts here. Aspiration and polymicrobial synergy are the mechanistic core; necrosis, cavitation, and empyema are downstream, treated by antibiotics and drainage. A key modern modifier is the <strong>etiologic shift toward Gram-negative bacilli</strong>, which changes empiric-therapy considerations: "Accumulating evidence projects a fading contribution of anaerobic bacteria in aspiration pneumonia at the expense of Gram-negative bacilli" (<a href="https://pubmed.ncbi.nlm.nih.gov/39536943/">PMID: 39536943</a>).</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Finding supported</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8324128/">8324128</a></td>
+<td>F001, F003</td>
+<td>Polymicrobial anaerobic bacteriology (3.0 anaerobes/specimen); 30% β-lactamase producers</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/7555164/">7555164</a></td>
+<td>F001</td>
+<td>Frequency of anaerobic (44%) vs mixed etiology in lung abscess</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11695090/">11695090</a></td>
+<td>F002, F006, F010</td>
+<td>Risk factors; subacute course; cavitary differential diagnosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20477271/">20477271</a></td>
+<td>F002, F003, F006, F009</td>
+<td>8–14 day putrid course; 80–90% cure; surgery for empyema</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42548261/">42548261</a></td>
+<td>F002</td>
+<td>Oral-frailty risk ORs (gargle, speech)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23398871/">23398871</a></td>
+<td>F003, F009, F010</td>
+<td>First-line antibiotics; complication spectrum; culture blind spots</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12959026/">12959026</a></td>
+<td>F003, F007</td>
+<td>Anaerobe genera, susceptibilities, combination-therapy rationale</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39536943/">39536943</a></td>
+<td>F004, F007</td>
+<td>Etiologic shift to Gram-negatives; definition of aspiration process</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15824979/">15824979</a></td>
+<td>F004</td>
+<td>Klebsiella lung abscess; diabetes association (OR 4.3)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42721055/">42721055</a></td>
+<td>F004, F011</td>
+<td>ICU mortality 20–50% / 25.5%; inflammatory prognostic index</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42740601/">42740601</a></td>
+<td>F004</td>
+<td>US mortality trends and disparities</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38020079/">38020079</a></td>
+<td>F005</td>
+<td>Professional oral care prevents mouth–lung infection</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30264525/">30264525</a></td>
+<td>F005</td>
+<td>Cochrane: oral care pathogenesis/prevention rationale</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41886424/">41886424</a></td>
+<td>F006</td>
+<td>Symptom frequencies; radiologic resolution</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41688916/">41688916</a></td>
+<td>F006</td>
+<td>Hallmark cavitary air–fluid-level imaging</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42279473/">42279473</a></td>
+<td>F006</td>
+<td>Pulmonary distribution determinants</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24478074/">24478074</a></td>
+<td>F007</td>
+<td>Prevotella-driven synergy (PAFR, adhesion, cytokines) — model evidence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24588929/">24588929</a></td>
+<td>F008</td>
+<td>Canine post-anesthetic aspiration risk factors</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/7744650/">7744650</a></td>
+<td>F008</td>
+<td>Equine anaerobic pleuropneumonia</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26720085/">26720085</a></td>
+<td>F008</td>
+<td>Megaesophagus → aspiration (HR 2.58)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35271580/">35271580</a></td>
+<td>F008</td>
+<td>Canine megaesophagus MCHR2 genetics (predisposition)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41174571/">41174571</a></td>
+<td>F009</td>
+<td>Severe complication cascade (abscess→fistula→empyema)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22610800/">22610800</a></td>
+<td>F009</td>
+<td>Empyema management (loculation → thoracotomy)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20223322/">20223322</a></td>
+<td>F009</td>
+<td>Thoracoscopic drainage of abscess + empyema</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42445473/">42445473</a></td>
+<td>F010</td>
+<td>mNGS &gt; culture/tNGS for anaerobes</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39239243/">39239243</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41054501/">41054501</a></td>
+<td>F010</td>
+<td>mNGS detects fastidious anaerobes; smoking/oral disease context</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Diagnostic underascertainment.</strong> The anaerobic subset of aspiration pneumonia is systematically underdiagnosed because anaerobes are hard to culture and specimens are contaminated by oral flora (<a href="https://pubmed.ncbi.nlm.nih.gov/23398871/">PMID: 23398871</a>). Reported bacteriology therefore likely underestimates true anaerobic contribution, while the observed "shift to Gram-negatives" may partly reflect detection-method changes rather than true epidemiologic change.</li>
+<li><strong>No dedicated epidemiology.</strong> Prevalence/incidence figures are for aspiration pneumonia broadly, not the anaerobic subset specifically.</li>
+<li><strong>Thin mechanistic evidence.</strong> The synergy mechanism rests largely on a single <em>Prevotella intermedia</em>/pneumococcus mouse–A549 model (<a href="https://pubmed.ncbi.nlm.nih.gov/24478074/">PMID: 24478074</a>); host transcriptomic/proteomic/metabolomic signatures are undefined.</li>
+<li><strong>QoL data absent.</strong> No EQ-5D/SF-36/PROMIS measurements specific to anaerobic pneumonia were identified.</li>
+<li><strong>Small/older bacteriology series.</strong> Several foundational studies are decades old and from single centers; susceptibility patterns and prevalence may have drifted.</li>
+<li><strong>Treatment evidence is largely observational/experience-based.</strong> Head-to-head modern RCTs of antibiotic regimens for anaerobic pneumonia are lacking; the 80–90% cure figure derives from clinical experience/review (<a href="https://pubmed.ncbi.nlm.nih.gov/20477271/">PMID: 20477271</a>).</li>
+<li><strong>Prevention evidence quality.</strong> Cochrane rated oral-care evidence as low quality with inconclusive incidence effects (<a href="https://pubmed.ncbi.nlm.nih.gov/30264525/">PMID: 30264525</a>).</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Prospective mNGS-based bacteriology cohort.</strong> Systematically apply comprehensive mNGS to BAL/pleural fluid in suspected aspiration/anaerobic pneumonia to quantify the <em>true</em> anaerobic contribution and re-test the "shift to Gram-negatives" hypothesis with detection method held constant.</li>
+<li><strong>Host–microbe synergy mechanistics.</strong> Extend the <em>Prevotella</em>/PAFR model to additional anaerobe–aerobe pairs and to primary human airway organoids; test whether PAFR antagonism attenuates synergy and disease severity.</li>
+<li><strong>Randomized antibiotic comparison.</strong> Modern RCT of clindamycin vs amoxicillin-clavulanate vs moxifloxacin (with mNGS-defined inclusion) to update regimen choice, including outcomes stratified by β-lactamase status.</li>
+<li><strong>Oral-care prevention trial.</strong> Adequately powered RCT of intensive professional oral care + dysphagia rehabilitation in high-risk (stroke, dementia, LTC) populations, with pneumonia incidence and anaerobic-confirmed cases as endpoints, to resolve Cochrane uncertainty.</li>
+<li><strong>Prognostic biomarker validation.</strong> Validate inflammatory indices (e.g., systemic immune-inflammation index; <a href="https://pubmed.ncbi.nlm.nih.gov/42721055/">PMID: 42721055</a>) and imaging severity features for risk stratification and early drainage decisions.</li>
+<li><strong>Cross-species mechanism synthesis.</strong> Leverage canine megaesophagus/laryngeal-paralysis and equine pleuropneumonia cohorts as natural models to study the aspiration→anaerobic-infection continuum and test preventive interventions translatable to humans.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 10 confirmed findings and 51 reviewed papers across 5 investigation iterations. Evidence source types: predominantly human clinical (case series, cohorts, systematic reviews) and veterinary clinical; mechanistic evidence is in vitro (A549) and mouse model; no computational/omics host-profiling data were available for this disease.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Anaerobic_Pneumonia-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Anaerobic_Pneumonia-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>6</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>38</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:15824979</code> <em>(abstract only)</em>: "Lung abscess due to K. pneumoniae was associated with underlying diabetes mellitus (odds ratio [OR], 4.3; 95% confidence interval [CI], 1.0–18.4; P = .039)"</li>
+<li>closest text in source: "pneumoniae was associated with underlying diabetes mellitus (odds ratio [OR], 4.3; 95% confidence interval [CI], 1.0-18.4; P = .039) and negatively correlated with a time from onset of symptoms to diagnosis of &gt;30 days (OR, 0.2; 95% CI, 0.1-0.7; P = .008)"</li>
+<li><code>PMID:35271580</code> <em>(abstract only)</em>: "The single-copy allele … strongly associated with CIM (P-val = 1.32×10⁻¹⁷)"</li>
+<li>closest text in source: "The single-copy allele is strongly associated with CIM (P-val = 1.32x10-17), with homozygosity for this allele posing the most significant risk"</li>
+<li><code>PMID:23398871</code> <em>(abstract only)</em>: "anaerobic bacteriology is inadequate"</li>
+<li>Text part not found as substring: 'anaerobic bacteriology is inadequate' (note: only abstract available for <a href="https://pubmed.ncbi.nlm.nih.gov/23398871/" target="_blank" rel="noopener noreferrer">PMID:23398871</a>, full text may contain this excerpt)</li>
+<li><code>PMID:23398871</code> <em>(abstract only)</em>: "Preferred antibiotics for these infections based on clinical experience are clindamycin and any beta-lactam–beta-lactamase inhibitor"</li>
+<li>closest text in source: "Preferred antibiotics for these infections based on clinical experience are clindamycin and any betalactam-betalactamase inhibitor."</li>
+<li><code>PMID:12959026</code> <em>(abstract only)</em>: "metronidazole … amoxicillin/clavulanate, ampicillin/sulbactam, piperacillin/tazobactam, imipenem and clindamycin"</li>
+<li>closest text in source: "Anaerobic bacteria are susceptible to metronidazole, tinidazole (exception of Gram-positive rods), amoxicillin/clavulanate, ampicillin/sulbactam, piperacillin/tazobactam, imipenem and clindamycin"</li>
+<li><code>PMID:30264525</code> <em>(abstract only)</em>: "NHAP is associated with poor oral hygiene and may be caused by aspiration of oropharyngeal flora into the lung. Oral care measures to remove or disrupt oral plaque might reduce the risk of NHAP"</li>
+<li>closest text in source: "Oral care measures to remove or disrupt oral plaque might be effective in reducing the risk of NHAP"</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>37</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>5</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0025406</code> (1 mention) - the report calls it "Fatigue-related"; HP calls it <strong>Asthenia</strong></li>
+<li><code>HP:0031246</code> (1 mention) - the report calls it "Purulent sputum"; HP calls it <strong>Nonproductive cough</strong></li>
+<li><code>HP:0025426</code> (1 mention) - the report calls it "Pulmonary cavity"; HP calls it <strong>Abnormal bronchus morphology</strong></li>
+<li><code>NCIT:C47384</code> (1 mention) - the report calls it "sulbactam"; NCIT calls it <strong>Albendazole</strong></li>
+<li><code>NCIT:C61785</code> (1 mention) - the report calls it "Broad, incl. Gram-negatives"; NCIT calls it <strong>Hydrocortisone Acetate</strong></li>
+<li><code>NCIT:C1741</code> (1 mention) - the report calls it "Anti-anaerobic fluoroquinolone"; NCIT calls it <strong>Chloride Ion</strong></li>
+<li><code>NCIT:C639</code> (1 mention) - the report calls it "Adjunct only (not monotherapy)"; NCIT calls it <strong>Mesylates</strong></li>
+<li><code>NCIT:C1602</code> (1 mention) - the report calls it "Severe/mixed/GNB"; NCIT calls it <strong>Saquinavir Mesylate</strong></li>
+<li><code>NCIT:C15311</code> (1 mention) - the report calls it "Preventive Intervention"; NCIT calls it <strong>Quality Control</strong></li>
+<li><code>NCIT:C15234</code> (1 mention) - the report calls it "Oral Hygiene"; NCIT calls it <strong>Follow-Up Study</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0070265</code> (obsolete necrotic cell death) (1 mention)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0070265</code> (1 mention) - the report calls it "necrotic cell death"; GO calls it <strong>obsolete necrotic cell death</strong></li>
+<li><code>CL:0000066</code> (1 mention) - the report calls it "epithelial cell — alveolar/airway"; CL calls it <strong>epithelial cell</strong></li>
+<li><code>CL:0002063</code> (1 mention) - the report calls it "type II pneumocyte; A549 is a type-II-like line"; CL calls it <strong>pulmonary alveolar type 2 cell</strong>, and lists "type II pneumocyte" among its other names</li>
+<li><code>NCIT:C376</code> (1 mention) - the report calls it "First-line"; NCIT calls it <strong>Cisplatin</strong></li>
+<li><code>NCIT:C29257</code> (1 mention) - the report calls it "amoxicillin"; NCIT calls it <strong>Miconazole Nitrate</strong>, and lists "Micatin" among its other names</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Amyotrophic_Lateral_Sclerosis_Type_1-openscientist.html">← Amyotrophic Lateral Sclerosis Type 1 (OpenScientist)</a>
+                
+                
+                <a href="Anal_Canal_Adenocarcinoma-falcon.html">Anal Canal Adenocarcinoma (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Anaerobic_Pneumonia.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Anaerobic_Pneumonia-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

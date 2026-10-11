@@ -149,17 +149,92 @@ def stub_oak_hierarchy(request, monkeypatch):
     clear_caches()
 
 
-@pytest.fixture(scope="module")
-def preserve_kb_cache_environment():
-    """Restore the cache setting after tests call CLI entry points in-process.
+# What DISMECH_KB_CACHE was when pytest started. An operator's explicit
+# `DISMECH_KB_CACHE=0 pytest ...` is captured here and so still wins.
+_KB_CACHE_ENV_AT_START = os.environ.get("DISMECH_KB_CACHE")
 
-    CLI main() functions can call default_off(), which writes os.environ
-    directly. Module scope restores the original value after all function-level
-    monkeypatch fixtures have finished, including when the setting was absent.
-    """
-    before = os.environ.get("DISMECH_KB_CACHE")
-    yield
-    if before is None:
+
+def _reset_kb_cache_env() -> None:
+    if _KB_CACHE_ENV_AT_START is None:
         os.environ.pop("DISMECH_KB_CACHE", None)
     else:
-        os.environ["DISMECH_KB_CACHE"] = before
+        os.environ["DISMECH_KB_CACHE"] = _KB_CACHE_ENV_AT_START
+
+
+@pytest.fixture(autouse=True)
+def preserve_kb_cache_environment():
+    """Give every test the ``DISMECH_KB_CACHE`` value pytest started with.
+
+    A single-walk scanner's ``main()`` calls ``kb_cache.default_off()``, which
+    writes ``DISMECH_KB_CACHE=0`` straight into ``os.environ`` (CLAUDE.md asks
+    for that call, and it is right for the CLI). A test that calls such a
+    ``main()`` in-process then leaves the parsed-KB cache disabled for every
+    later test in the same pytest process, and the failures land somewhere
+    else: five cache-state assertions in ``tests/test_kb_cache.py``, which only
+    go red when the offending file sorts before it (issue #11942).
+
+    Autouse for the same reason as ``stub_oak_hierarchy`` above: an opt-in
+    guard only protects the test files that remember to ask for it, and eight
+    test files had each grown their own copy before this one existed. Function
+    scope, so no test sees a value an earlier test in its own module left
+    behind.
+
+    The value is reset at **setup** as well as teardown, to the value captured
+    at import rather than to a per-test snapshot. Today the teardown alone is
+    enough: this fixture is set up before ``stub_oak_hierarchy`` and the test's
+    own ``monkeypatch``, so it is torn down after them, which matters because
+    ``default_off()`` bypasses ``monkeypatch``, so a test that calls it and then
+    sets the variable through ``monkeypatch`` has ``monkeypatch`` restore the
+    polluted ``0``. That ordering is just the order pytest happens to set up
+    same-level autouse fixtures in, so it is not something to lean on; the
+    setup reset means every test starts clean whatever ran last.
+    ``tests/test_kb_cache.py`` documented the ``monkeypatch`` trap before this
+    fixture existed, and ``tests/test_kb_cache_env_isolation.py`` pins both
+    leaks.
+
+    The name is kept from when this was an opt-in, module-scoped fixture, so a
+    test file that still lists it in ``usefixtures`` keeps working.
+    """
+    _reset_kb_cache_env()
+    try:
+        yield
+    finally:
+        _reset_kb_cache_env()
+
+
+# --- CI step twins ------------------------------------------------------------
+#
+# A few whole-repo gate tests run the same check as an ungated step in
+# .github/workflows/main.yaml -- the same script in a subprocess, or the same
+# scan function the script's CLI calls. In that workflow both run in one job,
+# so the pytest copy repeats work the job has already done and passed: ~900s
+# of the ~2,700s serial lane, measured 2026-09-24.
+#
+# The test is marked `ci_step_twin("<the step's command>")`, and the workflow
+# sets DISMECH_SKIP_CI_STEP_TWINS=1 on its pytest step to deselect them there.
+# Everywhere else they run as before: `just test-code` locally, and the
+# nightly sweep. tests/test_ci_step_twins.py checks that every twin's command
+# is still an ungated step in main.yaml, so removing or path-gating the step
+# brings its twin back into the lane.
+#
+# Only exact twins qualify. A test that is stricter than its step in any
+# corner (test_committed_kb_waivers_say_what_was_searched fails a thin waiver
+# that the script lets pass when real evidence supersedes it) is not a twin.
+# For a ratchet, "exact" includes the baseline: its gate passes
+# --against-ref origin/<base>, so the pytest step must set the script's
+# BASELINE_REF_ENV to the same ref, or the test would grandfather against the
+# committed baseline file instead. tests/test_ci_step_twins.py checks that too.
+# Outside that workflow the test falls back to the committed file.
+
+SKIP_CI_STEP_TWINS_ENV = "DISMECH_SKIP_CI_STEP_TWINS"
+
+
+def pytest_collection_modifyitems(config, items):
+    if os.environ.get(SKIP_CI_STEP_TWINS_ENV) != "1":
+        return
+    kept, twins = [], []
+    for item in items:
+        (twins if item.get_closest_marker("ci_step_twin") else kept).append(item)
+    if twins:
+        config.hook.pytest_deselected(items=twins)
+        items[:] = kept
