@@ -180,6 +180,10 @@ jobs:
               - '!kb/disorders/**/*.history.yaml'
             kb_comorbidities:
               - 'kb/comorbidities/**/*.yaml'
+            kb_modules:
+              - 'kb/modules/*.yaml'
+            kb_groupings:
+              - 'kb/groupings/*.yaml'
             kb_hypotheses:
               # Report edits can invalidate verbatim assessment/reconciliation
               # anchors even when no YAML changes.
@@ -401,6 +405,31 @@ jobs:
           echo "Validating changed comorbidity KB files..."
           just validate-comorbidity-batch ${{ steps.changes.outputs.kb_comorbidities_files }}
 
+      # Modules validate against the same Disease class as disorders and get
+      # the same batched gate. Before this step a module-only PR reached full
+      # schema/term/reference validation only in the merge queue's whole-KB
+      # sweep, so a bad snippet or label failed there rather than on the PR.
+      # Like the two steps above it stays filter-gated on merge_group: the
+      # queue build's filter lists the queued PRs' module files.
+      - name: Validate changed module KB files
+        if: steps.changes.outputs.kb_modules == 'true'
+        run: |
+          echo "Validating changed module KB files..."
+          just validate-module-batch ${{ steps.changes.outputs.kb_modules_files }}
+      # Groupings had no PR-time check at all: they were in no path filter
+      # here, and every grouping pytest carries the `kb_data` marker, so a
+      # malformed criteria tree or a dangling member went red on `main` at the
+      # nightly sweep, not on the PR. The strict audit is offline (it reads the
+      # committed cache/closure/ files) so a contradiction it reports is a
+      # curated one, not an ontology outage. Filter-gated on merge_group like
+      # the three steps above, for the same reason: it consumes the filter's
+      # file list (tests/test_merge_group_ci.py, FILE_SCOPED_STEPS).
+      - name: Validate changed grouping KB files
+        if: steps.changes.outputs.kb_groupings == 'true'
+        run: |
+          echo "Validating changed grouping KB files..."
+          just validate-grouping-batch ${{ steps.changes.outputs.kb_groupings_files }}
+
       - name: Lint with ruff
         run: uvx ruff check .
 
@@ -453,6 +482,11 @@ jobs:
           # src/tests path filter would catch. Same live grandfathering against the
           # base branch, so only what this PR adds can fail (issue #8374).
           Check for new title-quoting evidence snippets :: uv run python scripts/check_title_snippets.py --against-ref "origin/$BASE_REF"
+
+          # Ungated for the same reason: prose arguing for the retired
+          # `supports: PARTIAL` grade arrives in kb/-only curation PRs, usually as
+          # an explanation copied from another evidence item (issue #12805).
+          Check for new prose naming a retired supports grade :: uv run python scripts/check_retired_support_prose.py --against-ref "origin/$BASE_REF"
 
           # Ungated for the same reason as the ratchets above, and for a sharper one:
           # a fabricated `reference_title` is written by exactly the curation PR that
@@ -522,6 +556,13 @@ jobs:
           # add them touch only kb/ and references_cache/, so a path-filtered pytest
           # lane would skip them. <1s, offline.
           Check for case-colliding paths :: uv run python scripts/check_case_collisions.py
+
+          # Ungated and whole-tree for the same reason as the case-collision step:
+          # the PRs that add a reference cache file touch only kb/ and
+          # references_cache/. PDF text extraction writes an unmapped ligature glyph
+          # as a NUL byte, and one NUL makes grep classify the file as binary and
+          # silently drop it from every count (#12543). ~2s, offline.
+          Check reference cache for NUL bytes :: uv run python scripts/check_reference_cache_nul_bytes.py
 
           # Ungated and whole-KB on purpose, and for the same merge-shaped reason as
           # the duplicate-key step above -- this is its schema-narrowing twin.
@@ -828,6 +869,8 @@ jobs:
           # And for the gene-activity-grounding ratchet: a PR fails only on
           # genes it *adds* whose landing node names no molecular function.
           GENE_ACTIVITY_BASELINE_REF: origin/${{ github.event.pull_request.base.ref || 'main' }}
+          # And for the retired-supports-grade prose ratchet (#12805).
+          RETIRED_SUPPORT_PROSE_BASELINE_REF: origin/${{ github.event.pull_request.base.ref || 'main' }}
           # Skip the tests marked `ci_step_twin`: each runs the same check as
           # an ungated step earlier in this job, which has already passed by
           # the time this step starts (~900s of the serial lane). They still
