@@ -42,6 +42,7 @@ prefixes:
   GENO: http://purl.obolibrary.org/obo/GENO_
   SO: http://purl.obolibrary.org/obo/SO_
   PATO: http://purl.obolibrary.org/obo/PATO_
+  HANCESTRO: http://purl.obolibrary.org/obo/HANCESTRO_
   ECTO: http://purl.obolibrary.org/obo/ECTO_
   ExO: http://purl.obolibrary.org/obo/ExO_
   ENVO: http://purl.obolibrary.org/obo/ENVO_
@@ -1466,6 +1467,22 @@ enums:
     comments:
       - Uses HGNC gene nomenclature committee identifiers
       - Validation requires exact label match with HGNC database
+  LoincTerm:
+    description: >-
+      A LOINC code for a clinical measurement, panel, or LOINC Part. No
+      hierarchy constraint - validates that the code exists and that the label
+      is LOINC's Long Common Name.
+    comments:
+      - >-
+        LOINC is served through the Monarch KG (OAK `monarch:` adapter), which
+        carries the full LOINC table as biolink:ClinicalMeasurement nodes and
+        labels each with its Long Common Name. A code added to LOINC is
+        validatable only after the next KG release.
+      - >-
+        Bind the LOINC Part (`LOINC:LP...`) or the panel / total-score code
+        when the slot names a measurement's identity; method- and
+        specimen-specific codes belong only inside a `definitions[]`
+        phenotype algorithm that needs them.
   CellTypeTerm:
     description: A cell type
     reachable_from:
@@ -1530,6 +1547,14 @@ enums:
       CANDIDATE_SURROGATE:
         title: Candidate surrogate
         description: Potential surrogate endpoint candidate requiring explicit outcome-link evidence
+      REGULATORY_SURROGATE:
+        title: Regulatory surrogate
+        description: >-
+          Surrogate endpoint a regulator has accepted as the basis of a drug
+          approval in a stated context of use. Requires regulatory_endpoint_refs
+          naming the source rows; whether the endpoint is validated or only
+          reasonably likely to predict clinical benefit is read from those rows,
+          not restated here.
   SurrogateEndpointTableEnum:
     description: FDA surrogate endpoint table section from which a row was curated
     permissible_values:
@@ -1773,6 +1798,23 @@ enums:
     reachable_from:
       source_nodes:
         - icd11f:455013390  ## ICD Category
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
+  AncestryTerm:
+    description: >-
+      A human ancestry, ethnicity, geography-based or reference population term
+      from HANCESTRO (Human Ancestry Ontology). Every population class in
+      HANCESTRO sits below `ancestry category`, including the reference panels
+      (1KGP, HGDP, SGDP) under `reference population`.
+    comments:
+      - >-
+        HANCESTRO was chosen over the HL7/CDC race and ethnicity codes and NCIT
+        population terms for coverage of the populations variant studies
+        actually report (design decisions section 16).
+    reachable_from:
+      source_nodes:
+        - HANCESTRO:0004  ## ancestry category
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
@@ -2606,6 +2648,58 @@ enums:
           should not use target_mechanisms or target_phenotypes because they do
           not directly modify disease pathophysiology or phenotypes.
 
+  AncestryBasisEnum:
+    description: >-
+      How the cited source defined the population a population-scoped variant
+      effect was observed in. Recorded because the same group label can name a
+      self-identified ethnicity, a genetically inferred ancestry cluster, or a
+      place, and a HANCESTRO binding alone does not say which the source meant.
+    permissible_values:
+      SELF_REPORTED:
+        description: >-
+          Participants' self-identified ethnicity, race, or ancestry, as
+          collected by questionnaire or clinical record.
+      GENETICALLY_INFERRED:
+        description: >-
+          Ancestry assigned from the participants' genotype data, for example by
+          principal components or clustering against a reference panel.
+      GEOGRAPHIC:
+        description: >-
+          Defined by country, region, or recruitment site, with no statement
+          about ethnicity or genetic ancestry (for example "patients seen at
+          hospitals in Singapore").
+      NOT_STATED:
+        description: >-
+          The source names a population without saying how membership was
+          determined.
+  PopulationEffectDifferenceEnum:
+    description: >-
+      Which aspect of a variant's effect the source reports for the population,
+      relative to the comparator population or to the variant's overall
+      characterization.
+    permissible_values:
+      CLASSIFICATION:
+        description: >-
+          The variant's pathogenicity classification or causal status differs in
+          this population (for example disease-causing in one population, a
+          common low-penetrance allele in another).
+      PENETRANCE:
+        description: The proportion of carriers who develop the disease differs.
+      SEVERITY:
+        description: Disease severity, age at onset, or complication rate differs.
+      PHENOTYPE_SPECTRUM:
+        description: >-
+          Which clinical features occur, or how often, differs (for example
+          atypical or incomplete presentations).
+      ALLELE_FREQUENCY:
+        description: >-
+          The variant's frequency among patients or in the general population
+          differs, as reported by the source.
+      NO_DIFFERENCE:
+        description: >-
+          The source compared the variant's effect across populations and
+          reported no difference. A tested null is a finding; record it so a
+          reader does not assume a population effect.
   EffectModifierTypeEnum:
     description: >-
       The characteristic of the treated population across which a treatment's effect
@@ -3377,6 +3471,7 @@ enums:
         description: >-
           A venue none of the above describes. Prefer adding a value to this
           enum over stretching an existing one.
+
   ModuleCategoryEnum:
     description: >-
       Areas of study a mechanism module is relevant to. A category asserts
@@ -3900,6 +3995,43 @@ slots:
     range: float
     examples:
       - value: '32.8'
+  population_effects:
+    description: >-
+      Population-scoped findings about this variant: how its classification,
+      penetrance, severity, phenotype spectrum, or frequency differs in a named
+      population. One record per population and source. Use when a variant's
+      effect is reported to depend on the population it is observed in, rather
+      than collapsing it into the single population-blind clinical_significance.
+    range: VariantPopulationEffect
+    multivalued: true
+    inlined_as_list: true
+  ancestry_terms:
+    description: >-
+      HANCESTRO terms for the population, when the source supports a binding.
+      Optional and multivalued: an admixed or multi-site cohort may take more
+      than one. Bind what the source reports, at the level it reports it; do not
+      bind a reference-panel term (1KGP, HGDP, SGDP) unless the data came from
+      that panel.
+    range: AncestryDescriptor
+    multivalued: true
+    inlined_as_list: true
+  ancestry_basis:
+    description: How the source defined membership of the population.
+    range: AncestryBasisEnum
+  effect_differences:
+    description: >-
+      Which aspects of the variant's effect the source reports as differing in
+      this population. NO_DIFFERENCE records a tested null.
+    range: PopulationEffectDifferenceEnum
+    multivalued: true
+  allele_frequency:
+    description: >-
+      Allele frequency of the variant in the population, as a proportion between
+      0 and 1, copied from the source. Say in notes whether it was measured in
+      patients, carriers, or the general population.
+    range: float
+    minimum_value: 0
+    maximum_value: 1
   cohort_size:
     description: >-
       Number of probands/cases in the cohort the case fraction was computed in,
@@ -4785,8 +4917,45 @@ slots:
     description: >-
       LOINC code for a measured analyte or clinical observation (e.g., LOINC:2823-3
       for serum potassium). Binds to the LOINC namespace.
-    range: Term
+    comments:
+      - >-
+        On a ReferenceRange this names the measurement the interval and its
+        bands apply to. On a Biochemical it names the measurement that
+        quantifies the marker, so a biomarker can carry a code without
+        an interval being invented for it.
+      - The label is LOINC's Long Common Name, as served by the Monarch KG.
+    range: LoincCode
     inlined: true
+    bindings:
+      - binds_value_of: id
+        range: LoincTerm
+        obligation_level: REQUIRED
+  measurements:
+    description: >-
+      The measurements a diagnostic test consists of, each bound to LOINC. The
+      diagnosis_term says what kind of procedure the test is (an NCIT clinical
+      intervention: enzyme assay, molecular genetic testing); measurements say
+      which observables it reads: hexosaminidase A activity in leukocytes, a
+      CFTR sequencing panel, the PHQ-9 total score. The same action/thing
+      split as treatment_term and therapeutic_agent.
+    comments:
+      - One entry per distinct measurement. A two-analyte test is two entries.
+      - >-
+        Bind the LOINC Part or the panel / total-score code for the
+        measurement's identity, not a method- or specimen-specific code; LOINC
+        has dozens of codes for one assay, and binding method codes here puts
+        the same test on different codes in different entries. Method codes
+        belong in a definitions[] phenotype algorithm.
+      - >-
+        preferred_term is the curator's name for the measurement in this
+        disease ("sweat chloride"); term.label is the Long Common Name.
+      - >-
+        Decision thresholds the disease owns (a diagnostic cut-off, a severity
+        grading) go in the sibling reference_ranges, keyed on the same LOINC
+        code via loinc_term.
+    multivalued: true
+    range: MeasurementDescriptor
+    inlined_as_list: true
   lower_bound:
     description: >-
       Lower bound of a reference interval (inclusive). Null indicates no lower limit.
@@ -6284,6 +6453,18 @@ classes:
       - id
       - label
 
+  LoincCode:
+    is_a: Term
+    description: >-
+      A Term whose id is a LOINC code, LOINC Part (LP...) or LOINC Group
+      (LG...). Same {id, label} shape as Term; the pattern on id is what stops
+      a CURIE from another vocabulary being accepted in a LOINC slot, which the
+      LoincTerm binding alone cannot do, because the term validator resolves a
+      CURIE through whatever adapter its own prefix names.
+    slot_usage:
+      id:
+        pattern: "^LOINC:(LP|LG)?[0-9]+-[0-9]$"
+
   # Base descriptor class for structured term references
   Descriptor:
     abstract: true
@@ -6509,6 +6690,22 @@ classes:
             range: BiomarkerTerm
             obligation_level: REQUIRED
 
+  MeasurementDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for a clinical measurement, bindable to LOINC. Names the
+      observable a test reads (an analyte in a specimen, a panel, an
+      instrument's total score), as distinct from the analyte entity itself,
+      which BiomarkerDescriptor binds to NCIT.
+    slot_usage:
+      term:
+        description: LOINC code for the measurement, panel, or LOINC Part
+        range: LoincCode
+        bindings:
+          - binds_value_of: id
+            range: LoincTerm
+            obligation_level: REQUIRED
+
   GeneProductDescriptor:
     is_a: Descriptor
     description: >-
@@ -6655,6 +6852,20 @@ classes:
         bindings:
           - binds_value_of: id
             range: RegimenTerm
+            obligation_level: REQUIRED
+
+  AncestryDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for a human population or ancestry group, bindable to
+      HANCESTRO. preferred_term keeps the source's own wording when it is more
+      specific than, or different from, the best available HANCESTRO label.
+    slot_usage:
+      term:
+        description: Optional HANCESTRO population or ancestry term reference
+        bindings:
+          - binds_value_of: id
+            range: AncestryTerm
             obligation_level: REQUIRED
 
   ExposureDescriptor:
@@ -7538,7 +7749,10 @@ classes:
           Direction of association between biomarker level/presence and the
           linked event or endpoint.
       endpoint_context:
-        description: Diagnostic, prognostic, monitoring, pharmacodynamic, or candidate-surrogate use context.
+        description: >-
+          Diagnostic, prognostic, monitoring, pharmacodynamic, candidate-surrogate,
+          or regulatory-surrogate use context. Use REGULATORY_SURROGATE exactly
+          when regulatory_endpoint_refs is populated.
       regulatory_endpoint_refs:
         description: >-
           Source-table regulatory endpoint row IDs linked to this readout.
@@ -8156,6 +8370,7 @@ classes:
     slots:
       - name
       - biomarker_term
+      - loinc_term
       - presence
       - readouts
       - reference_ranges
@@ -8607,12 +8822,29 @@ classes:
     slots:
       - name
       - diagnosis_term
+      - measurements
+      - reference_ranges
       - presence
       - evidence
       - notes
       - results
       - markers
       - description
+    slot_usage:
+      reference_ranges:
+        description: >-
+          Decision thresholds this disease owns for a measurement named in
+          measurements: a diagnostic cut-off, a staging or severity grading
+          (MoCA below 26, PHQ-9 5/10/15/20, GOLD FEV1 bands). Each range names
+          its measurement through loinc_term and carries the cut-offs as
+          interpretation_bands. This is not the place for a population
+          reference interval, which is true of everyone and belongs to no
+          disease.
+      markers:
+        description: >-
+          Free-text list of the analytes a test reads. Superseded by
+          measurements, which binds each one to LOINC; keep existing values,
+          and put new tests in measurements.
   Inheritance:
     slots:
       - name
@@ -8647,6 +8879,64 @@ classes:
       - genomic_contexts
       - affected_regions
       - regulatory_category
+      - population_effects
+  VariantPopulationEffect:
+    description: >-
+      A finding that a variant's effect differs, or was tested and found not to
+      differ, in a named human population: its classification, penetrance,
+      severity, phenotype spectrum, or frequency there. The population is
+      recorded in the source's own words (population) and optionally bound to
+      HANCESTRO (ancestry_terms), with ancestry_basis saying whether the source
+      defined the group by self-report, genetic inference, or geography.
+    comments:
+      - >-
+        Record only what the source states. Do not set clinical_significance or
+        effect_differences from your own comparison of two allele frequencies or
+        two cohorts; a population difference must be reported by the source.
+      - >-
+        clinical_significance here is the classification the source gives for
+        this population. It does not replace the variant-level
+        clinical_significance, which remains the overall call.
+      - >-
+        A difference in response to treatment by ancestry belongs on the
+        treatment's effect_modifiers (effect_modifier_type ANCESTRY), not here.
+    slots:
+      - population
+      - ancestry_terms
+      - ancestry_basis
+      - comparator_stratum
+      - effect_differences
+      - clinical_significance
+      - penetrance
+      - penetrance_percentage
+      - allele_frequency
+      - cohort_size
+      - description
+      - evidence
+      - notes
+    slot_usage:
+      population:
+        required: true
+        description: >-
+          The population in the source's own words (for example "Japanese FMF
+          patients", "Singaporean Chinese"). Kept even when ancestry_terms is
+          bound, because it is the record of what the study said.
+      comparator_stratum:
+        description: >-
+          The population the effect is compared with, in the source's own words
+          (for example "Eastern Mediterranean populations"). Omit when the source
+          reports the population alone.
+      effect_differences:
+        recommended: true
+      evidence:
+        recommended: true
+      penetrance:
+        description: Penetrance classification for this variant in this population.
+      cohort_size:
+        description: >-
+          Number of patients or carriers the population-specific finding was
+          computed from, when reported.
+
   FunctionalEffect:
     description: >-
       Describes the functional consequence of a genetic variant, including
