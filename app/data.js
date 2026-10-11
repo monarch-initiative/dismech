@@ -21651,7 +21651,9 @@ window.searchData = [
       "Microglial Lipid Droplet Accumulation",
       "Interneuron Dysfunction and Network Hypersynchrony",
       "Tau-Induced Nucleocytoplasmic Transport Failure",
-      "Brain N-Glycan Hyperglycosylation"
+      "Brain N-Glycan Hyperglycosylation",
+      "Micro-MKKS63 Microprotein Depletion",
+      "Microglial Oxidative Phosphorylation Failure"
     ],
     "cell_types": [
       "Neurons",
@@ -21746,7 +21748,9 @@ window.searchData = [
       "Protein N-linked glycosylation",
       "UDP-N-acetylglucosamine biosynthesis (hexosamine pathway flux)",
       "Protein O-GlcNAcylation",
-      "Hyaluronan biosynthesis"
+      "Hyaluronan biosynthesis",
+      "Oxidative phosphorylation",
+      "Mitochondrial ATP synthesis"
     ],
     "phenotypes": [
       "Memory Loss",
@@ -21812,10 +21816,10 @@ window.searchData = [
     "source_file": "Alzheimer_Disease.yaml",
     "page_url": "../pages/disorders/Alzheimer_Disease.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 26,
+    "num_pathophysiology": 28,
     "num_genes": 9,
     "num_treatments": 7,
-    "causal_graph_edges": "66",
+    "causal_graph_edges": "68",
     "causal_graph_longest_path": "10"
   },
   {
@@ -360748,12 +360752,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3341,
   "total_subtypes": 4698,
   "total_disorders_and_subtypes": 8039,
-  "total_unique_evidence_sources": 50414,
-  "total_unique_publications": 46948,
+  "total_unique_evidence_sources": 50423,
+  "total_unique_publications": 46957,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
   "total_pathographs": 3337,
-  "total_unique_pathological_events": 22085,
+  "total_unique_pathological_events": 22087,
   "total_modules": 191,
   "total_research_reports": 3458,
   "total_classifications": 21,
