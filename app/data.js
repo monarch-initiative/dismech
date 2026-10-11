@@ -322736,6 +322736,105 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Spinocerebellar Ataxia 27A",
+    "disease_id": "MONDO:0008654",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spinocerebellar ataxia 27A (SCA27A, ATX-FGF14) is a rare, usually autosomal dominant cerebellar disorder caused by heterozygous loss-of-function changes in FGF14: missense, nonsense, frameshift, splice and in-frame variants, 13q33.1 deletions, a partial duplication and gene-disrupting translocations. FGF14 encodes intracellular fibroblast growth factor 14 (iFGF14), a non-secreted protein that binds the C-terminus of voltage-gated sodium (Nav) channel alpha subunits and keeps them available for firing. In mice, loss of one copy shifts Purkinje neuron Nav inactivation to more negative voltages, so the cells lose their tonic high-frequency firing. The typical picture is a childhood-onset postural tremor followed by a very slowly progressive cerebellar ataxia from young adulthood, with nystagmus, dysarthria, dyskinesia, cognitive and psychiatric features, and in some families fever-triggered episodic ataxia. SCA27A is distinct from SCA27B, the common late-onset ataxia caused by an intronic GAA repeat expansion in the same gene.",
+    "pathophysiology": [
+      "Heterozygous FGF14 Loss-of-Function Variants",
+      "Reduced iFGF14 Protein",
+      "Loss of FGF14 Regulation of Purkinje Neuron Nav Channels",
+      "Impaired Purkinje Neuron Repetitive Firing",
+      "Fever-Sensitive Sodium Channel Decompensation",
+      "Basal Ganglia Dopaminergic Dysfunction",
+      "Impaired Hippocampal Synaptic Plasticity",
+      "Prefrontal Cortical Dysfunction"
+    ],
+    "cell_types": [
+      "Purkinje cell",
+      "cerebellar granule cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000121",
+      "CL:0001031"
+    ],
+    "biological_processes": [
+      "regulation of sodium ion transmembrane transport",
+      "neuronal action potential",
+      "long-term synaptic potentiation"
+    ],
+    "phenotypes": [
+      "Postural tremor",
+      "Progressive cerebellar ataxia",
+      "Episodic ataxia",
+      "Nystagmus",
+      "Dysmetric saccades",
+      "Dysarthria",
+      "Dyskinesia",
+      "Cognitive impairment",
+      "Psychiatric and behavioral disturbance",
+      "Psychosis",
+      "Attention deficit hyperactivity disorder",
+      "Microcephaly",
+      "Parkinsonism",
+      "Cerebellar atrophy",
+      "Trigeminal neuralgia"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Psychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002174",
+      "HP:0002073",
+      "HP:0002131",
+      "HP:0000639",
+      "HP:0000641",
+      "HP:0001260",
+      "HP:0100660",
+      "HP:0100543",
+      "HP:0000708",
+      "HP:0000709",
+      "HP:0007018",
+      "HP:0000252",
+      "HP:0001300",
+      "HP:0001272",
+      "HP:0100661"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FGF14"
+    ],
+    "treatments": [
+      "Acetazolamide",
+      "4-Aminopyridine",
+      "Subthalamic Deep Brain Stimulation",
+      "Amantadine and Levodopa",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spinocerebellar_Ataxia_27A.yaml",
+    "page_url": "../pages/disorders/Spinocerebellar_Ataxia_27A.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Spinocerebellar ataxia 27B",
     "disease_id": "MONDO:0859340",
     "category": "Mendelian",
@@ -360548,17 +360647,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3339,
+  "total_disorder_pages": 3340,
   "total_subtypes": 4696,
-  "total_disorders_and_subtypes": 8035,
-  "total_unique_evidence_sources": 50361,
-  "total_unique_publications": 46895,
+  "total_disorders_and_subtypes": 8036,
+  "total_unique_evidence_sources": 50390,
+  "total_unique_publications": 46924,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
-  "total_pathographs": 3335,
-  "total_unique_pathological_events": 22072,
+  "total_pathographs": 3336,
+  "total_unique_pathological_events": 22079,
   "total_modules": 191,
-  "total_research_reports": 3456,
+  "total_research_reports": 3457,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
