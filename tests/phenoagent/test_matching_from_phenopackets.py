@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from linkml.validator import Validator
+from linkml.validator.plugins import JsonschemaValidationPlugin
 
 from phenoagent import matching
 from phenoagent.matching import (
@@ -35,7 +36,10 @@ def test_build_matching_run_from_phenopacket_validates(fixture_name: str, diseas
     )
 
     assert run["matches"], "Expected at least one match row"
-    validator = Validator(MATCHING_SCHEMA_PATH)
+    validator = Validator(
+        MATCHING_SCHEMA_PATH,
+        validation_plugins=[JsonschemaValidationPlugin(closed=True)],
+    )
     report = validator.validate(run, target_class="MatchingRun")
     errors = [result for result in report.results if result.severity.name == "ERROR"]
     assert not errors, f"Validation errors for {fixture_name}: {[str(e) for e in errors]}"
@@ -76,7 +80,10 @@ def test_local_phenopacket_store_examples_if_present(relative_path: str, disease
         run_id=f"test-{phenopacket.get('id', 'unknown')}",
     )
 
-    validator = Validator(MATCHING_SCHEMA_PATH)
+    validator = Validator(
+        MATCHING_SCHEMA_PATH,
+        validation_plugins=[JsonschemaValidationPlugin(closed=True)],
+    )
     report = validator.validate(run, target_class="MatchingRun")
     errors = [result for result in report.results if result.severity.name == "ERROR"]
     assert not errors, f"Validation errors for {phenopacket_path}: {[str(e) for e in errors]}"
