@@ -96087,6 +96087,7 @@ window.searchData = [
       "Mitochondrial Iron-Sulfur Cluster Assembly Failure",
       "Impaired Mitochondrial Anaplerosis",
       "Kinesin-Dependent Axonal Cargo Transport Failure",
+      "Pyrroline-5-Carboxylate Synthase Dysfunction",
       "IP3-Receptor-Dependent Endoplasmic Reticulum Calcium Release Dysregulation",
       "Purine Nucleotide Metabolic Imbalance",
       "Tubular Endoplasmic Reticulum Membrane Shaping Failure"
@@ -96188,7 +96189,9 @@ window.searchData = [
       "AP4M1",
       "AP4S1",
       "NT5C2",
-      "ARL6IP1"
+      "ARL6IP1",
+      "KIF5A",
+      "ALDH18A1"
     ],
     "treatments": [
       "Antispasticity Pharmacotherapy",
@@ -96200,10 +96203,10 @@ window.searchData = [
     "source_file": "Complex_Hereditary_Spastic_Paraplegia.yaml",
     "page_url": "../pages/disorders/Complex_Hereditary_Spastic_Paraplegia.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 11,
-    "num_genes": 36,
+    "num_pathophysiology": 12,
+    "num_genes": 38,
     "num_treatments": 3,
-    "causal_graph_edges": "61",
+    "causal_graph_edges": "64",
     "causal_graph_longest_path": "4"
   },
   {
@@ -360548,12 +360551,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3339,
   "total_subtypes": 4696,
   "total_disorders_and_subtypes": 8035,
-  "total_unique_evidence_sources": 50354,
-  "total_unique_publications": 46888,
+  "total_unique_evidence_sources": 50361,
+  "total_unique_publications": 46895,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
   "total_pathographs": 3335,
-  "total_unique_pathological_events": 22071,
+  "total_unique_pathological_events": 22072,
   "total_modules": 191,
   "total_research_reports": 3456,
   "total_classifications": 21,
