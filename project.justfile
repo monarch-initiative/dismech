@@ -815,6 +815,22 @@ validate-terms-all:
     echo "Validating terms in ${#files[@]} disorder files (batched)..."
     {{term_validator}} validate-data "${files[@]}" -s {{schema_path}} -t Disease --labels -c {{oak_config}}
 
+# Validate the LOINC codes in KB files against the Monarch KG and write their
+# rows into cache/loinc/terms.csv. TEMPORARY: overlays the oaklib fix from
+# INCATools/ontology-access-kit#920 in an ephemeral env because the pinned
+# release returns no label for LOINC codes; delete once the pin carries the fix
+# and conf/oak_config.yaml routes LOINC. See scripts/seed_loinc_cache.sh.
+[group('QC')]
+loinc-seed-cache +files:
+    scripts/seed_loinc_cache.sh {{files}}
+
+# Rebuild cache/loinc/external_copyright_{codes,notices}.csv from the Tuva LOINC
+# table pinned in data/loinc/MANIFEST.yaml (LOINC's EXTERNAL_COPYRIGHT_NOTICE field,
+# which the Monarch KG does not carry). --repin accepts a changed download.
+[group('QC')]
+loinc-copyright-notices *flags:
+    uv run python scripts/build_loinc_copyright_notices.py {{flags}}
+
 # Validate terms in a single file
 # Skips `check-enum-cache` (whole-cache OAK re-derivation); see `validate`.
 [group('QC')]
@@ -1007,7 +1023,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-duplicate-keys check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1449,6 +1465,15 @@ check-duplicate-keys *files:
 check-case-collisions:
     uv run python scripts/check_case_collisions.py
 
+# PDF text extraction emits an unmapped glyph -- usually an fi/fl ligature -- as
+# U+0000, and one NUL makes grep treat the whole file as binary and silently drop
+# it from its output. Repair with scripts/repair_reference_cache_nuls.py --apply.
+# Ungated and whole-tree for the same reason as check-case-collisions. ~2s, offline.
+# Guard against NUL bytes in references_cache/ (#12543)
+[group('QC')]
+check-reference-cache-nul-bytes:
+    uv run python scripts/check_reference_cache_nul_bytes.py
+
 # Guard against KB values that are not permissible in their slot's enum (#10061).
 # The schema-narrowing twin of check-duplicate-keys: #10003 narrowed
 # EvidenceItemSupportEnum while ~15 curation PRs carrying the retired PARTIAL
@@ -1795,6 +1820,24 @@ list-title-snippets:
 [group('QC')]
 update-title-snippet-baseline:
     uv run python scripts/check_title_snippets.py --update-baseline
+
+# PARTIAL and WRONG_STATEMENT left the enum in #7439 and #10003 migrated the
+# values, but not the explanations written to justify them (#12805).
+# Grandfathered against origin/main; the committed baseline only ever shrinks.
+# Fail on new prose arguing for a retired `supports` grade.
+[group('QC')]
+check-retired-support-prose:
+    uv run python scripts/check_retired_support_prose.py --against-ref origin/main
+
+# List every mention of a retired `supports` grade, baselined or not (worklist).
+[group('QC')]
+list-retired-support-prose:
+    uv run python scripts/check_retired_support_prose.py --all
+
+# Shrink the retired-grade prose baseline after fixing backlog entries (never grows).
+[group('QC')]
+update-retired-support-prose-baseline:
+    uv run python scripts/check_retired_support_prose.py --update-baseline
 
 # Guard against one quoted sentence carrying two different `evidence_source`
 # values in the same file -- `evidence_source` describes the cited publication,
@@ -2250,9 +2293,21 @@ export-kgx-maximal out_dir="output/maximal_kgx":
     uv run python -m dismech.export.maximal_kgx_export -o {{out_dir}}
 
 # Project disorder YAMLs to a MONDO-anchored, HPOA-extended TSV plus a disease-disease comorbidity sidecar.
+# MONDO-bound subtypes get their own rows: unscoped phenotypes are inherited down to
+# them (marked in the `inherited_from` column). Pass --no-subtypes for parents only.
 [group('Export')]
-export-hpoa:
-    uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa
+export-hpoa *args:
+    uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa {{args}}
+
+# OMIM-keyed variant of `export-hpoa`, joinable against the HPO release: rows are rekeyed
+# through MONDO's SSSOM exactMatch set (downloaded once into output/hpoa; delete it to
+# refresh). Writes output/hpoa/phenotype.dismech.omim.hpoa and omim_unmapped.tsv, which
+# lists the diseases withheld for having no single exact OMIM match.
+[group('Export')]
+export-hpoa-omim *args:
+    mkdir -p output/hpoa
+    test -s output/hpoa/mondo.sssom.tsv || curl --fail -sSL -o output/hpoa/mondo.sssom.tsv http://purl.obolibrary.org/obo/mondo/mappings/mondo.sssom.tsv
+    uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa --key omim --sssom output/hpoa/mondo.sssom.tsv {{args}}
 
 # Runs `export-hpoa` first (the script reads its output), then downloads the release,
 # hp.obo, mondo.obo and MONDO's SSSOM set into `dir` (cached; delete a file to refresh
@@ -2260,6 +2315,9 @@ export-hpoa:
 # writes the generated report sections to stdout and the per-disease worklist to
 # `dir`/per-disease.tsv. The committed report carries hand-written sections too, so
 # merge rather than overwrite it.
+# NOTE: the export now includes MONDO-bound subtypes with rows inherited from their
+# parent (non-empty `inherited_from`), which the comparison scores like any other
+# dismech annotation, so the committed report's figures change on regeneration.
 # Compare the HPOA export against the HPO project's phenotype.hpoa release.
 [group('Export')]
 compare-hpoa-release dir="output/hpoa-compare": export-hpoa
@@ -2517,6 +2575,19 @@ dr_term_validation := "--validate-terms --term-cache-dir terms_cache --term-skip
 # recipe writes `-cyberian-codex.md` for a run whose provider is `cyberian`.
 dr_fallback := ""
 dr_align := "uv run python scripts/align_research_provider.py"
+
+# Where the client writes a run's report, citations and _artifacts/ before they
+# are placed into research/ (inside tmp/, which git ignores). The client used to
+# write straight onto research/<name>-deep-research-<provider>.md, so re-running
+# a provider for a disorder that already had its report overwrote the committed
+# one, and a fallback then renamed the wreckage -- with the old run's
+# _artifacts/ -- onto the fallback provider's name (#12700). Now
+# `scripts/align_research_provider.py --into` moves the run's own files into
+# place and never replaces anything: when the name is taken, the new report
+# gets the run date appended (`Foo-deep-research-falcon-2026-10-08.md`) and
+# sits beside the old one. If placement fails, the run's output is left in the
+# staging directory and the error names it, so a paid run is never lost.
+dr_staging_dir := "tmp/research-staging"
 dr_stamp := "uv run python scripts/template_version.py stamp --quiet"
 
 # Deep research to find public datasets (GEO/SRA/dbGaP/PRIDE/...) for a disorder.
@@ -2543,6 +2614,8 @@ research-datasets provider disorder *args="":
     mondo_id=$(uv run python -c "import sys,yaml;d=yaml.safe_load(open(sys.argv[1])) or {};t=(d.get('disease_term') or {}).get('term') or {};i=(t.get('id') or '').strip() if isinstance(t,dict) else '';print(i if i.startswith('MONDO:') and i != 'MONDO:0000001' else '')" "$yaml_file" 2>/dev/null || echo "")
     output_file="{{research_dir}}/datasets/{{disorder}}-datasets-{{provider}}.md"
     requested_provider="{{provider}}"
+    staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+    staged_file="$staging_dir/$(basename "$output_file")"
     echo "Dataset discovery: $disease_name [${mondo_id:-no MONDO ID}] ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
     {{dr_client}} research \
@@ -2551,16 +2624,17 @@ research-datasets provider disorder *args="":
         --var "mondo_id=$mondo_id" \
         --var "category=$category" \
         $provider_arg \
-        --output "$output_file" \
-        --separate-citations "$output_file.citations.md" \
+        --output "$staged_file" \
+        --separate-citations "$staged_file.citations.md" \
         {{dr_validation}} \
         {{dr_term_validation}} \
         {{dr_fallback}} \
         {{args}} || dr_status=$?
-    if [ -f "$output_file" ]; then
-        {{dr_stamp}} "$output_file"
-        {{dr_align}} "$output_file" --requested "$requested_provider"
+    if [ -f "$staged_file" ]; then
+        {{dr_stamp}} "$staged_file"
+        {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
     fi
+    rmdir "$staging_dir" 2>/dev/null || true
     exit ${dr_status:-0}
 
 # Report which revision of a research template produced each report, and how
@@ -2668,6 +2742,8 @@ research-disorder provider disorder *args="":
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-{{provider}}.md"
     requested_provider="{{provider}}"
+    staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+    staged_file="$staging_dir/$(basename "$output_file")"
     template_file=$([[ "{{provider}}" == "asta" ]] && echo "{{templates_dir}}/disease_pathophysiology_research_asta.md" || echo "{{templates_dir}}/disease_pathophysiology_research.md")
     echo "Researching: $disease_name [${mondo_id:-no MONDO ID}] ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
@@ -2677,16 +2753,17 @@ research-disorder provider disorder *args="":
         --var "mondo_id=$mondo_id" \
         --var "category=$category" \
         $provider_arg \
-        --output "$output_file" \
-        --separate-citations "$output_file.citations.md" \
+        --output "$staged_file" \
+        --separate-citations "$staged_file.citations.md" \
         {{dr_validation}} \
         {{dr_term_validation}} \
         {{dr_fallback}} \
         {{args}} || dr_status=$?
-    if [ -f "$output_file" ]; then
-        {{dr_stamp}} "$output_file"
-        {{dr_align}} "$output_file" --requested "$requested_provider"
+    if [ -f "$staged_file" ]; then
+        {{dr_stamp}} "$staged_file"
+        {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
     fi
+    rmdir "$staging_dir" 2>/dev/null || true
     exit ${dr_status:-0}
 
 # Deep research on a shared mechanism module using specified provider
@@ -2744,6 +2821,8 @@ research-module provider module *args="":
     )
     output_file="{{research_dir}}/modules/{{module}}-deep-research-{{provider}}.md"
     requested_provider="{{provider}}"
+    staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+    staged_file="$staging_dir/$(basename "$output_file")"
     template_file="{{templates_dir}}/module_mechanism_research.md"
     echo "Researching module: $module_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
@@ -2755,16 +2834,17 @@ research-module provider module *args="":
         --var "module_description=$module_description" \
         --var "pathophysiology_summary=$pathophysiology_summary" \
         $provider_arg \
-        --output "$output_file" \
-        --separate-citations "$output_file.citations.md" \
+        --output "$staged_file" \
+        --separate-citations "$staged_file.citations.md" \
         {{dr_validation}} \
         {{dr_term_validation}} \
         {{dr_fallback}} \
         {{args}} || dr_status=$?
-    if [ -f "$output_file" ]; then
-        {{dr_stamp}} "$output_file"
-        {{dr_align}} "$output_file" --requested "$requested_provider"
+    if [ -f "$staged_file" ]; then
+        {{dr_stamp}} "$staged_file"
+        {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
     fi
+    rmdir "$staging_dir" 2>/dev/null || true
     exit ${dr_status:-0}
 
 # Deep research on a comorbidity using specified provider
@@ -2820,6 +2900,8 @@ research-comorbidity provider comorbidity *args="":
 	rm -f "$tmpfile"
 	output_file="{{research_dir}}/{{comorbidity}}-deep-research-{{provider}}.md"
 	requested_provider="{{provider}}"
+	staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+	staged_file="$staging_dir/$(basename "$output_file")"
 	echo "Researching: $disease_a_label ↔ $disease_b_label ({{provider}}) -> $output_file"
 	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
 	{{dr_client}} research \
@@ -2831,16 +2913,17 @@ research-comorbidity provider comorbidity *args="":
 	    --var "disease_b_components=$disease_b_components" \
 	    --var "disease_b_composition=$disease_b_composition" \
 	    $provider_arg \
-	    --output "$output_file" \
-	    --separate-citations "$output_file.citations.md" \
+	    --output "$staged_file" \
+	    --separate-citations "$staged_file.citations.md" \
 	    {{dr_validation}} \
 	    {{dr_term_validation}} \
 	    {{dr_fallback}} \
 	    {{args}} || dr_status=$?
-	if [ -f "$output_file" ]; then
-	    {{dr_stamp}} "$output_file"
-	    {{dr_align}} "$output_file" --requested "$requested_provider"
+	if [ -f "$staged_file" ]; then
+	    {{dr_stamp}} "$staged_file"
+	    {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
 	fi
+	rmdir "$staging_dir" 2>/dev/null || true
 	exit ${dr_status:-0}
 
 # Deep research on Class A surrogacy evidence for a (disease, surrogate, clinical_outcome) triple.
@@ -2866,6 +2949,8 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	surrogate_slug=$(echo "{{surrogate}}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+|_+$//g' | cut -c1-60)
 	output_file="{{research_dir}}/surrogacy/{{disease}}-surrogacy-${surrogate_slug}-deep-research-{{provider}}.md"
 	requested_provider="{{provider}}"
+	staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+	staged_file="$staging_dir/$(basename "$output_file")"
 	echo "Researching surrogacy: $disease_name | {{surrogate}} -> {{clinical_outcome}} ({{provider}}) -> $output_file"
 	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
 	{{dr_client}} research \
@@ -2874,16 +2959,17 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	    --var "surrogate={{surrogate}}" \
 	    --var "clinical_outcome={{clinical_outcome}}" \
 	    $provider_arg \
-	    --output "$output_file" \
-	    --separate-citations "$output_file.citations.md" \
+	    --output "$staged_file" \
+	    --separate-citations "$staged_file.citations.md" \
 	    {{dr_validation}} \
 	    {{dr_term_validation}} \
 	    {{dr_fallback}} \
 	    {{args}} || dr_status=$?
-	if [ -f "$output_file" ]; then
-	    {{dr_stamp}} "$output_file"
-	    {{dr_align}} "$output_file" --requested "$requested_provider"
+	if [ -f "$staged_file" ]; then
+	    {{dr_stamp}} "$staged_file"
+	    {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
 	fi
+	rmdir "$staging_dir" 2>/dev/null || true
 	exit ${dr_status:-0}
 
 # Deep research on a disorder using cyberian with codex agent
@@ -2903,6 +2989,8 @@ research-disorder-cyberian-codex disorder *args="":
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-cyberian-codex.md"
     requested_provider="cyberian-codex"
+    staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+    staged_file="$staging_dir/$(basename "$output_file")"
     echo "Researching: $disease_name [${mondo_id:-no MONDO ID}] (cyberian-codex) -> $output_file"
     {{dr_client}} research \
         --template {{templates_dir}}/disease_pathophysiology_research.md \
@@ -2911,16 +2999,17 @@ research-disorder-cyberian-codex disorder *args="":
         --var "category=$category" \
         --provider cyberian \
         --param agent_type=codex \
-        --output "$output_file" \
-        --separate-citations "$output_file.citations.md" \
+        --output "$staged_file" \
+        --separate-citations "$staged_file.citations.md" \
         {{dr_validation}} \
         {{dr_term_validation}} \
         {{dr_fallback}} \
         {{args}} || dr_status=$?
-    if [ -f "$output_file" ]; then
-        {{dr_stamp}} "$output_file"
-        {{dr_align}} "$output_file" --requested "$requested_provider"
+    if [ -f "$staged_file" ]; then
+        {{dr_stamp}} "$staged_file"
+        {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
     fi
+    rmdir "$staging_dir" 2>/dev/null || true
     exit ${dr_status:-0}
 
 # List available research providers
@@ -3140,6 +3229,45 @@ fetch-reference +identifiers:
                 ;;
             ICTRP:*|ictrp:*)
                 uv run python -m dismech.structured_sources.cli rebuild ictrp --id "$identifier"
+                ;;
+            # Structured-source prefixes have no linkml-reference-validator
+            # fetcher, so handing them to `cache reference` only ever printed
+            # "No source found" (#13575). Route each to its own rebuild.
+            # Prefixes are matched as the serializers spell them (CGGV:, CGDS:,
+            # ORPHA:/Orphanet:, ICEES:, NCIT:); a lowercase id would only
+            # reach a KeyError. A requested id absent from the export makes
+            # the rebuild exit 1, so this recipe fails the way it did when
+            # LRV reported "No source found".
+            CGGV:*)
+                if [ ! -f data/clingen/gene_validity.csv ]; then
+                    # A drifted-pin failure still leaves the download on disk
+                    # (#10426), which is what we want: the rebuild stamps the
+                    # file's own date and warns about the pin.
+                    uv run python -m dismech.structured_sources.cli refresh clingen || true
+                fi
+                uv run python -m dismech.structured_sources.cli rebuild clingen --id "$identifier"
+                ;;
+            CGDS:*)
+                if [ ! -f data/clingen-dosage/gene_dosage.csv ] || [ ! -f data/clingen-dosage/gene_dosage_grch38.tsv ]; then
+                    uv run python -m dismech.structured_sources.cli refresh clingen-dosage || true
+                fi
+                uv run python -m dismech.structured_sources.cli rebuild clingen-dosage --id "$identifier"
+                ;;
+            ORPHA:*|Orphanet:*)
+                uv run python -m dismech.structured_sources.cli rebuild orphanet --id "$identifier"
+                ;;
+            ICEES:*)
+                uv run python -m dismech.structured_sources.cli rebuild icees --id "$identifier"
+                ;;
+            NCIT:*)
+                # `rebuild ncit` opens sqlite:obo:ncit, and OAK downloads that
+                # multi-hundred-MB build when it is absent (CLAUDE.md, oak_db).
+                # Ask first, rather than start a download from a fetch recipe.
+                if ! uv run python -c "from dismech.oak_db import local_build_present as p; raise SystemExit(0 if p('sqlite:obo:ncit') else 1)"; then
+                    echo "The local NCIT build is not present; run \`just ncit-edges-refresh\` (downloads it), then \`just ncit-edges-rebuild --id $identifier\`." >&2
+                    exit 1
+                fi
+                uv run python -m dismech.structured_sources.cli rebuild ncit --id "$identifier"
                 ;;
             *)
                 scripts/run_reference_validator.sh cache reference "$identifier"
