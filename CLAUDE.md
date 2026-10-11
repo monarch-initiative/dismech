@@ -4036,9 +4036,9 @@ baseline file grandfathering a pre-existing backlog -- `check-snippet-length`,
 `check-title-snippets`, `check-snippet-grading`, `check-retired-support-prose`
 and `check-causal-targets`. Three further gates that are in `just qc` but not
 in the list above do too: `check-reference-titles`, `check-coarse-phenotypes`
-and `check-gene-activity-grounding`. Those eight are the whole set, and it is
-checkable rather than remembered -- `tests/*_baseline.txt` and the
-`just update-*-baseline` recipes are one-to-one with it. Do not update a baseline
+and `check-gene-activity-grounding`. The formatter-spacing gate adds a ninth backlog (see YAML Formatter Safety),
+with its shrink-only updater on `check-block-scalar-comments --update-baseline`.
+Inspect `tests/*_baseline.txt` for the current set. Do not update a baseline
 to admit a defect introduced by the current change.
 
 Two of these gates used to have a baseline and no longer do, by the same route:
@@ -4314,6 +4314,37 @@ Two consequences worth keeping straight:
 - **A grouping's exact-match roots survive the outage.** They come from the
   grouping's own YAML, not from MONDO, so the unavailable branch keeps them in
   scope and the coverage figure stays computable; only the descendant rows go.
+
+## YAML Formatter Safety (dismech#12101, dismech#9613)
+
+The yamlfix hook formats in memory and refuses to write a result that changes
+parsed YAML data. Its comment-spacing regexes are disabled in `.yamlfix.toml`;
+version 1.19.1 has no setting to disable its boolean regex or exempt block
+scalars. A prose line ending in `: no` or `- no` can still trigger that regex,
+so the hook rejects the result and leaves the file untouched.
+
+Prefer a **double-quoted scalar** for prose containing a literal ` #<digit>`
+(issue/PR references, `CACHE #3`, etc.) rather than `>-`. Quoting also works
+around the boolean rewrite. Preserve the loaded string when converting: use
+`\n` for literal newlines, escape embedded quotes/backslashes, and compare
+parsed values before and after. Do not accept a formatter's changed quote or
+bypass the hook to get a commit through.
+
+```bash
+just check-block-scalar-comments                         # gate new findings, all kb/
+just check-block-scalar-comments --strict                # list/fail on all findings
+just check-block-scalar-comments --update-baseline       # only remove repaired findings
+just check-block-scalar-comments kb/disorders/COVID-19.yaml
+```
+
+This runs in `just qc` and as an ungated whole-KB CI check. It flags the older
+hook's `  # <digit>` fingerprint inside literal/folded block scalars, including
+explanations and descriptions. Review a finding against its source before
+repairing it; the pattern is suspicious spacing, not proof of its origin.
+The pre-existing review backlog is recorded by file and exact source line in
+`tests/block_scalar_comments_baseline.txt`, with occurrence counts so copying
+an old finding still fails. The baseline updater only shrinks that backlog;
+never add an exemption to admit new corruption.
 
 ## Duplicate YAML Keys (dismech#8623)
 
