@@ -25,17 +25,51 @@ writes ``-cyberian-codex.md`` for a run whose provider is ``cyberian``. Renaming
 on mismatch would rewrite both. ``fell_back`` is set only when a provider other
 than the first choice produced the report, which is exactly the case that makes
 the filename a lie.
+
+**A run never replaces a report that is already there.** Every research recipe
+has the client write into a staging directory, and :func:`place_report` then
+moves the result into ``research/`` under the provider-aligned name -- or, when
+that name already belongs to a committed report, under the same name with the
+run date appended (``Foo-deep-research-claude_code-2026-10-08.md``), so the new
+report and its artifacts sit beside the old ones instead of on top of them
+(dismech#12700). Before this, the client wrote straight onto the committed path,
+so re-running a provider destroyed the report it had produced last time, and a
+fallback then renamed that ruin -- with the previous run's ``_artifacts/`` -- onto
+the fallback provider's name.
 """
 
 from __future__ import annotations
 
+import datetime as dt
+import re
 import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
 from dismech.yaml_io import safe_load
 
 FRONTMATTER_DELIMITER = "---"
+
+#: Appended to a report name when the plain name is already taken: the run
+#: date, then a counter for a second run on the same day. A filename parser
+#: reading the provider out of ``-deep-research-<provider>.md`` must strip it
+#: (see :func:`strip_run_suffix`).
+RUN_SUFFIX_RE = re.compile(r"-\d{4}-\d{2}-\d{2}(?:-\d+)?$")
+
+
+def strip_run_suffix(provider: str) -> str:
+    """Return the provider part of a filename slug, without a run-date suffix.
+
+    Examples:
+        >>> strip_run_suffix("claude_code-2026-07-30")
+        'claude_code'
+        >>> strip_run_suffix("falcon-2026-10-08-2")
+        'falcon'
+        >>> strip_run_suffix("cyberian-codex")
+        'cyberian-codex'
+    """
+    return RUN_SUFFIX_RE.sub("", provider)
 
 
 class AlignmentError(RuntimeError):
@@ -57,6 +91,9 @@ class Alignment:
         requested_provider: The provider the run asked for.
         actual_provider: The provider that produced the report.
         moved: Paths that were moved, as ``(old, new)`` pairs.
+        kept_alongside: For :func:`place_report`, the existing report whose name
+            this one would have taken, and which it was therefore placed beside
+            under a dated name. None when the plain name was free.
     """
 
     report: Path
@@ -64,6 +101,7 @@ class Alignment:
     requested_provider: str | None
     actual_provider: str | None
     moved: tuple[tuple[Path, Path], ...] = ()
+    kept_alongside: Path | None = None
 
     @property
     def fell_back(self) -> bool:
@@ -210,6 +248,159 @@ def _rewrite_artifact_links(path: Path, old_stem: str, new_stem: str) -> None:
         path.write_text(updated, encoding="utf-8")
 
 
+def _committed_and_untouched(path: Path) -> bool:
+    """Whether ``path`` is committed content that nothing has changed since.
+
+    A file or directory that git tracks, with no modification, deletion or
+    untracked addition under it, cannot have been written by the run that just
+    finished, so it is not that run's output to move. Outside a git work tree
+    (or without git) this answers False: there is no history to protect.
+    """
+    if not path.exists():
+        return False
+    cwd = path.parent if path.parent.exists() else Path(".")
+    try:
+        tracked = subprocess.run(
+            ["git", "ls-files", "--", path.name],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        if not tracked:
+            return False
+        status = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=all", "--", path.name],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    return not status
+
+
+def _refuse_committed_sources(report: Path, moves: list[tuple[Path, Path]]) -> None:
+    """Refuse to move anything this run did not write (dismech#12700).
+
+    The report the caller names, and the citations sidecar and artifacts
+    directory found beside it by name, are only this run's output if the run
+    wrote them. A committed, unmodified one is a previous run's report -- most
+    dangerously an ``_artifacts/`` directory the new run did not produce, which
+    ``_sidecars`` would otherwise attach to the new report's provider.
+    """
+    stale = [str(old) for old, _ in moves if _committed_and_untouched(old)]
+    if stale:
+        raise AlignmentError(
+            f"Refusing to move {', '.join(stale)}: committed and unchanged, so "
+            f"not written by the run that produced {report.name}. Moving it "
+            "would re-attribute a previous report or its artifacts to another "
+            "provider. Nothing was moved."
+        )
+
+
+def _aligned_path(report: Path, requested: str, frontmatter: dict) -> Path:
+    """Return where ``report`` belongs given who wrote it, without moving it."""
+    if not frontmatter.get("fell_back"):
+        return report
+    actual = frontmatter.get("provider")
+    if not isinstance(actual, str) or not actual:
+        raise AlignmentError(
+            f"{report.name} records a fallback but names no provider, so the "
+            "report cannot be renamed to whoever wrote it."
+        )
+    return retarget_path(report, requested, actual)
+
+
+def _companion_names(report: Path) -> tuple[Path, Path, Path]:
+    return (
+        report,
+        report.with_name(f"{report.name}.citations.md"),
+        report.with_name(f"{report.stem}_artifacts"),
+    )
+
+
+def _free_destination(target: Path, run_date: str) -> Path:
+    """Return ``target``, or a dated variant of it, that no existing file uses.
+
+    The report, its citations sidecar and its artifacts directory must all be
+    free under the chosen stem, so a new run can never land on any part of an
+    old one.
+    """
+    stem, suffix = target.stem, target.suffix
+    candidates = [stem, f"{stem}-{run_date}"]
+    candidates += (f"{stem}-{run_date}-{n}" for n in range(2, 1000))
+    for candidate in candidates:
+        path = target.with_name(candidate + suffix)
+        if not any(p.exists() for p in _companion_names(path)):
+            return path
+    raise AlignmentError(f"No free name for {target.name} on {run_date}.")
+
+
+def place_report(
+    staged: Path,
+    into: Path,
+    requested: str,
+    *,
+    run_date: str | None = None,
+    dry_run: bool = False,
+) -> Alignment:
+    """Move a staged report into ``into`` without replacing anything there.
+
+    The research recipes have the client write into a staging directory, then
+    call this. The report is named for the provider that actually wrote it (as
+    :func:`align_report_provider` does in place), and if that name -- or its
+    citations sidecar or artifacts directory -- is already in use, the run date
+    is appended to the stem so the new report sits beside the existing one.
+
+    Args:
+        staged: The report the run just wrote, outside ``into``.
+        into: The directory the report belongs in, e.g. ``research/``.
+        requested: The provider slug the run asked for, as it appears in the name.
+        run_date: ``YYYY-MM-DD`` for a dated name; today (UTC) by default.
+        dry_run: Report what would move without moving anything.
+
+    Returns:
+        An :class:`Alignment`. ``report`` is where the report now is;
+        ``kept_alongside`` names the existing report it was placed beside, if any.
+
+    Raises:
+        AlignmentError: If the staged report is missing, or a fallback cannot be
+            mapped onto a name (see :func:`align_report_provider`).
+    """
+    if not staged.is_file():
+        raise AlignmentError(f"No report at {staged}")
+
+    frontmatter = read_frontmatter(staged)
+    aligned = _aligned_path(staged, requested, frontmatter)
+    wanted = into / aligned.name
+    run_date = run_date or dt.datetime.now(dt.UTC).strftime("%Y-%m-%d")
+    destination = _free_destination(wanted, run_date)
+    kept_alongside = wanted if destination != wanted else None
+
+    moves = [(staged, destination), *_sidecars(staged, destination)]
+    actual = frontmatter.get("provider")
+    result = Alignment(
+        report=destination,
+        renamed_from=staged if aligned != staged else None,
+        requested_provider=frontmatter.get("requested_provider") or requested,
+        actual_provider=actual.strip().lower() if isinstance(actual, str) else None,
+        moved=tuple(moves),
+        kept_alongside=kept_alongside,
+    )
+    if dry_run:
+        return result
+
+    into.mkdir(parents=True, exist_ok=True)
+    for old, new in moves:
+        shutil.move(str(old), str(new))
+    for moved_path in _companion_names(destination)[:2]:
+        if moved_path.is_file():
+            _rewrite_artifact_links(moved_path, staged.stem, destination.stem)
+    return result
+
+
 def align_report_provider(
     report: Path, requested: str, *, dry_run: bool = False
 ) -> Alignment:
@@ -226,7 +417,9 @@ def align_report_provider(
 
     Raises:
         AlignmentError: If the report is missing, if the provider cannot be
-            located in its filename, or if any destination is already taken.
+            located in its filename, if any destination is already taken, or
+            if anything it would move is committed content this run did not
+            write (dismech#12700).
     """
     if not report.is_file():
         raise AlignmentError(f"No report at {report}")
@@ -258,6 +451,7 @@ def align_report_provider(
         )
 
     moves = [(report, new_report), *_sidecars(report, new_report)]
+    _refuse_committed_sources(report, moves)
     taken = [str(new) for _, new in moves if new.exists()]
     if taken:
         raise AlignmentError(

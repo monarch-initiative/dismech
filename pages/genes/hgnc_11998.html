@@ -1,0 +1,2326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TP53 - dismech genes</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+        
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: #fff; color: var(--gray-800); line-height: 1.65; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+nav.site-nav {
+    position: sticky; top: 0; background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(12px); border-bottom: 1px solid var(--gray-200);
+    z-index: 100; padding: 0.75rem 1.5rem;
+}
+.nav-inner { max-width: var(--max-width); margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; text-decoration: none; }
+.nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+.nav-links a { color: var(--gray-600); text-decoration: none; }
+.nav-links a:hover, .nav-links a.active { color: var(--teal); }
+.container { max-width: var(--max-width); margin: 0 auto; padding: 24px 16px; }
+.breadcrumb { margin-bottom: 16px; font-size: 0.9rem; color: var(--text-muted); }
+.page-header { background: var(--teal-50); border: 1px solid var(--gray-200); padding: 2rem; border-radius: 12px; margin-bottom: 24px; }
+.page-header h1 { font-size: 2.1rem; font-weight: 700; color: var(--teal); letter-spacing: -0.02em; line-height: 1.15; }
+.page-header .subtitle { color: var(--gray-700); margin-top: 6px; font-size: 1.05rem; }
+.header-meta { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 10px; font-size: 0.78rem; font-weight: 600; background: rgba(0, 131, 143, 0.08); color: var(--teal); border: 1px solid var(--teal-light); }
+.chip.muted { background: var(--gray-50, #f8fafc); color: var(--gray-600); border-color: var(--gray-200); }
+.chip.warn { background: #fffbeb; color: #92400e; border-color: #fcd34d; }
+.chip.ok { background: #f0fdf4; color: #166534; border-color: #86efac; }
+.chip.bad { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.card h2 { font-size: 1.15rem; color: var(--gray-800); margin-bottom: 4px; }
+.layer { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
+.layer a { color: inherit; text-decoration: underline; }
+.prose p { margin: 0.5em 0; }
+.prose h1 { display: none; }
+.prose h2 { font-size: 1rem; margin: 1em 0 0.3em; color: var(--gray-800); }
+.note { font-size: 0.85rem; color: var(--text-muted); }
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th { text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); border-bottom: 2px solid var(--gray-200); padding: 6px 8px; }
+td { border-bottom: 1px solid var(--gray-200); padding: 8px; vertical-align: top; }
+.table-wrap { overflow-x: auto; }
+.tag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; background: #eef2ff; color: #3730a3; margin: 1px 2px 1px 0; }
+.tag.untyped { background: #fffbeb; color: #92400e; }
+.items { font-size: 0.85rem; color: var(--gray-700); }
+.items b { font-weight: 600; color: var(--gray-600); }
+@media (max-width: 720px) { .page-header { padding: 1.4rem; } .page-header h1 { font-size: 1.7rem; } }
+        .result.claim-pass { border-bottom: 1px dotted #16a34a; }
+        .result.claim-fail, .result.claim-error { background: #fef2f2; border-bottom: 2px solid #dc2626; }
+        .result.claim-unchecked { border-bottom: 1px dotted var(--gray-400, #94a3b8); }
+        .function { margin: 10px 0; padding-left: 12px; border-left: 3px solid var(--teal-light); }
+        .function .terms { font-size: 0.85rem; color: var(--gray-700); }
+        ul.plain { list-style: none; }
+        ul.problems { margin: 8px 0 0 18px; font-size: 0.85rem; color: #991b1b; }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    
+<nav class="site-nav">
+    <div class="nav-inner">
+        <a href="../../" class="nav-logo">dismech</a>
+        <div class="nav-links">
+            <a href="../../app/index.html">Browse</a>
+            <a href="../../details/">Docs</a>
+            <a href="../../pages/modules/">Modules</a>
+            <a href="index.html" class="active">Genes</a>
+            <a href="../../pages/classifications/">Classifications</a>
+            <a href="../../pages/research/index.html">Research</a>
+            <a href="https://github.com/monarch-initiative/dismech">GitHub</a>
+        </div>
+    </div>
+</nav>
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../../app/index.html">Browse All</a> / <a href="index.html">Genes</a> / <span>TP53</span>
+        </div>
+
+        <header class="page-header">
+            <h1>TP53</h1>
+            <div class="subtitle">tumor protein p53</div>
+            <div class="header-meta">
+                <span class="chip">99 disorders</span>
+                
+                <span class="chip warn">64 untyped</span>
+                
+                <span class="chip ">19 somatic driver</span>
+                
+                <span class="chip muted">6 no genetic record</span>
+                
+                <span class="chip ">3 cooperating</span>
+                
+                <span class="chip ">2 unknown</span>
+                
+                <span class="chip ">2 modifier</span>
+                
+                <span class="chip ">1 biomarker</span>
+                
+                <span class="chip ">1 causative</span>
+                
+                <span class="chip ">1 risk factor</span>
+                
+                <span class="chip ">1 susceptibility</span>
+                
+                
+                <span class="chip muted">17p13.1</span>
+                <span class="chip muted">gene with protein product</span>
+                
+            </div>
+            <div class="header-meta">
+                <a class="chip muted" href="https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/HGNC:11998">HGNC:11998</a><a class="chip muted" href="https://monarchinitiative.org/HGNC:11998">Monarch</a><a class="chip muted" href="https://www.ncbi.nlm.nih.gov/gene/7157">NCBI Gene 7157</a><a class="chip muted" href="https://www.ensembl.org/id/ENSG00000141510">ENSG00000141510</a><a class="chip muted" href="https://www.uniprot.org/uniprotkb/P04637">UniProt P04637</a><a class="chip muted" href="https://omim.org/entry/191170">OMIM 191170</a>
+            </div>
+            
+            <p class="note" style="margin-top:10px">
+                
+                Aliases: p53, LFS1.
+            </p>
+            
+            
+        </header>
+
+        
+
+        
+        <section class="card">
+            <div class="layer">Normal function · from <a href="https://github.com/ai4curation/ai-gene-review/blob/79fe13b38970ec1194c7584d57ec9f736a04967f/genes/human/TP53/TP53-ai-review.yaml">ai-gene-review</a> (P04637, commit 79fe13b38970) · AI-generated, not KB evidence</div>
+            
+            <p class="prose">Tumor suppressor p53 is a multifunctional transcription factor that acts as a guardian of the genome, coordinating cellular responses to diverse stress signals including DNA damage, oxidative stress, hypoxia, and metabolic stress. It regulates cell fate decisions through transcriptional control of genes involved in cell cycle arrest, apoptosis, senescence, DNA repair, and metabolism. TP53 is the most frequently mutated gene in human cancers (~50%), underlining its critical role in preventing malignant transformation. Beyond its canonical tumor suppressive functions, p53 also regulates ferroptosis, autophagy, immune responses, and stemness.</p>
+            
+            <div class="function">
+                <div>p53 functions as a sequence-specific DNA-binding transcription factor that binds p53 response elements to regulate transcription of target genes involved in cell cycle arrest, apoptosis, DNA repair, and metabolism</div>
+                <div class="terms">
+                    
+                    <b>molecular function:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:0000976">transcription cis-regulatory region binding</a>
+                    ·
+                    
+                    <b>directly involved in:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:0030330">DNA damage response, signal transduction by p53 class mediator</a>; <a href="http://amigo.geneontology.org/amigo/term/GO:0045930">negative regulation of mitotic cell cycle</a>; <a href="http://amigo.geneontology.org/amigo/term/GO:0072332">intrinsic apoptotic signaling pathway by p53 class mediator</a>
+                    ·
+                    
+                    <b>locations:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:0005634">nucleus</a>
+                    
+                    
+                </div>
+            </div>
+            
+            <div class="function">
+                <div>p53 localizes to nuclear bodies and regulates both activation and repression of transcription, including senescence programs</div>
+                <div class="terms">
+                    
+                    <b>molecular function:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:0000976">transcription cis-regulatory region binding</a>
+                    ·
+                    
+                    <b>directly involved in:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:0045944">positive regulation of transcription by RNA polymerase II</a>; <a href="http://amigo.geneontology.org/amigo/term/GO:0000122">negative regulation of transcription by RNA polymerase II</a>; <a href="http://amigo.geneontology.org/amigo/term/GO:2000772">regulation of cellular senescence</a>
+                    ·
+                    
+                    <b>locations:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:0016604">nuclear body</a>
+                    
+                    
+                </div>
+            </div>
+            
+            
+        </section>
+        
+
+        <section class="card">
+            <div class="layer">In the knowledge base · computed from kb/ at build time</div>
+            <h2>Disorders</h2>
+            <p class="note">Relationship is the entry's <code>genetic[].relationship_type</code>. <span class="tag untyped">untyped</span> means the entry has a genetic record for the gene but does not type it; its free-text association is shown instead.</p>
+            <div class="table-wrap">
+            <table>
+                <thead><tr><th>Disorder</th><th>Relationship</th><th>Where the gene appears</th></tr></thead>
+                <tbody>
+                
+                <tr>
+                    <td><a href="../disorders/Acute_Erythroid_Leukemia.html">Acute Erythroid Leukemia</a></td>
+                    <td>
+                        <span class="tag">somatic driver</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> Biallelic TP53 Inactivation</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Acute_Megakaryoblastic_Leukemia.html">Acute Megakaryoblastic Leukemia</a></td>
+                    <td>
+                        <span class="tag">biomarker</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> Adult Adverse Genomic Landscape and Therapy Resistance</div>
+                        
+                        <div><b>scoped to subtype:</b> Adult AMKL</div>
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Adult_T-Cell_Leukemia_Lymphoma.html">Adult T-Cell Leukemia/Lymphoma</a></td>
+                    <td>
+                        <span class="tag">somatic driver</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> TP53-Mutant Senescence Escape</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Aflatoxin-Related_Hepatocellular_Carcinoma.html">Aflatoxin-Related Hepatocellular Carcinoma</a></td>
+                    <td>
+                        <span class="tag">somatic driver</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> TP53 R249S Hotspot Mutation</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Aggressive_NK-cell_Leukemia.html">Aggressive NK-cell Leukemia</a></td>
+                    <td>
+                        <span class="tag">unknown</span>
+                        
+                        
+                        
+                        <span class="tag">unknown</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> TP53 Checkpoint and DNA-Repair Impairment</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Anaplastic_Thyroid_Carcinoma.html">Anaplastic Thyroid Carcinoma</a></td>
+                    <td>
+                        <span class="tag">somatic driver</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> TP53 Loss and p53-Mediated DNA Damage Response Failure</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Angiosarcoma.html">Angiosarcoma</a></td>
+                    <td>
+                        <span class="tag">unknown</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Appendiceal_Neoplasm.html">Appendiceal Neoplasm</a></td>
+                    <td>
+                        <span class="tag">somatic driver</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Bile_Duct_Cyst.html">Bile Duct Cyst</a></td>
+                    <td>
+                        <span class="tag">somatic driver</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Bone_Giant_Cell_Tumor.html">Bone Giant Cell Tumor</a></td>
+                    <td>
+                        <span class="tag">somatic driver</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Bone_Marrow_Failure_Syndrome_6.html">Bone Marrow Failure Syndrome 6</a></td>
+                    <td>
+                        <span class="tag">cooperating</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        <span class="tag">loss of function</span>
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> Somatic TP53 Loss-of-Function as Maladaptive Clonal Rescue</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Burkitt_Lymphoma.html">Burkitt Lymphoma</a></td>
+                    <td>
+                        <span class="tag">cooperating</span>
+                        
+                        
+                        
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> Apoptosis Resistance</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Chondrosarcoma.html">Chondrosarcoma</a></td>
+                    <td>
+                        <span class="tag">somatic driver</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> TP53 Dysfunction</div>
+                        
+                        <div><b>subtype:</b> Conventional; Dedifferentiated</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Choroid_Plexus_Neoplasm.html">Choroid Plexus Neoplasm</a></td>
+                    <td>
+                        <span class="tag">causative</span><span class="tag">somatic driver</span>
+                        
+                        
+                        
+                        <span class="tag">germline</span><span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> TP53 Pathway Inactivation</div>
+                        
+                        <div><b>subtype:</b> CPC</div>
+                        
+                        <div><b>animal model:</b> Mus musculus</div>
+                        
+                        <div><b>scoped to subtype:</b> CPC</div>
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Chromophobe_Renal_Cell_Carcinoma.html">Chromophobe Renal Cell Carcinoma</a></td>
+                    <td>
+                        <span class="tag">somatic driver</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Embryonal_Carcinoma.html">Embryonal Carcinoma</a></td>
+                    <td>
+                        <span class="tag">modifier</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> Acquired Cisplatin Resistance; Intact Apoptotic Apparatus with Limited DNA Repair Capacity</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Embryonal_Rhabdomyosarcoma.html">Embryonal Rhabdomyosarcoma</a></td>
+                    <td>
+                        <span class="tag">risk factor</span>
+                        
+                        
+                        
+                        <span class="tag">germline</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>subtype:</b> Anaplastic Embryonal Rhabdomyosarcoma</div>
+                        
+                        <div><b>scoped to subtype:</b> Anaplastic Embryonal Rhabdomyosarcoma</div>
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Gastric_Adenocarcinoma.html">Gastric Adenocarcinoma</a></td>
+                    <td>
+                        <span class="tag">somatic driver</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> Chromosomal Instability and Aneuploidy</div>
+                        
+                        <div><b>subtype:</b> CIN</div>
+                        
+                        <div><b>scoped to subtype:</b> CIN</div>
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Kidney_Sarcoma.html">Kidney Sarcoma</a></td>
+                    <td>
+                        <span class="tag">somatic driver</span>
+                        
+                        
+                        
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>scoped to subtype:</b> Renal LMS</div>
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Large_Cell_Neuroendocrine_Carcinoma.html">Large Cell Neuroendocrine Carcinoma</a></td>
+                    <td>
+                        <span class="tag">somatic driver</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> TP53 Inactivation</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Liposarcoma.html">Liposarcoma</a></td>
+                    <td>
+                        <span class="tag">cooperating</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>scoped to subtype:</b> PLPS</div>
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Myelodysplastic_Syndrome.html">Myelodysplastic Syndrome</a></td>
+                    <td>
+                        <span class="tag">somatic driver</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Oligoastrocytoma.html">Oligoastrocytoma</a></td>
+                    <td>
+                        <span class="tag">somatic driver</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Pancytopenia-Developmental_Delay_Syndrome.html">Pancytopenia-Developmental Delay Syndrome</a></td>
+                    <td>
+                        <span class="tag">somatic driver</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> Somatic TP53 Clonal Rescue</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Postcricoid_Region_Cancer.html">Postcricoid Region Cancer</a></td>
+                    <td>
+                        <span class="tag">susceptibility</span>
+                        
+                        
+                        
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Pseudomyxoma_Peritonei.html">Pseudomyxoma Peritonei</a></td>
+                    <td>
+                        <span class="tag">somatic driver</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Splenic_Marginal_Zone_Lymphoma.html">Splenic Marginal Zone Lymphoma</a></td>
+                    <td>
+                        <span class="tag">modifier</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Triple-Negative_Breast_Cancer.html">Triple-Negative Breast Cancer</a></td>
+                    <td>
+                        <span class="tag">somatic driver</span>
+                        
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Wilms_Tumor.html">Wilms Tumor</a></td>
+                    <td>
+                        <span class="tag">somatic driver</span>
+                        
+                        
+                        
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> TP53-Deficient Anaplastic Progression</div>
+                        
+                        <div><b>scoped to subtype:</b> Anaplastic</div>
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Anal_Canal_Carcinoma.html">Anal Canal Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Inactivated by E6 Oncoprotein</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Arsenic-Related_Cancers.html">Arsenic-Related Cancers</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic loss of function</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Basal_Cell_Carcinoma.html">Basal Cell Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Mutations</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Bladder_Urothelial_Carcinoma.html">Bladder Urothelial Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Inactivation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Breast_Carcinoma.html">Breast Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic loss of function</div>
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> TP53 Loss of Function</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Cervical_Adenocarcinoma.html">Cervical Adenocarcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Cervical_Cancer.html">Cervical Cancer</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Inactivated by E6 Oncoprotein</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> miR-4327-Mediated TP53 Repression</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Choroid_Plexus_Carcinoma.html">Choroid Plexus Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Germline and Somatic Tumor Suppressor Loss</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Classic_Familial_Adenomatous_Polyposis.html">Classic Familial Adenomatous Polyposis</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic progression-associated alterations</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Cutaneous_Squamous_Cell_Carcinoma.html">Cutaneous Squamous Cell Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Diffuse_Astrocytoma.html">Diffuse Astrocytoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Diffuse_Midline_Glioma,_H3_K27-Altered.html">Diffuse Midline Glioma, H3 K27-Altered</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Endometrial_Carcinoma.html">Endometrial Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic mutation</div>
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> TP53 Mutation and Copy-Number High State</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Endometrial_Endometrioid_Adenocarcinoma.html">Endometrial Endometrioid Adenocarcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic p53-abnormal high-risk alteration</div>
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Esophageal_Adenocarcinoma.html">Esophageal Adenocarcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Loss-of-Function Mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Esophageal_Carcinoma.html">Esophageal Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Loss-of-Function Mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Esophageal_Squamous_Cell_Carcinoma.html">Esophageal Squamous Cell Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Driver Mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> TP53 Dysfunction</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Ethmoid_Sinus_Adenocarcinoma.html">Ethmoid Sinus Adenocarcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic mutation associated with wood-dust exposure</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> Inflammation-Associated TP53 Mutagenesis</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Ewing_Sarcoma.html">Ewing Sarcoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Tumor Suppressor Mutation</div>
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Fallopian_Tube_Cancer.html">Fallopian Tube Cancer</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Loss-of-Function Mutations</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Gallbladder_Cancer.html">Gallbladder Cancer</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Loss-of-Function Mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Gastric_Cancer_H._pylori_Associated.html">Gastric Cancer H. pylori Associated</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Mutations</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Glioblastoma,_IDH-Wildtype.html">Glioblastoma, IDH-Wildtype</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Hepatocellular_Carcinoma.html">Hepatocellular Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Loss of Function</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/HER2-Positive_Gastric_Cancer.html">HER2-Positive Gastric Cancer</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Co-occurring Mutations</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/HPV-Negative_Head_and_Neck_Cancer.html">HPV-Negative Head and Neck Cancer</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Mutations</div>
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> TP53 Mutation and Inactivation</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/HPV-Positive_Head_and_Neck_Cancer.html">HPV-Positive Head and Neck Cancer</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Wild-type (rarely mutated)</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/IDH-Mutant_Astrocytoma.html">IDH-Mutant Astrocytoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Laryngeal_Squamous_Cell_Carcinoma.html">Laryngeal Squamous Cell Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> TP53 Dysfunction</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Leiomyosarcoma.html">Leiomyosarcoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic mutation or deletion</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Li-Fraumeni_Syndrome.html">Li-Fraumeni Syndrome</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Germline Loss-of-Function Mutations</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> Germline TP53 Heterozygosity</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Malignant_Peripheral_Nerve_Sheath_Tumor.html">Malignant Peripheral Nerve Sheath Tumor</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic loss of function</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> TP53 Pathway Loss</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Mantle_Cell_Lymphoma.html">Mantle Cell Lymphoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Adverse Prognostic Marker</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Medulloblastoma,_SHH-Activated.html">Medulloblastoma, SHH-Activated</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic/Germline Mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Medulloblastoma,_WNT-Activated.html">Medulloblastoma, WNT-Activated</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Melanoma_in_Congenital_Melanocytic_Nevus.html">Melanoma_in_Congenital_Melanocytic_Nevus</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Mutations</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Merkel_Cell_Carcinoma.html">Merkel Cell Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Mutations (in MCPyV-negative MCC)</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Mixed_Germ_Cell_Tumor.html">Mixed Germ Cell Tumor</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Wild-type in most germ cell tumors; the most recurrently mutated driver in TGCT</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Mucoepidermoid_Carcinoma.html">Mucoepidermoid Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> p16-CDK4/6-RB Pathway Deregulation and High-Grade Progression</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Multiple_Myeloma.html">Multiple Myeloma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Nasopharyngeal_Carcinoma.html">Nasopharyngeal Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Occasionally Mutated</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Non-Small_Cell_Lung_Cancer.html">Non-Small Cell Lung Cancer</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Loss-of-function Mutations</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Oral_Cavity_Squamous_Cell_Carcinoma.html">Oral Cavity Squamous Cell Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Mutations</div>
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> TP53 Mutation and Inactivation</div>
+                        
+                        <div><b>scoped to subtype:</b> HPV-Independent</div>
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Osteosarcoma.html">Osteosarcoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic mutation / germline predisposition</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Ovarian_High-Grade_Serous_Carcinoma.html">Ovarian High-Grade Serous Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Near-universal somatic mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Ovarian_Mucinous_Carcinoma.html">Ovarian Mucinous Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Mutation enriched in invasive/high-grade carcinoma and associated with progression</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Pancreatic_Ductal_Adenocarcinoma.html">Pancreatic Ductal Adenocarcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Loss-of-Function Mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Pancreatic_Mucinous_Cystadenoma.html">Pancreatic Mucinous Cystadenoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">PREDISPOSING</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Paranasal_Sinus_Squamous_Cell_Carcinoma.html">Paranasal Sinus Squamous Cell Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> TP53 Dysfunction</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Penile_Cancer.html">Penile Cancer</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Driver Mutation</div>
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> HPV-Independent Somatic Tumor Suppressor Loss</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Pleuropulmonary_Blastoma.html">Pleuropulmonary Blastoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Frequent Somatic Biallelic Loss</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> TP53 Loss</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Prostate_Adenocarcinoma.html">Prostate Adenocarcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic loss of function</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Sarcoma_Of_Cervix_Uteri.html">Sarcoma Of Cervix Uteri</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Sezary_Syndrome.html">Sezary Syndrome</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Tumor Suppressor Loss</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Shwachman-Diamond_syndrome.html">Shwachman-Diamond syndrome</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic driver of malignant progression</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Sinonasal_Undifferentiated_Carcinoma.html">Sinonasal Undifferentiated Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Co-occurring somatic mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Small_Cell_Lung_Cancer.html">Small Cell Lung Cancer</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Inactivating Mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Squamous_Cell_Carcinoma_of_Penis.html">Squamous Cell Carcinoma of Penis</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Driver Mutation</div>
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> Somatic Cell-Cycle Driver Alteration</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Testicular_Germ_Cell_Tumor.html">Testicular Germ Cell Tumor</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Wild-type in most TGCTs; mutations in ~10-17% of refractory cases</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Thymic_Carcinoma.html">Thymic Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Recurrent somatic tumor suppressor mutation</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Transitional_Cell_Carcinoma.html">Transitional Cell Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Urinary_Bladder_Small_Cell_Neuroendocrine_Carcinoma.html">Urinary Bladder Small Cell Neuroendocrine Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Mutations</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> Recurrent TP53 and RB1 Tumor-Suppressor Alterations</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Vulvar_Carcinoma.html">Vulvar Carcinoma</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Somatic Mutation</div>
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> HPV E6-Mediated p53 Degradation; HPV-Independent Somatic Driver Accumulation</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Yolk_Sac_Tumor.html">Yolk Sac Tumor</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Infrequently mutated in the studied ovarian YST cohort; not a universal absence</div>
+                        <span class="tag">somatic</span>
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>scoped to subtype:</b> Ovarian YST</div>
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Amatoxin_Poisoning.html">Amatoxin Poisoning</a></td>
+                    <td>
+                        
+                        
+                        <span class="note">no genetic record</span>
+                        
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> p53- and Caspase-Dependent Hepatocyte Apoptosis</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Balkan_Endemic_Nephropathy.html">Balkan Endemic Nephropathy</a></td>
+                    <td>
+                        
+                        
+                        <span class="note">no genetic record</span>
+                        
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> A:T to T:A Transversion Mutational Signature</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/BRAF_V600_Mutant_Melanoma.html">BRAF V600 Mutant Melanoma</a></td>
+                    <td>
+                        
+                        
+                        <span class="note">no genetic record</span>
+                        
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>animal model:</b> Danio rerio</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/BRAF_V600E-Mutant_Non-Small_Cell_Lung_Cancer.html">BRAF V600E-Mutant Non-Small Cell Lung Cancer</a></td>
+                    <td>
+                        
+                        
+                        <span class="note">no genetic record</span>
+                        
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> Cooperating Tumor-Suppressor and Lineage-State Alterations</div>
+                        
+                        <div><b>animal model:</b> Mus musculus</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Gestational_Trophoblastic_Neoplasm.html">Gestational Trophoblastic Neoplasm</a></td>
+                    <td>
+                        
+                        
+                        <span class="note">no genetic record</span>
+                        
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> Tumor Suppressor and Apoptosis Dysregulation</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Small_Intestine_Cancer.html">Small Intestine Cancer</a></td>
+                    <td>
+                        
+                        
+                        <span class="note">no genetic record</span>
+                        
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> Adenoma-Carcinoma Sequence and Wnt-APC Activation</div>
+                        
+                        <div><b>subtype:</b> Adenocarcinoma</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                </tbody>
+            </table>
+            </div>
+        </section>
+
+        
+        <section class="card">
+            <div class="layer">ClinGen gene–disease validity · snapshot 2026-10-03 · matched to entries by MONDO</div>
+            <p class="note">An entry matches when ClinGen's MONDO disease is the entry's own disease term, a subtype term, or an exact-match mapping. An amber status marks an entry ClinGen supports the gene for (Definitive, Strong or Moderate) whose own record does not type it. A Limited, Disputed or Refuted tier on such an entry is not a gap.</p>
+            <div class="table-wrap">
+            <table>
+                <thead><tr><th>ClinGen disease</th><th>MOI</th><th>Classification</th><th>dismech entry</th></tr></thead>
+                <tbody>
+                
+                <tr>
+                    <td><a href="https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_78494aba-bb52-4b33-bf1d-ebbb5374df4b-2024-03-22T170000.000Z">Li-Fraumeni syndrome</a> <span class="note">MONDO:0018875</span></td>
+                    <td>AD</td>
+                    <td>Definitive<div class="note">2024-03-22</div></td>
+                    <td>
+                        
+                        <div><a href="../disorders/Choroid_Plexus_Carcinoma.html">Choroid Plexus Carcinoma</a>
+                            <span class="tag untyped">untyped</span></div>
+                        
+                        <div><a href="../disorders/Li-Fraumeni_Syndrome.html">Li-Fraumeni Syndrome</a>
+                            <span class="tag untyped">untyped</span></div>
+                        
+                    </td>
+                </tr>
+                
+                </tbody>
+            </table>
+            </div>
+        </section>
+        
+
+        
+        <section class="card">
+            <div class="layer">Mechanism modules · computed from kb/</div>
+            <ul class="plain">
+            
+                <li><a href="../modules/evading_growth_suppressors.html">evading_growth_suppressors</a>
+                <span class="note"> via Acute Erythroid Leukemia, Choroid Plexus Neoplasm, Urinary Bladder Small Cell Neuroendocrine Carcinoma</span>
+                </li>
+            
+                <li><a href="../modules/genome_instability_mutation.html">genome_instability_mutation</a>
+                <span class="note"> via Anaplastic Thyroid Carcinoma, Ethmoid Sinus Adenocarcinoma, Gastric Adenocarcinoma</span>
+                </li>
+            
+                <li><a href="../modules/germline_two_hit_tumor_predisposition.html">germline_two_hit_tumor_predisposition</a>
+                <span class="note"> via Li-Fraumeni Syndrome</span>
+                </li>
+            
+                <li><a href="../modules/viral_oncogenesis.html">viral_oncogenesis</a>
+                <span class="note"> via Adult T-Cell Leukemia/Lymphoma, Vulvar Carcinoma</span>
+                </li>
+            
+            </ul>
+        </section>
+        
+
+        <p class="note">Identity from HGNC (snapshot 2026-10-01). Page layers are described in the <a href="../../elements/gene-pages/">gene pages documentation</a>.</p>
+    </div>
+</body>
+</html>
