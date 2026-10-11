@@ -1,0 +1,2397 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microtubule-Dependent Radial Neuronal Migration Agent-Based Model - dismech models</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+                /* Model cards (experimental, animal, computational) and the readout,
+           findings and pathograph-link blocks inside them. Shared by the
+           disorder and module pages through _model_cards.html.j2 (#13123). */
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .tag-phenotype {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .tag-biomarker {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+
+        .tag-dataset {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .mapping-notes {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        .findings-section {
+            margin-top: 12px;
+        }
+
+        .findings-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .finding-item {
+            padding: 10px 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border: 1px solid #e2e8f0;
+            font-size: 0.9rem;
+        }
+
+        .finding-statement {
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 6px;
+            line-height: 1.5;
+        }
+
+        .finding-supporting {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 6px;
+            padding-left: 12px;
+            border-left: 2px solid #cbd5e1;
+            font-style: italic;
+            line-height: 1.5;
+        }
+
+        .experiment-section {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .experiment-section-title {
+            font-size: 0.74rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #475569;
+            margin-bottom: 6px;
+        }
+
+        .experiment-subitem {
+            padding: 10px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f8fafc;
+            margin-bottom: 8px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .experiment-subitem-name {
+            font-weight: 700;
+            color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
+        /* Computational Models */
+        .comp-model-box {
+            background: #f0fdf4;
+            border-left: 4px solid #22c55e;
+        }
+        .comp-model-box .item-name { color: #166534; }
+        .comp-model-box .item-desc { color: #15803d; }
+
+        .tag-format {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .tag-software {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .tag-model-type {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .model-variables-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+            font-size: 0.85rem;
+        }
+        .model-variables-table th {
+            background: #f0fdf4;
+            color: #166534;
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 2px solid #86efac;
+            font-weight: 600;
+        }
+        .model-variables-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e5e7eb;
+            vertical-align: top;
+        }
+        .model-variables-table tr:hover td {
+            background: #f0fdf4;
+        }
+        .model-var-name {
+            font-weight: 600;
+            color: #166534;
+        }
+        .model-var-desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        .model-var-id {
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.8rem;
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        /* Simulation-run results (derived, from exports/model_runs/) */
+        .model-run-block {
+            margin-top: 12px;
+            border: 1px solid #86efac;
+            border-radius: 6px;
+            background: #f7fef9;
+        }
+        .model-run-summary {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #166534;
+            font-size: 0.9rem;
+        }
+        .model-run-summary:hover { background: #ecfdf5; }
+        .model-run-note {
+            display: block;
+            font-weight: 400;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .model-run-scroll { overflow-x: auto; }
+        .model-run-table { margin-top: 0; }
+        .model-run-table td { white-space: nowrap; }
+        .model-run-baseline td {
+            background: #ecfdf5;
+            font-weight: 500;
+        }
+        .model-run-caveat {
+            margin: 10px 12px;
+            padding: 10px 12px;
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: #78350f;
+            line-height: 1.5;
+        }
+        .model-run-provenance {
+            padding: 8px 12px 10px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border-top: 1px solid #d1fae5;
+        }
+        .severity-pill a { color: inherit; text-decoration: none; }
+        .severity-pill a:hover { text-decoration: underline; }
+
+        .severity-pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin: 2px;
+        }
+        .severity-mild { background: #fef9c3; color: #854d0e; }
+        .severity-moderate { background: #fed7aa; color: #9a3412; }
+        .severity-severe { background: #fecaca; color: #991b1b; }
+        .severity-other { background: #f3f4f6; color: #374151; }
+
+        .ontology-mapping-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            background: #e0f2fe;
+            color: #0369a1;
+            margin: 2px;
+        }
+        .ontology-mapping-tag a {
+            color: inherit;
+            text-decoration: none;
+        }
+        .ontology-mapping-tag a:hover {
+            text-decoration: underline;
+        }
+
+        /* Per-link scale and typed divergences (ModelMechanismLink). */
+        .model-link-scale {
+            display: inline-block;
+            font-size: 0.72rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            background: #eef2ff;
+            color: #3730a3;
+            margin-left: 4px;
+        }
+        .model-divergence {
+            margin-top: 6px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        .model-divergence-type {
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.72rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            background: #f1f5f9;
+            color: #334155;
+        }
+        .model-materiality {
+            font-size: 0.72rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            margin-left: 4px;
+        }
+        .model-materiality-INVALIDATING { background: #fecaca; color: #991b1b; }
+        .model-materiality-QUALIFYING { background: #fef3c7; color: #92400e; }
+        .model-materiality-IMMATERIAL { background: #f3f4f6; color: #374151; }
+        .model-notes-details summary {
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+        .model-page-link {
+            display: inline-block;
+            margin-left: 16px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--secondary);
+        }
+        body { font-family: var(--font); color: var(--gray-800); line-height: 1.6; background: linear-gradient(180deg, #fff 0%, var(--gray-50) 100%); }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code, .mono { font-family: var(--mono); font-size: .85em; }
+        nav { position: sticky; top: 0; z-index: 100; padding: .75rem 1.5rem; background: rgba(255,255,255,.96); border-bottom: 1px solid var(--gray-200); backdrop-filter: blur(12px); }
+        .nav-inner { max-width: 1120px; margin: auto; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+        .nav-logo { font-weight: 700; color: var(--teal); }
+        .nav-links { display: flex; flex-wrap: wrap; gap: 1.1rem; font-size: .875rem; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links .active { color: var(--teal); font-weight: 700; }
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: 1120px; margin: auto; padding: 3.2rem 1.5rem 2.2rem; }
+        .hero h1 { color: var(--teal); font-size: 2rem; line-height: 1.2; letter-spacing: -.02em; }
+        .hero-id { margin-top: .3rem; color: var(--gray-500); font-family: var(--mono); font-size: .85rem; }
+        .hero-sub { max-width: 820px; margin-top: .8rem; color: var(--gray-700); }
+        .hero-stats { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+        .stat { display: inline-flex; padding: .28rem .7rem; border: 1px solid var(--teal-light); border-radius: 999px; background: #fff; color: var(--teal); font-size: .78rem; font-weight: 700; }
+        .stat-warn { border-color: #fcd34d; color: #92400e; }
+        main { max-width: 1120px; margin: auto; padding: 2rem 1.5rem 4rem; }
+        .breadcrumb { margin-bottom: 1.4rem; color: var(--gray-500); font-size: .88rem; }
+        .panel { margin-bottom: 2rem; padding: 1.35rem; border: 1px solid var(--gray-200); border-radius: 12px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+        .panel h2 { font-size: 1.25rem; margin-bottom: .3rem; }
+        .panel h3 { font-size: 1rem; margin: 1.2rem 0 .4rem; }
+        .section-intro { color: var(--gray-600); font-size: .92rem; margin-bottom: .8rem; max-width: 860px; }
+        .table-scroll { overflow-x: auto; }
+        table.data { width: 100%; border-collapse: collapse; font-size: .85rem; }
+        table.data th { text-align: left; padding: 7px 10px; border-bottom: 2px solid var(--gray-200); color: var(--gray-600); font-weight: 600; white-space: nowrap; }
+        table.data td { padding: 7px 10px; border-bottom: 1px solid var(--gray-100); vertical-align: top; }
+        table.data td.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+        table.data th.num { text-align: right; }
+        .muted { color: var(--gray-500); }
+        .small { font-size: .8rem; }
+        .pattern { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .75rem; font-weight: 600; white-space: nowrap; }
+        .pattern-normal { background: #dcfce7; color: #166534; }
+        .pattern-delayed_lamination { background: #fef9c3; color: #854d0e; }
+        .pattern-diffuse_ectopia { background: #fed7aa; color: #9a3412; }
+        .pattern-band_heterotopia { background: #ede9fe; color: #5b21b6; }
+        .pattern-migration_failure { background: #fecaca; color: #991b1b; }
+        .hp-pill { display: inline-block; margin: 1px 2px; padding: 1px 7px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: .75rem; }
+        .rule { padding: .8rem 1rem; margin-bottom: .6rem; border: 1px solid var(--gray-200); border-left: 4px solid var(--teal-light); border-radius: 8px; background: var(--gray-50); }
+        .rule.assumption { border-left-color: #f59e0b; background: #fffbeb; }
+        .rule-name { font-weight: 700; font-family: var(--mono); font-size: .88rem; }
+        .rule-expr { margin: .3rem 0; font-family: var(--mono); font-size: .8rem; color: var(--gray-700); white-space: pre-wrap; }
+        .rule-meta { font-size: .82rem; color: var(--gray-600); }
+        .rule-meta ul { margin: .2rem 0 0 1.2rem; }
+        .rule-decision { margin-top: .35rem; font-size: .82rem; color: var(--gray-700); }
+        .badge-assumption { display: inline-block; margin-left: .4rem; padding: 0 6px; border-radius: 4px; background: #fde68a; color: #78350f; font-size: .7rem; font-weight: 700; font-family: var(--font); }
+        .cmd { display: block; margin: .3rem 0; padding: .5rem .75rem; border-radius: 6px; background: #0f172a; color: #e2e8f0; font-family: var(--mono); font-size: .82rem; overflow-x: auto; white-space: pre; }
+        .file-list { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .4rem; }
+        .file-list a { padding: .15rem .55rem; border: 1px solid var(--gray-200); border-radius: 6px; font-family: var(--mono); font-size: .8rem; background: #fff; }
+        .usage-list { list-style: none; display: grid; gap: .4rem; margin-top: .4rem; }
+        .usage-kind { display: inline-block; min-width: 64px; color: var(--gray-500); font-size: .75rem; text-transform: uppercase; letter-spacing: .03em; }
+        /* In-browser runner */
+        .runner { display: grid; grid-template-columns: minmax(260px, 320px) 1fr; gap: 1.2rem; align-items: start; }
+        .runner-controls label { display: block; margin-top: .7rem; font-size: .82rem; font-weight: 600; color: var(--gray-700); }
+        .runner-controls .hint { font-weight: 400; color: var(--gray-500); font-size: .75rem; }
+        .runner-controls select, .runner-controls input[type=range] { width: 100%; margin-top: .2rem; }
+        .runner-controls select { padding: .35rem .5rem; border: 1px solid var(--gray-300); border-radius: 6px; font: inherit; font-size: .85rem; background: #fff; }
+        .slider-row { display: flex; justify-content: space-between; align-items: baseline; }
+        .slider-value { font-family: var(--mono); font-size: .8rem; color: var(--teal); }
+        .runner-stage { min-width: 0; }
+        .canvas-wrap { position: relative; border: 1px solid var(--gray-200); border-radius: 8px; background: #fff; }
+        canvas#abm-canvas { display: block; width: 100%; height: 420px; }
+        .playbar { display: flex; align-items: center; gap: .6rem; margin-top: .5rem; }
+        .playbar button { padding: .3rem .8rem; border: 1px solid var(--teal); border-radius: 6px; background: var(--teal); color: #fff; font: inherit; font-size: .82rem; cursor: pointer; }
+        .playbar button.secondary { background: #fff; color: var(--teal); }
+        .playbar input[type=range] { flex: 1; }
+        .playbar .t-label { font-family: var(--mono); font-size: .8rem; color: var(--gray-600); min-width: 92px; text-align: right; }
+        .legend { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: .5rem; font-size: .75rem; color: var(--gray-600); }
+        .legend span { display: inline-flex; align-items: center; gap: .3rem; }
+        .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+        .readout-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .5rem; margin-top: .8rem; }
+        .readout { padding: .45rem .6rem; border: 1px solid var(--gray-200); border-radius: 8px; background: var(--gray-50); }
+        .readout .k { font-size: .7rem; color: var(--gray-500); text-transform: uppercase; letter-spacing: .03em; }
+        .readout .v { font-family: var(--mono); font-size: .95rem; color: var(--gray-900); }
+        .parity { margin-top: .6rem; font-size: .8rem; }
+        .parity.ok { color: #166534; }
+        .parity.custom { color: var(--gray-600); }
+        .parity.bad { color: #991b1b; font-weight: 700; }
+        [hidden] { display: none !important; }
+        @media (max-width: 860px) {
+            .runner { grid-template-columns: 1fr; }
+            nav { padding: .7rem 1rem; }
+            .hero { padding: 2.6rem 1rem 1.8rem; }
+            main { padding: 1.3rem 1rem 3rem; }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../modules/index.html">Modules</a>
+                <a href="index.html" class="active">Models</a>
+                <a href="../../app/models/index.html">Models browser</a>
+                <a href="../../details/">Docs</a>
+                <a href="https://github.com/monarch-initiative/dismech">GitHub</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Microtubule-Dependent Radial Neuronal Migration Agent-Based Model</h1>
+            <div class="hero-id">models/neuronal_migration_abm/</div>
+            <p class="hero-sub">A one-dimensional, stochastic agent-based model of radial migration along a cortical column, in which six birth cohorts of neurons move from the ventricular zone through the intermediate zone to a cortical plate that grows inside-out as they settle. Authored in this repository rather than curated from a publication: each of its five rules transcribes a node or causal edge of this module (an apparatus perturbation that is cell-autonomous, slows nucleokinesis and can arrest a neuron in the intermediate zone, scored as dyslamination and ectopia when the developmental window closes), and the spec records per rule which curated edge it encodes and which choices the edge did not itself make. The one rule with no curated source, inside-out settling, is the null model of normal lamination the module&#39;s failure claims presuppose, and is labelled as a background assumption. The curated intervention is encoded as a swept fraction of the perturbation removed. The model asserts no biology of its own and nothing in it is fitted to data: every rate is a placeholder chosen so that the wild-type scenario completes migration inside the window, so the results are orderings of regimes, never quantities.</p>
+            <div class="hero-stats">
+                
+                <span class="stat">Authored in this repository</span>
+                
+                <span class="stat">discrete-time, one-dimensional, stochastic agent-based model (seeded)</span>
+                <span class="stat">Runs in this page</span>
+                <span class="stat stat-warn">Not fitted to data</span>
+            </div>
+        </section>
+    </div>
+
+    <main>
+        <div class="breadcrumb"><a href="../../">Home</a> / <a href="index.html">Models</a> / neuronal_migration_abm</div>
+
+        <section class="panel">
+            <h2>Where this model is curated</h2>
+            <p class="section-intro">The entry card says what the model is for: which mechanism nodes it links to, how faithfully, and what it found. This page holds the model itself.</p>
+            
+            <ul class="usage-list">
+                
+                <li><span class="usage-kind">module</span> <a href="../modules/microtubule_dependent_neuronal_migration_failure.html#computational-model-microtubule-dependent-radial-neuronal-migration-agent-based-model">Microtubule-Dependent Neuronal Migration Failure Module</a> <span class="muted small">kb/modules/microtubule_dependent_neuronal_migration_failure.yaml</span></li>
+                
+            </ul>
+            
+        </section>
+
+        
+        
+<section class="panel" id="run-in-browser">
+    <h2>Run it in the browser</h2>
+    <p class="section-intro">
+        Pick a committed scenario to replay it neuron by neuron, or move a slider to run a new one.
+        Depth runs from the ventricular surface (bottom) to the pia (top); each lane is one birth cohort,
+        earliest-born on the left. In a normal cortex later cohorts settle above earlier ones (inside-out).
+        Hollow markers are neurons carrying the perturbation; a cross marks an arrested neuron.
+    </p>
+    <div class="runner">
+        <div class="runner-controls">
+            <label for="abm-scenario">Scenario</label>
+            <select id="abm-scenario">
+                <option value="wild_type">wild type</option><option value="delayed_migration">delayed migration</option><option value="arrest_dominant">arrest dominant</option><option value="severe_constitutional">severe constitutional</option><option value="mosaic_severe">mosaic severe</option><option value="severe_constitutional_rescued">severe constitutional rescued</option>
+                <option value="__custom__">custom (from the sliders)</option>
+            </select>
+            <div id="abm-scenario-desc" class="muted small" style="margin-top:.3rem"></div>
+            
+            <label for="abm-perturbation"><span class="slider-row"><span>Perturbation</span><span class="slider-value" id="abm-perturbation-value"></span></span>
+                <span class="hint">Degree of microtubule-apparatus disruption in an affected neuron, 0 = wild type. The module curates this node...</span>
+            </label>
+            <input type="range" id="abm-perturbation" data-param="perturbation" min="0" max="1" step="0.05">
+            
+            <label for="abm-affected_fraction"><span class="slider-row"><span>Affected fraction</span><span class="slider-value" id="abm-affected_fraction-value"></span></span>
+                <span class="hint">Fraction of neurons that carry the perturbation. 1 for a constitutional variant present in every neuron; below 1 for...</span>
+            </label>
+            <input type="range" id="abm-affected_fraction" data-param="affected_fraction" min="0" max="1" step="0.05">
+            
+            <label for="abm-arrest_rate"><span class="slider-row"><span>Arrest rate</span><span class="slider-value" id="abm-arrest_rate-value"></span></span>
+                <span class="hint">Per-step probability, scaled by the effective perturbation, that an affected neuron in the intermediate zone arrests...</span>
+            </label>
+            <input type="range" id="abm-arrest_rate" data-param="arrest_rate" min="0" max="0.05" step="0.001">
+            
+            <label for="abm-rescue"><span class="slider-row"><span>Rescue</span><span class="slider-value" id="abm-rescue-value"></span></span>
+                <span class="hint">Fraction of the perturbation removed by the curated intervention (see interventions). 0 = no intervention.</span>
+            </label>
+            <input type="range" id="abm-rescue" data-param="rescue" min="0" max="1" step="0.05">
+            
+            <label for="abm-base_motility"><span class="slider-row"><span>Base motility</span><span class="slider-value" id="abm-base_motility-value"></span></span>
+                <span class="hint">Per-step probability that an unperturbed neuron completes a nucleokinesis step. Unfitted.</span>
+            </label>
+            <input type="range" id="abm-base_motility" data-param="base_motility" min="0.1" max="1" step="0.05">
+            
+        </div>
+        <div class="runner-stage">
+            <div class="canvas-wrap"><canvas id="abm-canvas" aria-label="Neuron positions in the cortical column over time" role="img"></canvas></div>
+            <div class="playbar">
+                <button type="button" id="abm-play">Play</button>
+                <input type="range" id="abm-frame" min="0" max="0" step="1" value="0" aria-label="Time step">
+                <span class="t-label" id="abm-time">t = 0</span>
+            </div>
+            <div class="legend" id="abm-legend"></div>
+            <div class="readout-grid" id="abm-readouts"></div>
+            <div id="abm-phenotypes" style="margin-top:.6rem"></div>
+            <div class="parity" id="abm-parity"></div>
+        </div>
+    </div>
+</section>
+
+<script>
+/*
+ * Browser port of models/neuronal_migration_abm/run.py.
+ *
+ * Same rules, same draws, same readouts: a run here with the same parameters
+ * and run name reproduces run.py's numbers exactly, which
+ * tests/test_neuronal_migration_abm_js.py checks against the committed
+ * results.json. That exactness is what lets the model page (pages/models/
+ * neuronal_migration_abm.html) replay a scenario agent by agent and claim the
+ * replay is the committed run rather than a lookalike.
+ *
+ * Exactness needs three pieces of CPython reproduced here, and nothing else:
+ *   - random.Random seeded with a str: the seed integer is the UTF-8 bytes
+ *     followed by their SHA-512 digest, read big-endian, fed to MT19937's
+ *     init_by_array as little-endian 32-bit words;
+ *   - random.random(): MT19937 genrand_res53;
+ *   - round(x, n): round-half-even on the exact binary value of x.
+ *
+ * run.py is the reference implementation. A change to a rule goes there first,
+ * then here, and the parity test fails until both agree.
+ *
+ * No dependencies. Loads as a CommonJS module under node (the parity test)
+ * and as a global `NeuronalMigrationABM` in a browser.
+ */
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === "object" && module.exports) {
+    module.exports = api;
+  } else {
+    root.NeuronalMigrationABM = api;
+  }
+})(typeof self !== "undefined" ? self : this, function () {
+  "use strict";
+
+  // ---------------------------------------------------------------- SHA-512
+  const K512 = [
+    "428a2f98d728ae22", "7137449123ef65cd", "b5c0fbcfec4d3b2f", "e9b5dba58189dbbc",
+    "3956c25bf348b538", "59f111f1b605d019", "923f82a4af194f9b", "ab1c5ed5da6d8118",
+    "d807aa98a3030242", "12835b0145706fbe", "243185be4ee4b28c", "550c7dc3d5ffb4e2",
+    "72be5d74f27b896f", "80deb1fe3b1696b1", "9bdc06a725c71235", "c19bf174cf692694",
+    "e49b69c19ef14ad2", "efbe4786384f25e3", "0fc19dc68b8cd5b5", "240ca1cc77ac9c65",
+    "2de92c6f592b0275", "4a7484aa6ea6e483", "5cb0a9dcbd41fbd4", "76f988da831153b5",
+    "983e5152ee66dfab", "a831c66d2db43210", "b00327c898fb213f", "bf597fc7beef0ee4",
+    "c6e00bf33da88fc2", "d5a79147930aa725", "06ca6351e003826f", "142929670a0e6e70",
+    "27b70a8546d22ffc", "2e1b21385c26c926", "4d2c6dfc5ac42aed", "53380d139d95b3df",
+    "650a73548baf63de", "766a0abb3c77b2a8", "81c2c92e47edaee6", "92722c851482353b",
+    "a2bfe8a14cf10364", "a81a664bbc423001", "c24b8b70d0f89791", "c76c51a30654be30",
+    "d192e819d6ef5218", "d69906245565a910", "f40e35855771202a", "106aa07032bbd1b8",
+    "19a4c116b8d2d0c8", "1e376c085141ab53", "2748774cdf8eeb99", "34b0bcb5e19b48a8",
+    "391c0cb3c5c95a63", "4ed8aa4ae3418acb", "5b9cca4f7763e373", "682e6ff3d6b2b8a3",
+    "748f82ee5defb2fc", "78a5636f43172f60", "84c87814a1f0ab72", "8cc702081a6439ec",
+    "90befffa23631e28", "a4506cebde82bde9", "bef9a3f7b2c67915", "c67178f2e372532b",
+    "ca273eceea26619c", "d186b8c721c0c207", "eada7dd6cde0eb1e", "f57d4f7fee6ed178",
+    "06f067aa72176fba", "0a637dc5a2c898a6", "113f9804bef90dae", "1b710b35131c471b",
+    "28db77f523047d84", "32caab7b40c72493", "3c9ebe0a15c9bebc", "431d67c49c100d4c",
+    "4cc5d4becb3e42b6", "597f299cfc657e2a", "5fcb6fab3ad6faec", "6c44198c4a475817",
+  ].map((h) => BigInt("0x" + h));
+  const H512 = [
+    "6a09e667f3bcc908", "bb67ae8584caa73b", "3c6ef372fe94f82b", "a54ff53a5f1d36f1",
+    "510e527fade682d1", "9b05688c2b3e6c1f", "1f83d9abfb41bd6b", "5be0cd19137e2179",
+  ].map((h) => BigInt("0x" + h));
+  const MASK64 = (1n << 64n) - 1n;
+  const rotr = (x, n) => ((x >> n) | (x << (64n - n))) & MASK64;
+
+  function sha512(bytes) {
+    const len = bytes.length;
+    const padLen = ((len + 17 + 127) >> 7) << 7;
+    const msg = new Uint8Array(padLen);
+    msg.set(bytes);
+    msg[len] = 0x80;
+    const bitLen = BigInt(len) * 8n;
+    for (let i = 0; i < 16; i++) {
+      msg[padLen - 1 - i] = Number((bitLen >> BigInt(8 * i)) & 0xffn);
+    }
+    const h = H512.slice();
+    const w = new Array(80);
+    for (let off = 0; off < padLen; off += 128) {
+      for (let t = 0; t < 16; t++) {
+        let v = 0n;
+        for (let b = 0; b < 8; b++) v = (v << 8n) | BigInt(msg[off + t * 8 + b]);
+        w[t] = v;
+      }
+      for (let t = 16; t < 80; t++) {
+        const s0 = rotr(w[t - 15], 1n) ^ rotr(w[t - 15], 8n) ^ (w[t - 15] >> 7n);
+        const s1 = rotr(w[t - 2], 19n) ^ rotr(w[t - 2], 61n) ^ (w[t - 2] >> 6n);
+        w[t] = (w[t - 16] + s0 + w[t - 7] + s1) & MASK64;
+      }
+      let [a, b, c, d, e, f, g, hh] = h;
+      for (let t = 0; t < 80; t++) {
+        const S1 = rotr(e, 14n) ^ rotr(e, 18n) ^ rotr(e, 41n);
+        const ch = (e & f) ^ (~e & MASK64 & g);
+        const t1 = (hh + S1 + ch + K512[t] + w[t]) & MASK64;
+        const S0 = rotr(a, 28n) ^ rotr(a, 34n) ^ rotr(a, 39n);
+        const maj = (a & b) ^ (a & c) ^ (b & c);
+        const t2 = (S0 + maj) & MASK64;
+        hh = g; g = f; f = e; e = (d + t1) & MASK64;
+        d = c; c = b; b = a; a = (t1 + t2) & MASK64;
+      }
+      const upd = [a, b, c, d, e, f, g, hh];
+      for (let i = 0; i < 8; i++) h[i] = (h[i] + upd[i]) & MASK64;
+    }
+    const out = new Uint8Array(64);
+    for (let i = 0; i < 8; i++) {
+      for (let b = 0; b < 8; b++) {
+        out[i * 8 + b] = Number((h[i] >> BigInt(56 - 8 * b)) & 0xffn);
+      }
+    }
+    return out;
+  }
+
+  // ------------------------------------------------- CPython random.Random
+  class PyRandom {
+    /** Equivalent to CPython's random.Random(seedString). */
+    constructor(seed) {
+      const enc = new TextEncoder().encode(String(seed));
+      const bytes = new Uint8Array(enc.length + 64);
+      bytes.set(enc);
+      bytes.set(sha512(enc), enc.length);
+      // int.from_bytes(bytes, "big") as little-endian 32-bit words, with the
+      // zero high words CPython drops removed.
+      const key = [];
+      for (let end = bytes.length; end > 0; end -= 4) {
+        let word = 0;
+        for (let i = Math.max(0, end - 4); i < end; i++) {
+          word = ((word << 8) | bytes[i]) >>> 0;
+        }
+        key.push(word);
+      }
+      while (key.length > 1 && key[key.length - 1] === 0) key.pop();
+      this.mt = new Uint32Array(624);
+      this.index = 625;
+      this.initByArray(key);
+    }
+
+    initGenrand(s) {
+      const mt = this.mt;
+      mt[0] = s >>> 0;
+      for (let i = 1; i < 624; i++) {
+        const prev = mt[i - 1] ^ (mt[i - 1] >>> 30);
+        mt[i] = (Math.imul(1812433253, prev) + i) >>> 0;
+      }
+      this.index = 624;
+    }
+
+    initByArray(key) {
+      const mt = this.mt;
+      this.initGenrand(19650218);
+      let i = 1;
+      let j = 0;
+      for (let k = Math.max(624, key.length); k > 0; k--) {
+        const prev = mt[i - 1] ^ (mt[i - 1] >>> 30);
+        mt[i] = ((mt[i] ^ Math.imul(prev, 1664525)) + key[j] + j) >>> 0;
+        i++;
+        j++;
+        if (i >= 624) { mt[0] = mt[623]; i = 1; }
+        if (j >= key.length) j = 0;
+      }
+      for (let k = 623; k > 0; k--) {
+        const prev = mt[i - 1] ^ (mt[i - 1] >>> 30);
+        mt[i] = ((mt[i] ^ Math.imul(prev, 1566083941)) - i) >>> 0;
+        i++;
+        if (i >= 624) { mt[0] = mt[623]; i = 1; }
+      }
+      mt[0] = 0x80000000;
+    }
+
+    genrandInt32() {
+      const mt = this.mt;
+      if (this.index >= 624) {
+        for (let kk = 0; kk < 624; kk++) {
+          const y = (mt[kk] & 0x80000000) | (mt[(kk + 1) % 624] & 0x7fffffff);
+          mt[kk] = mt[(kk + 397) % 624] ^ (y >>> 1) ^ (y & 1 ? 0x9908b0df : 0);
+        }
+        this.index = 0;
+      }
+      let y = mt[this.index++];
+      y ^= y >>> 11;
+      y ^= (y << 7) & 0x9d2c5680;
+      y ^= (y << 15) & 0xefc60000;
+      y ^= y >>> 18;
+      return y >>> 0;
+    }
+
+    /** random.random(): 53-bit float in [0, 1). */
+    random() {
+      const a = this.genrandInt32() >>> 5;
+      const b = this.genrandInt32() >>> 6;
+      return (a * 67108864 + b) / 9007199254740992;
+    }
+  }
+
+  // ------------------------------------------------------ CPython round(x, n)
+  const F64 = new Float64Array(1);
+  const U32 = new Uint32Array(F64.buffer);
+  const LITTLE = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
+
+  /** round(x, n) with CPython's semantics: half-even on the exact double. */
+  function pyRound(x, n) {
+    if (x === null || x === undefined) return x;
+    if (!isFinite(x) || x === 0) return x;
+    F64[0] = Math.abs(x);
+    const hi = U32[LITTLE ? 1 : 0];
+    const lo = U32[LITTLE ? 0 : 1];
+    const expBits = (hi >>> 20) & 0x7ff;
+    let mant = (BigInt(hi & 0xfffff) << 32n) | BigInt(lo);
+    let exp;
+    if (expBits === 0) {
+      exp = -1074;
+    } else {
+      mant |= 1n << 52n;
+      exp = expBits - 1075;
+    }
+    // |x| = mant * 2^exp; compute q = round_half_even(|x| * 10^n)
+    let num = mant * 10n ** BigInt(n);
+    let q;
+    if (exp >= 0) {
+      q = num << BigInt(exp);
+    } else {
+      const den = 1n << BigInt(-exp);
+      q = num / den;
+      const r2 = (num % den) * 2n;
+      if (r2 > den || (r2 === den && q % 2n === 1n)) q += 1n;
+    }
+    const value = Number(`${q}e-${n}`);
+    return x < 0 ? -value : value;
+  }
+
+  /** str() of a Python float, as run.py interpolates sweep values into seeds. */
+  function pyFloatStr(v) {
+    return Number.isInteger(v) ? `${v}.0` : String(v);
+  }
+
+  // ------------------------------------------------------------------ model
+  const PATTERN_THRESHOLDS = {
+    normal_min_plate_fraction: 0.95,
+    normal_min_lamination_fidelity: 0.95,
+    band_min_affected_arrested_fraction: 0.5,
+    band_min_unaffected_plate_fraction: 0.9,
+    band_min_band_score: 0.6,
+    failure_max_plate_fraction: 0.5,
+    band_half_width: 5.0,
+  };
+
+  const INPUT_DEFAULTS = {
+    perturbation: 0.0,
+    affected_fraction: 0.0,
+    base_motility: 0.8,
+    arrest_rate: 0.0,
+    rescue: 0.0,
+  };
+
+  function inputDefaults(spec) {
+    const defaults = Object.assign({}, INPUT_DEFAULTS);
+    for (const [name, body] of Object.entries(spec.inputs || {})) {
+      if (body && typeof body === "object" && "default" in body) {
+        defaults[name] = body.default;
+      }
+    }
+    return defaults;
+  }
+
+  function paramsFrom(mapping, defaults) {
+    const params = Object.assign({}, defaults);
+    for (const [k, v] of Object.entries(mapping || {})) {
+      if (k in params) params[k] = v;
+    }
+    return params;
+  }
+
+  function zone(column, position) {
+    if (position < column.vz_top) return "ventricular_zone";
+    if (position < column.plate_floor) return "intermediate_zone";
+    return "cortical_plate";
+  }
+
+  const STATE_CODE = { migrating: 0, arrested: 1, settled: 2 };
+
+  /**
+   * Simulate one parameter set. Mirrors run.simulate, including the optional
+   * trace of agent positions every `traceEvery` steps.
+   */
+  function simulate(spec, params, runName, trace, traceEvery) {
+    traceEvery = traceEvery || 4;
+    const dom = spec.domain;
+    const cohorts = spec.cohorts;
+    const column = {
+      vz_top: Number(dom.ventricular_zone_top),
+      plate_floor: Number(dom.cortical_plate_floor),
+      pia: Number(dom.pia),
+      step_length: Number(dom.step_length),
+      settled_cell_thickness: Number(dom.settled_cell_thickness),
+      birth_position: Number(dom.birth_position),
+      n_settled: 0,
+    };
+    column.plate_top = column.plate_floor;
+    const rng = new PyRandom(`${spec.seed}:${runName}`);
+
+    const nCohorts = Math.trunc(cohorts.count);
+    const cohortSize = Math.trunc(cohorts.size);
+    const interval = Math.trunc(cohorts.birth_interval);
+    const lastBirth = (nCohorts - 1) * interval;
+    const tEnd = lastBirth + Math.trunc(cohorts.migration_window);
+
+    const neurons = [];
+    for (let cohort = 0; cohort < nCohorts; cohort++) {
+      for (let k = 0; k < cohortSize; k++) {
+        const affected = rng.random() < params.affected_fraction;
+        neurons.push({
+          cohort,
+          affected,
+          birth_time: cohort * interval,
+          position: column.birth_position,
+          state: "migrating",
+          settle_rank: -1,
+          arrival_time: -1,
+        });
+      }
+    }
+
+    if (trace) {
+      trace.cohort = neurons.map((n) => n.cohort);
+      trace.affected = neurons.map((n) => (n.affected ? 1 : 0));
+      trace.domain = {
+        vz_top: column.vz_top,
+        plate_floor: column.plate_floor,
+        pia: column.pia,
+      };
+      trace.frames = [];
+    }
+
+    for (let t = 0; t <= tEnd; t++) {
+      if (trace && t % traceEvery === 0) {
+        trace.frames.push({
+          t,
+          pos: neurons.map((n) => (n.birth_time <= t ? pyRound(n.position, 1) : null)),
+          state: neurons.map((n) => STATE_CODE[n.state]),
+          plate_top: pyRound(column.plate_top, 2),
+        });
+      }
+      for (const n of neurons) {
+        if (n.state !== "migrating" || n.birth_time > t) continue;
+        // effective_perturbation
+        const e = n.affected ? params.perturbation * (1.0 - params.rescue) : 0.0;
+        // arrest: confined to the intermediate zone
+        if (
+          params.arrest_rate > 0 &&
+          e > 0 &&
+          zone(column, n.position) === "intermediate_zone" &&
+          rng.random() < params.arrest_rate * e
+        ) {
+          n.state = "arrested";
+          continue;
+        }
+        // slowed_nucleokinesis
+        if (rng.random() < params.base_motility * (1.0 - e)) {
+          n.position = Math.min(n.position + column.step_length, column.pia);
+        }
+        // inside_out_settling
+        if (n.position >= column.plate_top) {
+          n.state = "settled";
+          n.settle_rank = column.n_settled;
+          n.arrival_time = t;
+          column.n_settled += 1;
+          column.plate_top =
+            column.plate_floor + column.settled_cell_thickness * column.n_settled;
+        }
+      }
+    }
+    return score(neurons, column, nCohorts, tEnd);
+  }
+
+  function bisectLeft(sorted, x) {
+    let lo = 0;
+    let hi = sorted.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (sorted[mid] < x) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  function laminationFidelity(settled, nCohorts) {
+    const ranks = Array.from({ length: nCohorts }, () => []);
+    for (const n of settled) ranks[n.cohort].push(n.settle_rank);
+    for (const r of ranks) r.sort((a, b) => a - b);
+    let concordant = 0;
+    let total = 0;
+    for (let a = 0; a < nCohorts; a++) {
+      for (let b = a + 1; b < nCohorts; b++) {
+        const earlier = ranks[a];
+        const later = ranks[b];
+        if (!earlier.length || !later.length) continue;
+        for (const r of later) concordant += bisectLeft(earlier, r);
+        total += earlier.length * later.length;
+      }
+    }
+    return total === 0 ? null : concordant / total;
+  }
+
+  function median(sorted) {
+    const n = sorted.length;
+    const i = n >> 1;
+    return n % 2 === 1 ? sorted[i] : (sorted[i - 1] + sorted[i]) / 2;
+  }
+
+  function score(neurons, column, nCohorts, tEnd) {
+    const total = neurons.length;
+    const settled = neurons.filter((n) => n.state === "settled");
+    const arrested = neurons.filter((n) => n.state === "arrested");
+    const inTransit = neurons.filter((n) => n.state === "migrating");
+    const ectopic = arrested.concat(inTransit);
+
+    const zoneCounts = { ventricular_zone: 0, intermediate_zone: 0, cortical_plate: 0 };
+    for (const n of ectopic) zoneCounts[zone(column, n.position)] += 1;
+
+    const affected = neurons.filter((n) => n.affected);
+    const unaffected = neurons.filter((n) => !n.affected);
+    const plateFraction = (group) =>
+      group.length ? group.filter((n) => n.state === "settled").length / group.length : null;
+
+    const affectedEctopic = affected.filter((n) => n.state !== "settled");
+    const affectedArrested = affected.filter((n) => n.state === "arrested");
+    let bandScore = null;
+    let bandMedianDepth = null;
+    if (affectedArrested.length) {
+      const depths = affectedArrested.map((n) => n.position).sort((a, b) => a - b);
+      bandMedianDepth = median(depths);
+      const half = PATTERN_THRESHOLDS.band_half_width;
+      bandScore =
+        depths.filter((d) => Math.abs(d - bandMedianDepth) <= half).length / depths.length;
+    }
+
+    const fidelity = laminationFidelity(settled, nCohorts);
+    const delays = settled.map((n) => n.arrival_time - n.birth_time);
+    const perCohort = [];
+    for (let c = 0; c < nCohorts; c++) {
+      perCohort.push(pyRound(plateFraction(neurons.filter((n) => n.cohort === c)) || 0.0, 4));
+    }
+
+    const r = {
+      cortical_plate_fraction: pyRound(settled.length / total, 4),
+      ectopic_fraction: pyRound(ectopic.length / total, 4),
+      arrested_fraction: pyRound(arrested.length / total, 4),
+      in_transit_fraction: pyRound(inTransit.length / total, 4),
+      ectopic_by_zone: Object.fromEntries(
+        Object.entries(zoneCounts).map(([k, v]) => [k, pyRound(v / total, 4)])
+      ),
+      lamination_fidelity: fidelity === null ? null : pyRound(fidelity, 4),
+      mean_arrival_delay: delays.length
+        ? pyRound(delays.reduce((s, d) => s + d, 0) / delays.length, 2)
+        : null,
+      cortical_plate_thickness: pyRound(column.settled_cell_thickness * settled.length, 2),
+      per_cohort_plate_fraction: perCohort,
+      affected_plate_fraction: affected.length ? pyRound(plateFraction(affected), 4) : null,
+      unaffected_plate_fraction: unaffected.length ? pyRound(plateFraction(unaffected), 4) : null,
+      affected_ectopic_fraction: affected.length
+        ? pyRound(affectedEctopic.length / affected.length, 4)
+        : null,
+      affected_arrested_fraction: affected.length
+        ? pyRound(affectedArrested.length / affected.length, 4)
+        : null,
+      band_score: bandScore === null ? null : pyRound(bandScore, 4),
+      band_median_depth: bandMedianDepth === null ? null : pyRound(bandMedianDepth, 2),
+      window_end: tEnd,
+    };
+    r.pattern = classify(r);
+    return r;
+  }
+
+  function classify(r) {
+    const th = PATTERN_THRESHOLDS;
+    const plate = r.cortical_plate_fraction;
+    const fidelity = r.lamination_fidelity !== null ? r.lamination_fidelity : 0.0;
+    if (plate >= th.normal_min_plate_fraction && fidelity >= th.normal_min_lamination_fidelity) {
+      return "normal";
+    }
+    if (
+      r.affected_arrested_fraction !== null &&
+      r.unaffected_plate_fraction !== null &&
+      r.band_score !== null &&
+      r.affected_arrested_fraction >= th.band_min_affected_arrested_fraction &&
+      r.unaffected_plate_fraction >= th.band_min_unaffected_plate_fraction &&
+      r.band_score >= th.band_min_band_score
+    ) {
+      return "band_heterotopia";
+    }
+    if (plate < th.failure_max_plate_fraction) return "migration_failure";
+    if (plate >= th.normal_min_plate_fraction) return "delayed_lamination";
+    return "diffuse_ectopia";
+  }
+
+  function activatedPhenotypes(spec, readouts) {
+    const active = [];
+    for (const mapping of spec.phenotype_mappings || []) {
+      let holds = true;
+      for (const cond of mapping.conditions) {
+        const value = readouts[cond.variable];
+        if (value === null || value === undefined) { holds = false; break; }
+        if (cond.direction === "above") holds = value >= cond.threshold;
+        else if (cond.direction === "below") holds = value < cond.threshold;
+        else throw new Error(`unknown direction ${cond.direction}`);
+        if (!holds) break;
+      }
+      if (holds) active.push(Object.assign({}, mapping.phenotype));
+    }
+    return active;
+  }
+
+  /** Mirror of run.build_results: every scenario and sweep in the spec. */
+  function buildResults(spec) {
+    const defaults = inputDefaults(spec);
+    const scenarios = {};
+    for (const [name, body] of Object.entries(spec.scenarios)) {
+      const params = paramsFrom(body, defaults);
+      const readouts = simulate(spec, params, `scenario:${name}`);
+      scenarios[name] = {
+        description: body.description || "",
+        params,
+        readouts,
+        activated_phenotypes: activatedPhenotypes(spec, readouts),
+      };
+    }
+    const sweeps = {};
+    for (const [name, body] of Object.entries(spec.sweeps)) {
+      const rows = [];
+      for (const value of body.values) {
+        const mapping = Object.assign({}, body.fixed || {});
+        mapping[body.vary] = value;
+        const params = paramsFrom(mapping, defaults);
+        const readouts = simulate(spec, params, `sweep:${name}:${pyFloatStr(value)}`);
+        rows.push({
+          [body.vary]: value,
+          cortical_plate_fraction: readouts.cortical_plate_fraction,
+          arrested_fraction: readouts.arrested_fraction,
+          in_transit_fraction: readouts.in_transit_fraction,
+          lamination_fidelity: readouts.lamination_fidelity,
+          mean_arrival_delay: readouts.mean_arrival_delay,
+          band_score: readouts.band_score,
+          affected_arrested_fraction: readouts.affected_arrested_fraction,
+          unaffected_plate_fraction: readouts.unaffected_plate_fraction,
+          pattern: readouts.pattern,
+          activated_phenotypes: activatedPhenotypes(spec, readouts).map((p) => p.id),
+        });
+      }
+      sweeps[name] = { vary: body.vary, fixed: body.fixed || {}, rows };
+    }
+    return {
+      model_id: spec.model_id,
+      source_entry: spec.source_entry,
+      seed: spec.seed,
+      pattern_thresholds: PATTERN_THRESHOLDS,
+      scenarios,
+      sweeps,
+    };
+  }
+
+  return {
+    PATTERN_THRESHOLDS,
+    PyRandom,
+    activatedPhenotypes,
+    buildResults,
+    classify,
+    inputDefaults,
+    paramsFrom,
+    pyRound,
+    sha512,
+    simulate,
+  };
+});
+
+</script>
+<script>
+(function () {
+    "use strict";
+    const ABM = window.NeuronalMigrationABM;
+    const SPEC = {"agents": {"migrating_neuron": {"attributes": {"affected": "whether this neuron carries the apparatus perturbation (cell-autonomous)", "cohort": "birth cohort, 0 = earliest-born (deep layer) to n-1 = latest-born (superficial)"}, "cell_type": "CL:0000540 neuron (curated preferred_term \"migrating cortical neuron\")", "maps_to": "pathophysiology#Microtubule-Based Neuronal Motility Failure", "states": ["migrating", "arrested", "settled"]}}, "cohorts": {"birth_interval": 20, "count": 6, "migration_window": 140, "size": 100}, "domain": {"birth_position": 5.0, "cortical_plate_floor": 60, "pia": 100, "settled_cell_thickness": 0.02, "step_length": 1.0, "ventricular_zone_top": 10}, "formalism": "discrete-time, one-dimensional, stochastic agent-based model (seeded)", "inputs": {"affected_fraction": {"description": "Fraction of neurons that carry the perturbation. 1 for a constitutional variant present in every neuron; below 1 for a defect present in only some neurons. This is representable because the curated evidence states the migration defect is cell-autonomous (PMID:9697693), so an unaffected neuron next to an affected one migrates normally.", "range": [0, 1]}, "arrest_rate": {"default": 0.0, "description": "Per-step probability, scaled by the effective perturbation, that an affected neuron in the intermediate zone arrests permanently. Kept separate from slowing so the two curated failure modes (\"delayed migration\" and \"arrested cells\") can be told apart in the sweeps."}, "base_motility": {"default": 0.8, "description": "Per-step probability that an unperturbed neuron completes a nucleokinesis step. Unfitted."}, "perturbation": {"description": "Degree of microtubule-apparatus disruption in an affected neuron, 0 = wild type. The module curates this node qualitatively (DYSREGULATED microtubule cytoskeleton organization, GO:0000226); the scalar is the model\u0027s way of asking how much of it is needed, not a measured quantity.", "maps_to": "pathophysiology#Microtubule Apparatus Perturbation", "range": [0, 1]}, "rescue": {"default": 0.0, "description": "Fraction of the perturbation removed by the curated intervention (see interventions). 0 = no intervention.", "range": [0, 1]}}, "interventions": {"CRISPRa_isotype_compensation": {"acts_on": "perturbation", "detail": "treatments#CRISPRa beta-tubulin isotype compensation carries a curated target_mechanisms link, treatment_effect RESTORES, onto Microtubule Apparatus Perturbation. The cited work (PMID:42589608) reports restoration of the microtubule network in cells; it reports nothing about migration, so the model\u0027s rescue of migration is an implication of the curated edge, not a reported result. It is preclinical and cell-based and must not be read as an available therapy.", "effect": "multiplies the effective perturbation of every affected neuron by (1 - rescue)", "maps_to": "treatments#CRISPRa beta-tubulin isotype compensation", "provenance": "curated_edge"}}, "model_id": "neuronal_migration_abm", "name": "Microtubule-Dependent Radial Neuronal Migration Agent-Based Model", "phenotype_mappings": [{"conditions": [{"direction": "below", "threshold": 0.95, "variable": "cortical_plate_fraction"}], "phenotype": {"id": "HP:0002269", "label": "Abnormality of neuronal migration"}, "rationale": "Fewer than 95% of neurons settled when the window closes; the classifier\u0027s normal_min_plate_fraction. The broadest term, activated by any regime that is not wild type."}, {"conditions": [{"direction": "above", "threshold": 0.1, "variable": "arrested_fraction"}], "phenotype": {"id": "HP:0002282", "label": "Gray matter heterotopia"}, "rationale": "Neurons permanently arrested in the intermediate zone are ectopic gray matter. 0.1 is a round placeholder; only the arrest rule can raise this readout, so slowing alone never activates the term."}, {"conditions": [{"direction": "above", "threshold": 0.6, "variable": "band_score"}, {"direction": "above", "threshold": 0.5, "variable": "affected_arrested_fraction"}, {"direction": "above", "threshold": 0.9, "variable": "unaffected_plate_fraction"}], "phenotype": {"id": "HP:0032409", "label": "Subcortical band heterotopia"}, "rationale": "A band of arrested affected neurons beneath a normally laminated cortex built by unaffected neurons: the classifier\u0027s band_heterotopia rule. The band score alone would also fire when every neuron is arrested near its birth position, which is not a band, so the two further conditions are required."}], "readouts": {"affected_vs_unaffected": "the plate fraction for each subpopulation separately", "band_score": "for arrested affected neurons, the fraction lying within +/- 5 depth units of their median depth; high when the arrested population forms a band rather than a diffuse scatter. Neurons still in transit are excluded: a delayed neuron is not a heterotopion.", "cortical_plate_fraction": "fraction of all neurons settled in the cortical plate", "cortical_plate_thickness": "settled_cell_thickness * number settled", "ectopic_fraction": "fraction not settled, split into arrested and in_transit and by zone. An in_transit neuron scored in the cortical_plate zone is one caught beneath earlier-born settled neurons when the window closed.", "lamination_fidelity": "fraction of settled neuron pairs from different cohorts whose settle order matches birth order (later-born above earlier-born). 1.0 is perfect inside-out lamination; 0.5 is no relation between birth order and depth.", "mean_arrival_delay": "mean steps from birth to settling, over settled neurons", "pattern": "a label derived from the readouts by the fixed thresholds in the runner (normal, delayed_lamination, diffuse_ectopia, band_heterotopia, migration_failure); the thresholds are stated in the results file"}, "results": "models/neuronal_migration_abm/results.json", "rules": {"arrest": {"decision": "The motility node describes both \"delayed migration\" and \"arrested cells in intermediate/subventricular regions\". Arrest is encoded as a separate absorbing event rather than as the limit of slowing, so the two can be swept independently. Arrest is confined to the intermediate zone because that is where the curated text places arrested cells.", "maps_to": "pathophysiology#Microtubule-Based Neuronal Motility Failure", "provenance": ["Microtubule Apparatus Perturbation -\u003e Microtubule-Based Neuronal Motility Failure (hypothesis_groups microtubule_migration_model)"], "rule": "if migrating and in intermediate zone and random() \u003c arrest_rate * e, state \u003c- arrested (permanent)"}, "effective_perturbation": {"decision": "Cell-autonomous: an agent\u0027s perturbation depends only on its own `affected` flag. Grounded in the PMID:9697693 snippet on the motility node (\"delayed neuronal migration by a cell-autonomous\" mechanism).", "maps_to": "pathophysiology#Microtubule Apparatus Perturbation", "provenance": ["pathophysiology#Microtubule Apparatus Perturbation (role trigger)", "treatments#CRISPRa beta-tubulin isotype compensation -RESTORES-\u003e Microtubule Apparatus Perturbation"], "rule": "e = perturbation * (1 - rescue) if affected else 0"}, "end_of_window": {"decision": "The module says the outcome depends on \"the gene and developmental window\". The window is a fixed, unfitted length; a neuron still migrating when it closes is ectopic in the score, and the results distinguish those (in_transit) from arrested neurons so a reader can see which kind of ectopia a scenario produces.", "maps_to": "pathophysiology#Cortical Dyslamination and Neuronal Ectopia", "provenance": ["Microtubule-Based Neuronal Motility Failure -\u003e Cortical Dyslamination and Neuronal Ectopia (hypothesis_groups microtubule_migration_model)"], "rule": "at t = last_birth + migration_window, score every agent; settled = in cortical plate, otherwise ectopic"}, "inside_out_settling": {"decision": "NOT a curated edge. Normal inside-out lamination (each arriving neuron passes the neurons already settled and stops beneath the marginal zone) is the null model the module\u0027s \"abnormal lamination\" claim is measured against, and the module presupposes it without stating it. It is the one rule in this file with no `provenance` inside the module.", "maps_to": "pathophysiology#Cortical Dyslamination and Neuronal Ectopia", "provenance": "background_assumption", "rule": "if migrating and position \u003e= plate_top, state \u003c- settled; settle_rank \u003c- n_settled; plate_top \u003c- plate_top + settled_cell_thickness"}, "slowed_nucleokinesis": {"decision": "Linear in e. The module says migration is decreased and does not say by what function of the apparatus defect; linear is the least-committed monotone choice and the sweeps report where its consequences change qualitatively.", "maps_to": "pathophysiology#Microtubule-Based Neuronal Motility Failure", "provenance": ["Microtubule Apparatus Perturbation -\u003e Microtubule-Based Neuronal Motility Failure (hypothesis_groups microtubule_migration_model)", "pathophysiology#Microtubule-Based Neuronal Motility Failure, biological_processes neuron migration (GO:0001764) DECREASED"], "rule": "if migrating and random() \u003c base_motility * (1 - e), position \u003c- position + step_length"}}, "runner": "models/neuronal_migration_abm/run.py", "scenarios": {"arrest_dominant": {"affected_fraction": 1.0, "arrest_rate": 0.01, "description": "The same slowing plus a per-step chance of permanent arrest in the intermediate zone.", "perturbation": 0.5}, "delayed_migration": {"affected_fraction": 1.0, "description": "Every neuron carries a moderate perturbation that slows but never arrests it.", "perturbation": 0.5}, "mosaic_severe": {"affected_fraction": 0.5, "arrest_rate": 0.01, "description": "The severe perturbation in half the neurons and none in the other half. This is the regime in which a heterotopic band beneath a normally laminated cortex could emerge from the curated cell-autonomous edge.", "perturbation": 0.85}, "severe_constitutional": {"affected_fraction": 1.0, "arrest_rate": 0.01, "description": "A severe perturbation in every neuron.", "perturbation": 0.85}, "severe_constitutional_rescued": {"affected_fraction": 1.0, "arrest_rate": 0.01, "description": "severe_constitutional with the curated intervention removing 60% of the perturbation (a swept value, not a measurement).", "perturbation": 0.85, "rescue": 0.6}, "wild_type": {"affected_fraction": 0.0, "description": "No apparatus perturbation. Must lay the cortex down inside-out or the wiring is wrong.", "perturbation": 0.0}}, "seed": 20260925, "source_entry": "kb/modules/microtubule_dependent_neuronal_migration_failure.yaml", "sweeps": {"affected_fraction_severe": {"fixed": {"arrest_rate": 0.01, "perturbation": 0.85}, "values": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], "vary": "affected_fraction"}, "perturbation_no_arrest": {"fixed": {"affected_fraction": 1.0, "arrest_rate": 0.0}, "values": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], "vary": "perturbation"}, "perturbation_with_arrest": {"fixed": {"affected_fraction": 1.0, "arrest_rate": 0.01}, "values": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], "vary": "perturbation"}, "rescue_severe": {"fixed": {"affected_fraction": 1.0, "arrest_rate": 0.01, "perturbation": 0.85}, "values": [0.0, 0.2, 0.4, 0.6, 0.8, 1.0], "vary": "rescue"}}};
+    const COMMITTED = {"arrest_dominant": {"activated_phenotypes": [{"id": "HP:0002269", "label": "Abnormality of neuronal migration"}, {"id": "HP:0002282", "label": "Gray matter heterotopia"}], "description": "The same slowing plus a per-step chance of permanent arrest in the intermediate zone.", "params": {"affected_fraction": 1.0, "arrest_rate": 0.01, "base_motility": 0.8, "perturbation": 0.5, "rescue": 0.0}, "readouts": {"affected_arrested_fraction": 0.475, "affected_ectopic_fraction": 0.56, "affected_plate_fraction": 0.44, "arrested_fraction": 0.475, "band_median_depth": 29.0, "band_score": 0.2526, "cortical_plate_fraction": 0.44, "cortical_plate_thickness": 5.28, "ectopic_by_zone": {"cortical_plate": 0.0483, "intermediate_zone": 0.5117, "ventricular_zone": 0.0}, "ectopic_fraction": 0.56, "in_transit_fraction": 0.085, "lamination_fidelity": 0.9109, "mean_arrival_delay": 141.68, "pattern": "migration_failure", "per_cohort_plate_fraction": [0.53, 0.62, 0.49, 0.52, 0.35, 0.13], "unaffected_plate_fraction": null, "window_end": 240}}, "delayed_migration": {"activated_phenotypes": [{"id": "HP:0002269", "label": "Abnormality of neuronal migration"}], "description": "Every neuron carries a moderate perturbation that slows but never arrests it.", "params": {"affected_fraction": 1.0, "arrest_rate": 0.0, "base_motility": 0.8, "perturbation": 0.5, "rescue": 0.0}, "readouts": {"affected_arrested_fraction": 0.0, "affected_ectopic_fraction": 0.2483, "affected_plate_fraction": 0.7517, "arrested_fraction": 0.0, "band_median_depth": null, "band_score": null, "cortical_plate_fraction": 0.7517, "cortical_plate_thickness": 9.02, "ectopic_by_zone": {"cortical_plate": 0.1717, "intermediate_zone": 0.0767, "ventricular_zone": 0.0}, "ectopic_fraction": 0.2483, "in_transit_fraction": 0.2483, "lamination_fidelity": 0.9093, "mean_arrival_delay": 145.94, "pattern": "diffuse_ectopia", "per_cohort_plate_fraction": [1.0, 1.0, 0.99, 0.92, 0.51, 0.09], "unaffected_plate_fraction": null, "window_end": 240}}, "mosaic_severe": {"activated_phenotypes": [{"id": "HP:0002269", "label": "Abnormality of neuronal migration"}, {"id": "HP:0002282", "label": "Gray matter heterotopia"}, {"id": "HP:0032409", "label": "Subcortical band heterotopia"}], "description": "The severe perturbation in half the neurons and none in the other half. This is the regime in which a heterotopic band beneath a normally laminated cortex could emerge from the curated cell-autonomous edge.", "params": {"affected_fraction": 0.5, "arrest_rate": 0.01, "base_motility": 0.8, "perturbation": 0.85, "rescue": 0.0}, "readouts": {"affected_arrested_fraction": 0.7458, "affected_ectopic_fraction": 1.0, "affected_plate_fraction": 0.0, "arrested_fraction": 0.3667, "band_median_depth": 16.0, "band_score": 0.7455, "cortical_plate_fraction": 0.5083, "cortical_plate_thickness": 6.1, "ectopic_by_zone": {"cortical_plate": 0.0, "intermediate_zone": 0.4917, "ventricular_zone": 0.0}, "ectopic_fraction": 0.4917, "in_transit_fraction": 0.125, "lamination_fidelity": 0.9998, "mean_arrival_delay": 72.73, "pattern": "band_heterotopia", "per_cohort_plate_fraction": [0.54, 0.46, 0.47, 0.49, 0.6, 0.49], "unaffected_plate_fraction": 1.0, "window_end": 240}}, "severe_constitutional": {"activated_phenotypes": [{"id": "HP:0002269", "label": "Abnormality of neuronal migration"}, {"id": "HP:0002282", "label": "Gray matter heterotopia"}], "description": "A severe perturbation in every neuron.", "params": {"affected_fraction": 1.0, "arrest_rate": 0.01, "base_motility": 0.8, "perturbation": 0.85, "rescue": 0.0}, "readouts": {"affected_arrested_fraction": 0.7, "affected_ectopic_fraction": 1.0, "affected_plate_fraction": 0.0, "arrested_fraction": 0.7, "band_median_depth": 15.0, "band_score": 0.7619, "cortical_plate_fraction": 0.0, "cortical_plate_thickness": 0.0, "ectopic_by_zone": {"cortical_plate": 0.0, "intermediate_zone": 1.0, "ventricular_zone": 0.0}, "ectopic_fraction": 1.0, "in_transit_fraction": 0.3, "lamination_fidelity": null, "mean_arrival_delay": null, "pattern": "migration_failure", "per_cohort_plate_fraction": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "unaffected_plate_fraction": null, "window_end": 240}}, "severe_constitutional_rescued": {"activated_phenotypes": [{"id": "HP:0002269", "label": "Abnormality of neuronal migration"}, {"id": "HP:0002282", "label": "Gray matter heterotopia"}], "description": "severe_constitutional with the curated intervention removing 60% of the perturbation (a swept value, not a measurement).", "params": {"affected_fraction": 1.0, "arrest_rate": 0.01, "base_motility": 0.8, "perturbation": 0.85, "rescue": 0.6}, "readouts": {"affected_arrested_fraction": 0.2833, "affected_ectopic_fraction": 0.2867, "affected_plate_fraction": 0.7133, "arrested_fraction": 0.2833, "band_median_depth": 32.5, "band_score": 0.1882, "cortical_plate_fraction": 0.7133, "cortical_plate_thickness": 8.56, "ectopic_by_zone": {"cortical_plate": 0.0033, "intermediate_zone": 0.2833, "ventricular_zone": 0.0}, "ectopic_fraction": 0.2867, "in_transit_fraction": 0.0033, "lamination_fidelity": 0.9738, "mean_arrival_delay": 112.76, "pattern": "diffuse_ectopia", "per_cohort_plate_fraction": [0.8, 0.72, 0.68, 0.75, 0.71, 0.62], "unaffected_plate_fraction": null, "window_end": 240}}, "wild_type": {"activated_phenotypes": [], "description": "No apparatus perturbation. Must lay the cortex down inside-out or the wiring is wrong.", "params": {"affected_fraction": 0.0, "arrest_rate": 0.0, "base_motility": 0.8, "perturbation": 0.0, "rescue": 0.0}, "readouts": {"affected_arrested_fraction": null, "affected_ectopic_fraction": null, "affected_plate_fraction": null, "arrested_fraction": 0.0, "band_median_depth": null, "band_score": null, "cortical_plate_fraction": 1.0, "cortical_plate_thickness": 12.0, "ectopic_by_zone": {"cortical_plate": 0.0, "intermediate_zone": 0.0, "ventricular_zone": 0.0}, "ectopic_fraction": 0.0, "in_transit_fraction": 0.0, "lamination_fidelity": 0.9999, "mean_arrival_delay": 75.91, "pattern": "normal", "per_cohort_plate_fraction": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0], "unaffected_plate_fraction": 1.0, "window_end": 240}}};
+    const TRACE_EVERY = 2;
+    const COHORT_COLORS = ["#1d4ed8", "#0891b2", "#059669", "#ca8a04", "#ea580c", "#be185d", "#7c3aed", "#475569"];
+    const ARREST_COLOR = "#991b1b";
+    const PATTERN_LABELS = {
+        normal: "normal", delayed_lamination: "delayed lamination", diffuse_ectopia: "diffuse ectopia",
+        band_heterotopia: "band heterotopia", migration_failure: "migration failure",
+    };
+    const READOUTS = [
+        ["cortical_plate_fraction", "Plate fraction"],
+        ["arrested_fraction", "Arrested"],
+        ["in_transit_fraction", "In transit"],
+        ["lamination_fidelity", "Lamination fidelity"],
+        ["mean_arrival_delay", "Mean arrival delay"],
+        ["band_score", "Band score"],
+    ];
+
+    const $ = (id) => document.getElementById(id);
+    const scenarioSelect = $("abm-scenario");
+    const sliders = Array.from(document.querySelectorAll("input[data-param]"));
+    const frameInput = $("abm-frame");
+    const playButton = $("abm-play");
+    const canvas = $("abm-canvas");
+    const ctx = canvas.getContext("2d");
+    const defaults = ABM.inputDefaults(SPEC);
+
+    let trace = null;
+    let frame = 0;
+    let timer = null;
+    let jitter = [];
+
+    function currentParams() {
+        const params = Object.assign({}, defaults);
+        for (const s of sliders) params[s.dataset.param] = Number(s.value);
+        return params;
+    }
+
+    function setSliders(params) {
+        for (const s of sliders) s.value = params[s.dataset.param];
+        updateSliderLabels();
+    }
+
+    function updateSliderLabels() {
+        for (const s of sliders) $(`abm-${s.dataset.param}-value`).textContent = Number(s.value).toString();
+    }
+
+    function deepEqual(a, b) {
+        if (a === b) return true;
+        if (a === null || b === null || typeof a !== "object" || typeof b !== "object") return false;
+        const ka = Object.keys(a), kb = Object.keys(b);
+        return ka.length === kb.length && ka.every((k) => deepEqual(a[k], b[k]));
+    }
+
+    function sameParams(a, b) {
+        return Object.keys(defaults).every((k) => Math.abs(Number(a[k]) - Number(b[k])) < 1e-12);
+    }
+
+    function committedMatch(params) {
+        for (const [name, body] of Object.entries(COMMITTED)) {
+            if (sameParams(body.params, params)) return name;
+        }
+        return null;
+    }
+
+    function run() {
+        stop();
+        const params = currentParams();
+        const scenario = scenarioSelect.value !== "__custom__" && COMMITTED[scenarioSelect.value] &&
+            sameParams(COMMITTED[scenarioSelect.value].params, params) ? scenarioSelect.value : committedMatch(params);
+        // A committed scenario is replayed with its own run name, so its draws are the
+        // committed ones; any other parameter set gets a name derived from its values.
+        const runName = scenario ? `scenario:${scenario}` :
+            "custom:" + Object.keys(defaults).map((k) => `${k}=${params[k]}`).join(",");
+        const t = {};
+        const readouts = ABM.simulate(SPEC, params, runName, t, TRACE_EVERY);
+        trace = t;
+        jitter = trace.cohort.map((_, i) => {
+            // Deterministic spread within a lane, so the picture does not shimmer between runs.
+            const x = Math.sin((i + 1) * 12.9898) * 43758.5453;
+            return x - Math.floor(x);
+        });
+        frameInput.max = String(trace.frames.length - 1);
+        frame = 0;
+        frameInput.value = "0";
+        showReadouts(readouts, scenario);
+        draw();
+        play();
+    }
+
+    function showReadouts(readouts, scenario) {
+        const grid = $("abm-readouts");
+        grid.innerHTML = "";
+        const pattern = document.createElement("div");
+        pattern.className = "readout";
+        pattern.innerHTML = `<div class="k">Pattern</div><div class="v"><span class="pattern pattern-${readouts.pattern}">${PATTERN_LABELS[readouts.pattern] || readouts.pattern}</span></div>`;
+        grid.appendChild(pattern);
+        for (const [key, label] of READOUTS) {
+            const el = document.createElement("div");
+            el.className = "readout";
+            const v = readouts[key];
+            el.innerHTML = `<div class="k">${label}</div><div class="v">${v === null || v === undefined ? "—" : v}</div>`;
+            grid.appendChild(el);
+        }
+        const phen = ABM.activatedPhenotypes(SPEC, readouts);
+        $("abm-phenotypes").innerHTML = phen.length
+            ? "Activated phenotypes: " + phen.map((p) =>
+                `<a class="hp-pill" href="https://hpo.jax.org/browse/term/${p.id}" target="_blank" rel="noopener">${p.label}</a>`).join(" ")
+            : '<span class="muted small">No phenotype mapping is activated.</span>';
+        const parity = $("abm-parity");
+        if (scenario) {
+            const ok = deepEqual(COMMITTED[scenario].readouts, readouts);
+            parity.className = "parity " + (ok ? "ok" : "bad");
+            parity.textContent = ok
+                ? `Identical to the committed run of ${scenario} in results.json.`
+                : `Differs from the committed run of ${scenario}: run.js and results.json are out of step.`;
+        } else {
+            parity.className = "parity custom";
+            parity.textContent = "A new parameter set, run here; not part of the committed results.";
+        }
+    }
+
+    function draw() {
+        if (!trace) return;
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+            canvas.width = Math.round(w * dpr);
+            canvas.height = Math.round(h * dpr);
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+        const dom = trace.domain;
+        const padL = 100, padR = 12, padT = 12, padB = 22;
+        const plotH = h - padT - padB;
+        const y = (d) => padT + plotH * (1 - d / dom.pia);
+        const nLanes = Math.max(...trace.cohort) + 1;
+        const laneW = (w - padL - padR) / nLanes;
+        const f = trace.frames[frame];
+
+        // Zones
+        const zones = [
+            [0, dom.vz_top, "#f1f5f9", "ventricular"],
+            [dom.vz_top, dom.plate_floor, "#f8fafc", "intermediate"],
+            [dom.plate_floor, dom.pia, "#f0fdfa", "cortical plate"],
+        ];
+        ctx.font = "11px system-ui, sans-serif";
+        for (const [lo, hi, fill, label] of zones) {
+            ctx.fillStyle = fill;
+            ctx.fillRect(padL, y(hi), w - padL - padR, y(lo) - y(hi));
+            ctx.fillStyle = "#64748b";
+            ctx.textAlign = "right";
+            ctx.fillText(label, padL - 6, (y(lo) + y(hi)) / 2 + 4);
+        }
+        // Plate top
+        ctx.strokeStyle = "#0d9488";
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(padL, y(f.plate_top));
+        ctx.lineTo(w - padR, y(f.plate_top));
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // Lane separators and labels
+        ctx.strokeStyle = "#e2e8f0";
+        ctx.textAlign = "center";
+        for (let c = 0; c < nLanes; c++) {
+            const x0 = padL + c * laneW;
+            if (c > 0) { ctx.beginPath(); ctx.moveTo(x0, padT); ctx.lineTo(x0, h - padB); ctx.stroke(); }
+            ctx.fillStyle = COHORT_COLORS[c % COHORT_COLORS.length];
+            ctx.fillText(`cohort ${c}`, x0 + laneW / 2, h - 6);
+        }
+        // Neurons
+        const r = 2.4;
+        for (let i = 0; i < f.pos.length; i++) {
+            const p = f.pos[i];
+            if (p === null) continue;
+            const c = trace.cohort[i];
+            const cx = padL + c * laneW + laneW * (0.08 + 0.84 * jitter[i]);
+            const cy = y(p);
+            const color = COHORT_COLORS[c % COHORT_COLORS.length];
+            if (f.state[i] === 1) {
+                ctx.strokeStyle = ARREST_COLOR;
+                ctx.lineWidth = 1.4;
+                ctx.beginPath();
+                ctx.moveTo(cx - r, cy - r); ctx.lineTo(cx + r, cy + r);
+                ctx.moveTo(cx + r, cy - r); ctx.lineTo(cx - r, cy + r);
+                ctx.stroke();
+                ctx.lineWidth = 1;
+                continue;
+            }
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            if (trace.affected[i]) {
+                ctx.strokeStyle = color;
+                ctx.stroke();
+            } else {
+                ctx.fillStyle = color;
+                ctx.fill();
+            }
+        }
+        $("abm-time").textContent = `t = ${f.t} / ${trace.frames[trace.frames.length - 1].t}`;
+    }
+
+    function play() {
+        stop();
+        playButton.textContent = "Pause";
+        timer = setInterval(() => {
+            if (frame >= trace.frames.length - 1) { stop(); return; }
+            frame += 1;
+            frameInput.value = String(frame);
+            draw();
+        }, 40);
+    }
+
+    function stop() {
+        if (timer) clearInterval(timer);
+        timer = null;
+        playButton.textContent = "Play";
+    }
+
+    function buildLegend() {
+        $("abm-legend").innerHTML =
+            '<span><span class="swatch" style="background:#475569"></span>unaffected</span>' +
+            '<span><span class="swatch" style="border:1.5px solid #475569"></span>affected</span>' +
+            `<span style="color:${ARREST_COLOR}">&#x2715; arrested</span>` +
+            '<span><span style="display:inline-block;width:16px;border-top:2px dashed #0d9488"></span>top of the cortical plate</span>';
+    }
+
+    scenarioSelect.addEventListener("change", () => {
+        const name = scenarioSelect.value;
+        if (COMMITTED[name]) setSliders(COMMITTED[name].params);
+        $("abm-scenario-desc").textContent = COMMITTED[name] ? COMMITTED[name].description : "";
+        run();
+    });
+    let debounce = null;
+    for (const s of sliders) {
+        s.addEventListener("input", () => {
+            updateSliderLabels();
+            const match = committedMatch(currentParams());
+            scenarioSelect.value = match || "__custom__";
+            $("abm-scenario-desc").textContent = match ? COMMITTED[match].description : "";
+            clearTimeout(debounce);
+            debounce = setTimeout(run, 150);
+        });
+    }
+    frameInput.addEventListener("input", () => { stop(); frame = Number(frameInput.value); draw(); });
+    playButton.addEventListener("click", () => {
+        if (timer) { stop(); return; }
+        if (frame >= trace.frames.length - 1) { frame = 0; }
+        play();
+    });
+    window.addEventListener("resize", draw);
+
+    buildLegend();
+    // The select lists scenarios in spec order; the embedded JSON is key-sorted.
+    const first = scenarioSelect.options[0].value;
+    scenarioSelect.value = first;
+    setSliders(COMMITTED[first] ? COMMITTED[first].params : ABM.paramsFrom(SPEC.scenarios[first], defaults));
+    $("abm-scenario-desc").textContent = COMMITTED[first] ? COMMITTED[first].description : "";
+    run();
+})();
+</script>
+        
+
+        
+        
+        
+        
+        <section class="panel" id="scenarios">
+            <h2>Committed scenarios</h2>
+            <p class="section-intro">From <code>models/neuronal_migration_abm/results.json</code> (seed 20260925). Readouts are scored when the developmental window closes. Every rate is a placeholder, so read these as orderings of regimes rather than quantities.</p>
+            <div class="table-scroll">
+            <table class="data">
+                <thead><tr><th>Scenario</th><th class="num">Perturbation</th><th class="num">Affected</th><th class="num">Arrest rate</th><th class="num">Rescue</th><th class="num">Plate</th><th class="num">Arrested</th><th class="num">In transit</th><th class="num">Fidelity</th><th class="num">Delay</th><th class="num">Band</th><th>Outcome</th></tr></thead>
+                <tbody>
+                
+                
+                
+                <tr>
+                    <td style="min-width:240px"><code>wild_type</code><div class="muted small">No apparatus perturbation. Must lay the cortex down inside-out or the wiring is wrong.</div></td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">1.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.9999</td>
+                    <td class="num">75.91</td>
+                    <td class="num">—</td>
+                    <td style="min-width:200px"><span class="pattern pattern-normal">normal</span>
+                        <div><span class="muted small">no phenotype activated</span></div></td>
+                </tr>
+                
+                
+                
+                <tr>
+                    <td style="min-width:240px"><code>delayed_migration</code><div class="muted small">Every neuron carries a moderate perturbation that slows but never arrests it.</div></td>
+                    <td class="num">0.5</td>
+                    <td class="num">1.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.7517</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.2483</td>
+                    <td class="num">0.9093</td>
+                    <td class="num">145.94</td>
+                    <td class="num">—</td>
+                    <td style="min-width:200px"><span class="pattern pattern-diffuse_ectopia">diffuse ectopia</span>
+                        <div><a class="hp-pill" href="http://purl.obolibrary.org/obo/HP_0002269" target="_blank" rel="noopener">Abnormality of neuronal migration</a></div></td>
+                </tr>
+                
+                
+                
+                <tr>
+                    <td style="min-width:240px"><code>arrest_dominant</code><div class="muted small">The same slowing plus a per-step chance of permanent arrest in the intermediate zone.</div></td>
+                    <td class="num">0.5</td>
+                    <td class="num">1.0</td>
+                    <td class="num">0.01</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.44</td>
+                    <td class="num">0.475</td>
+                    <td class="num">0.085</td>
+                    <td class="num">0.9109</td>
+                    <td class="num">141.68</td>
+                    <td class="num">0.2526</td>
+                    <td style="min-width:200px"><span class="pattern pattern-migration_failure">migration failure</span>
+                        <div><a class="hp-pill" href="http://purl.obolibrary.org/obo/HP_0002269" target="_blank" rel="noopener">Abnormality of neuronal migration</a><a class="hp-pill" href="http://purl.obolibrary.org/obo/HP_0002282" target="_blank" rel="noopener">Gray matter heterotopia</a></div></td>
+                </tr>
+                
+                
+                
+                <tr>
+                    <td style="min-width:240px"><code>severe_constitutional</code><div class="muted small">A severe perturbation in every neuron.</div></td>
+                    <td class="num">0.85</td>
+                    <td class="num">1.0</td>
+                    <td class="num">0.01</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.7</td>
+                    <td class="num">0.3</td>
+                    <td class="num">—</td>
+                    <td class="num">—</td>
+                    <td class="num">0.7619</td>
+                    <td style="min-width:200px"><span class="pattern pattern-migration_failure">migration failure</span>
+                        <div><a class="hp-pill" href="http://purl.obolibrary.org/obo/HP_0002269" target="_blank" rel="noopener">Abnormality of neuronal migration</a><a class="hp-pill" href="http://purl.obolibrary.org/obo/HP_0002282" target="_blank" rel="noopener">Gray matter heterotopia</a></div></td>
+                </tr>
+                
+                
+                
+                <tr>
+                    <td style="min-width:240px"><code>mosaic_severe</code><div class="muted small">The severe perturbation in half the neurons and none in the other half. This is the regime in which a heterotopic band beneath a normally laminated cortex could emerge from the curated cell-autonomous edge.</div></td>
+                    <td class="num">0.85</td>
+                    <td class="num">0.5</td>
+                    <td class="num">0.01</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.5083</td>
+                    <td class="num">0.3667</td>
+                    <td class="num">0.125</td>
+                    <td class="num">0.9998</td>
+                    <td class="num">72.73</td>
+                    <td class="num">0.7455</td>
+                    <td style="min-width:200px"><span class="pattern pattern-band_heterotopia">band heterotopia</span>
+                        <div><a class="hp-pill" href="http://purl.obolibrary.org/obo/HP_0002269" target="_blank" rel="noopener">Abnormality of neuronal migration</a><a class="hp-pill" href="http://purl.obolibrary.org/obo/HP_0002282" target="_blank" rel="noopener">Gray matter heterotopia</a><a class="hp-pill" href="http://purl.obolibrary.org/obo/HP_0032409" target="_blank" rel="noopener">Subcortical band heterotopia</a></div></td>
+                </tr>
+                
+                
+                
+                <tr>
+                    <td style="min-width:240px"><code>severe_constitutional_rescued</code><div class="muted small">severe_constitutional with the curated intervention removing 60% of the perturbation (a swept value, not a measurement).</div></td>
+                    <td class="num">0.85</td>
+                    <td class="num">1.0</td>
+                    <td class="num">0.01</td>
+                    <td class="num">0.6</td>
+                    <td class="num">0.7133</td>
+                    <td class="num">0.2833</td>
+                    <td class="num">0.0033</td>
+                    <td class="num">0.9738</td>
+                    <td class="num">112.76</td>
+                    <td class="num">0.1882</td>
+                    <td style="min-width:200px"><span class="pattern pattern-diffuse_ectopia">diffuse ectopia</span>
+                        <div><a class="hp-pill" href="http://purl.obolibrary.org/obo/HP_0002269" target="_blank" rel="noopener">Abnormality of neuronal migration</a><a class="hp-pill" href="http://purl.obolibrary.org/obo/HP_0002282" target="_blank" rel="noopener">Gray matter heterotopia</a></div></td>
+                </tr>
+                
+                </tbody>
+            </table>
+            </div>
+            
+            <details style="margin-top:.8rem"><summary class="small">Pattern thresholds</summary>
+                <table class="data" style="max-width:520px;margin-top:.4rem"><tbody>
+                <tr><td><code>band_half_width</code></td><td class="num">5.0</td></tr><tr><td><code>band_min_affected_arrested_fraction</code></td><td class="num">0.5</td></tr><tr><td><code>band_min_band_score</code></td><td class="num">0.6</td></tr><tr><td><code>band_min_unaffected_plate_fraction</code></td><td class="num">0.9</td></tr><tr><td><code>failure_max_plate_fraction</code></td><td class="num">0.5</td></tr><tr><td><code>normal_min_lamination_fidelity</code></td><td class="num">0.95</td></tr><tr><td><code>normal_min_plate_fraction</code></td><td class="num">0.95</td></tr>
+                </tbody></table>
+            </details>
+            
+        </section>
+
+        <section class="panel" id="sweeps">
+            <h2>Parameter sweeps</h2>
+            <p class="section-intro">One input varied at a time with the others held fixed.</p>
+            
+            
+            <h3><code>perturbation_no_arrest</code> <span class="muted small">vary perturbation; fixed affected_fraction=1.0, arrest_rate=0.0</span></h3>
+            <div class="table-scroll">
+            <table class="data">
+                <thead><tr><th class="num">perturbation</th><th class="num">Plate</th><th class="num">Arrested</th><th class="num">In transit</th><th class="num">Fidelity</th><th class="num">Delay</th><th class="num">Band</th><th>Pattern</th><th>Phenotypes</th></tr></thead>
+                <tbody>
+                
+                <tr>
+                    <td class="num">0.0</td>
+                    <td class="num">1.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.9998</td>
+                    <td class="num">75.97</td>
+                    <td class="num">—</td>
+                    <td><span class="pattern pattern-normal">normal</span></td>
+                    <td class="small">—</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.1</td>
+                    <td class="num">1.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.9979</td>
+                    <td class="num">84.66</td>
+                    <td class="num">—</td>
+                    <td><span class="pattern pattern-normal">normal</span></td>
+                    <td class="small">—</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.2</td>
+                    <td class="num">1.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.9926</td>
+                    <td class="num">95.17</td>
+                    <td class="num">—</td>
+                    <td><span class="pattern pattern-normal">normal</span></td>
+                    <td class="small">—</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.3</td>
+                    <td class="num">0.9983</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0017</td>
+                    <td class="num">0.9798</td>
+                    <td class="num">108.82</td>
+                    <td class="num">—</td>
+                    <td><span class="pattern pattern-normal">normal</span></td>
+                    <td class="small">—</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.4</td>
+                    <td class="num">0.9317</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0683</td>
+                    <td class="num">0.9577</td>
+                    <td class="num">125.23</td>
+                    <td class="num">—</td>
+                    <td><span class="pattern pattern-diffuse_ectopia">diffuse ectopia</span></td>
+                    <td class="small">HP:0002269</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.5</td>
+                    <td class="num">0.7583</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.2417</td>
+                    <td class="num">0.8989</td>
+                    <td class="num">145.73</td>
+                    <td class="num">—</td>
+                    <td><span class="pattern pattern-diffuse_ectopia">diffuse ectopia</span></td>
+                    <td class="small">HP:0002269</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.6</td>
+                    <td class="num">0.4917</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.5083</td>
+                    <td class="num">0.8157</td>
+                    <td class="num">175.5</td>
+                    <td class="num">—</td>
+                    <td><span class="pattern pattern-migration_failure">migration failure</span></td>
+                    <td class="small">HP:0002269</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.7</td>
+                    <td class="num">0.15</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.85</td>
+                    <td class="num">0.6461</td>
+                    <td class="num">210.09</td>
+                    <td class="num">—</td>
+                    <td><span class="pattern pattern-migration_failure">migration failure</span></td>
+                    <td class="small">HP:0002269</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.8</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">1.0</td>
+                    <td class="num">—</td>
+                    <td class="num">—</td>
+                    <td class="num">—</td>
+                    <td><span class="pattern pattern-migration_failure">migration failure</span></td>
+                    <td class="small">HP:0002269</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.9</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">1.0</td>
+                    <td class="num">—</td>
+                    <td class="num">—</td>
+                    <td class="num">—</td>
+                    <td><span class="pattern pattern-migration_failure">migration failure</span></td>
+                    <td class="small">HP:0002269</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">1.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">1.0</td>
+                    <td class="num">—</td>
+                    <td class="num">—</td>
+                    <td class="num">—</td>
+                    <td><span class="pattern pattern-migration_failure">migration failure</span></td>
+                    <td class="small">HP:0002269</td>
+                </tr>
+                
+                </tbody>
+            </table>
+            </div>
+            
+            
+            <h3><code>perturbation_with_arrest</code> <span class="muted small">vary perturbation; fixed affected_fraction=1.0, arrest_rate=0.01</span></h3>
+            <div class="table-scroll">
+            <table class="data">
+                <thead><tr><th class="num">perturbation</th><th class="num">Plate</th><th class="num">Arrested</th><th class="num">In transit</th><th class="num">Fidelity</th><th class="num">Delay</th><th class="num">Band</th><th>Pattern</th><th>Phenotypes</th></tr></thead>
+                <tbody>
+                
+                <tr>
+                    <td class="num">0.0</td>
+                    <td class="num">1.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.9999</td>
+                    <td class="num">76.03</td>
+                    <td class="num">—</td>
+                    <td><span class="pattern pattern-normal">normal</span></td>
+                    <td class="small">—</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.1</td>
+                    <td class="num">0.925</td>
+                    <td class="num">0.075</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.9976</td>
+                    <td class="num">84.64</td>
+                    <td class="num">0.2889</td>
+                    <td><span class="pattern pattern-diffuse_ectopia">diffuse ectopia</span></td>
+                    <td class="small">HP:0002269</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.2</td>
+                    <td class="num">0.8633</td>
+                    <td class="num">0.1367</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.9918</td>
+                    <td class="num">93.52</td>
+                    <td class="num">0.2561</td>
+                    <td><span class="pattern pattern-diffuse_ectopia">diffuse ectopia</span></td>
+                    <td class="small">HP:0002269, HP:0002282</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.3</td>
+                    <td class="num">0.7967</td>
+                    <td class="num">0.2033</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.9818</td>
+                    <td class="num">106.38</td>
+                    <td class="num">0.1885</td>
+                    <td><span class="pattern pattern-diffuse_ectopia">diffuse ectopia</span></td>
+                    <td class="small">HP:0002269, HP:0002282</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.4</td>
+                    <td class="num">0.6317</td>
+                    <td class="num">0.3467</td>
+                    <td class="num">0.0217</td>
+                    <td class="num">0.9598</td>
+                    <td class="num">121.67</td>
+                    <td class="num">0.2404</td>
+                    <td><span class="pattern pattern-diffuse_ectopia">diffuse ectopia</span></td>
+                    <td class="small">HP:0002269, HP:0002282</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.5</td>
+                    <td class="num">0.4467</td>
+                    <td class="num">0.4717</td>
+                    <td class="num">0.0817</td>
+                    <td class="num">0.9327</td>
+                    <td class="num">139.6</td>
+                    <td class="num">0.2509</td>
+                    <td><span class="pattern pattern-migration_failure">migration failure</span></td>
+                    <td class="small">HP:0002269, HP:0002282</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.6</td>
+                    <td class="num">0.225</td>
+                    <td class="num">0.5883</td>
+                    <td class="num">0.1867</td>
+                    <td class="num">0.8262</td>
+                    <td class="num">168.36</td>
+                    <td class="num">0.2465</td>
+                    <td><span class="pattern pattern-migration_failure">migration failure</span></td>
+                    <td class="small">HP:0002269, HP:0002282</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.7</td>
+                    <td class="num">0.0567</td>
+                    <td class="num">0.6733</td>
+                    <td class="num">0.27</td>
+                    <td class="num">0.7034</td>
+                    <td class="num">213.68</td>
+                    <td class="num">0.3119</td>
+                    <td><span class="pattern pattern-migration_failure">migration failure</span></td>
+                    <td class="small">HP:0002269, HP:0002282</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.8</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.715</td>
+                    <td class="num">0.285</td>
+                    <td class="num">—</td>
+                    <td class="num">—</td>
+                    <td class="num">0.4802</td>
+                    <td><span class="pattern pattern-migration_failure">migration failure</span></td>
+                    <td class="small">HP:0002269, HP:0002282</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.9</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.665</td>
+                    <td class="num">0.335</td>
+                    <td class="num">—</td>
+                    <td class="num">—</td>
+                    <td class="num">0.8797</td>
+                    <td><span class="pattern pattern-migration_failure">migration failure</span></td>
+                    <td class="small">HP:0002269, HP:0002282</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">1.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">1.0</td>
+                    <td class="num">—</td>
+                    <td class="num">—</td>
+                    <td class="num">—</td>
+                    <td><span class="pattern pattern-migration_failure">migration failure</span></td>
+                    <td class="small">HP:0002269</td>
+                </tr>
+                
+                </tbody>
+            </table>
+            </div>
+            
+            
+            <h3><code>affected_fraction_severe</code> <span class="muted small">vary affected_fraction; fixed arrest_rate=0.01, perturbation=0.85</span></h3>
+            <div class="table-scroll">
+            <table class="data">
+                <thead><tr><th class="num">affected_fraction</th><th class="num">Plate</th><th class="num">Arrested</th><th class="num">In transit</th><th class="num">Fidelity</th><th class="num">Delay</th><th class="num">Band</th><th>Pattern</th><th>Phenotypes</th></tr></thead>
+                <tbody>
+                
+                <tr>
+                    <td class="num">0.0</td>
+                    <td class="num">1.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.9999</td>
+                    <td class="num">75.75</td>
+                    <td class="num">—</td>
+                    <td><span class="pattern pattern-normal">normal</span></td>
+                    <td class="small">—</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.1</td>
+                    <td class="num">0.9083</td>
+                    <td class="num">0.0533</td>
+                    <td class="num">0.0383</td>
+                    <td class="num">0.9999</td>
+                    <td class="num">75.26</td>
+                    <td class="num">0.6875</td>
+                    <td><span class="pattern pattern-band_heterotopia">band heterotopia</span></td>
+                    <td class="small">HP:0002269, HP:0032409</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.2</td>
+                    <td class="num">0.815</td>
+                    <td class="num">0.1283</td>
+                    <td class="num">0.0567</td>
+                    <td class="num">0.9998</td>
+                    <td class="num">74.54</td>
+                    <td class="num">0.6623</td>
+                    <td><span class="pattern pattern-band_heterotopia">band heterotopia</span></td>
+                    <td class="small">HP:0002269, HP:0002282, HP:0032409</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.3</td>
+                    <td class="num">0.69</td>
+                    <td class="num">0.23</td>
+                    <td class="num">0.08</td>
+                    <td class="num">0.9997</td>
+                    <td class="num">73.49</td>
+                    <td class="num">0.6594</td>
+                    <td><span class="pattern pattern-band_heterotopia">band heterotopia</span></td>
+                    <td class="small">HP:0002269, HP:0002282, HP:0032409</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.4</td>
+                    <td class="num">0.6433</td>
+                    <td class="num">0.2483</td>
+                    <td class="num">0.1083</td>
+                    <td class="num">0.9995</td>
+                    <td class="num">73.55</td>
+                    <td class="num">0.6309</td>
+                    <td><span class="pattern pattern-band_heterotopia">band heterotopia</span></td>
+                    <td class="small">HP:0002269, HP:0002282, HP:0032409</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.5</td>
+                    <td class="num">0.4833</td>
+                    <td class="num">0.355</td>
+                    <td class="num">0.1617</td>
+                    <td class="num">0.9997</td>
+                    <td class="num">71.74</td>
+                    <td class="num">0.7183</td>
+                    <td><span class="pattern pattern-band_heterotopia">band heterotopia</span></td>
+                    <td class="small">HP:0002269, HP:0002282, HP:0032409</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.6</td>
+                    <td class="num">0.4083</td>
+                    <td class="num">0.4283</td>
+                    <td class="num">0.1633</td>
+                    <td class="num">0.9999</td>
+                    <td class="num">71.54</td>
+                    <td class="num">0.6887</td>
+                    <td><span class="pattern pattern-band_heterotopia">band heterotopia</span></td>
+                    <td class="small">HP:0002269, HP:0002282, HP:0032409</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.7</td>
+                    <td class="num">0.27</td>
+                    <td class="num">0.52</td>
+                    <td class="num">0.21</td>
+                    <td class="num">0.9998</td>
+                    <td class="num">70.38</td>
+                    <td class="num">0.734</td>
+                    <td><span class="pattern pattern-band_heterotopia">band heterotopia</span></td>
+                    <td class="small">HP:0002269, HP:0002282, HP:0032409</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.8</td>
+                    <td class="num">0.2067</td>
+                    <td class="num">0.5517</td>
+                    <td class="num">0.2417</td>
+                    <td class="num">1.0</td>
+                    <td class="num">70.33</td>
+                    <td class="num">0.6888</td>
+                    <td><span class="pattern pattern-band_heterotopia">band heterotopia</span></td>
+                    <td class="small">HP:0002269, HP:0002282, HP:0032409</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.9</td>
+                    <td class="num">0.0833</td>
+                    <td class="num">0.6367</td>
+                    <td class="num">0.28</td>
+                    <td class="num">1.0</td>
+                    <td class="num">68.28</td>
+                    <td class="num">0.6885</td>
+                    <td><span class="pattern pattern-band_heterotopia">band heterotopia</span></td>
+                    <td class="small">HP:0002269, HP:0002282, HP:0032409</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">1.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.6783</td>
+                    <td class="num">0.3217</td>
+                    <td class="num">—</td>
+                    <td class="num">—</td>
+                    <td class="num">0.7076</td>
+                    <td><span class="pattern pattern-migration_failure">migration failure</span></td>
+                    <td class="small">HP:0002269, HP:0002282</td>
+                </tr>
+                
+                </tbody>
+            </table>
+            </div>
+            
+            
+            <h3><code>rescue_severe</code> <span class="muted small">vary rescue; fixed affected_fraction=1.0, arrest_rate=0.01, perturbation=0.85</span></h3>
+            <div class="table-scroll">
+            <table class="data">
+                <thead><tr><th class="num">rescue</th><th class="num">Plate</th><th class="num">Arrested</th><th class="num">In transit</th><th class="num">Fidelity</th><th class="num">Delay</th><th class="num">Band</th><th>Pattern</th><th>Phenotypes</th></tr></thead>
+                <tbody>
+                
+                <tr>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.7233</td>
+                    <td class="num">0.2767</td>
+                    <td class="num">—</td>
+                    <td class="num">—</td>
+                    <td class="num">0.6866</td>
+                    <td><span class="pattern pattern-migration_failure">migration failure</span></td>
+                    <td class="small">HP:0002269, HP:0002282</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.2</td>
+                    <td class="num">0.0783</td>
+                    <td class="num">0.675</td>
+                    <td class="num">0.2467</td>
+                    <td class="num">0.805</td>
+                    <td class="num">201.87</td>
+                    <td class="num">0.279</td>
+                    <td><span class="pattern pattern-migration_failure">migration failure</span></td>
+                    <td class="small">HP:0002269, HP:0002282</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.4</td>
+                    <td class="num">0.4333</td>
+                    <td class="num">0.4517</td>
+                    <td class="num">0.115</td>
+                    <td class="num">0.9064</td>
+                    <td class="num">144.64</td>
+                    <td class="num">0.2509</td>
+                    <td><span class="pattern pattern-migration_failure">migration failure</span></td>
+                    <td class="small">HP:0002269, HP:0002282</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.6</td>
+                    <td class="num">0.7067</td>
+                    <td class="num">0.2917</td>
+                    <td class="num">0.0017</td>
+                    <td class="num">0.9796</td>
+                    <td class="num">111.09</td>
+                    <td class="num">0.1714</td>
+                    <td><span class="pattern pattern-diffuse_ectopia">diffuse ectopia</span></td>
+                    <td class="small">HP:0002269, HP:0002282</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">0.8</td>
+                    <td class="num">0.875</td>
+                    <td class="num">0.125</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.9937</td>
+                    <td class="num">90.33</td>
+                    <td class="num">0.2</td>
+                    <td><span class="pattern pattern-diffuse_ectopia">diffuse ectopia</span></td>
+                    <td class="small">HP:0002269, HP:0002282</td>
+                </tr>
+                
+                <tr>
+                    <td class="num">1.0</td>
+                    <td class="num">1.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.9998</td>
+                    <td class="num">75.93</td>
+                    <td class="num">—</td>
+                    <td><span class="pattern pattern-normal">normal</span></td>
+                    <td class="small">—</td>
+                </tr>
+                
+                </tbody>
+            </table>
+            </div>
+            
+        </section>
+        
+        
+
+        
+        <section class="panel" id="rules">
+            <h2>Rules and where each comes from</h2>
+            <p class="section-intro">Each rule transcribes a node or causal edge curated on <a href="../modules/microtubule_dependent_neuronal_migration_failure.html">Microtubule-Dependent Neuronal Migration Failure Module</a>. A rule no curated edge states is marked as a background assumption.</p>
+            
+            
+            <h3>Inputs</h3>
+            
+            <div class="rule">
+                <div class="rule-name">perturbation</div>
+                
+                <div class="rule-meta">Degree of microtubule-apparatus disruption in an affected neuron, 0 = wild type. The module curates this node qualitatively (DYSREGULATED microtubule cytoskeleton organization, GO:0000226); the scalar is the model&#39;s way of asking how much of it is needed, not a measured quantity.</div>
+                <div class="rule-meta">Range 0–1</div>
+                <div class="rule-meta">Maps to <a href="../modules/microtubule_dependent_neuronal_migration_failure.html#module-pathophysiology-microtubule-apparatus-perturbation">pathophysiology#Microtubule Apparatus Perturbation</a></div>
+                
+                
+            </div>
+            
+            <div class="rule">
+                <div class="rule-name">affected_fraction</div>
+                
+                <div class="rule-meta">Fraction of neurons that carry the perturbation. 1 for a constitutional variant present in every neuron; below 1 for a defect present in only some neurons. This is representable because the curated evidence states the migration defect is cell-autonomous (PMID:9697693), so an unaffected neuron next to an affected one migrates normally.</div>
+                <div class="rule-meta">Range 0–1</div>
+                
+                
+                
+            </div>
+            
+            <div class="rule">
+                <div class="rule-name">base_motility</div>
+                
+                <div class="rule-meta">Per-step probability that an unperturbed neuron completes a nucleokinesis step. Unfitted.</div>
+                <div class="rule-meta">Default 0.8</div>
+                
+                
+                
+            </div>
+            
+            <div class="rule">
+                <div class="rule-name">arrest_rate</div>
+                
+                <div class="rule-meta">Per-step probability, scaled by the effective perturbation, that an affected neuron in the intermediate zone arrests permanently. Kept separate from slowing so the two curated failure modes (&#34;delayed migration&#34; and &#34;arrested cells&#34;) can be told apart in the sweeps.</div>
+                <div class="rule-meta">Default 0.0</div>
+                
+                
+                
+            </div>
+            
+            <div class="rule">
+                <div class="rule-name">rescue</div>
+                
+                <div class="rule-meta">Fraction of the perturbation removed by the curated intervention (see interventions). 0 = no intervention.</div>
+                <div class="rule-meta">Default 0.0; range 0–1</div>
+                
+                
+                
+            </div>
+            
+            
+            
+            
+            <h3>Interventions</h3>
+            
+            <div class="rule">
+                <div class="rule-name">CRISPRa_isotype_compensation</div>
+                <div class="rule-expr">multiplies the effective perturbation of every affected neuron by (1 - rescue)</div>
+                
+                
+                <div class="rule-meta">Maps to <a href="../modules/microtubule_dependent_neuronal_migration_failure.html">treatments#CRISPRa beta-tubulin isotype compensation</a></div>
+                
+                <div class="rule-meta">Provenance:<ul><li>curated_edge</li></ul></div>
+                
+                <div class="rule-decision"><strong>Decision.</strong> treatments#CRISPRa beta-tubulin isotype compensation carries a curated target_mechanisms link, treatment_effect RESTORES, onto Microtubule Apparatus Perturbation. The cited work (PMID:42589608) reports restoration of the microtubule network in cells; it reports nothing about migration, so the model&#39;s rescue of migration is an implication of the curated edge, not a reported result. It is preclinical and cell-based and must not be read as an available therapy.</div>
+            </div>
+            
+            
+            
+            
+            <h3>Rules</h3>
+            
+            <div class="rule">
+                <div class="rule-name">effective_perturbation</div>
+                <div class="rule-expr">e = perturbation * (1 - rescue) if affected else 0</div>
+                
+                
+                <div class="rule-meta">Maps to <a href="../modules/microtubule_dependent_neuronal_migration_failure.html#module-pathophysiology-microtubule-apparatus-perturbation">pathophysiology#Microtubule Apparatus Perturbation</a></div>
+                
+                <div class="rule-meta">Provenance:<ul><li>pathophysiology#Microtubule Apparatus Perturbation (role trigger)</li><li>treatments#CRISPRa beta-tubulin isotype compensation -RESTORES-&gt; Microtubule Apparatus Perturbation</li></ul></div>
+                
+                <div class="rule-decision"><strong>Decision.</strong> Cell-autonomous: an agent&#39;s perturbation depends only on its own `affected` flag. Grounded in the PMID:9697693 snippet on the motility node (&#34;delayed neuronal migration by a cell-autonomous&#34; mechanism).</div>
+            </div>
+            
+            <div class="rule">
+                <div class="rule-name">arrest</div>
+                <div class="rule-expr">if migrating and in intermediate zone and random() &lt; arrest_rate * e, state &lt;- arrested (permanent)</div>
+                
+                
+                <div class="rule-meta">Maps to <a href="../modules/microtubule_dependent_neuronal_migration_failure.html#module-pathophysiology-microtubule-based-neuronal-motility-failure">pathophysiology#Microtubule-Based Neuronal Motility Failure</a></div>
+                
+                <div class="rule-meta">Provenance:<ul><li>Microtubule Apparatus Perturbation -&gt; Microtubule-Based Neuronal Motility Failure (hypothesis_groups microtubule_migration_model)</li></ul></div>
+                
+                <div class="rule-decision"><strong>Decision.</strong> The motility node describes both &#34;delayed migration&#34; and &#34;arrested cells in intermediate/subventricular regions&#34;. Arrest is encoded as a separate absorbing event rather than as the limit of slowing, so the two can be swept independently. Arrest is confined to the intermediate zone because that is where the curated text places arrested cells.</div>
+            </div>
+            
+            <div class="rule">
+                <div class="rule-name">slowed_nucleokinesis</div>
+                <div class="rule-expr">if migrating and random() &lt; base_motility * (1 - e), position &lt;- position + step_length</div>
+                
+                
+                <div class="rule-meta">Maps to <a href="../modules/microtubule_dependent_neuronal_migration_failure.html#module-pathophysiology-microtubule-based-neuronal-motility-failure">pathophysiology#Microtubule-Based Neuronal Motility Failure</a></div>
+                
+                <div class="rule-meta">Provenance:<ul><li>Microtubule Apparatus Perturbation -&gt; Microtubule-Based Neuronal Motility Failure (hypothesis_groups microtubule_migration_model)</li><li>pathophysiology#Microtubule-Based Neuronal Motility Failure, biological_processes neuron migration (GO:0001764) DECREASED</li></ul></div>
+                
+                <div class="rule-decision"><strong>Decision.</strong> Linear in e. The module says migration is decreased and does not say by what function of the apparatus defect; linear is the least-committed monotone choice and the sweeps report where its consequences change qualitatively.</div>
+            </div>
+            
+            <div class="rule assumption">
+                <div class="rule-name">inside_out_settling<span class="badge-assumption">background assumption</span></div>
+                <div class="rule-expr">if migrating and position &gt;= plate_top, state &lt;- settled; settle_rank &lt;- n_settled; plate_top &lt;- plate_top + settled_cell_thickness</div>
+                
+                
+                <div class="rule-meta">Maps to <a href="../modules/microtubule_dependent_neuronal_migration_failure.html#module-pathophysiology-cortical-dyslamination-and-neuronal-ectopia">pathophysiology#Cortical Dyslamination and Neuronal Ectopia</a></div>
+                
+                <div class="rule-decision"><strong>Decision.</strong> NOT a curated edge. Normal inside-out lamination (each arriving neuron passes the neurons already settled and stops beneath the marginal zone) is the null model the module&#39;s &#34;abnormal lamination&#34; claim is measured against, and the module presupposes it without stating it. It is the one rule in this file with no `provenance` inside the module.</div>
+            </div>
+            
+            <div class="rule">
+                <div class="rule-name">end_of_window</div>
+                <div class="rule-expr">at t = last_birth + migration_window, score every agent; settled = in cortical plate, otherwise ectopic</div>
+                
+                
+                <div class="rule-meta">Maps to <a href="../modules/microtubule_dependent_neuronal_migration_failure.html#module-pathophysiology-cortical-dyslamination-and-neuronal-ectopia">pathophysiology#Cortical Dyslamination and Neuronal Ectopia</a></div>
+                
+                <div class="rule-meta">Provenance:<ul><li>Microtubule-Based Neuronal Motility Failure -&gt; Cortical Dyslamination and Neuronal Ectopia (hypothesis_groups microtubule_migration_model)</li></ul></div>
+                
+                <div class="rule-decision"><strong>Decision.</strong> The module says the outcome depends on &#34;the gene and developmental window&#34;. The window is a fixed, unfitted length; a neuron still migrating when it closes is ectopic in the score, and the results distinguish those (in_transit) from arrested neurons so a reader can see which kind of ectopia a scenario produces.</div>
+            </div>
+            
+            
+            
+            
+            
+        </section>
+        
+
+        
+
+        <section class="panel" id="run-locally">
+            <h2>Run it locally</h2>
+            <code class="cmd">uv run python models/neuronal_migration_abm/run.py --print</code><code class="cmd">uv run python models/neuronal_migration_abm/run.py --check</code><code class="cmd">uv run python models/neuronal_migration_abm/run.py</code>
+            <h3>Files</h3>
+            <div class="file-list"><a href="https://github.com/monarch-initiative/dismech/blob/main/models/neuronal_migration_abm/results.json" target="_blank" rel="noopener">results.json</a><a href="https://github.com/monarch-initiative/dismech/blob/main/models/neuronal_migration_abm/run.js" target="_blank" rel="noopener">run.js</a><a href="https://github.com/monarch-initiative/dismech/blob/main/models/neuronal_migration_abm/run.py" target="_blank" rel="noopener">run.py</a><a href="https://github.com/monarch-initiative/dismech/blob/main/models/neuronal_migration_abm/spec.yaml" target="_blank" rel="noopener">spec.yaml</a></div>
+        </section>
+
+        
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
+    </main>
+</body>
+</html>

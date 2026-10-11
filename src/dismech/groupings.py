@@ -22,15 +22,37 @@ This module provides two tiers of tooling:
    returning SATISFIED / NOT_SATISFIED / UNKNOWN per leaf and per branch.
    Term-valued leaves (HP, GO) are evaluated over the ontology's subsumption
    closure, so a member annotated with a descendant of the criterion term
-   satisfies it (see :func:`term_closure`). This is advisory: criteria are often
-   aspirational (a member may not yet declare a ``conforms_to`` edge the
-   criteria require), so the CLI reports rather than gates.
+   satisfies it (see :func:`term_closure`). The closure is read from the
+   committed ``cache/closure/<prefix>.csv`` files first; a criterion term with
+   no cached closure evaluates to UNKNOWN rather than being downgraded to an
+   exact match, because an exact match against a parent-level criterion term
+   is a *different* criterion and reports false contradictions. This is
+   advisory: criteria are often aspirational (a member may not yet declare a
+   ``conforms_to`` edge the criteria require), so the CLI reports rather than
+   gates unless ``--strict`` is given.
+
+   A phenotype the entry records as *absent* is not a phenotype the entry
+   has. ``frequency: EXCLUDED`` on the phenotype record and ``modifier: ABSENT``
+   on its descriptor both say the feature was looked for and is not part of
+   the disease, so :func:`extract_disease_facts` leaves such records out of
+   the phenotype facts rather than letting an exclusion satisfy a
+   ``HAS_PHENOTYPE`` leaf. The case that found this was
+   ``Mucopolysaccharidosis type X``, which records ``Dysostosis multiplex`` as
+   EXCLUDED precisely because the Mucopolysaccharidoses criterion names it.
 
    A NOT_SATISFIED result for a listed member under NECESSARY criteria is
    reported as such, without interpretation. It is a contradiction between two
    curated assertions — "D is a member of G" and "members of G satisfy C" — and
    resolving it may mean annotating the entry, loosening the criteria, or
    dropping the member. The tooling surfaces it; the curator decides which.
+
+   ``CONFORMS_TO_MODULE`` is deliberately matched on the module **stem** only,
+   even though most criteria name a ``#Node`` anchor. Honouring the anchor as a
+   verdict would flip live results, and some of those flips are criteria bugs
+   rather than curation gaps, so the anchor is reported as an **advisory**
+   instead: :attr:`MemberEvaluation.anchor_misses` lists the criteria whose
+   member conforms to the named module but not at the named node. Advisories
+   never change ``result`` and never gate. See issue #9403.
 
 3. **Overlap reporting** (:func:`compute_grouping_overlaps`) — all-vs-all
    comparison of grouping disease-member sets, expanding nested ``GROUPING``
@@ -48,8 +70,9 @@ This module provides two tiers of tooling:
 from __future__ import annotations
 
 import argparse
+import csv
 import glob
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import cache
@@ -256,6 +279,127 @@ def iter_nodes(node: Any) -> Iterable[dict]:
         yield from iter_nodes(child)
 
 
+def iter_leaves(grouping: dict) -> Iterable[tuple[str, dict]]:
+    """Yield ``(path, leaf)`` for every leaf across a grouping's criteria."""
+    for ci, criteria in enumerate(grouping.get("membership_criteria", []) or []):
+        for node in iter_nodes(criteria.get("logic")):
+            if classify_node(node) is NodeKind.LEAF:
+                yield f"membership_criteria[{ci}].logic", node
+
+
+def _split_module_ref(ref: Any) -> tuple[str, str] | None:
+    """``"stem#Node Name"`` -> ``("stem", "Node Name")``; anchor may be empty."""
+    if isinstance(ref, str) and ref:
+        stem, _, node = ref.partition("#")
+        return stem.strip(), node.strip()
+    return None
+
+
+def _lint_module_ref(
+    ref: Any, where: str, module_nodes: Mapping[str, set[str]]
+) -> str | None:
+    """One dangling-module-reference message, or ``None`` when it resolves.
+
+    Checks the stem against ``kb/modules/`` and the optional ``#Node`` anchor
+    against that module's ``pathophysiology[].name`` set, the same two checks
+    ``check_grouping_module_references`` in the test suite makes. The anchor
+    matters here because the evaluator matches on the stem alone (#9403): a
+    mistyped node would otherwise pass this lint and still be SATISFIED.
+    """
+    parts = _split_module_ref(ref)
+    if parts is None:
+        return None
+    stem, node = parts
+    if stem not in module_nodes:
+        return f"{where}={ref!r}: no kb/modules/{stem}.yaml"
+    if node and node not in module_nodes[stem]:
+        return f"{where}={ref!r}: module {stem!r} has no pathophysiology node {node!r}"
+    return None
+
+
+def lint_grouping_references(
+    grouping: dict,
+    *,
+    disease_names: set[str],
+    grouping_names: set[str],
+    module_nodes: Mapping[str, set[str]],
+) -> list[str]:
+    """Return dangling foreign keys: members, and module refs (stem and
+    ``#Node`` anchor) in criteria and differentiating mechanisms.
+
+    ``module_nodes`` maps each module stem to its pathophysiology node names
+    (see :func:`module_node_names`). Mirrors
+    ``test_grouping_member_foreign_keys`` and
+    ``test_grouping_module_references`` so the CLI can gate a grouping-only PR,
+    which the ``kb_data`` pytest lane does not run for.
+    """
+    errors: list[str] = []
+    for i, member in enumerate(grouping.get("members", []) or []):
+        ref = member.get("member")
+        mtype = member.get("member_type", "DISEASE")
+        if not ref:
+            errors.append(f"members[{i}]: no member name")
+            continue
+        if mtype in ("DISEASE", "SUBTYPE"):
+            # SUBTYPE members still name their parent Disease entry.
+            if ref not in disease_names:
+                errors.append(f"members[{i}].member={ref!r}: no such disease ({mtype})")
+        elif mtype == "GROUPING":
+            if ref not in grouping_names:
+                errors.append(f"members[{i}].member={ref!r}: no such grouping")
+        else:
+            errors.append(f"members[{i}].member_type={mtype!r}: unknown member type")
+        for j, mech in enumerate(member.get("differentiating_mechanisms", []) or []):
+            err = _lint_module_ref(
+                mech.get("module"),
+                f"members[{i}].differentiating_mechanisms[{j}].module",
+                module_nodes,
+            )
+            if err:
+                errors.append(err)
+    for path, leaf in iter_leaves(grouping):
+        err = _lint_module_ref(leaf.get("module"), f"{path}: module", module_nodes)
+        if err:
+            errors.append(err)
+    return errors
+
+
+def module_node_names(modules_dir: Path | None = None) -> dict[str, set[str]]:
+    """Map each module stem under ``kb/modules/`` to its pathophysiology node
+    names, the set a ``module_stem#Node Name`` anchor is resolved against."""
+    nodes: dict[str, set[str]] = {}
+    for fp in glob.glob(str((modules_dir or MODULES_DIR) / "*.yaml")):
+        with open(fp) as f:
+            data = safe_load(f)
+        if not isinstance(data, dict):
+            continue
+        nodes[Path(fp).stem] = {
+            node.get("name")
+            for node in data.get("pathophysiology") or []
+            if isinstance(node, dict) and node.get("name")
+        }
+    return nodes
+
+
+def criterion_closure_terms(grouping: dict) -> set[str]:
+    """Every HP/GO term a grouping's criteria leaves are evaluated over."""
+    terms: set[str] = set()
+    for _, leaf in iter_leaves(grouping):
+        for slot in ("phenotype_term", "inheritance_term"):
+            tid = _term_id(leaf.get(slot))
+            if tid:
+                terms.add(tid)
+        terms |= _term_ids(leaf.get("biological_processes"))
+    return {t for t in terms if t.split(":", 1)[0] in CLOSURE_PREFIXES}
+
+
+def uncached_closure_terms(grouping: dict) -> list[str]:
+    """Criterion terms with no row in ``cache/closure/`` (sorted)."""
+    return sorted(
+        t for t in criterion_closure_terms(grouping) if cached_closure(t) is None
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Ontology closure
 # --------------------------------------------------------------------------- #
@@ -265,9 +409,21 @@ def iter_nodes(node: Any) -> Iterable[dict]:
 # whose criteria cite high-level anatomical terms reads as violated by every
 # member that curated a more specific child term.
 #
-# The closure is computed over the criteria terms (a small, bounded set: ~90
+# The closure is computed over the criteria terms (a small, bounded set: ~140
 # distinct terms across all of kb/groupings/) rather than over the far larger
-# set of curated disease terms, and is cached per term.
+# set of curated disease terms. It is read cache-first from the committed
+# ``cache/closure/<prefix>.csv`` files (one ``term,descendant`` row per pair,
+# including the reflexive ``term,term`` row so a leaf term with no descendants
+# is still recorded as known), then from the configured OAK adapter for a term
+# the cache does not hold, unless live lookups are disabled.
+#
+# Both configured adapters for HP and GO are network services (OLS), which is
+# why the cache exists: a closure fetched live is neither offline nor
+# deterministic, and an unreachable ontology used to degrade silently to exact
+# matching. Exact matching is not a weaker closure -- a criterion stated at a
+# parent term so that closure admits the members' child terms reports every
+# such member as a contradiction under exact matching. A term with no known
+# closure therefore evaluates to UNKNOWN, never to a fabricated verdict.
 
 # Prefixes whose subsumption hierarchy is meaningful for membership criteria.
 # HGNC is deliberately excluded: its "hierarchy" is gene-group membership, not
@@ -275,23 +431,92 @@ def iter_nodes(node: Any) -> Iterable[dict]:
 CLOSURE_PREFIXES = {"HP", "GO"}
 
 OAK_CONFIG_PATH = ROOT_DIR / "conf" / "oak_config.yaml"
+CLOSURE_CACHE_DIR = ROOT_DIR / "cache" / "closure"
+CLOSURE_CACHE_HEADER = ("term", "descendant")
 
-# Fallback adapters if conf/oak_config.yaml is unreadable.
-_DEFAULT_ADAPTERS = {"HP": "sqlite:obo:hp", "GO": "ols:go"}
+# Fallback adapters if conf/oak_config.yaml is unreadable. Both OLS, matching
+# that file: a `sqlite:obo:` fallback would download a multi-hundred-MB build
+# on the one code path that is only ever reached when the config is broken.
+_DEFAULT_ADAPTERS = {"HP": "ols:hp", "GO": "ols:go"}
 
-_closure_enabled = True
+_live_lookup_enabled = True
 
 
-def set_closure_enabled(enabled: bool) -> None:
-    """Enable/disable ontology closure in leaf evaluation (for offline runs).
+def set_live_lookup_enabled(enabled: bool) -> None:
+    """Allow or forbid fetching an uncached closure from the ontology.
 
-    Clears the closure cache so a toggle cannot return results computed under
-    the previous setting.
+    With live lookups disabled (``--offline``), a criterion term absent from
+    ``cache/closure/`` has no closure and its leaf evaluates to UNKNOWN. Clears
+    the per-term memo so a toggle cannot return a result computed under the
+    previous setting.
     """
-    global _closure_enabled
-    if enabled != _closure_enabled:
+    global _live_lookup_enabled
+    if enabled != _live_lookup_enabled:
         term_closure.cache_clear()
-    _closure_enabled = enabled
+    _live_lookup_enabled = enabled
+
+
+def reset_closure_caches() -> None:
+    """Drop every in-process closure memo (for tests that repoint the cache)."""
+    term_closure.cache_clear()
+    _load_closure_cache.cache_clear()
+
+
+def closure_cache_path(prefix: str, cache_dir: Path | None = None) -> Path:
+    return (cache_dir or CLOSURE_CACHE_DIR) / f"{prefix.lower()}.csv"
+
+
+def read_closure_cache(path: Path) -> dict[str, frozenset[str]]:
+    """Parse one ``cache/closure/<prefix>.csv`` into term -> closure.
+
+    The reflexive row makes a term with no descendants a recorded fact rather
+    than a lookup miss, so a term is "known" exactly when it appears as a key.
+    """
+    closures: dict[str, set[str]] = {}
+    if not path.is_file():
+        return {}
+    with open(path, newline="") as f:
+        reader = csv.reader(f)
+        header = next(reader, None)
+        if tuple(header or ()) != CLOSURE_CACHE_HEADER:
+            raise ValueError(
+                f"{path}: expected header {','.join(CLOSURE_CACHE_HEADER)}, "
+                f"got {','.join(header or [])!r}"
+            )
+        for row in reader:
+            if len(row) != 2:
+                raise ValueError(f"{path}: malformed row {row!r}")
+            term, descendant = row
+            closures.setdefault(term, set()).add(descendant)
+    return {term: frozenset(members) for term, members in closures.items()}
+
+
+def write_closure_cache(path: Path, closures: dict[str, Iterable[str]]) -> None:
+    """Write term -> closure as sorted ``term,descendant`` rows.
+
+    Sorted output makes the file deterministic across refreshes so a diff shows
+    only real ontology change. Every term gets its reflexive row.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rows: set[tuple[str, str]] = set()
+    for term, members in closures.items():
+        rows.add((term, term))
+        rows.update((term, m) for m in members)
+    with open(path, "w", newline="") as f:
+        writer = csv.writer(f, lineterminator="\n")
+        writer.writerow(CLOSURE_CACHE_HEADER)
+        writer.writerows(sorted(rows))
+
+
+@cache
+def _load_closure_cache(path: Path) -> dict[str, frozenset[str]]:
+    return read_closure_cache(path)
+
+
+def cached_closure(term_id: str) -> frozenset[str] | None:
+    """Return the committed closure for ``term_id``, or None if uncached."""
+    prefix = term_id.split(":", 1)[0]
+    return _load_closure_cache(closure_cache_path(prefix)).get(term_id)
 
 
 @cache
@@ -323,26 +548,19 @@ def _get_oak_adapter(adapter_str: str):
         return None
 
 
-@cache
-def term_closure(term_id: str) -> frozenset[str]:
-    """Return ``term_id`` plus its is_a/part_of descendants.
+def fetch_closure(term_id: str) -> frozenset[str] | None:
+    """Fetch ``term_id`` plus its is_a/part_of descendants from the ontology.
 
-    Degrades to ``{term_id}`` (exact-match semantics) when closure is disabled,
-    the prefix has no meaningful subsumption hierarchy, or the ontology is
-    unreachable — so an offline run under-reports satisfaction rather than
-    failing.
+    Returns None when the prefix has no configured adapter, the adapter cannot
+    be built, or the lookup raises -- the caller decides what "unknown" means.
     """
-    if not isinstance(term_id, str) or ":" not in term_id:
-        return frozenset()
     prefix = term_id.split(":", 1)[0]
-    if not _closure_enabled or prefix not in CLOSURE_PREFIXES:
-        return frozenset({term_id})
     adapter_str = _adapter_for_prefix(prefix)
     if not adapter_str:
-        return frozenset({term_id})
+        return None
     adapter = _get_oak_adapter(adapter_str)
     if adapter is None:
-        return frozenset({term_id})
+        return None
     try:
         from oaklib.datamodels.vocabulary import IS_A, PART_OF
 
@@ -352,8 +570,98 @@ def term_closure(term_id: str) -> frozenset[str]:
             if isinstance(d, str) and d.startswith(f"{prefix}:")
         }
     except Exception:
-        return frozenset({term_id})
+        return None
     return frozenset(descendants | {term_id})
+
+
+@cache
+def term_closure(term_id: str) -> frozenset[str] | None:
+    """Return ``term_id`` plus its is_a/part_of descendants, or None if unknown.
+
+    Resolution order: a prefix outside :data:`CLOSURE_PREFIXES` is its own
+    closure (exact match, e.g. HGNC); otherwise the committed cache; otherwise
+    a live ontology lookup, if enabled. None means the closure is not known,
+    which the evaluator reports as UNKNOWN. It is never silently narrowed to
+    ``{term_id}``: that would evaluate a different, stricter criterion than
+    the one the curator wrote.
+    """
+    if not isinstance(term_id, str) or ":" not in term_id:
+        return None
+    prefix = term_id.split(":", 1)[0]
+    if prefix not in CLOSURE_PREFIXES:
+        return frozenset({term_id})
+    cached = cached_closure(term_id)
+    if cached is not None:
+        return cached
+    if not _live_lookup_enabled:
+        return None
+    return fetch_closure(term_id)
+
+
+@dataclass
+class ClosureCacheBuild:
+    """What one :func:`build_closure_cache` run did, per prefix."""
+
+    written: dict[str, int] = field(default_factory=dict)  # prefix -> terms written
+    fetched: list[str] = field(default_factory=list)
+    failed: list[str] = field(default_factory=list)
+    dropped: list[str] = field(default_factory=list)  # cached but no longer cited
+
+
+def build_closure_cache(
+    grouping_paths: Iterable[str | Path],
+    *,
+    cache_dir: Path | None = None,
+    refresh: bool = False,
+    prune: bool = False,
+) -> ClosureCacheBuild:
+    """Populate ``cache/closure/`` for every criterion term in the groupings.
+
+    Append-only by default, like the term caches: only terms with no cached
+    closure are fetched. ``refresh`` re-fetches every cited term (an ontology
+    release moved); ``prune`` drops rows for terms none of ``grouping_paths``
+    cites, so it is only meaningful over the whole of ``kb/groupings/`` -- the
+    CLI refuses it with explicit paths for that reason. A term whose fetch
+    fails is left out and reported, never written as an empty closure, so a
+    transient outage cannot masquerade as "no descendants".
+    """
+    cache_dir = cache_dir or CLOSURE_CACHE_DIR
+    cited: set[str] = set()
+    for path in grouping_paths:
+        with open(path) as f:
+            grouping = safe_load(f)
+        if isinstance(grouping, dict):
+            cited |= criterion_closure_terms(grouping)
+
+    report = ClosureCacheBuild()
+    by_prefix: dict[str, set[str]] = {}
+    for term in cited:
+        by_prefix.setdefault(term.split(":", 1)[0], set()).add(term)
+
+    for prefix in sorted(CLOSURE_PREFIXES):
+        path = closure_cache_path(prefix, cache_dir)
+        existing = read_closure_cache(path)
+        wanted = by_prefix.get(prefix, set())
+        closures: dict[str, frozenset[str]] = {}
+        for term, members in existing.items():
+            if term in wanted or not prune:
+                closures[term] = members
+            else:
+                report.dropped.append(term)
+        for term in sorted(wanted):
+            if term in closures and not refresh:
+                continue
+            fetched = fetch_closure(term)
+            if fetched is None:
+                report.failed.append(term)
+                continue
+            closures[term] = fetched
+            report.fetched.append(term)
+        if closures or path.is_file():
+            write_closure_cache(path, closures)
+            report.written[prefix] = len(closures)
+    reset_closure_caches()
+    return report
 
 
 # --------------------------------------------------------------------------- #
@@ -369,6 +677,11 @@ class DiseaseFacts:
     gene_ids: set[str] = field(default_factory=set)
     go_ids: set[str] = field(default_factory=set)
     module_stems: set[str] = field(default_factory=set)
+    # Whole `conforms_to` strings, anchor included, normalized by
+    # _normalize_module_ref(). `module_stems` drives the CONFORMS_TO_MODULE
+    # verdict; this set only powers the anchor advisory, so the two must not be
+    # collapsed into one.
+    module_refs: set[str] = field(default_factory=set)
     # HP mode-of-inheritance ids from curated `inheritance_term` blocks. Kept
     # separate from `phenotype_freq` because an inheritance term is a statement
     # about the entry's genetic architecture, not a phenotype it manifests.
@@ -396,6 +709,21 @@ def _walk(obj: Any) -> Iterable[Any]:
 def _norm_tag(value: str) -> str:
     """Normalize a classification tag for comparison (case/whitespace-insensitive)."""
     return " ".join(value.lower().split())
+
+
+def _normalize_module_ref(ref: str) -> str:
+    """Normalize a ``module_stem#Node Name`` reference for comparison.
+
+    Whitespace around the stem and the anchor is stripped; an empty anchor
+    collapses to the bare stem, so ``"fibrotic_response#"`` and
+    ``"fibrotic_response"`` compare equal. Case is preserved — module stems and
+    node names are both case-sensitive elsewhere (``conforms_to`` foreign keys
+    are checked verbatim by ``test_conforms_to_module_node_references``), and
+    folding here would let the advisory disagree with the FK check.
+    """
+    stem, _, node = ref.partition("#")
+    stem, node = stem.strip(), node.strip()
+    return f"{stem}#{node}" if node else stem
 
 
 def _classification_tags(data: dict) -> set[str]:
@@ -455,6 +783,7 @@ def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
         conforms = node.get("conforms_to")
         if isinstance(conforms, str) and conforms:
             facts.module_stems.add(conforms.split("#", 1)[0].strip())
+            facts.module_refs.add(_normalize_module_ref(conforms))
 
         # Any term with an id contributes to the appropriate id set.
         term = node.get("term")
@@ -483,9 +812,11 @@ def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
             if isinstance(ihp, str) and ihp.startswith("HP:"):
                 facts.inheritance_ids.add(ihp)
 
-        # Phenotypes: capture HP id + (strongest) frequency band.
+        # Phenotypes: capture HP id + (strongest) frequency band. A record
+        # the entry marks as absent (see _phenotype_is_excluded) carries no
+        # presence fact and is skipped rather than folded in as present.
         pt = node.get("phenotype_term")
-        if isinstance(pt, dict):
+        if isinstance(pt, dict) and not _phenotype_is_excluded(node, pt):
             pterm = pt.get("term") or {}
             hp = pterm.get("id") if isinstance(pterm, dict) else None
             if isinstance(hp, str) and hp.startswith("HP:"):
@@ -493,6 +824,20 @@ def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
                     facts.phenotype_freq.get(hp), node.get("frequency")
                 )
     return facts
+
+
+def _phenotype_is_excluded(node: dict, descriptor: dict) -> bool:
+    """True when a phenotype record asserts the feature is absent.
+
+    Two curated spellings say the same thing: ``frequency: EXCLUDED`` on the
+    phenotype record (the HPO frequency band for a feature looked for and not
+    found) and ``modifier: ABSENT`` on its ``phenotype_term`` descriptor. Either
+    one is an assertion of absence, not presence, so the record must not
+    satisfy a ``HAS_PHENOTYPE`` leaf naming that term or any of its ancestors.
+    """
+    if node.get("frequency") == "EXCLUDED":
+        return True
+    return descriptor.get("modifier") == "ABSENT"
 
 
 def _stronger_freq(a: str | None, b: str | None) -> str | None:
@@ -524,7 +869,16 @@ def load_disease_index(
 # --------------------------------------------------------------------------- #
 
 
-def _eval_leaf(node: dict, facts: DiseaseFacts) -> Satisfaction:
+def _eval_leaf(
+    node: dict, facts: DiseaseFacts, *, anchor_exact: bool = False
+) -> Satisfaction:
+    """Evaluate one leaf.
+
+    ``anchor_exact`` switches ``CONFORMS_TO_MODULE`` from stem matching to
+    matching the whole ``module#Node`` reference. It exists to answer "what
+    would the verdict be if the anchor were honoured?" for the advisory and the
+    audit script; it is **not** the live semantics and defaults off.
+    """
     predicate = node.get("criterion_predicate")
     result = Satisfaction.UNKNOWN
 
@@ -539,23 +893,33 @@ def _eval_leaf(node: dict, facts: DiseaseFacts) -> Satisfaction:
     elif predicate == "HAS_BIOLOGICAL_PROCESS":
         ids = _term_ids(node.get("biological_processes"))
         if ids:
+            # A match under any listed term satisfies; with no match, an
+            # unknown closure for any term leaves the verdict open.
             closure: set[str] = set()
+            unknown = False
             for gid in ids:
-                closure |= term_closure(gid)
-            result = (
-                Satisfaction.SATISFIED
-                if closure & facts.go_ids
-                else Satisfaction.NOT_SATISFIED
-            )
+                c = term_closure(gid)
+                if c is None:
+                    unknown = True
+                else:
+                    closure |= c
+            if closure & facts.go_ids:
+                result = Satisfaction.SATISFIED
+            elif not unknown:
+                result = Satisfaction.NOT_SATISFIED
     elif predicate == "CONFORMS_TO_MODULE":
         ref = node.get("module")
         if ref:
-            stem = ref.split("#", 1)[0].strip()
-            result = (
-                Satisfaction.SATISFIED
-                if stem in facts.module_stems
-                else Satisfaction.NOT_SATISFIED
-            )
+            # Stem-only on purpose; the `#Node` anchor is reported by
+            # leaf_anchor_miss() rather than enforced here. See module docstring.
+            normalized = _normalize_module_ref(ref)
+            if anchor_exact and "#" in normalized:
+                # An anchor-free criterion keeps stem semantics even here:
+                # there is no node named, so there is nothing to tighten.
+                matched = normalized in facts.module_refs
+            else:
+                matched = normalized.split("#", 1)[0] in facts.module_stems
+            result = Satisfaction.SATISFIED if matched else Satisfaction.NOT_SATISFIED
     elif predicate == "HAS_INHERITANCE":
         # Optional payload: only a leaf that names a term can be checked.
         hp = _term_id(node.get("inheritance_term"))
@@ -565,18 +929,21 @@ def _eval_leaf(node: dict, facts: DiseaseFacts) -> Satisfaction:
             # modes are HPO SIBLINGS under HP:0001426, so digenic does not
             # subsume oligogenic (or vice versa) - a grouping that means either
             # must say so with an OR, as Digenic_and_Oligogenic_Disorders does.
-            result = (
-                Satisfaction.SATISFIED
-                if term_closure(hp) & facts.inheritance_ids
-                else Satisfaction.NOT_SATISFIED
-            )
+            closure = term_closure(hp)
+            if closure is not None:
+                result = (
+                    Satisfaction.SATISFIED
+                    if closure & facts.inheritance_ids
+                    else Satisfaction.NOT_SATISFIED
+                )
     elif predicate == "HAS_PHENOTYPE":
         hp = _term_id(node.get("phenotype_term"))
-        if hp:
+        closure = term_closure(hp) if hp else None
+        if closure is not None:
             # A member annotated with any descendant of the criterion term
             # satisfies the criterion (e.g. HP:0007354 amyotrophic lateral
             # sclerosis satisfies HP:0007373 motor neuron atrophy).
-            matched = term_closure(hp) & set(facts.phenotype_freq)
+            matched = closure & set(facts.phenotype_freq)
             if not matched:
                 result = Satisfaction.NOT_SATISFIED
             else:
@@ -604,22 +971,28 @@ def _eval_leaf(node: dict, facts: DiseaseFacts) -> Satisfaction:
                 if _norm_tag(wanted) in facts.classification_tags
                 else Satisfaction.NOT_SATISFIED
             )
-    # HAS_MAPPING / OTHER, and any payload-less HAS_INHERITANCE leaf -> UNKNOWN.
+    # HAS_MAPPING / OTHER, any payload-less HAS_INHERITANCE leaf, and any
+    # term-valued leaf whose closure is not known -> UNKNOWN.
 
     if node.get("negated"):
         result = result.negate()
     return result
 
 
-def _eval_node(node: dict, facts: DiseaseFacts) -> Satisfaction:
+def _eval_node(
+    node: dict, facts: DiseaseFacts, *, anchor_exact: bool = False
+) -> Satisfaction:
     kind = classify_node(node)
     if kind is NodeKind.LEAF:
-        return _eval_leaf(node, facts)
+        return _eval_leaf(node, facts, anchor_exact=anchor_exact)
     if kind is NodeKind.INVALID:
         return Satisfaction.UNKNOWN
 
     operator = node["operator"]
-    child_results = [_eval_node(c, facts) for c in node.get("operands", []) or []]
+    child_results = [
+        _eval_node(c, facts, anchor_exact=anchor_exact)
+        for c in node.get("operands", []) or []
+    ]
 
     if operator == "NOT":
         # NOT over the conjunction of its operands.
@@ -669,6 +1042,43 @@ def _term_ids(descriptors: Any) -> set[str]:
     return ids
 
 
+def leaf_anchor_miss(node: dict, facts: DiseaseFacts) -> str | None:
+    """Return the criterion's module ref when it is satisfied only on the stem.
+
+    A ``CONFORMS_TO_MODULE`` leaf that names ``module#Node`` is satisfied today
+    by any ``conforms_to`` on that module, at any node. When the member has no
+    ``conforms_to`` at the *named* node, this returns the criterion's ref so
+    callers can report it; otherwise ``None``.
+
+    This is strictly advisory. In particular a miss under an ``OR`` usually just
+    says which arm of a disjunction the member is on, which is the disjunction
+    working as designed — not a pending contradiction. Callers must keep it
+    visually distinct from ``NOT_SATISFIED``.
+
+    Negated leaves are skipped: under ``negated: true`` a stem match already
+    produces NOT_SATISFIED, so "satisfied, but not at the named node" is not a
+    coherent thing to say about them.
+    """
+    if node.get("criterion_predicate") != "CONFORMS_TO_MODULE":
+        return None
+    if node.get("negated"):
+        return None
+    ref = node.get("module")
+    if not isinstance(ref, str):
+        return None
+    normalized = _normalize_module_ref(ref)
+    if "#" not in normalized:
+        # No anchor named (including the empty `"module#"` form), so there is
+        # nothing the criterion could be missing.
+        return None
+    stem = normalized.split("#", 1)[0]
+    if stem not in facts.module_stems:
+        return None  # already NOT_SATISFIED on the stem; nothing to advise
+    if normalized in facts.module_refs:
+        return None
+    return normalized
+
+
 @dataclass
 class MemberEvaluation:
     member: str
@@ -677,6 +1087,14 @@ class MemberEvaluation:
     semantics: str | None
     result: Satisfaction
     leaves: list[tuple[str, Satisfaction]]  # (leaf description, result)
+    # Criteria refs this member satisfies on the module stem but not at the
+    # `#Node` the criterion names. Advisory: never folded into `result`.
+    anchor_misses: list[str] = field(default_factory=list)
+    # The verdict this block would get if every `#Node` anchor were honoured,
+    # set only when it differs from `result`. This is the actionable subset of
+    # `anchor_misses`: a miss on one arm of an OR whose sibling is satisfied
+    # leaves the block verdict alone and is not a pending contradiction.
+    anchor_exact_result: Satisfaction | None = None
     #: Name of the nested ``member_type: GROUPING`` member through which this
     #: disease belongs to the grouping; ``None`` for a directly listed member.
     via: str | None = None
@@ -769,22 +1187,39 @@ def evaluate_grouping(
             if ref not in index:
                 continue
             facts = index[ref]
+            leaf_nodes = [
+                leaf
+                for leaf in iter_nodes(logic)
+                if classify_node(leaf) is NodeKind.LEAF
+            ]
             leaves = [
                 (
                     leaf.get("description") or leaf.get("criterion_predicate", "?"),
                     _eval_leaf(leaf, facts),
                 )
-                for leaf in iter_nodes(logic)
-                if classify_node(leaf) is NodeKind.LEAF
+                for leaf in leaf_nodes
             ]
+            anchor_misses = [
+                miss
+                for leaf in leaf_nodes
+                if (miss := leaf_anchor_miss(leaf, facts)) is not None
+            ]
+            result = _eval_node(logic, facts)
+            anchor_exact_result: Satisfaction | None = None
+            if anchor_misses:
+                strict = _eval_node(logic, facts, anchor_exact=True)
+                if strict is not result:
+                    anchor_exact_result = strict
             evaluations.append(
                 MemberEvaluation(
                     member=ref,
                     member_type=mtype,
                     criteria_index=ci,
                     semantics=semantics,
-                    result=_eval_node(logic, facts),
+                    result=result,
                     leaves=leaves,
+                    anchor_misses=anchor_misses,
+                    anchor_exact_result=anchor_exact_result,
                     via=via,
                 )
             )
@@ -1225,6 +1660,7 @@ def _report_overlaps(paths: list[str], show_zero_overlaps: bool) -> int:
 def _report(paths: list[str], strict: bool) -> int:
     index = load_disease_index()
     groupings_by_name, _selected = _load_groupings_for_report(paths)
+    module_nodes = module_node_names()
     exit_code = 0
     for path in paths:
         with open(path) as f:
@@ -1232,13 +1668,33 @@ def _report(paths: list[str], strict: bool) -> int:
         name = grouping.get("name", Path(path).stem)
         print(f"\n=== {name} ({Path(path).name}) ===")
 
-        # Tier 1: structural lint (always gating under --strict).
+        # Tier 1: structural lint and foreign keys (always gating under
+        # --strict). A grouping-only PR runs no pytest lane, so the FK checks
+        # the test suite also makes are repeated here where CI can reach them.
         lint_errors: list[str] = []
         for ci, criteria in enumerate(grouping.get("membership_criteria", []) or []):
             lint_errors.extend(
                 lint_criterion(
                     criteria.get("logic"), f"membership_criteria[{ci}].logic"
                 )
+            )
+        lint_errors.extend(
+            lint_grouping_references(
+                grouping,
+                disease_names=set(index),
+                grouping_names=set(groupings_by_name),
+                module_nodes=module_nodes,
+            )
+        )
+        # A criterion term with no committed closure evaluates to UNKNOWN,
+        # which under --strict is a gap the audit cannot see through: the
+        # cache must be built before a NECESSARY criterion can be audited.
+        uncached = uncached_closure_terms(grouping)
+        if uncached and strict:
+            lint_errors.append(
+                "closure cache missing "
+                + ", ".join(uncached)
+                + " (run `just build-grouping-closure-cache` and commit cache/closure/)"
             )
         if lint_errors:
             exit_code = 1
@@ -1247,6 +1703,11 @@ def _report(paths: list[str], strict: bool) -> int:
                 print(f"    - {e}")
         else:
             print("  structure: OK")
+        if uncached and not strict:
+            print(
+                "  closure cache missing (leaves evaluate UNKNOWN): "
+                + ", ".join(uncached)
+            )
 
         advisories: list[str] = []
         for ci, criteria in enumerate(grouping.get("membership_criteria", []) or []):
@@ -1272,6 +1733,16 @@ def _report(paths: list[str], strict: bool) -> int:
             for desc, res in ev.leaves:
                 if res is not Satisfaction.SATISFIED:
                     print(f"      - {res.value}: {desc}")
+            for miss in ev.anchor_misses:
+                # Never gating, including under --strict: an OR-sibling miss is
+                # the disjunction working as designed, not a contradiction.
+                print(f"      ~ SATISFIED_ELSEWHERE_IN_MODULE: {miss}")
+            if ev.anchor_exact_result is not None:
+                print(
+                    f"      ~ block verdict would be "
+                    f"{ev.anchor_exact_result.value} if the #Node anchors were "
+                    f"honoured (see #9403)"
+                )
             if strict and ev.result is Satisfaction.NOT_SATISFIED:
                 exit_code = 1
 
@@ -1328,15 +1799,44 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
-        "--no-closure",
+        "--offline",
         action="store_true",
         help=(
-            "Evaluate term-valued criteria as exact matches instead of over the "
-            "ontology subsumption closure (offline / deterministic runs)."
+            "Never contact an ontology: read term closures from cache/closure/ "
+            "only. A criterion term absent from the cache evaluates to UNKNOWN "
+            "(and is a structural error under --strict). Deterministic; what CI runs."
+        ),
+    )
+    parser.add_argument(
+        "--build-closure-cache",
+        action="store_true",
+        help=(
+            "Fetch the is_a/part_of closure of every HP/GO criterion term in the "
+            "given groupings (default: all) and write cache/closure/<prefix>.csv. "
+            "Append-only: only uncached terms are fetched unless --refresh."
+        ),
+    )
+    parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="With --build-closure-cache, re-fetch every cited term.",
+    )
+    parser.add_argument(
+        "--prune",
+        action="store_true",
+        help=(
+            "With --build-closure-cache, drop cached terms no grouping cites. "
+            "Only valid without explicit paths: pruning against a subset would "
+            "drop closures the other groupings still need."
         ),
     )
     args = parser.parse_args(argv)
-    set_closure_enabled(not args.no_closure)
+    if args.prune and args.paths:
+        parser.error(
+            "--prune walks all of kb/groupings/ to decide what is still cited; "
+            "drop the explicit paths"
+        )
+    set_live_lookup_enabled(not args.offline)
     if args.overlaps:
         return _report_overlaps(args.paths, args.show_zero_overlaps)
     if args.nesting:
@@ -1346,7 +1846,28 @@ def main(argv: list[str] | None = None) -> int:
     if not paths:
         print("No grouping files found.")
         return 0
+    if args.build_closure_cache:
+        return _build_closure_cache_cli(paths, refresh=args.refresh, prune=args.prune)
     return _report(paths, args.strict)
+
+
+def _build_closure_cache_cli(paths: list[str], *, refresh: bool, prune: bool) -> int:
+    if not _live_lookup_enabled:
+        print("--build-closure-cache needs ontology access; drop --offline.")
+        return 2
+    report = build_closure_cache(paths, refresh=refresh, prune=prune)
+    for prefix, count in sorted(report.written.items()):
+        print(f"{closure_cache_path(prefix)}: {count} terms")
+    print(
+        f"fetched {len(report.fetched)}, failed {len(report.failed)}, "
+        f"dropped {len(report.dropped)}"
+    )
+    if report.failed:
+        print("could not fetch a closure for:")
+        for term in report.failed:
+            print(f"  - {term}")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

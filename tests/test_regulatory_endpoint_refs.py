@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from dismech.kb_cache import load_document
 from dismech.render import render_disorder
-from dismech.yaml_io import safe_load_path
 
 FDA_ENDPOINTS_PATH = Path("kb/surrogate_endpoints/fda_surrogate_endpoints.yaml")
 DISORDERS_DIR = Path("kb/disorders")
 
 
 def _load_yaml(path: Path) -> dict:
-    return safe_load_path(path) or {}
+    return load_document(path) or {}
 
 
 def _fda_rows_by_id() -> dict[str, dict]:
@@ -98,3 +98,50 @@ def test_rendered_biomarker_readouts_show_resolved_fda_endpoint_context(
     assert "FDA-SE-adult-noncancer-022" in html
     assert "Skeletal muscle dystrophin" in html
     assert "Reasonably Likely Surrogate Endpoint" in html
+
+
+KB_ENTRY_DIRS = (Path("kb/disorders"), Path("kb/modules"), Path("kb/comorbidities"))
+
+
+def _readouts_with_endpoint_fields(node, trail="") -> list[tuple[str, dict]]:
+    """Every mapping in an entry that carries endpoint_context or regulatory refs."""
+    found: list[tuple[str, dict]] = []
+    if isinstance(node, dict):
+        if "endpoint_context" in node or "regulatory_endpoint_refs" in node:
+            found.append((trail, node))
+        for key, value in node.items():
+            found.extend(_readouts_with_endpoint_fields(value, f"{trail}.{key}"))
+    elif isinstance(node, list):
+        for index, value in enumerate(node):
+            found.extend(_readouts_with_endpoint_fields(value, f"{trail}[{index}]"))
+    return found
+
+
+def test_regulatory_surrogate_context_matches_regulatory_refs() -> None:
+    """REGULATORY_SURROGATE is used exactly when regulatory_endpoint_refs is set.
+
+    The value claims a regulator accepted the readout as a surrogate endpoint,
+    which only the referenced source row can establish; and a readout that cites
+    such a row is, by that citation, a regulatory surrogate, so labelling it
+    PHARMACODYNAMIC or PROGNOSTIC hides the claim from anyone filtering on the
+    enum.
+    """
+    problems: list[str] = []
+    for directory in KB_ENTRY_DIRS:
+        for path in sorted(directory.glob("*.yaml")):
+            if path.name.endswith(".history.yaml"):
+                continue
+            for trail, readout in _readouts_with_endpoint_fields(_load_yaml(path)):
+                has_refs = bool(readout.get("regulatory_endpoint_refs"))
+                is_regulatory = readout.get("endpoint_context") == "REGULATORY_SURROGATE"
+                if is_regulatory and not has_refs:
+                    problems.append(
+                        f"{path}{trail}: endpoint_context REGULATORY_SURROGATE needs "
+                        "regulatory_endpoint_refs naming the source rows"
+                    )
+                elif has_refs and not is_regulatory:
+                    problems.append(
+                        f"{path}{trail}: has regulatory_endpoint_refs, so endpoint_context "
+                        f"should be REGULATORY_SURROGATE, not {readout.get('endpoint_context')}"
+                    )
+    assert not problems, "\n".join(problems)

@@ -488,7 +488,8 @@ def test_real_errors_are_not_benign(message):
 
 
 def _run_main(
-    monkeypatch, tmp_path, *, view, listed=None, extra_args=(), queue_payload=None
+    monkeypatch, tmp_path, *, view, listed=None, extra_args=(), queue_payload=None,
+    ejection_payload=None, files_payloads=None,
 ):
     """Drive main() against a stubbed gh, returning (exit code, gh calls)."""
     if listed is None:
@@ -506,6 +507,20 @@ def _run_main(
             payload = views[min(view_index, len(views) - 1)]
             view_index += 1
             return json.dumps(payload)
+        if args[:1] == ["api"] and args[1:2] and "/pulls/" in args[1]:
+            number = int(args[1].rsplit("/pulls/", 1)[1].split("/")[0])
+            return (files_payloads or {}).get(number, "")
+        if args[:2] == ["api", "graphql"] and any(
+            "pullRequest(number:" in a for a in args
+        ):
+            return ejection_payload or json.dumps(
+                {"data": {"repository": {"pullRequest": {
+                    "commits": {"nodes": [
+                        {"commit": {"committedDate": "2026-09-04T00:00:00Z"}}
+                    ]},
+                    "timelineItems": {"nodes": []},
+                }}}}
+            )
         if args[:2] == ["api", "graphql"]:
             # No queue by default, so existing tests keep the direct-merge path.
             return queue_payload or json.dumps(
@@ -1438,3 +1453,352 @@ def test_summary_reports_queue_state_so_an_inert_fix_is_visible():
         queue_state=auto_merge.QueueState(True, frozenset({1}), truncated=99),
     )
     assert "99" in truncated and "may be reselected" in truncated
+
+
+def _ejection_payload(head_written, events):
+    return json.dumps({"data": {"repository": {"pullRequest": {
+        "commits": {"nodes": [{"commit": {"committedDate": head_written}}]},
+        "timelineItems": {"nodes": events},
+    }}}})
+
+
+def test_one_ejection_does_not_block(monkeypatch):
+    """A single failure is not evidence of guilt: it may be collateral damage
+    from a PR ahead in the speculative stack, or a third-party outage."""
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "2026-09-03T10:00:00Z",
+            [{"createdAt": "2026-09-04T13:00:00Z", "reason": "failed_checks"}],
+        ),
+    )
+    memory = auto_merge.ejection_memory("o/r", 7)
+    assert memory.blocked is False
+    assert memory.strikes == 1
+
+
+def test_repeated_ejection_on_unchanged_content_blocks(monkeypatch):
+    """Collateral and infrastructure failures do not reproduce once the queue
+    has moved on; a defect in the PR itself does."""
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "2026-09-03T10:00:00Z",
+            [
+                {"createdAt": "2026-09-04T01:56:00Z", "reason": "failed_checks"},
+                {"createdAt": "2026-09-04T13:33:00Z", "reason": "failed_checks"},
+            ],
+        ),
+    )
+    memory = auto_merge.ejection_memory("o/r", 7)
+    assert memory.blocked is True
+    assert "push a fix to retry" in memory.reason
+
+
+def test_a_push_resets_the_strike_count(monkeypatch):
+    """The content under test changed, so prior failures say nothing about it."""
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "2026-09-04T20:00:00Z",
+            [
+                {"createdAt": "2026-09-04T01:56:00Z", "reason": "failed_checks"},
+                {"createdAt": "2026-09-04T13:33:00Z", "reason": "failed_checks"},
+            ],
+        ),
+    )
+    assert auto_merge.ejection_memory("o/r", 7).blocked is False
+
+
+def test_non_failure_removals_are_not_strikes(monkeypatch):
+    """A manual dequeue or a merge_conflict removal is not a failed build."""
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "2026-09-03T10:00:00Z",
+            [
+                {"createdAt": "2026-09-04T13:33:00Z", "reason": "merge_conflict"},
+                {"createdAt": "2026-09-04T16:57:00Z", "reason": "manual"},
+            ],
+        ),
+    )
+    assert auto_merge.ejection_memory("o/r", 7).blocked is False
+
+
+def test_an_unparseable_head_date_fails_open(monkeypatch):
+    """Timestamps are parsed, so a malformed head date must fail open too.
+
+    The strike count is only meaningful relative to when the head was written.
+    If that date cannot be parsed, no strike can be attributed to the current
+    content -- the same situation as an absent date, and the same answer. Two
+    strikes are supplied so the test fails loudly if the guard ever holds here.
+    """
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "not-a-timestamp",
+            [
+                {"createdAt": "2026-09-04T01:56:00Z", "reason": "failed_checks"},
+                {"createdAt": "2026-09-04T13:33:00Z", "reason": "failed_checks"},
+            ],
+        ),
+    )
+    assert auto_merge.ejection_memory("o/r", 7).blocked is False
+
+
+def test_an_unparseable_event_date_is_skipped_not_counted(monkeypatch):
+    """One malformed event must not be counted, nor discard the sound ones.
+
+    The surviving event is a single strike, which is below the limit, so the PR
+    is not held -- but the strike is still counted, which is what distinguishes
+    skipping the bad event from abandoning the whole timeline.
+    """
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "2026-09-03T10:00:00Z",
+            [
+                {"createdAt": "whenever", "reason": "failed_checks"},
+                {"createdAt": "2026-09-04T13:33:00Z", "reason": "failed_checks"},
+            ],
+        ),
+    )
+    memory = auto_merge.ejection_memory("o/r", 7)
+    assert memory.blocked is False
+    assert memory.strikes == 1
+
+
+def test_ejection_lookup_failure_fails_open(monkeypatch):
+    """A lookup failure must not hold back an otherwise ready PR."""
+    def boom(args, token=None):
+        raise subprocess.CalledProcessError(1, ["gh"], stderr="nope")
+
+    monkeypatch.setattr(auto_merge, "_gh", boom)
+    assert auto_merge.ejection_memory("o/r", 7).blocked is False
+
+
+def test_main_holds_a_repeatedly_failing_pr_and_never_marks_it_ready(
+    monkeypatch, tmp_path
+):
+    """End-to-end guard for the wiring, not just the predicate.
+
+    Deleting the ejection_memory call in main() must fail a test. It must also
+    fail if the check is moved back after the draft transition: a held draft
+    would then be marked ready, skipped, and re-drafted on every run.
+    """
+    acted, drafted = [], []
+    monkeypatch.setattr(
+        auto_merge, "merge_pr",
+        lambda *a, **k: acted.append(a[1]) or False,
+    )
+    monkeypatch.setattr(
+        auto_merge, "mark_pr_ready",
+        lambda *a, **k: drafted.append(("ready", a[1])),
+    )
+    monkeypatch.setattr(
+        auto_merge, "mark_pr_draft",
+        lambda *a, **k: drafted.append(("draft", a[1])),
+    )
+    held = make_pr(number=42, mergeable="MERGEABLE")
+    held["isDraft"] = True
+    two_strikes = json.dumps({"data": {"repository": {"pullRequest": {
+        "commits": {"nodes": [{"commit": {"committedDate": "2026-09-01T00:00:00Z"}}]},
+        "timelineItems": {"nodes": [
+            {"createdAt": "2026-09-03T01:00:00Z", "reason": "failed_checks"},
+            {"createdAt": "2026-09-03T02:00:00Z", "reason": "failed_checks"},
+        ]},
+    }}}})
+    code, _calls = _run_main(
+        monkeypatch, tmp_path, view=held, listed=[held],
+        ejection_payload=two_strikes,
+    )
+    assert code == 0
+    assert acted == [], "a held PR must not be enqueued or merged"
+    assert drafted == [], (
+        "a held draft must not be marked ready (and then re-drafted) every run"
+    )
+
+
+# --- conflict-aware enqueue batching -------------------------------------
+
+ACTIVE_QUEUE = json.dumps(
+    {"data": {"repository": {"mergeQueue": {
+        "id": "MQ_x", "entries": {"totalCount": 0, "nodes": []},
+    }}}}
+)
+
+
+def _files(*rows):
+    """Render the `gh api .../files --jq` output this module parses."""
+    return "".join(f"{path}\t+{line}\n" for path, line in rows)
+
+
+def test_cache_rows_added_keys_by_file_and_curie(monkeypatch):
+    payload = _files(
+        ("cache/hgnc/terms.csv", "hgnc:10006,RHAG,2026-08-16T20:37:11"),
+        ("cache/mondo/terms.csv", "MONDO:0011582,something,2026-08-16T20:37:11"),
+    )
+    monkeypatch.setattr(auto_merge, "_gh", lambda args, token=None: payload)
+    claim = auto_merge.cache_rows_added("o/r", 7)
+    assert claim.readable is True
+    assert claim.keys == frozenset({
+        "cache/hgnc/terms.csv:hgnc:10006",
+        "cache/mondo/terms.csv:MONDO:0011582",
+    })
+
+
+def test_cache_rows_added_ignores_headers_and_non_cache_paths(monkeypatch):
+    """The CSV header re-appears as an addition when a cache file is created.
+
+    A bare-CURIE enum row is identical bytes in both PRs, so git merges it
+    cleanly and it must not hold anything back; the timestamped terms.csv row
+    written alongside it is what conflicts.
+    """
+    payload = _files(
+        ("cache/hgnc/terms.csv", "curie,label,retrieved_at"),
+        ("cache/bookshelf/genereviews.csv", "pmid,nbk,retired,pubdate,title"),
+        ("cache/enums/exposureterm.csv", "ECTO:0080000"),
+        ("cache/ecto/terms.csv", "ECTO:0080000,exposure to arsenic,2026-08-16"),
+        ("kb/disorders/Asthma.yaml", "name: Asthma"),
+        ("references_cache/PMID_1.md", "some text"),
+    )
+    monkeypatch.setattr(auto_merge, "_gh", lambda args, token=None: payload)
+    claim = auto_merge.cache_rows_added("o/r", 7)
+    assert claim.keys == frozenset({"cache/ecto/terms.csv:ECTO:0080000"})
+
+
+def test_cache_rows_added_fails_open(monkeypatch):
+    """An API failure must not hold back an otherwise ready PR."""
+    def boom(args, token=None):
+        raise subprocess.CalledProcessError(1, ["gh"], stderr="nope")
+
+    monkeypatch.setattr(auto_merge, "_gh", boom)
+    claim = auto_merge.cache_rows_added("o/r", 7)
+    assert claim.readable is False
+    assert claim.keys == frozenset()
+    assert auto_merge.describe_collision(7, claim, {"any:row": 1}) == ""
+
+
+def test_describe_collision_names_the_holder_and_the_rows():
+    claim = auto_merge.RowClaim(frozenset({"cache/hgnc/terms.csv:hgnc:10006"}))
+    reason = auto_merge.describe_collision(
+        99, claim, {"cache/hgnc/terms.csv:hgnc:10006": 88}
+    )
+    assert "#88" in reason
+    assert "cache/hgnc/terms.csv:hgnc:10006" in reason
+
+
+def test_describe_collision_is_silent_on_disjoint_rows():
+    claim = auto_merge.RowClaim(frozenset({"cache/hgnc/terms.csv:hgnc:1"}))
+    assert auto_merge.describe_collision(
+        99, claim, {"cache/hgnc/terms.csv:hgnc:2": 88}
+    ) == ""
+
+
+def test_queue_mode_holds_the_second_writer_of_a_contended_row(
+    monkeypatch, tmp_path
+):
+    """End-to-end guard for the wiring, not just the predicate.
+
+    #11289 and #11288 were enqueued by one sweep, shared five CURIEs, and the
+    second was ejected on merge_conflict when the first merged ahead of it.
+    """
+    listed = [make_pr(number=41), make_pr(number=42)]
+    views = [
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=42, headRefOid="head42"),
+        make_pr(number=42, headRefOid="head42"),
+    ]
+    shared = _files(("cache/hgnc/terms.csv", "hgnc:10006,RHAG,2026-08-16"))
+    code, calls = _run_main(
+        monkeypatch, tmp_path, view=views, listed=listed,
+        queue_payload=ACTIVE_QUEUE,
+        files_payloads={41: shared, 42: shared},
+    )
+    assert code == 0
+    assert [int(c[2]) for c in calls if c[:2] == ["pr", "merge"]] == [41], (
+        "the second writer of a contended cache row must not be enqueued"
+    )
+    summary = (tmp_path / "summary.md").read_text()
+    assert "#41" in summary
+
+
+def test_queue_mode_enqueues_prs_touching_disjoint_rows(monkeypatch, tmp_path):
+    """Only a *shared* row holds a PR back; adjacent inserts merge fine."""
+    listed = [make_pr(number=41), make_pr(number=42)]
+    views = [
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=42, headRefOid="head42"),
+        make_pr(number=42, headRefOid="head42"),
+    ]
+    code, calls = _run_main(
+        monkeypatch, tmp_path, view=views, listed=listed,
+        queue_payload=ACTIVE_QUEUE,
+        files_payloads={
+            41: _files(("cache/hgnc/terms.csv", "hgnc:1,A,2026-08-16")),
+            42: _files(("cache/hgnc/terms.csv", "hgnc:2,B,2026-08-16")),
+        },
+    )
+    assert code == 0
+    assert [int(c[2]) for c in calls if c[:2] == ["pr", "merge"]] == [41, 42]
+
+
+def test_dry_run_reports_the_same_conflict_hold_as_the_real_sweep(
+    monkeypatch, tmp_path
+):
+    """`just auto-merge-preview` must show the hold, not a would-enqueue.
+
+    The hold leaves no trace on the PR page, so the preview is the only place a
+    curator can see it before it fires. A dry run that looked the rows up but
+    never claimed them would report both writers as enqueued.
+    """
+    listed = [make_pr(number=41), make_pr(number=42)]
+    views = [
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=42, headRefOid="head42"),
+        make_pr(number=42, headRefOid="head42"),
+    ]
+    shared = _files(("cache/hgnc/terms.csv", "hgnc:10006,RHAG,2026-08-16"))
+    code, calls = _run_main(
+        monkeypatch, tmp_path, view=views, listed=listed,
+        queue_payload=ACTIVE_QUEUE, extra_args=["--dry-run"],
+        files_payloads={41: shared, 42: shared},
+    )
+    assert code == 0
+    assert not [c for c in calls if c[:2] == ["pr", "merge"]]
+    summary = (tmp_path / "summary.md").read_text()
+    assert "already claimed by #41" in summary
+
+
+def test_no_conflict_batching_flag_restores_the_old_behavior(
+    monkeypatch, tmp_path
+):
+    listed = [make_pr(number=41), make_pr(number=42)]
+    views = [
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=42, headRefOid="head42"),
+        make_pr(number=42, headRefOid="head42"),
+    ]
+    shared = _files(("cache/hgnc/terms.csv", "hgnc:10006,RHAG,2026-08-16"))
+    code, calls = _run_main(
+        monkeypatch, tmp_path, view=views, listed=listed,
+        queue_payload=ACTIVE_QUEUE, extra_args=["--no-conflict-batching"],
+        files_payloads={41: shared, 42: shared},
+    )
+    assert code == 0
+    assert [int(c[2]) for c in calls if c[:2] == ["pr", "merge"]] == [41, 42]
+
+
+def test_direct_mode_does_not_read_changed_files(monkeypatch, tmp_path):
+    """Direct mode merges one PR per run, so there is no batch to de-conflict."""
+    code, calls = _run_main(
+        monkeypatch, tmp_path, view=make_pr(number=42, headRefOid="cafe1234")
+    )
+    assert code == 0
+    assert not [c for c in calls if c[:1] == ["api"] and "/pulls/" in c[1]], (
+        "the files lookup must not cost an API call on the direct-merge path"
+    )

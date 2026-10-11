@@ -14,6 +14,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from dismech.research_reports import strip_run_suffix
+
 RESEARCH_FILE_RE = re.compile(
     r"^(?P<name>.+)-deep-research-(?P<provider>[^.]+)\.md(?:\.citations\.md)?$"
 )
@@ -108,7 +110,7 @@ def research_providers_by_disorder(research_dir: str) -> dict[str, set[str]]:
         if not match:
             continue
         disorder = match.group("name")
-        provider = match.group("provider")
+        provider = strip_run_suffix(match.group("provider"))
         providers.setdefault(disorder, set()).add(provider)
     return providers
 

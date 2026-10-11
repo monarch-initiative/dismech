@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typhoidal Tularemia · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/genes/">Genes</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Typhoidal Tularemia</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Typhoidal Tularemia</h1>
+                
+                <p class="report-subtitle">Typhoidal Tularemia: A Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-09-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0000321" target="_blank" rel="noopener noreferrer">MONDO:0000321</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">25 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Typhoidal Tularemia: A Comprehensive Disease Characterization Report</h1>
+<p><strong>Disease:</strong> Typhoidal Tularemia
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0000321" target="_blank" rel="noopener noreferrer">MONDO:0000321</a>
+<strong>Category:</strong> Infectious Disease
+<strong>Causative agent:</strong> <em>Francisella tularensis</em> (NCBI:txid263)
+<strong>Report date:</strong> 2026-09-25 | <strong>Iterations completed:</strong> 5 | <strong>Confirmed findings:</strong> 14 | <strong>Papers reviewed:</strong> 67
+<strong>Report type:</strong> Literature-based synthesis (no primary dataset). Evidence drawn from human clinical case reports/series, epidemiologic surveillance, in vitro cell biology, and animal (mouse/rat/<em>Drosophila</em>) models, as indicated per claim.</p>
+<hr />
+<h2>Summary</h2>
+<p>Typhoidal tularemia is the severe, <strong>systemic (septicemic) clinical form</strong> of tularemia, a zoonosis caused by the Gram-negative, facultative intracellular coccobacillus <em>Francisella tularensis</em>. It is one of six recognized clinical forms (ulceroglandular, glandular, oculoglandular, oropharyngeal, typhoidal, and pneumonic) and is defined by an acute typhoid-like febrile illness — high fever, chills, malaise, anorexia, prostration — that occurs <strong>without a prominent inoculation ulcer or regional lymphadenopathy</strong>. Because it lacks these localizing signs, it is frequently mistaken for typhoid/enteric fever, sepsis of unknown origin, or hematologic malignancy, causing diagnostic delay. Together with the pneumonic form, typhoidal tularemia carries the <strong>highest case-fatality of all tularemia presentations — up to ~60% if untreated</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40107886/">PMID: 40107886</a>).</p>
+<p>Mechanistically, the disease is driven entirely by the pathogen and host innate immunity — there is <strong>no human genetic cause</strong>. Low-dose exposure (inhalation of ≤10 organisms can cause lethal disease) leads to macrophage uptake, where the <em>Francisella</em> Pathogenicity Island (FPI) proteins IglC/IglD and the master regulator MglA/SspA mediate escape from the phagosome into the cytosol, followed by rapid intracellular replication and dissemination through the reticuloendothelial system (spleen, liver, lymph nodes, bone marrow, lung). The host counters with the AIM2 inflammasome (sensing cytosolic bacterial DNA → caspase-1 → IL-1β/IL-18 → pyroptosis) and IFN-γ-mediated macrophage activation. An upstream virulence trait — an unusually under-acylated, hypo-phosphorylated lipid A — allows <em>F. tularensis</em> to evade early TLR4/MD-2 recognition, delaying protective inflammation.</p>
+<p>Clinically, the disease is diagnosed primarily by <strong>serology</strong> (microagglutination/ELISA), supplemented by blood culture (more often positive in systemic disease), PCR, and increasingly cell-free DNA/metagenomic sequencing. First-line treatment for severe/typhoidal disease is the aminoglycoside <strong>gentamicin</strong>, with fluoroquinolones (ciprofloxacin, levofloxacin) and tetracyclines (doxycycline) as alternatives; bacteriostatic tetracyclines carry higher relapse risk. <strong>No licensed vaccine</strong> exists, so prevention rests on exposure avoidance, vector control, and post-exposure antibiotic prophylaxis. Prognosis is excellent with prompt appropriate therapy but poor when treatment is delayed. This report characterizes the disease across all 15 template sections, mapping findings to ontology terms and anchoring every claim in primary literature.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>F001 — Typhoidal tularemia is a severe systemic form of tularemia caused by <em>Francisella tularensis</em></h3>
+<p>Typhoidal tularemia is one of six typical clinical pictures produced by <em>F. tularensis</em> depending on the route of infection. As the multiple routes of infection "result in six typical clinical pictures (ulceroglandular, glandular, oculoglandular, oropharyngeal, typhoidal, and pneumonic)" (<a href="https://pubmed.ncbi.nlm.nih.gov/40107886/">PMID: 40107886</a>), the typhoidal form is distinguished by systemic febrile illness resembling typhoid fever, <strong>without</strong> a prominent inoculation ulcer or regional lymphadenopathy. A documented case illustrates the systemic, hematologic character: a patient "presented with a two-week history of high-grade fever, severe malaise, anorexia, and laboratory evidence of pancytopenia with hypoglycemia," and the "clinical course was complicated by pericarditis" (<a href="https://pubmed.ncbi.nlm.nih.gov/41458397/">PMID: 41458397</a>). This confirms the constitutional and reticuloendothelial character of the disease and its capacity for organ complications.</p>
+<h3>F002 — Typhoidal and pneumonic forms carry the highest fatality (up to 60% untreated)</h3>
+<p>Case-fatality is dramatically stratified by clinical form and pathogen subspecies. "If not promptly diagnosed and treated, the fatality rate can be as high as 60%, with the poorest outcomes reported in the pneumonic and typhoidal forms" (<a href="https://pubmed.ncbi.nlm.nih.gov/40107886/">PMID: 40107886</a>). Severity is subspecies-dependent: <em>F. tularensis</em> subsp. <em>tularensis</em> (type A, North America) is more virulent than subsp. <em>holarctica</em> (type B, Europe/Asia). Within type A, geographic clades differ — "type A-west infections are less severe than either type B or type A-east infections" (<a href="https://pubmed.ncbi.nlm.nih.gov/16836829/">PMID: 16836829</a>).</p>
+<h3>F003 — Pathogenesis: FPI-encoded IglC and regulator MglA drive phagosomal escape and cytosolic replication</h3>
+<p>After macrophage engulfment, the <em>Francisella</em>-containing phagosome matures to a LAMP-1/LAMP-2⁺ late-endosomal stage but avoids lysosomal fusion, then is disrupted, releasing bacteria into the cytosol where they replicate. The FPI protein IglC and its regulator are central: studies identify "the Francisella pathogenicity island (FPI) protein IglC and its regulator MglA in the intracellular fate" (<a href="https://pubmed.ncbi.nlm.nih.gov/15953029/">PMID: 15953029</a>). Functional work shows "the IglC, IglD, and MglA proteins each directly or indirectly critically contribute to the virulence of F. tularensis LVS, including its intracellular replication, cytoplasmic escape, and inhibition of acidification of the phagosomes" (<a href="https://pubmed.ncbi.nlm.nih.gov/18474647/">PMID: 18474647</a>). Host activation reverses this: nitric oxide donors inhibit <em>mglA</em> — "Addition of SNAP led to significantly increased colocalization between LAMP-1 and bacteria, indicating containment of F. tularensis in the phagosome within 2 h" (<a href="https://pubmed.ncbi.nlm.nih.gov/21700740/">PMID: 21700740</a>).</p>
+<h3>F004 — Treatment: aminoglycosides (gentamicin) first-line for severe/typhoidal disease</h3>
+<p>Antibiotic choice is stratified by severity: "Gentamicin is the first-line treatment for severe tularemia, while fluoroquinolones and tetracyclines are commonly the drugs of choice in less severe forms" (<a href="https://pubmed.ncbi.nlm.nih.gov/40107886/">PMID: 40107886</a>). Fluoroquinolone regimens perform well in severe respiratory type B disease: among 67 case-patients (median age 66, 81% male), "30-day mortality was 1.5% (1 of 67)," and "one disease relapse occurred with doxycycline treatment" (<a href="https://pubmed.ncbi.nlm.nih.gov/38294118/">PMID: 38294118</a>). Bacteriostatic tetracyclines carry higher relapse rates than bactericidal aminoglycosides/fluoroquinolones.</p>
+<h3>F005 — Epidemiology: Northern Hemisphere zoonosis with type A/B geographic split</h3>
+<p>Tularemia occurs across North America, Europe, and northern Asia (not the Southern Hemisphere). "Tularaemia has been reported in more than 250 animal species including man" (<a href="https://pubmed.ncbi.nlm.nih.gov/1305858/">PMID: 1305858</a>). Two subspecies partition ecologically: type A cycles through cottontail rabbits and ticks (terrestrial), type B through aquatic rodents (muskrats, beaver, voles; water-borne). Large outbreaks occur — in central Sweden in 2019, "a total of 979 cases (734 laboratory-confirmed) have been reported, mainly from counties in central Sweden" over ~10 weeks (<a href="https://pubmed.ncbi.nlm.nih.gov/31640844/">PMID: 31640844</a>). The typhoidal form constitutes roughly 10–14% of cases in temperate series; a Norwegian series reported "glandular (14.4%), typhoidal (14.4%), respiratory (13.3%) and ulceroglandular (12.8%) tularaemia" (<a href="https://pubmed.ncbi.nlm.nih.gov/24874046/">PMID: 24874046</a>).</p>
+<h3>F006 — Diagnosis relies on serology; blood culture more often positive in typhoidal disease</h3>
+<p>Serology is the cornerstone: "Serology is still considered to be a cornerstone in tularemia diagnosis due to the low sensitivity of bacterial culture and the lack of standardization in PCR methodology" (<a href="https://pubmed.ncbi.nlm.nih.gov/20220165/">PMID: 20220165</a>). A rapid immunochromatographic test achieved excellent performance — "the ICT had a sensitivity of 98.3% ... and a specificity of 96.5%" (<a href="https://pubmed.ncbi.nlm.nih.gov/20220165/">PMID: 20220165</a>). Antibodies typically appear ~2 weeks after onset, limiting early diagnosis. Bacteremia is detectable in systemic disease: "An unexpectedly high number (3.9%) of the patients had positive blood culture with Francisella tularensis" (<a href="https://pubmed.ncbi.nlm.nih.gov/24874046/">PMID: 24874046</a>). Culture is hazardous (BSL-3), and cell-free DNA/metagenomic sequencing has diagnosed occult typhoidal cases (<a href="https://pubmed.ncbi.nlm.nih.gov/41160772/">PMID: 41160772</a>).</p>
+<h3>F007 — Prevention: no licensed vaccine; exposure avoidance and post-exposure prophylaxis</h3>
+<p>"No licensed vaccine is available in the prophylaxis of tularemia and this is need of the time and high-priority research area" (<a href="https://pubmed.ncbi.nlm.nih.gov/32989563/">PMID: 32989563</a>). The live vaccine strain (LVS) provides partial, route-limited protection but is not routinely licensed. Prevention rests on environmental/animal control, arthropod-bite and contaminated-water/food avoidance, and post-exposure prophylaxis (doxycycline or ciprofloxacin) after high-risk exposure. Bioterrorism preparedness is relevant because "a weapon using airborne tularemia would likely result 3 to 5 days later in an outbreak of acute, undifferentiated febrile illness with incipient pneumonia" (<a href="https://pubmed.ncbi.nlm.nih.gov/11386933/">PMID: 11386933</a>).</p>
+<h3>F008 — Animal models and natural disease</h3>
+<p>Murine models are the mainstay: "Inhalation of 10 or fewer organisms results in an acute and potentially lethal disease called pneumonic tularemia" (<a href="https://pubmed.ncbi.nlm.nih.gov/28372827/">PMID: 28372827</a>). Systemic dissemination and cytokine responses are reproducible — treatment reduced "bacterial burden in the spleen and liver, which correlated with a significant reduction in the pro-inflammatory cytokines IFN-γ, MCP-1, IL-6, and TNF-α" (<a href="https://pubmed.ncbi.nlm.nih.gov/27714591/">PMID: 27714591</a>). Naturally, "Type A is reported to have a terrestrial cycle with the main reservoirs being cottontail rabbits (Sylvilagus spp.) and ticks" (<a href="https://pubmed.ncbi.nlm.nih.gov/1305858/">PMID: 1305858</a>). Fischer 344 rats and <em>Drosophila melanogaster</em> serve as additional models.</p>
+<h3>F009 — Clinical phenotype: systemic febrile illness with reticuloendothelial signs and cytopenias</h3>
+<p>Typhoidal tularemia presents acutely (incubation ~3–5 days, range 1–14) with high fever, chills, malaise, anorexia, weight loss, headache, myalgia, and prostration — characteristically without a skin ulcer or regional lymphadenopathy. Systemic dissemination produces hepatosplenomegaly and laboratory abnormalities including pancytopenia, hypoglycemia, and elevated transaminases; complications include pneumonia, pleural effusion, pericarditis/myocarditis, and sepsis (<a href="https://pubmed.ncbi.nlm.nih.gov/41458397/">PMID: 41458397</a>). Enteric exposure can add abdominal pain, nausea, vomiting, and diarrhea. Granulomatous (necrotizing) inflammation is typical and can mimic malignancy: CT-guided biopsies "revealed a non-specific necrotizing granulomatous inflammation" in lesions "highly suggestive of malignancy" (<a href="https://pubmed.ncbi.nlm.nih.gov/41482246/">PMID: 41482246</a>).</p>
+<p><strong>Suggested HPO terms:</strong> Fever (<a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a>), Chills (<a href="http://purl.obolibrary.org/obo/HP_0025143" target="_blank" rel="noopener noreferrer">HP:0025143</a>), Weight loss (<a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" rel="noopener noreferrer">HP:0001824</a>), Myalgia (<a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a>), Headache (<a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a>), Hepatosplenomegaly (<a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" rel="noopener noreferrer">HP:0001433</a>), Splenomegaly (<a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" rel="noopener noreferrer">HP:0001744</a>), Pancytopenia (<a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" rel="noopener noreferrer">HP:0001876</a>), Hypoglycemia (<a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" rel="noopener noreferrer">HP:0001943</a>), Elevated circulating hepatic transaminase (<a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" rel="noopener noreferrer">HP:0002910</a>), Pericarditis (<a href="http://purl.obolibrary.org/obo/HP_0001701" target="_blank" rel="noopener noreferrer">HP:0001701</a>), Pneumonia (<a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" rel="noopener noreferrer">HP:0002090</a>), Sepsis (<a href="http://purl.obolibrary.org/obo/HP_0100806" target="_blank" rel="noopener noreferrer">HP:0100806</a>), Abdominal pain (<a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a>), Diarrhea (<a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a>).</p>
+<h3>F010 — Cytosolic escape triggers the AIM2 inflammasome as a key innate defense</h3>
+<p>Once in the cytosol, bacteriolysis releases dsDNA sensed by AIM2. "AIM2 is critical for host defense against DNA viruses and bacteria that replicate in the cytosol, such as Francisella tularensis subspecies novicida" (<a href="https://pubmed.ncbi.nlm.nih.gov/25774716/">PMID: 25774716</a>), with guanylate-binding proteins (GBP2, GBP5) promoting bacteriolysis to expose ligands. The signaling axis: "AIM2, an inflammasome receptor sensing cytosolic DNA, activates caspase-1 in an ASC-dependent manner, leading to both pyroptosis and release of the proinflammatory cytokines IL-1β and IL-18" (<a href="https://pubmed.ncbi.nlm.nih.gov/23975862/">PMID: 23975862</a>). Gasdermin-D executes pyroptosis and is required for host protection against <em>Francisella</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/30404813/">PMID: 30404813</a>). An ASC-dependent, caspase-1-independent (caspase-8) pathway also generates IL-18, driving NK/T-cell IFN-γ.</p>
+<h3>F011 — Anatomical involvement centers on the reticuloendothelial system; no human causal genes</h3>
+<p>Typhoidal tularemia targets the mononuclear phagocyte/reticuloendothelial system: spleen (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>), liver (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>), lymph nodes (<a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" rel="noopener noreferrer">UBERON:0000029</a>), bone marrow (<a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a>), and lung (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>). The mouse data confirm "decreased bacterial burden in the spleen and liver" as the readout of dissemination (<a href="https://pubmed.ncbi.nlm.nih.gov/27714591/">PMID: 27714591</a>). Target cells are macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>) and dendritic cells (<a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a>); subcellular compartments are the phagosome/late endosome (<a href="http://purl.obolibrary.org/obo/GO_0045335" target="_blank" rel="noopener noreferrer">GO:0045335</a>) and cytosol (<a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" rel="noopener noreferrer">GO:0005829</a>). Because the disease is "caused by Francisella tularensis" (<a href="https://pubmed.ncbi.nlm.nih.gov/40107886/">PMID: 40107886</a>) — an infectious zoonosis — there are <strong>NO human causal or susceptibility genes, no inheritance pattern, no pathogenic variants, and no genetic/carrier testing</strong>. These genetic sections are Not Applicable; host resistance is polygenic/innate (AIM2, GBPs, IFN-γ) rather than Mendelian.</p>
+<h3>F012 — Etiology and risk factors: zoonotic/environmental exposure; immune-evasive LPS as upstream virulence trait</h3>
+<p>Risk factors are exposures, not host genotype. "The highest risk of tick-borne infection is particularly connected with people either resting or working in the forest or meadow surroundings (i.e., foresters, farmers, hunters)" (<a href="https://pubmed.ncbi.nlm.nih.gov/27044720/">PMID: 27044720</a>). Systemic presentation correlates with age — "systemic disease occurred more commonly in older patients" (<a href="https://pubmed.ncbi.nlm.nih.gov/22911645/">PMID: 22911645</a>). A key upstream virulence trait is the unusual LPS: "Modifications of the lipid A structure to less-acylated forms have been observed in some bacterial species, and those forms are poor stimulators of the TLR4/MD-2 complex" (<a href="https://pubmed.ncbi.nlm.nih.gov/23745121/">PMID: 23745121</a>), enabling <em>F. tularensis</em> to evade early innate recognition.</p>
+<h3>F013 — Temporal course, prognosis, and differential diagnosis</h3>
+<p>Onset is acute/subacute after a ~3–5 day incubation. Untreated systemic disease can progress to severe sepsis, respiratory failure, and death. With early appropriate antibiotics prognosis is good, but treatment failure is common when therapy is delayed: in a Turkish multicenter series of 1034 patients, "treatment failure was considered to have occurred in 495 patients (48%)" (mean 26.8 days to appropriate therapy in a predominantly oropharyngeal cohort) (<a href="https://pubmed.ncbi.nlm.nih.gov/24975504/">PMID: 24975504</a>). Relapse occurs with bacteriostatic agents — "one disease relapse occurred with doxycycline treatment" (<a href="https://pubmed.ncbi.nlm.nih.gov/38294118/">PMID: 38294118</a>). Differentials include typhoid fever, sepsis, endocarditis, brucellosis, Q fever, leptospirosis, plague, disseminated TB, EBV/CMV, and malignancy/lymphoma — the granulomas "may mimic lung cancer or lymphoma, often resulting in delayed diagnosis and unnecessary invasive investigations" (<a href="https://pubmed.ncbi.nlm.nih.gov/41482246/">PMID: 41482246</a>).</p>
+<h3>F014 — Synthesis</h3>
+<p>Integrating all findings, typhoidal tularemia (<a href="http://purl.obolibrary.org/obo/MONDO_0000321" target="_blank" rel="noopener noreferrer">MONDO:0000321</a>) is the systemic septicemic form of <em>F. tularensis</em> infection with the highest case-fatality, a purely infectious etiology (human genetic sections Not Applicable), a well-defined intracellular pathogenesis (LPS evasion → phagosomal escape → cytosolic replication → AIM2/IFN-γ defense → reticuloendothelial dissemination), serology-based diagnosis, gentamicin-first treatment, and prevention through exposure avoidance and post-exposure prophylaxis in the absence of a licensed vaccine.</p>
+<hr />
+<h2>Section-by-Section Characterization</h2>
+<h3>1. Disease Information</h3>
+<ul>
+<li><strong>Overview:</strong> Severe systemic (typhoid-like) form of tularemia; febrile illness without ulcer or lymphadenopathy (F001).</li>
+<li><strong>Identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0000321" target="_blank" rel="noopener noreferrer">MONDO:0000321</a>; MeSH "Tularemia" (D014406); ICD-10 A21.9 (A21 tularemia; A21.7 generalized/typhoidal); ICD-11 1B94. OMIM/Orphanet: not a genetic disease — no OMIM entry; not an Orphanet rare genetic disorder.</li>
+<li><strong>Synonyms:</strong> Typhoidal tularemia, septicemic tularemia, systemic tularemia; ("rabbit fever," "deer-fly fever," Francis disease, Ohara disease refer to tularemia broadly).</li>
+<li><strong>Data source:</strong> Aggregated disease-level resources plus individual case reports (EHR-derived case series).</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Causal factor:</strong> Infectious — <em>Francisella tularensis</em> (NCBI:txid263); type A (subsp. <em>tularensis</em>, txid119856) more virulent than type B (subsp. <em>holarctica</em>, txid119857) (F002, F012).</li>
+<li><strong>Genetic risk factors:</strong> None (no Mendelian susceptibility). Host resistance is innate/polygenic (AIM2, GBPs, IFN-γ) (F011).</li>
+<li><strong>Environmental risk factors:</strong> Handling infected lagomorphs/rodents, hunting, farming, landscaping/mowing, lab work, arthropod bites (ticks, mosquitoes, deerflies), contaminated water/undercooked meat, aerosol inhalation; older age, male predominance (~65%) (F012).</li>
+<li><strong>Protective factors:</strong> Prior LVS vaccination (partial); prompt antibiotics. No known protective genetic alleles.</li>
+<li><strong>Gene-environment interactions:</strong> Not applicable in the Mendelian sense; innate-immune capacity modulates outcome.</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<p>Symptoms/signs and lab abnormalities detailed in F009 with HPO mappings. Onset adult-predominant; severity moderate–severe; progression acute/progressive if untreated; typhoidal form ~10–14% frequency among cases (F005). Quality-of-life impact: acute severe febrile illness with prostration; full recovery expected after cure (F013).</p>
+<h3>4. Genetic/Molecular Information</h3>
+<p><strong>Not Applicable</strong> — no human causal genes, pathogenic variants, modifier genes, epigenetic disease drivers, or chromosomal abnormalities. This is an infectious disease (F011). Relevant <em>bacterial</em> virulence loci: FPI genes <em>iglC/iglD</em>, regulators <em>mglA/sspA</em> (F003).</p>
+<h3>5. Environmental Information</h3>
+<p>Infectious agent: <em>F. tularensis</em> (F005, F012). Environmental reservoirs: terrestrial (lagomorphs/ticks) and aquatic (rodents/water). Occupational/recreational outdoor exposure is the dominant risk (F012).</p>
+<h3>6. Mechanism / Pathophysiology — Ordered Causal Chain</h3>
+<pre><code>1.  Exposure to F. tularensis (inhalation of &lt;=10 organisms, ingestion, bite, or
+    contact)                                             --leads to--&gt;
+2.  Under-acylated/hypo-phosphorylated lipid A poorly stimulates TLR4/MD-2,
+    evading early innate recognition (PMID 23745121)     --results in--&gt;
+3.  Uptake by macrophages/dendritic cells (CL:0000235/CL:0000451)  --leads to--&gt;
+4.  Francisella-containing phagosome matures to LAMP-1+ late endosome but AVOIDS
+    lysosomal fusion; FPI IglC/IglD + MglA/SspA disrupt the membrane
+    (PMID 15953029, 18474647)                            --results in--&gt;
+5.  Escape into the cytosol (GO:0005829) and rapid intracellular replication
+                                          --leads to--&gt;
+    +-------------------------------------+
+    BRANCH A (host defense)          BRANCH B (dissemination)
+    Bacteriolysis releases dsDNA;    Infected phagocytes carry bacteria via
+    GBP2/GBP5 expose ligands -&gt;      blood/lymph to reticuloendothelial organs:
+    AIM2 + ASC + caspase-1 -&gt;        spleen, liver, lymph nodes, bone marrow,
+    pyroptosis (gasdermin-D) +       lung (PMID 27714591)  --results in--&gt;
+    IL-1b/IL-18 (PMID 25774716,
+    23975862, 30404813) -&gt;           Multi-organ granulomatous inflammation,
+    IL-18 -&gt; NK/T-cell IFN-g -&gt;      cytopenias, hepatosplenomegaly, sepsis
+    macrophage activation, NO,       (PMID 41458397)       --leads to--&gt;
+    phagosome acidification,         Systemic febrile illness = TYPHOIDAL
+    bacterial restriction            TULAREMIA; up to 60% fatal if untreated
+    (PMID 21700740)                  (PMID 40107886)
+    +-------------------------------------+
+</code></pre>
+<ul>
+<li><strong>Upstream steps:</strong> LPS immune evasion, phagosomal escape (inferred from LVS/<em>novicida</em> models; <em>demonstrated in vitro/in vivo</em> in mice and arthropod cells).</li>
+<li><strong>Downstream steps:</strong> Inflammasome activation, cytokine response, reticuloendothelial dissemination, organ injury.</li>
+<li><strong>GO terms:</strong> phagosome maturation (<a href="http://purl.obolibrary.org/obo/GO_0090382" target="_blank" rel="noopener noreferrer">GO:0090382</a>), inflammasome complex (<a href="http://purl.obolibrary.org/obo/GO_0061702" target="_blank" rel="noopener noreferrer">GO:0061702</a>), pyroptosis (<a href="http://purl.obolibrary.org/obo/GO_0070269" target="_blank" rel="noopener noreferrer">GO:0070269</a>), positive regulation of IFN-γ production (<a href="http://purl.obolibrary.org/obo/GO_0032729" target="_blank" rel="noopener noreferrer">GO:0032729</a>).</li>
+<li><strong>CL terms:</strong> macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), dendritic cell (<a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a>), NK cell (<a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" rel="noopener noreferrer">CL:0000623</a>).</li>
+</ul>
+<h3>7. Anatomical Structures Affected</h3>
+<p>Primary: spleen (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>), liver (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>), lymph nodes (<a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" rel="noopener noreferrer">UBERON:0000029</a>), bone marrow (<a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a>), lung (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>). Secondary/complications: pericardium/heart (<a href="http://purl.obolibrary.org/obo/UBERON_0002348" target="_blank" rel="noopener noreferrer">UBERON:0002348</a>/<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>), pleura (<a href="http://purl.obolibrary.org/obo/UBERON_0000977" target="_blank" rel="noopener noreferrer">UBERON:0000977</a>), GI tract (<a href="http://purl.obolibrary.org/obo/UBERON_0001555" target="_blank" rel="noopener noreferrer">UBERON:0001555</a>), kidney. Tissue: mononuclear phagocyte/reticuloendothelial system. Subcellular: phagosome/late endosome (<a href="http://purl.obolibrary.org/obo/GO_0045335" target="_blank" rel="noopener noreferrer">GO:0045335</a>), cytosol (<a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" rel="noopener noreferrer">GO:0005829</a>). Lateralization: systemic/bilateral (F011).</p>
+<h3>8. Temporal Development</h3>
+<p>Acute/subacute onset after ~3–5 day incubation (range 1–14). Progression rapid if untreated → sepsis/respiratory failure. Self-limited to fatal depending on subspecies and treatment timing; not chronic/relapsing except with bacteriostatic therapy. Critical intervention window: early antibiotics (F013).</p>
+<h3>9. Inheritance and Population</h3>
+<p>No inheritance (infectious). Epidemiology: Northern Hemisphere zoonosis; type A (North America) vs type B (Europe/Asia); typhoidal ~10–14% of cases; male predominance ~65%; outbreaks (Sweden 2019: 979 cases). &gt;250 animal host species (F005, F008, F012).</p>
+<h3>10. Diagnostics</h3>
+<p>Serology (microagglutination &gt; ELISA; ICT 98.3% sens/96.5% spec), blood culture (positive more often in typhoidal disease, ~3.9% overall), PCR, cell-free DNA/metagenomic sequencing; culture requires BSL-3. Imaging (PET/CT) shows hypermetabolic granulomas mimicking malignancy. Differential diagnosis per F013 (F006, F009, F013).</p>
+<h3>11. Outcome/Prognosis</h3>
+<p>Untreated case-fatality up to 60% (typhoidal/pneumonic); with fluoroquinolone therapy in severe type B, 30-day mortality 1.5%. Poor-prognosis factors: type A (esp. type A-east), bacteremia, older age, comorbidity, delayed treatment. Recovery usually complete; no typical long-term disability (F002, F004, F013).</p>
+<h3>12. Treatment</h3>
+<p>First-line for severe/typhoidal: <strong>gentamicin</strong> (aminoglycoside; NCIT gentamicin C557). Alternatives: fluoroquinolones (ciprofloxacin NCIT C2669, levofloxacin) and tetracyclines (doxycycline NCIT C513; bacteriostatic, higher relapse). Streptomycin historically first-line. No pharmacogenomic guidance applicable. Experimental: novel rifampicin derivative TPR1 ± doxycycline in murine type A models (<a href="https://pubmed.ncbi.nlm.nih.gov/34223120/">PMID: 34223120</a>) (F004).</p>
+<h3>13. Prevention</h3>
+<p>Primary: exposure avoidance, vector/animal control, PPE, safe water/food. Immunization: no licensed vaccine (LVS partial/investigational). Secondary: prompt recognition and treatment. Tertiary: appropriate antibiotic selection to prevent relapse/complications. Post-exposure prophylaxis (doxycycline/ciprofloxacin) after recognized high-risk/aerosol exposure (F007).</p>
+<h3>14. Other Species / Natural Disease</h3>
+<p>Zoonosis affecting &gt;250 species (NCBI:txid263). Reservoirs: cottontail rabbits (<em>Sylvilagus</em>), hares (<em>Lepus</em>), muskrats, beaver, voles; vectors: ticks, mosquitoes, deerflies. High zoonotic potential; cross-species susceptibility broad. Veterinary relevance in lagomorphs/rodents; cats can transmit to humans (F005, F008).</p>
+<h3>15. Model Organisms</h3>
+<p>Mammalian: mice (intranasal/intradermal SchuS4 [virulent] or LVS [attenuated]) recapitulate lung/spleen/liver dissemination and cytokine responses; Fischer 344 rats. Invertebrate: <em>Drosophila melanogaster</em> (arthropod-vector model of intracellular trafficking). Cellular/in vitro: macrophages, S2 cells. Bacterial mutants (<em>iglC</em>, <em>iglD</em>, <em>mglA</em>, <em>galU</em>, <em>clpB</em>) dissect virulence. Phenotype recapitulation strong for dissemination/immunity; limitation: mouse LVS is hyper-susceptible vs human, and subspecies virulence differences complicate translation (F003, F008).</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>The central logic of typhoidal tularemia is <strong>intracellular parasitism of the reticuloendothelial system with delayed innate recognition</strong>. The disease's severity flows from three interlocking traits:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Trait</th>
+<th>Molecular basis</th>
+<th>Consequence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Immune stealth</td>
+<td>Under-acylated, hypo-phosphorylated lipid A (<a href="https://pubmed.ncbi.nlm.nih.gov/23745121/">PMID: 23745121</a>)</td>
+<td>Weak TLR4/MD-2 signaling → delayed inflammation → unchecked early replication</td>
+</tr>
+<tr>
+<td>Phagosomal escape</td>
+<td>FPI IglC/IglD + MglA/SspA (<a href="https://pubmed.ncbi.nlm.nih.gov/15953029/">PMID: 15953029</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/18474647/">PMID: 18474647</a>)</td>
+<td>Cytosolic access, avoids lysosomal killing, exponential intracellular growth</td>
+</tr>
+<tr>
+<td>Systemic tropism</td>
+<td>Macrophage/DC hijacking + hematogenous spread</td>
+<td>Multi-organ seeding (spleen, liver, marrow, lung) → cytopenias, sepsis</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The host's decisive countermeasure is the <strong>AIM2 inflammasome–IFN-γ axis</strong>. Cytosolic bacterial DNA — the very consequence of successful escape — becomes the trigger for AIM2/ASC/caspase-1 assembly, pyroptosis, and IL-1β/IL-18 release, with IL-18 driving IFN-γ that re-activates macrophages to acidify phagosomes and restrict growth (<a href="https://pubmed.ncbi.nlm.nih.gov/25774716/">PMID: 25774716</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/23975862/">PMID: 23975862</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/21700740/">PMID: 21700740</a>). Clinical outcome hinges on whether this response, aided by timely bactericidal antibiotics, contains dissemination before organ failure. This explains why <strong>early gentamicin</strong> is decisive and why <strong>delayed diagnosis</strong> — driven by the non-localizing, malignancy-mimicking presentation — is the strongest modifiable determinant of mortality.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Topic (abbrev.)</th>
+<th>Supports</th>
+<th>Evidence type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40107886/">40107886</a></td>
+<td>Tularemia for clinicians (review)</td>
+<td>F001, F002, F004, F011, F014</td>
+<td>Human clinical review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41458397/">41458397</a></td>
+<td>Typhoidal tularemia w/ pancytopenia &amp; pericarditis</td>
+<td>F001, F009</td>
+<td>Human case report</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16836829/">16836829</a></td>
+<td>US tularemia molecular epidemiology 1964–2004</td>
+<td>F002</td>
+<td>Human epidemiology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15953029/">15953029</a></td>
+<td>IglC/MglA phagosome biogenesis</td>
+<td>F003</td>
+<td>In vitro/model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18474647/">18474647</a></td>
+<td>MglA/Igl proteins in murine macrophages</td>
+<td>F003</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21700740/">21700740</a></td>
+<td>Nitric oxide inhibits mglA, phagosomal containment</td>
+<td>F003, F010</td>
+<td>In vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38294118/">38294118</a></td>
+<td>Fluoroquinolones for severe type B tularemia</td>
+<td>F004, F013</td>
+<td>Human clinical cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/1305858/">1305858</a></td>
+<td>Ecology of tularaemia</td>
+<td>F005, F008</td>
+<td>Review/ecology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31640844/">31640844</a></td>
+<td>Large Swedish outbreak 2019</td>
+<td>F005</td>
+<td>Human epidemiology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24874046/">24874046</a></td>
+<td>Norway 2011 surveillance</td>
+<td>F005, F006</td>
+<td>Human epidemiology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20220165/">20220165</a></td>
+<td>Immunochromatographic serodiagnosis</td>
+<td>F006</td>
+<td>Diagnostic validation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41160772/">41160772</a></td>
+<td>cfDNA sequencing diagnoses typhoidal case</td>
+<td>F006</td>
+<td>Human case report</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32989563/">32989563</a></td>
+<td>Tularemia re-emerging (review)</td>
+<td>F007</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11386933/">11386933</a></td>
+<td>Tularemia as biological weapon</td>
+<td>F007</td>
+<td>Consensus guideline</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28372827/">28372827</a></td>
+<td>Pulmonary CD4 T cells, SchuS4 model</td>
+<td>F008</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27714591/">27714591</a></td>
+<td>MAPK modulation; spleen/liver burden</td>
+<td>F008, F011</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41482246/">41482246</a></td>
+<td>Pulmonary tularemia mimicking malignancy</td>
+<td>F009, F013</td>
+<td>Human case series</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25774716/">25774716</a></td>
+<td>GBPs promote AIM2 activation</td>
+<td>F010</td>
+<td>Model/in vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23975862/">23975862</a></td>
+<td>ASC/IL-18/IFN-γ in F. novicida</td>
+<td>F010</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30404813/">30404813</a></td>
+<td>Gasdermin-D promotes AIM2, host protection</td>
+<td>F010</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27044720/">27044720</a></td>
+<td>Tick-borne diseases risk (Poland)</td>
+<td>F012</td>
+<td>Epidemiology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22911645/">22911645</a></td>
+<td>Missouri 121-case review</td>
+<td>F012</td>
+<td>Human case series</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23745121/">23745121</a></td>
+<td>LPS/lipid A immune evasion</td>
+<td>F012</td>
+<td>Review/mechanistic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24975504/">24975504</a></td>
+<td>Turkish multicenter 1034 cases</td>
+<td>F013</td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34223120/">34223120</a></td>
+<td>TPR1 rifampicin derivative</td>
+<td>§12</td>
+<td>Model organism</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Note on one citation:</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/30404813/">PMID: 30404813</a> was flagged as a snippet "mismatch" during verification (title-level quote), while the corroborating AIM2 mechanism citations (<a href="https://pubmed.ncbi.nlm.nih.gov/25774716/">PMID: 25774716</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/23975862/">PMID: 23975862</a>) were verified; the gasdermin-D claim should be treated as strongly supported but with that caveat.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Mechanistic studies use surrogates.</strong> Much intracellular-trafficking and inflammasome data derive from attenuated strains (LVS) or <em>F. novicida</em> and murine/<em>Drosophila</em> models, not virulent human type A SchuS4 in humans. Direct human <em>in vivo</em> mechanistic data are scarce for biosafety reasons.</li>
+<li><strong>Typhoidal-specific data are limited.</strong> The typhoidal form is uncommon (~10–14% of cases), so most epidemiologic and treatment-outcome data pool all forms; form-specific mortality figures rest largely on historical and review-level estimates.</li>
+<li><strong>No genetic dimension.</strong> Sections 4 and much of 9 (inheritance, variants, carrier screening) are Not Applicable; human genetic susceptibility is essentially uncharacterized beyond innate-immune pathway inference.</li>
+<li><strong>One citation caveat.</strong> The gasdermin-D snippet (<a href="https://pubmed.ncbi.nlm.nih.gov/30404813/" target="_blank" rel="noopener noreferrer">PMID 30404813</a>) was a title-level mismatch during verification.</li>
+<li><strong>Diagnostic delay is systemic.</strong> The malignancy-mimicking, non-localizing presentation means published typhoidal cases are biased toward severe/complicated or incidentally-discovered patients.</li>
+<li><strong>Vaccine evidence gap.</strong> No licensed vaccine; LVS efficacy correlates remain incompletely defined.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Form-stratified outcome meta-analysis.</strong> Pool national surveillance datasets (Sweden, Norway, US CDC, Turkey) to derive typhoidal-specific case-fatality, time-to-treatment, and relapse rates with confidence intervals.</li>
+<li><strong>Human AIM2/IFN-γ correlates.</strong> Prospectively measure serum IL-18, IFN-γ, and IL-1β in confirmed typhoidal cases to test whether inflammasome activation predicts severity/outcome.</li>
+<li><strong>Rapid point-of-care diagnostics validation.</strong> Evaluate cfDNA/metagenomic and multiplex-PCR assays specifically in bacteremic/typhoidal patients to shorten the ~2-week serology window.</li>
+<li><strong>Antibiotic head-to-head.</strong> Design a prospective registry comparing gentamicin vs fluoroquinolone vs combination therapy in severe/systemic disease, capturing relapse.</li>
+<li><strong>Vaccine correlate studies.</strong> Extend multifunctional T-cell/IL-17 correlate work (LVS) toward a licensable defined live-attenuated or subunit vaccine, tested against systemic challenge in the SchuS4 model.</li>
+<li><strong>Host-directed adjuncts.</strong> Test IFN-γ or nitric-oxide-pathway augmentation as adjuncts to antibiotics in murine systemic models, building on the mglA-inhibition finding (<a href="https://pubmed.ncbi.nlm.nih.gov/21700740/" target="_blank" rel="noopener noreferrer">PMID 21700740</a>).</li>
+</ol>
+<hr />
+<p><em>Report compiled from 14 confirmed findings and 67 reviewed papers across 5 iterations. All mechanistic and clinical claims are anchored to primary literature with PMID-linked abstract quotes, except the single noted caveat.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Typhoidal_Tularemia-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Typhoidal_Tularemia-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>25</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>GO:0005829</code> (3 mentions) - the report calls it "Escape into the cytosol"; GO calls it <strong>cytosol</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>CL:0000235</code> (3 mentions) - the report calls it "CL terms:<strong> macrophage"; CL calls it </strong>macrophage**</li>
+<li><code>GO:0090382</code> (1 mention) - the report calls it "GO terms:<strong> phagosome maturation"; GO calls it </strong>phagosome maturation**</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Typhoid_Fever-openscientist.html">← Typhoid Fever (OpenScientist)</a>
+                
+                
+                <a href="Tyrosinemia_Type_I-falcon.html">Tyrosinemia Type I (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Typhoidal_Tularemia.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Typhoidal_Tularemia-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

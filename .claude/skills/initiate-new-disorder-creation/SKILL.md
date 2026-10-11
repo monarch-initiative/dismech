@@ -74,7 +74,6 @@ kb/disorders/Foo_Bar.yaml:
 ```yaml
 name: Foo Bar
 creation_date: "2025-06-12T20:16:27Z"
-updated_date: "2025-06-12T20:16:27Z"
 category: Complex
 disease_term:
   term:
@@ -99,8 +98,11 @@ treatments:
 datasets:
 ```
 
-`creation_date` and `updated_date` must be ISO 8601/RFC 3339 datetime strings.
-When editing an existing file, preserve `creation_date` and bump `updated_date`.
+`creation_date` must be an ISO 8601/RFC 3339 datetime string. When editing an
+existing file, preserve `creation_date`. Do not add `updated_date`: the field is
+deprecated, git history is the authoritative change log, and entries that still
+carry it may keep it until a bulk cleanup (see CLAUDE.md and the schema's
+`updated_date` description).
 
 The objects must follow the LinkML schema in src/dismech/schema.
 
@@ -278,12 +280,18 @@ Two places to look:
 
 **What to do with it:**
 
-- **Read `needs_review` first.** It is the one key that cannot give you a false
-  all-clear: it is set when any identifier failed to resolve, *or* any quote
-  failed to match, *or* any reference looks off topic. Do **not** read
-  `confabulation_rate` as the whole-report signal — it measures identifier
-  resolution and nothing else, so a report whose every PMID exists but whose
-  quotes do not match still reports `0.0`.
+- **Read `needs_review` first.** It is set when any identifier failed to
+  resolve, *or* any quote failed to match, *or* any reference looks off topic.
+  Do **not** read `confabulation_rate` as the whole-report signal — it measures
+  identifier resolution and nothing else, so a report whose every PMID exists but
+  whose quotes do not match still reports `0.0`.
+- **An absent `needs_review` is not an all-clear on its own.** The key is written
+  only when true, and nine committed reports omit it although their own block
+  meets a trigger (`Bone_Giant_Cell_Tumor` has `quotes_valid: 0` of
+  `quotes_checked: 4`; #11794). When the key is absent, check the triggers
+  yourself: `not_found`, `unresolved_references`, `quotes_valid` against
+  `quotes_checked`, and `off_topic`. `just dr-validation-census --needs-review`
+  lists every report that meets a trigger, with or without the key.
 - Anything under `unresolved_references` — **do not cite it.** Either find a
   different source for the claim or drop the claim. Do not "verify it yourself"
   by fetching it again and moving on if it happens to work the second time
@@ -321,7 +329,15 @@ it catches Named Entity Confusion — run `just preflight-dr` as usual. **The
 relevance check is not a substitute for that**: references are scored against
 *the report's own* vocabulary, so a report built around the wrong disease has
 wrong-disease vocabulary too and scores all of its wrong-disease citations as
-on topic. See
+on topic. Term validation cannot see it either, because a wrong-disease
+report's identifiers are correct *for the disease it is actually about*. So a
+clean validation table does not tell you the report is about your disease.
+The first openscientist report for CMD2H (GET3/ASNA1) was about CMD2D
+(RPL3L). It mentioned RPL3L 44 times and GET3 never, yet it came back with
+19/19 references resolved and 0 off topic. One failed quote match was the only
+warning ([#10495](https://github.com/monarch-initiative/dismech/issues/10495)).
+Run `just preflight-dr`; do not assume it would pass because the table is
+clean. See
 [`docs/deep-research-reference-validation.md`](../../../docs/deep-research-reference-validation.md).
 
 #### Term validation
@@ -382,16 +398,36 @@ source.
 > coverage is unlikely, skip directly to Step 4 — the PubMed search below will
 > confirm either way.
 
-#### 1. Search PubMed for a GeneReviews article
+#### 1. Check for a GeneReviews chapter
+
+Once the YAML carries its `name`, `synonyms` and `disease_term`, run the offline
+check against the committed Bookshelf index (`--online` adds a live PubMed
+title search when you have network, for chapters newer than the snapshot):
+
+```bash
+just check-genereviews --online kb/disorders/<Entry>.yaml
+```
+
+`UNTAGGED_CHAPTER` or `CITED_UNTAGGED` on the `GeneReviews` line names the
+chapter (PMID and title); `CANDIDATE_CHAPTER` lists partial title matches for
+you to read; `NO_CHAPTER` means none names the disease. If the report adds
+`note: entry has no synonyms`, the check matched only the name and
+`disease_term`, so its `NO_CHAPTER` proves nothing yet: chapters are often
+titled by a synonym (#12075). Add the synonyms and re-run before writing that
+no chapter exists. If the disease has no synonyms anywhere, write
+`synonyms: []` to record that. The reviewer runs the
+same check, so its verdict is what the review will see. The `StatPearls` line
+is informational — a StatPearls chapter may be cited for orientation but is
+never the baseline (see `docs/genereviews-baseline-check.md`).
+
+Before the file exists, the same question can be put to PubMed directly with
+the `[book]` field, which selects GeneReviews chapters exactly:
 
 ```bash
 curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi" \
-  --data-urlencode "db=pubmed" \
-  --data-urlencode "retmode=json" \
-  --data-urlencode "term=<DISEASE_NAME>[TI] GeneReviews[TI]"
+  --data-urlencode "db=pubmed" --data-urlencode "retmode=json" \
+  --data-urlencode "term=<DISEASE_NAME>[TI] AND genereviews[book]"
 ```
-
-If no results, try a broader search: `<DISEASE_NAME> GeneReviews[All Fields]`
 
 #### 2. If a PMID is found, fetch and cache it
 
@@ -454,7 +490,8 @@ When frequency is ambiguous, **omit `frequency:`** rather than guessing.
 
 If no GeneReviews article exists for the disease, proceed to Step 4
 without this baseline. No action needed — the absence itself is not a
-problem.
+problem. A one-line `notes:` sentence recording it is still worth writing,
+and the reviewer's `just check-genereviews` run is what verifies it.
 
 ---
 
@@ -485,10 +522,25 @@ missing, sweep the body for identifiers rather than reading linearly, so the set
 you work from is still the report's and not your reading path's:
 
 ```bash
-grep -o "PMID:[0-9]*" research/DISORDER-deep-research-PROVIDER.md | sort -u
+grep -oE "PMIDs?:? ?[0-9]{6,9}\b" research/DISORDER-deep-research-PROVIDER.md \
+  | grep -oE "[0-9]{6,9}" | sort -u
 ```
 
-That covers about four in five sidecar-less reports. Where it returns nothing,
+The pattern accepts `PMID:123`, `PMID: 123`, `PMID 123` and `PMIDs 123`,
+because providers do not agree on a separator. `openscientist` report bodies
+write `PMID 23023331` with a space, so a colon-only pattern returns nothing on
+them, and that empty result looks exactly like a report with no PMIDs (#10979).
+Its sidecar, when there is one, uses the colon form, but it is not written on
+every run of the same command. So an empty result from the sidecar *or* from
+this sweep is not evidence that the report has no fetchable identifiers. Check
+the other one before concluding that.
+
+Two limits. In a list such as `(PMID 29112224, 23023331)` only the first number
+follows the word `PMID`, so only the first is caught; read the lines the sweep
+matched for trailing numbers. And the trailing `\b` drops a digit run longer
+than nine characters rather than truncating it into a plausible-looking PMID.
+
+That covers about nine in ten sidecar-less reports. Where it returns nothing,
 look for DOIs before giving up. `falcon` reports are the usual case: they cite
 by author-year key (`martelli2024clinicalspectrumof`), which is not a fetchable
 identifier, and the sidecar-less ones carry no PMID strings at all — but most

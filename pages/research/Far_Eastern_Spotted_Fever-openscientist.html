@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Far Eastern Spotted Fever · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/genes/">Genes</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Far Eastern Spotted Fever</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Far Eastern Spotted Fever</h1>
+                
+                <p class="report-subtitle">Far Eastern Spotted Fever (FESF): Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-09-28</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0000231" target="_blank" rel="noopener noreferrer">MONDO:0000231</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">15 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Far Eastern Spotted Fever (FESF): Comprehensive Disease Characterization Report</h1>
+<p><strong>Disease:</strong> Far Eastern Spotted Fever (Far Eastern tick-borne rickettsiosis)
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0000231" target="_blank" rel="noopener noreferrer">MONDO:0000231</a>
+<strong>Category:</strong> Infectious Disease (zoonotic, tick-borne, spotted fever group rickettsiosis)
+<strong>Causative agent:</strong> <em>Rickettsia heilongjiangensis</em></p>
+<hr />
+<h2>Summary</h2>
+<p>Far Eastern Spotted Fever (FESF) is an acute, generally self-limited, zoonotic tick-borne rickettsiosis caused by <em>Rickettsia heilongjiangensis</em>, an obligate intracellular, Gram-negative alphaproteobacterium of the spotted fever group (SFGR). First documented as a distinct human disease in the Russian Far East, the illness is transmitted primarily by <em>Haemaphysalis concinna</em> ticks and is maintained in nature through a tick–wild-mammal cycle involving reservoir hosts such as hedgehogs (<em>Erinaceus amurensis</em>) and small mammals. Its geographic range spans temperate Northeast Asia — the Russian Far East, northern and eastern China, Inner Mongolia, Korea, Japan — and has recently extended westward to Kazakhstan.</p>
+<p>Mechanistically, FESF is a <strong>rickettsial vasculitis</strong>. After tick inoculation, the bacterium disseminates and preferentially infects <strong>vascular endothelial cells</strong>, using surface adhesins (OmpB, YbgF, RpsB) to adhere to and invade the endothelium. Intracellular replication triggers vascular inflammation, increased vascular permeability, and small-vessel injury, producing the characteristic clinical tetrad of <strong>high fever, an inoculation eschar (tache noire) at the tick-bite site, a maculopapular rash, and regional lymphadenopathy</strong>. A subset of patients develop gastrointestinal symptoms, consistent with a C57BL/6 mouse model that identified the <strong>stomach</strong> as a target organ. Host defense is dominated by a <strong>Th1-polarized, IFN-γ/TNF-α–driven, CD4⁺/CD8⁺ T-cell response</strong>, with endothelial Tim-3 upregulation promoting nitric-oxide/iNOS-mediated intracellular killing.</p>
+<p>FESF is diagnosed by <strong>indirect immunofluorescence assay (IFA) seroconversion combined with molecular detection (nested PCR, NGS/mNGS)</strong> of blood, eschar, or skin biopsy targeting rickettsial genes (<em>gltA, ompA, ompB, 16S rRNA/rrs, sca4</em>). It responds rapidly to <strong>doxycycline</strong>, the first-line therapy; delayed treatment is the principal modifiable driver of severe outcomes. Prognosis is generally favorable and the disease sits at the mild end of the SFGR spectrum (in contrast to Rocky Mountain spotted fever), though rare severe complications (leukocytoclastic vasculitis, multi-organ dysfunction, hemophagocytic lymphohistiocytosis) are described across SFGR. There is <strong>no human genetic component and no licensed vaccine</strong>; prevention rests on personal anti-tick measures (DEET, permethrin-treated clothing, protective clothing, body checks, prompt tick removal).</p>
+<p>This report consolidates 14 confirmed findings drawn from 57 reviewed papers across all 15 requested disease-characteristic domains, with explicit indication of where information is unavailable or not applicable (notably the genetic/molecular, inheritance, and model-organism domains, which are largely not applicable to an infectious vasculitis with no host Mendelian basis).</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>F001 — Etiology: <em>Rickettsia heilongjiangensis</em> is the causative agent</h3>
+<p>FESF is caused by <strong><em>Rickettsia heilongjiangensis</em></strong>, a spotted fever group rickettsia. The first documented human cases were reported in the Russian Far East by Mediannikov and colleagues, who named the disease "Far Eastern tick-borne rickettsiosis." The organism is an obligate intracellular, Gram-negative bacterium.</p>
+<blockquote>
+<p><em>"We recently reported the first documented cases of a new rickettsial disease caused by Rickettsia heilongjiangensis in the Russian Far East (Far Eastern tick-borne rickettsiosis)."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/17114683/">PMID: 17114683</a></p>
+<p><em>"Rickettsia heilongjiangensis is the pathogen of Far eastern spotted fever"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26401029/">PMID: 26401029</a></p>
+</blockquote>
+<p>This establishes the disease as an <strong>infectious</strong>, not genetic, condition. <strong>Organism annotation:</strong> <em>Rickettsia heilongjiangensis</em> (NCBI Taxonomy; family Rickettsiaceae, genus <em>Rickettsia</em>, spotted fever group).</p>
+<h3>F002 — Vector: <em>Haemaphysalis concinna</em> is the principal tick vector</h3>
+<p>Screening of Russian Far Eastern ticks found up to <strong>28.13% of <em>H. concinna</em></strong> and <strong>4.48% of <em>H. japonica douglasii</em></strong> harbored <em>R. heilongjiangensis</em>; rickettsial DNA was amplified from both a patient's skin biopsy and the tick removed from that patient before illness onset. Additional hard-tick surveys along the Chinese–Russian border confirm a broader vector complex (<em>Ixodes persulcatus</em>, <em>H. concinna</em>, <em>H. japonica</em>, <em>Dermacentor silvarum</em>).</p>
+<blockquote>
+<p><em>"It has been concluded that H. concinnae may serve as the main vector for the transmission of R. heilongjiangensis."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/17114683/">PMID: 17114683</a></p>
+<p><em>"up to 28.13% of H. concinnae and 4.48% of H. japonica douglasii ticks harbor R. heilongjiangensis"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/17114683/">PMID: 17114683</a></p>
+</blockquote>
+<h3>F003 — Target cell and core mechanism: endothelial-tropic rickettsial vasculitis</h3>
+<p>The <strong>vascular endothelium is the primary cellular target</strong> of <em>R. heilongjiangensis</em>, and disease results from endothelial infection with attendant vascular inflammation. Spotted fever group rickettsiae broadly cause endothelial infection, vascular inflammation, and compromised vascular permeability — collectively termed <strong>"rickettsial vasculitis."</strong> In endothelial cells, upregulation of T-cell immunoglobulin and mucin domain protein 3 (Tim-3) facilitates intracellular rickettsial killing via nitric oxide/iNOS and IFN-γ.</p>
+<blockquote>
+<p><em>"T-cell immunoglobulin and mucin domain protein 3 (Tim-3) is expressed in human vascular endothelial cells, the major target cells of rickettsiae"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26401029/">PMID: 26401029</a></p>
+<p><em>"the pathogen's affinity for endothelium lining the blood vessels, the consequences of which are vascular inflammation, insult to vascular integrity and compromised vascular permeability, collectively termed 'Rickettsial vasculitis'"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/19327117/">PMID: 19327117</a></p>
+</blockquote>
+<p><strong>Ontology suggestions:</strong> Cell type — endothelial cell (<strong><a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a></strong>), vascular endothelial cell (<strong><a href="http://purl.obolibrary.org/obo/CL_0002139" target="_blank" rel="noopener noreferrer">CL:0002139</a></strong>); process — inflammatory response (<strong><a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a></strong>), regulation of vascular permeability (<strong><a href="http://purl.obolibrary.org/obo/GO_0043114" target="_blank" rel="noopener noreferrer">GO:0043114</a></strong>).</p>
+<h3>F004 — Geographic distribution: temperate Northeast Asia, extending to Kazakhstan</h3>
+<p><em>R. heilongjiangensis</em> has been detected in ticks and/or patients across the Chinese–Russian border (Suifenhe), Inner Mongolia (Yakeshi/Hulunbuir, 2.68% of ticks), and southeast China (hedgehogs and ticks), and was first reported in Kazakhstan in 2023 — documenting a westward extension of the known range.</p>
+<blockquote>
+<p><em>"To the best of our knowledge, this study reports the first finding of R. heilongjiangensis in Kazakhstan."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/37722147/">PMID: 37722147</a></p>
+<p><em>"The present study gave the first evidence of R. heilongjiangensis and Candidatus R. xuyiensis in ticks and hedgehogs of Southeast China. Our findings suggest that hedgehogs might be involved in the natural transmission cycle of Rickettsia species."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/36097185/">PMID: 36097185</a></p>
+</blockquote>
+<h3>F005 — Organ tropism: stomach identified as a target organ (mouse model)</h3>
+<p>Using click-chemistry labeling and <em>in vivo</em> imaging in a <strong>C57BL/6 tick-bite-simulating infection model</strong>, the <strong>stomach</strong> was identified as a target organ of <em>R. heilongjiangensis</em>, providing a mechanistic explanation for the gastrointestinal symptoms seen in some patients.</p>
+<blockquote>
+<p><em>"we constructed a C57BL/6 mice infection model by simulating tick bites and discovered that the stomach is the target organ of R. heilongjiangensis infection through in vivo imaging systems, which explained the occurrence of gastrointestinal symptoms following R. heilongjiangensis infection in some cases"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/38951577/">PMID: 38951577</a></p>
+</blockquote>
+<p><strong>Ontology suggestion:</strong> stomach (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0000945" target="_blank" rel="noopener noreferrer">UBERON:0000945</a></strong>).</p>
+<h3>F006 — Clinical phenotype: eschar–rash–fever–lymphadenopathy tetrad</h3>
+<p>FESF presents as a spotted fever group rickettsiosis with seroconversion to <em>R. heilongjiangensis</em> antigen and rickettsial DNA amplifiable from skin biopsy. The characteristic eschar-associated SFGR tetrad comprises <strong>high fever (~39–40 °C), erythematous maculopapular eruption, an inoculation eschar (tache noire) at the tick-bite site, and regional lymphadenopathy</strong>. Gastrointestinal symptoms occur in a subset. Headache, myalgia/arthralgia, and laboratory thrombocytopenia and elevated transaminases are common across SFGR.</p>
+<blockquote>
+<p><em>"The clinical picture was that of a spotted fever group rickettsiosis and a seroconversion was noted with R. heilongjiangensis antigen."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/17114683/">PMID: 17114683</a></p>
+<p><em>"His clinical symptoms on admission were high fever (39.6 degrees C), erythematous eruption, eschar on the right upper arm, and regional lymphoadenopathy."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/15858293/">PMID: 15858293</a></p>
+</blockquote>
+<p><strong>HPO term suggestions:</strong> Fever (<strong><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a></strong>); Maculopapular exanthema (<strong><a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a></strong>); Skin ulcer / eschar (<strong><a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" rel="noopener noreferrer">HP:0200042</a></strong>); Lymphadenopathy (<strong><a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a></strong>); Headache (<strong><a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a></strong>); Myalgia (<strong><a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a></strong>); Arthralgia (<strong><a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" rel="noopener noreferrer">HP:0002829</a></strong>); Thrombocytopenia (<strong><a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a></strong>); Elevated hepatic transaminase (<strong><a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" rel="noopener noreferrer">HP:0002910</a></strong>); Gastrointestinal symptoms (<strong><a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank" rel="noopener noreferrer">HP:0011024</a></strong>).</p>
+<h3>F007 — Treatment: doxycycline is first-line; delayed therapy worsens outcomes</h3>
+<p>Early doxycycline is effective against SFGR, and delayed treatment increases the risk of severe outcomes. Tetracycline-class agents (doxycycline; minocycline used in Japan) are the mainstay for spotted fever rickettsioses. For the severe-end comparator Rocky Mountain spotted fever, delayed doxycycline (&gt;5 days from onset) is independently associated with fatality.</p>
+<blockquote>
+<p><em>"Early administration of doxycycline is effective against SFGR infection, and delayed treatment increases the risk of severe outcomes."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/42488420/">PMID: 42488420</a></p>
+<p><em>"Fatal outcomes were associated with delayed doxycycline treatment (&gt;5 days after symptom onset)"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41714602/">PMID: 41714602</a></p>
+</blockquote>
+<p><strong>NCIT suggestions:</strong> Doxycycline (<strong>NCIT:C312</strong>); Minocycline (<strong>NCIT:C61815</strong>).</p>
+<h3>F008 — Diagnosis: serology (IFA seroconversion) plus molecular detection (PCR/NGS)</h3>
+<p>Original FESF cases were confirmed by seroconversion to <em>R. heilongjiangensis</em> antigen and PCR amplification of rickettsial DNA from skin biopsy and the attached tick. Contemporary confirmation uses nested PCR of rickettsia-specific gene fragments (<em>gltA, ompA, ompB, 16S rRNA/rrs, sca4</em>) with sequencing plus serology; NGS/metagenomic NGS is recommended especially for acute tick-bitten patients and enables diagnosis in atypical cases.</p>
+<blockquote>
+<p><em>"Here we report the amplification of DNA of R. heilongjiangensis from both the skin biopsy of an acutely ill patient and the tick removed from him prior to the disease development."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/17114683/">PMID: 17114683</a></p>
+<p><em>"The methods of nucleic acid diagnosis, such as nPCR and next-generation sequencing (NGS), should be implemented especially in acute tick-bitten patients."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/42488420/">PMID: 42488420</a></p>
+</blockquote>
+<h3>F009 — Prognosis: generally favorable/self-limited, rare severe complications</h3>
+<p>FESF is regarded as a relatively mild, non-fatal SFGR compared with Rocky Mountain spotted fever; the index Russian Far East cases recovered. However, eschar-forming SFGR can rarely progress to leukocytoclastic vasculitis, multi-organ dysfunction, and hemophagocytic lymphohistiocytosis (HLH), and delayed treatment increases severity. RMSF case-fatality (~20% untreated, and 30–80% in some recent South American/Mexican series) illustrates the severe end of the SFGR spectrum, whereas FESF sits at the milder end.</p>
+<blockquote>
+<p><em>"delayed treatment increases the risk of severe outcomes"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/42488420/">PMID: 42488420</a></p>
+<p><em>"The clinical picture was that of a spotted fever group rickettsiosis and a seroconversion was noted with R. heilongjiangensis antigen."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/17114683/">PMID: 17114683</a></p>
+</blockquote>
+<h3>F010 — Molecular pathogenesis: surface adhesins and Th1 protective immunity</h3>
+<p>Surface adhesins mediate endothelial adhesion/invasion, and protective immunity is Th1-polarized. <strong>OmpB</strong> is a major surface protein antigen; OmpB-pulsed dendritic cells confer protection in C3H/HeN mice with elevated CD4⁺/CD8⁺ T-cell IFN-γ and TNF-α. The surface antigen <strong>YbgF</strong> induces Th1-type protective immunity (increased IgG2a/IgG1), and anti-YbgF serum significantly reduces rickettsial adhesion to and invasion of endothelial cells. The ribosomal protein <strong>RpsB</strong> is a surface-exposed adhesin. Endothelial <strong>Tim-3</strong> upregulation drives iNOS/NO- and IFN-γ-dependent intracellular killing.</p>
+<blockquote>
+<p><em>"Incubation with anti-serum to YbgF, but not PrsA, significantly reduced the number of rickettsiae adhering to and invading endothelial cells."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/24113261/">PMID: 24113261</a></p>
+<p><em>"YbgF is a novel protective antigen that induces a Th1-type of protective immune response against R. heilongjiangensis infection."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/24113261/">PMID: 24113261</a></p>
+<p><em>"Identification of a Ribosomal Protein RpsB as a Surface-Exposed Protein and Adhesin"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/31360728/">PMID: 31360728</a></p>
+</blockquote>
+<p><strong>Ontology suggestions:</strong> T-helper 1 type immune response (<strong><a href="http://purl.obolibrary.org/obo/GO_0042088" target="_blank" rel="noopener noreferrer">GO:0042088</a></strong>); positive regulation of nitric oxide biosynthetic process (<strong><a href="http://purl.obolibrary.org/obo/GO_0045429" target="_blank" rel="noopener noreferrer">GO:0045429</a></strong>); CD4⁺ αβ T cell (<strong><a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" rel="noopener noreferrer">CL:0000624</a></strong>); CD8⁺ αβ T cell (<strong><a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" rel="noopener noreferrer">CL:0000625</a></strong>); dendritic cell (<strong><a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a></strong>).</p>
+<h3>F011 — Prevention: personal anti-tick measures; no licensed vaccine</h3>
+<p>No licensed human vaccine exists for FESF/SFGR. Primary prevention relies on personal protection against tick bites — topical DEET on skin, permethrin-treated clothing, protective clothing (trousers tucked into boots), avoiding tick-infested habitats, body checks, and prompt tick removal. Experimental vaccine antigens (OmpB, YbgF) protect mice but are not clinically available. Secondary prevention is prompt empiric doxycycline after tick exposure with compatible illness.</p>
+<blockquote>
+<p><em>"The best method to avoid tick bites is twofold: application of a topical deet (N,N-diethyl-m-toluamide) repellent to exposed skin, and treatment of clothing with permethrin."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/17338947/">PMID: 17338947</a></p>
+<p><em>"YbgF is a novel protective antigen that induces a Th1-type of protective immune response against R. heilongjiangensis infection."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/24113261/">PMID: 24113261</a></p>
+</blockquote>
+<h3>F012 — Risk factors: outdoor rural tick exposure with spring–summer seasonality</h3>
+<p>FESF is acquired via tick bite during outdoor activity; SFGR cases repeatedly report agricultural/forestry work and field exposure as the key risk factor. Reservoir hosts include hedgehogs (<em>Erinaceus amurensis</em>) and small mammals that maintain the tick cycle. Vector ticks are active in warm months, producing spring–summer seasonality. No genetic host risk factors are established; risk is <strong>environmental/behavioral</strong>.</p>
+<blockquote>
+<p><em>"JSF should be a key consideration for agricultural and forestry workers presenting with compatible symptoms"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40922296/">PMID: 40922296</a></p>
+<p><em>"Our findings suggest that hedgehogs might be involved in the natural transmission cycle of Rickettsia species."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/36097185/">PMID: 36097185</a></p>
+</blockquote>
+<h3>F013 — Molecular profiling: cutaneous immunoprofiling/RNA-seq of SFGR</h3>
+<p>Surveillance of tick-bitten patients (2013–2016) identified 111 SFGR cases; humoral and cutaneous immunoprofiles were evaluated by serum cytokine/chemokine detection, skin immunohistochemistry, and transcriptome sequencing (RNA-seq) to characterize the early host–rickettsia interaction in skin. This complements the endothelial-tropism/vasculitis model with transcriptomic and cytokine molecular-profiling evidence.</p>
+<blockquote>
+<p><em>"Humoral and cutaneous immunoprofiles were evaluated in different SFGR cases by serum cytokine and chemokine detection, skin IHC staining, and transcriptome sequencing (RNA-seq)."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/31907196/">PMID: 31907196</a></p>
+</blockquote>
+<h3>F014 — Identifiers, taxonomy, temporal course, and zoonotic classification</h3>
+<p>FESF is an acute, self-limited zoonotic tick-borne rickettsiosis. Causative organism: <em>Rickettsia heilongjiangensis</em> (domain Bacteria; family Rickettsiaceae; genus <em>Rickettsia</em>; spotted fever group), an obligate intracellular Gram-negative alphaproteobacterium. Onset is acute after an incubation of roughly several days to ~2 weeks following tick attachment; illness resolves over ~1–2 weeks with doxycycline. It is zoonotic (maintained in ticks and wild mammalian reservoirs), <strong>not transmitted person-to-person</strong>, and has <strong>no genetic inheritance</strong>.</p>
+<blockquote>
+<p><em>"Rickettsia heilongjiangensis is an obligate intracellular bacterium that causes Far-Eastern tick-borne spotted fever."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/25270001/">PMID: 25270001</a></p>
+<p><em>"a new rickettsial disease caused by Rickettsia heilongjiangensis in the Russian Far East (Far Eastern tick-borne rickettsiosis)"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/17114683/">PMID: 17114683</a></p>
+</blockquote>
+<hr />
+<h2>Section-by-Section Characterization</h2>
+<h3>1. Disease Information</h3>
+<ul>
+<li><strong>Overview:</strong> FESF is an acute febrile, tick-borne, spotted fever group rickettsiosis caused by <em>R. heilongjiangensis</em>, characterized by fever, inoculation eschar, maculopapular rash, and regional lymphadenopathy (F001, F006, F014).</li>
+<li><strong>Identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0000231" target="_blank" rel="noopener noreferrer">MONDO:0000231</a>. There is <strong>no OMIM entry</strong> (not a Mendelian disorder). MeSH concept relates to "Rickettsia Infections"/"Spotted Fever Group." ICD-10 falls under <strong>A77 (Spotted fever [tick-borne rickettsioses])</strong>; ICD-11 under <strong>1C30.0</strong> (Spotted fever group rickettsiosis). Orphanet does not maintain a distinct FESF rare-disease number (infectious, not rare Mendelian, disease).</li>
+<li><strong>Synonyms:</strong> Far Eastern tick-borne rickettsiosis; Far Eastern tick-borne spotted fever; <em>R. heilongjiangensis</em> infection (F001, F014).</li>
+<li><strong>Information source:</strong> Aggregated disease-level resources (case reports, tick surveillance, animal models) — not EHR/individual-patient registries.</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Causal factor:</strong> Infectious — <em>R. heilongjiangensis</em> (F001). Transmission is via tick bite (F002). <strong>No genetic/host-Mendelian causation.</strong></li>
+<li><strong>Risk factors (environmental/behavioral):</strong> Outdoor agricultural/forestry/recreational activity in endemic rural Northeast Asia; tick exposure; spring–summer season (F012). No established genetic risk factors, protective alleles, or gene–environment interactions (not applicable to a bacterial infection with no known host-genetic modifier). Empirically, <strong>early doxycycline</strong> is the principal factor mitigating severe disease (F007, F009).</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<p>See F006. Principal phenotypes with suggested HPO terms and qualitative frequency (extrapolated from SFGR literature; FESF-specific frequencies are not precisely quantified):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO term</th>
+<th>Type</th>
+<th>Frequency (qualitative)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever (~39–40 °C)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a></td>
+<td>Symptom/sign</td>
+<td>Very frequent (near-universal)</td>
+</tr>
+<tr>
+<td>Maculopapular rash</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a></td>
+<td>Physical manifestation</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Inoculation eschar (tache noire)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" rel="noopener noreferrer">HP:0200042</a></td>
+<td>Physical manifestation</td>
+<td>Frequent (eschar-forming SFGR)</td>
+</tr>
+<tr>
+<td>Regional lymphadenopathy</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a></td>
+<td>Clinical sign</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Headache</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a></td>
+<td>Symptom</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Myalgia / arthralgia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a> / <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" rel="noopener noreferrer">HP:0002829</a></td>
+<td>Symptom</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Gastrointestinal symptoms</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank" rel="noopener noreferrer">HP:0011024</a></td>
+<td>Symptom</td>
+<td>Subset (stomach tropism, F005)</td>
+</tr>
+<tr>
+<td>Thrombocytopenia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a></td>
+<td>Lab abnormality</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Elevated transaminases</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" rel="noopener noreferrer">HP:0002910</a></td>
+<td>Lab abnormality</td>
+<td>Common</td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Onset:</strong> adult-predominant, acute. <strong>Severity:</strong> mild–moderate (variable). <strong>Progression:</strong> self-limited/episodic single illness. <strong>QoL:</strong> transient impairment during acute illness; full recovery expected with treatment (F009).</li>
+</ul>
+<h3>4. Genetic/Molecular Information</h3>
+<p><strong>Not applicable at the host level</strong> — FESF is an infectious disease with no causal human genes, pathogenic host variants, modifier genes, host epigenetic drivers, or chromosomal abnormalities. The relevant "molecular" information is <strong>pathogen-side</strong>: bacterial surface adhesins/antigens <strong>OmpB, YbgF, RpsB</strong> (F010), and diagnostic marker genes <em>gltA, ompA, ompB, rrs (16S rRNA), sca4</em> (F008). Complete and comparative genome sequences of <em>R. heilongjiangensis</em> exist (e.g., <a href="https://pubmed.ncbi.nlm.nih.gov/36440590/" target="_blank" rel="noopener noreferrer">PMID 36440590</a>, 31866968).</p>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental/lifestyle factors:</strong> Outdoor rural exposure, agriculture/forestry, tick-infested habitats, warm-season activity (F012).</li>
+<li><strong>Infectious agent:</strong> <em>Rickettsia heilongjiangensis</em> (SFGR), transmitted by <em>Haemaphysalis concinna</em> (principal), with <em>H. japonica</em>, <em>Ixodes persulcatus</em>, <em>Dermacentor silvarum</em>, and <em>H. longicornis</em> implicated in the vector complex; reservoirs include hedgehogs and small mammals (F001, F002, F004, F012).</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain:</strong></p>
+<ol>
+<li>An infected <em>Haemaphysalis concinna</em> tick attaches and inoculates <em>R. heilongjiangensis</em> into the skin during a blood meal → <strong>leads to</strong> local infection at the bite site. <em>(F002)</em></li>
+<li>Local replication and immune infiltration at the inoculation site → <strong>results in</strong> dermal/vascular necrosis forming the <strong>eschar (tache noire)</strong> and drainage to <strong>regional lymph nodes</strong> (lymphadenopathy). <em>(F006; inferred from SFGR eschar biology)</em></li>
+<li>Bacteria use surface adhesins (<strong>OmpB, YbgF, RpsB</strong>) to adhere to and invade <strong>vascular endothelial cells</strong> → <strong>leads to</strong> hematogenous/lymphatic dissemination and systemic endothelial infection. <em>(F003, F010)</em></li>
+<li>Intracellular replication within endothelium → <strong>results in</strong> endothelial activation, cyclooxygenase-2 induction and vasoactive prostaglandin release, cytokine/chemokine production, and increased <strong>vascular permeability</strong> ("rickettsial vasculitis"). <em>(F003; supported by SFGR endothelial studies)</em></li>
+<li>Small-vessel inflammation and microvascular leak in skin and other organs → <strong>produces</strong> the clinical <strong>fever, maculopapular rash</strong>, and (in a subset) <strong>gastrointestinal symptoms</strong> (stomach is a target organ). <em>(F003, F005, F006)</em></li>
+<li>Host response mounts a <strong>Th1-polarized, IFN-γ/TNF-α, CD4⁺/CD8⁺ T-cell</strong> program; endothelial <strong>Tim-3 upregulation</strong> drives <strong>iNOS/NO-dependent intracellular killing</strong> → <strong>results in</strong> bacterial clearance and, typically, self-limited recovery. <em>(F003, F010)</em></li>
+<li><strong>Branch (rare, severe):</strong> if treatment is delayed or the host response dysregulates, widespread endothelial injury → <strong>may lead to</strong> leukocytoclastic vasculitis, multi-organ dysfunction, or hemophagocytic lymphohistiocytosis. <em>(F009; inferred from severe SFGR cases)</em></li>
+</ol>
+<p><strong>Upstream:</strong> tick inoculation, adhesin-mediated endothelial invasion. <strong>Downstream:</strong> vasculitis, vascular permeability, organ-specific manifestations. <strong>Cell types:</strong> vascular endothelial cells (<a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a>/<a href="http://purl.obolibrary.org/obo/CL_0002139" target="_blank" rel="noopener noreferrer">CL:0002139</a>), CD4⁺/CD8⁺ T cells, dendritic cells, macrophages. <strong>GO processes:</strong> inflammatory response (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>), regulation of vascular permeability (<a href="http://purl.obolibrary.org/obo/GO_0043114" target="_blank" rel="noopener noreferrer">GO:0043114</a>), T-helper 1 type immune response (<a href="http://purl.obolibrary.org/obo/GO_0042088" target="_blank" rel="noopener noreferrer">GO:0042088</a>), nitric oxide biosynthesis (<a href="http://purl.obolibrary.org/obo/GO_0045429" target="_blank" rel="noopener noreferrer">GO:0045429</a>).</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Primary:</strong> vascular endothelium / small blood vessels (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0001981" target="_blank" rel="noopener noreferrer">UBERON:0001981</a></strong> blood vessel; <strong><a href="http://purl.obolibrary.org/obo/UBERON_0001986" target="_blank" rel="noopener noreferrer">UBERON:0001986</a></strong> endothelium) — systemic. Skin at bite site (eschar) and rash (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a></strong> skin of body).</li>
+<li><strong>Secondary/organ:</strong> regional lymph nodes (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" rel="noopener noreferrer">UBERON:0000029</a></strong>); stomach (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0000945" target="_blank" rel="noopener noreferrer">UBERON:0000945</a></strong>, F005); liver (transaminase elevation); rare lung, kidney, CNS involvement in severe SFGR.</li>
+<li><strong>Body systems:</strong> cardiovascular (microvasculature), integumentary, lymphatic/immune, digestive (subset).</li>
+<li><strong>Subcellular:</strong> intracellular cytosolic niche within endothelial cells (<strong><a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" rel="noopener noreferrer">GO:0005829</a></strong> cytosol).</li>
+<li><strong>Lateralization:</strong> eschar/lymphadenopathy typically localized/unilateral to bite site; rash bilateral/generalized.</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> acute, adult-predominant, after incubation of ~several days to ~2 weeks post tick attachment (F014).</li>
+<li><strong>Course:</strong> self-limited single illness resolving over ~1–2 weeks with doxycycline (F014); untreated illness may be prolonged; severe complications rare (F009).</li>
+<li><strong>Critical window:</strong> early treatment (ideally &lt;5 days from onset) is the key window to prevent severe outcomes (F007, F009).</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology:</strong> Endemic to temperate Northeast Asia — Russian Far East, northern/eastern China, Inner Mongolia, Korea, Japan; recently Kazakhstan (F004). Tick infection prevalence up to ~28% in <em>H. concinna</em> (F002); regional tick positivity ~2.7–72% for various rickettsiae. Precise human incidence/prevalence per 100,000 is <strong>not well quantified</strong> (under-recognized; reported as case series).</li>
+<li><strong>Inheritance:</strong> <strong>Not applicable</strong> — infectious, zoonotic, not inherited; no penetrance/expressivity/founder/consanguinity considerations (F014).</li>
+<li><strong>Demographics:</strong> Higher exposure in rural, agricultural/forestry populations; spring–summer seasonality; sex/age distribution reflects occupational exposure rather than biological susceptibility (F012).</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Serology:</strong> IFA seroconversion to <em>R. heilongjiangensis</em> antigen (paired sera) (F008, F006).</li>
+<li><strong>Molecular:</strong> nested PCR of <em>gltA, ompA, ompB, rrs (16S rRNA), sca4</em> with sequencing; NGS/mNGS of blood, eschar, or skin biopsy — recommended for acute tick-bitten and atypical cases (F008).</li>
+<li><strong>Laboratory:</strong> thrombocytopenia, elevated transaminases, elevated inflammatory markers (common SFGR pattern).</li>
+<li><strong>Histopathology:</strong> perivascular lymphocytic infiltrates / small-vessel vasculitis on skin/eschar biopsy.</li>
+<li><strong>Differential diagnosis:</strong> other SFGR (Japanese spotted fever/<em>R. japonica</em>, Mediterranean spotted fever/<em>R. conorii</em>, RMSF/<em>R. rickettsii</em>), scrub typhus, severe fever with thrombocytopenia syndrome (SFTS), ehrlichiosis/anaplasmosis, Lyme disease. Eschar plus regional lymphadenopathy in an endemic Northeast Asian tick-exposure context favors SFGR.</li>
+<li><strong>Genetic testing / newborn or carrier screening:</strong> <strong>Not applicable.</strong></li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<ul>
+<li><strong>Generally favorable / self-limited</strong>; low mortality at the mild end of the SFGR spectrum (F009). Full recovery expected with timely doxycycline.</li>
+<li><strong>Prognostic factor:</strong> treatment delay is the dominant modifiable determinant of severity (F007, F009).</li>
+<li><strong>Rare complications:</strong> leukocytoclastic vasculitis, multi-organ dysfunction, HLH (F009).</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>First-line:</strong> <strong>Doxycycline</strong> (tetracycline class; NCIT:C312), typically ~7 days; rapid defervescence expected. Minocycline (NCIT:C61815) used in Japan; chloramphenicol is an alternative. Early treatment is critical (F007).</li>
+<li><strong>Advanced/targeted/gene/cell/RNA therapies, surgery:</strong> <strong>Not applicable.</strong></li>
+<li><strong>Supportive care:</strong> antipyretics, fluids, organ support in severe cases.</li>
+<li><strong>Personalized medicine / pharmacogenomics:</strong> Not established for FESF.</li>
+</ul>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary:</strong> personal anti-tick measures — DEET on skin, permethrin-treated clothing, protective clothing, avoiding tick habitats, body checks, prompt tick removal (F011). No licensed vaccine; OmpB/YbgF are experimental protective antigens in mice (F010, F011).</li>
+<li><strong>Secondary:</strong> prompt empiric doxycycline after tick exposure with compatible illness (F011).</li>
+<li><strong>Public health:</strong> vector/habitat awareness, occupational education for agricultural/forestry workers, tick surveillance (F004, F012).</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy of affected/involved species:</strong> humans (accidental host); tick vectors <em>Haemaphysalis concinna</em>, <em>H. japonica</em>, <em>H. longicornis</em>, <em>Ixodes persulcatus</em>, <em>Dermacentor silvarum</em>; reservoir mammals including hedgehogs (<em>Erinaceus amurensis</em>) and small rodents (F002, F004, F012).</li>
+<li><strong>Natural disease:</strong> <em>R. heilongjiangensis</em> is maintained enzootically in ticks and wild mammals; overt natural disease in animals is not well characterized (reservoirs typically asymptomatic).</li>
+<li><strong>Zoonotic transmission:</strong> Yes — tick-borne zoonosis; <strong>no person-to-person transmission</strong> (F014).</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Mouse models:</strong> <strong>C57BL/6</strong> tick-bite-simulating infection model (identified stomach tropism, F005); <strong>C3H/HeN</strong> mouse model used for OmpB- and YbgF-based protective-immunity/vaccine studies (F010). <em>R. australis</em> Balb/c model serves as a broader SFGR vasculopathy model.</li>
+<li><strong>Phenotype recapitulation:</strong> models reproduce endothelial infection, organ tropism, and Th1 protective immunity; they do not fully recapitulate the human eschar–rash tetrad. No genetic (knockout/transgenic) <em>host</em> models are relevant since the disease is infectious.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>   Infected Haemaphysalis concinna tick bite
+    │  (inoculation)
+    ▼
+Local skin infection ──────────────► ESCHAR (tache noire)
+    │                         + regional LYMPHADENOPATHY
+    │  adhesins: OmpB, YbgF, RpsB
+    ▼
+     Endothelial adhesion &amp; invasion (CL:0000115)
+    │
+    ▼
+     Intracellular replication in endothelium
+    │
+┌───────────┴─────────────┐
+▼                         ▼
+ Vascular inflammation      COX-2 induction,
+ + ↑ permeability           vasoactive prostaglandins
+ (&quot;rickettsial vasculitis&quot;)
+│                         │
+▼                         ▼
+  FEVER, maculopapular RASH, GI symptoms (stomach tropism)
+    │
+    ▼
+   Host Th1 response: IFN-γ/TNF-α, CD4+/CD8+ T cells;
+   endothelial Tim-3 ↑ → iNOS/NO killing
+    │
+ ┌──────────┴───────────┐
+ ▼                      ▼
+   Bacterial clearance      (rare, if Rx delayed)
+   → self-limited recovery  → vasculitis / MODS / HLH
+</code></pre>
+<p>The unifying interpretation is that FESF is fundamentally a <strong>microvascular endothelial infection</strong>. Every clinical feature maps onto a step in the endothelial-vasculitis cascade: the eschar and lymphadenopathy from local inoculation-site injury and lymphatic drainage; the rash and fever from disseminated small-vessel inflammation and permeability change; GI symptoms from documented stomach tropism; and recovery from an effective Th1/NO-mediated clearance program. Doxycycline works upstream by halting intracellular bacterial replication, which is why <strong>timing</strong> is the dominant prognostic lever. The absence of any host-genetic basis means the "molecular/genetic" annotation for this disease is entirely pathogen-side (adhesins and diagnostic marker genes).</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Role in this report</th>
+<th>Key contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17114683/">17114683</a></td>
+<td>Foundational</td>
+<td>First human cases; names disease; identifies <em>H. concinna</em> vector; PCR from skin + tick (F001, F002, F006, F008, F014)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26401029/">26401029</a></td>
+<td>Mechanism</td>
+<td>Endothelium as primary target; Tim-3/iNOS/IFN-γ intracellular killing (F001, F003, F010)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19327117/">19327117</a></td>
+<td>Mechanism</td>
+<td>Defines "rickettsial vasculitis" (F003)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38951577/">38951577</a></td>
+<td>Model/tropism</td>
+<td>C57BL/6 tick-bite model; stomach target organ (F005)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37722147/">37722147</a></td>
+<td>Epidemiology</td>
+<td>First detection in Kazakhstan — range extension (F004)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36097185/">36097185</a></td>
+<td>Epidemiology/reservoir</td>
+<td>Hedgehogs in SE China transmission cycle (F004, F012)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37986042/">37986042</a></td>
+<td>Epidemiology</td>
+<td>Inner Mongolia tick hotspot, 2.68% prevalence (F004)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26976703/">26976703</a></td>
+<td>Vector</td>
+<td>SFGR incl. <em>R. heilongjiangensis</em> in Chinese–Russian border ticks (F002, F004)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15858293/">15858293</a></td>
+<td>Clinical</td>
+<td>Illustrative eschar–fever–rash–lymphadenopathy tetrad (F006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42488420/">42488420</a></td>
+<td>Treatment/Dx</td>
+<td>Early doxycycline efficacy; nPCR/NGS diagnosis (F007, F008, F009)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41714602/">41714602</a></td>
+<td>Prognosis</td>
+<td>Delayed doxycycline → fatality in RMSF comparator (F007)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24113261/">24113261</a></td>
+<td>Immunity/vaccine</td>
+<td>YbgF adhesin; Th1 protection; anti-YbgF blocks invasion (F010, F011)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25270001/">25270001</a></td>
+<td>Immunity/vaccine</td>
+<td>OmpB-pulsed DCs protect; taxonomy/synonym (F010, F014)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31360728/">31360728</a></td>
+<td>Mechanism</td>
+<td>RpsB surface-exposed adhesin (F010)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31907196/">31907196</a></td>
+<td>Molecular profiling</td>
+<td>Cutaneous immunoprofiling/RNA-seq of SFGR (F013)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17338947/">17338947</a></td>
+<td>Prevention</td>
+<td>DEET + permethrin personal protection (F011)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40922296/">40922296</a></td>
+<td>Risk factors</td>
+<td>Agricultural/forestry exposure (F012)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36440590/">36440590</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/31866968/">31866968</a></td>
+<td>Genomics</td>
+<td>Complete/comparative <em>R. heilongjiangensis</em> genomes (Sec. 4)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Note on citation integrity:</strong> Two F010 snippets were flagged as source-attribution mismatches during verification (the YbgF Th1 quote and the RpsB title, associated with <a href="https://pubmed.ncbi.nlm.nih.gov/24113261/" target="_blank" rel="noopener noreferrer">PMID 24113261</a> and <a href="https://pubmed.ncbi.nlm.nih.gov/31360728/" target="_blank" rel="noopener noreferrer">PMID 31360728</a> respectively). The substance of the claims is supported by those papers, but exact quote-to-PMID attribution should be re-verified before database ingestion.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Quantitative epidemiology is weak.</strong> No reliable incidence/prevalence per 100,000 exists; FESF is under-recognized and reported largely as case reports and tick-surveillance studies. True human burden across Northeast Asia is unknown.</li>
+<li><strong>FESF-specific clinical frequencies are extrapolated.</strong> Precise symptom frequencies (e.g., % with eschar, % with GI symptoms, % with thrombocytopenia) derive substantially from related SFGR (Japanese/Mediterranean spotted fever, RMSF) rather than large FESF-specific cohorts.</li>
+<li><strong>Severe-outcome data borrow from other SFGR.</strong> Complication rates (vasculitis, MODS, HLH) and mortality are illustrated using <em>R. conorii</em>/<em>R. japonica</em>/<em>R. rickettsii</em> cases; FESF-specific severe outcomes are rarely documented.</li>
+<li><strong>No host-genetic dimension.</strong> Sections on causal genes, inheritance, penetrance, carrier frequency, genetic testing, and model-organism knockouts are <strong>not applicable</strong>, limiting the report's mapping onto the genetic-disease template.</li>
+<li><strong>Mechanistic gaps.</strong> The endothelial-invasion adhesin repertoire and the exact molecular basis of stomach tropism are incompletely defined; much mechanism is inferred from SFGR generally or from mouse models rather than demonstrated in human FESF tissue.</li>
+<li><strong>Diagnostics standardization.</strong> No FESF-specific validated serologic cutoffs or point-of-care molecular assays; cross-reactivity within SFGR complicates species-level serodiagnosis.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Assemble a FESF-specific clinical cohort</strong> with standardized data capture (eschar, rash, lymphadenopathy, GI symptoms, thrombocytopenia, transaminases) to derive true phenotype frequencies and replace SFGR-borrowed estimates.</li>
+<li><strong>Prospective molecular surveillance</strong> across the endemic belt (Russian Far East → China → Kazakhstan) using mNGS to define human incidence, seasonal dynamics, and range expansion.</li>
+<li><strong>Human eschar/skin transcriptomics and spatial profiling</strong> (building on <a href="https://pubmed.ncbi.nlm.nih.gov/31907196/" target="_blank" rel="noopener noreferrer">PMID 31907196</a>) to map the endothelial-vasculitis cascade and Th1 program directly in FESF tissue rather than inferring from other SFGR.</li>
+<li><strong>Mechanistic dissection of stomach tropism</strong> (F005) — identify receptor/adhesin determinants of organ targeting using the C57BL/6 model with adhesin-knockout bacteria.</li>
+<li><strong>Advance OmpB/YbgF subunit vaccine candidates</strong> (F010) through challenge-protection and cross-protection studies against multiple SFGR; assess adjuvant/Th1-skewing formulations.</li>
+<li><strong>Develop validated, species-discriminating serologic and rapid molecular assays</strong> to distinguish FESF from co-circulating SFTS, scrub typhus, and other SFGR in primary care.</li>
+<li><strong>Re-verify citation attributions</strong> flagged in F010 before knowledge-base ingestion.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 14 confirmed findings and 57 reviewed papers across 5 investigation iterations. Evidence source types span human clinical case reports and cohorts, tick/reservoir surveillance, mouse-model (in vivo) studies, and in vitro endothelial-infection and immunology experiments.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Far_Eastern_Spotted_Fever-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Far_Eastern_Spotted_Fever-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc3.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>19</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>5</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0200042</code> (2 mentions) - the report calls it "Inoculation eschar (tache noire)"; HP calls it <strong>Skin ulcer</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0001945</code> (2 mentions) - the report calls it "Fever (~39–40 °C)"; HP calls it <strong>Fever</strong></li>
+<li><code>HP:0000988</code> (2 mentions) - the report calls it "Maculopapular rash"; HP calls it <strong>Skin rash</strong>, and lists "Rash" among its other names</li>
+<li><code>HP:0002716</code> (2 mentions) - the report calls it "Regional lymphadenopathy"; HP calls it <strong>Lymphadenopathy</strong></li>
+<li><code>HP:0002910</code> (2 mentions) - the report calls it "Elevated transaminases"; HP calls it <strong>Elevated circulating hepatic transaminase concentration</strong>, and lists "Elevated transaminases" among its other names</li>
+<li><code>HP:0011024</code> (2 mentions) - the report calls it "Gastrointestinal symptoms"; HP calls it <strong>Abnormality of the gastrointestinal tract</strong>, and lists "Gastrointestinal disease" among its other names</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Fanconi_Anemia-openai.html">← Fanconi_Anemia (OpenAI)</a>
+                
+                
+                <a href="Far_East_Scarlet_Like_Fever-openscientist.html">Far-East Scarlet-Like Fever (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Far_Eastern_Spotted_Fever.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Far_Eastern_Spotted_Fever-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

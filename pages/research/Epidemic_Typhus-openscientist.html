@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Epidemic typhus · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/genes/">Genes</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Epidemic typhus</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Epidemic typhus</h1>
+                
+                <p class="report-subtitle">Epidemic Typhus (MONDO:0019362): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0019362" target="_blank" rel="noopener noreferrer">MONDO:0019362</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">32 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Epidemic Typhus (<a href="http://purl.obolibrary.org/obo/MONDO_0019362" target="_blank" rel="noopener noreferrer">MONDO:0019362</a>): A Comprehensive Disease Characteristics Report</h1>
+<h2>Summary</h2>
+<p><strong>Epidemic typhus</strong> is an acute, severe, potentially fatal febrile illness caused by <em>Rickettsia prowazekii</em>, an obligate intracellular Gram-negative bacterium of the typhus group of <em>Rickettsia</em>. Its defining epidemiological feature is human-to-human transmission mediated by the human body louse, <em>Pediculus humanus corporis</em>: humans acquire infection not from the louse bite itself, but when louse feces laden with <em>R. prowazekii</em> are inoculated into skin abrasions, scratch wounds, or mucosal surfaces. Because the vector thrives under conditions of poverty, cold climate, crowding, poor hygiene, war, famine, and mass displacement, epidemic typhus is historically a disease of social collapse and remains a threat wherever these conditions recur. Humans are the principal reservoir, and the organism can persist latently for years before reactivating as <strong>Brill–Zinsser disease</strong>, a milder recrudescent form that can reseed epidemics where lice are present. A sylvatic (zoonotic) cycle exists in the eastern United States involving the southern flying squirrel <em>Glaucomys volans</em>.</p>
+<p>Mechanistically, the disease is unified by a single pathological process: <strong>rickettsial vasculitis</strong>. After inoculation, <em>R. prowazekii</em> disseminates hematogenously and preferentially invades vascular <strong>endothelial cells</strong> (and, secondarily, macrophages), replicating free in the host cytoplasm. To survive, it parasitizes host energy directly through an ATP/ADP translocase (Tlc1) because its reductive genome lacks glycolysis. Endothelial infection triggers vascular inflammation, loss of vascular integrity, and increased permeability, producing widespread small-vessel vasculitis with perivascular mononuclear "typhus nodules," microthrombi, and vascular leak. The downstream consequence is multiorgan injury — rash, headache/encephalitis, myocarditis, pneumonitis, acute kidney injury, and hypotension/shock. Protective immunity is cell-mediated, dominated by IFN-γ and CD8+ cytotoxic T lymphocytes; humoral antibody alone is insufficient once infection is established.</p>
+<p>Clinically, epidemic typhus presents after a ~1–2 week incubation as an acute monophasic illness with high fever, severe headache, and myalgia, classically accompanied by a centrifugal maculopapular/petechial rash — though the rash is frequently absent (e.g., only ~25% of cases in a Burundi outbreak). Diagnosis rests primarily on serology (indirect immunofluorescence assay is the reference test), with the important caveat that antibodies are absent early. <strong>Doxycycline</strong> is the treatment of choice, producing rapid defervescence, and delayed empiric therapy risks severe sequelae and death. There is <strong>no currently licensed rickettsial vaccine</strong>; prevention depends on louse control and sanitation. <em>R. prowazekii</em> is classified as a <strong>CDC Category B bioterrorism agent</strong> because it is stable in dried louse feces and transmissible by aerosol. This report synthesizes 10 confirmed findings drawn from 39 reviewed papers across all requested disease-characteristic domains.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p>Epidemic typhus (also called <strong>louse-borne typhus</strong>, <strong>classic typhus</strong>, <strong>jail fever</strong>, <strong>camp fever</strong>, <strong>war fever</strong>, and <strong>exanthematic typhus</strong>) is one of the oldest recorded pestilential diseases of humankind <a href="https://pubmed.ncbi.nlm.nih.gov/27726780/">PMID: 27726780</a>. It is an acute systemic infection caused by <em>Rickettsia prowazekii</em>. The recrudescent form is termed <strong>Brill–Zinsser disease</strong>.</p>
+<p><strong>Key identifiers:</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0019362" target="_blank" rel="noopener noreferrer">MONDO:0019362</a>
+- <strong>MeSH:</strong> Typhus, Epidemic Louse-Borne
+- <strong>ICD-10:</strong> A75.0 (Epidemic louse-borne typhus due to <em>Rickettsia prowazekii</em>); A75.1 (recrudescent typhus / Brill–Zinsser disease)
+- <strong>ICD-11:</strong> 1C30.0 (Typhus fever due to <em>Rickettsia prowazekii</em>)
+- <strong>Disease category:</strong> Infectious disease (vector-borne bacterial zoonosis/anthroponosis)</p>
+<p><strong>Information source type:</strong> The knowledge base entry is derived predominantly from <strong>aggregated disease-level resources</strong> — reviews, outbreak investigations, case series, and experimental animal/in-vitro studies — rather than from individual EHR-derived patient records. Contemporary surveillance is limited; in the United States the disease is not nationally notifiable <a href="https://pubmed.ncbi.nlm.nih.gov/31984654/">PMID: 31984654</a>.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Causal factors</h3>
+<p>Epidemic typhus is an <strong>infectious disease</strong> with no primary genetic etiology in the human host. The sole causative agent is <em>Rickettsia prowazekii</em>. As summarized in the finding on etiology and transmission (F001):</p>
+<blockquote>
+<p>"Epidemic typhus is transmitted to human beings by the body louse <em>Pediculus humanus corporis</em>. The disease is still considered a major threat by public-health authorities, despite the efficacy of antibiotics, because poor sanitary conditions are conducive to louse proliferation." — <a href="https://pubmed.ncbi.nlm.nih.gov/18582834/">PMID: 18582834</a></p>
+<p>"Epidemic typhus caused by <em>Rickettsia prowazekii</em> is one of the oldest pestilential diseases of humankind. The disease is transmitted to human beings by the body louse <em>Pediculus humanus corporis</em>." — <a href="https://pubmed.ncbi.nlm.nih.gov/27726780/">PMID: 27726780</a></p>
+</blockquote>
+<p>The louse acquires <em>R. prowazekii</em> by feeding on a bacteremic human; the bacteria multiply in the louse gut epithelium and are shed in feces. Humans are infected when contaminated feces are rubbed into bite/scratch abrasions or contact mucous membranes — <strong>not</strong> by the bite itself. The louse dies of the infection, which distinguishes this vector relationship from most arthropod-borne diseases.</p>
+<h3>Risk factors</h3>
+<ul>
+<li><strong>Environmental / social:</strong> Poor sanitation, cold climate (which promotes wearing of unwashed layered clothing that harbors body lice), overcrowding, war, famine, refugee/displacement camps, homelessness, and incarceration are the dominant risk factors <a href="https://pubmed.ncbi.nlm.nih.gov/18582834/">PMID: 18582834</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/17114713/">PMID: 17114713</a>. Homeless populations in developed countries are an increasingly recognized at-risk group.</li>
+<li><strong>Occupational/exposure:</strong> In the U.S. sylvatic cycle, contact with southern flying squirrels and their ectoparasites is a risk factor <a href="https://pubmed.ncbi.nlm.nih.gov/18582834/">PMID: 18582834</a>.</li>
+<li><strong>Genetic risk factors (human host):</strong> None established. Epidemic typhus is not a heritable condition; there are no known human causal variants, susceptibility loci, or modifier genes. (See Sections 4 and 9.)</li>
+</ul>
+<h3>Protective factors</h3>
+<ul>
+<li><strong>Environmental protective factors:</strong> Good hygiene, regular laundering/heat treatment of clothing, access to bathing, and reduced crowding interrupt the louse cycle and are protective.</li>
+<li><strong>Immunological:</strong> Prior infection confers cell-mediated immunity (IFN-γ/CD8+ T-cell memory), although latent organisms may persist and reactivate (Brill–Zinsser). No human <strong>genetic</strong> protective variants are documented.</li>
+</ul>
+<h3>Gene–environment interactions</h3>
+<p>No documented human gene–environment interactions. Disease risk is governed by socio-environmental exposure to infected lice, not by host genotype. On the <strong>pathogen</strong> side, however, virulence is genetically encoded and environmentally modulated (see Section 4).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Epidemic typhus is an <strong>acute monophasic febrile illness</strong> with an incubation period of approximately 1–2 weeks (F010). Onset is typically abrupt.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency / severity</th>
+<th>HPO suggestion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>High fever</td>
+<td>Symptom/sign</td>
+<td>Near-universal; high, sustained</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> (Fever)</td>
+</tr>
+<tr>
+<td>Severe headache</td>
+<td>Symptom</td>
+<td>Very common, severe</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a> (Headache)</td>
+</tr>
+<tr>
+<td>Myalgia</td>
+<td>Symptom</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a> (Myalgia)</td>
+</tr>
+<tr>
+<td>Malaise/prostration</td>
+<td>Symptom</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0033834" target="_blank" rel="noopener noreferrer">HP:0033834</a> (Malaise)</td>
+</tr>
+<tr>
+<td>Maculopapular/petechial rash (centrifugal)</td>
+<td>Physical sign</td>
+<td>Classic but <strong>frequently absent</strong> (~25% in Burundi)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a> (Skin rash); <a href="http://purl.obolibrary.org/obo/HP_0000979" target="_blank" rel="noopener noreferrer">HP:0000979</a> (Petechiae)</td>
+</tr>
+<tr>
+<td>Stupor / delirium ("typhos") / encephalitis</td>
+<td>Neurologic sign</td>
+<td>In severe cases</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002329" target="_blank" rel="noopener noreferrer">HP:0002329</a> (Drowsiness); <a href="http://purl.obolibrary.org/obo/HP_0002383" target="_blank" rel="noopener noreferrer">HP:0002383</a> (Encephalitis); <a href="http://purl.obolibrary.org/obo/HP_0031258" target="_blank" rel="noopener noreferrer">HP:0031258</a> (Delirium)</td>
+</tr>
+<tr>
+<td>Meningoencephalitis</td>
+<td>Clinical sign</td>
+<td>Severe/CNS cases</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002383" target="_blank" rel="noopener noreferrer">HP:0002383</a></td>
+</tr>
+<tr>
+<td>Myocarditis</td>
+<td>Clinical sign</td>
+<td>Severe cases</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012819" target="_blank" rel="noopener noreferrer">HP:0012819</a></td>
+</tr>
+<tr>
+<td>Pneumonitis / interstitial pneumonia</td>
+<td>Clinical sign</td>
+<td>Severe cases</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0006515" target="_blank" rel="noopener noreferrer">HP:0006515</a></td>
+</tr>
+<tr>
+<td>Acute kidney injury</td>
+<td>Lab/clinical</td>
+<td>Severe cases</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" rel="noopener noreferrer">HP:0001919</a></td>
+</tr>
+<tr>
+<td>Hypotension / shock</td>
+<td>Clinical sign</td>
+<td>Severe/terminal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002615" target="_blank" rel="noopener noreferrer">HP:0002615</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Supporting evidence (F004):</p>
+<blockquote>
+<p>"Serology is the mainstay of diagnosis... Doxycycline is the treatment of choice." — <a href="https://pubmed.ncbi.nlm.nih.gov/30712763/">PMID: 30712763</a></p>
+</blockquote>
+<p>The term "typhus" derives from the Greek <em>typhos</em> ("smoke/stupor"), reflecting the characteristic neurologic clouding. On rash frequency (F010), the Burundi outbreak study reported skin eruptions in only ~25% of cases <a href="https://pubmed.ncbi.nlm.nih.gov/9717922/">PMID: 9717922</a>, underscoring that absence of rash does not exclude the diagnosis.</p>
+<p><strong>Quality of life impact:</strong> During acute illness, patients are typically prostrate and incapacitated. Because the disease is acute and monophasic (self-limited with treatment, or fatal), there is no chronic QoL instrument literature (EQ-5D/SF-36) specific to epidemic typhus; survivors who receive timely doxycycline generally recover fully, whereas untreated severe disease causes death or neurologic sequelae.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>No human causal genes, pathogenic variants, modifier genes, chromosomal abnormalities, or epigenetic disease mechanisms exist</strong> — epidemic typhus is an acquired infection, not a Mendelian or complex genetic disorder. This section therefore addresses the genetics of the <strong>pathogen</strong>, which are central to virulence and vaccine biology.</p>
+<h3>Pathogen genome and bioenergetics (F003)</h3>
+<p><em>R. prowazekii</em> has a small, reductive genome reflecting its obligate intracytoplasmic lifestyle. It retains TCA-cycle and electron-transport genes but <strong>lacks glycolysis</strong>, forcing dependence on host metabolites:</p>
+<blockquote>
+<p>"the <em>R. prowazekii</em> genome contains genes encoding components of the tricarboxylic acid cycle as well as of the electron transport system, but lacks genes to support glycolysis." — <a href="https://pubmed.ncbi.nlm.nih.gov/9693729/">PMID: 9693729</a></p>
+</blockquote>
+<p>The organism steals host ATP via the ATP/ADP translocase <strong>Tlc1</strong>:</p>
+<blockquote>
+<p>"The paradigm for the study of rickettsial transport systems is the ATP/ADP translocase Tlc1, which exchanges bacterial ADP for host cell ATP as a source of energy." — <a href="https://pubmed.ncbi.nlm.nih.gov/16923893/">PMID: 16923893</a></p>
+</blockquote>
+<p>Of five annotated Tlc paralogues, <strong>only Tlc1 transports ATP/ADP</strong>; Tlc4 and Tlc5 import other ribonucleotides (CTP, UTP, GDP), underscoring extensive host dependence for nucleotides <a href="https://pubmed.ncbi.nlm.nih.gov/16923893/">PMID: 16923893</a>. The ADP/ATP translocator was among the first rickettsial transporters cloned and expressed in <em>E. coli</em> <a href="https://pubmed.ncbi.nlm.nih.gov/2986146/">PMID: 2986146</a>, and its transcription is coordinately regulated with citrate synthase (<em>gltA</em>) in response to host energy state <a href="https://pubmed.ncbi.nlm.nih.gov/9607082/">PMID: 9607082</a>.</p>
+<h3>Pathogen virulence genetics (F005)</h3>
+<p>Strain virulence maps to an <strong>area of genomic plasticity</strong>, with inactivating frameshifts in homopolymeric poly(A)/poly(T) tracts (in <em>recO</em>, a methyltransferase, and an exported protein) in the avirulent <strong>Madrid E</strong> vaccine strain, and cascade gene reactivation restoring virulence on passage — an example of adaptive mutation:</p>
+<blockquote>
+<p>"An area of genomic plasticity appears to determine virulence in <em>R. prowazekii</em> and represents an example of adaptive mutation for this pathogen." — <a href="https://pubmed.ncbi.nlm.nih.gov/20368341/">PMID: 20368341</a></p>
+</blockquote>
+<p>Key virulence genes include <strong>pld</strong> (phospholipase D) and <strong>tlyC</strong> (hemolysin C), both implicated in phagosomal escape (see Section 6). Directed knockout of <em>pld</em> in strain Madrid Evir attenuated virulence in guinea pigs while retaining protective immunogenicity <a href="https://pubmed.ncbi.nlm.nih.gov/19506016/">PMID: 19506016</a>.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<h3>Environmental and lifestyle factors</h3>
+<p>The disease is fundamentally driven by <strong>socio-environmental conditions</strong> that promote body-louse proliferation: cold climate, unwashed clothing, crowding, and poor sanitation (F001). Lifestyle factors are those associated with poverty and displacement rather than individual behaviors like smoking or diet.</p>
+<h3>Infectious agents (F001, F005)</h3>
+<ul>
+<li><strong>Etiologic agent:</strong> <em>Rickettsia prowazekii</em> (NCBI Taxonomy: txid782), an obligate intracellular Gram-negative alphaproteobacterium (family Rickettsiaceae, typhus group).</li>
+<li><strong>Vector:</strong> <em>Pediculus humanus corporis</em> (human body louse; NCBI Taxonomy: txid121224). Body lice may co-transmit other pathogens (<em>Bartonella quintana</em> — trench fever; <em>Borrelia recurrentis</em> — relapsing fever), and co-circulation is documented in outbreaks <a href="https://pubmed.ncbi.nlm.nih.gov/9717922/">PMID: 9717922</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37567429/">PMID: 37567429</a>.</li>
+<li><strong>Sylvatic reservoir/vector:</strong> Southern flying squirrel <em>Glaucomys volans</em> and its ectoparasites in the eastern USA (F002).</li>
+<li><strong>Biothreat:</strong> Stable in dried louse feces and aerosol-transmissible — CDC Category B agent (F005).</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li>Infected body-louse feces are deposited on the skin during feeding; scratching <strong>inoculates</strong> <em>R. prowazekii</em> through abrasions or onto mucosae →</li>
+<li>Bacteria enter the bloodstream and <strong>disseminate hematogenously</strong> to distant vascular beds →</li>
+<li><em>R. prowazekii</em> <strong>invades vascular endothelial cells</strong> (primary target) and, secondarily, macrophages; it escapes the phagosome into the cytosol (<strong>phospholipase D [pld]</strong> and <strong>hemolysin C/TlyC</strong> contribute to membrane damage/phagosomal escape) →</li>
+<li>In the cytoplasm the bacterium <strong>parasitizes host ATP</strong> via the ATP/ADP translocase <strong>Tlc1</strong> (it cannot glycolyse) and replicates freely →</li>
+<li>Endothelial infection <strong>activates host-cell signaling</strong>, triggering vascular inflammation, loss of vascular integrity, and increased permeability — collectively <strong>"rickettsial vasculitis"</strong> (inferred host signaling differs between typhus and spotted-fever groups) →</li>
+<li>Widespread small-vessel vasculitis produces <strong>perivascular mononuclear infiltrates ("typhus nodules")</strong>, microthrombi, and vascular leak →</li>
+<li><strong>End-organ hypoperfusion and edema</strong> result in rash (skin microvasculature), headache/encephalitis (brain), myocarditis (heart), pneumonitis (lung), acute kidney injury (kidney), and hypotension/shock →</li>
+<li>If untreated → <strong>multiorgan failure and death</strong>. <em>(Branch A: cell-mediated immunity — IFN-γ + CD8+ T cells — clears the organism and drives recovery. Branch B: latent survival in adipose tissue leads years later to Brill–Zinsser reactivation.)</em></li>
+</ol>
+<h3>Detail and supporting evidence (F006, F009)</h3>
+<p>Endothelial tropism is the mechanistic origin of the disease:</p>
+<blockquote>
+<p>"a majority of sequelae associated with human rickettsioses are the outcome of the pathogen's affinity for endothelium lining the blood vessels, the consequences of which are vascular inflammation, insult to vascular integrity and compromised vascular permeability, collectively termed 'Rickettsial vasculitis'." — <a href="https://pubmed.ncbi.nlm.nih.gov/19327117/">PMID: 19327117</a></p>
+<p>"Rickettsiosis is a vector-borne disease that causes systemic and potentially fatal vasculitis if not diagnosed promptly and treated with antibiotics." — <a href="https://pubmed.ncbi.nlm.nih.gov/40793754/">PMID: 40793754</a></p>
+</blockquote>
+<p>Human autopsy evidence confirms the cellular targets (F009):</p>
+<blockquote>
+<p>"<em>Rickettsia prowazekii</em> organisms were identified in endothelium and macrophages in sections of the brains of three Egyptian men who died of epidemic louse-borne typhus in Cairo during World War II and in the brain from a recent case of typhus fever acquired in Burundi." — <a href="https://pubmed.ncbi.nlm.nih.gov/9346184/">PMID: 9346184</a></p>
+</blockquote>
+<p><strong>Molecular/cellular processes:</strong> obligate intracellular replication in cytoplasm; phagosomal escape (PLD, TlyC); host energy parasitism (Tlc1); endothelial activation → vascular inflammation and permeability; Th1 cell-mediated immunity for clearance. LPS/lipid A proinflammatory signaling contributes to inflammation, and O-antigen immunogenicity differs between typhus and spotted-fever groups <a href="https://pubmed.ncbi.nlm.nih.gov/38259062/">PMID: 38259062</a>.</p>
+<p><strong>Suggested ontology terms:</strong>
+- GO biological processes: <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response), <a href="http://purl.obolibrary.org/obo/GO_0009405" target="_blank" rel="noopener noreferrer">GO:0009405</a> (pathogenesis), <a href="http://purl.obolibrary.org/obo/GO_0015867" target="_blank" rel="noopener noreferrer">GO:0015867</a> (ATP transport), <a href="http://purl.obolibrary.org/obo/GO_0051701" target="_blank" rel="noopener noreferrer">GO:0051701</a> (biological process involved in interaction with host), <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" rel="noopener noreferrer">GO:0006955</a> (immune response), <a href="http://purl.obolibrary.org/obo/GO_0032609" target="_blank" rel="noopener noreferrer">GO:0032609</a> (interferon-gamma production).
+- CL cell types: <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a> (endothelial cell), <a href="http://purl.obolibrary.org/obo/CL_0002138" target="_blank" rel="noopener noreferrer">CL:0002138</a> (blood vessel endothelial cell), <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" rel="noopener noreferrer">CL:0000625</a> (CD8-positive, alpha-beta T cell).
+- CHEBI: <a href="http://purl.obolibrary.org/obo/CHEBI_15422" target="_blank" rel="noopener noreferrer">CHEBI:15422</a> (ATP), <a href="http://purl.obolibrary.org/obo/CHEBI_16761" target="_blank" rel="noopener noreferrer">CHEBI:16761</a> (ADP), <a href="http://purl.obolibrary.org/obo/CHEBI_16412" target="_blank" rel="noopener noreferrer">CHEBI:16412</a> (lipopolysaccharide).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level (F009):</strong> The primary target is the <strong>vascular endothelium</strong> systemically. Target organs of hematogenous dissemination are <strong>brain, lungs, heart, and kidneys</strong>, plus <strong>skin, liver, and spleen</strong>:</p>
+<blockquote>
+<p>"reproduces the hematogenous dissemination to the critical target organs, including brain, lungs, heart, and kidneys, primary endothelial and, to a lesser degree, macrophage intracellular rickettsial infection." — <a href="https://pubmed.ncbi.nlm.nih.gov/11005205/">PMID: 11005205</a></p>
+</blockquote>
+<p><strong>Body systems involved:</strong> cardiovascular (vasculitis, myocarditis), nervous (encephalitis, meningoencephalitis), respiratory (interstitial pneumonia), renal (AKI), integumentary (rash), and reticuloendothelial (liver/spleen).</p>
+<p><strong>Tissue and cell level:</strong> vascular endothelial cells (primary) and macrophages (secondary). <strong>Adipose tissue</strong> is a latency reservoir (F002).</p>
+<p><strong>Subcellular level:</strong> <em>R. prowazekii</em> resides free in the <strong>host cytoplasm</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005737" target="_blank" rel="noopener noreferrer">GO:0005737</a>, cytoplasm) after escaping the <strong>phagosome</strong> (<a href="http://purl.obolibrary.org/obo/GO_0045335" target="_blank" rel="noopener noreferrer">GO:0045335</a>). It exploits the host cytosolic nucleotide pools via Tlc1.</p>
+<p><strong>Localization/lateralization:</strong> Lesions are <strong>bilateral and systemic/diffuse</strong> (widespread small-vessel involvement), not lateralized.</p>
+<p><strong>Suggested UBERON terms:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0001981" target="_blank" rel="noopener noreferrer">UBERON:0001981</a> (blood vessel), <a href="http://purl.obolibrary.org/obo/UBERON_0001986" target="_blank" rel="noopener noreferrer">UBERON:0001986</a> (endothelium), <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a> (brain), <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a> (lung), <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a> (heart), <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a> (kidney), <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> (skin of body), <a href="http://purl.obolibrary.org/obo/UBERON_0001013" target="_blank" rel="noopener noreferrer">UBERON:0001013</a> (adipose tissue).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Adult and any age with exposure; <strong>acute</strong> onset after an incubation of ~1–2 weeks (F010). Not congenital or age-restricted.</li>
+<li><strong>Course:</strong> <strong>Acute, monophasic</strong> febrile illness. With effective treatment, defervescence occurs rapidly (~48 h on doxycycline; F004). Untreated disease progresses over ~2 weeks to severe multiorgan involvement.</li>
+<li><strong>Stages:</strong> early (nonspecific fever/headache/myalgia) → established (rash, neurologic signs) → severe (encephalitis, myocarditis, pneumonitis, AKI, shock) → death or convalescence.</li>
+<li><strong>Progression rate:</strong> rapid if untreated; can be fatal within days to ~2 weeks.</li>
+<li><strong>Remission/relapse:</strong> Treatment-induced remission is prompt. <strong>Latent persistence</strong> enables recrudescence years-to-decades later as <strong>Brill–Zinsser disease</strong>, typically milder (F002):</li>
+</ul>
+<blockquote>
+<p>"Brill-Zinsser disease, a relapsed form of epidemic typhus that appears as sporadic cases many years after the initial infection, is unrelated to louse infestation. Stress or a waning immune system are likely to reactivate this earlier persistent infection." — <a href="https://pubmed.ncbi.nlm.nih.gov/18582834/">PMID: 18582834</a></p>
+</blockquote>
+<p>A murine model localizes the latency reservoir to adipose tissue, reactivatable with dexamethasone (F002):</p>
+<blockquote>
+<p>"<em>Rickettsia prowazekii</em> (the etiologic agent of epidemic typhus) was detected... in murine adipose tissue, but not in liver, spleen, lung, or central nervous system tissues of mice 4 months after recovery from the primary infection... these data suggest a role for adipose tissue as a potential reservoir for dormant infections with <em>R. prowazekii</em>." — <a href="https://pubmed.ncbi.nlm.nih.gov/20049326/">PMID: 20049326</a></p>
+</blockquote>
+<ul>
+<li><strong>Critical period for intervention:</strong> early empiric doxycycline before serologic confirmation is decisive; delay increases mortality and sequelae (F004).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Inheritance:</strong> Not applicable — infectious, non-heritable. No inheritance pattern, penetrance, expressivity, anticipation, founder effect, consanguinity, or carrier frequency applies.</p>
+<h3>Epidemiology (F010)</h3>
+<p>Epidemic typhus is now <strong>rare and sporadic globally</strong>, persisting in cold, impoverished, crowded settings (highland Africa, the Andes, parts of Asia) and via the North American sylvatic flying-squirrel cycle. It is <strong>not nationally notifiable</strong> in the USA, so true burden is uncertain; U.S. insurance-claim coding suggests substantial misclassification:</p>
+<blockquote>
+<p>"Epidemic typhus (n = 931/1,799; 51.8%) was the most common TGRs, followed by murine typhus." — <a href="https://pubmed.ncbi.nlm.nih.gov/31984654/">PMID: 31984654</a></p>
+</blockquote>
+<p>This coding pattern is notable because true epidemic typhus requires louse or flying-squirrel exposure and should be rare, indicating diagnostic misclassification. Explosive epidemics still occur in humanitarian crises. The Burundi outbreak (1995–1997) affected displaced/imprisoned populations after a 12-year absence, with co-circulating trench fever (F005, F010):</p>
+<blockquote>
+<p>"After a 12-year absence, epidemic typhus has re-emerged among the displaced population of Burundi." — <a href="https://pubmed.ncbi.nlm.nih.gov/9717922/">PMID: 9717922</a></p>
+</blockquote>
+<p>Historical typhus-group distribution spanned Andean/Caribbean South America (e.g., Colombia) <a href="https://pubmed.ncbi.nlm.nih.gov/36628901/">PMID: 36628901</a>, and epidemiologic patterns of typhus-group rickettsioses continue to shift in regions such as China <a href="https://pubmed.ncbi.nlm.nih.gov/38163619/">PMID: 38163619</a>.</p>
+<ul>
+<li><strong>Geographic distribution:</strong> endemic foci in highland/cold impoverished regions; sylvatic cycle in eastern USA.</li>
+<li><strong>Demographics:</strong> affects those exposed to body lice — refugees, prisoners, homeless, war-affected populations; no ethnic genetic predisposition.</li>
+<li><strong>Sex ratio:</strong> driven by exposure, not biology; no established intrinsic sex difference.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Clinical tests and biomarkers (F004)</h3>
+<ul>
+<li><strong>Serology (reference standard):</strong> Indirect immunofluorescence assay (IFA) for anti–<em>R. prowazekii</em> antibodies.</li>
+</ul>
+<blockquote>
+<p>"Serology is the mainstay of diagnosis, and the indirect immunofluorescence assay is the test of choice. Reactive antibodies are seldom present during early illness, so testing should be performed on both acute-phase and convalescent-phase sera. Doxycycline is the treatment of choice." — <a href="https://pubmed.ncbi.nlm.nih.gov/30712763/">PMID: 30712763</a></p>
+</blockquote>
+<ul>
+<li><strong>Timing caveat:</strong> antibodies are typically absent in early illness → paired acute and convalescent sera are required; treatment should not await serology.</li>
+<li><strong>Molecular:</strong> PCR of blood/tissue; immunohistochemistry using anti-LPS monoclonal antibodies can identify organisms in endothelium/tissue <a href="https://pubmed.ncbi.nlm.nih.gov/9346184/">PMID: 9346184</a>.</li>
+<li><strong>Laboratory abnormalities:</strong> commonly thrombocytopenia, elevated transaminases, and inflammatory markers (as seen across typhus-group rickettsioses).</li>
+<li><strong>Genetic/omics diagnostics:</strong> not applicable for host diagnosis; pathogen detection increasingly uses PCR and targeted next-generation sequencing (tNGS) in difficult cases.</li>
+</ul>
+<h3>Clinical criteria and differential diagnosis (F004, F010)</h3>
+<ul>
+<li>No formal DSM/consensus scoring; diagnosis is clinical-epidemiologic (louse exposure + acute febrile syndrome) confirmed serologically.</li>
+<li><strong>Differential diagnosis:</strong> typhoid fever (imported epidemic typhus is readily misdiagnosed as typhoid — <a href="https://pubmed.ncbi.nlm.nih.gov/10511530/">PMID: 10511530</a>), murine (flea-borne) typhus, scrub typhus, meningococcemia, other rickettsioses, viral hemorrhagic and arboviral encephalitides. Typhus-group <em>Rickettsia</em> can cause community-acquired CNS infection (meningoencephalitis) that must be considered "outside the box" <a href="https://pubmed.ncbi.nlm.nih.gov/39447222/">PMID: 39447222</a>.</li>
+</ul>
+<p><strong>Screening:</strong> No asymptomatic-population screening exists; outbreak response uses active case-finding plus louse surveillance.</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<ul>
+<li><strong>Mortality:</strong> Untreated epidemic typhus historically carries high case-fatality (reported up to ~10–60% depending on host condition, age, and epidemic context). With prompt doxycycline, mortality falls dramatically.</li>
+<li><strong>Recovery:</strong> Doxycycline produces rapid clinical resolution (defervescence within ~48 h) and, in CNS disease, prompt symptom resolution (F004):</li>
+</ul>
+<blockquote>
+<p>"Treatment with doxycycline leads to prompt resolution of symptoms. Failure to initiate early empiric treatment can lead to serious consequences." — <a href="https://pubmed.ncbi.nlm.nih.gov/39447222/">PMID: 39447222</a></p>
+</blockquote>
+<ul>
+<li><strong>Complications:</strong> encephalitis with neurologic sequelae, myocarditis, pneumonitis, acute kidney injury, gangrene of extremities (from vasculitis/microthrombi), shock, and death.</li>
+<li><strong>Prognostic factors:</strong> timeliness of therapy is the dominant modifiable determinant; older age, comorbidity, malnutrition, and delayed diagnosis worsen outcome. Delayed diagnosis is associated with fatal outcomes in typhus-group rickettsioses <a href="https://pubmed.ncbi.nlm.nih.gov/38163619/">PMID: 38163619</a>.</li>
+<li><strong>Recrudescence:</strong> survivors carry lifelong risk of Brill–Zinsser reactivation, generally milder (F002).</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Pharmacotherapy (F004)</h3>
+<ul>
+<li><strong>Doxycycline</strong> (tetracycline-class; inhibits bacterial 30S ribosome/protein synthesis) is the <strong>drug of choice</strong> for all ages, producing rapid defervescence. Even short courses are effective given the organism's susceptibility.</li>
+<li><strong>Alternatives:</strong> chloramphenicol (historically used, e.g., in pregnancy or tetracycline intolerance); some fluoroquinolones and macrolides have activity but doxycycline remains first-line.</li>
+<li><strong>Post-exposure prophylaxis:</strong> single-dose doxycycline can be used in outbreak settings (F007).</li>
+<li><strong>Pharmacogenomics:</strong> none clinically relevant to therapy.</li>
+</ul>
+<blockquote>
+<p>"Doxycycline is the treatment of choice." — <a href="https://pubmed.ncbi.nlm.nih.gov/30712763/">PMID: 30712763</a></p>
+</blockquote>
+<h3>Supportive care</h3>
+<p>Fluid resuscitation for vascular leak/shock, management of encephalitis, respiratory support for pneumonitis, and organ-specific supportive measures for severe multiorgan disease.</p>
+<h3>Advanced/experimental therapeutics</h3>
+<p>No gene, cell, RNA-based, or immunotherapy is used or required — this is a treatable acute bacterial infection. Research on attenuated vaccine strains (e.g., <em>pld</em> knockout) is directed at prevention rather than treatment <a href="https://pubmed.ncbi.nlm.nih.gov/19506016/">PMID: 19506016</a>.</p>
+<p><strong>Suggested NCIT terms:</strong> NCIT:C692 (Doxycycline), NCIT:C376 (Chloramphenicol), NCIT:C15844 (Antibiotic Therapy).</p>
+<hr />
+<h2>13. Prevention</h2>
+<h3>Primary prevention — louse control (F007)</h3>
+<p>Interrupting the body-louse cycle is the decisive intervention: improved hygiene/sanitation, laundering and heat treatment of clothing, and pediculicides. Topical <strong>permethrin</strong> and oral <strong>ivermectin</strong> (which targets invertebrate glutamate-gated chloride channels) are effective, and mass ivermectin administration reduces louse prevalence:</p>
+<blockquote>
+<p>"Ivermectin is efficacious against headlice, and is also being evaluated as a malaria vector control tool." — <a href="https://pubmed.ncbi.nlm.nih.gov/40140904/">PMID: 40140904</a></p>
+</blockquote>
+<p>However, <strong>pediculicide resistance</strong> is an emerging threat — permethrin treatment failures are documented <a href="https://pubmed.ncbi.nlm.nih.gov/41258179/">PMID: 41258179</a>, and novel glutamate-gated chloride channel (GluCl) mutations threaten ivermectin efficacy:</p>
+<blockquote>
+<p>"resistance to this insecticide threatens the effectiveness of head louse control programs." — <a href="https://pubmed.ncbi.nlm.nih.gov/40102974/">PMID: 40102974</a></p>
+</blockquote>
+<p>New pediculicide chemistries with alternative modes of action are under development to manage resistance <a href="https://pubmed.ncbi.nlm.nih.gov/35082036/">PMID: 35082036</a>.</p>
+<h3>Secondary prevention</h3>
+<p>Early empiric doxycycline; single-dose doxycycline post-exposure prophylaxis during outbreaks (F007).</p>
+<h3>Immunization</h3>
+<p>The historic live attenuated <strong>Madrid E</strong> vaccine and killed vaccines were used in the mid-20th century, but <strong>no rickettsial vaccine is currently licensed or available</strong>; vector control and antibiotics remain the mainstays (F007). Candidate non-reverting attenuated strains (e.g., <em>pld</em> knockout) protect in animal models <a href="https://pubmed.ncbi.nlm.nih.gov/19506016/">PMID: 19506016</a>.</p>
+<h3>Public health</h3>
+<p>Sanitation, mass delousing in refugee/prison settings, outbreak surveillance, and health education. Preparedness planning must address vulnerable groups such as pregnant women given biothreat potential <a href="https://pubmed.ncbi.nlm.nih.gov/28398677/">PMID: 28398677</a>.</p>
+<p><strong>Suggested NCIT/CHEBI terms:</strong> NCIT:C29744 (Permethrin), <a href="http://purl.obolibrary.org/obo/CHEBI_6078" target="_blank" rel="noopener noreferrer">CHEBI:6078</a> (ivermectin), NCIT:C15311 (Vaccination), NCIT:C16781 (Sanitation).</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy of agent and vectors:</strong> <em>Rickettsia prowazekii</em> (NCBI:txid782); <em>Pediculus humanus corporis</em> (NCBI:txid121224).</li>
+<li><strong>Reservoir hosts:</strong> Humans are the principal reservoir. A <strong>sylvatic zoonotic cycle</strong> involves the <strong>southern flying squirrel <em>Glaucomys volans</em></strong> and its ectoparasites in the eastern USA (F002):</li>
+</ul>
+<blockquote>
+<p>"Since 1975, R prowazekii infection in human beings has been related to contact with the flying squirrel <em>Glaucomys volans</em> in the USA." — <a href="https://pubmed.ncbi.nlm.nih.gov/18582834/">PMID: 18582834</a></p>
+</blockquote>
+<ul>
+<li><strong>Zoonotic potential/transmission:</strong> established (sylvatic squirrel cycle → humans). Body/head louse clades (including a described Clade D) may carry additional pathogens, illustrating broad vector competence <a href="https://pubmed.ncbi.nlm.nih.gov/26392158/">PMID: 26392158</a>.</li>
+<li><strong>Comparative pathology:</strong> experimental infection reproduces human-like disease in mice and guinea pigs (Section 15). Louse infestations of veterinary importance (e.g., sheep lice) are managed with similar acaricides/ivermectin, informing vector-control science <a href="https://pubmed.ncbi.nlm.nih.gov/36406066/">PMID: 36406066</a>.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms (F008)</h2>
+<p>Historically, murine models were of limited value because infection was often inapparent or erratically lethal <a href="https://pubmed.ncbi.nlm.nih.gov/18366341/">PMID: 18366341</a>. Modern models, tuned by host genetic background, rickettsial species, and inoculation route, now recapitulate human disease.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>System</th>
+<th>Recapitulation</th>
+<th>Key finding</th>
+<th>PMID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BALB/c mouse, IV <em>R. prowazekii</em> (Breinl)</td>
+<td>Mammalian</td>
+<td>Dissemination to blood/liver/lung/brain within 1 day, persisting ≥9 days; interstitial pneumonia, pulmonary &amp; cerebral hemorrhages, hepatic granulomas</td>
+<td>Lesions independent of humoral response; associated with IFN-γ, TNF, RANTES/CCL5</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17537665/">17537665</a></td>
+</tr>
+<tr>
+<td>C3H/HeN mouse, <em>R. typhi</em> (typhus-group endothelial-target model)</td>
+<td>Mammalian</td>
+<td>Endothelial vascular lesions in brain, lung, heart, kidney</td>
+<td>IFN-γ and CD8+ T cells crucial for clearance; IL-12 marks effective immunity</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11005205/">11005205</a></td>
+</tr>
+<tr>
+<td>Guinea pig</td>
+<td>Mammalian</td>
+<td>Virulence/attenuation assessment</td>
+<td><em>pld</em> knockout of Madrid Evir attenuated and protective</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19506016/">19506016</a></td>
+</tr>
+<tr>
+<td>BALB/c adipose reservoir</td>
+<td>Mammalian</td>
+<td>Latency/recrudescence</td>
+<td><em>R. prowazekii</em> persists in adipose tissue; reactivates with dexamethasone</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20049326/">20049326</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Supporting quotes (F008):</p>
+<blockquote>
+<p>"infected mice developed interstitial pneumonia, with consolidation of the alveoli, hemorrhages in lungs, multifocal granulomas in liver, and hemorrhages in brain, as seen in humans." — <a href="https://pubmed.ncbi.nlm.nih.gov/17537665/">PMID: 17537665</a></p>
+<p>"Gamma interferon and CD8 T lymphocytes were demonstrated to be crucial to clearance of the rickettsiae and recovery from infection." — <a href="https://pubmed.ncbi.nlm.nih.gov/11005205/">PMID: 11005205</a></p>
+</blockquote>
+<p><strong>Model limitations:</strong> susceptibility is strongly genotype-, species-, and route-dependent; no single rodent model fully reproduces louse-borne natural transmission or the full human vasculitic spectrum. <strong>Applications:</strong> pathogenesis of endothelial infection, protective immunity mechanisms, vaccine candidate evaluation, and latency/recrudescence biology.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>   Infected louse feces (R. prowazekii)
+      │  inoculation via skin abrasion / mucosa
+      ▼
+     Bloodstream (bacteremia) ──────────────► hematogenous dissemination
+      │
+      ▼
+   ENDOTHELIAL CELL INVASION  ◄── (macrophages, secondary)
+      │  phagosomal escape: PLD, TlyC
+      ▼
+   Cytoplasmic replication  ──── energy theft via Tlc1 (ATP/ADP), no glycolysis
+      │
+      ▼
+   Endothelial activation → VASCULAR INFLAMMATION
+   (loss of integrity + increased permeability = &quot;RICKETTSIAL VASCULITIS&quot;)
+      │
+      ├── typhus nodules (perivascular mononuclear infiltrate)
+      ├── microthrombi
+      └── vascular leak / edema
+      │
+      ▼
+   MULTIORGAN INJURY:
+   skin(rash) · brain(encephalitis) · heart(myocarditis)
+   lung(pneumonitis) · kidney(AKI) · shock
+      │
+       ┌──────┴───────────────┐
+       ▼                       ▼
+  Cell-mediated immunity   Untreated → death
+  (IFN-γ, CD8+ T cells)         │
+       │                        │  OR early doxycycline → rapid recovery
+       ▼
+  Clearance + latent survival in adipose tissue
+       │  years later (stress / waning immunity)
+       ▼
+  BRILL–ZINSSER DISEASE (recrudescence, can reseed epidemics)
+</code></pre>
+<p>The unifying interpretation is that <strong>a single cellular tropism — for vascular endothelium — accounts for the entire clinical syndrome</strong>. Every major manifestation (rash, encephalitis, myocarditis, pneumonitis, renal failure, shock) is the local expression of the same diffuse small-vessel vasculitis. This explains why a narrow-spectrum, inexpensive antibiotic (doxycycline) that halts intracellular replication produces such rapid, near-complete recovery, and why the disease is simultaneously a biological curiosity (energy-parasitic reductive genome), a public-health disease of poverty and displacement, and a recognized biothreat.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Role</th>
+<th>Supports</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18582834/">18582834</a></td>
+<td>Landmark review (<em>Epidemic typhus</em>)</td>
+<td>Vector, transmission, flying-squirrel cycle, Brill–Zinsser, biothreat (F001, F002, F005)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27726780/">27726780</a></td>
+<td>Review (<em>History of Epidemic Typhus</em>)</td>
+<td>Agent and body-louse transmission (F001)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20049326/">20049326</a></td>
+<td>Model organism study</td>
+<td>Adipose latency reservoir/recrudescence (F002)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9693729/">9693729</a></td>
+<td>Bioenergetics study</td>
+<td>No glycolysis; TCA/ETS present (F003)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16923893/">16923893</a></td>
+<td>Transporter study</td>
+<td>Tlc1 ATP/ADP translocase; host energy parasitism (F003)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30712763/">30712763</a></td>
+<td>Practical review</td>
+<td>IFA serology; doxycycline first-line (F004)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39447222/">39447222</a></td>
+<td>CNS case discussion</td>
+<td>Doxycycline resolves CNS disease; danger of delay (F004)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20368341/">20368341</a></td>
+<td>Multi-omics study</td>
+<td>Genomic plasticity/adaptive mutation, virulence (F005)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9717922/">9717922</a></td>
+<td>Outbreak report</td>
+<td>Burundi re-emergence; low rash frequency (F005, F010)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19327117/">19327117</a></td>
+<td>Mechanistic review</td>
+<td>Endothelial tropism → rickettsial vasculitis (F006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40793754/">40793754</a></td>
+<td>TlyC hemolysin study</td>
+<td>Systemic fatal vasculitis; phagosomal escape (F006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40140904/">40140904</a></td>
+<td>Cluster RCT</td>
+<td>Ivermectin efficacy against lice (F007)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40102974/">40102974</a></td>
+<td>Resistance study</td>
+<td>GluCl mutations → ivermectin resistance (F007)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17537665/">17537665</a></td>
+<td>Model organism study</td>
+<td>BALB/c model recapitulates multiorgan pathology (F008)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11005205/">11005205</a></td>
+<td>Model organism study</td>
+<td>Endothelial target model; IFN-γ/CD8 clearance (F008, F009)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9346184/">9346184</a></td>
+<td>Human autopsy IHC</td>
+<td>Endothelium/macrophage targeting in fatal CNS typhus (F009)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31984654/">31984654</a></td>
+<td>Claims analysis</td>
+<td>Contemporary US coding/misclassification (F010)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10511530/">10511530</a></td>
+<td>Case report</td>
+<td>Misdiagnosis as typhoid (F010)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19506016/">19506016</a></td>
+<td>Mutagenesis study</td>
+<td><em>pld</em> knockout attenuated, protective vaccine candidate</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18366341/">18366341</a></td>
+<td>Review</td>
+<td>Animal-model context and historical limitations</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Supporting context papers: <a href="https://pubmed.ncbi.nlm.nih.gov/37567429/">37567429</a> (louse-borne pathogens), <a href="https://pubmed.ncbi.nlm.nih.gov/17114713/">17114713</a> (homeless/ectoparasites), <a href="https://pubmed.ncbi.nlm.nih.gov/26392158/">26392158</a> (louse clades), <a href="https://pubmed.ncbi.nlm.nih.gov/38259062/">38259062</a> (LPS/lipid A), <a href="https://pubmed.ncbi.nlm.nih.gov/36628901/">36628901</a> &amp; <a href="https://pubmed.ncbi.nlm.nih.gov/38163619/">38163619</a> (regional epidemiology), <a href="https://pubmed.ncbi.nlm.nih.gov/28398677/">28398677</a> (biothreat/pregnancy), <a href="https://pubmed.ncbi.nlm.nih.gov/41258179/">41258179</a> &amp; <a href="https://pubmed.ncbi.nlm.nih.gov/35082036/">35082036</a> (pediculicide resistance/new chemistries).</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Contemporary burden is poorly quantified.</strong> Epidemic typhus is not nationally notifiable in the USA, and coding data indicate substantial misclassification, so incidence/prevalence estimates are uncertain <a href="https://pubmed.ncbi.nlm.nih.gov/31984654/">PMID: 31984654</a>.</li>
+<li><strong>Human mechanistic data are sparse.</strong> Much pathogenesis detail derives from animal models (some using <em>R. typhi</em> as a typhus-group surrogate) and in-vitro work rather than human tissue; autopsy series are historical and small <a href="https://pubmed.ncbi.nlm.nih.gov/9346184/">PMID: 9346184</a>.</li>
+<li><strong>Latency biology is incompletely defined in humans.</strong> The adipose reservoir is demonstrated in mice; the precise cellular/molecular basis of Brill–Zinsser latency and reactivation in humans remains inferred <a href="https://pubmed.ncbi.nlm.nih.gov/20049326/">PMID: 20049326</a>.</li>
+<li><strong>No modern host-response omics</strong> (transcriptomics/proteomics/metabolomics) datasets specific to human epidemic typhus were identified, limiting biomarker and prognostic-model development.</li>
+<li><strong>Vaccine gap.</strong> No licensed vaccine exists; attenuated candidates remain experimental <a href="https://pubmed.ncbi.nlm.nih.gov/19506016/">PMID: 19506016</a>.</li>
+<li><strong>Vector-control fragility.</strong> Growing pediculicide resistance (permethrin, ivermectin/GluCl) threatens the primary prevention strategy <a href="https://pubmed.ncbi.nlm.nih.gov/41258179/">PMID: 41258179</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40102974/">PMID: 40102974</a>.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Strengthen surveillance:</strong> advocate for standardized case definitions and (re)consideration of notifiable status; pair clinical reporting with <strong>body-louse infestation surveys</strong> in high-risk settings (refugee camps, prisons, homeless populations).</li>
+<li><strong>Human host-response omics:</strong> collect acute/convalescent blood for RNA-seq, proteomics, and cytokine profiling to define IFN-γ/CD8 signatures and candidate <strong>prognostic biomarkers</strong> (e.g., markers distinguishing severe vasculitic disease), building on the murine IFN-γ/TNF/CCL5 associations <a href="https://pubmed.ncbi.nlm.nih.gov/17537665/">PMID: 17537665</a>.</li>
+<li><strong>Define the human latency reservoir:</strong> test whether adipose tissue harbors <em>R. prowazekii</em> in Brill–Zinsser patients, translating the murine finding <a href="https://pubmed.ncbi.nlm.nih.gov/20049326/">PMID: 20049326</a>.</li>
+<li><strong>Advance vaccine development:</strong> further evaluate non-reverting attenuated strains (e.g., <em>pld</em>, and additional virulence-locus knockouts) for durable cell-mediated protection <a href="https://pubmed.ncbi.nlm.nih.gov/19506016/">PMID: 19506016</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/20368341/">PMID: 20368341</a>.</li>
+<li><strong>Resistance-proof vector control:</strong> deploy rotation of pediculicides with distinct modes of action and monitor GluCl/kdr resistance markers; evaluate mass ivermectin administration co-benefits and limits <a href="https://pubmed.ncbi.nlm.nih.gov/40140904/">PMID: 40140904</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/35082036/">PMID: 35082036</a>.</li>
+<li><strong>Diagnostic acceleration:</strong> validate rapid molecular (PCR/tNGS) and point-of-care assays to overcome the early-serology gap and reduce misdiagnosis as typhoid or other febrile illnesses <a href="https://pubmed.ncbi.nlm.nih.gov/30712763/">PMID: 30712763</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/10511530/">PMID: 10511530</a>.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 10 confirmed findings and 39 reviewed papers. Evidence types span human clinical/autopsy studies, animal models (mouse, guinea pig), in-vitro/molecular biology, and epidemiological/outbreak investigations, as annotated per finding.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Epidemic_Typhus-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Epidemic_Typhus-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>32</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:35082036</code> (6 mentions) - New chemistries for the control of human head lice, Pediculus humanus capitis: A mini-review.</li>
+<li>shared terms: human</li>
+<li><code>PMID:36406066</code> (3 mentions) - Epidemiological and therapeutic studies on sheep lice in Sayint district, South Wollo Zone, Northeast Ethiopia.</li>
+<li>shared terms: treatment</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>disease</code>, <code>typhus</code>, <code>epidemic</code>, <code>prowazekii</code>, <code>human</code>, <code>host</code>, <code>infection</code>, <code>louse</code>, <code>doxycycline</code>, <code>outbreak</code>, <code>acute</code>, <code>treatment</code>, <code>vaccine</code>, <code>organism</code>, <code>reservoir</code>, <code>brill</code>, <code>pathogen</code>, <code>zinsser</code>, <code>fever</code>, <code>rickettsia</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>44</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>43</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>5</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0002383</code> (2 mentions) - the report calls it "Severe/CNS cases"; HP calls it <strong>Infectious encephalitis</strong></li>
+<li><code>HP:0012819</code> (1 mention) - the report calls it "Severe cases"; HP calls it <strong>Myocarditis</strong></li>
+<li><code>HP:0006515</code> (1 mention) - the report calls it "Severe cases"; HP calls it <strong>Interstitial pneumonitis</strong></li>
+<li><code>HP:0001919</code> (1 mention) - the report calls it "Severe cases"; HP calls it <strong>Acute kidney injury</strong></li>
+<li><code>HP:0002615</code> (1 mention) - the report calls it "Severe/terminal"; HP calls it <strong>Hypotension</strong></li>
+<li><code>NCIT:C692</code> (1 mention) - the report calls it "Doxycycline"; NCIT calls it <strong>Nimodipine</strong></li>
+<li><code>NCIT:C376</code> (1 mention) - the report calls it "Chloramphenicol"; NCIT calls it <strong>Cisplatin</strong></li>
+<li><code>NCIT:C15844</code> (1 mention) - the report calls it "Antibiotic Therapy"; NCIT calls it <strong>Protein/Amino Acid Nutrition Research, Animal</strong></li>
+<li><code>NCIT:C15311</code> (1 mention) - the report calls it "Vaccination"; NCIT calls it <strong>Quality Control</strong></li>
+<li><code>NCIT:C16781</code> (1 mention) - the report calls it "Sanitation"; NCIT calls it <strong>Laryngoscopy</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0009405</code> (obsolete pathogenesis) (1 mention)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0009405</code> (1 mention) - the report calls it "pathogenesis"; GO calls it <strong>obsolete pathogenesis</strong></li>
+<li><code>GO:0032609</code> (1 mention) - the report calls it "interferon-gamma production"; GO calls it <strong>type II interferon production</strong>, and lists "interferon-gamma production" among its other names</li>
+<li><code>CL:0002138</code> (1 mention) - the report calls it "blood vessel endothelial cell"; CL calls it <strong>endothelial cell of lymphatic vessel</strong>, and lists "lymphatic endothelial cell" among its other names</li>
+<li><code>GO:0045335</code> (1 mention) - the report calls it "phagosome"; GO calls it <strong>phagocytic vesicle</strong>, and lists "phagosome" among its other names</li>
+<li><code>NCIT:C29744</code> (1 mention) - the report calls it "Permethrin"; NCIT calls it <strong>Formaldehyde</strong>, and lists "Methanal" among its other names</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Ependymoma-openscientist.html">← Ependymoma (OpenScientist)</a>
+                
+                
+                <a href="Epidermolysis_Bullosa-falcon.html">Epidermolysis Bullosa (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Epidemic_typhus.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Epidemic_Typhus-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

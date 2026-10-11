@@ -45,6 +45,55 @@ Rules
   (``Common``, ``Variable``, …) is left unmapped rather than guessed.
 * ``aspect`` defaults to ``P`` (phenotypic abnormality); a proper OAK-based
   classification (C / I / M / H) is a follow-up.
+
+Subtypes
+--------
+Every ``has_subtypes[]`` row bound to its own MONDO term (and not a
+``curated_in`` pointer, whose content is exported from the entry it points at)
+is emitted as a disease in its own right, so OMIM-level subtypes get their own
+rows:
+
+* A phenotype with no ``subtype:`` is asserted of the disease as a whole, and is
+  propagated **down** to every such subtype. Its rows on the subtype carry the
+  parent's MONDO id in ``inherited_from``, so they can be told apart from what
+  the curator stated of the subtype directly.
+* A phenotype scoped with ``subtype: X`` is emitted on X directly (empty
+  ``inherited_from``), and on X's ``children`` subtypes as inherited from X. It
+  is also kept on the parent, as before: a feature of a subtype is a feature
+  of some cases of the parent.
+* The nearest statement wins. When a phenotype is scoped to a subtype, the
+  same HP term is not inherited from above onto that subtype or onto any of its
+  ``children``, so a subtype-level ``NOT`` is never contradicted by a positive
+  row inherited past it.
+* Frequency does not propagate. The parent's frequency is measured across all
+  of its subtypes and says nothing about any one of them, so an inherited row
+  keeps only an obligate frequency (``HP:0040280`` / ``100%``), which is true
+  of every subtype by definition. Absence (``NOT``) propagates unchanged,
+  unless the parent also carries a positive row for the same HP term: mixed
+  evidence on the parent is not inherited at all.
+* Subtypes without a MONDO term (unbound, or NCIT-only) receive nothing: there
+  is no identifier to anchor the rows on.
+* A subtype whose MONDO term is another entry's own ``disease_term`` is treated
+  like a ``curated_in`` pointer: it inherits nothing, because that entry is its
+  curation. Rows stated of it directly are still emitted.
+
+OMIM keying
+-----------
+``--key omim`` rewrites every row onto the OMIM id MONDO itself declares
+equivalent, read from MONDO's SSSOM mapping set (``skos:exactMatch`` rows
+only), so the file can be joined against the HPO release:
+
+* ``database_id`` becomes the OMIM id and ``disease_name`` the mapping set's
+  OMIM label; the original MONDO id is kept in an extra ``mondo_id`` column.
+  ``inherited_from`` stays a MONDO id, since it records dismech provenance.
+* An IEA row that cites its own disease cites the OMIM id instead, the
+  release's own convention for such rows. An inherited IEA row cites the
+  disease it came from, so it keeps that disease's MONDO id.
+* A disease with no exact OMIM match, one matching only an OMIM phenotypic
+  series (``OMIMPS:``, which HPOA does not key on), or one matching more than
+  one OMIM entry gets no rows. Each is listed, with the reason and the number
+  of rows withheld, in ``omim_unmapped.tsv`` beside the export.
+* The comorbidity sidecar stays MONDO-keyed: it is not an HPOA file.
 """
 from __future__ import annotations
 
@@ -97,6 +146,8 @@ SUPPORTS_TO_QUALIFIER: dict[Any, str] = {
 # row via SUPPORTS_TO_QUALIFIER.
 DROP_SUPPORTS: frozenset[str] = frozenset({"NO_EVIDENCE"})
 
+# The first 12 columns are the HPOA format, in order. Extra columns go after
+# them, never between, so a reader that takes the first 12 still sees HPOA.
 HPOA_COLUMNS = [
     "database_id",
     "disease_name",
@@ -111,7 +162,16 @@ HPOA_COLUMNS = [
     "aspect",
     "biocuration",
     "dismech_name",
+    "inherited_from",
 ]
+
+# Written after the HPOA columns in --key omim mode.
+OMIM_EXTRA_COLUMNS = ["mondo_id"]
+
+OMIM_UNMAPPED_COLUMNS = ["mondo_id", "disease_name", "reason", "rows_withheld", "candidates"]
+
+# Frequencies that hold for every subtype when they hold for the parent.
+OBLIGATE_FREQUENCIES: frozenset[str] = frozenset({FREQUENCY_TO_HP["OBLIGATE"], "100%"})
 
 COMORBIDITY_COLUMNS = [
     "database_id",
@@ -204,17 +264,95 @@ def _human_evidence(
         yield {"reference": ref, "code": code, "supports": supports}
 
 
+def export_subtypes(data: dict[str, Any], parent_id: str) -> dict[str, dict[str, Any]]:
+    """Subtypes that are exported as diseases, keyed by ``has_subtypes[].name``.
+
+    Only subtypes bound to a MONDO term other than the parent's own, and not
+    ``curated_in`` pointers, qualify. ``children`` keeps every listed child name
+    so that a chain through an unbound grouping subtype is still followed.
+    """
+    out: dict[str, dict[str, Any]] = {}
+    for sub in data.get("has_subtypes") or []:
+        name = sub.get("name")
+        if not name:
+            continue
+        term = ((sub.get("subtype_term") or {}).get("term") or {})
+        term_id = term.get("id") or ""
+        eligible = (
+            term_id.startswith("MONDO:")
+            and term_id != parent_id
+            and not sub.get("curated_in")
+        )
+        out[name] = {
+            "id": term_id if eligible else "",
+            "label": term.get("label") or sub.get("display_name") or name,
+            "children": list(sub.get("children") or []),
+        }
+    return out
+
+
+def _descendants(name: str, subtypes: dict[str, dict[str, Any]]) -> list[str]:
+    """Names reachable from ``name`` through ``children``, excluding itself."""
+    seen: list[str] = []
+    stack = list(subtypes.get(name, {}).get("children", []))
+    while stack:
+        child = stack.pop()
+        if child == name or child in seen or child not in subtypes:
+            continue
+        seen.append(child)
+        stack.extend(subtypes[child]["children"])
+    return seen
+
+
+def _subtype_targets(
+    scope: str | None,
+    subtypes: dict[str, dict[str, Any]],
+    parent_id: str,
+) -> list[tuple[str, str]]:
+    """(subtype name, inherited_from) pairs a phenotype is emitted on.
+
+    ``inherited_from`` is empty for the subtype a phenotype is scoped to, and
+    otherwise names the disease the row was inherited from.
+    """
+    if scope is None:
+        return [(name, parent_id) for name, sub in subtypes.items() if sub["id"]]
+    if scope not in subtypes:
+        return []
+    source = subtypes[scope]["id"] or parent_id
+    targets = [(scope, "")] if subtypes[scope]["id"] else []
+    targets += [
+        (child, source) for child in _descendants(scope, subtypes) if subtypes[child]["id"]
+    ]
+    return targets
+
+
 def hpoa_rows_for_disorder(
     yaml_path: Path,
+    propagate_subtypes: bool = True,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
-    """Read one disorder YAML and project to (hpoa_rows, comorbidity_rows)."""
+    """Read one disorder YAML and project to (hpoa_rows, comorbidity_rows).
+
+    With ``propagate_subtypes`` (the default), MONDO-bound subtypes get their
+    own rows; see the module docstring for the rules. A subtype that is also
+    another entry's ``disease_term`` is only recognised by :func:`export`,
+    which sees every entry.
+    """
     data = safe_load_path(yaml_path) or {}
+    return project_disorder(data, yaml_path.stem, propagate_subtypes)
+
+
+def project_disorder(
+    data: dict[str, Any],
+    stem: str,
+    propagate_subtypes: bool = True,
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    """Project one parsed disorder to (hpoa_rows, comorbidity_rows)."""
     disease = ((data.get("disease_term") or {}).get("term") or {})
     disease_id = disease.get("id") or ""
     if not disease_id.startswith("MONDO:"):
         return [], []
-    disease_name = disease.get("label") or data.get("name") or yaml_path.stem
-    entry_slug = slugify(yaml_path.stem)
+    disease_name = disease.get("label") or data.get("name") or stem
+    entry_slug = slugify(stem)
     creation_date = (data.get("creation_date") or "")[:10] or datetime.now(
         UTC
     ).strftime("%Y-%m-%d")
@@ -223,6 +361,11 @@ def hpoa_rows_for_disorder(
     hpoa_rows: list[dict[str, str]] = []
     comorb_rows: list[dict[str, str]] = []
     patho_names = pathophysiology_node_names(data)
+    subtypes = export_subtypes(data, disease_id) if propagate_subtypes else {}
+    # (subtype name, hpo_id) pairs the curator stated of a subtype directly;
+    # these are never also inherited onto that subtype from above.
+    stated: set[tuple[str, str]] = set()
+    pending: list[tuple[dict[str, str], str | None]] = []
 
     for phenotype in data.get("phenotypes") or []:
         term = ((phenotype.get("phenotype_term") or {}).get("term") or {})
@@ -272,34 +415,191 @@ def hpoa_rows_for_disorder(
                 {"reference": disease_id, "code": "IEA", "supports": None}
             ]
 
-        for ev in evidence_items:
-            hpoa_rows.append(
-                {
-                    "database_id": disease_id,
-                    "disease_name": disease_name,
-                    "qualifier": SUPPORTS_TO_QUALIFIER.get(
-                        ev["supports"], default_qualifier
-                    ),
-                    "hpo_id": hpo_id,
-                    "reference": ev["reference"],
-                    "evidence": ev["code"],
-                    "onset": "",
-                    "frequency": frequency,
-                    "sex": "",
-                    "modifier": "",
-                    "aspect": "P",
-                    "biocuration": biocuration,
-                    "dismech_name": phen_name,
-                }
-            )
+        scope = phenotype.get("subtype")
+        if scope in subtypes:
+            stated.add((scope, hpo_id))
 
+        for ev in evidence_items:
+            row = {
+                "database_id": disease_id,
+                "disease_name": disease_name,
+                "qualifier": SUPPORTS_TO_QUALIFIER.get(
+                    ev["supports"], default_qualifier
+                ),
+                "hpo_id": hpo_id,
+                "reference": ev["reference"],
+                "evidence": ev["code"],
+                "onset": "",
+                "frequency": frequency,
+                "sex": "",
+                "modifier": "",
+                "aspect": "P",
+                "biocuration": biocuration,
+                "dismech_name": phen_name,
+                "inherited_from": "",
+            }
+            hpoa_rows.append(row)
+            if subtypes:
+                pending.append((row, scope))
+
+    hpoa_rows.extend(_subtype_rows(pending, subtypes, stated, disease_id))
     return hpoa_rows, comorb_rows
 
 
-def export(kb_dir: Path, out_dir: Path) -> tuple[int, int]:
-    """Project every disorder YAML in ``kb_dir`` to TSV files under ``out_dir``."""
+def _shadowed(
+    target: str,
+    scope: str | None,
+    hpo_id: str,
+    subtypes: dict[str, dict[str, Any]],
+    stated: set[tuple[str, str]],
+) -> bool:
+    """Whether a nearer statement of ``hpo_id`` sits between ``scope`` and ``target``.
+
+    A subtype that states the term itself, or any subtype on the way down from
+    the row's source to ``target``, takes precedence over the inherited row.
+    ``scope`` is ``None`` for a row inherited from the parent, in which case
+    every subtype is below it.
+    """
+    below = set(subtypes) if scope is None else set(_descendants(scope, subtypes))
+    for name in below:
+        if (name, hpo_id) not in stated:
+            continue
+        if name == target or target in _descendants(name, subtypes):
+            return True
+    return False
+
+
+def _subtype_rows(
+    pending: list[tuple[dict[str, str], str | None]],
+    subtypes: dict[str, dict[str, Any]],
+    stated: set[tuple[str, str]],
+    parent_id: str,
+) -> list[dict[str, str]]:
+    """Copy parent-level rows onto the subtypes they apply to.
+
+    Run after every phenotype has been read, so ``stated`` is complete whatever
+    order the phenotypes appear in. Duplicates (two subtype names bound to one
+    MONDO term) are emitted once.
+
+    An HP term whose unscoped parent rows carry both a positive and a ``NOT``
+    row is not inherited at all: the parent's evidence is mixed, and copying a
+    ``NOT`` meant as "not every patient" onto each subtype would assert that
+    each one lacks the feature.
+    """
+    qualifiers: dict[str, set[str]] = {}
+    for base, scope in pending:
+        if scope is None:
+            qualifiers.setdefault(base["hpo_id"], set()).add(base["qualifier"])
+    mixed = {hpo_id for hpo_id, quals in qualifiers.items() if len(quals) > 1}
+
+    rows: list[dict[str, str]] = []
+    seen: set[tuple[str, ...]] = set()
+    for base, scope in pending:
+        hpo_id = base["hpo_id"]
+        for name, inherited_from in _subtype_targets(scope, subtypes, parent_id):
+            if inherited_from:
+                if scope is None and hpo_id in mixed:
+                    continue
+                if _shadowed(name, scope, hpo_id, subtypes, stated):
+                    continue
+            sub = subtypes[name]
+            row = dict(base)
+            row["database_id"] = sub["id"]
+            row["disease_name"] = sub["label"]
+            row["inherited_from"] = inherited_from
+            if inherited_from and row["frequency"] not in OBLIGATE_FREQUENCIES:
+                row["frequency"] = ""
+            key = tuple(row[c] for c in HPOA_COLUMNS)
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(row)
+    return rows
+
+
+def load_omim_xrefs(sssom_path: Path) -> dict[str, list[tuple[str, str]]]:
+    """MONDO id -> [(OMIM or OMIMPS id, label)], from SSSOM ``skos:exactMatch`` rows."""
+    out: dict[str, list[tuple[str, str]]] = {}
+    with sssom_path.open(encoding="utf-8") as fh:
+        for row in csv.DictReader(
+            (line for line in fh if not line.startswith("#")), delimiter="\t"
+        ):
+            if row.get("predicate_id") != "skos:exactMatch":
+                continue
+            subject, obj = row.get("subject_id") or "", row.get("object_id") or ""
+            if subject.startswith("MONDO:") and obj.startswith(("OMIM:", "OMIMPS:")):
+                out.setdefault(subject, []).append((obj, row.get("object_label") or ""))
+    return out
+
+
+def rekey_to_omim(
+    rows: list[dict[str, str]],
+    xrefs: dict[str, list[tuple[str, str]]],
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    """Rewrite MONDO-keyed rows onto OMIM; return (rows, unmapped report).
+
+    Only a disease with exactly one exact OMIM match is kept. See the module
+    docstring for what happens to the rest.
+    """
+    out: list[dict[str, str]] = []
+    unmapped: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        mondo_id = row["database_id"]
+        matches = xrefs.get(mondo_id, [])
+        omim = [m for m in matches if m[0].startswith("OMIM:")]
+        if len(omim) == 1:
+            omim_id, omim_label = omim[0]
+            new = dict(row)
+            new["database_id"] = omim_id
+            new["disease_name"] = omim_label or row["disease_name"]
+            new["mondo_id"] = mondo_id
+            if new["reference"] == mondo_id:
+                new["reference"] = omim_id
+            out.append(new)
+            continue
+        if omim:
+            reason, candidates = "multiple_omim", [m[0] for m in omim]
+        elif matches:
+            reason, candidates = "phenotypic_series_only", [m[0] for m in matches]
+        else:
+            reason, candidates = "no_omim", []
+        entry = unmapped.setdefault(
+            mondo_id,
+            {
+                "mondo_id": mondo_id,
+                "disease_name": row["disease_name"],
+                "reason": reason,
+                "rows_withheld": 0,
+                "candidates": " ".join(sorted(candidates)),
+            },
+        )
+        entry["rows_withheld"] += 1
+    report = sorted(unmapped.values(), key=lambda e: (-e["rows_withheld"], e["mondo_id"]))
+    return out, report
+
+
+def export(
+    kb_dir: Path,
+    out_dir: Path,
+    propagate_subtypes: bool = True,
+    key: str = "mondo",
+    sssom_path: Path | None = None,
+) -> tuple[int, int]:
+    """Project every disorder YAML in ``kb_dir`` to TSV files under ``out_dir``.
+
+    ``key="omim"`` writes ``phenotype.dismech.omim.hpoa`` keyed on OMIM, plus
+    ``omim_unmapped.tsv``, and needs MONDO's SSSOM mapping set at ``sssom_path``.
+    """
+    if key not in ("mondo", "omim"):
+        raise ValueError(f"unknown key {key!r}; expected 'mondo' or 'omim'")
+    if key == "omim" and sssom_path is None:
+        raise ValueError("key='omim' needs sssom_path (MONDO's mondo.sssom.tsv)")
+    xrefs = load_omim_xrefs(sssom_path) if key == "omim" else {}
+
     out_dir.mkdir(parents=True, exist_ok=True)
-    hpoa_path = out_dir / "phenotype.dismech.hpoa"
+    hpoa_path = out_dir / (
+        "phenotype.dismech.omim.hpoa" if key == "omim" else "phenotype.dismech.hpoa"
+    )
     comorb_path = out_dir / "disease_comorbidity.tsv"
     today = datetime.now(UTC).strftime("%Y-%m-%d")
 
@@ -311,7 +611,12 @@ def export(kb_dir: Path, out_dir: Path) -> tuple[int, int]:
     ) as co_f:
         hp_f.write(
             "#description: dismech disease-phenotype annotations, "
-            "MONDO-anchored, HPOA-extended\n"
+            + (
+                "OMIM-keyed via MONDO SSSOM exactMatch (mondo_id column keeps "
+                "the source), HPOA-extended\n"
+                if key == "omim"
+                else "MONDO-anchored, HPOA-extended\n"
+            )
         )
         hp_f.write(f"#date: {today}\n")
         hp_f.write(f"#version: {HPOA_VERSION}\n")
@@ -321,11 +626,18 @@ def export(kb_dir: Path, out_dir: Path) -> tuple[int, int]:
             "NO_EVIDENCE dropped; REFUTE/EXCLUDED-frequency -> NOT; "
             "reference column may be PMID/ORPHA/DOI/clinicaltrials/CGGV; "
             "untyped phenotypes get DISMECH:<entry-slug>#<phen-slug> CURIEs; "
-            "MONDO-typed entries routed to disease_comorbidity.tsv\n"
+            "MONDO-typed entries routed to disease_comorbidity.tsv"
+            + (
+                "; unscoped phenotypes propagated to MONDO-bound subtypes "
+                "(inherited_from = source disease; frequency dropped unless obligate)"
+                if propagate_subtypes
+                else ""
+            )
+            + "\n"
         )
         hp_writer = csv.DictWriter(
             hp_f,
-            fieldnames=HPOA_COLUMNS,
+            fieldnames=HPOA_COLUMNS + (OMIM_EXTRA_COLUMNS if key == "omim" else []),
             delimiter="\t",
             lineterminator="\n",
             extrasaction="ignore",
@@ -346,14 +658,42 @@ def export(kb_dir: Path, out_dir: Path) -> tuple[int, int]:
         )
         co_writer.writeheader()
 
+        all_hpoa: list[dict[str, str]] = []
+        entry_ids: set[str] = set()
         for yaml_path in sorted(kb_dir.glob("*.yaml")):
-            hpoa_rows, comorb_rows = hpoa_rows_for_disorder(yaml_path)
-            for row in hpoa_rows:
-                hp_writer.writerow(row)
-                total_hpoa += 1
+            data = safe_load_path(yaml_path) or {}
+            entry_ids.add(((data.get("disease_term") or {}).get("term") or {}).get("id") or "")
+            hpoa_rows, comorb_rows = project_disorder(
+                data, yaml_path.stem, propagate_subtypes=propagate_subtypes
+            )
+            all_hpoa.extend(hpoa_rows)
             for row in comorb_rows:
                 co_writer.writerow(row)
                 total_comorb += 1
+
+        # A subtype whose MONDO term is another entry's own disease_term is
+        # curated there, exactly as a `curated_in` pointer would say: inheriting
+        # the parent's pooled phenotypes onto it would mix two curations of one
+        # disease. Rows the parent states of that subtype directly are kept.
+        kept = [
+            row
+            for row in all_hpoa
+            if not (row["inherited_from"] and row["database_id"] in entry_ids)
+        ]
+        if key == "omim":
+            kept, unmapped = rekey_to_omim(kept, xrefs)
+            with (out_dir / "omim_unmapped.tsv").open("w", newline="") as un_f:
+                un_writer = csv.DictWriter(
+                    un_f,
+                    fieldnames=OMIM_UNMAPPED_COLUMNS,
+                    delimiter="\t",
+                    lineterminator="\n",
+                )
+                un_writer.writeheader()
+                un_writer.writerows(unmapped)
+        for row in kept:
+            hp_writer.writerow(row)
+            total_hpoa += 1
 
     return total_hpoa, total_comorb
 
@@ -367,9 +707,36 @@ def main() -> int:
     )
     parser.add_argument("--kb-dir", type=Path, default=Path("kb/disorders"))
     parser.add_argument("--out-dir", type=Path, default=Path("output/hpoa"))
+    parser.add_argument(
+        "--no-subtypes",
+        dest="propagate_subtypes",
+        action="store_false",
+        help="Emit parent diseases only, without per-subtype rows.",
+    )
+    parser.add_argument(
+        "--key",
+        choices=("mondo", "omim"),
+        default="mondo",
+        help="Disease id to key rows on. 'omim' needs --sssom.",
+    )
+    parser.add_argument(
+        "--sssom",
+        type=Path,
+        help="MONDO's SSSOM mapping set (mondo.sssom.tsv), for --key omim.",
+    )
     args = parser.parse_args()
-    n_hpoa, n_comorb = export(args.kb_dir, args.out_dir)
-    print(f"wrote {n_hpoa} HPOA rows -> {args.out_dir / 'phenotype.dismech.hpoa'}")
+    if args.key == "omim" and args.sssom is None:
+        parser.error("--key omim needs --sssom PATH (MONDO's mondo.sssom.tsv)")
+    n_hpoa, n_comorb = export(
+        args.kb_dir, args.out_dir, args.propagate_subtypes, args.key, args.sssom
+    )
+    name = "phenotype.dismech.omim.hpoa" if args.key == "omim" else "phenotype.dismech.hpoa"
+    print(f"wrote {n_hpoa} HPOA rows -> {args.out_dir / name}")
+    if args.key == "omim":
+        unmapped_path = args.out_dir / "omim_unmapped.tsv"
+        with unmapped_path.open() as fh:
+            n_unmapped = sum(1 for _ in fh) - 1
+        print(f"{n_unmapped} diseases had no single exact OMIM match -> {unmapped_path}")
     print(f"wrote {n_comorb} comorbidity rows -> {args.out_dir / 'disease_comorbidity.tsv'}")
     return 0
 

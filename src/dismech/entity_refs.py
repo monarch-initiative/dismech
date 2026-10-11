@@ -10,9 +10,9 @@ hash-anchor grammar the schema documents on ``Discussion.attaches_to``::
     Liver_Cirrhosis:pathophysiology#Hepatic Stellate Cell Activation
 
 The same grammar is reused by ``Experiment.would_support`` /
-``would_refute`` and by ``ExperimentalPerturbation.target`` /
-``ExperimentalReadout.target`` (see ``dismech.yaml``, which says so in as many
-words). These are foreign keys, and this module is the single place that knows
+``would_refute``, by ``ExecutableProtocol.measures``, and by
+``ExperimentalPerturbation.target`` / ``ExperimentalReadout.target`` (see
+``dismech.yaml``, which says so in as many words). These are foreign keys, and this module is the single place that knows
 how to follow one — so the test suite, the HTML renderer, and any exporter
 resolve a reference the same way rather than each growing its own half of the
 rules (issue #9193).
@@ -192,7 +192,7 @@ SECTION_KEYS: dict[str, tuple[str, tuple[str, ...]]] = {
 #: ``target_mechanisms`` for plain node names, so a ``target`` without a ``#``
 #: is simply not an entity reference and is skipped by the parser.
 REF_SLOTS: frozenset[str] = frozenset(
-    {"attaches_to", "would_support", "would_refute", "target"}
+    {"attaches_to", "measures", "would_support", "would_refute", "target"}
 )
 
 #: Ref-bearing slot -> the slot a prose *outcome* belongs in instead (#9224).
@@ -221,7 +221,7 @@ REFERENCE_ONLY_SLOTS: dict[str, str] = {
 #: node names in `ModelMechanismLink` and `target_mechanisms`, and its 8
 #: unknown-kind values in `kb/` (`gene#`, `biological_process#`) look like real
 #: missing `SECTION_KEYS` entries rather than typos.
-KNOWN_KIND_SLOTS = frozenset(REFERENCE_ONLY_SLOTS) | {"attaches_to"}
+KNOWN_KIND_SLOTS = frozenset(REFERENCE_ONLY_SLOTS) | {"attaches_to", "measures"}
 
 
 def canonical_kind(kind: str) -> str:
@@ -393,6 +393,43 @@ def _is_known_kind(kind: str) -> bool:
     return kind == DISEASE_KIND or kind in SECTION_KEYS or kind in SINGLETON_SECTIONS
 
 
+def downstream_self_loop_errors(data: dict) -> list[str]:
+    """A pathophysiology node's ``downstream`` list may not target itself.
+
+    ``downstream`` asserts causal progression from one mechanism node to
+    another; a node cannot progress to itself, so a self-referencing edge is
+    never meaningful. ``target`` is in ``REF_SLOTS``, but a bare value with no
+    ``#`` is not parsed as an entity reference (``parse_entity_ref`` returns
+    ``None`` for it), so it never reaches the resolution logic in
+    ``entity_ref_errors`` -- a self-loop resolves fine as a plain node name
+    and was invisible to every other check (#9896).
+
+    In practice this is rarely a literal self-causation claim: both cases
+    found on ``main`` were a pathophysiology node and a same-named phenotype,
+    which the flat node graph namespace (``dismech.graph.collect_graph_nodes``)
+    collapses into one node, turning an intended mechanism-to-phenotype edge
+    into an apparent self-loop.
+    """
+    if not isinstance(data, dict):
+        return []
+    errors: list[str] = []
+    for i, item in enumerate(data.get("pathophysiology", []) or []):
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        if not name:
+            continue
+        for j, edge in enumerate(item.get("downstream", []) or []):
+            if isinstance(edge, dict) and edge.get("target") == name:
+                errors.append(
+                    f"pathophysiology[{i}].downstream[{j}] targets itself "
+                    f"({name!r}); a node cannot cause itself -- if a "
+                    "phenotype of the same name was intended, merge this "
+                    "edge onto the real upstream edge instead (#9896)"
+                )
+    return errors
+
+
 def entity_ref_errors(data: dict) -> list[str]:
     """Every entity-reference problem in one loaded entry.
 
@@ -400,7 +437,9 @@ def entity_ref_errors(data: dict) -> list[str]:
     (``check_entity_ref_foreign_keys``) and the ungated CI check
     (``scripts/check_entity_refs.py``) cannot drift apart -- two copies of a
     rule eventually disagree, which is the argument this module was created
-    on (#9193).
+    on (#9193). Also includes ``downstream_self_loop_errors``, a related but
+    distinct rule: a causal edge that resolves fine but targets its own
+    source node.
 
     Messages name the dotted path within the document rather than a file, so a
     caller can prefix whatever locator it has. Returns an empty list for an
@@ -408,7 +447,7 @@ def entity_ref_errors(data: dict) -> list[str]:
     """
     if not isinstance(data, dict):
         return []
-    errors: list[str] = []
+    errors: list[str] = list(downstream_self_loop_errors(data))
     item_names = {ref.split("#", 1)[1] for ref in entity_ref_index(data)}
     for site in iter_entity_refs(data):
         parsed = parse_entity_ref(site.ref)

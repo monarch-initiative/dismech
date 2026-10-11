@@ -15,8 +15,10 @@ imports:
   - classifications/iuis_immunodeficiency
   - classifications/channelopathies
   - classifications/phenotype_category
+  - classifications/coarse_phenotype_terms
   - classifications/icimd
   - classifications/isds_skeletal_nosology
+  - classifications/gene_table_nmd
   - classifications/nih_research_priorities
   - classifications/ilo_occupational_diseases
   - classifications/eu_occupational_schedule
@@ -38,7 +40,9 @@ prefixes:
   NCIT: http://purl.obolibrary.org/obo/NCIT_
   OPL: http://purl.obolibrary.org/obo/OPL_
   GENO: http://purl.obolibrary.org/obo/GENO_
+  SO: http://purl.obolibrary.org/obo/SO_
   PATO: http://purl.obolibrary.org/obo/PATO_
+  HANCESTRO: http://purl.obolibrary.org/obo/HANCESTRO_
   ECTO: http://purl.obolibrary.org/obo/ECTO_
   ExO: http://purl.obolibrary.org/obo/ExO_
   ENVO: http://purl.obolibrary.org/obo/ENVO_
@@ -50,6 +54,10 @@ prefixes:
   # so we bind to the schema id namespace instead. Used only for
   # exact_mappings; dismech slot identity stays dismech-native.
   sepio: https://w3id.org/sepio-model/
+  # CiTO, the Citation Typing Ontology (SPAR family). Used only for
+  # QuoteRoleEnum mappings: a CiTO property types a citing-entity ->
+  # cited-entity relation, which is exactly the shape of an EvidenceItem.
+  cito: http://purl.org/spar/cito/
   xsd: http://www.w3.org/2001/XMLSchema#
   PMID: http://www.ncbi.nlm.nih.gov/pubmed/
   # Dataset repositories - omics
@@ -65,6 +73,7 @@ prefixes:
   ega: https://ega-archive.org/studies/
   massive: "https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task="
   mgnify: https://www.ebi.ac.uk/metagenomics/studies/
+  immport: https://www.immport.org/shared/study/
   hca: https://data.humancellatlas.org/explore/projects/
   gtex: https://gtexportal.org/home/datasets/
   encode: https://www.encodeproject.org/experiments/
@@ -181,6 +190,90 @@ enums:
       UNKNOWN:
         title: Unknown
         description: Directness has not yet been assessed
+
+  QuoteRoleEnum:
+    description: >-
+      Where the quoted sentence sits in the cited publication's own argument:
+      a finding that publication produced, something it restates from elsewhere,
+      or its synthesis of a literature it did not generate.
+    comments:
+      - >-
+        This is a fact about the cited document, not a judgement about the
+        claim, and not a strength grade. It is orthogonal to all three existing
+        evidence axes and composes with each of them: `supports` is direction,
+        `directness` is inferential distance, `evidence_source` is study type.
+        A sentence can be BACKGROUND and still be DIRECT, SUPPORT and
+        HUMAN_CLINICAL -- that combination is precisely the case issue #10262
+        was filed about.
+      - >-
+        The motivating case (#10262): a chick-embryo study whose introduction
+        states the human clinical picture, quoted for that human fact. Grading
+        it MODEL_ORGANISM asserts a chick measured human perinatal mortality;
+        grading it HUMAN_CLINICAL asserts a study type the paper never ran; the
+        OTHER that review settled on says nothing at all. With `quote_role`
+        the item is HUMAN_CLINICAL + BACKGROUND, which is both true and
+        queryable -- `evidence_source` grades the evidence the quoted text
+        describes, and `quote_role` records that the citing paper is not where
+        it came from.
+      - >-
+        Every value takes a `close_mappings` to CiTO rather than an
+        `exact_mappings`, because the two vocabularies describe different ends
+        of the same citation. A CiTO property types the *citing* entity's use
+        of a reference; `quote_role` records where the sentence sits inside the
+        *cited* document. They correlate and they come apart: a dismech item
+        quoting an introduction sentence as support for a KB claim is
+        `citesAsEvidence` from the citing side while its `quote_role` is
+        BACKGROUND. Asserting `exact_mappings` would claim an equivalence that
+        does not hold in that case, so all three are close matches and the
+        mapping stays usable for an exporter without overstating it.
+      - >-
+        Deliberately has no UNKNOWN value, unlike DirectnessEnum. Absent
+        already means "nobody has assessed this", which is the honest state of
+        every evidence item predating the slot; a second spelling of the same
+        thing would only invite curators to fill one in. CLAUDE.md gives the
+        same instruction for `directness`, where UNKNOWN is a legacy value.
+      - >-
+        Partly derivable, which is the test docs/explanation/evidence-model.md
+        sets for an authored slot ("strength stays derived, not authored"):
+        where a reference's cached body carries NLM structured-abstract section
+        labels, locating the snippet between two of them decides the zone
+        without inference. `just list-background-citations` reports that
+        derivation as a worklist. It is a worklist and not an autofill: it
+        places roughly a quarter of PMID-cited snippets (the rest are quoted
+        from full-text prose that carries no labels), a structured BACKGROUND:
+        paragraph routinely closes with the authors' own framing, and the same
+        line dismech-terms draws for ontology-term suggestions applies here.
+    permissible_values:
+      PRIMARY_RESULT:
+        title: Primary result
+        description: >-
+          The quoted text reports an observation, measurement, analysis, or
+          conclusion the cited publication itself produced.
+        close_mappings:
+          - cito:citesAsEvidence
+      BACKGROUND:
+        title: Background
+        description: >-
+          The quoted text restates something established elsewhere -- an
+          introduction, a background or framing sentence, a motivation for the
+          work -- rather than a finding of the cited publication.
+        close_mappings:
+          - cito:obtainsBackgroundFrom
+      REVIEW_SYNTHESIS:
+        title: Review synthesis
+        description: >-
+          The quoted text is the cited publication's synthesis of work it did
+          not itself perform: a review, commentary, editorial, or consensus or
+          guideline statement summarizing a literature.
+        close_mappings:
+          - cito:citesAsAuthority
+        comments:
+          - >-
+            The furthest of the three from its CiTO neighbour.
+            `citesAsAuthority` is the nearest property but carries an
+            "uncontested authority" reading that REVIEW_SYNTHESIS does not
+            assert -- the value records what kind of document the sentence sits
+            in, not how much weight to give it.
   EvidenceSourceEnum:
     description: The provenance/source of the evidence item
     permissible_values:
@@ -503,6 +596,70 @@ enums:
         aliases:
           - has_uncertain_significance_for_condition
         meaning: GENO:0000845
+  VariantTypeEnum:
+    description: >-
+      Physical sequence alteration, independently of genomic location or
+      functional consequence. Human-readable values map to Sequence Ontology.
+      This is an optional classification alongside the legacy free-text type;
+      it is not an exhaustive vocabulary for complex rearrangements.
+    permissible_values:
+      single nucleotide variant:
+        description: SNV
+        meaning: SO:0001483
+        notes:
+          - A single-nucleotide change; does not assert population frequency as SNP would.
+      deletion:
+        description: deletion
+        meaning: SO:0000159
+      insertion:
+        description: insertion
+        meaning: SO:0000667
+      duplication:
+        description: duplication
+        meaning: SO:1000035
+      inversion:
+        description: inversion
+        meaning: SO:1000036
+      translocation:
+        description: translocation
+        meaning: SO:0000199
+      copy number variation:
+        description: copy_number_variation
+        meaning: SO:0001019
+        notes:
+          - Use deletion or duplication when the physical alteration is known.
+      short tandem repeat expansion:
+        description: short_tandem_repeat_expansion
+        meaning: SO:0002162
+        notes:
+          - Do not use for repeat expansions outside the short tandem repeat class.
+  GenomicContextEnum:
+    description: >-
+      Genomic features overlapped by a variant, independently of its functional
+      effect. Values describe sequence features, not variant consequences.
+      Contexts may overlap and are relative to the relevant gene or transcript;
+      record those details in the variant description.
+    permissible_values:
+      coding sequence:
+        description: CDS
+        meaning: SO:0000316
+      intron:
+        description: intron
+        meaning: SO:0000188
+      "5' UTR":
+        description: five_prime_UTR
+        meaning: SO:0000204
+      "3' UTR":
+        description: three_prime_UTR
+        meaning: SO:0000205
+      noncoding exon:
+        description: noncoding_exon
+        meaning: SO:0000198
+        notes:
+          - An entire exon without codons; use a UTR value for the untranslated part of an otherwise coding exon.
+      intergenic region:
+        description: intergenic_region
+        meaning: SO:0000605
   RegulatoryVariantCategoryEnum:
     description: >-
       Functional classification of non-coding gene regulatory variants
@@ -589,6 +746,140 @@ enums:
         description: >-
           A cluster of regulatory elements that controls expression of a
           gene cluster (e.g., the beta-globin LCR).
+  GeneDiseaseValidityClassificationEnum:
+    description: >-
+      How well established a gene-disease relationship is, as classified by an
+      external curation body. The values are the GenCC harmonised
+      gene-disease validity classifications; ClinGen, Gene2Phenotype,
+      Orphanet and the PanelApp instances each map their own scale onto
+      them. Used only inside a GeneDiseaseValidityAssertion, which must say
+      who made the classification: dismech records these tiers, it does not
+      assign them (#10179).
+    comments:
+      - >-
+        Each value carries a `gencc_classification` annotation naming the
+        GenCC CURIE, read from the GenCC submissions export
+        (search.thegencc.org, 2026-09-23). GENCC:100007 is not used by any
+        current submission and has no value here; there is deliberately no
+        ANIMAL_MODEL_ONLY.
+      - >-
+        Orthogonal to GeneDiseaseRelationshipEnum, which records what kind
+        of relationship is claimed (causative, risk factor, modifier). A
+        causative claim can be DEFINITIVE or LIMITED.
+    permissible_values:
+      DEFINITIVE:
+        title: Definitive
+        description: >-
+          The role of the gene in the disease has been repeatedly demonstrated
+          and has not been contradicted.
+        annotations:
+          gencc_classification: GENCC:100001
+      STRONG:
+        title: Strong
+        description: >-
+          The role of the gene in the disease has been independently
+          demonstrated in at least two separate studies, with no convincing
+          contradictory evidence.
+        annotations:
+          gencc_classification: GENCC:100002
+      MODERATE:
+        title: Moderate
+        description: >-
+          There is moderate evidence supporting a causal role, typically
+          several probands with functional support but short of Strong.
+        annotations:
+          gencc_classification: GENCC:100003
+      SUPPORTIVE:
+        title: Supportive
+        description: >-
+          The submitter supports the relationship without grading it on a
+          validity scale. Orphanet submits every gene-disease link at this
+          tier.
+        annotations:
+          gencc_classification: GENCC:100009
+      LIMITED:
+        title: Limited
+        description: >-
+          There is limited evidence for a causal role, such as few probands
+          or segregation without functional support.
+        annotations:
+          gencc_classification: GENCC:100004
+      DISPUTED:
+        title: Disputed evidence
+        description: >-
+          Conflicting evidence disputes a role for the gene in the disease.
+        annotations:
+          gencc_classification: GENCC:100005
+      REFUTED:
+        title: Refuted evidence
+        description: >-
+          Evidence refuting the role of the gene in the disease significantly
+          outweighs any supporting evidence.
+        annotations:
+          gencc_classification: GENCC:100006
+      NO_KNOWN_DISEASE_RELATIONSHIP:
+        title: No known disease relationship
+        description: >-
+          The submitter has evaluated the gene and found no evidence that it
+          causes the disease.
+        annotations:
+          gencc_classification: GENCC:100008
+  GeneDiseaseValiditySourceEnum:
+    description: >-
+      The curation body that assigned a gene-disease validity classification.
+      Values are GenCC submitters; each carries a `gencc_submitter`
+      annotation with its GenCC submitter CURIE, read from the GenCC
+      submissions export. Only the submitters whose classifications dismech
+      entries cite are enumerated; any other GenCC submitter is
+      OTHER_GENCC_SUBMITTER with its name in `notes`.
+    comments:
+      - >-
+        There is deliberately no value for dismech or a curator. A validity
+        tier is a classification made under a published framework; when no
+        external body has made one, leave `gene_disease_validity` absent and
+        say so in `Genetic.notes` rather than minting a tier (#10179).
+    permissible_values:
+      CLINGEN:
+        title: ClinGen
+        description: >-
+          ClinGen Gene-Disease Validity, assigned by a Gene Curation Expert
+          Panel under the ClinGen SOP. Cite the assertion as a `CGGV:`
+          reference.
+        annotations:
+          gencc_submitter: GENCC:000102
+      G2P:
+        title: Gene2Phenotype
+        description: >-
+          Gene2Phenotype (EMBL-EBI), which curates gene-disease pairs for
+          specific clinical panels on its own confidence scale.
+        annotations:
+          gencc_submitter: GENCC:000112
+      ORPHANET:
+        title: Orphanet
+        description: >-
+          Orphanet. Every Orphanet submission to GenCC is SUPPORTIVE, so the
+          tier records that Orphanet lists the pair, not that it graded it.
+        annotations:
+          gencc_submitter: GENCC:000110
+      GENOMICS_ENGLAND_PANELAPP:
+        title: Genomics England PanelApp
+        description: >-
+          Genomics England PanelApp, whose green/amber/red gene ratings on
+          diagnostic panels are mapped onto the GenCC tiers.
+        annotations:
+          gencc_submitter: GENCC:000104
+      PANELAPP_AUSTRALIA:
+        title: PanelApp Australia
+        description: >-
+          PanelApp Australia (Australian Genomics), which rates genes on
+          diagnostic panels on the same green/amber/red scale.
+        annotations:
+          gencc_submitter: GENCC:000111
+      OTHER_GENCC_SUBMITTER:
+        title: Other GenCC submitter
+        description: >-
+          Any other GenCC submitter (for example a diagnostic laboratory).
+          Name it in `notes`.
   GeneDiseaseRelationshipEnum:
     description: >-
       The qualitative relationship between a gene (or locus) and a disease.
@@ -841,6 +1132,66 @@ enums:
           regardless of underlying mechanism (epigenetic silencing, protein
           sequestration, competitive inhibition, etc.). For mutation-driven LOF,
           use GeneticContext.functional_impact_category: LOSS_OF_FUNCTION.
+  CoarseBindingBasisEnum:
+    description: >-
+      Why a descriptor is deliberately bound to a coarse, organ-system-level
+      ontology term rather than a specific finding. Required by
+      `just check-coarse-phenotypes` on any phenotype bound to one of the
+      top-level HPO organ-system terms (the PhenotypeCategoryEnum meanings,
+      the direct children of HP:0000118), which name a facet bucket rather
+      than a clinical finding. The point is NOT to reward narrow terms --
+      manufacturing a specificity the source does not support is a worse
+      defect than a coarse binding. The point is that a coarse binding should
+      say which of these situations it is in, so the unexplained one (the
+      curator who stopped early) is distinguishable from the three legitimate
+      ones.
+    permissible_values:
+      VARIABLE_SPECTRUM:
+        title: Variable spectrum
+        description: >-
+          Involvement of this system is real and recurrent, but its form varies
+          between patients with no characteristic finding to bind -- pleiotropy
+          and variable expressivity, where enumerating every case would be
+          arbitrary. The node's content is the organ-system involvement itself,
+          typically with an aggregate frequency the source measured at that
+          level. Like SOURCE_UNSPECIFIED this is a bare declaration with no
+          companion slot. If the specific findings ARE known and evidenced, they
+          are ordinary `phenotypes` entries with their own terms and evidence --
+          curate them that way rather than listing them inside this binding.
+      SOURCE_UNSPECIFIED:
+        title: Source unspecified
+        description: >-
+          The cited source characterizes the finding no further ("ocular
+          involvement", "congenital heart defect" with no named lesion), so a
+          narrower term would assert something the evidence does not. The
+          evidence snippet is the proof, so this value needs no companion slot.
+      NO_HPO_TERM:
+        title: No suitable ontology term
+        description: >-
+          The claim is more specific than any available ontology term, and the
+          coarse parent is the best honest anchor. `preferred_term` carries the
+          specificity the ontology lacks and must differ from the bound label;
+          record any term request in `term_gap`.
+      PATHOGRAPH_HUB:
+        title: Pathograph hub
+        description: >-
+          The node is a deliberately unqualified convergence point in the causal
+          graph: a mechanism disrupts a system, and the system-level disruption
+          is where several specific findings converge. It is defined by its
+          INCOMING edges -- at least one causal edge in the same entry must
+          target it. It takes no `frequency`, and the reason is narrower than
+          "no clinical claim": a hub does assert that the system is involved,
+          and carries evidence for that assertion like any other phenotype.
+          What it cannot carry is a rate, because an unqualified system-level
+          node names no finding whose occurrence could be counted -- the
+          frequency belongs to each specific finding beside it. Do NOT connect
+          it to the specific findings with
+          `sequelae`, which is a causal edge: a coloboma is not caused by an eye
+          abnormality, it is one. Those findings are ordinary `phenotypes`
+          entries in their own right. Distinct
+          from a pathophysiology node such as "disrupted eye development", which
+          binds GO and asserts a process; a hub binds HP and asserts a
+          system-level outcome. The two may sit in sequence.
   DietaryModificationActionEnum:
     description: Action applied to a food or beverage as part of a dietary treatment
     permissible_values:
@@ -1116,6 +1467,22 @@ enums:
     comments:
       - Uses HGNC gene nomenclature committee identifiers
       - Validation requires exact label match with HGNC database
+  LoincTerm:
+    description: >-
+      A LOINC code for a clinical measurement, panel, or LOINC Part. No
+      hierarchy constraint - validates that the code exists and that the label
+      is LOINC's Long Common Name.
+    comments:
+      - >-
+        LOINC is served through the Monarch KG (OAK `monarch:` adapter), which
+        carries the full LOINC table as biolink:ClinicalMeasurement nodes and
+        labels each with its Long Common Name. A code added to LOINC is
+        validatable only after the next KG release.
+      - >-
+        Bind the LOINC Part (`LOINC:LP...`) or the panel / total-score code
+        when the slot names a measurement's identity; method- and
+        specimen-specific codes belong only inside a `definitions[]`
+        phenotype algorithm that needs them.
   CellTypeTerm:
     description: A cell type
     reachable_from:
@@ -1180,6 +1547,14 @@ enums:
       CANDIDATE_SURROGATE:
         title: Candidate surrogate
         description: Potential surrogate endpoint candidate requiring explicit outcome-link evidence
+      REGULATORY_SURROGATE:
+        title: Regulatory surrogate
+        description: >-
+          Surrogate endpoint a regulator has accepted as the basis of a drug
+          approval in a stated context of use. Requires regulatory_endpoint_refs
+          naming the source rows; whether the endpoint is validated or only
+          reasonably likely to predict clinical benefit is read from those rows,
+          not restated here.
   SurrogateEndpointTableEnum:
     description: FDA surrogate endpoint table section from which a row was curated
     permissible_values:
@@ -1341,12 +1716,18 @@ enums:
         - rdfs:subClassOf
   DiseaseTerm:
     description: >-
-      A MONDO disease, inherited disease susceptibility, or related medical
-      condition term used to anchor a curated disorder entry
+      A MONDO disease, inherited disease susceptibility, injury, or related
+      medical condition term used to anchor a curated disorder entry
+    comments:
+      - >-
+        MONDO:0021178 (injury) is a separate MONDO root, not a subclass of
+        MONDO:0000001 (disease), so injuries such as burn, frostbite and bone
+        fracture need it listed explicitly. See design decisions section 3f.
     reachable_from:
       source_nodes:
         - MONDO:0000001  ## disease
         - MONDO:0020573  ## inherited disease susceptibility
+        - MONDO:0021178  ## injury
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
@@ -1371,11 +1752,12 @@ enums:
         - rdfs:subClassOf
   DiseaseOrSubtypeTerm:
     description: >-
-      A MONDO disease term or NCIT cancer disease/subtype term used to ground a
-      disease subtype or cancer facet value.
+      A MONDO disease or injury term, or NCIT cancer disease/subtype term, used
+      to ground a disease subtype or cancer facet value.
     reachable_from:
       source_nodes:
         - MONDO:0000001  ## disease
+        - MONDO:0021178  ## injury (a separate MONDO root; see DiseaseTerm)
         - NCIT:C2991  ## Disease or Disorder
         - NCIT:C4741  ## Neoplasm by Morphology
         - NCIT:C7062  ## Neoplasm by Special Category
@@ -1416,6 +1798,23 @@ enums:
     reachable_from:
       source_nodes:
         - icd11f:455013390  ## ICD Category
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
+  AncestryTerm:
+    description: >-
+      A human ancestry, ethnicity, geography-based or reference population term
+      from HANCESTRO (Human Ancestry Ontology). Every population class in
+      HANCESTRO sits below `ancestry category`, including the reference panels
+      (1KGP, HGDP, SGDP) under `reference population`.
+    comments:
+      - >-
+        HANCESTRO was chosen over the HL7/CDC race and ethnicity codes and NCIT
+        population terms for coverage of the populations variant studies
+        actually report (design decisions section 16).
+    reachable_from:
+      source_nodes:
+        - HANCESTRO:0004  ## ancestry category
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
@@ -1564,6 +1963,11 @@ enums:
         description: >-
           Multi-omics profiling of genetic perturbations (e.g., CRISPR knockout
           combined with transcriptomic, chromatin accessibility, and cellular phenotyping)
+      IMAGING:
+        description: >-
+          Image collection or image-derived morphometric dataset (e.g., micro-CT
+          embryo phenotyping series, MRI cohorts, histology image repositories such
+          as IMPC embryo imaging, IDR, or TCIA)
   ExperimentalModelTypeEnum:
     description: >-
       Broad disease-centric categories for experimental model systems, primarily
@@ -1881,6 +2285,15 @@ enums:
         description: Protein structure prediction (AlphaFold, RoseTTAFold) or experimental structure (PDB X-ray, cryo-EM) used to understand disease mechanisms
       MOLECULAR_DOCKING:
         description: Computational docking or molecular dynamics simulation of drug candidates to protein targets, typically informed by PDB/AlphaFold structures
+      BIOMECHANICAL:
+        description: >-
+          Continuum-mechanics model of tissue deformation under mechanical load,
+          typically a finite-element model of an organ or body region, used to
+          predict where strain or strain rate exceeds an injury threshold (e.g. a
+          finite-element head model of traumatic brain injury). Its outputs are
+          mechanical quantities, so a link from such a model to a cellular or
+          axonal node is normally a PROXY_QUANTITY divergence. See design
+          decisions section 3f.
 
   ThresholdDirectionEnum:
     description: Whether a threshold activates when the variable goes above or below the value
@@ -1934,44 +2347,109 @@ enums:
 
   EnvironmentalEffectEnum:
     description: >-
-      How an environmental factor or exposure acts on a pathophysiology
-      mechanism node. The environmental analogue of TreatmentEffectEnum,
-      used to keep causative, aggravating, and protective exposures visually
-      and semantically distinct in the pathograph.
+      How an environmental factor or exposure acts on its subject. The
+      environmental analogue of TreatmentEffectEnum, used to keep causative,
+      aggravating, and protective exposures visually and semantically distinct
+      in the pathograph.
+    comments:
+      - >-
+        Used at two scopes, and the value means the same thing at both. On
+        EnvironmentalMechanismTarget.environmental_effect the subject is one
+        pathophysiology or phenotype node; on Environmental.disease_effect it is
+        the disease as a whole. An exposure may legitimately carry a different
+        value at each scope -- one that PROTECTS_AGAINST a mechanism while it
+        PREDISPOSES to the disease is a real pattern, not a contradiction.
+      - >-
+        Direction only. How strongly the exposure determines the outcome is
+        Environmental.causal_role, a separate axis.
     permissible_values:
       TRIGGERS:
         title: Triggers
         description: >-
-          The exposure initiates the mechanism, which would not otherwise
-          occur in its absence (e.g., inorganic arsenic ingestion initiating
-          systemic arsenic exposure; allergen contact initiating sensitization).
+          The exposure initiates the mechanism or disease, which would not
+          otherwise occur in its absence (e.g., inorganic arsenic ingestion
+          initiating systemic arsenic exposure; allergen contact initiating
+          sensitization; gluten ingestion initiating coeliac enteropathy).
       EXACERBATES:
         title: Exacerbates
         description: >-
-          The exposure worsens or amplifies a mechanism that is already
-          present or can arise independently (e.g., tobacco smoke amplifying
-          airway inflammation).
+          The exposure worsens or amplifies a mechanism or disease that is
+          already present or can arise independently (e.g., tobacco smoke
+          amplifying airway inflammation).
       PREDISPOSES:
         title: Predisposes
         description: >-
-          The exposure increases susceptibility to the mechanism without
-          being sufficient to produce it (e.g., a risk-factor exposure that
-          requires additional genetic or environmental hits).
+          The exposure increases susceptibility to the mechanism or disease
+          without being sufficient to produce it (e.g., a risk-factor exposure
+          that requires additional genetic or environmental hits).
       PROTECTS_AGAINST:
         title: Protects against
         description: >-
-          The exposure reduces the occurrence or severity of the mechanism
-          (e.g., early-life microbial exposure and allergic sensitization).
+          The exposure reduces the occurrence or severity of the mechanism or
+          disease (e.g., early-life microbial exposure and allergic
+          sensitization).
       MODULATES:
         title: Modulates
         description: >-
-          The exposure alters the mechanism without a clear unidirectional
-          effect, or the direction is context dependent.
+          The exposure alters the mechanism or disease without a clear
+          unidirectional effect, or the direction is context dependent.
+
+  EnvironmentalCausalRoleEnum:
+    description: >-
+      How strongly an environmental exposure determines the disease, as distinct
+      from which way it acts. Pairs with Environmental.disease_effect, which
+      carries the direction.
+    comments:
+      - >-
+        PROPOSED, not yet ratified -- see issue #11112. The value set borrows
+        epidemiological framing and may be heavier than the KB needs; settle it
+        before populating at scale, since narrowing an enum later is the
+        merge-shaped failure recorded in issue #10061.
+      - >-
+        ASSOCIATED_ONLY is a first-class answer, not a placeholder. Most curated
+        exposures rest on observational cohort evidence that establishes a risk
+        association and never reaches a mechanism, and recording that honestly is
+        better than either inflating it or leaving the exposure unlinked.
+    permissible_values:
+      NECESSARY:
+        title: Necessary cause
+        description: >-
+          The disease does not occur without this exposure, though the exposure
+          alone is not sufficient (e.g., gluten in coeliac disease; grass pea
+          overconsumption in neurolathyrism).
+      SUFFICIENT:
+        title: Sufficient cause
+        description: >-
+          The exposure alone produces the disease in a susceptible host, without
+          requiring a further hit (e.g., a high enough acute dose of a poison).
+      COMPONENT_CAUSE:
+        title: Component cause
+        description: >-
+          The exposure is one required member of a set of causes that together
+          produce the disease; neither necessary nor sufficient on its own.
+      RISK_FACTOR:
+        title: Risk factor
+        description: >-
+          The exposure raises or lowers disease incidence in populations, with a
+          causal reading supported but no claim about necessity or sufficiency
+          (e.g., alcohol and breast carcinoma).
+      MODIFIER:
+        title: Modifier
+        description: >-
+          The exposure alters the course, severity, or expression of disease that
+          is already established, rather than its occurrence.
+      ASSOCIATED_ONLY:
+        title: Associated only
+        description: >-
+          A reported statistical association whose causal status is unsettled or
+          unevidenced in the cited source. Use when the evidence measures
+          co-occurrence or incidence and the entry makes no causal claim beyond it.
 
   ImagingModalityEnum:
     description: >-
       In-vivo medical imaging modality by which an ImagingFinding is detected.
-      Meanings bind to the NCI Thesaurus Diagnostic Imaging branch.
+      Meanings bind to the NCI Thesaurus Diagnostic Imaging branch where NCIT
+      has a term for the modality; MICRO_CT and OTHER carry none.
     permissible_values:
       MRI:
         title: Magnetic Resonance Imaging
@@ -1985,6 +2463,38 @@ enums:
         title: Computed Tomography
         description: X-ray computed tomography
         meaning: NCIT:C17204
+      MICRO_CT:
+        title: Micro-Computed Tomography
+        description: >-
+          In-vivo X-ray computed tomography acquired at micrometer-scale voxel
+          resolution, as used for live small-animal scanning and for
+          high-resolution peripheral quantitative CT of human bone
+          microarchitecture
+        comments:
+          - >-
+            Ex vivo micro-CT, including contrast-enhanced (diceCT) scanning of
+            fixed embryos and the registration-based whole-embryo morphometry
+            built on it, is a model or specimen readout rather than an
+            ImagingFinding, which design decision 9 scopes to in-vivo imaging.
+            Record it as an ExperimentalReadout on a model link (with an
+            IMAGING dataset where the images are deposited), not under this
+            value.
+          - >-
+            NCIT has no dedicated micro-CT term: no child of Computed
+            Tomography (NCIT:C17204) names it, and a label or synonym search
+            finds only High Resolution Computed Tomography (a clinical
+            thin-slice technique) and High Resolution Peripheral Quantitative
+            Computed Tomography (NCIT:C169101, a bone-specific application).
+            This value therefore carries no NCIT meaning. The Measurement
+            Method Ontology term MMO:0000570 (micro-computed tomography) names
+            the concept exactly.
+          - >-
+            Human HR-pQCT is grouped under this value deliberately, even though
+            NCIT:C169101 codes that specific technique: micrometer voxel scale
+            is the property the modality axis is tracking, and a separate
+            HR_PQCT value would serve a single technique in one organ system.
+            A curator who needs the technique itself queryable can carry it in
+            the finding's description or bind NCIT:C169101 as a qualifier.
       PET:
         title: Positron Emission Tomography
         description: Positron emission tomography (e.g., FDG-PET, amyloid-PET)
@@ -2138,6 +2648,136 @@ enums:
           should not use target_mechanisms or target_phenotypes because they do
           not directly modify disease pathophysiology or phenotypes.
 
+  AncestryBasisEnum:
+    description: >-
+      How the cited source defined the population a population-scoped variant
+      effect was observed in. Recorded because the same group label can name a
+      self-identified ethnicity, a genetically inferred ancestry cluster, or a
+      place, and a HANCESTRO binding alone does not say which the source meant.
+    permissible_values:
+      SELF_REPORTED:
+        description: >-
+          Participants' self-identified ethnicity, race, or ancestry, as
+          collected by questionnaire or clinical record.
+      GENETICALLY_INFERRED:
+        description: >-
+          Ancestry assigned from the participants' genotype data, for example by
+          principal components or clustering against a reference panel.
+      GEOGRAPHIC:
+        description: >-
+          Defined by country, region, or recruitment site, with no statement
+          about ethnicity or genetic ancestry (for example "patients seen at
+          hospitals in Singapore").
+      NOT_STATED:
+        description: >-
+          The source names a population without saying how membership was
+          determined.
+  PopulationEffectDifferenceEnum:
+    description: >-
+      Which aspect of a variant's effect the source reports for the population,
+      relative to the comparator population or to the variant's overall
+      characterization.
+    permissible_values:
+      CLASSIFICATION:
+        description: >-
+          The variant's pathogenicity classification or causal status differs in
+          this population (for example disease-causing in one population, a
+          common low-penetrance allele in another).
+      PENETRANCE:
+        description: The proportion of carriers who develop the disease differs.
+      SEVERITY:
+        description: Disease severity, age at onset, or complication rate differs.
+      PHENOTYPE_SPECTRUM:
+        description: >-
+          Which clinical features occur, or how often, differs (for example
+          atypical or incomplete presentations).
+      ALLELE_FREQUENCY:
+        description: >-
+          The variant's frequency among patients or in the general population
+          differs, as reported by the source.
+      NO_DIFFERENCE:
+        description: >-
+          The source compared the variant's effect across populations and
+          reported no difference. A tested null is a finding; record it so a
+          reader does not assume a population effect.
+  EffectModifierTypeEnum:
+    description: >-
+      The characteristic of the treated population across which a treatment's effect
+      is reported to differ. Used on TreatmentEffectModifier.effect_modifier_type.
+    permissible_values:
+      AGE:
+        description: Chronological age or age band.
+      SEX:
+        description: Biological sex.
+      REPRODUCTIVE_STATUS:
+        description: >-
+          Menopausal, pubertal, pregnancy, or other reproductive-hormonal status,
+          recorded separately from SEX because it varies within one sex.
+      BASELINE_SEVERITY:
+        description: >-
+          Disease severity, functional status, or frailty at the start of treatment
+          (for example a performance-battery score, disease stage, or frailty status).
+      GENOTYPE:
+        description: >-
+          A germline or somatic genotype, including a pharmacogenomic variant or a
+          disease-gene subtype.
+      BIOMARKER:
+        description: A non-genetic laboratory, imaging, or molecular marker measured at baseline.
+      COMORBIDITY:
+        description: A co-occurring disease or condition.
+      ANCESTRY:
+        description: Genetic ancestry or population group.
+      CONCOMITANT_TREATMENT:
+        description: >-
+          A co-intervention received alongside the treatment (for example protein
+          supplementation alongside exercise, or a second drug).
+      OTHER:
+        description: Any other characteristic; describe it in stratum and description.
+  EffectModificationDirectionEnum:
+    description: >-
+      How the treatment's effect in the named stratum compares with its effect in the
+      comparator stratum, for the named outcome.
+    permissible_values:
+      LARGER_EFFECT:
+        description: The effect is larger in the stratum than in the comparator.
+      SMALLER_EFFECT:
+        description: The effect is smaller but still present in the stratum.
+      NO_EFFECT:
+        description: >-
+          No effect was detected in the stratum although one was detected in the
+          comparator.
+      OPPOSITE_EFFECT:
+        description: The effect runs in the opposite direction (harm, or reversal) in the stratum.
+      NO_DIFFERENCE:
+        description: >-
+          The effect was compared across strata and found not to differ. A tested null
+          is a finding worth recording, because it stops a reader from assuming a
+          subgroup difference.
+  EffectModificationAnalysisEnum:
+    description: >-
+      How the subgroup difference was established. Ordered roughly from strongest to
+      weakest: a subgroup effect claimed from a post hoc split or from comparing
+      separate studies is a hypothesis, not a finding.
+    permissible_values:
+      PRESPECIFIED_SUBGROUP:
+        description: >-
+          A subgroup analysis declared in the trial protocol or analysis plan before
+          unblinding.
+      POST_HOC_SUBGROUP:
+        description: A subgroup analysis that was not prespecified.
+      META_ANALYSIS_SUBGROUP:
+        description: Subgroup analysis or meta-regression across studies in a meta-analysis.
+      CROSS_STRATUM_COMPARISON:
+        description: >-
+          Strata that all received the treatment were compared with each other within
+          one study, without a separate untreated control for each stratum (for example
+          men versus women in a single-arm training study).
+      CROSS_STUDY_COMPARISON:
+        description: >-
+          Inferred by comparing separate studies conducted in different populations; the
+          weakest basis.
+      OTHER:
+        description: Any other basis; explain in description.
   TherapeuticModalityEnum:
     description: >-
       Broad therapeutic modality / platform of a treatment, independent of the
@@ -2231,11 +2871,16 @@ enums:
       OTHER:
         description: Modality not covered by the above categories
 
-  AsoMechanismEnum:
+  OligonucleotideMechanismEnum:
     description: >-
-      Molecular mechanism of action of an antisense oligonucleotide, following the
-      three core ASO paradigms (RNase H-mediated degradation, splice modulation,
-      and steric blockade) described in Sang et al. 2024 (PMID:38914784).
+      Molecular mechanism of action of a therapeutic oligonucleotide. Covers the
+      three core single-stranded antisense (ASO) paradigms described in Sang et al.
+      2024 (PMID:38914784) - RNase H-mediated degradation, splice modulation, and
+      steric blockade - together with the double-stranded RNA interference (RNAi)
+      paradigm used by siRNA therapeutics, in which the guide strand is loaded into
+      RISC and Argonaute-2 cleaves the sequence-matched transcript.
+    aliases:
+      - AsoMechanismEnum
     permissible_values:
       RNASE_H_KNOCKDOWN:
         title: RNase H knockdown
@@ -2243,6 +2888,12 @@ enums:
         meaning: GO:0004523
         aliases:
           - RNA-DNA hybrid ribonuclease activity
+      RNAI_KNOCKDOWN:
+        title: RNAi knockdown
+        description: Double-stranded siRNA guide strand is loaded into RISC and Argonaute-2 catalytically cleaves the sequence-matched mRNA, reducing a toxic or gain-of-function protein (e.g., patisiran, vutrisiran, inclisiran)
+        meaning: GO:0070551
+        aliases:
+          - endoribonuclease activity, cleaving siRNA-paired mRNA
       SPLICE_MODULATION_EXON_SKIPPING:
         title: Splice modulation (exon skipping)
         description: ASO occludes a splice site or splicing element to exclude an exon, restoring an in-frame transcript (e.g., DMD exon skipping)
@@ -2256,11 +2907,18 @@ enums:
         title: miRNA modulation
         description: ASO sequesters or inhibits a microRNA (antimiR) or blocks a miRNA binding site
 
-  AsoChemistryEnum:
+  OligonucleotideChemistryEnum:
     description: >-
-      Backbone / sugar chemistry of an antisense oligonucleotide. Determines
-      nuclease resistance, binding affinity, and whether the ASO supports RNase H
-      recruitment (gapmer designs) or acts purely by steric occupancy.
+      Backbone / sugar chemistry of a therapeutic oligonucleotide. Determines
+      nuclease resistance and binding affinity, and for single-stranded ASOs whether
+      the oligonucleotide supports RNase H recruitment (gapmer designs) or acts purely
+      by steric occupancy. siRNA duplexes typically combine alternating 2'-O-methyl and
+      2'-fluoro ribose modifications with terminal phosphorothioate linkages; a
+      treatment whose duplex uses more than one of these should record the modification
+      most characteristic of its design and describe the rest in the treatment
+      description.
+    aliases:
+      - AsoChemistryEnum
     permissible_values:
       PHOSPHOROTHIOATE:
         title: Phosphorothioate backbone
@@ -2273,7 +2931,10 @@ enums:
         description: Morpholino backbone (PMO); charge-neutral, steric-block/splice-switching chemistry (e.g., eteplirsen, golodirsen)
       TWO_PRIME_O_METHYL:
         title: 2'-O-methyl
-        description: 2'-O-methyl (2'-OMe) ribose modification
+        description: 2'-O-methyl (2'-OMe) ribose modification; the dominant sugar chemistry of stabilized siRNA duplexes
+      TWO_PRIME_FLUORO:
+        title: 2'-fluoro
+        description: 2'-fluoro (2'-F) ribose modification, alternated with 2'-O-methyl in enhanced-stabilization siRNA duplexes
       TWO_PRIME_O_METHOXYETHYL:
         title: 2'-O-methoxyethyl (2'-MOE)
         description: 2'-O-methoxyethyl (2'-MOE) ribose modification (e.g., nusinersen, inotersen, eplontersen)
@@ -2286,13 +2947,21 @@ enums:
       OTHER:
         description: Chemistry not covered by the above categories
 
-  AsoConjugationEnum:
+  TargetingLigandEnum:
     description: >-
-      Targeting ligand or conjugate attached to an antisense oligonucleotide to
-      direct tissue uptake or improve pharmacokinetics.
+      Targeting ligand attached to a therapeutic agent, or to the carrier particle that
+      holds it, to direct tissue or cell uptake or to improve pharmacokinetics. Distinct
+      from delivery_platform, which records what carries the agent at all as opposed to
+      a nanoparticle, a viral vector, or nothing. The two axes are orthogonal in both
+      directions: an unconjugated oligonucleotide may still be formulated in a lipid
+      nanoparticle (e.g., patisiran), and a nanoparticle may itself carry a ligand on
+      its surface (e.g., an antibody-coated mRNA lipid nanoparticle).
+    aliases:
+      - OligonucleotideConjugationEnum
+      - AsoConjugationEnum
     permissible_values:
       UNCONJUGATED:
-        description: No targeting conjugate (naked ASO)
+        description: No targeting ligand - a naked ASO, or a carrier particle with an unmodified surface
       GALNAC:
         title: GalNAc-conjugated
         description: Tri-antennary N-acetylgalactosamine conjugate for hepatocyte (ASGR-mediated) uptake (e.g., eplontersen, olezarsen)
@@ -2304,9 +2973,59 @@ enums:
       PEPTIDE:
         description: Cell-penetrating or targeting peptide conjugate
       ANTIBODY:
-        description: Antibody-oligonucleotide conjugate (AOC) for receptor-targeted delivery
+        description: Antibody or antibody fragment as the targeting ligand - an antibody-oligonucleotide conjugate (AOC), or an antibody coupled to the surface of a carrier particle for receptor-targeted delivery
+      MANNOSE:
+        title: Mannose / mannosylated
+        description: Mannose or a mannosylated surface directing uptake via the macrophage mannose receptor (MRC1/CD206)
+        comments:
+          - >-
+            Left unmapped, like every value here except GALNAC. CHEBI:37684 (mannose)
+            names the sugar rather than its use as a targeting ligand, and the enum's
+            other ligand classes (lipid, peptide, antibody) have no ontology term for
+            the targeting role either.
       OTHER:
-        description: Conjugate not covered by the above categories
+        description: Targeting ligand not covered by the above categories
+
+  DeliveryPlatformEnum:
+    description: >-
+      How a treatment's active agent is carried to its target tissue. This is the
+      delivery strategy, not the targeting ligand (see targeting_ligand) and not the
+      route of administration: it is what solves the stability, cellular-uptake, and
+      endosomal-escape problem for a given drug. The distinction is clinically
+      load-bearing - patisiran and vutrisiran silence the same transcript, but the
+      lipid-nanoparticle formulation is dosed intravenously every three weeks with
+      premedication, while the GalNAc conjugate is dosed subcutaneously every three
+      months without it. The same axis separates two formulations of one small molecule:
+      conventional and albumin-bound paclitaxel share an agent and differ in carrier.
+    aliases:
+      - OligonucleotideDeliveryPlatformEnum
+    permissible_values:
+      UNFORMULATED:
+        title: Unformulated / free uptake
+        description: Chemically stabilized oligonucleotide administered without a carrier or targeting ligand, relying on free tissue uptake (e.g., intrathecal nusinersen, subcutaneous inotersen)
+      CONJUGATE:
+        title: Ligand conjugate
+        description: Covalently conjugated to a targeting ligand that drives receptor-mediated uptake; the specific ligand is recorded in targeting_ligand (e.g., GalNAc for hepatocyte ASGR1 uptake)
+      LIPID_NANOPARTICLE:
+        title: Lipid nanoparticle (LNP)
+        description: Encapsulated in an ionizable-lipid nanoparticle that protects the payload and destabilizes the endosomal membrane on acidification (e.g., patisiran, mRNA therapeutics). Distinct from LIPOSOME - the ionizable lipid is what releases a nucleic-acid payload from the endosome
+      LIPOSOME:
+        title: Liposome
+        description: Encapsulated in a phospholipid bilayer vesicle, commonly PEGylated for circulation time, altering biodistribution and toxicity of an already cell-permeant agent rather than solving endosomal escape (e.g., liposomal doxorubicin, liposomal irinotecan, liposomal amphotericin B)
+      POLYMER_NANOPARTICLE:
+        description: Encapsulated in a polymeric or dendrimer nanoparticle
+      PROTEIN_NANOPARTICLE:
+        title: Protein nanoparticle (albumin-bound)
+        description: Bound to or assembled with a carrier protein, usually albumin, to solubilize a hydrophobic agent without a synthetic surfactant (e.g., nab-paclitaxel, nab-sirolimus)
+      INORGANIC_NANOPARTICLE:
+        description: Carried on an inorganic core such as iron oxide, gold, or hafnium oxide
+      VIRAL_VECTOR:
+        description: Delivered by an engineered viral vector (e.g., AAV-expressed short hairpin RNA)
+      EXOSOME:
+        title: Exosome / extracellular vesicle
+        description: Delivered in an exosome or other extracellular vesicle
+      OTHER:
+        description: Delivery platform not covered by the above categories
   MechanisticHypothesisStatusEnum:
     description: Curation/maturity status for a disease-level mechanistic hypothesis
     permissible_values:
@@ -2721,6 +3440,38 @@ enums:
         title: Other
         description: A module-collection basis not covered by the other values.
 
+  ExecutionVenueEnum:
+    description: >-
+      Broad kind of facility that would execute an ExecutableProtocol. Four
+      coarse values rather than a vendor list: the classification is what a
+      query needs (is this orderable by anyone, or does it need a local
+      collaboration?), while the provider's identity is free text in
+      `provider`, so a new laboratory is data and not a schema change.
+    permissible_values:
+      COMMERCIAL_CLOUD_LAB:
+        title: Commercial cloud lab
+        description: >-
+          A commercial remote laboratory that accepts protocol orders from any
+          paying customer and returns data, with no local presence or
+          collaboration required. Ginkgo Cloud Lab, Emerald Cloud Lab and
+          Strateos are of this kind.
+      ACADEMIC_AUTOMATION_CORE:
+        title: Academic automation core
+        description: >-
+          An institutional core facility or academic cloud lab running
+          automated protocols as a service, typically requiring an
+          institutional account, a collaboration, or a named investigator.
+      LOCAL_LABORATORY:
+        title: Local laboratory
+        description: >-
+          A specific research laboratory that has the assay running and could
+          execute it, reached through collaboration rather than by order.
+      OTHER:
+        title: Other
+        description: >-
+          A venue none of the above describes. Prefer adding a value to this
+          enum over stretching an existing one.
+
   ModuleCategoryEnum:
     description: >-
       Areas of study a mechanism module is relevant to. A category asserts
@@ -2805,7 +3556,20 @@ enums:
           (https://www.ncbi.nlm.nih.gov/books/NBK1116/). GeneReviews are
           expert-authored, peer-reviewed summaries updated on a rolling basis;
           they are the gold-standard narrative resource for rare Mendelian
-          disease phenotyping and management.
+          disease phenotyping and management. A GeneReviews chapter is the
+          mandatory phenotype baseline for a Mendelian entry
+          (`just check-genereviews` reports whether one exists).
+      StatPearls:
+        title: StatPearls
+        description: >-
+          Reference is a StatPearls chapter published in the NCBI Bookshelf
+          (https://www.ncbi.nlm.nih.gov/books/NBK430685/). StatPearls is a
+          point-of-care clinical reference spanning all of medicine, written by
+          volunteer clinicians under a lighter editorial process than
+          GeneReviews and framed as a continuing-education activity. A chapter
+          is citable for orientation and its PubMed abstract is quotable, but it
+          is not an expert-curated baseline: a StatPearls chapter never
+          substitutes for a GeneReviews chapter, and its absence is never a gap.
 
   GeneSetRelationshipEnum:
     description: >-
@@ -2997,6 +3761,26 @@ slots:
     examples:
       - value: DIRECT
     range: DirectnessEnum
+  quote_role:
+    description: >-
+      Where the quoted sentence sits in the cited publication's own argument --
+      a result that publication produced, background it restates from
+      elsewhere, or its synthesis of a literature. Optional: absent means no one
+      has assessed it, which is the state of most of the knowledge base.
+    examples:
+      - value: BACKGROUND
+    range: QuoteRoleEnum
+    comments:
+      - >-
+        Records provenance of the *finding*, where `reference` records
+        provenance of the *sentence*. Those are different objects, and the
+        model represented them identically until issue #10262.
+      - >-
+        Judge it from the quoted text and the cached reference body, never from
+        the reference's MeSH terms or publication type alone: a human cohort
+        study has an introduction too, and an animal study can report a patient
+        series. `just list-background-citations` builds the worklist; the call
+        stays a curator's.
   evidence_source:
     description: Origin of the evidence item (human clinical, model organism, in vitro, or computational)
     range: EvidenceSourceEnum
@@ -3100,7 +3884,8 @@ slots:
   tags:
     description: >-
       Authoritative-source tags for a reference (e.g. GeneReviews). Populated
-      programmatically by scripts/tag_references.py; use
+      programmatically by scripts/tag_references.py, which decides membership
+      from the committed Bookshelf index (`cache/bookshelf/`); use
       `just tag-references` to refresh.
     multivalued: true
     range: ReferenceTagEnum
@@ -3210,6 +3995,43 @@ slots:
     range: float
     examples:
       - value: '32.8'
+  population_effects:
+    description: >-
+      Population-scoped findings about this variant: how its classification,
+      penetrance, severity, phenotype spectrum, or frequency differs in a named
+      population. One record per population and source. Use when a variant's
+      effect is reported to depend on the population it is observed in, rather
+      than collapsing it into the single population-blind clinical_significance.
+    range: VariantPopulationEffect
+    multivalued: true
+    inlined_as_list: true
+  ancestry_terms:
+    description: >-
+      HANCESTRO terms for the population, when the source supports a binding.
+      Optional and multivalued: an admixed or multi-site cohort may take more
+      than one. Bind what the source reports, at the level it reports it; do not
+      bind a reference-panel term (1KGP, HGDP, SGDP) unless the data came from
+      that panel.
+    range: AncestryDescriptor
+    multivalued: true
+    inlined_as_list: true
+  ancestry_basis:
+    description: How the source defined membership of the population.
+    range: AncestryBasisEnum
+  effect_differences:
+    description: >-
+      Which aspects of the variant's effect the source reports as differing in
+      this population. NO_DIFFERENCE records a tested null.
+    range: PopulationEffectDifferenceEnum
+    multivalued: true
+  allele_frequency:
+    description: >-
+      Allele frequency of the variant in the population, as a proportion between
+      0 and 1, copied from the source. Say in notes whether it was measured in
+      patients, carriers, or the general population.
+    range: float
+    minimum_value: 0
+    maximum_value: 1
   cohort_size:
     description: >-
       Number of probands/cases in the cohort the case fraction was computed in,
@@ -3283,6 +4105,23 @@ slots:
     range: string
     multivalued: true
   role:
+    description: >-
+      Free-text role of this item within its section (e.g. a pathophysiology
+      node's place in the cascade, or a host's role in a parasite life cycle).
+      Deliberately unconstrained: the KB carries ~90 distinct values on
+      pathophysiology nodes alone, many of them descriptive rather than
+      categorical, so narrowing this to an enum would retire legitimate content
+      and invalidate in-flight curation (cf. the retired-enum-value hazard,
+      dismech#10061).
+    comments:
+      - >-
+        `role` is never read as a claim. For neoplasms in particular, an
+        initiating-sounding role does NOT identify the cell of origin: that
+        derivation reads `genetic_context.variant_origin: SOMATIC` on the lesion
+        node, or an `environmental_effect: TRIGGERS` link for non-mutational
+        initiation (design decisions 3d). An earlier version did read this slot
+        and mis-fired. See docs/cancer-cell-of-origin.md and
+        `just check-cancer-origin`.
     examples:
       - value: Primary
     range: string
@@ -3350,6 +4189,20 @@ slots:
       Classification scheme this subtype belongs to (e.g., 'complementation_group',
       'pathway_tier', 'histological', 'molecular', 'clinical_phenotype').
     range: string
+  curated_in:
+    description: >-
+      File stem of the `kb/disorders/` entry in which this subtype is curated in
+      full (`Rocky_Mountain_Spotted_Fever`), when the stratum has been promoted
+      to its own Disease entry -- the *pointer* subtype of design decisions §3a
+      (L4) and §3e (rung 4). The parent keeps the row so the stratum stays
+      discoverable and other sections can still scope to it, but the mechanism,
+      phenotype and treatment content lives in the named entry, and a consumer
+      counting diseases should not count the pointer. The value is the same
+      identifier a cross-file entity reference uses and must resolve to an
+      existing file; `just check-granularity` reports a dangling
+      pointer and, where both are bound, a `subtype_term` that disagrees with
+      the target's `disease_term`. Omit on a subtype curated here.
+    range: string
   children:
     description: >-
       Names of other subtypes in this list that are members/children of
@@ -3412,6 +4265,21 @@ slots:
     description: The HP term for this phenotype
     range: PhenotypeDescriptor
     inlined: true
+  coarse_binding_basis:
+    description: >-
+      Why this descriptor is deliberately bound to a coarse, organ-system-level
+      term rather than a specific finding. Required on any phenotype bound to a
+      top-level HPO organ-system term (see CoarseBindingBasisEnum and
+      `just check-coarse-phenotypes`); permitted, and companion-checked, on any
+      binding a curator judges coarse.
+    range: CoarseBindingBasisEnum
+  term_gap:
+    description: >-
+      The ontology gap behind a NO_HPO_TERM binding -- ideally a term-request
+      URL, otherwise a short note on what was searched and what is missing.
+      Turns a permanent gap into a lead, in the same spirit as the
+      "searched, found nothing" record an uncitable exposure carries.
+    range: string
   inheritance_term:
     description: The HPO mode of inheritance term for this inheritance pattern
     range: InheritanceDescriptor
@@ -3667,6 +4535,28 @@ slots:
     examples:
       - value: Susceptibility
     range: string
+  gene_disease_validity:
+    description: >-
+      Gene-disease validity classifications made by external curation bodies
+      for this gene and this entry's disease. Each records the tier, who
+      assigned it, and the identifier of the assertion. Multivalued because
+      one gene-disease pair can carry several: ClinGen classifies each mode of
+      inheritance separately, an entry's subtypes can be separate ClinGen
+      diseases, and GenCC submitters do not always agree. Leave absent when no
+      external body has classified the pair; that is not the same as
+      NO_KNOWN_DISEASE_RELATIONSHIP.
+    multivalued: true
+    inlined_as_list: true
+    range: GeneDiseaseValidityAssertion
+  validity_classification:
+    description: >-
+      The tier assigned, copied from the source named in `classified_by`.
+    range: GeneDiseaseValidityClassificationEnum
+  classified_by:
+    description: >-
+      The external curation body that assigned the classification. Required,
+      so a tier is never recorded without saying whose it is.
+    range: GeneDiseaseValiditySourceEnum
   relationship_type:
     description: >-
       Controlled-vocabulary classification of the gene-disease relationship
@@ -3729,6 +4619,32 @@ slots:
     examples:
       - value: Potential trigger for flare-ups
     range: string
+  disease_effect:
+    description: >-
+      How this exposure acts on the disease as a whole, as opposed to on any one
+      mechanism node.
+    range: EnvironmentalEffectEnum
+    comments:
+      - >-
+        Independent of influences_mechanisms. An exposure may carry a
+        disease_effect with no mechanism links at all -- that is the normal shape
+        when the evidence is a population risk estimate that never names a node.
+      - >-
+        Where both are present they are separate assertions and need not agree;
+        see the EnvironmentalEffectEnum comments.
+      - >-
+        Supported by the entry's own evidence block, which already holds the
+        disease-level claim in curated entries.
+  causal_role:
+    description: >-
+      How strongly this exposure determines the disease. The strength axis
+      paired with disease_effect, which carries the direction.
+    range: EnvironmentalCausalRoleEnum
+    comments:
+      - >-
+        Answers "is this an environmental determinant" separately from "which way
+        does it act". An exposure can be PREDISPOSES + RISK_FACTOR (alcohol and
+        breast carcinoma) or TRIGGERS + NECESSARY (gluten and coeliac disease).
   parents:
     examples:
       - value: '[''Bacterial Infection'']'
@@ -3913,6 +4829,20 @@ slots:
     range: string
   type:
     range: string
+  variant_type:
+    description: >-
+      Optional controlled physical variant class. Complements the legacy
+      free-text type without requiring it or replacing its narrative detail.
+      Does not imply a coding or regulatory functional effect.
+    range: VariantTypeEnum
+  genomic_contexts:
+    description: >-
+      Sequence features overlapped by the variant. Multiple values are allowed
+      because an SV may span several features, or transcripts may differ.
+      Specify relevant genes, transcripts, and overlap details in description;
+      an intronic host gene need not be the regulatory target. Omit when unknown.
+    range: GenomicContextEnum
+    multivalued: true
   clinical_significance:
     range: ClinicalSignificanceEnum
   background:
@@ -3987,8 +4917,45 @@ slots:
     description: >-
       LOINC code for a measured analyte or clinical observation (e.g., LOINC:2823-3
       for serum potassium). Binds to the LOINC namespace.
-    range: Term
+    comments:
+      - >-
+        On a ReferenceRange this names the measurement the interval and its
+        bands apply to. On a Biochemical it names the measurement that
+        quantifies the marker, so a biomarker can carry a code without
+        an interval being invented for it.
+      - The label is LOINC's Long Common Name, as served by the Monarch KG.
+    range: LoincCode
     inlined: true
+    bindings:
+      - binds_value_of: id
+        range: LoincTerm
+        obligation_level: REQUIRED
+  measurements:
+    description: >-
+      The measurements a diagnostic test consists of, each bound to LOINC. The
+      diagnosis_term says what kind of procedure the test is (an NCIT clinical
+      intervention: enzyme assay, molecular genetic testing); measurements say
+      which observables it reads: hexosaminidase A activity in leukocytes, a
+      CFTR sequencing panel, the PHQ-9 total score. The same action/thing
+      split as treatment_term and therapeutic_agent.
+    comments:
+      - One entry per distinct measurement. A two-analyte test is two entries.
+      - >-
+        Bind the LOINC Part or the panel / total-score code for the
+        measurement's identity, not a method- or specimen-specific code; LOINC
+        has dozens of codes for one assay, and binding method codes here puts
+        the same test on different codes in different entries. Method codes
+        belong in a definitions[] phenotype algorithm.
+      - >-
+        preferred_term is the curator's name for the measurement in this
+        disease ("sweat chloride"); term.label is the Long Common Name.
+      - >-
+        Decision thresholds the disease owns (a diagnostic cut-off, a severity
+        grading) go in the sibling reference_ranges, keyed on the same LOINC
+        code via loinc_term.
+    multivalued: true
+    range: MeasurementDescriptor
+    inlined_as_list: true
   lower_bound:
     description: >-
       Lower bound of a reference interval (inclusive). Null indicates no lower limit.
@@ -4027,11 +4994,80 @@ slots:
       using the LOE/mLOE/GOE framework (Cheng et al. 2024, PMID:38436667)
       or traditional coding categories (LOF/GOF/DN).
     range: RegulatoryVariantCategoryEnum
+  regulatory_target_gene:
+    description: >-
+      Gene whose expression is affected, or proposed to be affected, by a
+      regulatory variant. Does not assert that the variant overlaps this gene.
+      Describe the expression effect and its uncertainty in functional_effects
+      and evidence. A variant that also overlaps the gene may specify both
+      gene and regulatory_target_gene.
+    range: GeneDescriptor
+    inlined: true
   regulatory_element_type:
     description: >-
-      Type of gene regulatory element disrupted by a non-coding variant
+      Type of gene regulatory element affected by a variant
       (e.g., promoter, enhancer, silencer, insulator, TAD boundary).
     range: RegulatoryElementTypeEnum
+  affected_regions:
+    description: >-
+      Named genomic regions affected by the physical alteration, including
+      regulatory elements or chromosome intervals. Each item describes the
+      named feature, which need not span the entire variant. Record only
+      source-supported locations; disease-level regions need not have exact
+      patient-specific breakpoints. Evidence belongs on the enclosing record.
+      Location landmarks do not assert regulatory targeting or causal gene
+      involvement. Existing free-text descriptions remain valid.
+    range: GenomicRegion
+    multivalued: true
+    inlined_as_list: true
+  chromosomal_region:
+    description: >-
+      Qualitative human cytogenetic location: a chromosome, arm, band, or
+      band range on one chromosome (e.g., 21, 7q, 17p13.3, or 16p12.2-p11.2).
+      Use a single chromosome prefix and no chr prefix. This syntax does
+      not validate band existence or imply exact coordinates, common
+      breakpoints, or a genome assembly.
+    range: string
+    pattern: '^([1-9]|1[0-9]|2[0-2]|X|Y)([pq]([1-9][0-9]*(\.[0-9]+)?)?(-[pq]([1-9][0-9]*(\.[0-9]+)?)?)?)?$'
+  between_genes:
+    description: >-
+      Exactly two distinct genes on opposite sides of the named region in
+      the linear reference genome, with no overlap between the region and
+      either gene. The pair is unordered. Neither nearest-gene status nor
+      direct adjacency is implied; intervening sequence may be present.
+      Apply this to the named feature, not automatically to the entire
+      altered interval. Do not use it for chromatin contacts or newly
+      juxtaposed genes on a rearranged allele.
+    range: GeneDescriptor
+    multivalued: true
+    inlined_as_list: true
+    minimum_cardinality: 2
+    maximum_cardinality: 2
+  within_gene:
+    description: >-
+      Gene whose genomic span contains the entire named region in the
+      linear reference genome (e.g., an intronic enhancer). Does not imply
+      that this gene is the regulatory target or a disease-causal gene.
+    range: GeneDescriptor
+    inlined: true
+  overlaps_genes:
+    description: >-
+      Genes sharing reference-genome sequence with the named region. The
+      list need not be exhaustive and does not assert complete deletion,
+      dosage effects, regulatory targeting, or disease causality.
+    range: GeneDescriptor
+    multivalued: true
+    inlined_as_list: true
+  adjacent_to_genes:
+    description: >-
+      Genes whose sequence boundary directly meets the named region in
+      the linear reference genome, without overlap or intervening sequence.
+      This is strict adjacency, not approximate proximity. Omit when the
+      source establishes only that a gene is nearby. Does not describe
+      chromatin contacts or adjacency created by a rearrangement.
+    range: GeneDescriptor
+    multivalued: true
+    inlined_as_list: true
   affected_cell_types:
     description: >-
       Cell types in which gene expression is specifically gained or lost.
@@ -4187,6 +5223,56 @@ slots:
       Optional protocol, methods paper, or registry reference for the
       experimental workflow. May be a PMID, DOI, protocols.io DOI, URL, or other
       stable identifier.
+    range: string
+  executable_protocols:
+    description: >-
+      Concrete, orderable protocols that would execute some or all of this
+      experiment, each naming a provider and that provider's own catalogue
+      identifier. Distinct from `protocol_reference`, which cites a *methods
+      paper* describing how a technique works: an ExecutableProtocol is a
+      service that can be ordered. Recording one does not propose, authorise,
+      or commit to running it.
+    multivalued: true
+    range: ExecutableProtocol
+    inlined_as_list: true
+  provider:
+    description: >-
+      The organisation that would execute the protocol, named as that
+      organisation names itself (for example `Ginkgo Cloud Lab`, `Emerald Cloud
+      Lab`, `UNC Lineberger High-Throughput Screening Facility`). Deliberately
+      free text rather than an enum: the set of providers is open and changes
+      without warning, so an enum would need a schema PR per new laboratory.
+      The durable classification is `venue_type`.
+    range: string
+  venue_type:
+    description: Broad kind of facility that would execute the protocol.
+    range: ExecutionVenueEnum
+  protocol_id:
+    description: >-
+      The provider's own stable identifier for the protocol — a catalogue
+      handle, service code, or SKU — copied exactly as the provider publishes
+      it, never composed or tidied. This is what an order would name, so a
+      reworded value is not an identifier.
+    range: string
+  protocol_url:
+    description: The provider's own page for this protocol.
+    range: uri
+  measures:
+    description: >-
+      Entity references for the pathograph nodes, phenotypes, or other modeled
+      objects this protocol would return a measurement on. Uses the same
+      hash-anchor grammar as `attaches_to`, and every value must use it. This
+      records *what the protocol can observe*, which is a weaker claim than
+      `would_support` / `would_refute`: a protocol can measure a node without
+      any one result adjudicating the hypothesis attached to it.
+    multivalued: true
+    range: string
+  inputs_required:
+    description: >-
+      What the requester must supply for the protocol to run — DNA sequences as
+      a CSV, a purified antigen, a cell line, a compound plate. Records the
+      input that is the requester's problem rather than the provider's, since
+      that is usually what decides whether a proposal is actually reachable.
     range: string
   posed_by:
     description: >-
@@ -4352,37 +5438,162 @@ slots:
       platform. Prefer this enum-backed slot over the free-text role slot for
       modality.
     range: TherapeuticModalityEnum
-  aso_details:
+  oligonucleotide_details:
     description: >-
-      Structured detail specific to antisense oligonucleotide treatments. Populate
-      only when therapeutic_modality is ANTISENSE_OLIGONUCLEOTIDE.
-    range: AntisenseOligonucleotideDetail
+      Structured detail specific to nucleic-acid treatments that act by base-pairing
+      with a target RNA. Populate when therapeutic_modality is
+      ANTISENSE_OLIGONUCLEOTIDE or SIRNA.
+    range: OligonucleotideDetail
     inlined: true
+  delivery_system:
+    description: >-
+      Structured detail of how this treatment's active agent reaches its target: the
+      formulation platform, any targeting ligand on the carrier, the receptor that
+      ligand binds, and the cell type the carrier is aimed at. Populate for any modality
+      whose carrier is part of the therapeutic identity - an mRNA lipid nanoparticle, an
+      albumin-bound or liposomal small molecule, an AAV vector - not only for
+      oligonucleotides. Supersedes the delivery_platform and conjugation slots nested in
+      oligonucleotide_details, which remain valid for entries authored before this slot
+      existed.
+    range: DeliverySystem
+    inlined: true
+  aso_details:
+    deprecated: >-
+      Renamed to oligonucleotide_details, which covers siRNA as well as antisense
+      oligonucleotides. Existing entries carrying aso_details remain valid; do not
+      populate it on new treatments.
+    description: >-
+      Deprecated alias of oligonucleotide_details, retained so entries authored before
+      the slot was generalized continue to validate.
+    range: OligonucleotideDetail
+    inlined: true
+  oligonucleotide_mechanism:
+    description: Molecular mechanism of action of a therapeutic oligonucleotide
+    range: OligonucleotideMechanismEnum
   aso_mechanism:
-    description: Molecular mechanism of action of an antisense oligonucleotide
-    range: AsoMechanismEnum
+    deprecated: Renamed to oligonucleotide_mechanism.
+    description: Deprecated alias of oligonucleotide_mechanism.
+    range: OligonucleotideMechanismEnum
   target_gene:
     description: >-
-      The gene whose transcript an antisense oligonucleotide targets (bindable to HGNC).
+      The gene whose transcript a therapeutic oligonucleotide targets (bindable to HGNC).
     range: GeneDescriptor
     inlined: true
   target_transcript:
     description: >-
-      The specific transcript, pre-mRNA element, or sequence motif targeted by an
-      antisense oligonucleotide (e.g., a RefSeq/Ensembl transcript ID, "SMN2 ISS-N1",
+      The specific transcript, pre-mRNA element, or sequence motif targeted by a
+      therapeutic oligonucleotide (e.g., a RefSeq/Ensembl transcript ID, "SMN2 ISS-N1",
       or "APOB mRNA").
     range: string
   target_exon:
     description: >-
       The exon (or exons) modulated by a splice-switching antisense oligonucleotide,
-      expressed in human-readable form (e.g., "exon 51", "exon 7").
+      expressed in human-readable form (e.g., "exon 51", "exon 7"). Not applicable to
+      siRNA, which acts on mature mRNA rather than on splicing.
     range: string
+  oligonucleotide_chemistry:
+    description: Backbone / sugar chemistry of a therapeutic oligonucleotide
+    range: OligonucleotideChemistryEnum
   aso_chemistry:
-    description: Backbone / sugar chemistry of an antisense oligonucleotide
-    range: AsoChemistryEnum
+    deprecated: Renamed to oligonucleotide_chemistry.
+    description: Deprecated alias of oligonucleotide_chemistry.
+    range: OligonucleotideChemistryEnum
   conjugation:
-    description: Targeting ligand or conjugate attached to an antisense oligonucleotide
-    range: AsoConjugationEnum
+    deprecated: >-
+      Renamed to targeting_ligand, which describes a ligand coupled to a carrier
+      particle as well as one conjugated directly to an oligonucleotide. Existing
+      entries carrying conjugation remain valid; do not populate it on new treatments.
+    description: >-
+      Deprecated alias of targeting_ligand, retained so entries authored before the slot
+      was generalized continue to validate.
+    range: TargetingLigandEnum
+  targeting_ligand:
+    description: >-
+      Targeting ligand attached to the active agent, or to the carrier particle holding
+      it, to direct uptake by a particular tissue or cell type. Orthogonal to
+      delivery_platform: an unconjugated agent may still travel in a nanoparticle, and a
+      nanoparticle may carry a ligand on its surface.
+    range: TargetingLigandEnum
+  targeting_receptor:
+    description: >-
+      The cell-surface receptor or antigen that the targeting ligand binds, bindable to
+      HGNC (e.g., ASGR1 for a GalNAc conjugate, TREM2 for an anti-TREM2-coated
+      nanoparticle). Record the receptor here and the ligand's chemical class in
+      targeting_ligand - they are different facts, and a receptor may be reachable by
+      more than one ligand.
+    range: GeneDescriptor
+    inlined: true
+  target_cell_types:
+    description: >-
+      The cell type(s) a targeted delivery system is aimed at, bindable to CL. This is
+      the carrier's intended destination, which is not always the cell the disease
+      mechanism runs in: a macrophage-targeted particle may be aimed at reprogramming
+      the macrophage rather than at the tumor cell beside it.
+    multivalued: true
+    range: CellTypeDescriptor
+    inlined_as_list: true
+  delivery_platform:
+    description: >-
+      How the active agent is carried to its target tissue - unformulated, ligand
+      conjugate, lipid nanoparticle, liposome, albumin-bound particle, viral vector.
+      Orthogonal to targeting_ligand: an unconjugated agent may still be delivered in a
+      nanoparticle. Prefer the Treatment-level delivery_system block, which carries this
+      slot alongside the targeting detail; the copy nested in oligonucleotide_details
+      predates it and stays valid.
+    range: DeliveryPlatformEnum
+  dosing_interval:
+    description: >-
+      Human-readable maintenance dosing interval as stated by the label or trial
+      (e.g., "once every 3 weeks", "twice yearly"). Record loading or induction doses
+      in the treatment description rather than here.
+    range: string
+  effect_modifiers:
+    description: >-
+      Reported differences in a treatment's effect across patient subgroups (age, sex,
+      baseline severity, genotype, ...). One entry per stratum, outcome and source:
+      the same stratum can show a larger effect on one outcome and none on another.
+      Absent means no subgroup difference has been curated, not that none exists.
+    multivalued: true
+    range: TreatmentEffectModifier
+    inlined_as_list: true
+  effect_modifier_type:
+    description: The kind of patient characteristic that defines the stratum.
+    range: EffectModifierTypeEnum
+  stratum:
+    description: >-
+      The subgroup the reported effect applies to, in the source's own terms
+      (for example "women", "age 75 years or younger", "SPPB 8-9").
+    range: string
+  comparator_stratum:
+    description: >-
+      The subgroup the stratum is compared with (for example "men"). Omit only when
+      the comparison is to the whole trial population.
+    range: string
+  modified_outcome:
+    description: >-
+      The outcome on which the effect differs (for example "handgrip strength",
+      "mobility disability"). Free text; a subgroup difference is outcome-specific.
+    range: string
+  effect_in_stratum:
+    description: >-
+      How the effect in the stratum compares with the comparator, for the named
+      outcome.
+    range: EffectModificationDirectionEnum
+  modification_analysis:
+    description: How the subgroup difference was established.
+    range: EffectModificationAnalysisEnum
+  interaction_tested:
+    description: >-
+      True when the source reports a formal treatment-by-subgroup interaction test
+      (whatever its result); false when the difference rests only on separate
+      within-stratum results. Omit when the source does not say.
+    range: boolean
+  dosing_interval_days:
+    description: >-
+      The maintenance dosing interval normalized to days, so treatments are comparable
+      across entries (3 weeks = 21; monthly = 30; quarterly = 90; twice yearly = 182.5).
+      Populate alongside dosing_interval, which keeps the source phrasing.
+    range: float
   mechanism_confidence:
     description: Level of confidence in this pathophysiology mechanism. If not specified, the mechanism is assumed to be established.
     range: MechanismConfidenceEnum
@@ -5001,6 +6212,14 @@ slots:
       The genetic context under which this qualification applies.
       May specify genes, mutation types, zygosity, complementation groups,
       or complex genotypes.
+    comments:
+      - >-
+        On a Pathophysiology node, `variant_origin: SOMATIC` (or
+        GERMLINE_AND_SOMATIC) additionally marks that node as where the
+        transforming lesion occurred. For a neoplasm entry that makes it the
+        origin node, and the disease's cell of origin is read from the same
+        node's `cell_types` -- which is why there is no `cell_of_origin:` slot
+        (design decisions 3d, docs/cancer-cell-of-origin.md).
     range: GeneticContext
     inlined: true
   allele_type:
@@ -5008,8 +6227,9 @@ slots:
       Type of allele or mutation (e.g., null, missense, splice_site,
       deletion, frameshift, nonsense, hypomorphic, structural_variant).
       Free text retained for legacy or unusually complex contexts. Prefer the
-      structured `allelic_events`, `allelic_hit_role`, `variant_origin`, and
-      `functional_impact_category` slots when possible.
+      structured `variant_type`, `genomic_contexts`, `allelic_events`,
+      `allelic_hit_role`, `variant_origin`, and `functional_impact_category`
+      slots when possible.
     range: string
   allelic_hit_role:
     description: >-
@@ -5232,6 +6452,18 @@ classes:
     slots:
       - id
       - label
+
+  LoincCode:
+    is_a: Term
+    description: >-
+      A Term whose id is a LOINC code, LOINC Part (LP...) or LOINC Group
+      (LG...). Same {id, label} shape as Term; the pattern on id is what stops
+      a CURIE from another vocabulary being accepted in a LOINC slot, which the
+      LoincTerm binding alone cannot do, because the term validator resolves a
+      CURIE through whatever adapter its own prefix names.
+    slot_usage:
+      id:
+        pattern: "^LOINC:(LP|LG)?[0-9]+-[0-9]$"
 
   # Base descriptor class for structured term references
   Descriptor:
@@ -5458,6 +6690,22 @@ classes:
             range: BiomarkerTerm
             obligation_level: REQUIRED
 
+  MeasurementDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for a clinical measurement, bindable to LOINC. Names the
+      observable a test reads (an analyte in a specimen, a panel, an
+      instrument's total score), as distinct from the analyte entity itself,
+      which BiomarkerDescriptor binds to NCIT.
+    slot_usage:
+      term:
+        description: LOINC code for the measurement, panel, or LOINC Part
+        range: LoincCode
+        bindings:
+          - binds_value_of: id
+            range: LoincTerm
+            obligation_level: REQUIRED
+
   GeneProductDescriptor:
     is_a: Descriptor
     description: >-
@@ -5543,6 +6791,11 @@ classes:
   PhenotypeDescriptor:
     is_a: Descriptor
     description: A descriptor for phenotypes, bindable to Human Phenotype Ontology (HP)
+    comments:
+      - A binding to a top-level HPO organ-system term must say why via coarse_binding_basis
+    slots:
+      - coarse_binding_basis
+      - term_gap
     slot_usage:
       term:
         description: Optional HP phenotype term reference
@@ -5599,6 +6852,20 @@ classes:
         bindings:
           - binds_value_of: id
             range: RegimenTerm
+            obligation_level: REQUIRED
+
+  AncestryDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for a human population or ancestry group, bindable to
+      HANCESTRO. preferred_term keeps the source's own wording when it is more
+      specific than, or different from, the best available HANCESTRO label.
+    slot_usage:
+      term:
+        description: Optional HANCESTRO population or ancestry term reference
+        bindings:
+          - binds_value_of: id
+            range: AncestryTerm
             obligation_level: REQUIRED
 
   ExposureDescriptor:
@@ -5661,6 +6928,26 @@ classes:
     comments:
       - Use role for definitive, intermediate, reservoir, accidental, or paratenic host
 
+  AgentSubtypeDescriptor:
+    is_a: OrganismDescriptor
+    description: >-
+      A descriptor for a taxonomic stratum below a named infectious agent -
+      subspecies, serovar, serotype, or biotype - bindable to NCBITaxon.
+
+      Distinct from SubtypeDescriptor, which grounds a *disease* subtype to
+      MONDO or NCIT. An agent stratum is an organism, not a disease, so it
+      binds through OrganismTerm and inherits that binding from
+      OrganismDescriptor unchanged.
+    comments:
+      - Bind only at a rank NCBITaxon genuinely carries. Where the only
+        candidate node is the parent species, omit the term rather than
+        binding it - an agent stratum bound to its own parent asserts nothing
+        and reads as grounded.
+      - Pathotypes (ETEC, MRSA, toxigenic C. difficile) are defined by
+        virulence gene content rather than phylogeny and have no NCBITaxon
+        node. They are carried structurally, by naming the defining
+        determinant in the subtype description, and must not be bound here.
+
   SampleTypeDescriptor:
     is_a: Descriptor
     description: A descriptor for biological sample types (tissue and/or cell type)
@@ -5668,6 +6955,29 @@ classes:
       - tissue_term
       - cell_type_term
 
+
+  GenomicRegion:
+    description: >-
+      A named genomic feature or interval affected by an alteration. Supports
+      qualitative reference-genome location without requiring an ontology
+      identifier, assembly, or patient-specific coordinates. Use a specific
+      name and description to distinguish an affected subfeature (such as a
+      regulatory boundary) from the full altered interval. Gene relations
+      describe linear reference-genome placement only; keep regulatory
+      targets, expression consequences, and mechanistic confidence on the
+      enclosing variant or pathophysiology record.
+    slots:
+      - name
+      - description
+      - chromosomal_region
+      - regulatory_element_type
+      - between_genes
+      - within_gene
+      - overlaps_genes
+      - adjacent_to_genes
+    slot_usage:
+      name:
+        required: true
 
   # Phenotype context classes
   GeneticContext:
@@ -5678,10 +6988,16 @@ classes:
       groups, and complex genotypes. The description slot accommodates
       contexts that don't fit neatly into the structured fields
       (e.g., structural variants, complex rearrangements).
+      Physical variant class and sequence overlap use the same controlled
+      fields as Variant. Separate alternative initiating alterations into
+      distinct pathophysiology nodes when their classes or overlaps differ.
     slots:
       - gene
       - genes
       - allele_type
+      - variant_type
+      - genomic_contexts
+      - affected_regions
       - variant_origin
       - allelic_hit_role
       - allelic_events
@@ -5827,6 +7143,7 @@ classes:
       - supporting_outcome
       - refuting_outcome
       - protocol_reference
+      - executable_protocols
       - datasets
       - evidence
       - notes
@@ -5943,6 +7260,68 @@ classes:
       perturbations:
         range: ExperimentalPerturbation
         inlined_as_list: true
+
+  ExecutableProtocol:
+    description: >-
+      A concrete, orderable protocol at a named provider that would execute
+      some or all of a proposed experiment, together with what it needs as
+      input and which pathograph nodes it would return a measurement on.
+    comments:
+      - >-
+        Reached from `Experiment.executable_protocols`. A proposed experiment
+        in a `KNOWLEDGE_GAP` discussion states what *should* be measured;
+        this records that a service exists which would measure it, so the
+        feasibility of a gap is readable from the entry rather than
+        re-researched each time somebody asks what it would take to close it.
+      - >-
+        Recording a protocol is a feasibility note, not a plan. It does not
+        propose, authorise, fund, or commit to running anything, and it is not
+        evidence about the disease: nothing here asserts a result.
+      - >-
+        `provider` plus `protocol_id` is the identity of the service and
+        `venue_type` is the durable classification. Deliberately records no
+        price, turnaround, or throughput: those are commercial terms that go out
+        of date without any signal that they have, and reproducing a vendor's
+        price list is not this knowledge base's job. Cost and scheduling are
+        settled with the provider at the point of ordering.
+    slots:
+      - name
+      - description
+      - provider
+      - venue_type
+      - protocol_id
+      - protocol_url
+      - measures
+      - inputs_required
+      - retrieved_date
+      - evidence
+      - notes
+    slot_usage:
+      name:
+        description: >-
+          The protocol's name as the provider publishes it, copied exactly. A
+          summary of what it would be used for belongs in `description`.
+        required: true
+      provider:
+        required: true
+      description:
+        description: >-
+          What this protocol would contribute to the experiment, and why it is
+          the right one — the curator's reasoning, not the provider's marketing
+          copy.
+      retrieved_date:
+        description: >-
+          Date the provider's catalogue was read for the identifier recorded
+          here. Record it alongside `protocol_id` or `protocol_url`, because a
+          provider's catalogue changes without notice and without a version, so
+          an identifier with no retrieval date cannot be aged: a reader has no
+          way to tell a current handle from one that was renamed two years ago.
+      evidence:
+        description: >-
+          Literature or provider documentation supporting the protocol's
+          suitability or its precedent for this measurement. Not a place for
+          results: this object describes a protocol that has not been run.
+        recommended: false
 
   ClinicalTrial:
     description: A clinical trial relevant to treatment or research of a disease
@@ -6109,16 +7488,45 @@ classes:
       - locations
       - geography
       - classification
+      - curated_in
       - children
       - genes
       - subtype_frequency
       - inheritance
+  AgentSubtype:
+    is_a: Subtype
+    description: >-
+      A taxonomic stratum below a named infectious agent: a subspecies,
+      serovar, serotype, or biotype of the organism named by the parent
+      InfectiousAgent.
+
+      Identical to Subtype except that subtype_term binds NCBITaxon rather
+      than MONDO/NCIT, because the thing being grounded is an organism rather
+      than a disease. Splitting it out is what lets an agent stratum be
+      grounded at all: the disease-level binding is rooted at MONDO:0000001
+      and NCIT:C2991, so a serovar or biotype nested under an agent was
+      previously forced to remain name-only free text.
+    comments:
+      - This class carries the organism axis only. A stratum that needs to be
+        referenced by a phenotype, treatment, prevalence or progression record
+        must instead be a disease-level has_subtypes entry, because the
+        subtype foreign key resolves against the disease-level list alone.
+      - inheritance and genes are inherited from Subtype and describe human
+        genetics. They do not apply to an agent stratum; leave them unset.
+    slot_usage:
+      subtype_term:
+        description: >-
+          The NCBITaxon term grounding this agent stratum. Omit it rather than
+          binding the parent species when NCBITaxon carries no node at this
+          rank.
+        range: AgentSubtypeDescriptor
   EvidenceItem:
     slots:
       - reference
       - reference_title
       - supports
       - directness
+      - quote_role
       - evidence_source
       - snippet
       - explanation
@@ -6341,7 +7749,10 @@ classes:
           Direction of association between biomarker level/presence and the
           linked event or endpoint.
       endpoint_context:
-        description: Diagnostic, prognostic, monitoring, pharmacodynamic, or candidate-surrogate use context.
+        description: >-
+          Diagnostic, prognostic, monitoring, pharmacodynamic, candidate-surrogate,
+          or regulatory-surrogate use context. Use REGULATORY_SURROGATE exactly
+          when regulatory_endpoint_refs is populated.
       regulatory_endpoint_refs:
         description: >-
           Source-table regulatory endpoint row IDs linked to this readout.
@@ -6609,6 +8020,84 @@ classes:
         required: true
       surrogate_endpoints:
         required: true
+  GeneClassification:
+    description: >-
+      One gene's membership in a gene-classification system, as asserted by
+      that system's source. A row in a `GeneClassificationCollection`.
+
+      `values` is multivalued because gene classifications are genuinely
+      set-valued: a gene appears in as many groups as it has clinically
+      distinct disease associations. Its range is left open here because each
+      collection draws from its own enum (`GeneTableNMDGroupEnum` for the
+      neuromuscular gene table, and others as further sources are added); the
+      per-collection test asserts membership of the right enum.
+    slots:
+      - gene
+      - notes
+    attributes:
+      values:
+        description: >-
+          Classification values this gene carries in the collection's system,
+          drawn from the enum named by the collection's
+          `classification_system`. Transcribed from the source, never inferred.
+        multivalued: true
+        required: true
+        range: string
+      source_label:
+        description: >-
+          The gene symbol as written by the source, recorded when it differs
+          from the HGNC-approved symbol in `gene` (for example when the source
+          still uses a previous symbol). Lets a reader confirm the mapping.
+        range: string
+    slot_usage:
+      gene:
+        required: true
+  GeneClassificationCollection:
+    description: >-
+      A source-level transcription of one gene-classification system: which
+      genes the source lists, and which of its categories each gene falls in.
+
+      This is a lookup table, deliberately not a `Disease`-like entity. It
+      carries no pathophysiology, no per-row evidence, and no disease links;
+      provenance is recorded once at the file level. It is a transcription of a
+      source, not an inference engine — include only genes the source itself
+      lists, and do not derive memberships.
+
+      Distinct from `gene_sets`, which reference flat, typically
+      experimentally-derived gene sets (signatures, perturbation results) used
+      as enrichment inputs. A gene classification is instead a curated,
+      authoritative assertion about which genes cause disease in a domain, and
+      usually carries its own category structure.
+    slots:
+      - name
+      - description
+      - source_url
+      - source_content_current_as_of
+      - retrieved_date
+      - tracked_issues
+      - notes
+    attributes:
+      classification_system:
+        description: >-
+          Identifier for the classification system this collection transcribes,
+          naming the enum its `values` are drawn from (e.g. GENE_TABLE_NMD ->
+          GeneTableNMDGroupEnum).
+        required: true
+        range: string
+      source_version:
+        description: >-
+          The source's own version string for this snapshot, where it publishes
+          one (e.g. "GT_NMD 2026").
+        range: string
+      genes:
+        description: One row per gene listed by the source.
+        multivalued: true
+        required: true
+        inlined_as_list: true
+        range: GeneClassification
+    slot_usage:
+      name:
+        required: true
   ProteinStructure:
     description: >-
       A 3D protein structure from PDB or AlphaFold relevant to understanding
@@ -6736,6 +8225,38 @@ classes:
       - cohort_size
       - evidence
       - notes
+  GeneDiseaseValidityAssertion:
+    description: >-
+      One external classification of how well established a gene-disease
+      relationship is: the tier, who assigned it, and the assertion's
+      identifier. Attribution is required because a tier is only meaningful
+      under the framework that produced it; dismech records such tiers and
+      does not assign them (#10179). `just check-gene-validity` compares a
+      ClinGen assertion against its cached `CGGV:` record.
+    slots:
+      - validity_classification
+      - classified_by
+      - external_id
+      - subtype
+      - evidence
+      - notes
+    slot_usage:
+      validity_classification:
+        required: true
+      classified_by:
+        required: true
+      external_id:
+        description: >-
+          The source's identifier for this assertion. For ClinGen, the
+          `CGGV:assertion_...` CURIE, which is also what the evidence item
+          cites; `just check-gene-validity` reads the cached record and
+          fails if its classification differs.
+        recommended: true
+      subtype:
+        description: >-
+          The has_subtypes[].name this classification applies to, when the
+          entry's subtypes are classified separately (ATP7A: Menkes disease
+          and X-linked distal SMA).
   ProgressionInfo:
     slots:
       - phase
@@ -6817,6 +8338,15 @@ classes:
       - pdb_structures
       - mechanism_confidence
       - biological_scale
+      - regulatory_category
+    slot_usage:
+      regulatory_category:
+        description: >-
+          Controlled classification of the expression-effect claim represented
+          by this node. Interpret together with mechanism_confidence: a
+          HYPOTHETICAL node classifies a proposed effect, not an observed one.
+          For regulatory SVs, annotate the target gene here rather than on the
+          physical initiating lesion when its sequence is intact.
   Phenotype:
     slots:
       - category
@@ -6840,6 +8370,7 @@ classes:
     slots:
       - name
       - biomarker_term
+      - loinc_term
       - presence
       - readouts
       - reference_ranges
@@ -6938,6 +8469,7 @@ classes:
     slots:
       - name
       - gene_term
+      - affected_regions
       - presence
       - evidence
       - association
@@ -6947,6 +8479,7 @@ classes:
       - subtype
       - frequency
       - case_fractions
+      - gene_disease_validity
       - inheritance
       - variants
       - features
@@ -6954,6 +8487,12 @@ classes:
       - examples
   Environmental:
     description: An environmental factor, exposure, or context relevant to disease
+    comments:
+      - >-
+        Carries claims at two independent scopes. disease_effect + causal_role
+        state how the exposure acts on the disease; influences_mechanisms states
+        how it acts on named mechanism nodes. Either may be present without the
+        other.
     slots:
       - name
       - presence
@@ -6963,6 +8502,8 @@ classes:
       - chemicals
       - synonyms
       - effect
+      - disease_effect
+      - causal_role
       - examples
       - review_notes
       - exposure_term
@@ -6970,6 +8511,18 @@ classes:
       - food_source
       - influences_mechanisms
       - exposure_classifications
+    slot_usage:
+      effect:
+        description: >-
+          Free-text summary of what the exposure does. Superseded by the
+          structured pair disease_effect (direction) and causal_role (strength).
+        deprecated: >-
+          Prefer disease_effect and causal_role. Retained for the 285 entries that
+          already populate it, ~64 of which carry enum-shaped values (HARMFUL,
+          TRIGGERS, RISK_FACTOR, CAUSATIVE, EXACERBATES) written into a string
+          slot because no controlled vocabulary existed at this scope. Deprecated
+          on Environmental only: ExperimentalPerturbation and Transmission share
+          the effect slot and have no structured replacement. See issue #11112.
   Disease:
     slots:
       - name
@@ -7125,7 +8678,12 @@ classes:
       - treatment_term
       - regimen_term
       - therapeutic_modality
+      - delivery_system
+      - oligonucleotide_details
       - aso_details
+      - dosing_interval
+      - dosing_interval_days
+      - effect_modifiers
       - target_phenotypes
       - target_mechanisms
       - pdb_structures
@@ -7136,19 +8694,105 @@ classes:
       - role
       - mechanism
       - examples
-  AntisenseOligonucleotideDetail:
+  OligonucleotideDetail:
     description: >-
-      Structured attributes specific to an antisense oligonucleotide (ASO) treatment:
-      its molecular mechanism, RNA target, splice exon (for splice-switching ASOs),
-      backbone chemistry, and targeting conjugate. Attach via the aso_details slot
-      on a Treatment whose therapeutic_modality is ANTISENSE_OLIGONUCLEOTIDE.
+      Structured attributes of a treatment that acts by base-pairing with a target RNA:
+      its molecular mechanism, RNA target, splice exon (for splice-switching antisense
+      oligonucleotides), backbone chemistry, targeting conjugate, and delivery platform.
+      Attach via the oligonucleotide_details slot on a Treatment whose
+      therapeutic_modality is ANTISENSE_OLIGONUCLEOTIDE or SIRNA. Single-stranded ASOs
+      and double-stranded siRNAs share this class deliberately - they differ in effector
+      (RNase H1 versus Argonaute-2) but are the same programmable platform, described by
+      the same target, chemistry, and delivery attributes.
+
+      The carrier attributes here (delivery_platform, targeting_ligand, and the
+      deprecated conjugation) predate the Treatment-level delivery_system block and are
+      retained so entries authored before it continue to validate. New treatments
+      record the carrier in delivery_system; this class keeps the mechanism, RNA target,
+      exon, and backbone chemistry, which are genuinely specific to base-pairing
+      therapeutics. just check-delivery-system reports entries still using the nested
+      slots and gates on a value recorded in both places.
+    aliases:
+      - AntisenseOligonucleotideDetail
     slots:
-      - aso_mechanism
+      - oligonucleotide_mechanism
       - target_gene
       - target_transcript
       - target_exon
-      - aso_chemistry
+      - oligonucleotide_chemistry
+      - targeting_ligand
       - conjugation
+      - delivery_platform
+      - aso_mechanism
+      - aso_chemistry
+  TreatmentEffectModifier:
+    description: >-
+      A reported difference in a treatment's effect between patient subgroups: the
+      stratum, what it is compared with, the outcome, the direction of the difference,
+      and how the difference was established. Records heterogeneity of treatment
+      effect so it is queryable ("which treatments work less well in women?") rather
+      than buried in a treatment description.
+    comments:
+      - >-
+        Effect modification is not a mechanism. Where a mechanism for the difference
+        is known, record that as a pathophysiology node and name it in description.
+      - >-
+        A difference resting on POST_HOC_SUBGROUP, CROSS_STRATUM_COMPARISON or
+        CROSS_STUDY_COMPARISON without an interaction test is a hypothesis; say so in
+        description rather than inflating effect_in_stratum.
+    slots:
+      - effect_modifier_type
+      - stratum
+      - comparator_stratum
+      - modified_outcome
+      - effect_in_stratum
+      - modification_analysis
+      - interaction_tested
+      - description
+      - evidence
+      - notes
+    slot_usage:
+      effect_modifier_type:
+        required: true
+      stratum:
+        required: true
+      modified_outcome:
+        required: true
+      effect_in_stratum:
+        required: true
+      evidence:
+        recommended: true
+  DeliverySystem:
+    description: >-
+      How a treatment's active agent is carried to its target - the formulation
+      platform, any targeting ligand on the carrier, the receptor that ligand binds, and
+      the cell type the carrier is aimed at. Attach via the delivery_system slot on a
+      Treatment of any modality: the carrier is a property of the formulation, not of
+      the payload chemistry, so an mRNA lipid nanoparticle, an albumin-bound small
+      molecule, a liposomal cytotoxic, and a GalNAc-conjugated siRNA are all described
+      here by the same four attributes.
+
+      Two facts that used to be inexpressible are the reason this class exists. A
+      carrier could only be recorded inside oligonucleotide_details, so no
+      non-oligonucleotide formulation had a home for it - nab-sirolimus and liposomal
+      irinotecan were curated with the carrier visible only in free-text prose. And
+      there was nowhere to say what a targeted particle is aimed at, which is the whole
+      claim of a receptor-targeted nanomedicine: an anti-TREM2-coated mRNA lipid
+      nanoparticle is aimed at tumor-associated macrophages, and that is a citable,
+      falsifiable statement about the delivery system rather than about the drug.
+
+      The targeting slots are optional and an untargeted carrier is a normal record: a
+      PEGylated liposome relies on passive accumulation and has no ligand, no receptor,
+      and no target cell type. Leave them absent rather than asserting a target the
+      formulation does not have.
+    slots:
+      - delivery_platform
+      - targeting_ligand
+      - targeting_receptor
+      - target_cell_types
+      - description
+      - evidence
+      - notes
   InfectiousAgent:
     slots:
       - name
@@ -7157,6 +8801,12 @@ classes:
       - evidence
       - description
       - has_subtypes
+    slot_usage:
+      has_subtypes:
+        description: >-
+          Taxonomic strata below this agent - subspecies, serovar, serotype,
+          or biotype - each groundable in NCBITaxon.
+        range: AgentSubtype
   Transmission:
     slots:
       - name
@@ -7172,12 +8822,29 @@ classes:
     slots:
       - name
       - diagnosis_term
+      - measurements
+      - reference_ranges
       - presence
       - evidence
       - notes
       - results
       - markers
       - description
+    slot_usage:
+      reference_ranges:
+        description: >-
+          Decision thresholds this disease owns for a measurement named in
+          measurements: a diagnostic cut-off, a staging or severity grading
+          (MoCA below 26, PHQ-9 5/10/15/20, GOLD FEV1 bands). Each range names
+          its measurement through loinc_term and carries the cut-offs as
+          interpretation_bands. This is not the place for a population
+          reference interval, which is true of everyone and belongs to no
+          disease.
+      markers:
+        description: >-
+          Free-text list of the analytes a test reads. Superseded by
+          measurements, which binds each one to LOINC; keep existing values,
+          and put new tests in measurements.
   Inheritance:
     slots:
       - name
@@ -7199,6 +8866,7 @@ classes:
       - name
       - description
       - gene
+      - regulatory_target_gene
       - evidence
       - functional_effects
       - synonyms
@@ -7207,7 +8875,68 @@ classes:
       - sequence_length
       - clinical_significance
       - type
+      - variant_type
+      - genomic_contexts
+      - affected_regions
       - regulatory_category
+      - population_effects
+  VariantPopulationEffect:
+    description: >-
+      A finding that a variant's effect differs, or was tested and found not to
+      differ, in a named human population: its classification, penetrance,
+      severity, phenotype spectrum, or frequency there. The population is
+      recorded in the source's own words (population) and optionally bound to
+      HANCESTRO (ancestry_terms), with ancestry_basis saying whether the source
+      defined the group by self-report, genetic inference, or geography.
+    comments:
+      - >-
+        Record only what the source states. Do not set clinical_significance or
+        effect_differences from your own comparison of two allele frequencies or
+        two cohorts; a population difference must be reported by the source.
+      - >-
+        clinical_significance here is the classification the source gives for
+        this population. It does not replace the variant-level
+        clinical_significance, which remains the overall call.
+      - >-
+        A difference in response to treatment by ancestry belongs on the
+        treatment's effect_modifiers (effect_modifier_type ANCESTRY), not here.
+    slots:
+      - population
+      - ancestry_terms
+      - ancestry_basis
+      - comparator_stratum
+      - effect_differences
+      - clinical_significance
+      - penetrance
+      - penetrance_percentage
+      - allele_frequency
+      - cohort_size
+      - description
+      - evidence
+      - notes
+    slot_usage:
+      population:
+        required: true
+        description: >-
+          The population in the source's own words (for example "Japanese FMF
+          patients", "Singaporean Chinese"). Kept even when ancestry_terms is
+          bound, because it is the record of what the study said.
+      comparator_stratum:
+        description: >-
+          The population the effect is compared with, in the source's own words
+          (for example "Eastern Mediterranean populations"). Omit when the source
+          reports the population alone.
+      effect_differences:
+        recommended: true
+      evidence:
+        recommended: true
+      penetrance:
+        description: Penetrance classification for this variant in this population.
+      cohort_size:
+        description: >-
+          Number of patients or carriers the population-specific finding was
+          computed from, when reported.
+
   FunctionalEffect:
     description: >-
       Describes the functional consequence of a genetic variant, including

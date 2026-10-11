@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ gene.symbol }} - dismech genes</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        {% include '_palette.css.j2' %}
+        {% include '_disclaimer.css.j2' %}
+        {% include '_gene_styles.css.j2' %}
+        .result.claim-pass { border-bottom: 1px dotted #16a34a; }
+        .result.claim-fail, .result.claim-error { background: #fef2f2; border-bottom: 2px solid #dc2626; }
+        .result.claim-unchecked { border-bottom: 1px dotted var(--gray-400, #94a3b8); }
+        .function { margin: 10px 0; padding-left: 12px; border-left: 3px solid var(--teal-light); }
+        .function .terms { font-size: 0.85rem; color: var(--gray-700); }
+        ul.plain { list-style: none; }
+        ul.problems { margin: 8px 0 0 18px; font-size: 0.85rem; color: #991b1b; }
+    </style>
+</head>
+<body>
+    {% include '_disclaimer.html.j2' %}
+    {% include '_gene_nav.html.j2' %}
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../../app/index.html">Browse All</a> / <a href="index.html">Genes</a> / <span>{{ gene.symbol }}</span>
+        </div>
+
+        <header class="page-header">
+            <h1>{{ gene.symbol }}</h1>
+            {% if gene.hgnc %}<div class="subtitle">{{ gene.hgnc.name }}</div>{% endif %}
+            <div class="header-meta">
+                <span class="chip">{{ gene.disorders|length }} disorder{{ '' if gene.disorders|length == 1 else 's' }}</span>
+                {% for label, count in gene.relationship_counts %}
+                <span class="chip {{ 'warn' if label == 'untyped' else 'muted' if label == 'no genetic record' else '' }}">{{ count }} {{ label }}</span>
+                {% endfor %}
+                {% if gene.hgnc %}
+                {% if gene.hgnc.location %}<span class="chip muted">{{ gene.hgnc.location }}</span>{% endif %}
+                {% if gene.hgnc.locus_type %}<span class="chip muted">{{ gene.hgnc.locus_type }}</span>{% endif %}
+                {% endif %}
+            </div>
+            <div class="header-meta">
+                {% for x in gene.xrefs %}<a class="chip muted" href="{{ x.href }}">{{ x.label }}</a>{% endfor %}
+            </div>
+            {% if gene.hgnc and (gene.hgnc.prev_symbol or gene.hgnc.alias_symbol) %}
+            <p class="note" style="margin-top:10px">
+                {% if gene.hgnc.prev_symbol %}Previous symbols: {{ gene.hgnc.prev_symbol|replace('|', ', ') }}. {% endif %}
+                {% if gene.hgnc.alias_symbol %}Aliases: {{ gene.hgnc.alias_symbol|replace('|', ', ') }}.{% endif %}
+            </p>
+            {% endif %}
+            {% if gene.label_differs %}
+            <p class="note">KB entries label this CURIE <code>{{ gene.kb_label }}</code>; HGNC's current symbol is <code>{{ gene.symbol }}</code>.</p>
+            {% endif %}
+        </header>
+
+        {% if gene.summary %}
+        <section class="card">
+            <div class="layer">Curated summary · agent-written ·
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/{{ gene.summary.source }}">{{ gene.summary.source }}</a></div>
+            <div class="header-meta" style="margin:0 0 8px">
+                {% if gene.summary.state == 'verified' %}
+                <span class="chip ok">All {{ gene.summary.claims }} claims checked against the KB</span>
+                {% elif gene.summary.state == 'stale' %}
+                <span class="chip bad">Stale: {{ gene.summary.claims - gene.summary.passed }} of {{ gene.summary.claims }} claims no longer match the KB</span>
+                {% else %}
+                <span class="chip warn">Not verified</span>
+                {% endif %}
+                <span class="chip muted">{{ gene.summary.status|lower }}</span>
+            </div>
+            <div class="prose">{{ gene.summary.html|safe }}</div>
+            {% if gene.summary.problems %}
+            <ul class="problems">{% for p in gene.summary.problems %}<li>{{ p }}</li>{% endfor %}</ul>
+            {% endif %}
+            <p class="note" style="margin-top:8px">Underlined values are claims re-computed from the knowledge base each time this page is built. The tables below are the source of truth.</p>
+        </section>
+        {% endif %}
+
+        {% if gene.function %}
+        <section class="card">
+            <div class="layer">Normal function · from <a href="{{ gene.function.href }}">ai-gene-review</a> ({{ gene.function.uniprot }}, commit {{ gene.function.commit }}) · AI-generated, not KB evidence</div>
+            {% if gene.function.complete %}
+            <p class="prose">{{ gene.function.description }}</p>
+            {% for f in gene.function.functions %}
+            <div class="function">
+                <div>{{ f.description }}</div>
+                <div class="terms">
+                    {% for relation, terms in f.terms.items() %}
+                    <b>{{ relation|replace('_', ' ') }}:</b>
+                    {% for term_id, term_label in terms %}<a href="http://amigo.geneontology.org/amigo/term/{{ term_id }}">{{ term_label }}</a>{{ '; ' if not loop.last }}{% endfor %}
+                    {{ '·' if not loop.last }}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p class="note">ai-gene-review has this gene at status <code>{{ gene.function.status }}</code>; the description is shown only once the review is complete. <a href="{{ gene.function.href }}">Read the draft upstream.</a></p>
+            {% endif %}
+        </section>
+        {% endif %}
+
+        <section class="card">
+            <div class="layer">In the knowledge base · computed from kb/ at build time</div>
+            <h2>Disorders</h2>
+            <p class="note">Relationship is the entry's <code>genetic[].relationship_type</code>. <span class="tag untyped">untyped</span> means the entry has a genetic record for the gene but does not type it; its free-text association is shown instead.</p>
+            <div class="table-wrap">
+            <table>
+                <thead><tr><th>Disorder</th><th>Relationship</th><th>Where the gene appears</th></tr></thead>
+                <tbody>
+                {% for d in gene.disorders %}
+                <tr>
+                    <td><a href="{{ d.href }}">{{ d.name }}</a></td>
+                    <td>
+                        {% for r in d.relationship %}<span class="tag">{{ r }}</span>{% endfor %}
+                        {% if not d.relationship and d.has_genetic_record %}<span class="tag untyped">untyped</span>{% endif %}
+                        {% if not d.has_genetic_record %}<span class="note">no genetic record</span>{% endif %}
+                        {% if d.associations and not d.relationship %}<div class="note">{{ d.associations|join('; ') }}</div>{% endif %}
+                        {% for o in d.origins %}<span class="tag">{{ o }}</span>{% endfor %}
+                        {% for i in d.impacts %}<span class="tag">{{ i }}</span>{% endfor %}
+                        {% for v in d.validity %}<div class="note">{{ v.classified_by }}: {{ v.classification|lower }}{% if v.subtype %} ({{ v.subtype }}){% endif %}</div>{% endfor %}
+                    </td>
+                    <td class="items">
+                        {% for s in d.sections %}
+                        <div><b>{{ s.label }}:</b> {{ s.names|join('; ') }}{% if s.more %} and {{ s.more }} more{% endif %}</div>
+                        {% endfor %}
+                        {% if d.subtypes %}<div><b>scoped to subtype:</b> {{ d.subtypes|join(', ') }}</div>{% endif %}
+                        {% if d.other_sections %}<div><b>also in:</b> {{ d.other_sections|join(', ') }}</div>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </section>
+
+        {% if gene.clingen %}
+        <section class="card">
+            <div class="layer">ClinGen gene–disease validity · snapshot {{ gene.sources.get('clingen', {}).get('snapshot_date', 'unknown') }} · matched to entries by MONDO</div>
+            <p class="note">An entry matches when ClinGen's MONDO disease is the entry's own disease term, a subtype term, or an exact-match mapping. An amber status marks an entry ClinGen supports the gene for (Definitive, Strong or Moderate) whose own record does not type it. A Limited, Disputed or Refuted tier on such an entry is not a gap.</p>
+            <div class="table-wrap">
+            <table>
+                <thead><tr><th>ClinGen disease</th><th>MOI</th><th>Classification</th><th>dismech entry</th></tr></thead>
+                <tbody>
+                {% for c in gene.clingen %}
+                <tr>
+                    <td><a href="{{ c.href }}">{{ c.disease }}</a> <span class="note">{{ c.mondo_id }}</span></td>
+                    <td>{{ c.moi }}</td>
+                    <td>{{ c.classification }}<div class="note">{{ c.date }}</div></td>
+                    <td>
+                        {% for e in c.entries %}
+                        <div><a href="{{ e.href }}">{{ e.name }}</a>
+                            <span class="tag {{ 'untyped' if e.gap else '' }}">{{ e.status }}</span></div>
+                        {% else %}
+                        <span class="note">no dismech entry</span>
+                        {% endfor %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </section>
+        {% endif %}
+
+        {% if gene.modules or gene.module_entries %}
+        <section class="card">
+            <div class="layer">Mechanism modules · computed from kb/</div>
+            <ul class="plain">
+            {% for m in gene.modules %}
+                <li><a href="{{ m.href }}">{{ m.stem }}</a>
+                {% if m.via %}<span class="note"> via {{ m.via|join(', ') }}</span>{% endif %}
+                {% if m.named_in_module %}<span class="tag">named in the module itself</span>{% endif %}</li>
+            {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+
+        <p class="note">Identity from HGNC (snapshot {{ gene.sources.get('hgnc', {}).get('snapshot_date', 'unknown') }}). Page layers are described in the <a href="../../elements/gene-pages/">gene pages documentation</a>.</p>
+    </div>
+</body>
+</html>
