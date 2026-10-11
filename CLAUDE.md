@@ -3562,6 +3562,27 @@ two obligations this repository meets mechanically:
   in `external_copyright_notices.csv`. Bind the code and cite published
   thresholds; never reproduce an instrument's items.
 
+### Regulatory Surrogate Endpoints (`endpoint_context: REGULATORY_SURROGATE`)
+
+A `BiomarkerReadout` whose biomarker was the basis of a drug approval links the
+FDA row in `kb/surrogate_endpoints/fda_surrogate_endpoints.yaml` through
+`regulatory_endpoint_refs`, and sets `endpoint_context: REGULATORY_SURROGATE`.
+The two go together in both directions, and
+`test_regulatory_surrogate_context_matches_regulatory_refs` enforces it: the
+value without refs is an unsourced regulatory claim, and refs under another
+context hide the claim from anyone filtering on the enum.
+
+- **Do not restate the validation level.** Whether the endpoint is validated
+  (traditional approval) or only reasonably likely to predict benefit
+  (accelerated approval) lives on the referenced row's
+  `endpoint_validation_level`. Put any further caveat in `interpretation`.
+- **`CANDIDATE_SURROGATE` is for biomarkers no regulator has accepted.** Most
+  aging and early-mechanism markers belong there.
+- **Link the node the endpoint actually measures.** Fabry's peritubular
+  capillary GL-3 endpoint reads out renal microvascular endothelium, not the
+  podocyte injury that drives proteinuria; a second readout without refs can
+  carry the other node.
+
 ### Prevalence (disease occurrence)
 
 Model disease occurrence with the **structured** `Prevalence` slots, not the
