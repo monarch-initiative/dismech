@@ -136220,6 +136220,7 @@ window.searchData = [
       "Lysosomal Gb3 and lyso-Gb3 accumulation",
       "Tissue-specific glycosphingolipid storage",
       "Renal glycosphingolipid storage and podocyte injury",
+      "Renal microvascular endothelial glycosphingolipid storage",
       "Cardiac glycosphingolipid storage and myocardial remodeling",
       "Cardiomyocyte autophagy impairment and oxidative stress",
       "Atrial cardiomyocyte electrophysiological remodeling",
@@ -136235,6 +136236,7 @@ window.searchData = [
     ],
     "cell_types": [
       "podocyte",
+      "peritubular capillary endothelial cell",
       "cardiomyocyte",
       "atrial cardiomyocyte",
       "endothelial cell",
@@ -136245,6 +136247,7 @@ window.searchData = [
     ],
     "cell_type_ids": [
       "CL:0000653",
+      "CL:1001033",
       "CL:0000746",
       "CL:0002129",
       "CL:0000115",
@@ -136369,10 +136372,10 @@ window.searchData = [
     "source_file": "Fabry_Disease.yaml",
     "page_url": "../pages/disorders/Fabry_disease.html",
     "num_phenotypes": 24,
-    "num_pathophysiology": 16,
+    "num_pathophysiology": 17,
     "num_genes": 2,
     "num_treatments": 5,
-    "causal_graph_edges": "70",
+    "causal_graph_edges": "74",
     "causal_graph_longest_path": "6"
   },
   {
@@ -181825,6 +181828,124 @@ window.searchData = [
     "num_treatments": 10,
     "causal_graph_edges": "35",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Ichthyosis Prematurity Syndrome",
+    "disease_id": "MONDO:0012089",
+    "category": "Mendelian",
+    "parents": [
+      "syndromic congenital ichthyosis",
+      "inherited ichthyosis",
+      "disorder of epidermal lipid metabolism"
+    ],
+    "creation_date": "2026-10-09T20:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Ichthyosis prematurity syndrome (IPS) is an autosomal recessive syndromic congenital ichthyosis caused by biallelic germline variants in SLC27A4, which encodes fatty acid transport protein 4 (FATP4), an acyl-CoA synthetase that activates very-long-chain and omega-hydroxy fatty acids for synthesis of the epidermal barrier lipid omega-O-acylceramide. The fetal epidermis forms a defective barrier and sheds large amounts of corneocyte debris into the amniotic fluid. Pregnancies show polyhydramnios, echogenic amniotic fluid and separation of the chorionic and amniotic membranes from about 28 weeks, and the child is born prematurely, typically at 30 to 34 weeks, covered in a thick, greasy, clay- or vernix-like scale over erythrodermic, swollen skin. Aspiration of keratin-laden amniotic fluid causes neonatal respiratory distress or asphyxia, which is the main source of early morbidity and of the rare deaths. Peripheral eosinophilia is almost invariable and serum IgE is usually raised. The scale sheds within weeks to months; survivors have a favourable course but keep a mild, nonscaly ichthyosis or follicular hyperkeratosis, pruritus, and a lasting atopic diathesis with respiratory and food allergy.",
+    "pathophysiology": [
+      "FATP4 Acyl-CoA Synthetase Deficiency",
+      "Reduced Epidermal omega-O-Acylceramide Synthesis",
+      "Epidermal Permeability Barrier Failure",
+      "Epidermal Hyperkeratosis with Lamellar Membrane Aggregates",
+      "Corneocyte Shedding into Amniotic Fluid",
+      "Aspiration of Keratin Debris into the Airways",
+      "Barrier-Associated Type 2 Sensitization"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "corneocyte",
+      "eosinophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0002153",
+      "CL:0000771"
+    ],
+    "biological_processes": [
+      "very long-chain fatty acid metabolic process",
+      "epidermal acylceramide biosynthesis",
+      "cornified envelope assembly",
+      "establishment of skin barrier",
+      "keratinization"
+    ],
+    "phenotypes": [
+      "Polyhydramnios",
+      "Spontaneous chorioamniotic separation",
+      "Premature birth",
+      "Caseous vernix-like scale at birth",
+      "Erythroderma",
+      "Neonatal respiratory distress",
+      "Neonatal asphyxia",
+      "Aspiration pneumonia",
+      "Increased total eosinophil count",
+      "Increased circulating IgE concentration",
+      "Allergy",
+      "Pruritus",
+      "Ichthyosis",
+      "Follicular hyperkeratosis",
+      "Hyperkeratosis",
+      "Alopecia",
+      "Hypohidrosis"
+    ],
+    "phenotype_categories": [
+      "Prenatal",
+      "Skin",
+      "Respiratory",
+      "Hematologic",
+      "Immunologic",
+      "Histopathology"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001561",
+      "HP:0025712",
+      "HP:0001622",
+      "HP:0025724",
+      "HP:0001019",
+      "HP:0002643",
+      "HP:0012768",
+      "HP:0011951",
+      "HP:0001880",
+      "HP:0003212",
+      "HP:0012393",
+      "HP:0000989",
+      "HP:0008064",
+      "HP:0007502",
+      "HP:0000962",
+      "HP:0001596",
+      "HP:0000966"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "SLC27A4"
+    ],
+    "treatments": [
+      "Neonatal respiratory support",
+      "Emollient skin care",
+      "Low-dose dexamethasone for ventilator dependence",
+      "Genetic counselling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Ichthyosis_Prematurity_Syndrome.yaml",
+    "page_url": "../pages/disorders/Ichthyosis_Prematurity_Syndrome.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "36",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Ichthyosis Vulgaris",
@@ -360262,17 +360383,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3336,
+  "total_disorder_pages": 3337,
   "total_subtypes": 4696,
-  "total_disorders_and_subtypes": 8032,
-  "total_unique_evidence_sources": 50241,
-  "total_unique_publications": 46820,
+  "total_disorders_and_subtypes": 8033,
+  "total_unique_evidence_sources": 50280,
+  "total_unique_publications": 46859,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
-  "total_pathographs": 3332,
-  "total_unique_pathological_events": 22056,
+  "total_pathographs": 3333,
+  "total_unique_pathological_events": 22063,
   "total_modules": 191,
-  "total_research_reports": 3453,
+  "total_research_reports": 3454,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
