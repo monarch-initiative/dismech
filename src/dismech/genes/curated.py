@@ -31,6 +31,7 @@ CURATED_DIR = Path("kb/genes/curated")
 
 FILENAME_RE = re.compile(r"^hgnc_(?P<n>\d+)\.md$")
 
+
 #: Frontmatter keys a summary must carry.
 REQUIRED_FRONTMATTER = ("hgnc_id", "symbol", "status")
 
@@ -40,6 +41,23 @@ SUMMARY_STATUSES = ("DRAFT", "REVIEWED")
 
 _ALLOWED_IMPORT = ("dismech.genes.claims", frozenset({"gene"}))
 _ALLOWED_WRAPPERS = frozenset({"len"})
+
+
+def curated_ids(curated_dir: Path = CURATED_DIR) -> set[str]:
+    """HGNC ids that have a curated summary, read off the filenames.
+
+    Two callers ask this and they have to agree. A summary forces a gene page
+    (:func:`dismech.genes.render._has_page`), so :func:`.ingest.build_ingest`
+    has to write that gene's HGNC identity row even when no KB entry names it —
+    which is exactly the case for a gene curated *because* it causes no
+    disease. Without the row the page renders titled with the bare CURIE and
+    the claims API reports the gene as having no name.
+    """
+    return {
+        f"hgnc:{m['n']}"
+        for p in Path(curated_dir).glob("*.md")
+        if (m := FILENAME_RE.match(p.name))
+    }
 
 
 class UnsafeSummaryError(ValueError):
