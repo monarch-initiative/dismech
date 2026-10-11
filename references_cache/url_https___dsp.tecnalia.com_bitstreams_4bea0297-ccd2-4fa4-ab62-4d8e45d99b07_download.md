@@ -216,7 +216,7 @@ described ( Macías-Vidal et al., 2009 ).
 Total RNA was extracted from patient ’ s and control fibroblasts, fol -
 lowed by DNase I treatment using RNeasy kits (Qiagen, Hilden, Ger -
 many). Single-stranded complementary DNA (cDNA) was synthetized
-using oligo(dT) primers and M   MLV Reverse Transcriptase, RNase H
+using oligo(dT) primers and M � MLV Reverse Transcriptase, RNase H
 Minus, Point Mutant (Promega, Madison, WI) according to the manu -
 facturer ’ s protocol. COX4I1 cDNA was amplified by PCR with self-
 designed oligonucleotides. All primer sequences and PCR conditions
@@ -305,7 +305,7 @@ wheelchair for mobility. His language skills also declined, prompting the
 use of an eye-tracking system to facilitate communication, with very
 positive results. Brain MRI revealed T2 hyperintensities in both caudate
 and lenticular nuclei, without spinal cord involvement or changes in
-follow-up MRIs despite ongoing psychomotor deterioration   findings
+follow-up MRIs despite ongoing psychomotor deterioration � findings
 that are consistent with Leigh syndrome ( Fig. 1 ). Visual and somato -
 sensory evoked potentials were normal. Ophthalmological and cardio -
 logical evaluations showed no abnormalities. However,
@@ -386,30 +386,30 @@ p.[Pro152Thr];
 p.[Pro152Thr];[?] p.[Arg22Ter];
 [Glu25ValfsTer9]
 Age of onset 3 y 8 m 11 m 5 m 2 y
-Short stature + + + ¡  
-Low weight + + + +  
+Short stature + + + ¡ �
+Low weight + + + + �
 Developmental
 regression
-  + + + +
+� + + + +
 Failure to thrive + + + + +
 Regression of
 motor skills
-  (motor development within
+� (motor development within
 normal limits)
-+ +   +
++ + � +
 Dysmorphic
 features
 Prominent nasal bridge, 5th finger
 clinodactyly, frontal bossing
 Bilateral hypoplasia
 of 2nd-5th toes
-     
-Microcephaly + + + +  
-Seizures   Epileptic spams without
+� � �
+Microcephaly + + + + �
+Seizures � Epileptic spams without
 hypsarrhythmia
 Epileptic spams without
 hypsarrhythmia
-+  
++ �
 Visual
 Alterations
 NR Moderate hyperopia but
@@ -420,10 +420,10 @@ Intermittent alternating
 exotropia with no
 evidence of retinopathy or
 optic nerve atrophy
-NR  
+NR �
 Intellectual
 disability
-  + + + +
+� + + + +
 Brain MRI Normal Hypertrophic olivary
 degeneration, cerebellar
 volume loss
