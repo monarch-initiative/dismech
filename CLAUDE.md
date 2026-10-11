@@ -145,7 +145,8 @@ just --list
 
 ### Ontology Configuration (`conf/oak_config.yaml`)
 Maps ontology prefixes to OAK adapters for term validation:
-- HP, CL, PATO, CHEBI, ENVO, FOODON, GO, MONDO, UBERON, NCBITaxon, and NCIT
+- HP, CL, PATO, CHEBI, ENVO, FOODON, GO, MONDO, UBERON, NCBITaxon, HANCESTRO
+  (human populations and ancestry, design decisions §16), and NCIT
   (NCI Thesaurus, used for treatment/clinical-intervention and cancer concepts)
   → `ols:<name>` (EBI Ontology Lookup Service; avoids the large local builds —
   see issue #5160 and the note at the bottom of `conf/oak_config.yaml`, which
@@ -710,6 +711,53 @@ See [`docs/dataset-curation.md`](docs/dataset-curation.md).
   can cite `ICEES:<A>__<B>` and quote a per-cohort chi-square row in a comorbidity
   entry's `association_signals`
 - See "Structured-Database Reference Sources" below
+
+### Phenotype Profiles (`kb/phenotype_distributions/`)
+
+EHR-derived phenotype profiles: what co-occurs in a disease cohort, exported
+from a model fitted to structured records. Schema
+`src/dismech/schema/phenotype_distribution.yaml` — `ProfileSet` → `Profile` →
+`CodeDistribution` → `WeightedCode`. Why it is shaped this way, and worked
+examples, are in [`docs/phenotype-distributions.md`](docs/phenotype-distributions.md);
+what follows is only what you need in order to touch one.
+
+**You do not curate these from literature.** A profile set is a transcription of
+a model export, not a synthesis. If no export exists, there is no entry to
+write — do not assemble one from papers, from a disease's known comorbidities,
+or from what looks clinically plausible. Ask for the export.
+
+**Never originate a number.** `code`, `code_label`, `code_weight` and
+`profile_weight` come from the export verbatim. Do not round them, do not
+estimate one to fill a gap, and do not write a code you have not read in the
+source. `--check-terms` resolves every `code`/`code_label` pair against COHD
+and caches it in `cache/omop/terms.csv`: a code whose label disagrees is an
+ERROR, and one the authority does not know is a WARNING to chase rather than
+ignore. This check exists because a wrong OMOP id with a confident label is
+indistinguishable from a right one by eye, and it caught exactly that on its
+first run.
+
+**What is yours to write** is `profile_label` and `description` — reading an
+unsupervised component as a named clinical pattern. That is interpretation, not
+data. Keep it modest, and never let it claim more than the codes below it
+support.
+
+**Set `provenance_tier` honestly; it gates citability.** `CURATED` (reviewed,
+citable) / `TOOL_EXPORTED` (real numbers, unreviewed reading — not citable yet)
+/ `ILLUSTRATIVE` (invented; the renderer refuses to write it into
+`references_cache/`, and a test stops any kb entry citing it).
+
+**A weight is not a frequency.** `code_weight` is a code's mass within its own
+distribution and `profile_weight` is the profile's share of the fit; neither is
+the proportion of patients with the finding. `profile_source.weight_basis` must
+state the denominator — the lint requires it wherever a `profile_weight`
+appears. Do not write `prevalence` for either.
+
+**Citation runs one way.** `just phenodist-rebuild` writes
+`references_cache/PHENODIST_<profile_id>.md`; a disease entry then cites
+`PHENODIST:<id>` and quotes a row, as it would `ORPHA:` or `ICEES:`. A profile
+set never names a kb entry, and never hand-write the cache file.
+
+Validate with `just validate-phenotype-distributions` (part of `just qc`).
 
 ### Validation Stack
 - **linkml-validate**: Schema conformance checking
@@ -3440,6 +3488,148 @@ phenotype-activation points); use reference ranges for measured lab analytes.
 
 The CKD-Mineral Bone Disorder entry is the worked example.
 
+### LOINC Codes: Which Measurement a Disease Is Diagnosed, Monitored or Staged By
+
+A LOINC code is the identity of a *measurement* — an analyte in a specimen, a
+panel, an instrument's total score — as distinct from the analyte entity
+(`biomarker_term`, NCIT) and from the abnormal state it reveals
+(`phenotype_term`, HP). It belongs on a disease entry when its component names
+**the disease, its agent, its gene, or a decision threshold the disease owns**:
+an HIV antibody assay, hexosaminidase A activity, a CFTR sequencing panel, the
+PHQ-9 with its severity cut-offs. Three slots carry it:
+
+| Claim | Slot |
+|---|---|
+| this test reads these observables | `diagnosis[].measurements` — the "thing" beside the NCIT `diagnosis_term` "action", as `therapeutic_agent` is to `treatment_term` |
+| this marker is quantified by this measurement | `biochemical[].loinc_term` — a code without having to invent a reference interval |
+| this disease owns a cut-off or grading on the measurement | `reference_ranges` on the `diagnosis` row (or on the marker), keyed on the same code via `loinc_term`, with the cut-offs as `interpretation_bands` |
+
+```yaml
+diagnosis:
+- name: Cognitive screening            # diagnosis_term (NCIT procedure) omitted here
+  notes: >-                           # MoCA is a third-party instrument: its LOINC notice, verbatim
+    Copyright © Tina Brosseau for Center for Diagnosis & Research on Alzheimer's disease (CEDRA). Used with permission.
+  measurements:
+  - preferred_term: MoCA
+    term:
+      id: LOINC:72133-2                 # the instrument (a LOINC panel) is the test's identity
+      label: Montreal Cognitive Assessment [MoCA]
+  reference_ranges:
+  - loinc_term: {id: LOINC:72172-0, label: Total score [MoCA]}   # the cut-off is on the score
+    interpretation_bands:
+    - {name: Normal, lower_bound: 26, abnormal_flag: NORMAL}
+    - {name: Cognitive impairment, upper_bound: 26, abnormal_flag: LOW}
+```
+
+The `notes` line is not optional: both MoCA codes carry a third-party
+copyright notice in LOINC (see *Licensing* below), and the test fails without
+it. Note the two codes. The panel identifies the test; the total-score code
+carries the threshold, because a numeric cut-off on a panel is a category
+error — the panel names the instrument, the score code names the number. Most
+instruments in LOINC have both (MMSE `72107-6` / `72106-8`, GDS `48542-5` /
+`48544-1`), and search returns the panel first.
+
+Rules that follow from what a LOINC code is:
+
+- **Bind the Part or the panel / total-score code for identity, never a
+  method- or specimen-specific code.** LOINC has dozens of codes for one assay
+  (PHQ-9 returns 56; HIV antibody more), differing by method, specimen and
+  reporting context. Binding one of those for a test's identity puts the same
+  test on different codes in different entries. Method-level codes belong only
+  inside a `definitions[]` phenotype algorithm that needs them.
+- **The label is LOINC's Long Common Name**, exactly as served — not the
+  colon-delimited Fully Specified Name and not a tidied synonym. The first
+  validated sweep found both forms in `kb/` (`Calcitriol [...]` for a code whose
+  name is `1,25-Dihydroxyvitamin D [...]`; `Erythrocyte [Sedimentation Rate] in
+  Blood` for `Erythrocyte sedimentation rate [Velocity] in Red Blood Cells`).
+  Same failure shape as *A Gene Binding Only Has To Be Self-Consistent*.
+- **A population reference interval is not disease content.** Serum calcium
+  8.5–10.5 is true of everyone. A disease owns its diagnostic cut-off and its
+  staging bands; carry the interval only where a band needs it as an anchor.
+- **The test→phenotype map ("potassium high → Hyperkalemia") is not curated
+  here.** It is a property of the test, has no paper to quote, and its
+  consumers are EHR pipelines and the KG. dismech's `ReferenceRangeBand.phenotype_term`
+  may cite it; it does not author it.
+- **`Diagnosis.markers` is superseded, not removed.** The free-text analyte
+  list stays valid; put new tests in `measurements`. Repacking the 129 existing
+  `markers` strings is a worklist (#10046), never an autofill.
+
+**Validation.** `LoincTerm` is a label-match enum with no hierarchy, the
+`GeneTerm` pattern, and the binding sits on the `loinc_term` slot itself, so the
+existing `{id, label}` shape is unchanged. The authority is the Monarch KG,
+which carries the full LOINC table (~108k `biolink:ClinicalMeasurement` nodes,
+labelled with the Long Common Name) through OAK's `monarch:` adapter. Two
+consequences while Phase 0 of `projects/LOINC_DIAGNOSTICS.md` is in flight:
+
+- Codes already in `cache/loinc/terms.csv` validate offline today, the
+  cache-first way every prefix does. `test_committed_loinc_labels_match_the_cache`
+  runs that check over the whole KB.
+- A **new** code is skipped by `just validate-terms` with an unknown-prefix
+  warning until `LOINC` is routed in `conf/oak_config.yaml`, which waits on an
+  oaklib release carrying INCATools/ontology-access-kit#920 (the shipped
+  adapter reads `symbol`, which only genes populate, so it returns no label for
+  anything else). **Until then, never type a LOINC label.** Run
+  `just loinc-seed-cache <file>` — it overlays the fixed adapter in an
+  ephemeral env and writes the validator's own rows — then
+  `just normalize-cache`, and commit `cache/loinc/terms.csv` with the entry.
+  `test_committed_loinc_labels_match_the_cache` fails on an uncached code, so
+  a label copied by hand from a web page turns the nightly sweep red even when
+  it is right. When the pin lands, the adapter string needs quoting in YAML:
+  `LOINC: "monarch:"`.
+- `loinc_term` and `measurements[].term` are `LoincCode`, a `Term` whose `id`
+  must match `^LOINC:(LP|LG)?[0-9]+-[0-9]$`. That is `linkml-validate`'s job,
+  not the term validator's: the binding resolves a CURIE through the adapter
+  for *its own* prefix, so without the pattern a real NCIT term with its
+  correct label would be accepted in a LOINC slot.
+- The API serves the last KG release; a code LOINC added recently is lag, not
+  absence. And a `mappings_list` term is a multi-ontology slot with no binding,
+  so a LOINC code there is still unchecked — four such codes were found by
+  hand in the first sweep, two with wrong labels.
+
+**Licensing.** LOINC is free to use under the LOINC terms of use, which carry
+two obligations this repository meets mechanically:
+
+- **The LOINC notice** ("This material contains content from LOINC®…") must be
+  on every document containing LOINC content, web pages included. It is in
+  `NOTICE`, in `cache/loinc/README.md`, and in the footer of every rendered
+  disorder or module page whose YAML carries a LOINC code
+  (`_loinc_notice.html.j2`). Nothing for a curator to do.
+- **Third-party instrument notices.** A LOINC code that identifies an
+  instrument someone else owns (PHQ-9, GAD-7, MoCA, MMSE, BDI-II, the Barthel
+  Index, NIHSS…) carries that owner's notice in LOINC's
+  `EXTERNAL_COPYRIGHT_NOTICE` field, and the notice must travel with the code.
+  The Monarch KG drops that field; `cache/loinc/external_copyright_codes.csv`
+  and `external_copyright_notices.csv` hold it, extracted by
+  `just loinc-copyright-notices` from the Tuva Project's LOINC table pinned in
+  `data/loinc/MANIFEST.yaml`. **When you bind such a code, copy its notice
+  verbatim into the `notes` (or `description`) of the same diagnosis row or
+  marker.** `test_third_party_loinc_codes_carry_their_owner_notice` fails
+  otherwise. Look a code up with
+  `rg "<CURIE>," cache/loinc/external_copyright_codes.csv`, then the notice id
+  in `external_copyright_notices.csv`. Bind the code and cite published
+  thresholds; never reproduce an instrument's items.
+
+### Regulatory Surrogate Endpoints (`endpoint_context: REGULATORY_SURROGATE`)
+
+A `BiomarkerReadout` whose biomarker was the basis of a drug approval links the
+FDA row in `kb/surrogate_endpoints/fda_surrogate_endpoints.yaml` through
+`regulatory_endpoint_refs`, and sets `endpoint_context: REGULATORY_SURROGATE`.
+The two go together in both directions, and
+`test_regulatory_surrogate_context_matches_regulatory_refs` enforces it: the
+value without refs is an unsourced regulatory claim, and refs under another
+context hide the claim from anyone filtering on the enum.
+
+- **Do not restate the validation level.** Whether the endpoint is validated
+  (traditional approval) or only reasonably likely to predict benefit
+  (accelerated approval) lives on the referenced row's
+  `endpoint_validation_level`. Put any further caveat in `interpretation`.
+- **`CANDIDATE_SURROGATE` is for biomarkers no regulator has accepted.** Most
+  aging and early-mechanism markers belong there.
+- **Link the node the endpoint actually measures.** Fabry's peritubular
+  capillary GL-3 endpoint reads out renal microvascular endothelium, not the
+  podocyte injury that drives proteinuria; a second readout without refs can
+  carry the other node.
+
 ### Prevalence (disease occurrence)
 
 Model disease occurrence with the **structured** `Prevalence` slots, not the
@@ -3534,6 +3724,71 @@ genetic:
 
 Use `case_fraction_low`/`case_fraction_high` for ranges and `cohort_size` when the
 proband count is reported. `Bardet-Biedl_Syndrome` (BBS1/BBS10) is the worked example.
+
+### Population-Specific Variant Effects (`population_effects`)
+
+When a source reports that a variant behaves differently in one human population
+than another — a different classification or penetrance, milder or more severe
+disease, a different phenotype spectrum, or a very different frequency among
+patients — record it as a `VariantPopulationEffect` under that variant's
+`population_effects`, not in the variant `description` (design decisions §16,
+issue #13677):
+
+```yaml
+genetic:
+- name: MEFV
+  variants:
+  - name: M694V
+    population_effects:
+    - population: Japanese FMF patients (nationwide questionnaire survey and literature review)
+      ancestry_terms:
+      - preferred_term: Japanese
+        term:
+          id: HANCESTRO:0019
+          label: Japanese
+      ancestry_basis: NOT_STATED       # SELF_REPORTED, GENETICALLY_INFERRED, GEOGRAPHIC, NOT_STATED
+      comparator_stratum: Mediterranean patients with FMF
+      effect_differences:              # CLASSIFICATION, PENETRANCE, SEVERITY,
+      - ALLELE_FREQUENCY               # PHENOTYPE_SPECTRUM, ALLELE_FREQUENCY, NO_DIFFERENCE
+      cohort_size: 80
+      evidence:
+      - reference: PMID:19531756
+        ...
+```
+
+Rules for filling it:
+
+- **`population` is the source's own wording, and it is required.** It stays
+  even when a HANCESTRO term is bound, because it is the record of what the
+  study said. A population HANCESTRO lacks (Sephardic or Mizrahi Jewish, at the
+  time of writing) is recorded in `population` alone.
+- **Bind `ancestry_terms` only at the level the source supports.** "East Asian
+  patients" is `East Asian ancestry`, not a national term. Do not bind a
+  reference-panel term (`... (1KGP)`, `(HGDP)`, `(SGDP)`, all under
+  `HANCESTRO:0632` *reference population*) unless the data came from that panel:
+  "Japanese patients" is `HANCESTRO:0019` *Japanese*, not `HANCESTRO:0754`
+  *Japanese in Tokyo, Japan (1KGP)*. Look the CURIE up in OLS
+  (`ontology=hancestro`) in the step you write it, as with any term.
+- **`ancestry_basis` says how the source defined the group**, which a HANCESTRO
+  label cannot. Self-reported ethnicity is `SELF_REPORTED`, never
+  `GENETICALLY_INFERRED`. A cohort defined by the country or hospitals it was
+  recruited from, with no statement about ethnicity, is `GEOGRAPHIC`. When the
+  source just names the group, use `NOT_STATED`.
+- **Record only what the source states.** Do not set `effect_differences`,
+  `clinical_significance` or `penetrance` from your own comparison of two
+  cohorts or two allele frequencies. The source has to report the difference.
+  `clinical_significance` here is the source's call *for this population*; the
+  variant-level `clinical_significance` stays the overall call.
+- **Record tested nulls.** `NO_DIFFERENCE` (compared across populations, no
+  difference found) is a finding, and stops a reader assuming one.
+- **One record per population and source.** Two studies of the same population
+  are two records, even when they report the same difference.
+- **Treatment response is not a variant effect.** A drug working differently by
+  ancestry is a treatment `effect_modifiers` entry with
+  `effect_modifier_type: ANCESTRY`.
+
+`Prevalence.population` and `GeneCaseFraction.population` are still free text
+with no HANCESTRO binding.
 
 ### Clinical Trials
 
@@ -3781,9 +4036,9 @@ baseline file grandfathering a pre-existing backlog -- `check-snippet-length`,
 `check-title-snippets`, `check-snippet-grading`, `check-retired-support-prose`
 and `check-causal-targets`. Three further gates that are in `just qc` but not
 in the list above do too: `check-reference-titles`, `check-coarse-phenotypes`
-and `check-gene-activity-grounding`. Those eight are the whole set, and it is
-checkable rather than remembered -- `tests/*_baseline.txt` and the
-`just update-*-baseline` recipes are one-to-one with it. Do not update a baseline
+and `check-gene-activity-grounding`. The formatter-spacing gate adds a ninth backlog (see YAML Formatter Safety),
+with its shrink-only updater on `check-block-scalar-comments --update-baseline`.
+Inspect `tests/*_baseline.txt` for the current set. Do not update a baseline
 to admit a defect introduced by the current change.
 
 Two of these gates used to have a baseline and no longer do, by the same route:
@@ -4059,6 +4314,37 @@ Two consequences worth keeping straight:
 - **A grouping's exact-match roots survive the outage.** They come from the
   grouping's own YAML, not from MONDO, so the unavailable branch keeps them in
   scope and the coverage figure stays computable; only the descendant rows go.
+
+## YAML Formatter Safety (dismech#12101, dismech#9613)
+
+The yamlfix hook formats in memory and refuses to write a result that changes
+parsed YAML data. Its comment-spacing regexes are disabled in `.yamlfix.toml`;
+version 1.19.1 has no setting to disable its boolean regex or exempt block
+scalars. A prose line ending in `: no` or `- no` can still trigger that regex,
+so the hook rejects the result and leaves the file untouched.
+
+Prefer a **double-quoted scalar** for prose containing a literal ` #<digit>`
+(issue/PR references, `CACHE #3`, etc.) rather than `>-`. Quoting also works
+around the boolean rewrite. Preserve the loaded string when converting: use
+`\n` for literal newlines, escape embedded quotes/backslashes, and compare
+parsed values before and after. Do not accept a formatter's changed quote or
+bypass the hook to get a commit through.
+
+```bash
+just check-block-scalar-comments                         # gate new findings, all kb/
+just check-block-scalar-comments --strict                # list/fail on all findings
+just check-block-scalar-comments --update-baseline       # only remove repaired findings
+just check-block-scalar-comments kb/disorders/COVID-19.yaml
+```
+
+This runs in `just qc` and as an ungated whole-KB CI check. It flags the older
+hook's `  # <digit>` fingerprint inside literal/folded block scalars, including
+explanations and descriptions. Review a finding against its source before
+repairing it; the pattern is suspicious spacing, not proof of its origin.
+The pre-existing review backlog is recorded by file and exact source line in
+`tests/block_scalar_comments_baseline.txt`, with occurrence counts so copying
+an old finding still fails. The baseline updater only shrinks that backlog;
+never add an exemption to admit new corruption.
 
 ## Duplicate YAML Keys (dismech#8623)
 
@@ -4390,6 +4676,21 @@ just icees-list
 just icees-rebuild
 just icees-rebuild --id MONDO:0004979,MONDO:0005002
 ```
+
+**A rebuilt ClinGen file says which export it came from.** `clingen-rebuild`
+reads `data/clingen/gene_validity.csv` (gitignored) when present, else the
+export passed with `--csv PATH`, else the committed
+`cache/clingen/gene_validity.csv`, which is an older export and not a current
+one; the fallback is logged, and so is a file whose sha256 differs from the
+manifest pin. The cache file's `Source` line and its `source_snapshot` /
+`source_sha256` frontmatter are taken from the file actually parsed (its own
+`FILE CREATED:` header), never from the manifest: the pin can be newer than the
+file (fresh checkout, January export, August pin) or older (a drifted-pin
+`clingen-refresh` still leaves the newer download on disk, #10426), and before
+#13575 the stamp was wrong in both directions. `just fetch-reference CGGV:…`
+routes to this rebuild, as it does for `CGDS:`, `ORPHA:`, `ICEES:` and `NCIT:`
+ids, so the AGENTS.md instruction to regenerate any cache file with
+`fetch-reference` holds for structured prefixes too.
 
 `data/orphadata/*.xml` is gitignored; `data/orphadata/MANIFEST.yaml` is
 committed and pins the snapshot date + sha256 of each bulk file. To verify

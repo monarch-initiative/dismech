@@ -308,14 +308,17 @@ class ClinGenDosageSource(StructuredSource):
 
     @property
     def snapshot_date(self) -> str:
-        """Snapshot date from manifest or source-file metadata."""
-        manifest_date = getattr(type(self), "_manifest_snapshot_date", "")
-        if manifest_date:
-            return manifest_date
+        """Date of the files actually parsed; the manifest pin is only a fallback.
+
+        Same rule as :class:`ClinGenSource`: a cache file describes the data it
+        was built from, and the pin can be newer or older than that (#13575).
+        """
         if not getattr(self, "_csv_file_created", None):
             self.index()
-        return getattr(self, "_csv_file_created", "") or getattr(
-            self, "_tsv_file_created", ""
+        return (
+            getattr(self, "_csv_file_created", "")
+            or getattr(self, "_tsv_file_created", "")
+            or getattr(type(self), "_manifest_snapshot_date", "")
         )
 
     def serialize(self, identifier: str) -> ReferenceCacheEntry:
@@ -607,7 +610,7 @@ def _parse_snapshot_date(value: str) -> str:
 
     try:
         # Source snapshot dates carry no timezone; a naive date is correct here.
-        return datetime.strptime(value, "%d %B,%Y").date().isoformat()  # noqa: DTZ007
+        return datetime.strptime(value, "%d %B,%Y").date().isoformat()
     except ValueError:
         return value
 
