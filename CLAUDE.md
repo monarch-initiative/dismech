@@ -153,6 +153,11 @@ Maps ontology prefixes to OAK adapters for term validation:
   also records the precondition for migrating a further prefix)
 - HGNC (and lowercase `hgnc`), GENO, ECTO (and `ExO`, which is bundled with
   ECTO), XCO, OPL, ICD10CM, icd11f → `sqlite:obo:<name>`
+- UniProtKB → `uniprot:` (OAK's experimental UniProt SPARQL adapter), for a
+  non-human gene product on a model's `genes`. **NCBIGene is not routed**: OAK's
+  NCBI Gene adapter returns no labels, so `just check-gene-namespaces` checks it
+  against `cache/ncbigene/terms.csv` instead (see *Naming Genes in a Model's
+  Own Species* below)
 
 Note this governs **automated term validation** only. Several modules build an
 adapter directly and ignore this file — notably
@@ -1671,6 +1676,72 @@ model, which is `PARTIALLY_RECAPITULATES` against `Motor Neuron Degeneration`
 (lower motor neurons only, so it misses the defining combined UMN/LMN degeneration)
 while `RECAPITULATES` `Oxidative Stress`, with a `RESTORED` readout for the
 vitamin-E rescue arm.
+
+### Naming Genes in a Model's Own Species (`NCBIGene:` / `UniProtKB:`)
+
+HGNC names human genes only. That is right for `genetic:` and for
+pathophysiology nodes, and wrong for a model system: a Coch knock-in mouse
+carries mouse *Coch*, not `hgnc:2180`, and a zebrafish morphant knocks down
+`tmem165`, which HGNC has no record of. So `animal_models[].genes` and
+`experimental_models[].genes` take a `GeneOrProductDescriptor`, which also
+admits two non-human prefixes:
+
+```yaml
+animal_models:
+- name: Coch G88E knock-in mouse
+  species: Mouse
+  genes:
+  - preferred_term: Coch
+    term:
+      id: NCBIGene:12810
+      label: Coch
+```
+
+- **A human gene is `hgnc:` everywhere**, including in a model: a human
+  transgene in a mouse, `TMEM165` knocked out in HEK293 cells.
+- **A non-human gene takes its own species' identifier, never the human
+  ortholog's.** Pick by what the model acts on:
+  - **`NCBIGene:`** for the gene or transcript (knockout, knock-in, knockdown,
+    a carried variant). The label is NCBI's **official symbol** (`Coch`,
+    zebrafish `tmem165`).
+  - **`UniProtKB:`** for the protein (a protein expressed in a host or injected).
+    **The label is the protein's recommended name** (`Cochlin`), not the gene
+    symbol, and orthologues can share it, so put the species in
+    `preferred_term`. Prefer a reviewed (Swiss-Prot) accession.
+- **Orthology goes in `description` or `notes`** for now. Rebinding a mouse
+  gene from `hgnc:` to `NCBIGene:` takes the model off the human gene's page in
+  the gene index, which keys on HGNC; a structured orthology link is the
+  planned follow-up that restores it.
+- **Nowhere else.** Every other gene slot stays HGNC-only, and the gate below
+  enforces that; the schema itself does not restrict prefixes.
+
+Look identifiers up at the source (NCBI E-utilities `esummary`, UniProt),
+never from memory. **The term validator does not check `NCBIGene:`**: OAK's
+NCBI Gene adapter returns no labels (INCATools/ontology-access-kit#914), and a
+prefix with no adapter passes `just validate-terms` with any label at all.
+`UniProtKB:` *is* checked, through OAK's experimental `uniprot:` adapter in
+`conf/oak_config.yaml`; an uncached accession makes a SPARQL call, which fails
+as a timeout rather than a wrong verdict.
+
+```bash
+just check-gene-namespaces                      # gate (offline, in `just qc`, ungated in CI)
+just check-gene-namespaces-online               # resolve new NCBIGene IDs into the cache, then gate
+just check-gene-namespaces --format list        # also list model genes on unchecked prefixes
+```
+
+The gate fails on an `NCBIGene:`/`UniProtKB:` binding outside a model's
+`genes`, and on an `NCBIGene:` ID that is uncached or whose label is not the
+official symbol; the online mode also rejects retired records and human genes.
+Run it after adding an `NCBIGene:` binding and commit the
+`cache/ncbigene/terms.csv` row with it. Eight model genes are bound to `MGI:`,
+which nothing resolves; `--format list` reports them as `UNCHECKED_PREFIX`
+without gating, and rebinding them to `NCBIGene:` makes them checkable.
+
+Worked examples: `TMEM165-Congenital_Disorder_of_Glycosylation` (mouse and
+zebrafish knockouts and knockdowns on `NCBIGene:`, a human HEK293 knockout on
+`hgnc:`), `Autosomal_Dominant_Nonsyndromic_Hearing_Loss_9` (Coch knock-in on
+`NCBIGene:`, injected mouse cochlin on `UniProtKB:`, human minigene cells on
+`hgnc:`), `Severe_Combined_Immunodeficiency_Due_To_CORO1A_Deficiency`.
 
 ### Linking Environmental Factors into the Pathograph
 
