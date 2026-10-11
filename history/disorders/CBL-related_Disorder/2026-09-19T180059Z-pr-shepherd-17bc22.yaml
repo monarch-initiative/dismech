@@ -1,0 +1,52 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: CBL-related_Disorder
+  path: kb/disorders/CBL-related_Disorder.yaml
+session:
+  id: 2026-09-19T180059Z-pr-shepherd-17bc22
+  timestamp: '2026-09-19T18:00:59Z'
+  actors:
+  - type: ai_agent
+    name: pr-shepherd
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/7940
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - pathophysiology
+  - phenotypes
+  - treatments
+  - evidence
+  summary: 'Review round 4: node-class reference repair, directness, phenotype wiring,
+    2024 surveillance guideline'
+  details: |
+    PR Shepherd round-4 repair addressing the three remaining IMPORTANT findings plus a CI failure the round-3 review did not surface.
+
+    CI BLOCKER (not in the review). `just node-classes --verify-kb` failed, and with it the whole `test (3.13)` job:
+    `kb/node_classes/pathograph_node_classes.txt` line 2175 cited
+    `[CBL-related_Disorder] Somatic Second Hit and JMML Predisposition` as a worked example of DISPOSITION > genetic predisposition, and this PR renamed that node away. The rewrite deliberately de-bundled it into an event node (`Acquired 11q Isodisomy and Biallelic CBL Inactivation`) and an outcome node (`Juvenile Myelomonocytic Leukemia`), so the entry no longer supplies a disposition-class node at all: neither successor is a standing susceptibility. The stale line was removed rather than retargeted, because retargeting it to either successor would misclassify an event as a disposition. The entry does now supply a clean `pathogenic sequence variant` example, so `[CBL-related_Disorder] Germline CBL RING-Linker Variant` was added to that class alongside the existing germline-variant examples (APP/PSEN1/PSEN2, NUP62 p.Q391P). Verified: 101 classes, 2193 examples, all resolve.
+
+    A2 (directness). `directness: INDIRECT` added to the three items the round-2 history record identified and deferred because the branch schema lacked the slot. The branch now carries it (src/dismech/schema/dismech.yaml). The three: the HSCT treatment item (PMID:26911351 - abstract reports the relapse burden; the inference is that this motivates reserving transplant), the teratoma 11q23 CN-LOH knowledge-gap item (PMID:24458550 - three teratomas from one patient, proposing rather than establishing germ-cell predisposition), and the aggregate genotype-phenotype gap item (PMID:25952305 - characterises the phenotype only in aggregate). Each `explanation` already stated the inference step in prose; the controlled field now matches it. Note PMID:25952305's genotype-phenotype snippet appears three times in the entry - only the knowledge-gap instance is INDIRECT, since the other two support claims the sentence states directly.
+
+    B (disconnected phenotypes). Position taken: wire the edges the entry's own node descriptions and cited evidence already assert, and decline the rest with reasons. Phenotype causal-inlink coverage moves 1/18 (5.6%) to 13/18 (72.2%). Three terminal nodes had no `downstream` at all:
+      - Cerebral and Systemic Vasculopathy -> Moyamoya Angiopathy, Vasculitis
+      - Lymphatic Developmental Dysregulation -> Hydrops Fetalis, Fetal Pleural Effusion, Chylothorax, Lymphedema
+      - Developmental RASopathy Phenotype -> Impaired Growth, Developmental Delay, Cryptorchidism, Noonan-like Facial Dysmorphism, Bilateral Ptosis, Intellectual Disability
+    Every new edge carries its own evidence item quoting a reference already cached and already cited elsewhere in the entry; no new reference was fetched for this and no snippet was composed. The four edges reusing a sentence keep the same `evidence_source` as their sibling uses, so `check-snippet-grading` stays clean.
+
+    Declined, with reasons, rather than wired:
+      - Splenomegaly - a JMML disease feature. The entry's JMML node is both a pathophysiology node and a phenotype, so the flat namespace already collapses them; an edge from that node would assert a mechanism the entry does not curate (leukemic infiltration is not a node here).
+      - Microcephaly, Learning Difficulties, Postnatal Growth Retardation - individually reported features whose cited sources do not tie them to the RAS-MAPK developmental arm any more specifically than the aggregate 'variable phenotype' statement already consumed. Wiring them from the RASopathy node would restate that aggregate as six separate mechanistic claims.
+      - Hyperpigmented Skin Lesions - the entry's own node description records that the cited series reports these without specifying a lesion morphology. An edge would assert more than the source does.
+    Per CLAUDE.md, `list-disconnected-phenotypes` is report-only by design and an edge added to clear a report is worse than no edge; these five are left unconnected deliberately.
+
+    Finding 1 (post-2017 literature). Position taken: consume, not decline. `references_cache/PMID_39196581.md` was already present and uncited - the 2024 AACR Cancer Predisposition Working Group update on pediatric cancer surveillance for RASopathies, which covers CBL syndrome specifically. Its statement that 'clinical management now recommends watchful waiting' for the less aggressive CBL-syndrome JMML is now cited on the `Observation for Spontaneously Regressing JMML` treatment, which previously rested on a single 2016 case series. Graded `evidence_source: OTHER` because the quoted sentence is a consensus recommendation rather than a result the paper reports. PMID:35967575 and PMID:38395087 remain absent from `references_cache/` and could not be fetched from this sandbox (no network egress); they are not cited and nothing in the entry depends on them.
+
+    Validation: `just validate` clean, 68/68 snippets verified against the local cache, `node-classes --verify-kb` ok, `check-causal-targets` no new dangling targets, `check-entity-refs`, `check-duplicate-keys`, `check-enum-values`, `check-snippet-grading`, `check-qualifier-terms`, `validate-terms` all clean.
