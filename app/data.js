@@ -96766,6 +96766,93 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Cone-rod dystrophy 20",
+    "disease_id": "MONDO:0014427",
+    "category": "Mendelian",
+    "parents": [
+      "Cone-rod dystrophy",
+      "Inherited retinal dystrophy",
+      "Ciliopathy"
+    ],
+    "creation_date": "2026-10-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Cone-rod dystrophy 20 is a rare autosomal recessive inherited retinal dystrophy caused by biallelic variants in POC1B, which encodes POC1 centriolar protein B, a core centriole protein that localises to the basal body of the photoreceptor connecting cilium. The retinal disease is cone-predominant: most reported patients have a generalized or peripheral cone dystrophy with absent or reduced light-adapted electroretinogram responses and normal or near-normal rod responses, and a minority progress to cone-rod dystrophy. Onset is usually in childhood to early adulthood with reduced central vision, photophobia and impaired colour vision, but some patients have poor vision and nystagmus from early infancy, an achromatopsia-like presentation that later deteriorates. The course is slowly progressive. A distinctive clinical feature is that the fundus often looks normal, so diagnosis rests on electroretinography and on optical coherence tomography, which shows loss of the interdigitation zone and a blurred ellipsoid zone. The cone-dominated, normal-fundus presentation can mimic incomplete achromatopsia. One consanguineous family with a homozygous frameshift variant additionally had male infertility with oligoasthenoteratozoospermia, consistent with the role of centrioles in the sperm flagellum.",
+    "pathophysiology": [
+      "Biallelic POC1B Loss-of-Function Variants",
+      "Photoreceptor Basal Body and Connecting Cilium Defect",
+      "Progressive Cone-Predominant Photoreceptor Degeneration",
+      "Sperm Centriole and Flagellum Defect"
+    ],
+    "cell_types": [
+      "retinal cone cell",
+      "retinal rod cell",
+      "sperm"
+    ],
+    "cell_type_ids": [
+      "CL:0000573",
+      "CL:0000604",
+      "CL:0000019"
+    ],
+    "biological_processes": [
+      "cilium assembly",
+      "sperm flagellum assembly",
+      "acrosome assembly"
+    ],
+    "phenotypes": [
+      "Cone/cone-rod dystrophy",
+      "Undetectable light-adapted electroretinogram",
+      "Photoreceptor outer segment loss on macular OCT",
+      "Reduced visual acuity",
+      "Photophobia",
+      "Dyschromatopsia",
+      "Central scotoma",
+      "Nystagmus",
+      "High myopia",
+      "Male infertility"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Genitourinary",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000548",
+      "HP:0030465",
+      "HP:0030610",
+      "HP:0007663",
+      "HP:0000613",
+      "HP:0007641",
+      "HP:0000603",
+      "HP:0000639",
+      "HP:0011003",
+      "HP:0003251"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "POC1B"
+    ],
+    "treatments": [
+      "Low-vision support and photophobia management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cone-rod_Dystrophy_20.yaml",
+    "page_url": "../pages/disorders/Cone-rod_dystrophy_20.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Cone-rod dystrophy and hearing loss 1",
     "disease_id": "MONDO:0020778",
     "category": "Mendelian",
@@ -125222,6 +125309,68 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Dystonia 22, Juvenile-Onset",
+    "disease_id": "MONDO:0957539",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited dystonia"
+    ],
+    "creation_date": "2026-10-11T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An ultra-rare autosomal recessive dystonia caused by biallelic loss-of-function variants in TSPOAP1, which encodes RIM-binding protein 1 (RIMBP1), a multidomain scaffold of the presynaptic active zone that binds RIM proteins and voltage-gated calcium channels. Affected individuals develop progressive generalized dystonia in late childhood or adolescence, predominantly affecting the upper body and spreading cranio-caudally, together with intellectual disability and cerebellar atrophy; eye movement abnormalities have also been reported. The disorder was defined in an Indian family and an Estonian individual carrying homozygous frameshift and nonsense variants, and later reports from India have added unrelated patients with further truncating variants.\nThe mechanism is inferred from mouse work rather than measured in patients. RIM-binding proteins are required for tight coupling of action-potential-evoked calcium influx to synaptic vesicle exocytosis, and Tspoap1-knockout mice show dystonia-like motor abnormalities, reduced Purkinje cell dendritic arborization and fewer cerebellar synapses. Whether the cerebellar changes cause the dystonia, and how the mouse findings relate to the progressive cerebellar atrophy seen on patient MRI, has not been established.",
+    "pathophysiology": [
+      "Biallelic TSPOAP1 Loss of Function",
+      "Impaired Coupling of Calcium Influx to Synaptic Vesicle Release",
+      "Cerebellar Purkinje Cell Dendritic and Synaptic Deficit"
+    ],
+    "cell_types": [
+      "Purkinje cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000121"
+    ],
+    "biological_processes": [
+      "action-potential-evoked synaptic vesicle exocytosis",
+      "Purkinje cell dendrite morphogenesis",
+      "cerebellar synapse organization"
+    ],
+    "phenotypes": [
+      "Generalized dystonia",
+      "Intellectual disability",
+      "Cerebellar atrophy",
+      "Eye movement abnormalities"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0007325",
+      "HP:0001249",
+      "HP:0001272",
+      "HP:0000496"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TSPOAP1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dystonia_22_Juvenile_Onset.yaml",
+    "page_url": "../pages/disorders/Dystonia_22,_Juvenile-Onset.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Dystonia 24",
@@ -235345,6 +235494,113 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Mitochondrial DNA Depletion Syndrome 17",
+    "disease_id": "MONDO:0032815",
+    "category": "Mendelian",
+    "parents": [
+      "mitochondrial DNA depletion syndrome",
+      "mitochondrial disease"
+    ],
+    "creation_date": "2026-10-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mitochondrial DNA depletion syndrome 17 (MTDPS17) is an autosomal recessive mitochondrial disorder caused by biallelic variants in MRM2, the mitochondrial rRNA methyltransferase that 2'-O-methylates uridine U1369 in the A-loop of the 16S mitochondrial rRNA, a component of the peptidyl transferase centre of the mitoribosome large subunit. MRM2 is also a late assembly factor for that subunit, a role that does not need its methyltransferase activity. Loss of MRM2 impairs large-subunit assembly and mitochondrial translation, producing combined respiratory chain (OXPHOS) deficiency. The index patient had childhood-onset, rapidly progressive encephalomyopathy with stroke-like episodes, refractory epilepsy, a complex hyperkinetic movement disorder and low plasma citrulline, a MELAS-like picture without the m.3243A>G variant; muscle showed multiple OXPHOS defects and partial reduction of mtDNA copy number. Two further families with progressive dystonia or a neurodevelopmental disorder with involuntary movements broaden the phenotype. Fewer than ten affected individuals in three families have been reported.\n",
+    "pathophysiology": [
+      "Biallelic MRM2 Loss of Function",
+      "Loss of 16S mt-rRNA U1369 2'-O-Methylation",
+      "Defective Mitoribosome Large Subunit Assembly",
+      "Impaired Mitochondrial Translation",
+      "Combined OXPHOS Deficiency"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "rRNA 2'-O-methylation",
+      "mitochondrial large ribosomal subunit assembly",
+      "mitochondrial translation",
+      "oxidative phosphorylation"
+    ],
+    "phenotypes": [
+      "Progressive encephalopathy",
+      "Stroke-like episodes",
+      "Seizures",
+      "Dystonia",
+      "Involuntary movements",
+      "Neurodevelopmental abnormality",
+      "Mitochondrial respiratory chain defects",
+      "Reduced mtDNA copy number in muscle",
+      "Low plasma citrulline",
+      "Status epilepticus",
+      "Epilepsia partialis continua",
+      "Global developmental delay",
+      "Chorea",
+      "Spastic tetraparesis",
+      "Cerebral atrophy",
+      "Cerebellar atrophy",
+      "Elevated brain lactate by MRS",
+      "Hepatic failure",
+      "Hyperammonemia",
+      "Rhabdomyolysis",
+      "Acidosis"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Metabolic",
+      "Hepatic",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002448",
+      "HP:0002401",
+      "HP:0001250",
+      "HP:0001332",
+      "HP:0004305",
+      "HP:0012759",
+      "HP:0200125",
+      "HP:0009141",
+      "HP:0003572",
+      "HP:0002133",
+      "HP:0012847",
+      "HP:0001263",
+      "HP:0002072",
+      "HP:0001285",
+      "HP:0002059",
+      "HP:0001272",
+      "HP:0012707",
+      "HP:0001399",
+      "HP:0001987",
+      "HP:0003201",
+      "HP:0001941"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MRM2"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Mitochondrial_DNA_Depletion_Syndrome_17.yaml",
+    "page_url": "../pages/disorders/Mitochondrial_DNA_Depletion_Syndrome_17.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Mitochondrial DNA Depletion Syndrome 3 (Hepatocerebral Type)",
     "disease_id": "MONDO:0009636",
     "category": "Mendelian",
@@ -338452,6 +338708,75 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Tetraamelia Syndrome 2",
+    "disease_id": "MONDO:0060732",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital Disorder",
+      "Limb Malformation"
+    ],
+    "creation_date": "2026-10-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Tetraamelia syndrome 2 (TETAMS2) is an autosomal recessive, typically lethal malformation syndrome caused by biallelic loss-of-function variants in RSPO2, which encodes the secreted WNT-potentiating ligand R-spondin 2. Affected fetuses lack all four limbs or retain only rudimentary appendages, and have aplasia of the lungs; orofacial clefting and mandibular hypoplasia are also recorded. RSPO2 normally amplifies WNT/beta-catenin signalling by antagonising the transmembrane E3 ligases RNF43 and ZNRF3, which otherwise clear WNT receptors from the cell surface. The human allelic series showed that the severity of the limb phenotype tracks the degree to which each allele loses this activity. Mouse Rspo2 mutants place the defect in failed maintenance of the apical ectodermal ridge of the limb bud, reduced lung branching, and reduced WNT signalling in the branchial arch. TETAMS2 is genetically distinct from tetraamelia syndrome 1, which is caused by WNT3.",
+    "pathophysiology": [
+      "Biallelic RSPO2 Loss of Function",
+      "Unopposed RNF43 and ZNRF3 Activity with Reduced WNT Potentiation",
+      "Failure of Apical Ectodermal Ridge Maintenance",
+      "Reduced Lung Branching Morphogenesis",
+      "Reduced WNT Signalling in the Branchial Arch"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "canonical Wnt signaling pathway",
+      "embryonic limb morphogenesis",
+      "epithelial tube branching involved in lung morphogenesis"
+    ],
+    "phenotypes": [
+      "Tetraamelia",
+      "Bilateral lung agenesis",
+      "Orofacial cleft",
+      "Micrognathia",
+      "Retrognathia",
+      "Ankyloglossia"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Respiratory",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003057",
+      "HP:0005944",
+      "HP:0000202",
+      "HP:0000347",
+      "HP:0000278",
+      "HP:0010296"
+    ],
+    "frequencies": [],
+    "genes": [
+      "RSPO2"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Tetraamelia_Syndrome_2.yaml",
+    "page_url": "../pages/disorders/Tetraamelia_Syndrome_2.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Tetrahydrobiopterin Deficiency",
     "disease_id": "MONDO:0016543",
     "category": "Genetic",
@@ -356432,6 +356757,71 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Wooly Hair-Palmoplantar Keratoderma Syndrome",
+    "disease_id": "MONDO:0014492",
+    "category": "Mendelian",
+    "parents": [
+      "palmoplantar keratoderma"
+    ],
+    "creation_date": "2026-10-11T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Wooly hair-palmoplantar keratoderma syndrome (keratoderma with woolly hair type IV, PPKWH) is an autosomal recessive ectodermal disorder in which woolly scalp hair is combined with palmoplantar keratoderma, without the cardiomyopathy that defines the clinically overlapping desmosomal syndromes (Naxos disease, JUP; Carvajal syndrome, DSP). It was defined in two consanguineous families homozygous for the KANK2 missense variant c.2009C>T (p.Ala670Val). KANK2 encodes the steroid receptor coactivator-interacting protein (SIP), which holds steroid receptor coactivators in the cytoplasm; in patients, SRC-2 and SRC-3 are nuclear in basal epidermal cells and vitamin D receptor transactivation is increased in keratinocytes, making this a non-desmosomal cause of the hair-keratoderma combination.",
+    "pathophysiology": [
+      "KANK2 Loss of Coactivator Sequestration",
+      "Nuclear Accumulation of SRC-2 and SRC-3 in Epidermal Basal Cells",
+      "Increased Vitamin D Receptor Transactivation in Keratinocytes"
+    ],
+    "cell_types": [
+      "basal cell of epidermis",
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002187",
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "protein localization to nucleus",
+      "vitamin D receptor signaling pathway"
+    ],
+    "phenotypes": [
+      "Palmoplantar Keratoderma",
+      "Woolly Hair",
+      "Pseudoainhum of the Fifth Toe"
+    ],
+    "phenotype_categories": [
+      "Dermatological"
+    ],
+    "phenotype_hpo_categories": [
+      "Integument",
+      "Limbs"
+    ],
+    "phenotype_ids": [
+      "HP:0000982",
+      "HP:0002224"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "KANK2"
+    ],
+    "treatments": [
+      "Oral Acitretin with Topical Keratolytics"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Wooly_Hair-Palmoplantar_Keratoderma_Syndrome.yaml",
+    "page_url": "../pages/disorders/Wooly_Hair-Palmoplantar_Keratoderma_Syndrome.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "X-Linked Combined Immunodeficiency",
     "disease_id": "MONDO:0010730",
     "category": "Mendelian",
@@ -361533,17 +361923,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3349,
+  "total_disorder_pages": 3354,
   "total_subtypes": 4702,
-  "total_disorders_and_subtypes": 8051,
-  "total_unique_evidence_sources": 50518,
-  "total_unique_publications": 47051,
+  "total_disorders_and_subtypes": 8056,
+  "total_unique_evidence_sources": 50553,
+  "total_unique_publications": 47086,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
-  "total_pathographs": 3345,
-  "total_unique_pathological_events": 22122,
+  "total_pathographs": 3350,
+  "total_unique_pathological_events": 22140,
   "total_modules": 191,
-  "total_research_reports": 3466,
+  "total_research_reports": 3471,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
