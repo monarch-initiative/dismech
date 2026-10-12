@@ -78411,6 +78411,125 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "cerebellar ataxia, brain abnormalities, and cardiac conduction defects",
+    "disease_id": "MONDO:0859200",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian neurodevelopmental disorder",
+      "autosomal recessive cerebellar ataxia",
+      "RNA exosomopathy"
+    ],
+    "creation_date": "2026-10-12T13:10:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Cerebellar ataxia, brain abnormalities, and cardiac conduction defects (CABAC syndrome) is a rare autosomal recessive neurodevelopmental disorder caused by biallelic variants in EXOSC5, which encodes a structural subunit of the RNA exosome. Reported patients present in infancy with hypotonia, global developmental delay affecting motor skills, failure to thrive, short stature, feeding difficulties and esotropia, and brain MRI shows cerebellar hypoplasia or atrophy, pontocerebellar hypoplasia, ventriculomegaly and hypomyelination. A distinctive feature in a subset of patients is progressive cardiac conduction and rhythm disease (complete heart block, sinus node dysfunction, atrioventricular block and ventricular tachycardia) with a recognized risk of sudden cardiac death; cardiac involvement is variable and has been absent in some patients. Renal thrombotic microangiopathy after a viral trigger has been reported in one patient and is now recognized across RNA-exosome disorders. EXOSC5 is one of several RNA-exosome subunit genes (EXOSC2, EXOSC3, EXOSC8, EXOSC9) linked to Mendelian neurodegenerative disease, and the literature on CABAC remains small (about ten reported patients). Disease mechanism appears to vary with the specific pathogenic variant.",
+    "pathophysiology": [
+      "EXOSC5 Subunit Dysfunction",
+      "Impaired RNA Exosome-Mediated RNA Processing and Degradation",
+      "Cerebellar and Pontine Hypoplasia",
+      "Cardiac Conduction System Vulnerability",
+      "Impaired Ribosome Assembly",
+      "Endothelial Cell Apoptosis"
+    ],
+    "cell_types": [
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "RNA processing and degradation",
+      "ribosome biogenesis",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Ataxia",
+      "Hypotonia",
+      "Global developmental delay",
+      "Motor delay",
+      "Cerebellar hypoplasia",
+      "Cerebellar atrophy",
+      "Hypoplasia of the pons",
+      "Ventriculomegaly",
+      "CNS hypomyelination",
+      "Microcephaly",
+      "Seizure",
+      "Failure to thrive",
+      "Short stature",
+      "Feeding difficulties",
+      "Esotropia",
+      "Abnormal facial shape",
+      "Mixed hearing impairment",
+      "Atrioventricular block",
+      "Sinus node dysfunction",
+      "Ventricular tachycardia",
+      "Intraventricular conduction delay",
+      "Renal thrombotic microangiopathy"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Growth",
+      "Gastrointestinal",
+      "Ophthalmologic",
+      "Craniofacial",
+      "Auditory",
+      "Cardiovascular",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001251",
+      "HP:0001252",
+      "HP:0001263",
+      "HP:0001270",
+      "HP:0001321",
+      "HP:0001272",
+      "HP:0012110",
+      "HP:0002119",
+      "HP:0003429",
+      "HP:0000252",
+      "HP:0001250",
+      "HP:0001508",
+      "HP:0004322",
+      "HP:0011968",
+      "HP:0000565",
+      "HP:0001999",
+      "HP:0000410",
+      "HP:0001709",
+      "HP:0011704",
+      "HP:0004756",
+      "HP:0006677"
+    ],
+    "frequencies": [],
+    "genes": [
+      "EXOSC5 variants"
+    ],
+    "treatments": [
+      "Cardiac pacing / pacemaker implantation",
+      "Supportive care",
+      "Eculizumab (not recommended for EXOSC-related TMA)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cerebellar_Ataxia_Brain_Abnormalities_And_Cardiac_Conduction_Defects.yaml",
+    "page_url": "../pages/disorders/cerebellar_ataxia,_brain_abnormalities,_and_cardiac_conduction_defects.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome",
     "disease_id": "MONDO:0009133",
     "category": "Mendelian",
@@ -116475,6 +116594,118 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "22",
     "causal_graph_longest_path": "9"
+  },
+  {
+    "name": "developmental delay with or without dysmorphic facies and autism",
+    "disease_id": "MONDO:0032760",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian neurodevelopmental disorder",
+      "hereditary disease"
+    ],
+    "creation_date": "2026-10-12T13:10:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Developmental delay with or without dysmorphic facies and autism (DEDDFA) is a rare autosomal dominant, de novo neurodevelopmental disorder caused by heterozygous missense variants in TRRAP, the scaffolding subunit that recruits histone acetyltransferase (HAT) complexes to chromatin. Core features are global developmental delay and a wide range of intellectual functioning, frequently reaching intellectual disability. The published cohort resolves into two genotype-correlated clinical spectra: a complex multisystem malformation syndrome (brain, heart, kidney and genitourinary anomalies) associated with missense variants clustering around p.Ala1043Thr, and a spectrum manifesting with autism spectrum disorder and/or intellectual disability with epilepsy. Facial dysmorphism is seen across both spectra.",
+    "pathophysiology": [
+      "TRRAP missense variant disrupting HAT-complex scaffold function",
+      "Dysregulated histone acetylation and transcription",
+      "Altered neurodevelopmental gene expression",
+      "Disrupted embryonic organ and craniofacial morphogenesis"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "internal peptidyl-lysine (histone) acetylation",
+      "regulation of transcription by RNA polymerase II",
+      "regulation of gene expression",
+      "nervous system development",
+      "embryonic morphogenesis"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Autistic behavior",
+      "Seizure",
+      "Microcephaly",
+      "Abnormal facial shape",
+      "Upslanted palpebral fissure",
+      "Epicanthus",
+      "Telecanthus",
+      "Wide nasal bridge",
+      "Smooth philtrum",
+      "Thin upper lip vermilion",
+      "Abnormal brain morphology",
+      "Abnormal heart morphology",
+      "Abnormal renal morphology",
+      "Abnormal genital morphology",
+      "Cerebellar vermis hypoplasia",
+      "Cleft upper lip",
+      "Cleft palate",
+      "Hypotonia"
+    ],
+    "phenotype_categories": [
+      "Neurodevelopmental",
+      "Neurologic",
+      "Growth",
+      "Craniofacial",
+      "Nervous system",
+      "Cardiovascular",
+      "Renal",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Genitourinary",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000729",
+      "HP:0001250",
+      "HP:0000252",
+      "HP:0001999",
+      "HP:0000582",
+      "HP:0000286",
+      "HP:0000506",
+      "HP:0000431",
+      "HP:0000319",
+      "HP:0000219",
+      "HP:0012443",
+      "HP:0001627",
+      "HP:0012210",
+      "HP:0000078",
+      "HP:0001320",
+      "HP:0000204",
+      "HP:0000175",
+      "HP:0001252"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "TRRAP"
+    ],
+    "treatments": [
+      "Supportive and developmental care",
+      "Physical and occupational therapy",
+      "Speech and language therapy",
+      "Anti-seizure pharmacotherapy",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Developmental_Delay_With_Or_Without_Dysmorphic_Facies_And_Autism.yaml",
+    "page_url": "../pages/disorders/developmental_delay_with_or_without_dysmorphic_facies_and_autism.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Developmental Malformations-Deafness-Dystonia Syndrome",
@@ -158832,6 +159063,74 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "6",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Guttmacher syndrome",
+    "disease_id": "MONDO:0008301",
+    "category": "Mendelian",
+    "parents": [
+      "Limb Development Disorders"
+    ],
+    "creation_date": "2026-10-12T13:10:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Guttmacher syndrome is an extremely rare, autosomal dominant malformation syndrome of the distal limbs and the distal genitourinary tract, allelic to hand-foot-genital syndrome (both caused by HOXA13, a homeobox transcription factor patterning the distal limb bud and the genital tract). It was described in 1993 in a single three-generation family (a man, his son, and his daughter) presenting with preaxial deficiencies of the hands and feet together with postaxial polydactyly of the hands, with glanular hypospadias in the affected males. Re-investigation of that family identified a heterozygous HOXA13 homeodomain missense variant (Q50L). Postaxial polydactyly of the hands and uniphalangeal second toes with absent nails are features not seen in hand-foot-genital syndrome, and on that basis the condition was judged a distinct entity, though the two disorders are increasingly regarded as ends of one HOXA13 phenotypic spectrum.\n",
+    "pathophysiology": [
+      "HOXA13 Homeodomain Missense Variant",
+      "Disrupted Autopod Patterning",
+      "Disrupted Male Urethral Development"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "embryonic limb morphogenesis",
+      "regionalization",
+      "male urethra development"
+    ],
+    "phenotypes": [
+      "Thumb Hypoplasia",
+      "Hallux Hypoplasia",
+      "Postaxial Hand Polydactyly",
+      "Short Second Toe",
+      "Absent Toenails",
+      "Glanular Hypospadias"
+    ],
+    "phenotype_categories": [
+      "Limbs",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0009601",
+      "HP:0008362",
+      "HP:0001162",
+      "HP:0001885",
+      "HP:0001802",
+      "HP:0000807"
+    ],
+    "frequencies": [],
+    "genes": [
+      "HOXA13"
+    ],
+    "treatments": [
+      "Surgical Correction",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Guttmacher_Syndrome.yaml",
+    "page_url": "../pages/disorders/Guttmacher_syndrome.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Diffuse Midline Glioma, H3 K27-Altered",
@@ -362365,17 +362664,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3358,
+  "total_disorder_pages": 3361,
   "total_subtypes": 4702,
-  "total_disorders_and_subtypes": 8060,
-  "total_unique_evidence_sources": 50608,
-  "total_unique_publications": 47140,
+  "total_disorders_and_subtypes": 8063,
+  "total_unique_evidence_sources": 50625,
+  "total_unique_publications": 47157,
   "total_unique_disease_categories": 61,
-  "total_unique_phenotype_categories": 296,
-  "total_pathographs": 3354,
-  "total_unique_pathological_events": 22170,
+  "total_unique_phenotype_categories": 297,
+  "total_pathographs": 3357,
+  "total_unique_pathological_events": 22183,
   "total_modules": 192,
-  "total_research_reports": 3475,
+  "total_research_reports": 3478,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
