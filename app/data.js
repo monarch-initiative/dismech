@@ -1796,6 +1796,121 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "3-Methylglutaconic Aciduria Type 9",
+    "disease_id": "MONDO:0044724",
+    "category": "Mendelian",
+    "parents": [
+      "3-Methylglutaconic Aciduria",
+      "Mitochondrial Encephalopathy"
+    ],
+    "creation_date": "2026-10-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "3-methylglutaconic aciduria type 9 (MGCA9) is a rare autosomal recessive mitochondrial encephalopathy caused by biallelic pathogenic variants in TIMM50, a core subunit of the TIM23 presequence translocase of the inner mitochondrial membrane. Onset is in infancy, typically with epileptic encephalopathy (often infantile spasms with hypsarrhythmia), severe global developmental delay and intellectual disability, hypotonia, and later optic atrophy. Some patients have microcephaly, spastic quadriplegia, cerebral white matter loss, Leigh syndrome, cardiomyopathy, or neutropenia. Biochemically, 3-methylglutaconic aciduria is usual but not invariable, plasma or CSF lactate may be mildly raised, and respiratory chain studies show complex V or combined oxidative phosphorylation deficiency. Patient cells have reduced TIMM50 and TIM23 core protein, lower mitochondrial membrane potential, impaired presequence import, abnormal cristae and reduced respiration. Treatment is supportive and centred on seizure control.",
+    "pathophysiology": [
+      "Reduced TIMM50 and TIM23 Core Protein",
+      "Impaired TIM23-Dependent Mitochondrial Protein Import",
+      "Combined Oxidative Phosphorylation Deficiency",
+      "Abnormal Mitochondrial Cristae Organization",
+      "Neuronal Bioenergetic Failure",
+      "Neuronal Hyperexcitability"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "protein import into mitochondrial matrix",
+      "protein insertion into mitochondrial inner membrane",
+      "oxidative phosphorylation",
+      "regulation of mitochondrial membrane potential",
+      "reactive oxygen species metabolic process",
+      "cristae formation",
+      "mitochondrion transport along microtubule",
+      "ATP biosynthetic process",
+      "neuronal action potential"
+    ],
+    "phenotypes": [
+      "Epileptic encephalopathy",
+      "Infantile spasms",
+      "Hypsarrhythmia",
+      "Severe intellectual disability",
+      "Global developmental delay",
+      "Generalized hypotonia",
+      "Optic atrophy",
+      "Microcephaly",
+      "Spastic tetraplegia",
+      "Cerebral white matter atrophy",
+      "3-Methylglutaconic aciduria",
+      "Elevated lactate",
+      "Increased CSF lactate",
+      "Mitochondrial ATP synthase deficiency",
+      "Cardiomyopathy",
+      "Neutropenia"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Ophthalmological",
+      "Laboratory",
+      "Cardiovascular",
+      "Hematological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0200134",
+      "HP:0012469",
+      "HP:0002521",
+      "HP:0010864",
+      "HP:0001263",
+      "HP:0001290",
+      "HP:0000648",
+      "HP:0000252",
+      "HP:0002510",
+      "HP:0012762",
+      "HP:0003535",
+      "HP:0002151",
+      "HP:0002490",
+      "HP:0011925",
+      "HP:0001638",
+      "HP:0001875"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "TIMM50"
+    ],
+    "treatments": [
+      "Antiseizure Pharmacotherapy",
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "3-methylglutaconic_Aciduria_Type_9.yaml",
+    "page_url": "../pages/disorders/3-Methylglutaconic_Aciduria_Type_9.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "3-methylglutaconic_Aciduria_With_Deafness_Encephalopathy_And_Leigh-like_Syndrome",
     "disease_id": "MONDO:0013875",
     "category": "Mendelian",
@@ -9920,6 +10035,74 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "36",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Acheiropodia",
+    "disease_id": "MONDO:0008700",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital Disorder",
+      "Limb Malformation"
+    ],
+    "creation_date": "2026-10-08T15:37:22Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Acheiropodia is a very rare autosomal recessive congenital limb reduction disorder in which all four limbs show a stereotyped bilateral terminal transverse deficiency: the distal humerus and the distal tibial diaphysis are truncated, the radius, ulna and fibula are absent, and the hands and feet do not form. No other organ system is involved and heterozygous carriers are unaffected. Nearly all reported families are Brazilian and carry a homozygous deletion of about 12 kb that removes exon 4 of LMBR1 while leaving the intron-5 ZRS enhancer of SHH intact. The deleted interval has no enhancer activity of its own; it carries three CTCF sites that anchor the long-range contact between the ZRS and the SHH promoter, and in patient cells that contact is lost. The disease is therefore modelled as a loss-of-regulatory-contact disorder in which limb-bud SHH expression is presumed to fail, the opposite direction of travel from the gain-of-ectopic-expression ZRS malformations curated in ZRS-Related Limb Malformation.",
+    "pathophysiology": [
+      "LMBR1 Exon 4 Region Deletion",
+      "Loss of ZRS-SHH Promoter Chromatin Contact",
+      "Loss of Limb-Bud SHH Expression",
+      "Failure of Distal Limb Skeletal Element Formation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "CTCF-mediated ZRS-SHH promoter looping",
+      "limb-bud SHH signaling",
+      "embryonic limb morphogenesis"
+    ],
+    "phenotypes": [
+      "Four-Limb Terminal Transverse Deficiency",
+      "Absent Forearms and Hands",
+      "Absent Feet",
+      "Fibular Aplasia",
+      "Distal Humeral Truncation",
+      "Distal Tibial Truncation",
+      "Bohomoletz Bone"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:6000818",
+      "HP:6000948",
+      "HP:0011301",
+      "HP:0002990",
+      "HP:0005025",
+      "HP:0005772"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "LMBR1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Acheiropodia.yaml",
+    "page_url": "../pages/disorders/Acheiropodia.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Achondrogenesis Type IA",
@@ -26498,6 +26681,73 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Aortic Valve Disease 3",
+    "disease_id": "MONDO:0032783",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-11T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Aortic valve disease 3 is an autosomal dominant, incompletely penetrant ROBO4-associated valvulo-aortopathy in which bicuspid aortic valve, aortic valve stenosis, and aneurysm of the aortic root and/or ascending aorta occur alone or in combination, with atrial septal defect in one reported family. The proposed mechanism is endothelial: loss of ROBO4 function in cultured aortic endothelial cells weakens the endothelial barrier and shifts the cells toward a mesenchymal, invasive state, and aneurysm tissue from an affected individual shows plasma albumin penetrating the intima with fibroproliferative remodeling and elastic-fiber fragmentation of the superficial media. The disease rests on two segregating families, a rare-variant enrichment in a BAV/ascending-aneurysm cohort, and mouse and zebrafish models; ClinGen classifies the gene-disease relationship as Moderate.",
+    "pathophysiology": [
+      "ROBO4 Loss of Function",
+      "Impaired Endothelial Barrier Function",
+      "Mesenchymal Shift of Aortic Endothelial Cells",
+      "Aortic Wall Medial Remodeling",
+      "Abnormal Aortic Valve Development"
+    ],
+    "cell_types": [
+      "aortic endothelial cell",
+      "endocardial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002544",
+      "CL:0002350"
+    ],
+    "biological_processes": [
+      "establishment of endothelial barrier",
+      "aortic valve morphogenesis"
+    ],
+    "phenotypes": [
+      "Aortic root aneurysm",
+      "Ascending tubular aorta aneurysm",
+      "Bicuspid aortic valve",
+      "Aortic valve stenosis",
+      "Atrial septal defect"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_ids": [
+      "HP:0002616",
+      "HP:0004970",
+      "HP:0001647",
+      "HP:0001650",
+      "HP:0001631"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ROBO4"
+    ],
+    "treatments": [
+      "Aortic Valve Replacement",
+      "Prophylactic Aortic Root and Ascending Aorta Replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Aortic_Valve_Disease_3.yaml",
+    "page_url": "../pages/disorders/Aortic_Valve_Disease_3.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Aortic Valve Stenosis",
@@ -57876,6 +58126,127 @@ window.searchData = [
     "num_treatments": 14,
     "causal_graph_edges": "59",
     "causal_graph_longest_path": "10"
+  },
+  {
+    "name": "Brain Small Vessel Disease 2 (COL4A2)",
+    "disease_id": "MONDO:0013773",
+    "category": "Mendelian",
+    "parents": [
+      "COL4A1/A2-related disorder",
+      "Familial porencephaly"
+    ],
+    "creation_date": "2026-10-11T20:20:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "BSVD2A",
+      "BSVD2B"
+    ],
+    "description": "Brain small vessel disease 2 is the cerebrovascular disorder caused by pathogenic germline variants in COL4A2, which encodes the alpha-2 chain of the alpha1-alpha1-alpha2 type IV collagen heterotrimer of vascular basement membranes. The common form (BSVD2A) is autosomal dominant with reduced penetrance and variable expression: heterozygous glycine substitutions in the triple helix, frameshift and splice variants are associated with porencephaly, congenital hemiplegia, focal epilepsy, leukoencephalopathy, intracerebral hemorrhage in childhood or adult life, cortical malformations such as schizencephaly and polymicrogyria, and occasional cataract, optic nerve hypoplasia, intracranial aneurysm, hematuria and raised creatine kinase. A rare autosomal recessive form (BSVD2B) has been reported in a handful of families with homozygous or compound heterozygous COL4A2 variants and early, severe presentations including fetal hemorrhagic brain injury, intellectual disability, spastic quadriplegia, epilepsy, leukoencephalopathy with calcifications and cortical malformations. Mechanistically, dominant missense alleles cause intracellular retention of both collagen IV chains with reduced secretion, variable endoplasmic-reticulum stress, and basement-membrane defects that predispose small cerebral vessels to hemorrhage. Management is supportive and follows the shared COL4A1/COL4A2 consensus; no mechanism-directed therapy is established.",
+    "pathophysiology": [
+      "Pathogenic COL4A2 Variation",
+      "Intracellular Collagen IV Retention",
+      "Endoplasmic Reticulum Stress",
+      "Abnormal Vascular Basement Membrane",
+      "Cerebral Microvascular Fragility",
+      "Cerebral Arterial Smooth Muscle Calcium Signaling Dysregulation",
+      "Impaired Cerebral Artery Myogenic Tone"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "smooth muscle cell of the brain vasculature"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0002590"
+    ],
+    "biological_processes": [
+      "endoplasmic reticulum unfolded protein response",
+      "apoptotic process",
+      "basement membrane organization",
+      "release of sequestered calcium ion into cytosol by sarcoplasmic reticulum"
+    ],
+    "phenotypes": [
+      "Porencephaly",
+      "Intracerebral Hemorrhage",
+      "Hemiplegia",
+      "Focal Epilepsy",
+      "Infantile Spasms",
+      "Leukoencephalopathy",
+      "Cerebral Calcification",
+      "Periventricular Leukomalacia",
+      "Schizencephaly",
+      "Polymicrogyria",
+      "Intellectual Disability",
+      "Global Developmental Delay",
+      "Absent Speech",
+      "Spastic Quadriplegia",
+      "Cortical Visual Impairment",
+      "Colpocephaly",
+      "Cataract",
+      "Optic Nerve Hypoplasia",
+      "Intracranial Aneurysm",
+      "Hematuria",
+      "Elevated Creatine Kinase"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Ophthalmological",
+      "Cardiovascular",
+      "Renal",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Eye",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002132",
+      "HP:0001342",
+      "HP:0002301",
+      "HP:0007359",
+      "HP:0012469",
+      "HP:0002352",
+      "HP:0002514",
+      "HP:0006970",
+      "HP:0010636",
+      "HP:0002126",
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0001344",
+      "HP:0002510",
+      "HP:0100704",
+      "HP:0030048",
+      "HP:0000518",
+      "HP:0000609",
+      "HP:0004944",
+      "HP:0000790",
+      "HP:0003236"
+    ],
+    "frequencies": [],
+    "genes": [
+      "COL4A2"
+    ],
+    "treatments": [
+      "Genetic Counseling and Testing",
+      "Vascular Risk Reduction",
+      "Antiseizure Medication",
+      "Chemical Chaperone (Preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Brain_Small_Vessel_Disease_2.yaml",
+    "page_url": "../pages/disorders/Brain_Small_Vessel_Disease_2_COL4A2.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Branchiooculofacial Syndrome",
@@ -100526,6 +100897,86 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "20",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Congenital Primary Lymphedema of Gordon",
+    "disease_id": "MONDO:0035500",
+    "category": "Mendelian",
+    "parents": [
+      "lymphatic malformation"
+    ],
+    "creation_date": "2026-10-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Congenital primary lymphedema of Gordon (hereditary lymphedema type ID, LMPH1D) is a rare autosomal dominant Milroy-like primary lymphedema caused by heterozygous loss-of-function variants in VEGFC, which encodes vascular endothelial growth factor C, the principal ligand of the lymphatic receptor VEGFR3 (FLT4). Truncating, frameshift and splice-altering VEGFC alleles yield a protein lacking an intact VEGF homology domain that is poorly secreted and biologically inactive, so the disease mechanism is haploinsufficiency rather than dominant-negative interference. Reduced VEGFC-VEGFR3 signaling leads to hypoplasia and dysfunction of the dermal lymphatic network of the lower limbs. Affected individuals usually present at or soon after birth with painless bilateral pedal or below-knee lymphedema, often with prominent wide-calibre veins over the shins and feet, upslanting dysplastic toenails and, in some males, hydrocele. Penetrance is incomplete and expressivity varies within and between families. Lymphoscintigraphy shows tortuous lymphatic tracts with rerouting and reduced inguinal uptake, a pattern that differs from the absent main-tract uptake typical of FLT4-related Milroy disease. Management is supportive, centred on compression.",
+    "pathophysiology": [
+      "VEGFC Haploinsufficiency",
+      "Reduced VEGFR3 Signaling in Lymphatic Endothelium",
+      "Dermal Lymphatic Vessel Hypoplasia",
+      "Impaired Lower Limb Lymphatic Drainage"
+    ],
+    "cell_types": [
+      "lymphatic endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002138"
+    ],
+    "biological_processes": [
+      "vascular endothelial growth factor receptor-3 signaling pathway",
+      "lymphangiogenesis"
+    ],
+    "phenotypes": [
+      "Predominantly lower limb lymphedema",
+      "Abnormal lymphatic tracts on lymphoscintigraphy",
+      "Prominent superficial veins",
+      "Upslanting toenail",
+      "Hydrocele testis",
+      "Edema of the dorsum of hands",
+      "Cellulitis"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Integumentary",
+      "Genitourinary",
+      "Infectious"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Genitourinary",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003550",
+      "HP:0100766",
+      "HP:0001015",
+      "HP:0032344",
+      "HP:0000034",
+      "HP:0007514",
+      "HP:0100658"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "VEGFC"
+    ],
+    "treatments": [
+      "Compression therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_Primary_Lymphedema_Of_Gordon.yaml",
+    "page_url": "../pages/disorders/Congenital_Primary_Lymphedema_of_Gordon.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Congenital Primary Megaureter",
@@ -179419,6 +179870,145 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "ICHAD Syndrome",
+    "disease_id": "MONDO:0979234",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-08T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "ICHAD syndrome (immunodysregulation, craniofacial anomalies, hearing impairment, athelia and developmental delay) is a syndromic inborn error of immunity caused by de novo heterozygous variants in IKZF2, which encodes the Ikaros-family zinc-finger transcription factor HELIOS. The causal variants alter the N-terminal DNA-binding zinc fingers 2 and 3 (an in-frame duplication of exon 5, p.Gly136_Ser191dup, and the missense p.Gly153Arg), and the variant proteins interfere with wild-type HELIOS repression of the IL2 promoter in a dominant negative manner. The immune picture combines T cell lymphopenia and recurrent respiratory infections with immune overactivation (autoimmune hemolytic anemia, severe atopic dermatitis, elevated IgE, hyperactive cytokine-producing CD4+ and CD8+ T cells, and impaired natural killer cell differentiation). Extra-immune features include cleft palate, congenital sensorineural hearing loss, absent nipples, facial dysmorphism, hypospadias, and developmental delay with autism.",
+    "pathophysiology": [
+      "Dominant Negative IKZF2 DNA-Binding Zinc Finger Variant",
+      "Loss of HELIOS-Mediated IL2 Repression",
+      "T Cell Hyperactivation and Effector Cytokine Overproduction",
+      "Impaired Natural Killer Cell Differentiation",
+      "Impaired Cochlear Outer Hair Cell Maturation"
+    ],
+    "cell_types": [
+      "CD4-positive, alpha-beta T cell",
+      "regulatory T cell",
+      "natural killer cell",
+      "cochlear outer hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000624",
+      "CL:0000815",
+      "CL:0000623",
+      "CL:0000601"
+    ],
+    "biological_processes": [
+      "negative regulation of interleukin-2 production",
+      "T cell activation",
+      "natural killer cell differentiation",
+      "inner ear auditory receptor cell differentiation"
+    ],
+    "phenotypes": [
+      "Immune Dysregulation",
+      "Autoimmune Hemolytic Anemia",
+      "Atopic Dermatitis",
+      "Increased Circulating IgE",
+      "T Cell Lymphopenia",
+      "Decreased B Cell Count",
+      "Decreased Circulating IgG",
+      "Recurrent Respiratory Infections",
+      "Recurrent Pneumonia",
+      "Recurrent Otitis Media",
+      "Bronchiectasis",
+      "Neonatal Respiratory Distress",
+      "Cleft Palate",
+      "Microcephaly",
+      "Deeply Set Eyes",
+      "Blepharophimosis",
+      "Midface Retrusion",
+      "Choanal Stenosis",
+      "Sensorineural Hearing Impairment",
+      "Absent Nipples",
+      "Hypospadias",
+      "Global Developmental Delay",
+      "Hypotonia",
+      "Autism",
+      "Feeding Difficulties"
+    ],
+    "phenotype_categories": [
+      "Immunologic",
+      "Hematologic",
+      "Dermatologic",
+      "Laboratory",
+      "Respiratory",
+      "Craniofacial",
+      "Otologic",
+      "Genitourinary",
+      "Neurologic",
+      "Behavioral",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Breast",
+      "Cellular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002958",
+      "HP:0001890",
+      "HP:0001047",
+      "HP:0003212",
+      "HP:0005403",
+      "HP:0010976",
+      "HP:0004315",
+      "HP:0002205",
+      "HP:0006532",
+      "HP:0000403",
+      "HP:0002110",
+      "HP:0002643",
+      "HP:0000175",
+      "HP:0000252",
+      "HP:0000490",
+      "HP:0000581",
+      "HP:0011800",
+      "HP:0000452",
+      "HP:0000407",
+      "HP:0002561",
+      "HP:0000047",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0000717",
+      "HP:0011968"
+    ],
+    "frequencies": [],
+    "genes": [
+      "IKZF2"
+    ],
+    "treatments": [
+      "Intravenous Immunoglobulin Replacement",
+      "Antibiotic Prophylaxis",
+      "Topical Corticosteroids for Atopic Dermatitis",
+      "Red Blood Cell Transfusion",
+      "Cochlear Implantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ICHAD_Syndrome.yaml",
+    "page_url": "../pages/disorders/ICHAD_Syndrome.html",
+    "num_phenotypes": 25,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Acute Myeloid Leukemia, IDH-Mutated",
     "disease_id": "MONDO:0018874",
     "category": "",
@@ -230498,6 +231088,108 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 9,
     "causal_graph_edges": "18",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Microcephaly, Growth Restriction, and Increased Sister Chromatid Exchange 2",
+    "disease_id": "MONDO:0020628",
+    "category": "Mendelian",
+    "parents": [
+      "microcephaly, growth restriction and increased sister chromatid exchange",
+      "chromosomal instability syndrome"
+    ],
+    "creation_date": "2026-10-11T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Microcephaly, growth restriction, and increased sister chromatid exchange 2 (MGRISCE2) is an autosomal recessive Bloom syndrome-like microcephalic primordial dwarfism caused by biallelic hypomorphic variants in TOP3A, which encodes topoisomerase III alpha. TOP3A is the decatenase of the BLM-TOP3A-RMI1-RMI2 (BTRR) complex that dissolves double Holliday junctions without crossover. The index series described ten children from seven families with prenatal-onset growth restriction, microcephaly and short stature, multiple cafe-au-lait macules, and a 3- to 6-fold increase in sister chromatid exchanges in cultured cells. Unlike BLM-related Bloom syndrome, none had the photosensitive malar rash, and no malignancy had been reported, although all were children. Several affected children also had dilated or hypertrophic cardiomyopathy, and one had marked muscle mitochondrial DNA depletion, findings attributed to the separate mitochondrial function of TOP3A.",
+    "pathophysiology": [
+      "Biallelic Hypomorphic TOP3A Loss of Function",
+      "Impaired BTRR Double Holliday Junction Dissolution",
+      "Excess Sister Chromatid Crossover Recombination",
+      "Persistent DNA Entanglements in Mitosis",
+      "Chromosome Segregation Errors and Genome Instability"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "double-strand break repair via homologous recombination",
+      "mitotic recombination",
+      "chromosome segregation"
+    ],
+    "phenotypes": [
+      "Prenatal growth restriction",
+      "Microcephaly",
+      "Short stature",
+      "Low body weight",
+      "Increased sister chromatid exchange",
+      "Multiple cafe-au-lait macules",
+      "Developmental delay",
+      "Reduced subcutaneous adipose tissue",
+      "Gastroesophageal reflux",
+      "Recurrent infections",
+      "Dilated cardiomyopathy",
+      "Hypertrophic cardiomyopathy",
+      "Mitochondrial DNA depletion in muscle",
+      "Hepatomegaly"
+    ],
+    "phenotype_categories": [
+      "Growth",
+      "Cellular",
+      "Integument",
+      "Neurological",
+      "Gastrointestinal",
+      "Immunological",
+      "Cardiovascular",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001511",
+      "HP:0000252",
+      "HP:0004322",
+      "HP:0004325",
+      "HP:0010998",
+      "HP:0007565",
+      "HP:0012758",
+      "HP:0003758",
+      "HP:0002020",
+      "HP:0002719",
+      "HP:0001644",
+      "HP:0001639",
+      "HP:0009141",
+      "HP:0002240"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "TOP3A"
+    ],
+    "treatments": [
+      "Heart transplantation",
+      "Growth hormone therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Microcephaly_Growth_Restriction_And_Increased_Sister_Chromatid_Exchange_2.yaml",
+    "page_url": "../pages/disorders/Microcephaly,_Growth_Restriction,_and_Increased_Sister_Chromatid_Exchange_2.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "5"
   },
   {
@@ -353617,6 +354309,98 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "White Sponge Nevus",
+    "disease_id": "MONDO:0015748",
+    "category": "Mendelian",
+    "parents": [
+      "keratinizing disorder",
+      "genodermatosis",
+      "intermediate filament disease"
+    ],
+    "creation_date": "2026-10-08T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "WSN1",
+      "WSN2"
+    ],
+    "description": "White sponge nevus (WSN; hereditary mucosal leukokeratosis) is a rare, benign, autosomal dominant disorder of the non-cornifying stratified squamous epithelia. It presents, usually in childhood, as bilateral, soft, white, thickened, folded and spongy plaques of the oral mucosa, most often the buccal mucosa, and less often involves the esophageal, nasal and anogenital mucosa. WSN is caused by heterozygous variants in either of the two mucosa-specific keratin genes, KRT4 (WSN1) or KRT13 (WSN2), whose products form the type II/type I keratin intermediate filament pair of differentiating mucosal epithelium. Most variants are missense changes or small in-frame indels in the helix boundary motifs of the keratin rod domain and act in a dominant-negative fashion on filament assembly; histologically the epithelium is acanthotic and parakeratotic, with extensive vacuolization of suprabasal cells and perinuclear aggregates of keratin filaments. Mouse knockouts of either keratin reproduce a WSN-like mucosal phenotype, and the Krt13 knockout shows that the keratin-deficient epithelium fails under postnatal mechanical stress, with suprabasal overproliferation and disordered differentiation. The lesions are usually asymptomatic; treatment is symptomatic, chiefly antibiotic courses or rinses that improve lesions in some patients without altering the underlying disorder. Isolated KRT13 and KRT4 families with cervical or oral dysplasia and oral squamous cell carcinoma have called the traditionally benign course into question.",
+    "pathophysiology": [
+      "Dominant-Negative Mucosal Keratin Variant",
+      "Mucosal Keratin Filament Network Disruption and Aggregation",
+      "Loss of Mucosal Epithelial Mechanical Resilience",
+      "Suprabasal Epithelial Overproliferation and Disordered Differentiation",
+      "Thickened Vacuolated Mucosal Epithelium"
+    ],
+    "cell_types": [
+      "oral mucosa squamous cell"
+    ],
+    "cell_type_ids": [
+      "CL:1001576"
+    ],
+    "biological_processes": [
+      "keratin intermediate filament organization",
+      "epithelial cell proliferation",
+      "squamous epithelial differentiation"
+    ],
+    "phenotypes": [
+      "White Spongy Oral Mucosal Plaques",
+      "Esophageal Mucosal Plaques",
+      "Vaginal and Cervical Mucosal Plaques",
+      "Parakeratosis",
+      "Secondary Oral Mucosal Infection",
+      "Cervical Dysplasia",
+      "Oral Squamous Cell Carcinoma",
+      "Oral Epithelial Dysplasia"
+    ],
+    "phenotype_categories": [
+      "Oral",
+      "Gastrointestinal",
+      "Genitourinary",
+      "Histopathology",
+      "Infectious",
+      "Neoplasm"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0025125",
+      "HP:0012859",
+      "HP:0000142",
+      "HP:0001036",
+      "HP:5210280",
+      "HP:0032131",
+      "HP:0020357"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "KRT4",
+      "KRT13"
+    ],
+    "treatments": [
+      "Antibiotic Therapy",
+      "Topical Retinoid",
+      "Reassurance and Observation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "White_Sponge_Nevus.yaml",
+    "page_url": "../pages/disorders/White_Sponge_Nevus.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Wieacker-Wolff Syndrome Spectrum",
     "disease_id": "MONDO:0025445",
     "category": "Mendelian",
@@ -360749,17 +361533,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3341,
-  "total_subtypes": 4698,
-  "total_disorders_and_subtypes": 8039,
-  "total_unique_evidence_sources": 50437,
-  "total_unique_publications": 46971,
+  "total_disorder_pages": 3349,
+  "total_subtypes": 4702,
+  "total_disorders_and_subtypes": 8051,
+  "total_unique_evidence_sources": 50518,
+  "total_unique_publications": 47051,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
-  "total_pathographs": 3337,
-  "total_unique_pathological_events": 22087,
+  "total_pathographs": 3345,
+  "total_unique_pathological_events": 22122,
   "total_modules": 191,
-  "total_research_reports": 3458,
+  "total_research_reports": 3466,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
