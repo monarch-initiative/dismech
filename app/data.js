@@ -78411,6 +78411,125 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "cerebellar ataxia, brain abnormalities, and cardiac conduction defects",
+    "disease_id": "MONDO:0859200",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian neurodevelopmental disorder",
+      "autosomal recessive cerebellar ataxia",
+      "RNA exosomopathy"
+    ],
+    "creation_date": "2026-10-12T13:10:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Cerebellar ataxia, brain abnormalities, and cardiac conduction defects (CABAC syndrome) is a rare autosomal recessive neurodevelopmental disorder caused by biallelic variants in EXOSC5, which encodes a structural subunit of the RNA exosome. Reported patients present in infancy with hypotonia, global developmental delay affecting motor skills, failure to thrive, short stature, feeding difficulties and esotropia, and brain MRI shows cerebellar hypoplasia or atrophy, pontocerebellar hypoplasia, ventriculomegaly and hypomyelination. A distinctive feature in a subset of patients is progressive cardiac conduction and rhythm disease (complete heart block, sinus node dysfunction, atrioventricular block and ventricular tachycardia) with a recognized risk of sudden cardiac death; cardiac involvement is variable and has been absent in some patients. Renal thrombotic microangiopathy after a viral trigger has been reported in one patient and is now recognized across RNA-exosome disorders. EXOSC5 is one of several RNA-exosome subunit genes (EXOSC2, EXOSC3, EXOSC8, EXOSC9) linked to Mendelian neurodegenerative disease, and the literature on CABAC remains small (about ten reported patients). Disease mechanism appears to vary with the specific pathogenic variant.",
+    "pathophysiology": [
+      "EXOSC5 Subunit Dysfunction",
+      "Impaired RNA Exosome-Mediated RNA Processing and Degradation",
+      "Cerebellar and Pontine Hypoplasia",
+      "Cardiac Conduction System Vulnerability",
+      "Impaired Ribosome Assembly",
+      "Endothelial Cell Apoptosis"
+    ],
+    "cell_types": [
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "RNA processing and degradation",
+      "ribosome biogenesis",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Ataxia",
+      "Hypotonia",
+      "Global developmental delay",
+      "Motor delay",
+      "Cerebellar hypoplasia",
+      "Cerebellar atrophy",
+      "Hypoplasia of the pons",
+      "Ventriculomegaly",
+      "CNS hypomyelination",
+      "Microcephaly",
+      "Seizure",
+      "Failure to thrive",
+      "Short stature",
+      "Feeding difficulties",
+      "Esotropia",
+      "Abnormal facial shape",
+      "Mixed hearing impairment",
+      "Atrioventricular block",
+      "Sinus node dysfunction",
+      "Ventricular tachycardia",
+      "Intraventricular conduction delay",
+      "Renal thrombotic microangiopathy"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Growth",
+      "Gastrointestinal",
+      "Ophthalmologic",
+      "Craniofacial",
+      "Auditory",
+      "Cardiovascular",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001251",
+      "HP:0001252",
+      "HP:0001263",
+      "HP:0001270",
+      "HP:0001321",
+      "HP:0001272",
+      "HP:0012110",
+      "HP:0002119",
+      "HP:0003429",
+      "HP:0000252",
+      "HP:0001250",
+      "HP:0001508",
+      "HP:0004322",
+      "HP:0011968",
+      "HP:0000565",
+      "HP:0001999",
+      "HP:0000410",
+      "HP:0001709",
+      "HP:0011704",
+      "HP:0004756",
+      "HP:0006677"
+    ],
+    "frequencies": [],
+    "genes": [
+      "EXOSC5 variants"
+    ],
+    "treatments": [
+      "Cardiac pacing / pacemaker implantation",
+      "Supportive care",
+      "Eculizumab (not recommended for EXOSC-related TMA)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cerebellar_Ataxia_Brain_Abnormalities_And_Cardiac_Conduction_Defects.yaml",
+    "page_url": "../pages/disorders/cerebellar_ataxia,_brain_abnormalities,_and_cardiac_conduction_defects.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome",
     "disease_id": "MONDO:0009133",
     "category": "Mendelian",
@@ -116477,6 +116596,118 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "developmental delay with or without dysmorphic facies and autism",
+    "disease_id": "MONDO:0032760",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian neurodevelopmental disorder",
+      "hereditary disease"
+    ],
+    "creation_date": "2026-10-12T13:10:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Developmental delay with or without dysmorphic facies and autism (DEDDFA) is a rare autosomal dominant, de novo neurodevelopmental disorder caused by heterozygous missense variants in TRRAP, the scaffolding subunit that recruits histone acetyltransferase (HAT) complexes to chromatin. Core features are global developmental delay and a wide range of intellectual functioning, frequently reaching intellectual disability. The published cohort resolves into two genotype-correlated clinical spectra: a complex multisystem malformation syndrome (brain, heart, kidney and genitourinary anomalies) associated with missense variants clustering around p.Ala1043Thr, and a spectrum manifesting with autism spectrum disorder and/or intellectual disability with epilepsy. Facial dysmorphism is seen across both spectra.",
+    "pathophysiology": [
+      "TRRAP missense variant disrupting HAT-complex scaffold function",
+      "Dysregulated histone acetylation and transcription",
+      "Altered neurodevelopmental gene expression",
+      "Disrupted embryonic organ and craniofacial morphogenesis"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "internal peptidyl-lysine (histone) acetylation",
+      "regulation of transcription by RNA polymerase II",
+      "regulation of gene expression",
+      "nervous system development",
+      "embryonic morphogenesis"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Autistic behavior",
+      "Seizure",
+      "Microcephaly",
+      "Abnormal facial shape",
+      "Upslanted palpebral fissure",
+      "Epicanthus",
+      "Telecanthus",
+      "Wide nasal bridge",
+      "Smooth philtrum",
+      "Thin upper lip vermilion",
+      "Abnormal brain morphology",
+      "Abnormal heart morphology",
+      "Abnormal renal morphology",
+      "Abnormal genital morphology",
+      "Cerebellar vermis hypoplasia",
+      "Cleft upper lip",
+      "Cleft palate",
+      "Hypotonia"
+    ],
+    "phenotype_categories": [
+      "Neurodevelopmental",
+      "Neurologic",
+      "Growth",
+      "Craniofacial",
+      "Nervous system",
+      "Cardiovascular",
+      "Renal",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Genitourinary",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000729",
+      "HP:0001250",
+      "HP:0000252",
+      "HP:0001999",
+      "HP:0000582",
+      "HP:0000286",
+      "HP:0000506",
+      "HP:0000431",
+      "HP:0000319",
+      "HP:0000219",
+      "HP:0012443",
+      "HP:0001627",
+      "HP:0012210",
+      "HP:0000078",
+      "HP:0001320",
+      "HP:0000204",
+      "HP:0000175",
+      "HP:0001252"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "TRRAP"
+    ],
+    "treatments": [
+      "Supportive and developmental care",
+      "Physical and occupational therapy",
+      "Speech and language therapy",
+      "Anti-seizure pharmacotherapy",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Developmental_Delay_With_Or_Without_Dysmorphic_Facies_And_Autism.yaml",
+    "page_url": "../pages/disorders/developmental_delay_with_or_without_dysmorphic_facies_and_autism.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Developmental Malformations-Deafness-Dystonia Syndrome",
     "disease_id": "MONDO:0011823",
     "category": "Mendelian",
@@ -154475,6 +154706,93 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Glucocorticoid Resistance",
+    "disease_id": "MONDO:0014421",
+    "category": "Mendelian",
+    "parents": [
+      "Adrenogenital syndrome"
+    ],
+    "creation_date": "2026-10-12T04:05:10Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Primary generalized glucocorticoid resistance (Chrousos syndrome) is a rare genetic disorder of generalized, partial target-tissue insensitivity to glucocorticoids caused by inactivating variants in NR3C1, which encodes the human glucocorticoid receptor. Because peripheral tissues respond poorly to cortisol, hypothalamic-pituitary-adrenal negative feedback is blunted and the axis is compensatorily upregulated, raising cortisol and ACTH. The excess ACTH drives adrenal overproduction of steroids with mineralocorticoid activity (deoxycorticosterone, corticosterone) and of adrenal androgens, so affected individuals present with hypertension, hypokalemic alkalosis, and/or hyperandrogenism, together with adrenal hyperplasia, while cortisol-dependent functions are largely preserved and stigmata of Cushing's syndrome are absent. The clinical spectrum ranges from asymptomatic to severe; homozygous or compound-heterozygous defects present earlier and more severely than heterozygous ones. This entry covers the primary (NR3C1-based) Mendelian disorder, not acquired or tissue-specific glucocorticoid resistance seen in conditions such as asthma, inflammatory disease, or hematologic malignancy.",
+    "pathophysiology": [
+      "NR3C1 Inactivating Variant",
+      "Impaired Glucocorticoid Receptor Signal Transduction",
+      "Generalized Target-Tissue Glucocorticoid Insensitivity",
+      "Blunted HPA-Axis Negative Feedback",
+      "Compensatory HPA-Axis Activation",
+      "Adrenal Steroidogenesis Stimulation",
+      "Mineralocorticoid Excess",
+      "Adrenal Androgen Excess"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "nuclear receptor-mediated glucocorticoid signaling pathway",
+      "cellular response to glucocorticoid stimulus",
+      "corticotropin-releasing hormone secretion",
+      "positive regulation of steroid hormone secretion",
+      "nuclear receptor-mediated mineralocorticoid signaling pathway"
+    ],
+    "phenotypes": [
+      "Hypertension",
+      "Hypokalemia",
+      "Metabolic alkalosis",
+      "Signs of androgen excess",
+      "Fatigue",
+      "Adrenal hyperplasia",
+      "Increased circulating cortisol level",
+      "Increased circulating ACTH level",
+      "Hypoglycemia"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Metabolic",
+      "Endocrine",
+      "Constitutional",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Endocrine",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000822",
+      "HP:0002900",
+      "HP:0200114",
+      "HP:0030348",
+      "HP:0012378",
+      "HP:0008221",
+      "HP:0003118",
+      "HP:0003154",
+      "HP:0001943"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "NR3C1"
+    ],
+    "treatments": [
+      "High-dose dexamethasone"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum cortisol"
+    ],
+    "source_file": "Glucocorticoid_Resistance.yaml",
+    "page_url": "../pages/disorders/Glucocorticoid_Resistance.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Glucose-6-Phosphate Dehydrogenase (G6PD) Deficiency",
     "disease_id": "MONDO:0005775",
     "category": "Genetic",
@@ -158745,6 +159063,74 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "6",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Guttmacher syndrome",
+    "disease_id": "MONDO:0008301",
+    "category": "Mendelian",
+    "parents": [
+      "Limb Development Disorders"
+    ],
+    "creation_date": "2026-10-12T13:10:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Guttmacher syndrome is an extremely rare, autosomal dominant malformation syndrome of the distal limbs and the distal genitourinary tract, allelic to hand-foot-genital syndrome (both caused by HOXA13, a homeobox transcription factor patterning the distal limb bud and the genital tract). It was described in 1993 in a single three-generation family (a man, his son, and his daughter) presenting with preaxial deficiencies of the hands and feet together with postaxial polydactyly of the hands, with glanular hypospadias in the affected males. Re-investigation of that family identified a heterozygous HOXA13 homeodomain missense variant (Q50L). Postaxial polydactyly of the hands and uniphalangeal second toes with absent nails are features not seen in hand-foot-genital syndrome, and on that basis the condition was judged a distinct entity, though the two disorders are increasingly regarded as ends of one HOXA13 phenotypic spectrum.\n",
+    "pathophysiology": [
+      "HOXA13 Homeodomain Missense Variant",
+      "Disrupted Autopod Patterning",
+      "Disrupted Male Urethral Development"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "embryonic limb morphogenesis",
+      "regionalization",
+      "male urethra development"
+    ],
+    "phenotypes": [
+      "Thumb Hypoplasia",
+      "Hallux Hypoplasia",
+      "Postaxial Hand Polydactyly",
+      "Short Second Toe",
+      "Absent Toenails",
+      "Glanular Hypospadias"
+    ],
+    "phenotype_categories": [
+      "Limbs",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0009601",
+      "HP:0008362",
+      "HP:0001162",
+      "HP:0001885",
+      "HP:0001802",
+      "HP:0000807"
+    ],
+    "frequencies": [],
+    "genes": [
+      "HOXA13"
+    ],
+    "treatments": [
+      "Surgical Correction",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Guttmacher_Syndrome.yaml",
+    "page_url": "../pages/disorders/Guttmacher_syndrome.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Diffuse Midline Glioma, H3 K27-Altered",
@@ -323066,6 +323452,81 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Spermatogenic Failure 100",
+    "disease_id": "MONDO:0978302",
+    "category": "Mendelian",
+    "parents": [
+      "Spermatogenic Failure",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-10-11T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spermatogenic failure 100 (SPGF100) is autosomal recessive male infertility caused by biallelic loss-of-function variants in DNAH12. DNAH12 encodes an unusual inner dynein arm heavy chain: it is the shortest member of the axonemal dynein heavy chain family and lacks a typical microtubule-binding domain. Affected men have severe asthenoteratozoospermia. The ejaculate contains a mixture of absent, short, coiled, bent and irregular-caliber flagella (multiple morphological abnormalities of the sperm flagella, MMAF), and many sperm also have abnormal heads. Electron microscopy shows loss of the inner dynein arms and of the central pair of microtubules.\nDNAH12 binds the inner-arm components DNALI1 and DNAH1 and is required to bring them into the sperm axoneme. It also binds the radial spoke head proteins RSPH1, RSPH9 and DNAJB13, which helps keep the central pair stable. Its loss affects the sperm flagellum but not motile cilia elsewhere. Reported patients had no respiratory disease or situs inversus, and Dnah12 knockout mice have normal tracheal and oviductal cilia. So SPGF100 is an isolated sperm flagellar disorder, not primary ciliary dyskinesia. Fertility can be achieved: ICSI gave normal fertilization and embryo development in patients and in knockout mice.",
+    "pathophysiology": [
+      "Loss of the DNAH12 Inner-Arm Dynein Heavy Chain",
+      "Failed Recruitment of DNAH1 and DNALI1 to the Inner Dynein Arm",
+      "Inner Dynein Arm and Central Pair Loss",
+      "Multiple Morphological Abnormalities of the Sperm Flagella",
+      "Defective Manchette Organization During Spermiogenesis"
+    ],
+    "cell_types": [
+      "Sperm",
+      "Spermatid"
+    ],
+    "cell_type_ids": [
+      "CL:0000019",
+      "CL:0000018"
+    ],
+    "biological_processes": [
+      "Inner dynein arm assembly",
+      "Sperm axoneme assembly"
+    ],
+    "phenotypes": [
+      "Male infertility",
+      "Reduced sperm motility",
+      "Oligozoospermia",
+      "Absent sperm flagella",
+      "Short sperm flagella",
+      "Coiled sperm flagella",
+      "Bent sperm flagella",
+      "Abnormal sperm head morphology"
+    ],
+    "phenotype_categories": [
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary"
+    ],
+    "phenotype_ids": [
+      "HP:0003251",
+      "HP:0012207",
+      "HP:0000798",
+      "HP:0032558",
+      "HP:0032559",
+      "HP:0032560",
+      "HP:0034811",
+      "HP:0012865"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DNAH12"
+    ],
+    "treatments": [
+      "Intracytoplasmic Sperm Injection"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spermatogenic_Failure_100.yaml",
+    "page_url": "../pages/disorders/Spermatogenic_Failure_100.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Spermatogenic Failure 18",
     "disease_id": "MONDO:0054615",
     "category": "Mendelian",
@@ -345383,6 +345844,9 @@ window.searchData = [
       "Beta Cell Dysfunction",
       "Hepatic Glucose Overproduction",
       "Mitochondrial Dysfunction and Oxidative Stress",
+      "Ceramide Accumulation",
+      "Diacylglycerol Accumulation",
+      "Islet Amyloid Polypeptide Oligomer Proteotoxicity",
       "Incretin Axis Dysfunction",
       "Chronic Hyperglycemia"
     ],
@@ -345416,6 +345880,8 @@ window.searchData = [
       "Gluconeogenesis",
       "Oxidative Stress Response",
       "Mitophagy",
+      "ceramide formation from saturated fatty acids",
+      "hIAPP toxic oligomer formation",
       "cAMP Signaling",
       "Insulin Secretion Regulation",
       "glucose homeostasis"
@@ -345493,10 +345959,10 @@ window.searchData = [
     "source_file": "Type_2_Diabetes_Mellitus.yaml",
     "page_url": "../pages/disorders/Type_2_Diabetes_Mellitus.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 12,
     "num_genes": 6,
     "num_treatments": 6,
-    "causal_graph_edges": "34",
+    "causal_graph_edges": "38",
     "causal_graph_longest_path": "4"
   },
   {
@@ -362198,17 +362664,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3356,
+  "total_disorder_pages": 3361,
   "total_subtypes": 4702,
-  "total_disorders_and_subtypes": 8058,
-  "total_unique_evidence_sources": 50588,
-  "total_unique_publications": 47120,
+  "total_disorders_and_subtypes": 8063,
+  "total_unique_evidence_sources": 50625,
+  "total_unique_publications": 47157,
   "total_unique_disease_categories": 61,
-  "total_unique_phenotype_categories": 296,
-  "total_pathographs": 3352,
-  "total_unique_pathological_events": 22155,
-  "total_modules": 191,
-  "total_research_reports": 3473,
+  "total_unique_phenotype_categories": 297,
+  "total_pathographs": 3357,
+  "total_unique_pathological_events": 22183,
+  "total_modules": 192,
+  "total_research_reports": 3478,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
