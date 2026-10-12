@@ -121800,6 +121800,134 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Dilated Cardiomyopathy with Woolly Hair, Keratoderma, and Tooth Agenesis",
+    "disease_id": "MONDO:0014355",
+    "category": "Mendelian",
+    "parents": [
+      "Cardiocutaneous Syndrome",
+      "Desmosomal Disease",
+      "Dilated Cardiomyopathy"
+    ],
+    "creation_date": "2026-10-12T14:48:06Z",
+    "updated_date": null,
+    "subtypes": [
+      "Dominant Carvajal",
+      "EKC"
+    ],
+    "description": "Autosomal dominant cardiocutaneous syndrome caused by heterozygous, often de novo, missense or in-frame variants in the spectrin repeat 6 (SR6) region of the N-terminal plakin domain of desmoplakin (DSP). Affected individuals combine a progressive, potentially fatal cardiomyopathy (biventricular dilated cardiomyopathy, or a right-dominant arrhythmogenic picture with ventricular arrhythmia and sudden death) with woolly or sparse hair, palmoplantar keratoderma, nail abnormalities and congenital tooth agenesis (hypodontia to oligodontia, typically premolars and molars). It is the dominant counterpart of recessive Carvajal syndrome (biallelic DSP truncation; entry Carvajal_Syndrome) and is distinct from the heterozygous DSP loss-of-function arrhythmogenic cardiomyopathy in DSP_Cardiomyopathy, whose carriers show at most curly hair and mild keratoderma and no tooth agenesis. MONDO and Orphanet treat erythrokeratodermia-cardiomyopathy (EKC) syndrome, caused by de novo proline substitutions slightly further along SR6, as the same disease; it is carried here as a subtype with generalized erythrokeratodermia, alopecia, enamel defects and absent secondary teeth.",
+    "pathophysiology": [
+      "DSP Spectrin Repeat 6 Missense Variant",
+      "Epidermal Desmosome Aggregation and Plaque Protein Mislocalization",
+      "Loss of Suprabasal Keratinocyte Adhesion",
+      "Reduced Connexin 43 Junctional Localization",
+      "Myocardial Desmosome Dysfunction",
+      "Progressive Ventricular Dilation and Systolic Dysfunction",
+      "Ventricular Electrical Instability",
+      "Desmosome-Dependent Tooth Development Defect"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "desmosome organization",
+      "cell-cell adhesion",
+      "protein localization to plasma membrane",
+      "cardiac muscle contraction",
+      "ventricular cardiac muscle cell action potential",
+      "odontogenesis"
+    ],
+    "phenotypes": [
+      "Dilated Cardiomyopathy",
+      "Right Ventricular Dilatation",
+      "Left Ventricular Dilatation",
+      "Congestive Heart Failure",
+      "Ventricular Tachycardia",
+      "Premature Ventricular Contractions",
+      "Syncope",
+      "Sudden Cardiac Death",
+      "Myocardial Fibrosis",
+      "Ventricular Fibrillation",
+      "Woolly Hair",
+      "Palmoplantar Keratoderma",
+      "Erythrokeratodermia",
+      "Pruritus",
+      "Alopecia",
+      "Sparse Eyebrows",
+      "Nail Dystrophy",
+      "Leukonychia",
+      "Fragile Nails",
+      "Tooth Agenesis",
+      "Abnormal Dental Enamel",
+      "Carious Teeth",
+      "Failure to Thrive"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Dermatologic",
+      "Dental",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0005133",
+      "HP:4000141",
+      "HP:0001635",
+      "HP:0004756",
+      "HP:0006682",
+      "HP:0001279",
+      "HP:0001645",
+      "HP:0001685",
+      "HP:0001663",
+      "HP:0002224",
+      "HP:0000982",
+      "HP:0001019",
+      "HP:0000989",
+      "HP:0001596",
+      "HP:0045075",
+      "HP:0008404",
+      "HP:0001820",
+      "HP:0001808",
+      "HP:0009804",
+      "HP:0000682",
+      "HP:0000670",
+      "HP:0001508"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DSP"
+    ],
+    "treatments": [
+      "Implantable Cardioverter-Defibrillator",
+      "Oral Acitretin for Erythrokeratodermia"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dilated_Cardiomyopathy_with_Woolly_Hair_Keratoderma_and_Tooth_Agenesis.yaml",
+    "page_url": "../pages/disorders/Dilated_Cardiomyopathy_with_Woolly_Hair,_Keratoderma,_and_Tooth_Agenesis.html",
+    "num_phenotypes": 23,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "39",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Dimethylglycine Dehydrogenase Deficiency",
     "disease_id": "MONDO:0011610",
     "category": "Mendelian",
@@ -135611,6 +135739,158 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "69",
     "causal_graph_longest_path": "10"
+  },
+  {
+    "name": "FDX2-Related Mitochondrial Myopathy",
+    "disease_id": "MONDO:0020714",
+    "category": "Mendelian",
+    "parents": [
+      "inborn mitochondrial myopathy",
+      "multiple mitochondrial dysfunctions syndrome"
+    ],
+    "creation_date": "2026-10-12T14:48:06Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "FDX2-related mitochondrial myopathy (MEOAL; OMIM 251900) is an ultra-rare autosomal recessive disorder caused by biallelic variants in FDX2 (formerly FDX1L), which encodes mitochondrial ferredoxin 2. FDX2 is the [2Fe-2S] ferredoxin that, reduced by NADPH through ferredoxin reductase (FDXR), supplies electrons to the mitochondrial iron-sulfur cluster (ISC) assembly machinery, both for de novo [2Fe-2S] cluster synthesis on ISCU2 and for the later reductive fusion that forms [4Fe-4S] clusters. Every reported allele lowers the amount of FDX2 protein or its ability to accept electrons, so the disease is a partial loss of Fe-S protein maturation. Its measurable consequences are reduced activity of the Fe-S-dependent respiratory chain complexes I, II and III and of mitochondrial aconitase, reduced oxygen consumption, and in some patients mitochondrial iron accumulation.\nSkeletal muscle is the tissue that fails first and most often. All reported patients have a mitochondrial myopathy with exercise intolerance and muscle weakness, and most have recurrent, sometimes life-threatening rhabdomyolysis with very high creatine kinase and lactic acidosis, provoked by febrile illness, fasting, exertion or cold and complicated by acute kidney injury or respiratory muscle failure. A second, multisystem presentation was defined in two Brazilian families homozygous for p.Pro144Leu: optic atrophy and nystagmus by age three, then myopathy with episodic cramps and myalgia, sensorimotor axonal neuropathy, and a reversible or partially reversible leukoencephalopathy. The authors of a 2024 case comparison note that patients carrying a start-codon allele have had muscle-restricted disease, and suggest that more severely damaging alleles produce the multisystem form. Around a dozen patients have been reported.",
+    "pathophysiology": [
+      "Biallelic FDX2 Variants",
+      "Reduced Mitochondrial Ferredoxin 2 Protein",
+      "Impaired FDXR-to-FDX2 Electron Transfer",
+      "Impaired Mitochondrial Iron-Sulfur Cluster Assembly",
+      "Deficiency of Fe-S-Dependent Respiratory Chain Complexes",
+      "Loss of Mitochondrial Aconitase Activity",
+      "Reduced Activity of Lipoate-Dependent 2-Oxoacid Dehydrogenases",
+      "Mitochondrial Iron Accumulation",
+      "Skeletal Muscle Energy Failure",
+      "Episodic Rhabdomyolysis",
+      "Neuro-ophthalmic and Neural Involvement"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber",
+      "patient dermal fibroblast",
+      "retinal ganglion cell",
+      "sensory neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0008002",
+      "CL:0000057",
+      "CL:0000740",
+      "CL:0000101"
+    ],
+    "biological_processes": [
+      "iron-sulfur cluster assembly",
+      "[2Fe-2S] cluster assembly",
+      "[4Fe-4S] cluster assembly",
+      "mitochondrial ATP synthesis coupled electron transport",
+      "tricarboxylic acid cycle",
+      "protein lipoylation",
+      "pyruvate decarboxylation to acetyl-CoA",
+      "intracellular iron ion homeostasis",
+      "cellular respiration"
+    ],
+    "phenotypes": [
+      "Mitochondrial myopathy",
+      "Exercise intolerance",
+      "Proximal muscle weakness",
+      "Muscle cramps",
+      "Myalgia",
+      "Rhabdomyolysis",
+      "Highly elevated creatine kinase",
+      "Lactic acidosis",
+      "Acute kidney injury",
+      "Respiratory insufficiency due to muscle weakness",
+      "Hyperammonemia",
+      "Ketonuria",
+      "2-hydroxyadipic aciduria",
+      "Decreased activity of mitochondrial complex I",
+      "Decreased activity of mitochondrial complex II",
+      "Decreased activity of mitochondrial complex III",
+      "Reduced muscle aconitase activity",
+      "Patchy SDH and COX deficiency in muscle",
+      "Optic atrophy",
+      "Nystagmus",
+      "Sensorimotor axonal neuropathy",
+      "Distal muscle weakness",
+      "Reversible leukoencephalopathy",
+      "Cerebellar atrophy",
+      "Ataxia",
+      "Microcytic anemia",
+      "Neutropenia"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Laboratory",
+      "Metabolic",
+      "Renal",
+      "Respiratory",
+      "Cellular",
+      "Ophthalmological",
+      "Neurological",
+      "Hematological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Constitutional",
+      "Eye",
+      "Genitourinary",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003737",
+      "HP:0003546",
+      "HP:0003701",
+      "HP:0003394",
+      "HP:0003326",
+      "HP:0003201",
+      "HP:0030234",
+      "HP:0003128",
+      "HP:0001919",
+      "HP:0002747",
+      "HP:0001987",
+      "HP:0002919",
+      "HP:0034465",
+      "HP:0011923",
+      "HP:0008314",
+      "HP:0011924",
+      "HP:0034511",
+      "HP:0003688",
+      "HP:0000648",
+      "HP:0000639",
+      "HP:0003477",
+      "HP:0009063",
+      "HP:0002352",
+      "HP:0001272",
+      "HP:0001251",
+      "HP:0001935",
+      "HP:0001875"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FDX2"
+    ],
+    "treatments": [
+      "Parenteral nutrition with high protein and lipid and low glucose",
+      "Hemodialysis for rhabdomyolysis-related renal failure",
+      "Mitochondrial cofactor supplementation",
+      "Trigger avoidance and graded exercise"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Blood FGF21"
+    ],
+    "source_file": "FDX2-Related_Mitochondrial_Myopathy.yaml",
+    "page_url": "../pages/disorders/FDX2-Related_Mitochondrial_Myopathy.html",
+    "num_phenotypes": 27,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "50",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "FGF12-Related Developmental and Epileptic Encephalopathy",
@@ -216142,6 +216422,156 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Lung Disease, Immunodeficiency, and Chromosome Breakage Syndrome",
+    "disease_id": "MONDO:0014984",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "chromosomal instability syndrome",
+      "DNA repair disorder",
+      "Inborn error of immunity"
+    ],
+    "creation_date": "2026-10-12T14:48:06Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Lung disease, immunodeficiency, and chromosome breakage syndrome (LICS; OMIM 617241) is an ultra-rare autosomal recessive chromosome breakage syndrome caused by biallelic missense variants in NSMCE3 (also known as NDNL2), which encodes the MAGE-family NSE3 subunit of the SMC5/6 structural-maintenance-of-chromosomes complex. The patient missense alleles weaken NSMCE3 binding to NSMCE4 and NSMCE1 and destabilize the whole SMC5/6 complex, so that patient cells show defective homologous recombination, failure to recover from replication stress, micronuclei, stochastic chromosome rearrangements and radiosensitivity.\nAffected infants have failure to thrive, feeding difficulties and mild motor delay, and then, typically between about 10 and 14 months of age, develop rapidly progressive, irreversible lung disease presenting as pediatric acute respiratory distress syndrome with diffuse alveolar damage, interstitial pneumonitis and fibrosis, complicated by pneumomediastinum and pneumothorax; nearly all reported patients died in early childhood, one surviving to 6.5 years with a more chronic course. The founding report described combined T and B cell immunodeficiency and lung decompensation after viral pneumonia, but a later series of five patients had normal or near-normal immune studies and no preceding infection, so whether the immune defect drives the lung injury is unresolved. Neither haematopoietic stem cell transplantation nor lung transplantation has been curative.",
+    "pathophysiology": [
+      "NSMCE3 Missense Protein Destabilization",
+      "SMC5/6 Complex Destabilization",
+      "Defective Homologous Recombination Repair",
+      "Impaired Recovery from Replication Stress",
+      "Chromosomal Instability",
+      "Combined T and B Cell Dysfunction",
+      "Progressive Diffuse Alveolar Damage and Interstitial Lung Injury"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "lymphocyte",
+      "T cell",
+      "B cell",
+      "pulmonary alveolar epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000542",
+      "CL:0000084",
+      "CL:0000236",
+      "CL:0000322"
+    ],
+    "biological_processes": [
+      "double-strand break repair via homologous recombination",
+      "replication fork processing",
+      "T cell proliferation"
+    ],
+    "phenotypes": [
+      "Failure to thrive",
+      "Feeding difficulties",
+      "Small for gestational age",
+      "Motor delay",
+      "Axial hypotonia",
+      "Eczema",
+      "Recurrent viral pneumonia",
+      "Acute respiratory distress syndrome",
+      "Diffuse alveolar damage",
+      "Interstitial pneumonitis",
+      "Organizing pneumonia",
+      "Pulmonary fibrosis",
+      "Bronchiolitis obliterans",
+      "Pneumomediastinum",
+      "Pneumothorax",
+      "Subcutaneous emphysema",
+      "Respiratory failure",
+      "Clubbing",
+      "Combined immunodeficiency",
+      "Decreased total T cell count",
+      "Decreased antigen-specific T cell proliferation",
+      "Decreased specific antibody response to vaccination",
+      "Increased circulating IgM concentration",
+      "Hypoplasia of the thymus",
+      "Chromosome breakage",
+      "Increased sensitivity to ionizing radiation",
+      "Hepatomegaly",
+      "Abnormal glucose homeostasis"
+    ],
+    "phenotype_categories": [
+      "Growth",
+      "Gastrointestinal",
+      "Neurological",
+      "Dermatologic",
+      "Infectious",
+      "Respiratory",
+      "Immunological",
+      "Cellular",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Endocrine",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory",
+      "Thoracic Cavity"
+    ],
+    "phenotype_ids": [
+      "HP:0001508",
+      "HP:0011968",
+      "HP:0001518",
+      "HP:0001270",
+      "HP:0008936",
+      "HP:0000964",
+      "HP:0033214",
+      "HP:0033677",
+      "HP:0033006",
+      "HP:0006515",
+      "HP:0033670",
+      "HP:0002206",
+      "HP:0011946",
+      "HP:0025421",
+      "HP:0002107",
+      "HP:6001021",
+      "HP:0002878",
+      "HP:0001217",
+      "HP:0005387",
+      "HP:0005403",
+      "HP:0031402",
+      "HP:0032140",
+      "HP:0003496",
+      "HP:0000778",
+      "HP:0040012",
+      "HP:0011133",
+      "HP:0002240",
+      "HP:0011014"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NSMCE3"
+    ],
+    "treatments": [
+      "Allogeneic hematopoietic stem cell transplantation",
+      "Lung transplantation",
+      "Systemic corticosteroids",
+      "Genetic counseling and prenatal testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Lung_Disease_Immunodeficiency_and_Chromosome_Breakage_Syndrome.yaml",
+    "page_url": "../pages/disorders/Lung_Disease,_Immunodeficiency,_and_Chromosome_Breakage_Syndrome.html",
+    "num_phenotypes": 28,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Lupus Nephritis",
     "disease_id": "MONDO:0005556",
     "category": "Complex",
@@ -271690,6 +272120,83 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Parathyroid Gland Carcinoma",
+    "disease_id": "MONDO:0012004",
+    "category": "Cancer",
+    "parents": [
+      "malignant tumor of parathyroid gland"
+    ],
+    "creation_date": "2026-10-09T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Parathyroid gland carcinoma is a rare, aggressive malignancy of the parathyroid chief cell, accounting for roughly 1% of primary hyperparathyroidism. It presents not as an incidental mass but through the hormone it secretes: autonomous parathyroid hormone output drives severe hypercalcaemia with its renal and skeletal consequences, and a palpable neck mass is often present. Biallelic inactivation of CDC73, which encodes the tumour suppressor parafibromin, is the characteristic molecular lesion and is implicated in up to 75% of familial and sporadic cases; loss of nuclear parafibromin on immunohistochemistry is the practical correlate. Recurrent changes in MEN1, CCND1 and EZH2 and in the PI3K/AKT/mTOR axis have also been described. Diagnosis rests on histological evidence of invasion rather than on cytological atypia, which is why the distinction from benign parathyroid neoplasia is difficult and why the 2022 WHO criteria are explicit. Complete en bloc resection at first operation is the only treatment with curative intent; local recurrence is common while distant metastasis is rare, and medical therapy is directed at the hypercalcaemia rather than at the tumour.",
+    "pathophysiology": [
+      "CDC73 Biallelic Inactivation",
+      "Loss of Nuclear Parafibromin",
+      "Autonomous Chief Cell Proliferation",
+      "Unrestrained Parathyroid Hormone Secretion",
+      "Local Invasive Growth",
+      "Distant Metastasis"
+    ],
+    "cell_types": [
+      "parathyroid chief cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000446"
+    ],
+    "biological_processes": [
+      "unrestrained chief cell proliferation",
+      "autonomous parathyroid hormone secretion"
+    ],
+    "phenotypes": [
+      "Hypercalcemia",
+      "Elevated circulating parathyroid hormone level",
+      "Palpable neck mass",
+      "Renal disease",
+      "Skeletal disease"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Neoplasm",
+      "Renal",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0003072",
+      "HP:0003165",
+      "HP:0100733",
+      "HP:0000077",
+      "HP:0000924"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CDC73"
+    ],
+    "treatments": [
+      "En Bloc Surgical Resection",
+      "Calcimimetic Control of Hypercalcaemia",
+      "Intravenous Bisphosphonate Therapy",
+      "Denosumab"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Parathyroid_Gland_Carcinoma.yaml",
+    "page_url": "../pages/disorders/Parathyroid_Gland_Carcinoma.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Parathyroid Hyperplasia",
     "disease_id": "MONDO:0006354",
     "category": "Complex",
@@ -307676,6 +308183,152 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 4,
     "causal_graph_edges": "28",
+    "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "SQSTM1-related Multisystem Proteinopathy",
+    "disease_id": "MONDO:0800464",
+    "category": "Mendelian",
+    "parents": [
+      "Multisystem Proteinopathy",
+      "Neuromuscular Disorder",
+      "Neurodegenerative Disorders"
+    ],
+    "creation_date": "2026-10-12T14:48:06Z",
+    "updated_date": null,
+    "subtypes": [
+      "PDB3",
+      "FTDALS3",
+      "DMRV"
+    ],
+    "description": "SQSTM1-related multisystem proteinopathy (MSP4) is an adult-onset, autosomal dominant disorder caused by heterozygous variants in SQSTM1, which encodes the ubiquitin-binding selective-autophagy receptor and signalling scaffold p62/sequestosome-1. The same gene, and in some families the same allele (most often p.Pro392Leu), produces three clinical presentations with strongly variable penetrance: Paget disease of bone (PDB3), frontotemporal dementia and/or amyotrophic lateral sclerosis (FTDALS3), and a late-onset distal myopathy with rimmed vacuoles (DMRV). They occur alone or together within a family or an individual. The brain, spinal cord and muscle presentations share a pathology of p62- and TDP-43-positive ubiquitinated inclusions, consistent with failed p62-mediated clearance of ubiquitinated cargo. The bone presentation is driven by osteoclast precursors that are hypersensitive to RANKL with enhanced NF-kB signalling, and the extent to which it shares the autophagy lesion of the neuromuscular presentations is not settled. The myopathy is frequently digenic, with the TIA1 p.Asn357Ser variant co-inherited alongside the SQSTM1 variant. This entry covers the dominant, heterozygous disease only. Biallelic loss-of-function SQSTM1 variants cause a different, recessive childhood-onset neurodegeneration with ataxia, dystonia and gaze palsy, curated separately as SQSTM1-Related_Childhood-Onset_Neurodegeneration.",
+    "pathophysiology": [
+      "Heterozygous SQSTM1 Variant Alters p62 Domains",
+      "Impaired p62-Mediated Selective Autophagy",
+      "Impaired KEAP1-NRF2 Antioxidant Response",
+      "Persistent Stress Granules",
+      "p62- and TDP-43-Positive Ubiquitinated Inclusions",
+      "Upper and Lower Motor Neuron Degeneration",
+      "Frontotemporal Cortical Neurodegeneration",
+      "Rimmed Vacuolar Myofibre Degeneration",
+      "Enhanced RANKL-NF-kB Signalling in Osteoclast Precursors",
+      "Focal Accelerated Bone Turnover"
+    ],
+    "cell_types": [
+      "motor neuron",
+      "cerebral cortex neuron",
+      "skeletal muscle fiber",
+      "osteoclast",
+      "multinuclear osteoclast"
+    ],
+    "cell_type_ids": [
+      "CL:0000100",
+      "CL:0010012",
+      "CL:0008002",
+      "CL:0000092",
+      "CL:0000779"
+    ],
+    "biological_processes": [
+      "aggrephagy",
+      "autophagy",
+      "cellular response to oxidative stress",
+      "cytoplasmic stress granule disassembly",
+      "positive regulation of canonical NF-kappaB signal transduction",
+      "positive regulation of osteoclast differentiation"
+    ],
+    "phenotypes": [
+      "Bone pain",
+      "Bone deformity",
+      "Hearing impairment",
+      "Osteosarcoma",
+      "Paget disease of bone",
+      "Increased susceptibility to fractures",
+      "Elevated circulating alkaline phosphatase",
+      "Frontotemporal dementia",
+      "Disinhibition",
+      "Apathy",
+      "Polyphagia",
+      "Impaired executive functioning",
+      "Parkinsonism",
+      "Cognitive impairment",
+      "Amyotrophic lateral sclerosis",
+      "Fasciculations",
+      "Dysarthria",
+      "Distal muscle weakness",
+      "Foot dorsiflexor weakness",
+      "Weakness of long finger extensor muscles",
+      "Scapular winging",
+      "Elevated circulating creatine kinase",
+      "Myopathic EMG",
+      "Rimmed vacuoles",
+      "Z-band streaming"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Laboratory",
+      "Neurological",
+      "Behavioral",
+      "Musculoskeletal",
+      "Neurophysiological",
+      "Histopathology"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Ear",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002653",
+      "HP:0011842",
+      "HP:0000365",
+      "HP:0002669",
+      "HP:0034159",
+      "HP:0002659",
+      "HP:0003155",
+      "HP:0002145",
+      "HP:0000734",
+      "HP:0000741",
+      "HP:0002591",
+      "HP:0033051",
+      "HP:0001300",
+      "HP:0100543",
+      "HP:0007354",
+      "HP:0002380",
+      "HP:0001260",
+      "HP:0002460",
+      "HP:0009027",
+      "HP:0009077",
+      "HP:0003691",
+      "HP:0003236",
+      "HP:0003458",
+      "HP:0003805",
+      "HP:0020203"
+    ],
+    "frequencies": [
+      "OCCASIONAL",
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "SQSTM1",
+      "TIA1"
+    ],
+    "treatments": [
+      "Zoledronic acid"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SQSTM1-related_Multisystem_Proteinopathy.yaml",
+    "page_url": "../pages/disorders/SQSTM1-related_Multisystem_Proteinopathy.html",
+    "num_phenotypes": 25,
+    "num_pathophysiology": 10,
+    "num_genes": 2,
+    "num_treatments": 1,
+    "causal_graph_edges": "44",
     "causal_graph_longest_path": "7"
   },
   {
@@ -362811,17 +363464,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3363,
-  "total_subtypes": 4702,
-  "total_disorders_and_subtypes": 8065,
-  "total_unique_evidence_sources": 50637,
-  "total_unique_publications": 47169,
+  "total_disorder_pages": 3368,
+  "total_subtypes": 4707,
+  "total_disorders_and_subtypes": 8075,
+  "total_unique_evidence_sources": 50704,
+  "total_unique_publications": 47234,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 297,
-  "total_pathographs": 3359,
-  "total_unique_pathological_events": 22194,
+  "total_pathographs": 3364,
+  "total_unique_pathological_events": 22232,
   "total_modules": 192,
-  "total_research_reports": 3480,
+  "total_research_reports": 3485,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
