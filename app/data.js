@@ -98359,6 +98359,125 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Congenital Factor V Deficiency",
+    "disease_id": "MONDO:0009210",
+    "category": "Mendelian",
+    "parents": [
+      "Rare bleeding disorder",
+      "Inherited blood coagulation disorder"
+    ],
+    "creation_date": "2026-10-12T04:05:10Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive bleeding disorder caused by biallelic variants in F5, the gene encoding coagulation factor V (proaccelerin or labile factor). It is among the rarest of the inherited bleeding disorders, at roughly one per million.\nFactor V is the non-enzymatic cofactor of the prothrombinase complex: once activated to factor Va it assembles with the protease factor Xa on an anionic phospholipid surface and accelerates the conversion of prothrombin to thrombin by several orders of magnitude. A defect in factor V therefore sits in the common pathway, downstream of both the tissue-factor (extrinsic) and contact-activated (intrinsic) arms, so both the prothrombin time and the activated partial thromboplastin time are prolonged while the thrombin time stays normal. That screening picture, followed by a low factor V activity assay, is what establishes the diagnosis.\nThe disorder's most distinctive feature is how poorly residual factor V activity predicts bleeding. Patients with undetectable plasma factor V often bleed far less than expected, and the leading explanation is that about a fifth of the body's factor V is stored in platelet alpha-granules rather than in plasma. This platelet-derived pool, released locally at a wound, together with the physiologically low tissue factor pathway inhibitor levels seen in factor-V-deficient plasma, supports enough thrombin generation to rescue many patients from fatal haemorrhage. The clinical phenotype is usually mucocutaneous bleeding - epistaxis, gingival bleeding, easy bruising, menorrhagia and postoperative bleeding - but a minority, especially neonates with the lowest levels, suffer life-threatening intracranial haemorrhage.\nTwo deficiency types are described by analogy with other factor deficiencies - type I (cross-reactive-material-negative, antigen and activity reduced together) and type II (cross-reactive-material-positive, a dysfunctional molecule present at near-normal antigen). They converge on the same prothrombinase cofactor defect and are not curated here as separate diseases.\nThree things are deliberately hedged. First, there is no licensed factor-V-specific concentrate; treatment still rests on fresh frozen plasma, with platelet transfusion, antifibrinolytics and recombinant activated factor VII as adjuncts, and liver transplantation as a definitive cure in the most severe cases. Second, the genotype-phenotype correlation is weak and no node claims otherwise. Third, acquired factor V deficiency (autoantibody-mediated) and combined factor V and factor VIII deficiency (LMAN1/MCFD2, a trafficking defect) are different entities and are recorded only as differential diagnoses.",
+    "pathophysiology": [
+      "Biallelic F5 Loss-of-Function Variants",
+      "Reduced Functional Plasma Factor V",
+      "Impaired Prothrombinase Cofactor Function",
+      "Reduced Thrombin Generation",
+      "Impaired Fibrin Clot Formation",
+      "Systemic Bleeding Tendency",
+      "Residual Platelet Factor V",
+      "Low Plasma Tissue Factor Pathway Inhibitor",
+      "Preserved Platelet-Dependent Thrombin Generation"
+    ],
+    "cell_types": [
+      "hepatocyte, the principal site of factor V synthesis",
+      "activated platelet supplying the anionic phospholipid surface",
+      "platelet storing factor V in alpha-granules",
+      "megakaryocyte endocytosing plasma factor V",
+      "activated platelet surface where thrombin is generated"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000233",
+      "CL:0000556"
+    ],
+    "biological_processes": [
+      "blood coagulation, common pathway",
+      "blood coagulation",
+      "blood coagulation, fibrin clot formation",
+      "platelet-surface thrombin generation"
+    ],
+    "phenotypes": [
+      "Epistaxis",
+      "Gingival bleeding",
+      "Bruising susceptibility",
+      "Subcutaneous hemorrhage",
+      "Menorrhagia",
+      "Prolonged bleeding after surgery",
+      "Prolonged bleeding after dental extraction",
+      "Joint hemorrhage",
+      "Intramuscular hematoma",
+      "Gastrointestinal hemorrhage",
+      "Abnormal umbilical stump bleeding",
+      "Intracranial hemorrhage",
+      "Post-partum hemorrhage",
+      "Prolonged prothrombin time",
+      "Prolonged partial thromboplastin time",
+      "Reduced coagulation factor V activity"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Neurologic",
+      "Reproductive",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000421",
+      "HP:0000225",
+      "HP:0000978",
+      "HP:0001933",
+      "HP:0000132",
+      "HP:0004846",
+      "HP:0006298",
+      "HP:0005261",
+      "HP:0012233",
+      "HP:0002239",
+      "HP:0011884",
+      "HP:0002170",
+      "HP:0011891",
+      "HP:0008151",
+      "HP:0003645",
+      "HP:0003225"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "F5"
+    ],
+    "treatments": [
+      "Fresh frozen plasma",
+      "Platelet transfusion",
+      "Antifibrinolytic therapy",
+      "Recombinant activated factor VII",
+      "Liver transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Factor V coagulant activity (FV:C)"
+    ],
+    "source_file": "Congenital_Factor_V_Deficiency.yaml",
+    "page_url": "../pages/disorders/Congenital_Factor_V_Deficiency.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Congenital Factor X Deficiency",
     "disease_id": "MONDO:0009212",
     "category": "Mendelian",
@@ -106262,6 +106381,162 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Crimean-Congo Hemorrhagic Fever",
+    "disease_id": "MONDO:0020501",
+    "category": "Infectious",
+    "parents": [
+      "Viral hemorrhagic fever"
+    ],
+    "creation_date": "2026-10-12T04:05:10Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Crimean-Congo hemorrhagic fever (CCHF) is the most widely distributed tick-borne viral hemorrhagic fever of humans, caused by the Crimean-Congo hemorrhagic fever orthonairovirus (CCHFV), a tri-segmented negative-sense RNA virus of the family Nairoviridae, order Bunyavirales. It is endemic across Africa, the Balkans, the Middle East and much of Asia, following the range of its Hyalomma tick vector and reservoir. Humans acquire it by tick bite, by contact with the blood and tissues of viraemic livestock at slaughter, and nosocomially through blood and body-fluid exposure - the combination of all three routes being distinctive among the viral hemorrhagic fevers. After a short incubation the illness runs through pre-haemorrhagic, haemorrhagic and convalescent phases; severe disease converges on the shared vascular and hemostatic lesion of the viral hemorrhagic fevers - endothelial activation, increased vascular permeability, consumptive coagulopathy, hepatocellular injury and thrombocytopenia - producing disseminated intravascular coagulation, bleeding, shock and multi-organ failure, with case-fatality rates reported above 30%.",
+    "pathophysiology": [
+      "CCHFV inoculation and LDLR-mediated entry into monocytes, macrophages and endothelium",
+      "OTU-mediated interferon antagonism and high viremia",
+      "Dysregulated proinflammatory cytokine response",
+      "Hepatocyte infection and hepatocellular necrosis",
+      "Endothelial activation and vascular damage",
+      "Increased vascular permeability",
+      "Consumptive coagulopathy and disseminated intravascular coagulation",
+      "Decreased hepatic coagulation factor production",
+      "Platelet consumption and reduced platelet number"
+    ],
+    "cell_types": [
+      "monocyte",
+      "macrophage",
+      "dendritic cell",
+      "vascular endothelial cell",
+      "mononuclear phagocyte",
+      "hepatocyte",
+      "platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000576",
+      "CL:0000235",
+      "CL:0000451",
+      "CL:0000115",
+      "CL:0000182",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "viral entry into host cell",
+      "negative regulation of type I interferon production",
+      "viral genome replication",
+      "inflammatory response",
+      "hepatocyte apoptotic process",
+      "endothelial cell activation",
+      "regulation of vascular permeability",
+      "blood coagulation",
+      "platelet activation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Nausea",
+      "Headache",
+      "Myalgia",
+      "Vomiting",
+      "Diarrhea",
+      "Abdominal pain",
+      "Petechiae",
+      "Ecchymosis",
+      "Epistaxis",
+      "Hematemesis",
+      "Melena",
+      "Gastrointestinal hemorrhage",
+      "Hematuria",
+      "Thrombocytopenia",
+      "Leukopenia",
+      "Elevated hepatic transaminases",
+      "Increased lactate dehydrogenase",
+      "Elevated creatine kinase",
+      "Hyperbilirubinemia",
+      "Disseminated intravascular coagulation",
+      "Prolonged prothrombin time",
+      "Prolonged partial thromboplastin time",
+      "Hypofibrinogenemia",
+      "Shock",
+      "Acute kidney injury",
+      "Hepatic failure",
+      "Hepatomegaly",
+      "Splenomegaly"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Gastrointestinal",
+      "Neurologic",
+      "Musculoskeletal",
+      "Dermatologic",
+      "Hematologic",
+      "Renal",
+      "Laboratory",
+      "Cardiovascular",
+      "Hepatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002018",
+      "HP:0002315",
+      "HP:0003326",
+      "HP:0002013",
+      "HP:0002014",
+      "HP:0002027",
+      "HP:0000967",
+      "HP:0031364",
+      "HP:0000421",
+      "HP:0002248",
+      "HP:0002249",
+      "HP:0002239",
+      "HP:0000790",
+      "HP:0001873",
+      "HP:0001882",
+      "HP:0002910",
+      "HP:0025435",
+      "HP:0003236",
+      "HP:0002904",
+      "HP:0005521",
+      "HP:0008151",
+      "HP:0003645",
+      "HP:0011900",
+      "HP:0031273",
+      "HP:0001919",
+      "HP:0001399",
+      "HP:0002240",
+      "HP:0001744"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Supportive care",
+      "Ribavirin",
+      "Favipiravir"
+    ],
+    "environmental": [
+      "Tick bite or contact with viraemic livestock blood"
+    ],
+    "biochemical": [],
+    "source_file": "Crimean-Congo_Hemorrhagic_Fever.yaml",
+    "page_url": "../pages/disorders/Crimean-Congo_Hemorrhagic_Fever.html",
+    "num_phenotypes": 29,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "41",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Crohn Disease",
@@ -361923,17 +362198,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3354,
+  "total_disorder_pages": 3356,
   "total_subtypes": 4702,
-  "total_disorders_and_subtypes": 8056,
-  "total_unique_evidence_sources": 50553,
-  "total_unique_publications": 47086,
+  "total_disorders_and_subtypes": 8058,
+  "total_unique_evidence_sources": 50588,
+  "total_unique_publications": 47120,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
-  "total_pathographs": 3350,
-  "total_unique_pathological_events": 22140,
+  "total_pathographs": 3352,
+  "total_unique_pathological_events": 22155,
   "total_modules": 191,
-  "total_research_reports": 3471,
+  "total_research_reports": 3473,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
