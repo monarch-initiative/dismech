@@ -1,0 +1,47 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Formaldehyde_Poisoning
+  path: kb/disorders/Formaldehyde_Poisoning.yaml
+session:
+  id: 2026-10-08T222211Z-claude-code-717a4e
+  timestamp: '2026-10-08T22:22:11Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues:
+  - https://github.com/monarch-initiative/dismech/issues/13726
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/13740
+  urls: []
+events:
+- type: REVIEW
+  outcome: changed
+  sections:
+  - pathophysiology
+  - phenotypes
+  - notes
+  summary: 'Review round 1: resolve the node-name collision with the acidosis phenotype'
+  details: |
+    Addressed the ai4c-reviewer CHANGES_REQUESTED round on PR #13740. One blocking item and all four non-blocking suggestions, in a single push.
+
+    BLOCKING, and a defect introduced by this PR rather than pre-existing. The three-way split created a pathophysiology node named 'High anion gap metabolic acidosis' with the exact same bare name as the phenotype already in this entry. The pathograph node namespace is flat and NODE_SECTIONS orders phenotypes after pathophysiology, so the phenotype silently overwrote the new node: the graph drew a single node typed as a phenotype, carrying the phenotype's description, and the new node's description, biological_scale and evidence never reached the graph at all. This is precisely the collapse CLAUDE.md documents, and no gate catches it, because the self-reference gate only fires when a node's own downstream names itself and this one pointed at Acute circulatory collapse and multiorgan failure.
+
+    Verified independently before fixing rather than taken on trust. The phenotype exists at the same name; NODE_SECTIONS was read from dismech.graph and does order phenotypes second; and just list-disconnected-phenotypes reported 1 of 23 phenotypes connected, with the acidosis phenotype as the one omitted from the disconnected list. That apparent connection was the collision, not an edge.
+
+    Remedy, following the reviewer's preference and CLAUDE.md's rule that a rename to dodge the collapse is the wrong fix. The new pathophysiology node was deleted. Formate accumulation's downstream now points at the existing phenotype by bare name, which is the ordinary mechanism-to-phenotype edge, and the PMID:12216995 acidosis-causation evidence moved onto that edge, where it belongs: its own explanation always described evidence for the causal direction rather than for the existence of the acidosis. The acidosis-to-collapse step is now a sequelae entry on the phenotype, a pattern with existing precedent in the KB (Dilated_Cardiomyopathy_1W and Hypermobile_Ehlers-Danlos_Syndrome both have phenotype sequelae targeting pathophysiology nodes). Sodium bicarbonate's target_mechanisms keeps the same target name, which now resolves to the phenotype.
+
+    Nothing was lost in the deletion: the node's other evidence item, PMID:10962510, was already carried verbatim by the phenotype.
+
+    The connected count is still 1 of 23, which is worth stating plainly because the number did not move. Before this round it was the collision artifact; now it is a real Formate accumulation to acidosis edge, and the acidosis phenotype is connected because an edge was written to it. The remaining 22 ISOLATED phenotypes are pre-existing and out of scope, as the reviewer noted.
+
+    Suggestions, all taken:
+    - The GO:0015942 formate metabolic process INCREASED binding reads as increased clearance where the node claims accumulation. No better term exists: GO has no term for the accumulation of a chemical, and the only other cached formate term is the unrelated GO:0004329 formate-tetrahydrofolate ligase activity. Methanol_Poisoning binds the identical term and modifier on its own Formate accumulation node, so changing it here would diverge the two entries that share this chemistry. The binding is kept and a note on the node now records that reading and why.
+    - The oxidase node's notes were trimmed. The three substantive reasons for rejecting the formaldehyde attribution stay. The 'looked strong at first' framing and the closing paragraph about what the module would need for a formaldehyde arm were removed as search narration; both are carried by the history record and the PR body.
+    - The CREATE history record's empty prs list now carries the PR URL.
+    - The upstream edge from the absorption node gained an explicit causal_link_type: DIRECT, matching the three new edges.
+
+    Validation after the fixes: just validate-disorders (118 snippets, 118 titles, 0 issues; one fewer than before because the deleted node's duplicate PMID:10962510 item went with it), check-duplicate-keys, check-entity-refs, check-causal-targets, check-enum-values clean, and just list-disconnected-phenotypes re-run to confirm the connection is now an edge rather than a collision.

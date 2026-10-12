@@ -1,0 +1,40 @@
+history_version: 1
+target:
+  kind: module
+  slug: toxic_alcohol_adh_bioactivation
+  path: kb/modules/toxic_alcohol_adh_bioactivation.yaml
+session:
+  id: 2026-10-08T201849Z-claude-code-629161
+  timestamp: '2026-10-08T20:18:49Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/13725
+  urls: []
+events:
+- type: REVIEW
+  outcome: changed
+  sections:
+  - pathophysiology
+  - treatments
+  - notes
+  summary: 'Review round 1: cell-type binding, fomepizole DEG claim, locations'
+  details: |
+    Addressed the ai4c-reviewer CHANGES_REQUESTED round on PR #13725. Both blocking items fixed, two of the three suggestions taken, one declined with reasons. All in a single push.
+
+    Blocking item 1, taken. The Metabolite-Specific Target Organ Injury node bound CL:1000838 kidney proximal convoluted tubule epithelial cell, while its own preferred_term said 'kidney proximal tubule epithelial cell' and all three conformers plus the sibling drug_induced_nephrotoxicity module use CL:0002306 epithelial cell of proximal tubule (six occurrences, verified). Nothing cited localizes oxalate crystal deposition or diglycolic acid uptake to the convoluted segment, so the binding manufactured a specificity the sources do not support and inverted the convention that a module node carries the generic type for conformers to specialize. Changed to CL:0002306, which was confirmed present in cache/cl/terms.csv and the celltypeterm enum cache. This is the self-consistency gap that term validation structurally cannot see: the free-text slot and the CURIE disagreed and both were internally well-formed.
+
+    Blocking item 2, taken. The fomepizole description claimed one drug 'treats methanol, ethylene glycol, and diethylene glycol poisoning alike', while its two evidence items covered only methanol and ethylene glycol. The reviewer correctly noted that Diethylene_Glycol_Poisoning itself declines to assert that, resting its fomepizole record on a rat study plus one case report. Both remedies were applied rather than one: the description now distinguishes the shared mechanistic prediction from an unequal human evidence base, and two diethylene glycol evidence items were added to the target_mechanisms link where the claim is made. PMID:20530232 (rat pretreatment blocking metabolite formation and organ toxicity, MODEL_ORGANISM, DIRECT) and PMID:10793034 (single treated case, HUMAN_CLINICAL, INDIRECT because the antidote was given alongside charcoal and hemodialysis so the quote cannot separate their contributions). Both snippets were verified as exact substrings before writing; a longer variant of the PMID:20530232 quote beginning 'Pretreatment with fomepizole' failed verification and was discarded in favour of the form that matched.
+
+    Suggestion taken. Added optic nerve and putamen to the locations of the organ-injury node, which previously bound only kidney and retina while the description named four organs. Note UBERON:0000941's canonical label is 'cranial nerve II', not 'optic nerve', so the label slot carries the canonical form and preferred_term carries the readable one; writing the expected label would have been wrong.
+
+    Suggestion declined, and this is the one worth recording. The reviewer suggested wiring Diethylene_Glycol_Poisoning's Proximal Tubular ATP Depletion and Necrosis node to Metabolite-Specific Target Organ Injury, observing correctly that on this branch the node carries no conforms_to and so presents no collision. It cannot be done. PR #13724, developed in parallel from the same base, already wires that exact node to xenobiotic_oxidative_phosphorylation_blockade#Cellular ATP Depletion despite Preserved Oxygen Delivery. Since conforms_to is single-valued, adding a second key would produce a duplicate mapping key the moment #13724 merges, which PyYAML accepts silently while the ruamel-based reference validator rejects the file outright. Neither PR's CI can see this, because neither branch contains the other's change; it would surface only on the post-merge build of main. This is exactly the merge-shaped defect check-duplicate-keys exists to catch, and the same trap caught a first wiring pass earlier in this PR from a different direction.
+
+    Suggestion noted, no action. The reviewer observed that Sequential Oxidation to the Toxic Organic Acid Metabolite is tagged ORGANISM while being named for an enzymatic step, and agreed the notes disclosure is the right handling. Two self-found notes paragraphs added in the same push now state the scale cost of that bundling explicitly and record the ethylene glycol conformer spanning the amplifier and effector nodes.
+
+    Validation after the fixes: linkml-validate no issues, linkml-term-validator --labels passed, reference validator 22 snippets and 22 titles with 0 issues (up from 20 and 20 with the two new evidence items), check-folded-hyphens and check-duplicate-keys clean.

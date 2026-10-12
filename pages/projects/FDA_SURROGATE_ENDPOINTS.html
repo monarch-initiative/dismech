@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FDA Surrogate Endpoints Project - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        nav {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100; padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); text-decoration: none; }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+        a.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; text-decoration: none; }
+        a.tag-nih:hover { background: #dfeaff; }
+        span.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            nav { padding: 0.7rem 1rem; }
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="index.html" class="active">Projects</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/groupings/">Groupings</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/genes/">Genes</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>FDA Surrogate Endpoints Project</h1>
+            <div class="hero-meta">
+                <span class="badge status-PLANNED">Planned</span>
+                <span class="tag">REGULATORY</span><span class="tag">BIOMARKERS</span><span class="tag">PATHOGRAPH</span><span class="tag">CROSS_CUTTING</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>FDA Surrogate Endpoints Project</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (27)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Fabry_disease.html">Fabry Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Achondroplasia.html">Achondroplasia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Asthma.html">Asthma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Beta_Thalassemia.html">Beta Thalassemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chagas_disease.html">Chagas Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chronic_Kidney_Disease.html">Chronic Kidney Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chronic_Obstructive_Pulmonary_Disease.html">Chronic Obstructive Pulmonary Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Cushing&#39;s_Syndrome.html">Cushings Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Cystic_Fibrosis.html">Cystic Fibrosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Duchenne_Muscular_Dystrophy.html">Duchenne Muscular Dystrophy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Gout.html">Gout</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Idiopathic_Pulmonary_Fibrosis.html">Idiopathic Pulmonary Fibrosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Methylmalonic_Acidemia.html">Methylmalonic Acidemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/N-Acetylglutamate_Synthase_Deficiency.html">N-Acetylglutamate Synthase Deficiency</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Onchocerciasis.html">Onchocerciasis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Osteoporosis.html">Osteoporosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Phenylketonuria.html">Phenylketonuria</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Polycystic_Kidney_Disease.html">Polycystic Kidney Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Primary_Biliary_Cholangitis.html">Primary Biliary Cholangitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Propionic_Acidemia.html">Propionic Acidemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Prostate_Adenocarcinoma.html">Prostate Adenocarcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Sickle_Cell_Disease.html">Sickle Cell Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Sitosterolemia.html">Sitosterolemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Systemic_Sclerosis.html">Systemic Sclerosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Type_2_Diabetes_Mellitus.html">Type 2 Diabetes Mellitus</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Type_I_Diabetes.html">Type I Diabetes</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/X-Linked_Hypophosphatemia.html">X-Linked Hypophosphatemia</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/FDA_SURROGATE_ENDPOINTS.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="fda-surrogate-endpoints-project">FDA Surrogate Endpoints Project</h1>
+<h2 id="overview">Overview</h2>
+<p>FDA publishes a table of the surrogate endpoints that have been the basis of a
+drug or biologic approval. dismech holds a row-level transcription of it in
+<code>kb/surrogate_endpoints/fda_surrogate_endpoints.yaml</code> (225 rows, FDA content
+current as of 2026-04-29), imported by
+<code>scripts/import_fda_surrogate_endpoints.py</code> and tracked in issue #2495.</p>
+<p>A row says that FDA accepted a measurement for a disease, in a population, for a
+drug mechanism, at a stated validation level. It does not say what the
+measurement is a measurement <em>of</em>. The dismech pathograph can answer that: a
+<code>Biochemical</code> marker's <code>readouts[]</code> names the pathophysiology node it reports
+on, and <code>readouts[].regulatory_endpoint_refs</code> points that readout at the FDA
+row. Once that link exists, the graph shows which downstream outcomes the
+surrogate sits upstream of, and which sibling branches it never sees.</p>
+<p>The aim is to make that link for every disease-specific row that has a dismech
+entry, and to make the coverage gaps readable.</p>
+<h2 id="worked-example-fabry_disease">Worked example: <code>Fabry_Disease</code></h2>
+<p>FDA lists one Fabry marker across three rows: clearance of GL-3 (Gb3) inclusions
+in biopsied renal peritubular capillaries.</p>
+<table>
+<thead>
+<tr>
+<th>Row</th>
+<th>Population</th>
+<th>Approval</th>
+<th>Drug mechanism</th>
+<th>Validation level</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FDA-SE-adult-noncancer-024</code></td>
+<td>Adults</td>
+<td>Traditional</td>
+<td>Enzyme replacement therapy</td>
+<td>Validated</td>
+</tr>
+<tr>
+<td><code>FDA-SE-pediatric-noncancer-019</code></td>
+<td>Age 2 and older</td>
+<td>Traditional</td>
+<td>Enzyme replacement therapy</td>
+<td>Validated</td>
+</tr>
+<tr>
+<td><code>FDA-SE-adult-noncancer-025</code></td>
+<td>Amenable GLA variant</td>
+<td>Accelerated</td>
+<td>Pharmacological chaperone</td>
+<td>Reasonably likely</td>
+</tr>
+</tbody>
+</table>
+<p>All three are attached to the <code>Renal Globotriaosylceramide Inclusions</code> marker,
+whose readout targets <code>Renal glycosphingolipid storage and podocyte injury</code>.
+That node leads to proteinuria, nephrotic syndrome and chronic kidney disease.
+The other five branches of <code>Tissue-specific glycosphingolipid storage</code> (cardiac,
+vascular endothelial, small-fiber/autonomic, ocular, cutaneous) carry no
+FDA-recognized marker. The entry already records this for the heart: its
+cardiomyocyte autophagy node is described as "not measured by the renal GL-3
+surrogate". Plasma lyso-Gb3 is curated as a monitoring readout and is not on
+the FDA table.</p>
+<p>The same reading should be possible for every disease below.</p>
+<h2 id="current-state">Current state</h2>
+<p>Counts from the committed table on 2026-10-10.</p>
+<table>
+<thead>
+<tr>
+<th><code>mapping_status</code></th>
+<th>Rows</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>EXACT_DISMECH_MATCH</code></td>
+<td>32</td>
+<td>Disease label matches a dismech entry</td>
+</tr>
+<tr>
+<td><code>CURATED_DISMECH_MAPPING</code></td>
+<td>12</td>
+<td>Matched by a hand-written rule in the import script</td>
+</tr>
+<tr>
+<td><code>CANDIDATE_DISMECH_MAPPING</code></td>
+<td>1</td>
+<td>Proposed, not confirmed</td>
+</tr>
+<tr>
+<td><code>NEEDS_CURATION</code></td>
+<td>133</td>
+<td>No mapping yet</td>
+</tr>
+<tr>
+<td><code>NOT_DISEASE_SPECIFIC</code></td>
+<td>47</td>
+<td>Antiseptics, vaccines across pathogens, and similar</td>
+</tr>
+</tbody>
+</table>
+<p>The 45 mapped rows point at 27 disorder entries. Of the FDA row IDs, 24 are
+cited by a <code>regulatory_endpoint_refs</code> somewhere in <code>kb/</code>, across 15 files.</p>
+<p><strong>Mapped but not wired.</strong> These entries have FDA rows mapped to them and no
+<code>regulatory_endpoint_refs</code> citing those rows:</p>
+<ul>
+<li><code>Achondroplasia</code> (1 row)</li>
+<li><code>Asthma</code> (2)</li>
+<li><code>Chagas_Disease</code> (1)</li>
+<li><code>Cushings_Syndrome</code> (1)</li>
+<li><code>Methylmalonic_Acidemia</code> (2)</li>
+<li><code>N-Acetylglutamate_Synthase_Deficiency</code> (2)</li>
+<li><code>Onchocerciasis</code> (1)</li>
+<li><code>Osteoporosis</code> (3)</li>
+<li><code>Propionic_Acidemia</code> (2)</li>
+<li><code>Type_2_Diabetes_Mellitus</code> (2)</li>
+<li><code>Type_I_Diabetes</code> (2)</li>
+<li><code>X-Linked_Hypophosphatemia</code> (2)</li>
+</ul>
+<p><strong>Unmapped rows whose disease has a likely entry.</strong> Spot-checked by file name;
+each needs a curator to confirm the entity is the same before mapping:
+Type 1 Gaucher disease (<code>Gaucher_Disease</code> has-subtype), alkaptonuria,
+lysosomal acid lipase deficiency (<code>Wolman_Disease</code> covers the infantile form
+only), cystinuria, primary hyperoxaluria type 1, arginase 1 deficiency,
+cerebrotendinous xanthomatosis, familial chylomicronemia syndrome,
+hypercholesterolemia, hepatitis B, C and D, influenza, pertussis, Alzheimer's
+disease, Cushing's disease.</p>
+<p>The largest unmapped groups (17 hematological-malignancy rows, 9 solid-tumor
+rows, 8 nonmalignant-hematology rows) are FDA umbrella labels and will usually
+map to several entries or to none. Treat them last.</p>
+<h2 id="work-plan">Work plan</h2>
+<h3 id="tranche-1-wire-the-mapped-but-unwired-entries">Tranche 1: wire the mapped-but-unwired entries</h3>
+<p>For each entry in the list above:</p>
+<ol>
+<li>Find or add the <code>Biochemical</code> marker the FDA endpoint measures.</li>
+<li>Give it a <code>readouts[]</code> item targeting the pathophysiology node the marker
+   reports on, with <code>regulatory_endpoint_refs</code> naming the FDA row IDs.</li>
+<li>Cite evidence for the readout link itself. The FDA row is a regulatory
+   record, not evidence that the marker reads out that node.</li>
+<li>Where no marker can honestly be placed on a node (a composite clinical
+   score, a functional test), say so in the entry's <code>notes</code> rather than forcing
+   a readout.</li>
+</ol>
+<h3 id="tranche-2-confirm-the-mapping-candidates">Tranche 2: confirm the mapping candidates</h3>
+<p>Work through the unmapped-with-likely-entry list. A confirmed match goes into
+<code>MANUAL_MAPPINGS</code> in <code>scripts/import_fda_surrogate_endpoints.py</code> and the table
+is regenerated. Never hand-edit <code>fda_surrogate_endpoints.yaml</code>. A row whose
+population is narrower than the entry (an amenable-variant population, a
+subtype) should map to the subtype where one exists.</p>
+<h3 id="tranche-3-branch-coverage-report">Tranche 3: branch-coverage report</h3>
+<p>Write a report-only script (in the style of <code>just list-disconnected-phenotypes</code>)
+that, for each wired FDA row, walks the pathograph from the readout's target
+node and lists:</p>
+<ul>
+<li>the downstream phenotypes the surrogate sits upstream of;</li>
+<li>the sibling branches from the nearest shared upstream node that the surrogate
+  does not reach.</li>
+</ul>
+<p>Fabry is the reference output. The report must not be a gate: a surrogate that
+covers one branch is a property of the regulatory record, not a curation defect.</p>
+<h3 id="tranche-4-surrogacy-evidence">Tranche 4: surrogacy evidence</h3>
+<p>For rows marked <code>REASONABLY_LIKELY_SURROGATE_ENDPOINT</code> (29 rows), the open
+question is whether the surrogate-to-outcome link has since been confirmed.
+<code>just research-surrogacy &lt;provider&gt; &lt;disease&gt; "&lt;surrogate&gt;" "&lt;outcome&gt;"</code> exists
+for this. Results are leads for the entry's evidence, not KB content.</p>
+<h2 id="open-questions">Open questions</h2>
+<ul>
+<li><strong>No slot for "this surrogate does not measure this branch".</strong> Today the Fabry
+  entry says it in a node <code>description</code>. If the tranche 3 report proves useful,
+  decide whether it stays derived (preferred: it is computable from the graph)
+  or needs a field. Consult <code>docs/explanation/design-decisions.md</code> and the
+  <code>extend-schema</code> skill before proposing one.</li>
+<li><strong>LOINC.</strong> <code>projects/LOINC_DIAGNOSTICS.md</code> tranche N puts the LOINC code on
+  the same <code>Biochemical</code> marker this project wires. Coordinate so the two
+  tranches touch each marker once.</li>
+<li><strong>Refresh cadence.</strong> The table is a dated snapshot. A re-import should report
+  rows added, removed or changed in validation level, since an upgrade from
+  accelerated to traditional approval changes what an entry can say.</li>
+</ul>
+<h2 id="commands">Commands</h2>
+<pre><code class="language-bash">just validate-surrogate-endpoints        # schema-validate the table
+just research-surrogacy openscientist Fabry_Disease \
+  &quot;renal peritubular capillary GL-3 clearance&quot; &quot;chronic kidney disease&quot;
+just validate-disorders kb/disorders/&lt;Entry&gt;.yaml
+just gen-project-pages                   # render this page
+</code></pre>
+        </article>
+    </div>
+</body>
+</html>

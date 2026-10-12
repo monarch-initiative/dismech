@@ -47,6 +47,7 @@ from dismech.module_collections import (
 )
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
+from dismech.research_reports import strip_run_suffix
 from dismech.term_labels import label_restates_title
 from dismech.term_tooltips import sample_type_descriptor, term_tooltip
 from dismech.treatment_platform import treatment_platform_label
@@ -3133,7 +3134,9 @@ def _scan_research_reports(
             continue
 
         slug = match.group("slug")
-        provider_raw = match.group("provider")
+        # A re-run beside an existing report carries the run date
+        # (`Foo-deep-research-falcon-2026-10-08.md`, #12700); it is still falcon.
+        provider_raw = strip_run_suffix(match.group("provider"))
         category = _display_name_from_provider(provider_raw)
         key = _normalize_provider_key(category)
         lookup = _normalize_disorder_lookup(_display_name_from_slug(slug))
