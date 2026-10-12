@@ -154475,6 +154475,93 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Glucocorticoid Resistance",
+    "disease_id": "MONDO:0014421",
+    "category": "Mendelian",
+    "parents": [
+      "Adrenogenital syndrome"
+    ],
+    "creation_date": "2026-10-12T04:05:10Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Primary generalized glucocorticoid resistance (Chrousos syndrome) is a rare genetic disorder of generalized, partial target-tissue insensitivity to glucocorticoids caused by inactivating variants in NR3C1, which encodes the human glucocorticoid receptor. Because peripheral tissues respond poorly to cortisol, hypothalamic-pituitary-adrenal negative feedback is blunted and the axis is compensatorily upregulated, raising cortisol and ACTH. The excess ACTH drives adrenal overproduction of steroids with mineralocorticoid activity (deoxycorticosterone, corticosterone) and of adrenal androgens, so affected individuals present with hypertension, hypokalemic alkalosis, and/or hyperandrogenism, together with adrenal hyperplasia, while cortisol-dependent functions are largely preserved and stigmata of Cushing's syndrome are absent. The clinical spectrum ranges from asymptomatic to severe; homozygous or compound-heterozygous defects present earlier and more severely than heterozygous ones. This entry covers the primary (NR3C1-based) Mendelian disorder, not acquired or tissue-specific glucocorticoid resistance seen in conditions such as asthma, inflammatory disease, or hematologic malignancy.",
+    "pathophysiology": [
+      "NR3C1 Inactivating Variant",
+      "Impaired Glucocorticoid Receptor Signal Transduction",
+      "Generalized Target-Tissue Glucocorticoid Insensitivity",
+      "Blunted HPA-Axis Negative Feedback",
+      "Compensatory HPA-Axis Activation",
+      "Adrenal Steroidogenesis Stimulation",
+      "Mineralocorticoid Excess",
+      "Adrenal Androgen Excess"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "nuclear receptor-mediated glucocorticoid signaling pathway",
+      "cellular response to glucocorticoid stimulus",
+      "corticotropin-releasing hormone secretion",
+      "positive regulation of steroid hormone secretion",
+      "nuclear receptor-mediated mineralocorticoid signaling pathway"
+    ],
+    "phenotypes": [
+      "Hypertension",
+      "Hypokalemia",
+      "Metabolic alkalosis",
+      "Signs of androgen excess",
+      "Fatigue",
+      "Adrenal hyperplasia",
+      "Increased circulating cortisol level",
+      "Increased circulating ACTH level",
+      "Hypoglycemia"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Metabolic",
+      "Endocrine",
+      "Constitutional",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Endocrine",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000822",
+      "HP:0002900",
+      "HP:0200114",
+      "HP:0030348",
+      "HP:0012378",
+      "HP:0008221",
+      "HP:0003118",
+      "HP:0003154",
+      "HP:0001943"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "NR3C1"
+    ],
+    "treatments": [
+      "High-dose dexamethasone"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum cortisol"
+    ],
+    "source_file": "Glucocorticoid_Resistance.yaml",
+    "page_url": "../pages/disorders/Glucocorticoid_Resistance.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Glucose-6-Phosphate Dehydrogenase (G6PD) Deficiency",
     "disease_id": "MONDO:0005775",
     "category": "Genetic",
@@ -323066,6 +323153,81 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Spermatogenic Failure 100",
+    "disease_id": "MONDO:0978302",
+    "category": "Mendelian",
+    "parents": [
+      "Spermatogenic Failure",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-10-11T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spermatogenic failure 100 (SPGF100) is autosomal recessive male infertility caused by biallelic loss-of-function variants in DNAH12. DNAH12 encodes an unusual inner dynein arm heavy chain: it is the shortest member of the axonemal dynein heavy chain family and lacks a typical microtubule-binding domain. Affected men have severe asthenoteratozoospermia. The ejaculate contains a mixture of absent, short, coiled, bent and irregular-caliber flagella (multiple morphological abnormalities of the sperm flagella, MMAF), and many sperm also have abnormal heads. Electron microscopy shows loss of the inner dynein arms and of the central pair of microtubules.\nDNAH12 binds the inner-arm components DNALI1 and DNAH1 and is required to bring them into the sperm axoneme. It also binds the radial spoke head proteins RSPH1, RSPH9 and DNAJB13, which helps keep the central pair stable. Its loss affects the sperm flagellum but not motile cilia elsewhere. Reported patients had no respiratory disease or situs inversus, and Dnah12 knockout mice have normal tracheal and oviductal cilia. So SPGF100 is an isolated sperm flagellar disorder, not primary ciliary dyskinesia. Fertility can be achieved: ICSI gave normal fertilization and embryo development in patients and in knockout mice.",
+    "pathophysiology": [
+      "Loss of the DNAH12 Inner-Arm Dynein Heavy Chain",
+      "Failed Recruitment of DNAH1 and DNALI1 to the Inner Dynein Arm",
+      "Inner Dynein Arm and Central Pair Loss",
+      "Multiple Morphological Abnormalities of the Sperm Flagella",
+      "Defective Manchette Organization During Spermiogenesis"
+    ],
+    "cell_types": [
+      "Sperm",
+      "Spermatid"
+    ],
+    "cell_type_ids": [
+      "CL:0000019",
+      "CL:0000018"
+    ],
+    "biological_processes": [
+      "Inner dynein arm assembly",
+      "Sperm axoneme assembly"
+    ],
+    "phenotypes": [
+      "Male infertility",
+      "Reduced sperm motility",
+      "Oligozoospermia",
+      "Absent sperm flagella",
+      "Short sperm flagella",
+      "Coiled sperm flagella",
+      "Bent sperm flagella",
+      "Abnormal sperm head morphology"
+    ],
+    "phenotype_categories": [
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary"
+    ],
+    "phenotype_ids": [
+      "HP:0003251",
+      "HP:0012207",
+      "HP:0000798",
+      "HP:0032558",
+      "HP:0032559",
+      "HP:0032560",
+      "HP:0034811",
+      "HP:0012865"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DNAH12"
+    ],
+    "treatments": [
+      "Intracytoplasmic Sperm Injection"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spermatogenic_Failure_100.yaml",
+    "page_url": "../pages/disorders/Spermatogenic_Failure_100.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Spermatogenic Failure 18",
     "disease_id": "MONDO:0054615",
     "category": "Mendelian",
@@ -345383,6 +345545,9 @@ window.searchData = [
       "Beta Cell Dysfunction",
       "Hepatic Glucose Overproduction",
       "Mitochondrial Dysfunction and Oxidative Stress",
+      "Ceramide Accumulation",
+      "Diacylglycerol Accumulation",
+      "Islet Amyloid Polypeptide Oligomer Proteotoxicity",
       "Incretin Axis Dysfunction",
       "Chronic Hyperglycemia"
     ],
@@ -345416,6 +345581,8 @@ window.searchData = [
       "Gluconeogenesis",
       "Oxidative Stress Response",
       "Mitophagy",
+      "ceramide formation from saturated fatty acids",
+      "hIAPP toxic oligomer formation",
       "cAMP Signaling",
       "Insulin Secretion Regulation",
       "glucose homeostasis"
@@ -345493,10 +345660,10 @@ window.searchData = [
     "source_file": "Type_2_Diabetes_Mellitus.yaml",
     "page_url": "../pages/disorders/Type_2_Diabetes_Mellitus.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 12,
     "num_genes": 6,
     "num_treatments": 6,
-    "causal_graph_edges": "34",
+    "causal_graph_edges": "38",
     "causal_graph_longest_path": "4"
   },
   {
@@ -362198,17 +362365,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3356,
+  "total_disorder_pages": 3358,
   "total_subtypes": 4702,
-  "total_disorders_and_subtypes": 8058,
-  "total_unique_evidence_sources": 50588,
-  "total_unique_publications": 47120,
+  "total_disorders_and_subtypes": 8060,
+  "total_unique_evidence_sources": 50608,
+  "total_unique_publications": 47140,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
-  "total_pathographs": 3352,
-  "total_unique_pathological_events": 22155,
-  "total_modules": 191,
-  "total_research_reports": 3473,
+  "total_pathographs": 3354,
+  "total_unique_pathological_events": 22170,
+  "total_modules": 192,
+  "total_research_reports": 3475,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
