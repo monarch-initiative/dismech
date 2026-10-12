@@ -1,7 +1,8 @@
 # How the valproic acid and lithium "GxT in a dish" paper fits dismech
 
 Written 2026-10-05 against dismech `main` at commit `681ac38851`. Revised
-2026-10-09 against `main` at `bd855d0346`, after the paper was curated.
+2026-10-09 against `main` at `bd855d0346`, after the paper was curated, and
+again at `1148dee5d8` to correct what it said about the issue tracker.
 
 ## Status of this report
 
@@ -220,9 +221,36 @@ single cell type is a `BOUNDARY_OMISSION`, and acute 48-hour exposure is a
 
 ## What is left
 
-Gaps 2, 3 and 4 are filed as issues and need a curator. The schema gaps are
-not filed and are a schema question rather than a curation task: the paper's
-own headline result, that common variants change how neural progenitors
-respond to these drugs, has nowhere to live in dismech today, and was dropped
-when the paper was curated. Whether dismech should be able to hold it is the
-decision this report leaves open.
+Gaps 2, 3 and 4 are filed as issues and need a curator.
+
+One of the three schema gaps is filed, which this report originally said none
+were. [#13768](https://github.com/monarch-initiative/dismech/issues/13768)
+covers the exposure and perturbation row: it asks for a structured
+perturbation on the model classes, and notes that
+`ExperimentalModel.conditions` is a list of strings.
+
+No issue proposes a fix for the other two rows. The donor-population row is
+recorded in #13602's list of what the schema cannot hold today — `cell_source`
+is free text, so a genotyped donor panel cannot be told apart from a single
+cell line — but nothing asks for the change. For the gene-by-exposure row,
+searching the tracker for QTL, gene-by-exposure, `cell_source` and donor panel
+turned up nothing beyond those two issues. That row is the paper's own
+headline result — common variants change how neural progenitors respond to
+these drugs — and it was dropped when the paper was curated.
+
+Whether that last result belongs in dismech is an open question rather than a
+gap to close. A response QTL describes variance across a donor panel, not a
+step in any one patient's disease, and dismech is organized around a single
+disease with a reasonably conserved pathograph.
+[#13602](https://github.com/monarch-initiative/dismech/issues/13602), which
+sorts models by what ties them to the disease, is where that question is being
+worked out; its bottom row already places a looser case, model-responsive
+regions overlapping GWAS signal, outside what a model link should carry. A
+response QTL is not that case — it is measured in the dish, on the model's own
+donors — but it raises the same question about scope.
+
+One candidate home is [EnviroMech](https://github.com/monarch-initiative/enviromech),
+a separate knowledge base in the same family, which records the
+exposure-outcome association itself rather than hanging it on a curated
+disease. A Mech scoped to pharmacogenomic and gene-by-environment response is
+another. Neither is settled.
