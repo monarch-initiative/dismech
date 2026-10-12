@@ -9830,6 +9830,74 @@ window.searchData = [
     "causal_graph_longest_path": "10"
   },
   {
+    "name": "absence of fingerprints-congenital milia syndrome",
+    "disease_id": "MONDO:0007507",
+    "category": "Mendelian",
+    "parents": [
+      "ectodermal dysplasia",
+      "genodermatosis"
+    ],
+    "creation_date": "2026-10-12T15:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Absence of fingerprints-congenital milia syndrome (Basan syndrome) is a rare autosomal dominant ectodermal dysplasia. Its cardinal feature is congenital adermatoglyphia (absence of finger- and toeprints), accompanied by transient congenital facial milia, rapidly healing neonatal acral bullae, and absent or reduced sweating. Additional features reported in individual pedigrees include nail dystrophy, contractures, and (in one large Chinese family) hyperpigmentation and knuckle pads. It has been described in only about ten kindreds worldwide. The disorder is caused by heterozygous variants that disrupt a skin-specific short isoform of SMARCAD1, a SNF2-family chromatin-remodelling ATPase/helicase. The skin isoform starts with an alternative, otherwise-noncoding first exon; all reported variants except one large structural deletion are point mutations in the donor splice site of that exon, and a minigene assay shows the variant causes aberrant splicing and reduced stability of the short transcript. The implication is that the skin-specific isoform is required for normal dermatoglyph development; the downstream developmental steps linking its deficiency to the ectodermal features are not yet established. Basan syndrome, isolated autosomal dominant adermatoglyphia, and Huriez syndrome all map to the same skin-isoform donor splice site and have been proposed to be allelic (\"SMARCAD syndrome\").",
+    "pathophysiology": [
+      "SMARCAD1 Skin-Specific Isoform Splice-Donor Variant",
+      "Reduced Skin-Specific SMARCAD1 Expression",
+      "Impaired Epidermal Chromatin Remodeling",
+      "Failure of Dermatoglyph Development",
+      "Abnormal Epidermal and Adnexal Development"
+    ],
+    "cell_types": [
+      "epidermal keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:4052061"
+    ],
+    "biological_processes": [
+      "chromatin remodeling"
+    ],
+    "phenotypes": [
+      "Adermatoglyphia",
+      "Congenital facial milia",
+      "Neonatal acral blistering",
+      "Hypohidrosis",
+      "Nail dystrophy",
+      "Knuckle pads",
+      "Hyperpigmentation of the skin"
+    ],
+    "phenotype_categories": [
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0007455",
+      "HP:0001056",
+      "HP:0031045",
+      "HP:0000966",
+      "HP:0008404",
+      "HP:0032541",
+      "HP:0000953"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SMARCAD1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Absence_Of_Fingerprints-congenital_Milia_Syndrome.yaml",
+    "page_url": "../pages/disorders/absence_of_fingerprints-congenital_milia_syndrome.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Acatalasia",
     "disease_id": "MONDO:0013571",
     "category": "Mendelian",
@@ -232358,6 +232426,85 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "microphthalmia, syndromic 11",
+    "disease_id": "MONDO:0013734",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "developmental eye disorder",
+      "syndromic microphthalmia"
+    ],
+    "creation_date": "2026-10-12T15:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An ultra-rare autosomal recessive syndromic microphthalmia/anophthalmia (MCOPS11; MONDO:0013734, OMIM:614402) caused by biallelic loss of function of VAX1 (ventral anterior homeobox 1), a homeodomain transcription factor essential for ventral forebrain, optic stalk and optic nerve development. The human entity rests on a single reported proband: Slavotinek et al. (2012) sequenced VAX1 and VAX2 in 70 anophthalmia/microphthalmia patients and found, in one Egyptian proband, homozygosity for two successive substitutions (c.453G>A and c.454C>A, p.Arg152Ser) affecting an invariant homeodomain residue, with microphthalmia, small optic nerves, cleft lip/palate and corpus callosum agenesis. Loss of function is inferred from the phenotypic similarity to the Vax1 homozygous null mouse, in which optic nerve dysgenesis, coloboma, basal telencephalon defects and failure of commissural axons (corpus callosum, hippocampal and anterior commissures) to cross the midline have been demonstrated. The craniofacial (cleft) mechanism in humans is inferred rather than demonstrated \u2014 the cached mouse abstracts do not report cleft palate \u2014 so that branch is grounded in the human proband and left mechanistically open.",
+    "pathophysiology": [
+      "VAX1 Loss of Function",
+      "Disrupted Ventral Forebrain and Optic Stalk Patterning",
+      "Optic Fissure Closure Failure",
+      "Retinal Axon Guidance Failure in the Optic Nerve and Chiasm",
+      "Commissural Axon Guidance Failure",
+      "Failure of Craniofacial Fusion"
+    ],
+    "cell_types": [
+      "retinal ganglion cell",
+      "anterior midline guidepost cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000740",
+      "CL:0000143"
+    ],
+    "biological_processes": [
+      "forebrain development",
+      "optic nerve development",
+      "retinal ganglion cell axon guidance",
+      "axon guidance",
+      "roof of mouth development"
+    ],
+    "phenotypes": [
+      "Microphthalmia",
+      "Optic nerve hypoplasia",
+      "Cleft lip",
+      "Cleft palate",
+      "Agenesis of corpus callosum"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Craniofacial",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000568",
+      "HP:0000609",
+      "HP:0410030",
+      "HP:0000175",
+      "HP:0001274"
+    ],
+    "frequencies": [],
+    "genes": [
+      "VAX1"
+    ],
+    "treatments": [
+      "Orofacial cleft surgical repair",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Microphthalmia_Syndromic_11.yaml",
+    "page_url": "../pages/disorders/microphthalmia,_syndromic_11.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Microphthalmia with Coloboma",
     "disease_id": "MONDO:0000170",
     "category": "Mendelian",
@@ -362664,17 +362811,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3361,
+  "total_disorder_pages": 3363,
   "total_subtypes": 4702,
-  "total_disorders_and_subtypes": 8063,
-  "total_unique_evidence_sources": 50625,
-  "total_unique_publications": 47157,
+  "total_disorders_and_subtypes": 8065,
+  "total_unique_evidence_sources": 50637,
+  "total_unique_publications": 47169,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 297,
-  "total_pathographs": 3357,
-  "total_unique_pathological_events": 22183,
+  "total_pathographs": 3359,
+  "total_unique_pathological_events": 22194,
   "total_modules": 192,
-  "total_research_reports": 3478,
+  "total_research_reports": 3480,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
