@@ -65,6 +65,7 @@ ONTOLOGY_NAMES: dict[str, Ontology] = {
     "FOODON": Ontology("FOODON", "FoodOn Food Ontology"),
     "GENO": Ontology("GENO", "Genotype Ontology"),
     "GO": Ontology("GO", "Gene Ontology"),
+    "HANCESTRO": Ontology("HANCESTRO", "Human Ancestry Ontology"),
     "HGNC": Ontology("hgnc", "HUGO Gene Nomenclature Committee"),
     "HP": Ontology("HP", "Human Phenotype Ontology"),
     "ICD10CM": Ontology("ICD10CM", "ICD-10 Clinical Modification", definite=False),
@@ -225,6 +226,9 @@ TERM_ROLES: dict[str, TermRole] = {
     "variant.gene": TermRole("This variant", "is in", "gene"),
     "variant.regulatory_target_gene": TermRole(
         "This variant", "has a reported or proposed regulatory effect on", "gene"
+    ),
+    "population_effects.ancestry_terms": TermRole(
+        "This population-specific finding", "was reported in", "population"
     ),
     "gene.gene_term": TermRole("This disease-associated gene", "is", "gene"),
     "trial.target_phenotypes": TermRole("This clinical trial", "targets", "phenotype"),

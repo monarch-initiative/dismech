@@ -49,13 +49,16 @@ The provider is in the filename — `<Disorder>-deep-research-<provider>.md` —
 left the name alone would leave a `claude_code` report called `-falcon.md`, and
 `just research-status` would then report falcon coverage that does not exist.
 
-So every research recipe runs an alignment step after the client returns:
+So every research recipe has the client write into a **staging directory**
+(`tmp/research-staging/run.XXXXXX/`, which git ignores) and then runs one
+placement step that moves the run's output into `research/`:
 
 ```
-uv run python scripts/align_research_provider.py "$output_file" --requested "$provider"
+uv run python scripts/align_research_provider.py "$staged_file" \
+    --requested "$provider" --into research
 ```
 
-On a report that fell back, it renames:
+On a report that fell back, it names the report for the provider that wrote it:
 
 | | |
 |---|---|
@@ -68,11 +71,43 @@ frontmatter `artifacts:` block, so nothing is left pointing at a path that no
 longer exists.
 
 The step is wired into `research-disorder`, `research-datasets`,
-`research-module`, `research-comorbidity`, `research-surrogacy`,
-`research-disorder-cyberian-codex`, and the hypothesis path in
-`scripts/hypothesis_deep_research.py`. A test
-(`test_every_research_recipe_aligns_the_provider_after_running`) keeps it that
-way: a recipe that can fall back must also fix the name.
+`research-module`, `research-comorbidity`, `research-surrogacy` and
+`research-disorder-cyberian-codex`; the hypothesis path in
+`scripts/hypothesis_deep_research.py` aligns in place instead (see below). Tests
+(`test_every_research_recipe_aligns_the_provider_after_running`,
+`test_no_research_recipe_lets_the_client_write_into_research`) keep it that way.
+
+## A run never replaces an existing report
+
+If the name the report should carry is already in use — by an earlier report,
+its citations sidecar, or its `_artifacts/` directory — the new report is placed
+**beside** it with the run date appended, and the existing files are not
+touched:
+
+| Already in `research/` | New run | Placed as |
+|---|---|---|
+| `Foo-deep-research-falcon.md` | falcon succeeds | `Foo-deep-research-falcon-2026-10-08.md` |
+| `Foo-deep-research-falcon.md` | falcon fails, claude_code answers | `Foo-deep-research-claude_code.md` |
+| `…-falcon.md` and `…-claude_code.md` | falcon fails, claude_code answers | `Foo-deep-research-claude_code-2026-10-08.md` |
+| the above plus `…-claude_code-2026-10-08.md` | a second run the same day | `…-claude_code-2026-10-08-2.md` |
+
+The citations sidecar and artifacts directory take the same dated stem, and the
+artifact links are rewritten to match. `scripts/deep_research_coverage.py`
+strips the `-YYYY-MM-DD[-N]` suffix when it reads the provider back out of the
+name, so a dated report still counts as that provider's. The renderer takes the
+provider from the frontmatter and lists every report.
+
+**Why this exists (#12700).** The client used to write straight onto
+`research/<Disorder>-deep-research-<provider>.md`. Re-running a provider for a
+disorder that already had its report therefore overwrote the committed report
+before anything else ran, and on a fallback the alignment step then renamed the
+overwritten file — together with the *previous* run's `_artifacts/`, which it
+found beside the report by name — onto the fallback provider's name. The
+committed falcon report vanished and its artifacts were re-attributed to
+claude_code. This was caught by eye on `RPE65-Related_Retinopathy` (PR #12699).
+
+If placement fails, nothing in `research/` changes; the run's output stays in
+its staging directory and the error names it, so a paid run is never lost.
 
 ## The trigger is `fell_back`, not a name mismatch
 
@@ -117,9 +152,19 @@ instead of re-explaining which key was missing.
 
 ## When alignment refuses
 
-It exits non-zero and moves nothing, in three cases:
+It exits non-zero and moves nothing, in these cases:
 
-- **The destination is taken.** A `claude_code` report for that disorder already
+- **The source is committed content this run did not write.** In-place
+  alignment (the hypothesis path, or calling the script without `--into`)
+  refuses to move a report, citations sidecar or `_artifacts/` directory that
+  git tracks and that nothing has modified since the last commit: it cannot be
+  the output of the run that just finished. The case that matters is an
+  `_artifacts/` directory left by an earlier provider beside a report the new
+  run rewrote — moving it would attach one provider's artifacts to another's
+  report (#12700). Restore or remove the stale file deliberately, then re-run
+  the alignment.
+- **The destination is taken** (in-place alignment only; placement with `--into`
+  dates the name instead). A `claude_code` report for that disorder already
   exists. Both files stay on disk; decide which to keep rather than letting one
   overwrite the other.
 - **The requested slug is not in the filename.** There is then no way to tell
