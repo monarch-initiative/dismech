@@ -84,6 +84,8 @@ from typing import TextIO
 
 import yaml
 
+from dismech.research_reports import strip_run_suffix
+
 FRONTMATTER_DELIMITER = "---"
 BODY_SECTION_RE = re.compile(r"^## Reference Validation\s*$", re.MULTILINE)
 RESEARCH_FILE_RE = re.compile(r"^(?P<disorder>.+)-deep-research-(?P<provider>[^.]+)\.md$")
@@ -264,7 +266,7 @@ def classify_report(path: Path, research_dir: Path) -> ReportRow | None:
     row = ReportRow(
         path=str(path.relative_to(research_dir)),
         disorder=match.group("disorder"),
-        provider=report_provider(frontmatter, match.group("provider")),
+        provider=report_provider(frontmatter, strip_run_suffix(match.group("provider"))),
         status=STATUS_UNVALIDATED,
     )
     if isinstance(block, Mapping):

@@ -34,6 +34,7 @@ from pathlib import Path
 
 import yaml
 
+from dismech.genes.curated import CURATED_DIR, curated_ids
 from dismech.genes.slice import build_gene_index, normalize_hgnc_id
 from dismech.structured_sources.base import (
     ChecksumChange,
@@ -362,6 +363,9 @@ def _write_tsv(path: Path, columns: Iterable[str], rows: Iterable[dict]) -> int:
 @dataclass
 class BuildReport:
     kb_genes: int = 0
+    #: Genes pulled in only by a curated summary, which no KB entry names. A
+    #: gene curated because it causes no disease lands here by construction.
+    curated_only_genes: list[str] | None = None
     hgnc_rows: int = 0
     hgnc_missing: list[str] | None = None
     reviews_matched: int = 0
@@ -373,6 +377,7 @@ class BuildReport:
     def lines(self) -> list[str]:
         out = [
             f"KB genes:                         {self.kb_genes}",
+            f"curated-only genes (no KB entry): {len(self.curated_only_genes or [])}",
             f"hgnc.tsv rows:                    {self.hgnc_rows}",
             f"KB genes absent from HGNC set:    {len(self.hgnc_missing or [])}",
             f"ai-gene-review matched (UniProt): {self.reviews_matched}",
@@ -381,6 +386,8 @@ class BuildReport:
             f"core-function term rows:          {self.function_term_rows}",
             f"ClinGen validity rows:            {self.clingen_rows}",
         ]
+        if self.curated_only_genes:
+            out.append("  curated-only: " + ", ".join(self.curated_only_genes[:20]))
         if self.hgnc_missing:
             out.append("  absent: " + ", ".join(self.hgnc_missing[:20]))
         if self.reviews_symbol_only:
@@ -395,16 +402,29 @@ def build_ingest(
     agr_dir: Path = AGR_DIR,
     clingen_dir: Path = CLINGEN_DIR,
     out_dir: Path = INGEST_DIR,
+    curated_dir: Path = CURATED_DIR,
     gene_ids: Iterable[str] | None = None,
 ) -> BuildReport:
-    """Write ``kb/genes/ingest/*.tsv`` for every gene the KB names."""
+    """Write ``kb/genes/ingest/*.tsv`` for every gene the KB names or curates.
+
+    The selection has to match the renderer's, which publishes a page for a
+    gene named by enough disorders *or* carrying a curated summary
+    (:func:`dismech.genes.render._has_page`). A gene whose summary says it
+    causes no disease is named by no entry by construction, so selecting on the
+    KB walk alone would leave it with no HGNC row and render its page under the
+    bare CURIE. An explicit ``gene_ids`` is taken as given and not widened.
+    """
     report = BuildReport()
-    wanted = sorted(
-        {normalize_hgnc_id(g) for g in (gene_ids or build_gene_index(kb_root))}
-        - {None},
-        key=_hgnc_sort_key,
-    )
-    report.kb_genes = len(wanted)
+    if gene_ids is None:
+        from_kb = {normalize_hgnc_id(g) for g in build_gene_index(kb_root)} - {None}
+        from_curated = {normalize_hgnc_id(g) for g in curated_ids(curated_dir)} - {None}
+        report.kb_genes = len(from_kb)
+        report.curated_only_genes = sorted(from_curated - from_kb, key=_hgnc_sort_key)
+        requested = from_kb | from_curated
+    else:
+        requested = {normalize_hgnc_id(g) for g in gene_ids} - {None}
+        report.kb_genes = len(requested)
+    wanted = sorted(requested, key=_hgnc_sort_key)
 
     hgnc_manifest = _load_manifest(hgnc_dir / "MANIFEST.yaml")
     hgnc_file = pinned_file(hgnc_dir)

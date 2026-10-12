@@ -16,6 +16,7 @@ from typing import TextIO
 
 import yaml
 
+from dismech.research_reports import strip_run_suffix
 from dismech.yaml_io import safe_load
 
 RESEARCH_FILE_RE = re.compile(r"^(?P<disorder>.+)-deep-research-(?P<provider>.+)\.md$")
@@ -161,7 +162,11 @@ def parse_research_filename(path: Path) -> tuple[str, str] | None:
     match = RESEARCH_FILE_RE.match(path.name)
     if not match:
         return None
-    return match.group("disorder"), normalize_provider(match.group("provider"))
+    # A second report from the same provider is placed beside the first with
+    # the run date appended (`-deep-research-falcon-2026-10-08.md`, #12700);
+    # it is still a falcon report.
+    provider = strip_run_suffix(match.group("provider"))
+    return match.group("disorder"), normalize_provider(provider)
 
 
 def parse_optional_int(value: object) -> int | None:
