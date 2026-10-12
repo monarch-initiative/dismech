@@ -132,6 +132,41 @@ def test_gate_handles_unicode_blank_lines_and_multiple_documents():
     assert gate.find_corruption(source) == [5, 8]
 
 
+def test_truncation_finds_plain_scalars_cut_at_an_unquoted_hash():
+    source = (
+        "posed_by: dismech curation (issue #8889)\n"  # 1: the #12094 shape
+        'quoted: "dismech curation (issue #8889)"\n'
+        "single: 'PR #7138'\n"
+        "items:\n"
+        "- ai4c-reviewer (PR #7138); resolved\n"  # 5: list item
+        "- fine  # 12 real comment\n"
+        "notes: >-\n"
+        "  issue #12101 inside a block scalar\n"
+        "count: 3 #note\n"  # 9: a non-string plain scalar is cut too
+    )
+    assert gate.find_truncation(source) == [1, 5, 9]
+    assert yaml.safe_load(source)["posed_by"] == "dismech curation (issue"
+
+
+def test_truncation_has_no_baseline(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(gate, "ROOT", tmp_path)
+    baseline = tmp_path / "baseline.txt"
+    baseline.write_text("")
+    monkeypatch.setattr(gate, "BASELINE", baseline)
+    kb = tmp_path / "kb"
+    kb.mkdir()
+    entry = kb / "entry.yaml"
+    entry.write_text("posed_by: curation (issue #8889)\n")
+    assert gate.main([]) == 1
+    out = capsys.readouterr().out
+    assert "kb/entry.yaml:1: unquoted ' #' truncates" in out
+    assert "1 plain scalar(s) truncated" in out
+    assert gate.main(["--update-baseline"]) == 1
+    assert baseline.read_text().strip() == "" or not gate.read_baseline(baseline)
+    entry.write_text('posed_by: "curation (issue #8889)"\n')
+    assert gate.main([]) == 0
+
+
 def test_gate_cli_default_tree_and_failures(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(gate, "ROOT", tmp_path)
     baseline = tmp_path / "baseline.txt"

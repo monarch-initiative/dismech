@@ -4339,7 +4339,15 @@ just check-block-scalar-comments kb/disorders/COVID-19.yaml
 
 This runs in `just qc` and as an ungated whole-KB CI check. It flags the older
 hook's `  # <digit>` fingerprint inside literal/folded block scalars, including
-explanations and descriptions. Review a finding against its source before
+explanations and descriptions.
+
+**An issue or PR reference in an unquoted one-line value must be quoted.** A
+plain scalar ends at the first ` #`, so `posed_by: dismech curation (issue
+#8889)` loads as `dismech curation (issue` and every validator accepts the
+shorter string (#12094). Write `posed_by: "dismech curation (issue #8889)"`.
+The same check fails on any plain scalar followed by ` #<non-space>`; a real
+comment keeps a space after the `#` (`value  # note`). This class has no
+baseline: the KB was clean when it landed, so every finding fails. Review a finding against its source before
 repairing it; the pattern is suspicious spacing, not proof of its origin.
 The pre-existing review backlog is recorded by file and exact source line in
 `tests/block_scalar_comments_baseline.txt`, with occurrence counts so copying

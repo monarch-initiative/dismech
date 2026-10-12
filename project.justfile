@@ -1496,6 +1496,7 @@ check-duplicate-keys *files:
     uv run python scripts/check_duplicate_yaml_keys.py "$@"
 
 # Detect the fingerprint left by older yamlfix hooks inside block scalars (#12101).
+# Also fails on a plain scalar cut short by an unquoted ' #' (#12094).
 [group('QC')]
 check-block-scalar-comments *files:
     uv run python scripts/check_block_scalar_comments.py "$@"
