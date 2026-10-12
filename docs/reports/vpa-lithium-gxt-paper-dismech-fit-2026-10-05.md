@@ -2,7 +2,7 @@
 
 Written 2026-10-05 against dismech `main` at commit `681ac38851`. Revised
 2026-10-09 against `main` at `bd855d0346`, after the paper was curated, and
-again at `1148dee5d8` to correct what it said about the issue tracker.
+again against `4cca8cef13` to correct what it said about the issue tracker.
 
 ## Status of this report
 
