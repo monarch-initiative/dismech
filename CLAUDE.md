@@ -712,6 +712,53 @@ See [`docs/dataset-curation.md`](docs/dataset-curation.md).
   entry's `association_signals`
 - See "Structured-Database Reference Sources" below
 
+### Phenotype Profiles (`kb/phenotype_distributions/`)
+
+EHR-derived phenotype profiles: what co-occurs in a disease cohort, exported
+from a model fitted to structured records. Schema
+`src/dismech/schema/phenotype_distribution.yaml` — `ProfileSet` → `Profile` →
+`CodeDistribution` → `WeightedCode`. Why it is shaped this way, and worked
+examples, are in [`docs/phenotype-distributions.md`](docs/phenotype-distributions.md);
+what follows is only what you need in order to touch one.
+
+**You do not curate these from literature.** A profile set is a transcription of
+a model export, not a synthesis. If no export exists, there is no entry to
+write — do not assemble one from papers, from a disease's known comorbidities,
+or from what looks clinically plausible. Ask for the export.
+
+**Never originate a number.** `code`, `code_label`, `code_weight` and
+`profile_weight` come from the export verbatim. Do not round them, do not
+estimate one to fill a gap, and do not write a code you have not read in the
+source. `--check-terms` resolves every `code`/`code_label` pair against COHD
+and caches it in `cache/omop/terms.csv`: a code whose label disagrees is an
+ERROR, and one the authority does not know is a WARNING to chase rather than
+ignore. This check exists because a wrong OMOP id with a confident label is
+indistinguishable from a right one by eye, and it caught exactly that on its
+first run.
+
+**What is yours to write** is `profile_label` and `description` — reading an
+unsupervised component as a named clinical pattern. That is interpretation, not
+data. Keep it modest, and never let it claim more than the codes below it
+support.
+
+**Set `provenance_tier` honestly; it gates citability.** `CURATED` (reviewed,
+citable) / `TOOL_EXPORTED` (real numbers, unreviewed reading — not citable yet)
+/ `ILLUSTRATIVE` (invented; the renderer refuses to write it into
+`references_cache/`, and a test stops any kb entry citing it).
+
+**A weight is not a frequency.** `code_weight` is a code's mass within its own
+distribution and `profile_weight` is the profile's share of the fit; neither is
+the proportion of patients with the finding. `profile_source.weight_basis` must
+state the denominator — the lint requires it wherever a `profile_weight`
+appears. Do not write `prevalence` for either.
+
+**Citation runs one way.** `just phenodist-rebuild` writes
+`references_cache/PHENODIST_<profile_id>.md`; a disease entry then cites
+`PHENODIST:<id>` and quotes a row, as it would `ORPHA:` or `ICEES:`. A profile
+set never names a kb entry, and never hand-write the cache file.
+
+Validate with `just validate-phenotype-distributions` (part of `just qc`).
+
 ### Validation Stack
 - **linkml-validate**: Schema conformance checking
 - **linkml-term-validator**: Validates ontology term references against authoritative sources (critical for catching AI hallucinations)
