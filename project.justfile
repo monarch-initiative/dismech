@@ -1480,6 +1480,15 @@ node-classes *args:
 check-skill-files:
     uv run python scripts/check_skill_files.py
 
+# Rewrite the shared site header into the hand-written pages (index.html,
+# app/, details/) from src/dismech/templates/_site_nav.html.j2, which every
+# Jinja template includes. Run after editing the partial; --check reports only.
+# tests/test_site_nav.py fails while any copy is stale (issue #14022).
+# Copy the shared site header into the hand-written site pages.
+[group('QC')]
+sync-site-nav *args:
+    uv run python scripts/sync_site_nav.py {{args}}
+
 # Census of every skill and its description length, exit 0.
 [group('QC')]
 list-skill-files:
