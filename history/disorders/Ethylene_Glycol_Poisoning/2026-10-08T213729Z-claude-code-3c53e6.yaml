@@ -1,0 +1,46 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Ethylene_Glycol_Poisoning
+  path: kb/disorders/Ethylene_Glycol_Poisoning.yaml
+session:
+  id: 2026-10-08T213729Z-claude-code-3c53e6
+  timestamp: '2026-10-08T21:37:29Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues:
+  - https://github.com/monarch-initiative/dismech/issues/13727
+  prs: []
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - pathophysiology
+  - evidence
+  - notes
+  summary: 'Debundle the ingestion and bioactivation node (closes #13727)'
+  details: |
+    Split the pathophysiology node 'Ethylene Glycol Ingestion and Alcohol Dehydrogenase Bioactivation' into the two causal steps its own name stated, resolving dismech#13727.
+
+    New nodes:
+    - 'Ethylene Glycol Ingestion and Absorption' (role trigger, biological_scale ORGANISM), conforming to toxic_alcohol_adh_bioactivation#Exposure to a Toxic Alcohol or Glycol with Latent Toxicity.
+    - 'Alcohol Dehydrogenase Bioactivation of Ethylene Glycol' (role mechanism, biological_scale MOLECULAR), carrying the GO:0004022 alcohol dehydrogenase (NAD+) activity binding and conforming to toxic_alcohol_adh_bioactivation#Alcohol Dehydrogenase Bioactivation of the Parent Alcohol.
+
+    Why role 'mechanism' and not 'central_effector' for the bioactivation half, even though the module node it conforms to is that module's central effector: this entry already uses central_effector for 'Proximal Tubular Epithelial Cell Death', and a second one would misdescribe the entry's own chain. Module roles and entry roles are independent, since conformance checks content rather than role.
+
+    Three inbound bare-name targets were repointed, which is the substantive improvement rather than a side effect. Before the split the environmental exposure link and both antidote links all pointed at the same fused node, so the entry could not distinguish what causes the ingestion from what inhibits the enzyme. Now the environmental TRIGGERS link points at the ingestion node, and the fomepizole and ethanol INHIBITS links point at the bioactivation node. That matches how Methanol_Poisoning and Diethylene_Glycol_Poisoning already model the same chemistry; ethylene glycol was the only one of the three whose antidote links landed on an ingestion step, purely because of the bundling. These are bare-name targets matched verbatim with no error on failure (#9697), so they were repointed in the same change and just check-causal-targets was re-run on the file.
+
+    The drug_induced_nephrotoxicity#Nephrotoxic Drug Exposure and Tubular Uptake conformance was deliberately not carried onto either half, and the reasoning is recorded in the bioactivation node's notes rather than only here. The former node's own notes defended that conformance on the grounds that it rested on a nephrotoxin being concentrated and acted on in the kidney rather than on the agent being a drug. That answers the obvious objection, and an earlier draft of #13727 raised the drug/not-drug point without having read it, which was corrected on the issue. The conformance still does not survive the split: the justification describes renal handling, and neither half contains any. This node is enzymatic and the other is ingestion. Ethylene glycol's renal concentration happens downstream at the oxalate and tubular-death nodes, and Proximal Tubular Epithelial Cell Death already conforms to that module's central effector. Restoring a renal-handling conformance would need a node that models renal handling, which this entry does not have; Diethylene_Glycol_Poisoning does, in its still-unconformed Dicarboxylate Transporter-Mediated Renal Uptake node.
+
+    Evidence. The trigger node keeps the existing PMID:18045860 metabolite sentence, which supports the latency claim that the ingested compound is not the toxic species, and gains PMID:36765419 for the unchanged urinary fraction. The bioactivation node gains PMID:36765419 naming the enzyme, substrate and product directly, and PMID:27147840 graded INDIRECT as a therapeutic response cited to validate the mechanism it targets. PMID:36765419 is the only citation in this entry that states the enzymology directly; every other reference reaches the step only through the effect of inhibiting it. Both PMID:36765419 snippets carry quote_role BACKGROUND, because the sentences are background pharmacokinetics restated from an earlier source rather than findings of that systematic review. The sentence naming the enzyme ends with a bracketed citation marker in the source, which was excluded from the snippet since brackets fail the reference validator in CI.
+
+    Both new snippets were verified as exact substrings of the committed cache before the file was written. PMID_36765419.md is tracked in git and the enzymology sentence sits in its full text rather than its abstract, so the committed cache is what CI matches against; the entry already quotes that file's full text elsewhere.
+
+    Validation: just validate-disorders (37 snippets, 37 titles, 0 issues), check-duplicate-keys, check-entity-refs, check-causal-targets, check-enum-values all clean.
+
+    Net effect on module coverage: this entry now conforms to toxic_alcohol_adh_bioactivation at four nodes including its key conformance target, where before the split it reached only two and missed the central effector entirely.

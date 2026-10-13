@@ -445,10 +445,10 @@ reabsorption to glomerular filtration rate.
 3.1. Clinical Presentation of ARHR2
 The first biochemical manifestation of rickets is a decrease in serum phosphate. This is a pro-
 gressive development—serum phosphate concentrations in affected patients at birth are normal.
-However, a sharp decline is observed after birth, with a mean rate of decline of  1.45 SD per year
-(95% CI D  1.90 to  1.00) that slows over time (mean change in rate D 0.12 SD per year, 95%
+However, a sharp decline is observed after birth, with a mean rate of decline of �1.45 SD per year
+(95% CI D �1.90 to �1.00) that slows over time (mean change in rate D 0.12 SD per year, 95%
 CI D 0.06 to 0.18) ( 16). The average onset of hypophosphatemia (serum phosphate Z-score
-< 1.96) is 1.6 years of age. Intact FGF23 concentrations are frankly elevated ( >50 pg/mL) in
+<�1.96) is 1.6 years of age. Intact FGF23 concentrations are frankly elevated ( >50 pg/mL) in
 most patients (88%) and correlate significantly and inversely with serum phosphate. In addi-
 tion, patients with elevated intact FGF23 concentrations have inappropriately suppressed levels
 of 1,25(OH)2D (27).
@@ -727,7 +727,7 @@ patients (70% versus 24%, respectively), discouraging surgical intervention in a
 symptomatic cases ( 83, 93–96).
 5. BONE MASS IN ENPP1 DEFICIENCY
 Although low bone mass has been described in several murine models of Enpp1 deficiency, in-
-cluding ttw mice (33), Enpp1 knockout (KO) mice ( Enpp1 / ) (97), and an Enpp1 C397S mutant
+cluding ttw mice (33), Enpp1 knockout (KO) mice ( Enpp1�/�) (97), and an Enpp1 C397S mutant
 mouse discovered as part of a large genome-wide mutagenesis screen to identify genes regulat-
 ing bone mass ( 98), osteoporosis in ENPP1-deficient patients had not been noted until recently.
 Thus, the murine findings were discordant with the rachitic skeletal phenotype described in hu-
@@ -809,8 +809,8 @@ interquartile range. Abbreviations: AP , anteroposterior; ARHR2, autosomal reces
 rickets type 2; BMD, bone mineral density; micro-CT , microcomputed tomography; ENPP1, ectonucleotide
 pyrophosphatase/phosphodiesterase 1; PDB, Protein Data Bank; PP i, pyrophosphate; RMSD, root mean
 square deviation; WT , wild type. Figure adapted from References 37 and 90.
-osteopenic (T-score between 1.0 and  2.5) in the distal radius and total hip, and one patient each
-had osteopenia and osteoporosis (T-score of  2.5 or lower) at the femoral neck ( 57) (Figure 4e).
+osteopenic (T-score between�1.0 and �2.5) in the distal radius and total hip, and one patient each
+had osteopenia and osteoporosis (T-score of �2.5 or lower) at the femoral neck ( 57) (Figure 4e).
 Evidence of an FGF23-mediated phosphate wasting disorder and osteoporosis also is observed
 in Enpp1asj mice, which also exhibit increased plasma intact FGF23, low plasma phosphate, and
 osteoporosis at 10 and 23 weeks of age on a regular chow diet. T ranscriptome analysis of the
@@ -830,13 +830,13 @@ Collagens Col3a1, Col6a2, Col6a3,
 Col8a2, Col12a1,
 Col16a1
 # RNAseq
-Bone formation Bglap (OCN)  2.6
+Bone formation Bglap (OCN) �2.6
 qPCR
-Ibsp (BSP)  2.1
+Ibsp (BSP) �2.1
 qPCR
 Liver via qPCR
 Wnt activity Sfrp1 C2.1
-Fzd8  3.4
+Fzd8 �3.4
 Kidney via qPCR
 Wnt activity Wif1 C11.7
 RNAseq and qPCR of RNA extracted from whole bone, liver, and kidney of male Enpp1asj/asj mice and WT siblings ( n D 4,
@@ -1889,7 +1889,7 @@ up. J. Neurosurg. 96(2 Suppl.):180–89
 risk factors, clinical presentation, and surgical treatment modalities for the ossified posterior longitudinal
 ligament. Neurosurg. Focus 30(3):E11
 97. Mackenzie NC, Zhu D, Milne EM, van ’t Hof R, Martin A, et al. 2012. Altered bone development and
-an increase in FGF-23 expression in Enpp1 /  mice. PLOS ONE 7(2):e32177
+an increase in FGF-23 expression in Enpp1�/� mice. PLOS ONE 7(2):e32177
 98. Babij P, Roudier M, Graves T, Han CY, Chhoa M, et al. 2009. New variants in theEnpp1 and Ptpn6 genes
 cause low BMD, crystal-related arthropathy, and vascular calcification. J. Bone Miner . Res.24(9):1552–64
 99. Anderson HC, Harmey D, Camacho NP, Garimella R, Sipe JB, et al. 2005. Sustained osteomalacia of
@@ -1897,7 +1897,7 @@ long bones despite major improvement in other hypophosphatasia-related mineral d
 specific alkaline phosphatase/nucleotide pyrophosphatase phosphodiesterase 1 double-deficient mice.
 Am. J. Pathol. 166(6):1711–20
 100. Hajjawi MO, MacRae VE, Huesa C, Boyde A, Millan JL, et al. 2014. Mineralisation of collagen rich soft
-tissues and osteocyte lacunae in Enpp1 /  mice. Bone 69:139–47
+tissues and osteocyte lacunae in Enpp1�/� mice. Bone 69:139–47
 101. Nam HK, Liu J, Li Y, Kragor A, Hatch NE. 2011. Ectonucleotide pyrophosphatase/phosphodiesterase-1
 (ENPP1) protein regulates osteoblast differentiation. J. Biol. Chem. 286(45):39059–71
 102. Zimmerman K, Liu X, von Kroge S, Stabach P, Lester ER, et al. 2022. Catalysis-independent ENPP1
