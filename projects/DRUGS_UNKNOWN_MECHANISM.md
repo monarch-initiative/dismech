@@ -63,7 +63,9 @@ String matching on treatment `name` and `treatment_term` (agents included)
 across `kb/disorders`, `kb/modules` and `kb/comorbidities` found **25 of the
 listed drugs in 248 treatment records across 193 entries**. 113 of those
 records carry `target_mechanisms` (in 93 entries). The full table is
-[`DRUGS_UNKNOWN_MECHANISM/kb_treatment_overlap.tsv`](DRUGS_UNKNOWN_MECHANISM/kb_treatment_overlap.tsv).
+[`DRUGS_UNKNOWN_MECHANISM/kb_treatment_overlap.tsv`](DRUGS_UNKNOWN_MECHANISM/kb_treatment_overlap.tsv);
+the discussions already attached to each record are in
+[`kb_treatment_discussions.tsv`](DRUGS_UNKNOWN_MECHANISM/kb_treatment_discussions.tsv).
 Matching is lexical, so a multi-drug treatment ("Valproate with lamotrigine")
 is counted once per drug.
 
@@ -148,16 +150,56 @@ For each record in group 3, the review is:
 - If no evidence supports the specific node, retarget the edge to the
   phenotype the drug treats, or remove it. Do not add evidence in order to
   keep the edge.
+- Record the open mechanism as a `KNOWLEDGE_GAP` discussion (next section).
 
-## Open question: no slot for "mechanism unknown"
+## Recording an unknown mechanism: a knowledge gap on the treatment
 
-`TreatmentMechanismTarget` has `target`, `treatment_effect`, `description` and
-`evidence`. There is nothing that says a drug's mechanism is unknown or
-disputed. `directness: INDIRECT` on the edge evidence covers part of this, and
-`mechanistic_hypotheses` covers competing models. Whether a treatment-level
-marker is also needed should be decided with the `extend-schema` skill once the
-group 3 review shows how often the existing slots fall short. It is not
-proposed here.
+No new slot is needed. A `discussions` entry with `kind: KNOWLEDGE_GAP` whose
+`attaches_to` names both the treatment and the node its edge targets says
+exactly this: the drug works, and how it works here is not established. The
+`prompt` states the question, the `rationale` says which candidate mechanisms
+the evidence cannot tell apart, and `proposed_experiments` can say how they
+could be.
+
+Four entries already do this and are the pattern to copy:
+
+| Entry | Discussion | Drug |
+|---|---|---|
+| `Li-Fraumeni_Syndrome` | `lfs_metformin_mechanism_unresolved` | Metformin. The MILI trial protocol itself calls the mechanism unclear. |
+| `Li-Ghorbani-Weisz-Hubshman_Syndrome` | `kat8_valproate_mechanism_untested` | Valproate. HDAC inhibition vs. generic anticonvulsant effect; histone acetylation has not been measured in a treated patient. |
+| `Immunodeficiency_64` | `rasgrp1_lenalidomide_translational_gap` | Lenalidomide |
+| `HNRNPU-Related_Developmental_and_Epileptic_Encephalopathy` | `gap_valproate_efficacy_mechanism` | Valproate |
+
+### Coverage
+
+Of the 113 linked records, 47 have some discussion attached to the treatment
+or to a node it targets. Almost all of those discussions are about the node,
+for example whether a biomarker tracks aging. They are not about the drug.
+**None of the group 3 records listed above has a gap about the drug's own
+mechanism.** That includes the six metformin module edges, lithium in
+`Bipolar_Disorder` and both ketamine psychiatric entries. Adding one per
+record, attached to the treatment and its target, is the main deliverable of
+this project.
+
+Rules for writing them:
+
+- One discussion per entry and drug, attached to every node the drug targets
+  there. Do not create one per edge.
+- The `rationale` names the candidate mechanisms and says why the cited
+  evidence does not discriminate between them. It needs its own evidence, and
+  ideally a source that says the mechanism is unclear in so many words, as the
+  MILI protocol does for Li-Fraumeni. A Wikipedia category listing does not
+  count.
+- A gap does not replace fixing an edge that overstates its evidence. Do both:
+  set `directness: INDIRECT` where the mechanism is inferred from a clinical
+  response, and record the gap.
+- Where the literature argues for two or more specific models (lithium), a
+  `CONTROVERSY` discussion or `mechanistic_hypotheses` groups may fit better
+  than `KNOWLEDGE_GAP`. Use `KNOWLEDGE_GAP` when the honest answer is that
+  nobody has tested it.
+
+A schema change, such as a treatment-level "mechanism unknown" flag, would
+duplicate this and is not proposed.
 
 ## Reproducing the overlap
 
