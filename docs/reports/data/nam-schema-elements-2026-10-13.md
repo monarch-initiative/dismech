@@ -27,7 +27,7 @@ Disease
         │   │                                         │  CALIBRATION_PROVENANCE | CAUSE_UNREPRESENTED |
         │   │                                         │  STRUCTURAL_IDEALIZATION | TEMPORAL_SCOPE |
         │   │                                         │  CONTESTED_ASSUMPTION | SCALE_EXTRAPOLATION |
-        │   │                                         │  SPECIES_MISMATCH | POPULATION_MISMATCH
+        │   │                                         │  SPECIES_MISMATCH | POPULATION_MISMATCH | OTHER
         │   ├── materiality                           │  ModelDivergenceMaterialityEnum
         │   │                                         │  INVALIDATING | QUALIFYING | IMMATERIAL | UNKNOWN
         │   ├── description                           │  string, required; says why it applies HERE

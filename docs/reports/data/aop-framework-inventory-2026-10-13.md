@@ -42,9 +42,11 @@ gingin77's 2026-09-16 comment brought the measurement from [#11852](https://gith
 
 ---
 
-## Methods actually landed in kb/ or tooling
+## Tooling
 
-| Method or assay | Entry or module | Item |
+Both items are tooling; nothing from this inventory landed in `kb/`.
+
+| Tool | Files | Item |
 |---|---|---|
 | AOP chain census script | [`scripts/aop_chain_census.py`](https://github.com/monarch-initiative/dismech/blob/main/scripts/aop_chain_census.py) (`just aop-chain-census`) | [#11852](https://github.com/monarch-initiative/dismech/pull/11852) |
 | AOP-Wiki, MIE-KER-capture, KER-evidence-triage skills | [aop-wiki](https://github.com/monarch-initiative/dismech/blob/main/.claude/skills/aop-wiki/SKILL.md), [mie-ker-capture](https://github.com/monarch-initiative/dismech/blob/main/.claude/skills/mie-ker-capture/SKILL.md), [ker-evidence-triage](https://github.com/monarch-initiative/dismech/blob/main/.claude/skills/ker-evidence-triage/SKILL.md) | [#10464](https://github.com/monarch-initiative/dismech/pull/10464) |
