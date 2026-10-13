@@ -74,3 +74,22 @@ def test_ncit_arm_checks_for_the_local_build_before_rebuilding():
     )
     assert arm, "no NCIT arm"
     assert "local_build_present" in arm.group(1)
+
+
+def test_orphanet_arm_refreshes_when_any_product_is_missing():
+    """Every ORPHA record merges five products, and the source refuses a partial
+    set (#13941). The arm must check all five, the same five the loader needs,
+    and tolerate a drifted-pin refresh failure, which still downloads them."""
+    from dismech.structured_sources.orphanet import _PRODUCT_FILES
+
+    recipe = _fetch_reference_recipe()
+    arm = re.search(
+        r"^\s*ORPHA:\*[^)]*\)\n(.*?)^\s*;;", recipe, re.DOTALL | re.MULTILINE
+    )
+    assert arm, "no ORPHA arm"
+    body = arm.group(1)
+    listed = re.search(r"for orpha_file in ([^;]+);", body)
+    assert listed, "ORPHA arm does not loop over the product files"
+    assert tuple(listed.group(1).split()) == _PRODUCT_FILES
+    assert "structured_sources.cli refresh orphanet || true" in body
+    assert body.index("refresh orphanet") < body.index("rebuild orphanet")

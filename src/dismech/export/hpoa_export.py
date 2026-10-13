@@ -69,8 +69,9 @@ rows:
   of its subtypes and says nothing about any one of them, so an inherited row
   keeps only an obligate frequency (``HP:0040280`` / ``100%``), which is true
   of every subtype by definition. Absence (``NOT``) propagates unchanged,
-  unless the parent also carries a positive row for the same HP term: mixed
-  evidence on the parent is not inherited at all.
+  unless its source also carries a positive row for the same HP term: mixed
+  evidence is not inherited at all, whether it sits on the parent or on a
+  subtype whose ``children`` would inherit it.
 * Subtypes without a MONDO term (unbound, or NCIT-only) receive nothing: there
   is no identifier to anchor the rows on.
 * A subtype whose MONDO term is another entry's own ``disease_term`` is treated
@@ -481,16 +482,16 @@ def _subtype_rows(
     order the phenotypes appear in. Duplicates (two subtype names bound to one
     MONDO term) are emitted once.
 
-    An HP term whose unscoped parent rows carry both a positive and a ``NOT``
-    row is not inherited at all: the parent's evidence is mixed, and copying a
-    ``NOT`` meant as "not every patient" onto each subtype would assert that
-    each one lacks the feature.
+    An HP term whose rows at one source (the parent's unscoped rows, or the
+    rows scoped to one subtype) carry both a positive and a ``NOT`` row is not
+    inherited from that source: its evidence is mixed, and copying a ``NOT``
+    meant as "not every patient" onto each subtype below would assert that each
+    one lacks the feature. The source's own rows are still emitted.
     """
-    qualifiers: dict[str, set[str]] = {}
+    qualifiers: dict[tuple[str | None, str], set[str]] = {}
     for base, scope in pending:
-        if scope is None:
-            qualifiers.setdefault(base["hpo_id"], set()).add(base["qualifier"])
-    mixed = {hpo_id for hpo_id, quals in qualifiers.items() if len(quals) > 1}
+        qualifiers.setdefault((scope, base["hpo_id"]), set()).add(base["qualifier"])
+    mixed = {key for key, quals in qualifiers.items() if len(quals) > 1}
 
     rows: list[dict[str, str]] = []
     seen: set[tuple[str, ...]] = set()
@@ -498,7 +499,7 @@ def _subtype_rows(
         hpo_id = base["hpo_id"]
         for name, inherited_from in _subtype_targets(scope, subtypes, parent_id):
             if inherited_from:
-                if scope is None and hpo_id in mixed:
+                if (scope, hpo_id) in mixed:
                     continue
                 if _shadowed(name, scope, hpo_id, subtypes, stated):
                     continue

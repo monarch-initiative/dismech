@@ -1496,6 +1496,7 @@ check-duplicate-keys *files:
     uv run python scripts/check_duplicate_yaml_keys.py "$@"
 
 # Detect the fingerprint left by older yamlfix hooks inside block scalars (#12101).
+# Also fails on a plain scalar cut short by an unquoted ' #' (#12094).
 [group('QC')]
 check-block-scalar-comments *files:
     uv run python scripts/check_block_scalar_comments.py "$@"
@@ -3299,6 +3300,17 @@ fetch-reference +identifiers:
                 uv run python -m dismech.structured_sources.cli rebuild clingen-dosage --id "$identifier"
                 ;;
             ORPHA:*|Orphanet:*)
+                # Every record merges five Orphadata products, so all five must
+                # be present (#13941). A drifted pin fails the refresh but
+                # still downloads every file, so `|| true` lets the rebuild
+                # run; it stamps the files' own release date and warns. If the
+                # download itself failed, the rebuild names the remedy.
+                for orpha_file in en_product1.xml en_product4.xml en_product6.xml en_product9_prev.xml en_product9_ages.xml; do
+                    if [ ! -f "data/orphadata/$orpha_file" ]; then
+                        uv run python -m dismech.structured_sources.cli refresh orphanet || true
+                        break
+                    fi
+                done
                 uv run python -m dismech.structured_sources.cli rebuild orphanet --id "$identifier"
                 ;;
             ICEES:*)

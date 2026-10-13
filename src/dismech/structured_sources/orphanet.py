@@ -30,12 +30,26 @@ from typing import ClassVar
 
 from dismech.structured_sources.base import (
     BulkFile,
+    MissingBulkDataError,
     ReferenceCacheEntry,
     StructuredSource,
+    _sha256_of,
 )
 
 logger = logging.getLogger(__name__)
 
+
+# Every record merges all five products, and the ``## Source`` footer says so.
+# A missing product is an error rather than an empty section: a record built
+# without en_product4.xml has no ``## Phenotypes`` block, and nothing in it says
+# the block was dropped rather than absent upstream (#13941).
+_PRODUCT_FILES = (
+    "en_product1.xml",
+    "en_product4.xml",
+    "en_product6.xml",
+    "en_product9_prev.xml",
+    "en_product9_ages.xml",
+)
 
 # Disorder buckets we emit cache files for.
 _LEAF_GROUPS = frozenset({"Disorder", "Subtype of disorder"})
@@ -142,6 +156,14 @@ class OrphanetSource(StructuredSource):
     # ----- indexing -----
 
     def build_index(self) -> dict[str, _DisorderRecord]:
+        missing = [n for n in _PRODUCT_FILES if not (self.data_dir / n).exists()]
+        if missing:
+            raise MissingBulkDataError(
+                source="Orphadata",
+                data_dir=self.data_dir,
+                missing=missing,
+                remedy="just refresh-orphadata",
+            )
         records: dict[str, _DisorderRecord] = {}
         snapshot = self._load_product1(records)
         self._snapshot_date = snapshot
@@ -161,13 +183,41 @@ class OrphanetSource(StructuredSource):
 
     @property
     def snapshot_date(self) -> str:
-        """Snapshot date — prefer manifest pin, fall back to product1 root attr."""
-        manifest_date = getattr(type(self), "_manifest_snapshot_date", "")
-        if manifest_date:
-            return manifest_date
+        """Date of the Orphadata release the records were built from.
+
+        The manifest's ``snapshot_date`` is used only while every bulk file on
+        disk matches its pin. Otherwise it describes a release that was not
+        read, so the product1 root ``date`` attribute is used instead, as the
+        ClinGen source stamps its export's own date (#13575, #10798).
+        """
         if not getattr(self, "_snapshot_date", None):
             self.index()
+        manifest_date = getattr(type(self), "_manifest_snapshot_date", "")
+        if manifest_date and self._files_match_pin():
+            return manifest_date
         return self._snapshot_date or ""
+
+    def _files_match_pin(self) -> bool:
+        """Whether every pinned bulk file on disk has its pinned sha256."""
+        cached = getattr(self, "_pin_matches", None)
+        if cached is not None:
+            return cached
+        drifted = [
+            bf.name
+            for bf in type(self).bulk_files
+            if bf.sha256 and _sha256_of(self.data_dir / bf.name) != bf.sha256
+        ]
+        if drifted:
+            logger.warning(
+                "Orphadata files differ from the manifest pin (%s); cache files are "
+                "stamped with the release date in en_product1.xml (%s), not the "
+                "pin's snapshot_date (%s).",
+                ", ".join(drifted),
+                self._snapshot_date or "unknown",
+                getattr(type(self), "_manifest_snapshot_date", ""),
+            )
+        self._pin_matches = not drifted
+        return self._pin_matches
 
     # ----- product loaders -----
 
@@ -250,8 +300,6 @@ class OrphanetSource(StructuredSource):
 
     def _load_product4(self, records: dict[str, _DisorderRecord]) -> None:
         path = self.data_dir / "en_product4.xml"
-        if not path.exists():
-            return
         tree = ET.parse(path)
         root = tree.getroot()
         for d in root.iter("Disorder"):
@@ -273,8 +321,6 @@ class OrphanetSource(StructuredSource):
 
     def _load_product6(self, records: dict[str, _DisorderRecord]) -> None:
         path = self.data_dir / "en_product6.xml"
-        if not path.exists():
-            return
         tree = ET.parse(path)
         root = tree.getroot()
         for d in root.iter("Disorder"):
@@ -303,8 +349,6 @@ class OrphanetSource(StructuredSource):
 
     def _load_product9_prev(self, records: dict[str, _DisorderRecord]) -> None:
         path = self.data_dir / "en_product9_prev.xml"
-        if not path.exists():
-            return
         tree = ET.parse(path)
         root = tree.getroot()
         for d in root.iter("Disorder"):
@@ -324,8 +368,6 @@ class OrphanetSource(StructuredSource):
 
     def _load_product9_ages(self, records: dict[str, _DisorderRecord]) -> None:
         path = self.data_dir / "en_product9_ages.xml"
-        if not path.exists():
-            return
         tree = ET.parse(path)
         root = tree.getroot()
         for d in root.iter("Disorder"):
