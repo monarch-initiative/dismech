@@ -20561,6 +20561,96 @@ window.searchData = [
     "causal_graph_longest_path": "13"
   },
   {
+    "name": "Alpha-2-Plasmin Inhibitor Deficiency",
+    "disease_id": "MONDO:0009883",
+    "category": "Mendelian",
+    "parents": [
+      "Bleeding Disorder",
+      "Fibrinolytic Disorder",
+      "Rare Bleeding Disorder"
+    ],
+    "creation_date": "2026-10-12T18:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Congenital alpha-2-plasmin inhibitor (alpha-2-antiplasmin) deficiency is a rare autosomal recessive bleeding disorder caused by pathogenic variants in SERPINF2, which encodes the main fast-acting physiological inhibitor of plasmin. Alpha-2-antiplasmin is a liver-derived serpin that restrains fibrinolysis by forming a covalent complex with plasmin, by blocking plasminogen binding to fibrin, and by being cross-linked into fibrin by activated factor XIII so that the clot itself resists local lysis. When it is missing, a haemostatic plug forms normally but is dissolved before the injured vessel has healed, so the characteristic pattern is delayed bleeding after trauma, surgery, dental extraction or circumcision rather than spontaneous bleeding. Homozygous patients present in childhood with haemophilia-like bleeding that can include umbilical bleeding, joint and muscle haematomas and, unusually, intramedullary haemorrhage into the diaphyses of long bones; heterozygotes are usually mildly affected or asymptomatic but can bleed heavily after surgery. Prothrombin time, activated partial thromboplastin time, platelet count and platelet function are normal, so the diagnosis is missed unless alpha-2-antiplasmin activity, a global fibrinolysis assay or SERPINF2 sequencing is requested. Antifibrinolytic agents (tranexamic acid, epsilon-aminocaproic acid) are the mainstay of treatment, with fresh frozen plasma as a source of the missing inhibitor for severe bleeding or high-risk surgery.",
+    "pathophysiology": [
+      "SERPINF2 Loss-of-Function Variants",
+      "Endoplasmic Reticulum Retention and Degradation of Mutant Alpha-2-Antiplasmin",
+      "Reduced Plasma Alpha-2-Antiplasmin",
+      "Unopposed Plasmin Activity on Fibrin",
+      "Premature Dissolution of the Haemostatic Plug"
+    ],
+    "cell_types": [
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "fibrinolysis",
+      "negative regulation of fibrinolysis"
+    ],
+    "phenotypes": [
+      "Delayed bleeding after trauma or surgery",
+      "Prolonged bleeding after dental extraction",
+      "Epistaxis",
+      "Gingival bleeding",
+      "Joint hemorrhage",
+      "Intramedullary haemorrhage of long bones",
+      "Intramuscular hematoma",
+      "Menorrhagia",
+      "Umbilical cord bleeding",
+      "Intracranial hemorrhage",
+      "Reduced alpha-2-antiplasmin activity",
+      "Shortened euglobulin clot lysis time"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Musculoskeletal",
+      "Neurologic",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Genitourinary",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0040232",
+      "HP:0006298",
+      "HP:0000421",
+      "HP:0000225",
+      "HP:0005261",
+      "HP:0001892",
+      "HP:0012233",
+      "HP:0000132",
+      "HP:0002170",
+      "HP:0040245",
+      "HP:0040247"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SERPINF2"
+    ],
+    "treatments": [
+      "Antifibrinolytic therapy (tranexamic acid or epsilon-aminocaproic acid)",
+      "Fresh frozen plasma"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Alpha-2-Plasmin_Inhibitor_Deficiency.yaml",
+    "page_url": "../pages/disorders/Alpha-2-Plasmin_Inhibitor_Deficiency.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Alpha-gal Syndrome",
     "disease_id": "MONDO:0100001",
     "category": "Complex",
@@ -83817,6 +83907,116 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "23",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "childhood-onset motor and cognitive regression syndrome with extrapyramidal movement disorder",
+    "disease_id": "MONDO:0044701",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary neurological disease",
+      "Neurodegenerative disease",
+      "Movement disorder"
+    ],
+    "creation_date": "2026-10-12T15:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Childhood-onset motor and cognitive regression syndrome with extrapyramidal movement disorder (UBTF neuroregression syndrome; childhood-onset neurodegeneration with brain atrophy, CONDBA) is a rare autosomal dominant neurodegenerative disorder of childhood. In almost all reported cases it is caused by the same recurrent de novo missense variant in UBTF, c.628G>A (p.Glu210Lys, \"E210K\"), which lies in the second HMG-box of the upstream binding transcription factor (UBF), an RNA polymerase I transcription factor for ribosomal DNA. After a period of normal or mildly delayed early development, affected children regress in motor, speech, cognitive and behavioral skills beginning at roughly 2.5-7 years of age, and develop a movement disorder (dystonia, chorea), spasticity, gait ataxia and dysarthria. Brain MRI shows progressive cerebral and cerebellar atrophy with a thin corpus callosum, and speech and ambulation are typically lost by the early teens. The variant acts through dysregulation of ribosomal RNA transcription with nucleolar stress and genomic DNA damage; the precise gain- versus loss-of-function balance remains unsettled.",
+    "pathophysiology": [
+      "UBTF E210K Gain-of-Function Variant",
+      "Enhanced UBF-rDNA Binding and Impaired Pol I Preinitiation Complex Assembly",
+      "rDNA Chromatin Dysregulation and rRNA Overexpression",
+      "Nucleolar Stress and Genomic DNA Damage",
+      "Cell-Cycle Arrest and Neuronal Apoptosis",
+      "Progressive Cerebral and Cerebellar Neurodegeneration",
+      "Basal Ganglia Degeneration"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "nucleolar large rRNA transcription by RNA polymerase I",
+      "DNA damage response",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Developmental regression",
+      "Cognitive regression",
+      "Motor deterioration",
+      "Hypotonia",
+      "Gait ataxia",
+      "Dysarthria",
+      "Abnormally high-pitched voice",
+      "Aphasia",
+      "Loss of speech",
+      "Loss of ambulation",
+      "Spasticity",
+      "Dystonia",
+      "Chorea",
+      "Postural instability",
+      "Hyperactivity",
+      "Secondary microcephaly",
+      "Dysphagia",
+      "Seizure",
+      "Cerebral atrophy",
+      "Cerebellar vermis atrophy",
+      "Thin corpus callosum",
+      "Ventriculomegaly"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002376",
+      "HP:0034332",
+      "HP:0002333",
+      "HP:0001252",
+      "HP:0002066",
+      "HP:0001260",
+      "HP:0001620",
+      "HP:0002381",
+      "HP:0002371",
+      "HP:0002505",
+      "HP:0001257",
+      "HP:0001332",
+      "HP:0002072",
+      "HP:0002172",
+      "HP:0000752",
+      "HP:0005484",
+      "HP:0002015",
+      "HP:0001250",
+      "HP:0002059",
+      "HP:0006855",
+      "HP:0033725",
+      "HP:0002119"
+    ],
+    "frequencies": [
+      "Reported in 6/7 previously reported UBTF E210K cases",
+      "Reported in 3/7 of previously reported UBTF E210K cases"
+    ],
+    "genes": [
+      "UBTF E210K"
+    ],
+    "treatments": [
+      "Speech and language therapy",
+      "Gastrostomy tube feeding"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Childhood-onset_Motor_And_Cognitive_Regression_Syndrome_With_Extrapyramidal_Movement_Disorder.yaml",
+    "page_url": "../pages/disorders/childhood-onset_motor_and_cognitive_regression_syndrome_with_extrapyramidal_movement_disorder.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Childhood Absence Epilepsy",
@@ -179755,6 +179955,108 @@ window.searchData = [
     "causal_graph_longest_path": "10"
   },
   {
+    "name": "Hypomyelinating Leukodystrophy 5",
+    "disease_id": "MONDO:0012514",
+    "category": "Mendelian",
+    "parents": [
+      "Hypomyelinating Leukodystrophy",
+      "Leukodystrophy"
+    ],
+    "creation_date": "2026-10-12T18:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypomyelinating leukodystrophy 5, better known as hypomyelination and congenital cataract (HCC), is a rare autosomal recessive white-matter disorder caused by biallelic loss-of-function variants in HYCC1 (formerly FAM126A), which encodes hyccin. Hyccin is a regulatory subunit of the plasma-membrane phosphatidylinositol 4-kinase complex built around PI4KIIIalpha (PI4KA) with TTC7 and EFR3. Without it the complex is unstable and the plasma membrane makes less phosphatidylinositol 4-phosphate (PtdIns(4)P). Oligodendrocytes, in which hyccin is the predominant FAM126 isoform, must expand their plasma membrane enormously to build myelin, and the proposed consequence of the PtdIns(4)P deficit is failure to myelinate the central nervous system; peripheral nerves are hypomyelinated as well. Most patients have bilateral congenital cataracts and normal or mildly delayed development in the first year, followed by slowly progressive spasticity, cerebellar ataxia, dysarthria, demyelinating peripheral neuropathy and mild to moderate intellectual disability. Brain MRI shows diffuse supratentorial hypomyelination with increased periventricular white-matter water content, and older patients develop white-matter loss and gliosis. Hypomorphic missense alleles give a milder course that can spare the peripheral nerves. Management is supportive, with early cataract extraction.",
+    "pathophysiology": [
+      "Biallelic HYCC1 Loss-of-Function Variants",
+      "Misfolded Hyccin Accumulation in the Endoplasmic Reticulum",
+      "Destabilised Plasma-Membrane PI4KIIIalpha Complex",
+      "Reduced Plasma-Membrane PtdIns(4)P Synthesis",
+      "CNS and PNS Hypomyelination",
+      "Secondary White-Matter Loss and Gliosis",
+      "Lens Opacification"
+    ],
+    "cell_types": [
+      "oligodendrocyte",
+      "Schwann cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000128",
+      "CL:0002573"
+    ],
+    "biological_processes": [
+      "endoplasmic reticulum unfolded protein response",
+      "phosphatidylinositol 4-phosphate biosynthetic process",
+      "central nervous system myelination"
+    ],
+    "phenotypes": [
+      "Congenital cataract",
+      "CNS hypomyelination",
+      "Periventricular white matter abnormality",
+      "Cerebral white matter atrophy",
+      "Global developmental delay",
+      "Intellectual disability",
+      "Spasticity",
+      "Cerebellar ataxia",
+      "Dysarthria",
+      "Intention tremor",
+      "Truncal hypotonia",
+      "Lower limb weakness and wasting",
+      "Motor regression",
+      "Peripheral demyelinating neuropathy",
+      "Seizures",
+      "Strabismus"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000519",
+      "HP:0003429",
+      "HP:0002518",
+      "HP:0012762",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001257",
+      "HP:0002073",
+      "HP:0001260",
+      "HP:0002080",
+      "HP:0008936",
+      "HP:0007340",
+      "HP:0033044",
+      "HP:0007108",
+      "HP:0001250",
+      "HP:0000486"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "HYCC1"
+    ],
+    "treatments": [
+      "Cataract extraction",
+      "Rehabilitation and spasticity management",
+      "Orthopaedic and feeding management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypomyelinating_Leukodystrophy_5.yaml",
+    "page_url": "../pages/disorders/Hypomyelinating_Leukodystrophy_5.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Hypomyelinating Leukodystrophy 7",
     "disease_id": "MONDO:0011897",
     "category": "Mendelian",
@@ -214503,6 +214805,100 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "20",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Lipoprotein Glomerulopathy",
+    "disease_id": "MONDO:0012725",
+    "category": "Mendelian",
+    "parents": [
+      "Glomerular Disease",
+      "Renal Lipidosis",
+      "Inherited Dyslipidemia"
+    ],
+    "creation_date": "2026-10-12T18:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Lipoprotein glomerulopathy is a rare autosomal dominant kidney disease with incomplete penetrance, caused by heterozygous (rarely homozygous) missense or small in-frame variants in APOE that cluster around the low-density lipoprotein receptor-binding region of apolipoprotein E. The variant proteins, named after the places they were found (Sendai, Kyoto, Osaka or Kurashiki, Chicago, Tokyo or Maebashi, Kanto and others), are thermodynamically destabilised, expose hydrophobic surface and aggregate, and they form abnormal, unstable lipoprotein particles. These deposit as lamellated, apoE-rich lipoprotein thrombi in markedly dilated glomerular capillaries, without foam cells and without immunoglobulin or complement. Patients, mostly adults and mostly from Japan and China, present with proteinuria often reaching the nephrotic range, microscopic haematuria and a type III hyperlipoproteinaemia-like profile with high serum apoE, though some are normolipidaemic. About half reach end-stage kidney disease within 1 to 27 years. The disease is not steroid-responsive; intensive lipid-lowering therapy, especially fibrates, can reduce proteinuria and induce remission. Because the abnormal apoE circulates, the disease recurs in kidney transplants.",
+    "pathophysiology": [
+      "APOE Variants Near the LDL-Receptor-Binding Region",
+      "Thermodynamic Destabilisation and Aggregation of Variant apoE",
+      "Aberrant Unstable apoE-Rich Lipoprotein Particles",
+      "Glomerular Lipoprotein Thrombi in Dilated Capillaries",
+      "Glomerular Filtration Barrier Injury",
+      "Progressive Loss of Kidney Function"
+    ],
+    "cell_types": [
+      "glomerular endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002188"
+    ],
+    "biological_processes": [
+      "protein destabilization",
+      "lipoprotein metabolic process"
+    ],
+    "phenotypes": [
+      "Proteinuria",
+      "Nephrotic syndrome",
+      "Microscopic hematuria",
+      "Edema",
+      "Enlarged kidneys",
+      "Anemia",
+      "Hypertension",
+      "Chronic kidney disease progressing to kidney failure",
+      "Glomerular lipoprotein thrombi",
+      "Hypertriglyceridemia",
+      "Elevated serum apolipoprotein E"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Hematologic",
+      "Cardiovascular",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Genitourinary",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000093",
+      "HP:0012588",
+      "HP:0002907",
+      "HP:0000969",
+      "HP:0000105",
+      "HP:0001903",
+      "HP:0000822",
+      "HP:0003774",
+      "HP:0033267",
+      "HP:0002155",
+      "HP:0034912"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "APOE"
+    ],
+    "treatments": [
+      "Fibrate therapy",
+      "Renin-angiotensin system blockade",
+      "Statin therapy",
+      "Kidney transplantation",
+      "Glucocorticoids (ineffective)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Lipoprotein_Glomerulopathy.yaml",
+    "page_url": "../pages/disorders/Lipoprotein_Glomerulopathy.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Liposarcoma",
@@ -363464,17 +363860,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3368,
+  "total_disorder_pages": 3372,
   "total_subtypes": 4707,
-  "total_disorders_and_subtypes": 8075,
-  "total_unique_evidence_sources": 50704,
-  "total_unique_publications": 47234,
+  "total_disorders_and_subtypes": 8079,
+  "total_unique_evidence_sources": 50761,
+  "total_unique_publications": 47288,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 297,
-  "total_pathographs": 3364,
-  "total_unique_pathological_events": 22232,
+  "total_pathographs": 3368,
+  "total_unique_pathological_events": 22254,
   "total_modules": 192,
-  "total_research_reports": 3485,
+  "total_research_reports": 3489,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
