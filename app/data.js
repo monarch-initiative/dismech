@@ -342259,6 +342259,96 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Thrombocytopenia 3",
+    "disease_id": "MONDO:0010120",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited thrombocytopenia",
+      "Inherited bleeding disorder, platelet-type"
+    ],
+    "creation_date": "2026-10-13T10:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Thrombocytopenia 3 (THC3), also called congenital autosomal recessive small-platelet thrombocytopenia (CARST), is an inherited platelet disorder caused by biallelic loss-of-function variants in FYB1, which encodes the hematopoietic adaptor protein ADAP. Affected children from two consanguineous families, one Arab Christian family studied in Israel and one family from Northern Iraq, presented in early childhood with isolated thrombocytopenia, small platelets, petechiae, epistaxis and mucosal bleeding, without immune defects, unusual infections or growth abnormalities. Patient platelets show abnormal basal activation markers, blunted responses to ADP and reduced pseudopodium formation. In ADAP-deficient mice, megakaryocytes fail to activate beta1 integrins, form podosomes and polarize their demarcation membrane system, and release (pro)platelet-like particles ectopically into the marrow rather than into sinusoids; platelets are also cleared faster by macrophages. ADAP-deficient platelets additionally show defective inside-out activation of integrin alphaIIb-beta3 and unstable thrombus formation under shear, which may add a platelet-function component to the bleeding tendency.",
+    "pathophysiology": [
+      "Biallelic FYB1 Truncating Variants",
+      "ADAP Adaptor Protein Deficiency",
+      "Impaired Megakaryocyte Beta1 Integrin Activation",
+      "Defective Megakaryocyte Polarization and Podosome Formation",
+      "Ectopic Proplatelet Release into the Bone Marrow Compartment",
+      "Shortened Platelet Lifespan",
+      "Impaired Platelet Integrin AlphaIIb-Beta3 Inside-Out Activation",
+      "Defective Platelet Outside-In Mechanotransduction",
+      "Unstable Platelet Thrombus Formation"
+    ],
+    "cell_types": [
+      "megakaryocyte",
+      "platelet",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000556",
+      "CL:0000233",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "integrin activation",
+      "cell-matrix adhesion",
+      "podosome assembly",
+      "establishment of cell polarity",
+      "platelet formation",
+      "platelet activation",
+      "actin filament organization",
+      "platelet aggregation"
+    ],
+    "phenotypes": [
+      "Thrombocytopenia",
+      "Small platelets",
+      "Petechiae",
+      "Epistaxis",
+      "Bleeding tendency",
+      "Abnormal platelet function",
+      "Reduced proportion of mature megakaryocytes"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Head and Neck",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0001873",
+      "HP:0005537",
+      "HP:0000967",
+      "HP:0000421",
+      "HP:0001892",
+      "HP:0011869",
+      "HP:0012143"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FYB1"
+    ],
+    "treatments": [
+      "Corticosteroid therapy",
+      "Azathioprine"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Thrombocytopenia_3.yaml",
+    "page_url": "../pages/disorders/Thrombocytopenia_3.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Thrombophilia",
     "disease_id": "MONDO:0002305",
     "category": "Complex",
@@ -364178,17 +364268,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3375,
+  "total_disorder_pages": 3376,
   "total_subtypes": 4711,
-  "total_disorders_and_subtypes": 8086,
-  "total_unique_evidence_sources": 50851,
-  "total_unique_publications": 47382,
+  "total_disorders_and_subtypes": 8087,
+  "total_unique_evidence_sources": 50860,
+  "total_unique_publications": 47390,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 297,
-  "total_pathographs": 3371,
-  "total_unique_pathological_events": 22273,
+  "total_pathographs": 3372,
+  "total_unique_pathological_events": 22282,
   "total_modules": 192,
-  "total_research_reports": 3492,
+  "total_research_reports": 3493,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
