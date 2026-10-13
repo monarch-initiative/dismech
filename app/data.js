@@ -237736,6 +237736,93 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Mitochondrial Pyruvate Carrier Deficiency",
+    "disease_id": "MONDO:0013877",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Disorder of Pyruvate Metabolism",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-10-12T18:40:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "MPC1",
+      "MPC2"
+    ],
+    "description": "Mitochondrial pyruvate carrier (MPC) deficiency is a rare autosomal recessive inborn error of pyruvate oxidation caused by biallelic variants in MPC1 or, less often, MPC2, which encode the two interdependent subunits of the carrier that imports pyruvate across the inner mitochondrial membrane. Without it, pyruvate made by glycolysis cannot reach pyruvate dehydrogenase and the tricarboxylic acid cycle, so pyruvate and lactate accumulate while mitochondrial respiration from pyruvate falls. Because cytosolic redox balance is preserved, lactate and pyruvate rise together and the lactate:pyruvate ratio stays normal, the same biochemical signature as pyruvate dehydrogenase deficiency, from which it is distinguished by normal pyruvate dehydrogenase and respiratory chain activities and by impaired pyruvate oxidation in intact or permeabilised cells. Onset is usually in the first six months, with global developmental delay, microcephaly, growth failure and hypotonia; seizures, encephalopathy, periventricular cysts and basal ganglia signal change occur, and some cases are lethal before birth or in infancy. Fewer than twenty patients are reported. Ketogenic diet and glutamine supplementation, which feed the tricarboxylic acid cycle by routes that do not need the carrier, have been followed by clinical improvement.",
+    "pathophysiology": [
+      "Biallelic MPC1 or MPC2 Variants",
+      "Loss of the MPC1-MPC2 Carrier Complex",
+      "Impaired Mitochondrial Pyruvate Import",
+      "Reduced Mitochondrial Pyruvate Oxidation",
+      "Accumulation of Pyruvate and Lactate",
+      "Neuronal Energy Failure"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "pyruvate import into mitochondria",
+      "pyruvate decarboxylation to acetyl-CoA"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Microcephaly",
+      "Hypotonia",
+      "Growth failure",
+      "Seizures",
+      "Periventricular cysts",
+      "Basal ganglia and thalamic signal abnormality",
+      "Facial dysmorphism",
+      "Lactic acidosis",
+      "Increased circulating pyruvate concentration"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Growth",
+      "Craniofacial",
+      "Metabolic",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0000252",
+      "HP:0001252",
+      "HP:0001510",
+      "HP:0001250",
+      "HP:0007109",
+      "HP:0012751",
+      "HP:0001999",
+      "HP:0003128",
+      "HP:0003542"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Ketogenic diet",
+      "Glutamine supplementation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Mitochondrial_Pyruvate_Carrier_Deficiency.yaml",
+    "page_url": "../pages/disorders/Mitochondrial_Pyruvate_Carrier_Deficiency.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Mitochondrial Spastic Paraplegia",
     "disease_id": "MONDO:0975951",
     "category": "Mendelian",
@@ -345307,6 +345394,119 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Trichorhinophalangeal Syndrome Type I",
+    "disease_id": "MONDO:0008596",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia",
+      "Malformation Syndrome"
+    ],
+    "creation_date": "2026-10-12T18:40:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "TRPS I",
+      "TRPS III"
+    ],
+    "description": "Trichorhinophalangeal syndrome type I is an autosomal dominant skeletal and ectodermal dysplasia caused by heterozygous pathogenic variants in TRPS1, which encodes an atypical GATA-type zinc-finger transcription factor that mainly represses its targets. MONDO includes the more severe type III form, caused by missense variants in the GATA DNA-binding zinc finger, in this term. Patients have fine, sparse, slow-growing scalp hair, eyebrows that are thick medially and thin laterally, a bulbous nose with underdeveloped alae, a long philtrum, a thin upper lip and protruding ears, together with brachydactyly with cone-shaped epiphyses of the phalanges, short metacarpals, short stature, hip dysplasia and, as the main lifelong morbidity, joint problems progressing to premature osteoarthritis. Osteopenia is common and dystrophic nails and supernumerary teeth occur. In mouse models, loss of TRPS1 repression of Runx2 and of the Ihh/PTHrP loop uncouples chondrocyte differentiation from perichondrial mineralisation in the growth plate, and disrupted Wnt-inhibitor and Sox9 regulation in the hair follicle explains the sparse hair. Intelligence is normal and life expectancy is not reduced. Management is supportive. The contiguous-gene TRPS type II (Langer-Giedion syndrome), which also deletes EXT1 and RAD21, is curated as a subtype of Hereditary_Multiple_Osteochondromas.",
+    "pathophysiology": [
+      "Heterozygous TRPS1 Variants",
+      "Loss of TRPS1 GATA-Dependent Transcriptional Repression",
+      "Disordered Tooth Development and Dentin Mineralisation",
+      "Uncoupled Chondrocyte Differentiation and Perichondrial Mineralisation",
+      "Abnormal Hip Joint Development",
+      "Premature Joint Degeneration",
+      "Craniofacial and Axial Skeletal Dysplasia",
+      "Disrupted Hair Follicle Morphogenesis"
+    ],
+    "cell_types": [
+      "odontoblast",
+      "chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000060",
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "dentinogenesis",
+      "chondrocyte differentiation",
+      "endochondral ossification",
+      "hair follicle development"
+    ],
+    "phenotypes": [
+      "Sparse scalp hair",
+      "Sparse lateral eyebrows",
+      "Bulbous nose",
+      "Underdeveloped nasal alae",
+      "Long philtrum",
+      "Thin upper lip vermilion",
+      "Protruding ears",
+      "Cone-shaped epiphyses",
+      "Brachydactyly",
+      "Short metacarpals",
+      "Short stature",
+      "Hip dysplasia",
+      "Premature osteoarthritis",
+      "Osteopenia",
+      "Supernumerary teeth",
+      "Nail dystrophy"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Craniofacial",
+      "Skeletal",
+      "Growth",
+      "Dental"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002209",
+      "HP:0005338",
+      "HP:0000414",
+      "HP:0000430",
+      "HP:0000343",
+      "HP:0000219",
+      "HP:0000411",
+      "HP:0010230",
+      "HP:0001156",
+      "HP:0010049",
+      "HP:0004322",
+      "HP:0001385",
+      "HP:0003088",
+      "HP:0000938",
+      "HP:0011069",
+      "HP:0008404"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Growth hormone therapy",
+      "Bisphosphonates for severe osteoporosis",
+      "Hip replacement",
+      "Physiotherapy and analgesia for joint pain",
+      "Extraction of supernumerary teeth",
+      "Topical minoxidil"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Trichorhinophalangeal_Syndrome_Type_I.yaml",
+    "page_url": "../pages/disorders/Trichorhinophalangeal_Syndrome_Type_I.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 6,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Trichothiodystrophy",
     "disease_id": "MONDO:0018053",
     "category": "Mendelian",
@@ -363860,17 +364060,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3372,
-  "total_subtypes": 4707,
-  "total_disorders_and_subtypes": 8079,
-  "total_unique_evidence_sources": 50772,
-  "total_unique_publications": 47303,
+  "total_disorder_pages": 3374,
+  "total_subtypes": 4711,
+  "total_disorders_and_subtypes": 8085,
+  "total_unique_evidence_sources": 50801,
+  "total_unique_publications": 47332,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 297,
-  "total_pathographs": 3368,
-  "total_unique_pathological_events": 22254,
+  "total_pathographs": 3370,
+  "total_unique_pathological_events": 22267,
   "total_modules": 192,
-  "total_research_reports": 3489,
+  "total_research_reports": 3491,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
