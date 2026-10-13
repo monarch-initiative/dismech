@@ -17,11 +17,18 @@ from dismech.structured_sources.orphanet import OrphanetSource
 REPO_ROOT = Path(__file__).parent.parent
 ORPHADATA_DIR = REPO_ROOT / "data" / "orphadata"
 MANIFEST = ORPHADATA_DIR / "MANIFEST.yaml"
-PRODUCT1 = ORPHADATA_DIR / "en_product1.xml"
+PRODUCTS = (
+    "en_product1.xml",
+    "en_product4.xml",
+    "en_product6.xml",
+    "en_product9_prev.xml",
+    "en_product9_ages.xml",
+)
 
 
 def _orphadata_available() -> bool:
-    return PRODUCT1.exists() and MANIFEST.exists()
+    # All five, not just product1: the source refuses a partial set (#13941).
+    return MANIFEST.exists() and all((ORPHADATA_DIR / n).exists() for n in PRODUCTS)
 
 
 pytestmark = pytest.mark.skipif(

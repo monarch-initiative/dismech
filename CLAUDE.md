@@ -4700,6 +4700,16 @@ routes to this rebuild, as it does for `CGDS:`, `ORPHA:`, `ICEES:` and `NCIT:`
 ids, so the AGENTS.md instruction to regenerate any cache file with
 `fetch-reference` holds for structured prefixes too.
 
+**An Orphanet record needs all five Orphadata products** (#13941). The rebuild
+refuses to run with any of them missing and names `just refresh-orphadata`,
+because a record built without, say, `en_product4.xml` simply has no
+`## Phenotypes` block and nothing says it was dropped. `just fetch-reference
+ORPHA:…` downloads the set when a file is absent. A drifted pin still fails the
+refresh, but every file is downloaded before it fails, so the rebuild runs; its
+`Source` line then carries the release date from `en_product1.xml`, not the
+manifest's `snapshot_date`, and a warning says so. While the files match the
+pin the stamp is the manifest date, as before.
+
 `data/orphadata/*.xml` is gitignored; `data/orphadata/MANIFEST.yaml` is
 committed and pins the snapshot date + sha256 of each bulk file. To verify
 no drift has occurred, run `just structured-rebuild-orphanet` locally and
