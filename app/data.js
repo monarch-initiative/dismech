@@ -33741,6 +33741,124 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Autoimmune Disease, Multisystem, Infantile-Onset, 2",
+    "disease_id": "MONDO:0014861",
+    "category": "Mendelian",
+    "parents": [
+      "Primary Immunodeficiency",
+      "Autoimmune Disease"
+    ],
+    "creation_date": "2026-10-13T09:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An early-onset, antibody-dominated multisystem autoimmune disease caused by compound heterozygosity in trans for two functionally opposite ZAP70 missense alleles. One allele (p.R192W, in the C-terminal SH2 domain) docks poorly onto the phosphorylated T-cell receptor zeta chain and is hypomorphic. The other (p.R360P, in the kinase N-lobe) weakens the autoinhibited conformation of the kinase, leaving it partially constitutively active. A wild-type allele masks the activating one, so single-allele carriers are healthy; paired with the hypomorph the activating allele sets the signalling threshold, and in a mouse knocked in for the activating allele, T cells respond to weak agonist and self ligands that wild-type T cells ignore. No patient T cell was ever studied, so that last step is an inference from the mouse rather than a measurement in these children.\nThe clinical picture is the inverse of ZAP70 deficiency. In the only reported family, two siblings of unrelated healthy parents had no infectious susceptibility and only minor lymphocyte abnormalities, yet developed severe autoimmunity within the first year of life: generalized bullous pemphigoid, inflammatory colitis, proteinuria that in one child progressed to nephrotic syndrome with minimal-change histology, and an acquired factor VIII inhibitor with bleeding. The disease resisted corticosteroids and other immunosuppression; allogeneic haematopoietic cell transplantation resolved it in both children.",
+    "pathophysiology": [
+      "Hypomorphic ZAP70 SH2 Docking Allele",
+      "Activating ZAP70 Autoinhibition-Weakening Allele",
+      "Unopposed Hyperactive ZAP70 Signalling",
+      "Loss of Peripheral T Cell Tolerance to Self Antigens",
+      "T Follicular Helper Cell Expansion",
+      "Autoantibody Production Against Tissue and Plasma Protein Antigens"
+    ],
+    "cell_types": [
+      "T cell",
+      "T follicular helper cell",
+      "plasma cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0002038",
+      "CL:0000786"
+    ],
+    "biological_processes": [
+      "T cell receptor signaling pathway",
+      "peripheral tolerance induction",
+      "T follicular helper cell differentiation",
+      "autoantibody secretion",
+      "B cell tolerance induction"
+    ],
+    "phenotypes": [
+      "Bullous pemphigoid",
+      "Oral mucosal blisters",
+      "Colitis",
+      "Nephrotic syndrome",
+      "Minimal change glomerulonephritis",
+      "Proteinuria",
+      "Anti-factor VIII antibody positivity",
+      "Joint hemorrhage",
+      "Bruising susceptibility",
+      "Failure to thrive in infancy",
+      "Hypothyroidism",
+      "Decreased total CD8+ T cell count",
+      "Increased CD4:CD8 ratio",
+      "Decreased circulating IgG concentration",
+      "Podocyte foot process effacement",
+      "Impaired phytohemagglutinin-induced T lymphocyte transformation",
+      "Decreased circulating specific pneumococcal antibody concentration",
+      "Decreased circulating IgM concentration",
+      "Increased circulating IgE concentration",
+      "Linear IgG deposits along the epidermal basement membrane zone"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0033804",
+      "HP:0200097",
+      "HP:0002583",
+      "HP:0000100",
+      "HP:0012579",
+      "HP:0000093",
+      "HP:6000494",
+      "HP:0005261",
+      "HP:0000978",
+      "HP:0001531",
+      "HP:0000821",
+      "HP:5210426",
+      "HP:0033221",
+      "HP:0004315",
+      "HP:0031266",
+      "HP:0025834",
+      "HP:0012476",
+      "HP:0002850",
+      "HP:0003212",
+      "HP:0031540"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ZAP70 (hypomorphic plus activating alleles in trans)"
+    ],
+    "treatments": [
+      "Allogeneic Hematopoietic Cell Transplantation",
+      "Corticosteroid and Immunosuppressive Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autoimmune_Disease_Multisystem_Infantile-onset_2.yaml",
+    "page_url": "../pages/disorders/Autoimmune_Disease,_Multisystem,_Infantile-Onset,_2.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Autoimmune Encephalitis",
     "disease_id": "MONDO:0020640",
     "category": "Autoimmune",
@@ -364060,17 +364178,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3374,
+  "total_disorder_pages": 3375,
   "total_subtypes": 4711,
-  "total_disorders_and_subtypes": 8085,
-  "total_unique_evidence_sources": 50801,
-  "total_unique_publications": 47332,
+  "total_disorders_and_subtypes": 8086,
+  "total_unique_evidence_sources": 50806,
+  "total_unique_publications": 47337,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 297,
-  "total_pathographs": 3370,
-  "total_unique_pathological_events": 22267,
+  "total_pathographs": 3371,
+  "total_unique_pathological_events": 22273,
   "total_modules": 192,
-  "total_research_reports": 3491,
+  "total_research_reports": 3492,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
