@@ -363863,7 +363863,7 @@ window.searchMetrics = {
   "total_disorder_pages": 3372,
   "total_subtypes": 4707,
   "total_disorders_and_subtypes": 8079,
-  "total_unique_evidence_sources": 50761,
+  "total_unique_evidence_sources": 50757,
   "total_unique_publications": 47288,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 297,
