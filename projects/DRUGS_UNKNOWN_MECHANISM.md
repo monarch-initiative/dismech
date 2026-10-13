@@ -1,6 +1,6 @@
 ---
 title: Drugs With Unknown or Contested Mechanisms of Action
-status: PLANNED
+status: IN_PROGRESS
 description: >-
   Audit of KB treatments that use a drug whose therapeutic mechanism is unknown
   or disputed, to check that their target_mechanisms edges do not state a
@@ -197,6 +197,24 @@ Rules for writing them:
   `CONTROVERSY` discussion or `mechanistic_hypotheses` groups may fit better
   than `KNOWLEDGE_GAP`. Use `KNOWLEDGE_GAP` when the honest answer is that
   nobody has tested it.
+
+### Progress
+
+Done (one `KNOWLEDGE_GAP` each, attached to the treatment and its targets):
+`deregulated_nutrient_sensing`, `disabled_macroautophagy`, `gut_dysbiosis`,
+`inflammaging`, `mitochondrial_dysfunction` (metformin) and `Bipolar_Disorder`
+(lithium, `gap_bipolar_lithium_therapeutic_mechanism`).
+
+**Not done, on purpose: `stem_cell_exhaustion`.** The study behind that
+metformin edge (`PMID:33524231`) tested the mechanism: siRNA knockdown of AMPKα
+abolished metformin's effect on NF-κB activation and the senescence-associated
+secretory phenotype in cultured CKD mesenchymal stem cells. The mechanism in
+that system is therefore supported, and an "unknown mechanism" gap would be
+false. What remains open is whether ex vivo preconditioning says anything about
+systemic metformin and resident stem cells in aging tissue. That is a
+translational question, not this project's.
+
+Remaining: the other group 3 records above.
 
 A schema change, such as a treatment-level "mechanism unknown" flag, would
 duplicate this and is not proposed.
