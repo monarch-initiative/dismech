@@ -6,6 +6,23 @@ Written 2026-10-13 against dismech `main` at commit `3eb0796817`, from the GitHu
 
 This report is aware of issue [#13602, NAMs inventory - what fits and what's fringe](https://github.com/monarch-initiative/dismech/issues/13602), which sorts non-animal models by what ties the model to the disease. This report was not created to align with that analysis approach: it is organised by topic and by issue-PR pair, and it does not classify models by tie.
 
+## Contents
+
+- [1. Organ-chips, organoids and iPSC models from the NAMeRS symposium](#1-organ-chips-organoids-and-ipsc-models-from-the-namers-symposium)
+- [2. The NAMO rare-disease model bridge](#2-the-namo-rare-disease-model-bridge)
+- [3. Liver fibrosis MPS and the fibrotic_response module](#3-liver-fibrosis-mps-and-the-fibrotic_response-module)
+- [4. The T-cell dependent antibody response (TDAR) assay](#4-the-t-cell-dependent-antibody-response-tdar-assay)
+- [5. ToxCast and Tox21 assay endpoints](#5-toxcast-and-tox21-assay-endpoints)
+- [6. Developmental neurotoxicity batteries and the zebrafish VAMR assay](#6-developmental-neurotoxicity-batteries-and-the-zebrafish-vamr-assay)
+- [7. Caenorhabditis elegans models for Major Depressive Disorder](#7-caenorhabditis-elegans-models-for-major-depressive-disorder)
+- [8. NAM scope, the lithium models, and the valproate and lithium report](#8-nam-scope-the-lithium-models-and-the-valproate-and-lithium-report)
+- [9. Model organism, gene namespace and perturbation schema](#9-model-organism-gene-namespace-and-perturbation-schema)
+- [10. Model fidelity and readout grading](#10-model-fidelity-and-readout-grading)
+- [Methods actually landed in kb/](#methods-actually-landed-in-kb)
+- [Tooling](#tooling)
+- [Methods not incorporated into kb/](#methods-not-incorporated-into-kb)
+- [Blockers that recur across the inventory](#blockers-that-recur-across-the-inventory)
+
 ---
 
 ## 1. Organ-chips, organoids and iPSC models from the NAMeRS symposium
@@ -38,7 +55,7 @@ Thirteen non-animal models were curated for the NAMO bridge, but seven in [Starg
 
 The parking lot for diseases with strong organoid and MPS literature but no entry. gingin77 reported all seven now have entries and reframed it as a NAM-linkage checklist. [#12582](https://github.com/monarch-initiative/dismech/pull/12582) linked models for six: [BBSome retinitis pigmentosa](https://dismech.monarchinitiative.org/pages/disorders/BBSome-related_retinitis_pigmentosa.html) animal models, [Wilson disease](https://dismech.monarchinitiative.org/pages/disorders/Wilson_Disease.html) iPSC hepatocytes and prime-edited liver organoids, [LCA10](https://dismech.monarchinitiative.org/pages/disorders/Leber_Congenital_Amaurosis_10.html) optic cups and QR-110-treated retinal organoids, [TSC](https://dismech.monarchinitiative.org/pages/disorders/Tuberous_Sclerosis_Complex.html) cortical spheroids and cerebral organoids with a FAILS_TO_RECAPITULATE link, a [BRAF V600E colorectal](https://dismech.monarchinitiative.org/pages/disorders/BRAF_V600E-Mutant_Colorectal_Cancer.html) PDO biobank, and an [MSI-H](https://dismech.monarchinitiative.org/pages/disorders/MSI-High_Colorectal_Cancer.html) organoid-lymphocyte co-culture. Blockers: the reviewer caught a mislabelled TSC limitation, opposite second-hit claims, an overstated LCA10 link; Wilson organoid fidelity stays UNKNOWN; Usher waits on [#10822](https://github.com/monarch-initiative/dismech/issues/10822).
 
-## 3. Liver fibrosis MPS and the [`fibrotic_response`](https://dismech.monarchinitiative.org/pages/modules/fibrotic_response.html) module
+## 3. Liver fibrosis MPS and the fibrotic_response module
 
 ### First liver fibrosis NAM on [`Liver_Cirrhosis`](https://dismech.monarchinitiative.org/pages/disorders/Liver_Cirrhosis.html) and the [DILI module](https://dismech.monarchinitiative.org/pages/modules/drug_induced_liver_injury.html) (PR [#9935](https://github.com/monarch-initiative/dismech/pull/9935), merged)
 
