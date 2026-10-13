@@ -77148,6 +77148,73 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Cataract 33",
+    "disease_id": "MONDO:0012665",
+    "category": "Mendelian",
+    "parents": [
+      "Early-onset non-syndromic cataract"
+    ],
+    "creation_date": "2026-10-13T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Non-syndromic early-onset cataract caused by pathogenic variants in BFSP1, which encodes filensin, one of the two lens-specific intermediate filament proteins that co-assemble with BFSP2 (CP49) into the beaded filament of lens fiber cells. Both biallelic (autosomal recessive) and heterozygous (autosomal dominant) families are reported. Recessive families carry frameshifting exon deletions or compound heterozygous alleles and present with juvenile or developmental cataract, in one family with microcornea; dominant families carry missense, splice-site or frameshift alleles and present with congenital nuclear, total, lamellar punctate or posterior sutural pulverulent cataract. Mouse filensin knockouts show that the beaded filament is dispensable for initial fiber cell differentiation but required to maintain fiber cell architecture and optical clarity with age.",
+    "pathophysiology": [
+      "BFSP1 Loss of Function",
+      "Beaded Filament Assembly Failure",
+      "Loss of Fiber Cell Architecture and Long-Range Order",
+      "Lens Light Scattering and Loss of Transparency"
+    ],
+    "cell_types": [
+      "lens fiber cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011004"
+    ],
+    "biological_processes": [
+      "intermediate filament organization",
+      "maintenance of lens transparency"
+    ],
+    "phenotypes": [
+      "Developmental cataract",
+      "Juvenile cataract",
+      "Nuclear cataract",
+      "Lamellar cataract",
+      "Sutural pulverulent cataract",
+      "Microcornea"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000519",
+      "HP:0001118",
+      "HP:0100018",
+      "HP:0007971",
+      "HP:0010695",
+      "HP:0000482"
+    ],
+    "frequencies": [],
+    "genes": [
+      "BFSP1"
+    ],
+    "treatments": [
+      "Cataract Surgery"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cataract_33.yaml",
+    "page_url": "../pages/disorders/Cataract_33.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Catatonia",
     "disease_id": "MONDO:0800105",
     "category": "Psychiatric",
@@ -108143,6 +108210,131 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "13",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Cutis Laxa Autosomal Recessive Type 1A",
+    "disease_id": "MONDO:0009052",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "autosomal recessive cutis laxa type 1"
+    ],
+    "creation_date": "2026-10-13T10:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive cutis laxa type 1A (ARCL1A) is an extremely rare congenital elastic fiber disorder caused by biallelic loss-of-function variants in FBLN5, which encodes the elastin- and integrin-binding matrix protein fibulin-5. Recessive missense alleles misfold, are retained in the endoplasmic reticulum and secreted poorly, and bind tropoelastin and fibrillin-1 microfibrils weakly, so elastin globules fail to fuse into continuous elastic fibers. Generalized loose, redundant skin is present from birth, and the life-limiting manifestation is early childhood-onset pulmonary emphysema; peripheral pulmonary artery stenosis, occasional supravalvular aortic stenosis, valvular regurgitation, inguinal hernias and hollow viscus (bladder, intestinal) diverticula reflect generalized connective tissue involvement. Cardiorespiratory failure from emphysema is the most common cause of death. Fbln5-null mice reproduce loose skin, emphysema and arterial elastinopathy. Management is supportive and organ-directed.",
+    "pathophysiology": [
+      "Biallelic FBLN5 Loss-of-Function Variants",
+      "Fibulin-5 Misfolding and Reduced Secretion",
+      "Endoplasmic Reticulum Stress in Fibroblasts",
+      "Increased Fibroblast Apoptosis",
+      "Loss of Functional Fibulin-5 from the Extracellular Matrix",
+      "Defective Elastic Fiber Assembly",
+      "Dermal Elastic Fiber Disorganization",
+      "Pulmonary Elastic Fiber Deficiency",
+      "Arterial Elastic Fiber Deficiency",
+      "Generalized Connective Tissue Weakness of Hollow Viscera and Abdominal Wall"
+    ],
+    "cell_types": [
+      "dermal fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0002551"
+    ],
+    "biological_processes": [
+      "protein secretion",
+      "response to endoplasmic reticulum stress",
+      "fibroblast apoptotic process",
+      "elastic fiber assembly"
+    ],
+    "phenotypes": [
+      "Cutis laxa",
+      "Premature sagging cheeks",
+      "Emphysema",
+      "Respiratory insufficiency",
+      "Recurrent respiratory infections",
+      "Peripheral pulmonary artery stenosis",
+      "Supravalvular aortic stenosis",
+      "Aortic regurgitation",
+      "Mitral valve prolapse",
+      "Tricuspid valve prolapse",
+      "Tricuspid regurgitation",
+      "Inguinal hernia",
+      "Bladder diverticulum",
+      "Recurrent urinary tract infections",
+      "Bowel diverticulosis",
+      "Pyloric stenosis",
+      "Hypotonia",
+      "Conjunctivochalasis",
+      "Nasolacrimal duct obstruction"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Craniofacial",
+      "Respiratory",
+      "Cardiovascular",
+      "Abdominal",
+      "Genitourinary",
+      "Gastrointestinal",
+      "Neurological",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000973",
+      "HP:0034273",
+      "HP:0002097",
+      "HP:0002093",
+      "HP:0002205",
+      "HP:0004969",
+      "HP:0004381",
+      "HP:0001659",
+      "HP:0001634",
+      "HP:0001704",
+      "HP:0005180",
+      "HP:0000023",
+      "HP:0000015",
+      "HP:0000010",
+      "HP:0005222",
+      "HP:0002021",
+      "HP:0001252",
+      "HP:6001233",
+      "HP:0000579"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FBLN5"
+    ],
+    "treatments": [
+      "Symptomatic Treatment of Pulmonary Emphysema",
+      "Smoking Avoidance",
+      "Immunization Against Respiratory Viruses",
+      "Antibiotic Treatment of Urinary Tract Infections",
+      "Antibiotic Prophylaxis for Vesicoureteral Reflux",
+      "Inguinal Hernia Repair",
+      "Plastic Surgery of the Face and Trunk",
+      "Avoidance of Isometric Exercise and Contact Sports",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cutis_Laxa_Autosomal_Recessive_Type_1A.yaml",
+    "page_url": "../pages/disorders/Cutis_Laxa_Autosomal_Recessive_Type_1A.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 9,
+    "causal_graph_edges": "43",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Cutis Laxa Autosomal Recessive Type 2E",
@@ -167015,6 +167207,9 @@ window.searchData = [
       "Immune Evasion and Immunosuppressive Microenvironment",
       "Aerobic Glycolysis and Metabolic Reprogramming",
       "MMP9 Upregulation",
+      "TAGLN2-Mediated CSNK1E Stabilization",
+      "YAP Nuclear Translocation",
+      "TAGLN2-Driven Epithelial-Mesenchymal Transition",
       "Portal Vein Invasion and Tumor Thrombus"
     ],
     "cell_types": [
@@ -167040,6 +167235,9 @@ window.searchData = [
       "angiogenesis",
       "Negative Regulation of T Cell Mediated Immunity",
       "Glycolytic Process",
+      "CSNK1E protein stabilization",
+      "YAP protein import into nucleus",
+      "epithelial to mesenchymal transition",
       "cell migration",
       "positive regulation of cell migration"
     ],
@@ -167108,10 +167306,10 @@ window.searchData = [
     "source_file": "Hepatocellular_Carcinoma.yaml",
     "page_url": "../pages/disorders/Hepatocellular_Carcinoma.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 17,
+    "num_pathophysiology": 20,
     "num_genes": 5,
     "num_treatments": 8,
-    "causal_graph_edges": "27",
+    "causal_graph_edges": "30",
     "causal_graph_longest_path": "5"
   },
   {
@@ -207607,6 +207805,150 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "LAMB2-Related Infantile-Onset Nephrotic Syndrome",
+    "disease_id": "MONDO:0013621",
+    "category": "Mendelian",
+    "parents": [
+      "Familial Nephrotic Syndrome"
+    ],
+    "creation_date": "2026-10-13T10:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Pierson syndrome",
+      "Isolated LAMB2 nephropathy"
+    ],
+    "description": "LAMB2-related infantile-onset nephrotic syndrome is the autosomal recessive spectrum of kidney disease caused by biallelic pathogenic variants in LAMB2, which encodes laminin beta2, the beta chain of laminin-521 (alpha5 beta2 gamma1), the major laminin of the mature glomerular basement membrane (GBM), also present in the synaptic basal lamina of the neuromuscular junction, the intraocular muscles, the lens capsule and the retina. Its classic and most common presentation is Pierson syndrome (microcoria-congenital nephrosis syndrome): congenital nephrotic syndrome with diffuse mesangial sclerosis that progresses to kidney failure within the first year, fixed narrow pupils from hypoplastic ciliary and pupillary muscles, further ocular maldevelopment with a high risk of retinal detachment, and in many children hypotonia and psychomotor delay. Biallelic truncating variants act as null alleles and give the earliest onset and kidney failure, while missense and small in-frame variants, clustered in the laminin N-terminal (LN) domain, are associated with later onset of kidney disease, absence of neurologic abnormalities and absent or minor ocular changes, down to isolated nephrotic syndrome or asymptomatic proteinuria and hematuria. In the GBM, loss of laminin beta2 leaves a structurally intact but disorganized membrane in which laminin beta1 persists; in the null mouse albuminuria precedes podocyte foot process effacement, identifying the GBM itself as an albumin barrier. Some missense alleles also impair laminin-521 secretion and cause podocyte endoplasmic reticulum stress. A synaptic congenital myasthenic syndrome has been described in a long-term survivor with biallelic truncating variants. There is no specific therapy; renin-angiotensin system inhibition can reduce proteinuria in milder cases and kidney transplantation is the long-term renal treatment, without reported recurrence of nephrotic syndrome in the graft.",
+    "pathophysiology": [
+      "Biallelic LAMB2 Pathogenic Variants",
+      "Impaired Laminin-521 Secretion and Podocyte ER Stress",
+      "Loss of Laminin-521 from Basement Membranes",
+      "Disorganized Glomerular Basement Membrane",
+      "Glomerular Filtration Barrier Breakdown",
+      "Secondary Podocyte Foot Process Effacement",
+      "Progressive Glomerulosclerosis",
+      "Hypoplasia of Ciliary and Pupillary Muscles",
+      "Ocular Maldevelopment of Lens, Cornea and Retina",
+      "Neuromuscular Junction Maldevelopment",
+      "Reduced Quantal Acetylcholine Release",
+      "Neurodevelopmental Impairment"
+    ],
+    "cell_types": [
+      "podocyte",
+      "glomerular mesangial cell",
+      "smooth muscle cell of sphincter of pupil",
+      "ciliary muscle cell",
+      "motor neuron",
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0000653",
+      "CL:1000742",
+      "CL:0002243",
+      "CL:1000443",
+      "CL:0000100",
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "protein secretion",
+      "response to endoplasmic reticulum stress",
+      "glomerular basement membrane development",
+      "glomerular filtration",
+      "neuromuscular junction development",
+      "neuromuscular synaptic transmission"
+    ],
+    "phenotypes": [
+      "Congenital nephrotic syndrome",
+      "Nephrotic range proteinuria",
+      "Steroid-resistant nephrotic syndrome",
+      "Hematuria",
+      "Podocyte foot process effacement",
+      "Diffuse mesangial sclerosis",
+      "Focal segmental glomerulosclerosis",
+      "Stage 5 chronic kidney disease",
+      "Microcoria",
+      "Hypoplasia of the ciliary body",
+      "Posterior lenticonus",
+      "Megalocornea",
+      "Cataract",
+      "High myopia",
+      "Retinal detachment",
+      "Glaucoma",
+      "Nystagmus",
+      "Blindness",
+      "Hypotonia",
+      "Abnormal synaptic transmission at the neuromuscular junction",
+      "EMG: decremental response of compound muscle action potential to repetitive nerve stimulation",
+      "Proximal muscle weakness",
+      "Ptosis",
+      "Global developmental delay",
+      "Secondary microcephaly"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Ocular",
+      "Neuromuscular",
+      "Neurodevelopmental"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0008677",
+      "HP:0012593",
+      "HP:0012588",
+      "HP:0000790",
+      "HP:0031266",
+      "HP:0001967",
+      "HP:0000097",
+      "HP:0003774",
+      "HP:0025492",
+      "HP:0007774",
+      "HP:0011502",
+      "HP:0000485",
+      "HP:0000518",
+      "HP:0011003",
+      "HP:0000541",
+      "HP:0000501",
+      "HP:0000639",
+      "HP:0000618",
+      "HP:0001252",
+      "HP:0003398",
+      "HP:0003403",
+      "HP:0003701",
+      "HP:0001488",
+      "HP:0001263",
+      "HP:0005484"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "LAMB2"
+    ],
+    "treatments": [
+      "Kidney transplantation",
+      "Renin-angiotensin system inhibition",
+      "Nephrectomy",
+      "Ephedrine",
+      "Acetylcholinesterase inhibitor therapy (harmful)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "LAMB2-Related_Infantile-Onset_Nephrotic_Syndrome.yaml",
+    "page_url": "../pages/disorders/LAMB2-Related_Infantile-Onset_Nephrotic_Syndrome.html",
+    "num_phenotypes": 25,
+    "num_pathophysiology": 12,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "51",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "LAT Deficiency",
     "disease_id": "MONDO:0044721",
     "category": "Mendelian",
@@ -213721,7 +214063,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 5,
     "num_treatments": 3,
-    "causal_graph_edges": "26",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "6"
   },
   {
@@ -250635,6 +250977,167 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Neurodevelopmental Disorder With Microcephaly, Arthrogryposis, And Structural Brain Anomalies",
+    "disease_id": "MONDO:0032838",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian neurodevelopmental disorder",
+      "Complex primary microcephaly",
+      "Sphingolipid metabolism disorder"
+    ],
+    "creation_date": "2026-10-13T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Neurodevelopmental disorder with microcephaly, arthrogryposis, and structural brain anomalies (NEDMABA; OMIM 618622) is an ultra-rare autosomal recessive disorder caused by biallelic loss-of-function variants in SMPD4, which encodes neutral sphingomyelinase-3 (nSMase-3), a membrane enzyme of the endoplasmic reticulum and outer nuclear envelope that hydrolyses sphingomyelin to ceramide and associates with nuclear pore complexes. Affected fetuses often show intrauterine growth restriction, and children are born with microcephaly and congenital arthrogryposis; neuroimaging shows a simplified gyral pattern, a thin corpus callosum, hypomyelination or delayed myelination, and in about half and a fifth of assessed individuals cerebellar and brainstem hypoplasia respectively. The microcephaly is usually progressive, and most children have severe global developmental delay, hypertonia (63%), and about half have seizures (56%). Neonatal respiratory distress affects about three-quarters, facial dysmorphism is universal among those assessed, and 44% have a congenital heart defect. Many die in infancy, chiefly from central hypoventilation and respiratory infections. Children who survive beyond infancy commonly develop autoantibody-negative insulin-dependent diabetes, and cardiomyopathy, retinal dystrophy and hearing loss have been reported in long survivors. Cellular studies show that SMPD4 loss prolongs mitosis, disturbs nuclear envelope breakdown and reassembly and post-mitotic nuclear pore insertion, induces endoplasmic reticulum abnormalities with increased autophagy, shortens primary cilia in a ceramide-rescuable manner, and increases susceptibility to apoptosis, depleting cortical progenitors. No disease-modifying therapy exists.",
+    "pathophysiology": [
+      "Biallelic SMPD4 Loss of Function",
+      "Deficient Neutral Sphingomyelinase-3 Activity at the ER and Nuclear Envelope",
+      "Impaired Mitotic Nuclear Envelope Remodelling and Nuclear Pore Insertion",
+      "Endoplasmic Reticulum Stress and Increased Autophagy",
+      "Shortened Primary Cilia",
+      "Increased Susceptibility to Apoptosis",
+      "Prolonged Mitosis and Cortical Progenitor Depletion",
+      "Postnatal Purkinje Cell Loss",
+      "Pancreatic Beta-Cell Failure"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "neural progenitor cell",
+      "Purkinje cell",
+      "type B pancreatic cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0011020",
+      "CL:0000121",
+      "CL:0000169"
+    ],
+    "biological_processes": [
+      "mitotic nuclear membrane disassembly",
+      "mitotic nuclear membrane reassembly",
+      "nuclear pore complex assembly",
+      "response to endoplasmic reticulum stress",
+      "autophagy",
+      "cilium assembly",
+      "apoptotic process",
+      "neural precursor cell proliferation",
+      "neuron migration",
+      "establishment of mitotic spindle orientation",
+      "cerebellar Purkinje cell layer development",
+      "insulin secretion"
+    ],
+    "phenotypes": [
+      "Congenital microcephaly",
+      "Congenital arthrogryposis",
+      "Facial dysmorphism",
+      "Simplified gyral pattern",
+      "Thin corpus callosum",
+      "Hypomyelination",
+      "Cerebellar hypoplasia",
+      "Brainstem hypoplasia",
+      "Intrauterine growth restriction",
+      "Premature birth",
+      "Severe global developmental delay",
+      "Seizures",
+      "Hypertonia",
+      "Hypotonia",
+      "Neonatal respiratory distress",
+      "Persistent respiratory distress",
+      "Central hypoventilation",
+      "Insulin-dependent diabetes mellitus",
+      "Cardiomyopathy",
+      "Congenital heart defect",
+      "Retinal dystrophy",
+      "Sensorineural hearing loss"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Musculoskeletal",
+      "Craniofacial",
+      "Growth",
+      "Respiratory",
+      "Endocrine",
+      "Cardiovascular",
+      "Ophthalmologic",
+      "Hearing"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000252",
+      "HP:0002804",
+      "HP:0001999",
+      "HP:0009879",
+      "HP:0033725",
+      "HP:0003429",
+      "HP:0001321",
+      "HP:0002365",
+      "HP:0001511",
+      "HP:0001622",
+      "HP:0001263",
+      "HP:0001250",
+      "HP:0001276",
+      "HP:0001252",
+      "HP:0002643",
+      "HP:0002098",
+      "HP:0007110",
+      "HP:0000819",
+      "HP:0001638",
+      "HP:0001627",
+      "HP:0000556",
+      "HP:0000407"
+    ],
+    "frequencies": [
+      "19/26",
+      "23/30",
+      "20/20",
+      "17/23",
+      "13/24",
+      "11/23",
+      "11/24",
+      "5/24",
+      "15/24",
+      "10/22",
+      "15/15",
+      "14/25",
+      "12/19",
+      "5/19",
+      "16/22",
+      "12/25",
+      "7/26",
+      "11/25",
+      "3/17"
+    ],
+    "genes": [
+      "SMPD4"
+    ],
+    "treatments": [
+      "Insulin therapy",
+      "Supportive care and multisystem monitoring"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Microcephaly_Arthrogryposis_And_Structural_Brain_Anomalies.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Microcephaly,_Arthrogryposis,_And_Structural_Brain_Anomalies.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Neurodevelopmental Disorder With or Without Autism or Seizures",
     "disease_id": "MONDO:0030994",
     "category": "Mendelian",
@@ -266727,6 +267230,135 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "15",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "PAMI Syndrome",
+    "disease_id": "MONDO:0011174",
+    "category": "Mendelian",
+    "parents": [
+      "Autoinflammatory Disease",
+      "Inherited Disorder",
+      "Disorder of Zinc Metabolism"
+    ],
+    "creation_date": "2026-10-13T10:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "PSTPIP1-associated myeloid-related proteinemia inflammatory (PAMI) syndrome, originally described as hyperzincemia with functional zinc depletion and later as hyperzincemia and hypercalprotectinemia (Hz/Hc), is a rare early-onset autoinflammatory disease caused by heterozygous, usually de novo, PSTPIP1 missense variants that reverse a negative charge in the coiled-coil (y-)domain, p.E250K in most patients and p.E257K in a few. The mutant protein binds pyrin more strongly than the PAPA-associated variant and is accompanied by uncontrolled release of the alarmin calprotectin (MRP8/14, S100A8/S100A9) from phagocytes; circulating calprotectin reaches levels far above those of other autoinflammatory diseases and carries zinc with it, so plasma zinc is markedly raised while unbound zinc and some tissue zinc measures are low. Patients have chronic systemic inflammation with anemia and neutropenia in nearly all cases, frequent thrombocytopenia, hepatosplenomegaly, lymphadenopathy, cutaneous inflammation including pyoderma gangrenosum, arthritis and growth failure. PAMI is allelic to PAPA syndrome (see the PAPA_Syndrome entry, caused by p.A230T and p.E250Q) but is kept as a separate disease because it has distinct causal variants and a distinct phenotype: hyperzincemia, calprotectin levels about 20-fold above PAPA, cytopenias, hepatosplenomegaly and failure to thrive are features not found in PAPA syndrome. No drug therapy is consistently effective and neutropenia persists on treatment; allogeneic hematopoietic stem cell transplantation has resolved the disease in a small series.",
+    "pathophysiology": [
+      "PSTPIP1 Coiled-Coil Charge Reversal",
+      "Loss of PSTPIP1-LYP Phosphatase Binding",
+      "Enhanced PSTPIP1-Pyrin Binding",
+      "Pyrin Inflammasome Activation",
+      "Uncontrolled Calprotectin Release from Phagocytes",
+      "Calprotectin-Bound Zinc Accumulation in Plasma",
+      "Functional Tissue Zinc Depletion",
+      "Alarmin-Driven TLR4 Inflammatory Signaling",
+      "Chronic Systemic Autoinflammation",
+      "Myeloid Bone Marrow Dysplasia",
+      "Anti-Neutrophil Autoantibody Production"
+    ],
+    "cell_types": [
+      "monocyte",
+      "neutrophil",
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000576",
+      "CL:0000775",
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "pyrin inflammasome complex assembly",
+      "calprotectin secretion",
+      "toll-like receptor 4 signaling pathway",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Increased serum zinc",
+      "Elevated circulating calprotectin",
+      "Anemia",
+      "Neutropenia",
+      "Thrombocytopenia",
+      "Erythroid dysplasia",
+      "Splenomegaly",
+      "Hepatomegaly",
+      "Lymphadenopathy",
+      "Cutaneous inflammation",
+      "Pyoderma gangrenosum",
+      "Arthritis",
+      "Failure to thrive",
+      "Fever",
+      "Elevated C-reactive protein",
+      "Recurrent infections",
+      "Colitis"
+    ],
+    "phenotype_categories": [
+      "Metabolism/Homeostasis",
+      "Immunology",
+      "Hematology",
+      "Digestive",
+      "Integument",
+      "Musculoskeletal",
+      "Growth",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0011424",
+      "HP:6000502",
+      "HP:0001903",
+      "HP:0001875",
+      "HP:0001873",
+      "HP:0031688",
+      "HP:0001744",
+      "HP:0002240",
+      "HP:0002716",
+      "HP:0011123",
+      "HP:0025452",
+      "HP:0001369",
+      "HP:0001508",
+      "HP:0001945",
+      "HP:0011227",
+      "HP:0002719",
+      "HP:0002583"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "PSTPIP1"
+    ],
+    "treatments": [
+      "Allogeneic hematopoietic stem cell transplantation",
+      "IL-1 blockade (anakinra, canakinumab)",
+      "TNF inhibition",
+      "Corticosteroids and calcineurin inhibitors"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum calprotectin (MRP8/14)",
+      "Serum interleukin-18"
+    ],
+    "source_file": "PAMI_Syndrome.yaml",
+    "page_url": "../pages/disorders/PAMI_Syndrome.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "41",
+    "causal_graph_longest_path": "11"
   },
   {
     "name": "PAPA Syndrome",
@@ -364268,17 +364900,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3376,
-  "total_subtypes": 4711,
-  "total_disorders_and_subtypes": 8087,
-  "total_unique_evidence_sources": 50860,
-  "total_unique_publications": 47390,
+  "total_disorder_pages": 3381,
+  "total_subtypes": 4713,
+  "total_disorders_and_subtypes": 8094,
+  "total_unique_evidence_sources": 50929,
+  "total_unique_publications": 47459,
   "total_unique_disease_categories": 61,
-  "total_unique_phenotype_categories": 297,
-  "total_pathographs": 3372,
-  "total_unique_pathological_events": 22282,
+  "total_unique_phenotype_categories": 299,
+  "total_pathographs": 3377,
+  "total_unique_pathological_events": 22326,
   "total_modules": 192,
-  "total_research_reports": 3493,
+  "total_research_reports": 3498,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
