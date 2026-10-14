@@ -483,3 +483,88 @@ For each treatment, suggest NCIT (NCI Thesaurus) clinical-intervention terms whe
 Structure your response as a comprehensive narrative organized by the sections above.
 For each section, provide:
 - Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease
+
+This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (NCIT terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details
+
+
+## Output
+
+I'm pulling the cited abstracts from the local reference cache so the quotes in the report are exact. Then I'll write the report.
+
+Next I'm reading the Finnish discovery paper's cached full text to get allele frequencies and the founder-haplotype details.
+
+I have the main facts I need. I'm pulling a few last details (the Finnish allele frequency, the strabismus surgeries and the gene-enrichment results), then I'll write the report.
+
+# Research report: Neurodevelopmental disorder with intention tremor, pyramidal signs, dyspraxia, and ocular anomalies (NEDITPO; MONDO:0859274)
+
+**Sources and method.** This report draws on the reference abstracts and full texts cached in the dismech repository: PMID:35087184, PMID:38806677, PMID:27018474, PMID:35321723, PMID:31792449 and PMID:33242396. It also uses the existing draft entry `kb/disorders/Neurodevelopmental_Disorder_With_Intention_Tremor_Pyramidal_Signs_Dyspraxia_And_Ocular_Anomalies.yaml` and a web search, which confirmed the OMIM and ClinVar identity.
+
+Quotes are copied from the cached text. HPO, CL, UBERON and GO labels were read from the repository's `cache/*/terms.csv`, not written from memory.
+
+Several services could not be used:
+- **PMC:** blocked by a captcha.
+- **PubMed, OLS and bgpt MCP servers:** they need authorization in claude.ai connector settings before they can be used.
+
+**Bottom line.** The evidence base is a single human report: 5 Finnish men from 3 families (PMID:35087184, *Eur J Hum Genet* 2022). Mechanistic support comes from a 2024 zebrafish *smg9* null model (PMID:38806677) and from the more severe allelic disorder caused by loss-of-function variants, heart and brain malformation syndrome (HBMS).
+
+---
+
+## 1. Disease information
+
+**Overview.** NEDITPO is an autosomal recessive syndromic neurodevelopmental disorder caused by homozygosity for the Finnish founder missense variant SMG9 c.551T>C p.(Val184Ala). The defining phenotype is quoted directly from the paper: *"Characteristic clinical findings in patients were mild to moderate ID, intention tremor, pyramidal signs, dyspraxia, and ocular manifestations."* (PMID:35087184)
+
+It is the mild, hypomorphic end of the SMG9 allelic spectrum. Biallelic loss-of-function (LoF) SMG9 variants cause HBMS (MONDO:0014833), which is often lethal.
+
+| Identifier | Value |
+|---|---|
+| MONDO | MONDO:0859274 |
+| OMIM (phenotype) | 619995 (NEDITPO). This is the ClinVar-linked phenotype for rs749498958, per web search |
+| OMIM (gene) | SMG9 *613176 (cited in PMID:35321723) |
+| Gene | SMG9, hgnc:25763, 19q13.31 |
+| Variant | NM_019108.4 c.551T>C p.(Val184Ala); GRCh38 g.19:43747479A>G; rs749498958 |
+| Orphanet / ICD-10 / ICD-11 / MeSH | No disease-specific code found. It would fall under general intellectual-disability codes |
+
+**Synonyms:** NEDITPO; SMG9 p.(Val184Ala)-related neurodevelopmental disorder; mild SMG9-related syndromic intellectual disability.
+
+**Data type:** individual-patient clinical series (case reports), with whole-blood RNA-seq from patients. No registry or EHR-level data exist.
+
+## 2. Etiology
+
+- **Cause:** a single homozygous missense variant in SMG9, a subunit of the SMG1–SMG8–SMG9 (SMG1C) kinase complex used in nonsense-mediated mRNA decay (NMD).
+  > *"Here we report five patients from three unrelated families with intellectual disability (ID) and a novel pathogenic SMG9 c.551 T > C p.(Val184Ala) homozygous missense variant, identified using exome sequencing. Sanger sequencing confirmed recessive segregation in each family."* (PMID:35087184)
+- **Genetic risk factors:** Finnish ancestry (founder effect, §9) and parental consanguinity or autozygosity. The variant is *"most likely an autozygous variant identical by descent."*
+- **Environmental risk factors, protective factors and gene–environment interactions:** none reported. No modifier genes are known.
+
+## 3. Phenotypes
+
+All 5 patients were adult men aged 24–56 years. Frequencies are out of 5 (PMID:35087184).
+
+| Phenotype | Frequency | HPO (label read from the term cache) | Notes / quote |
+|---|---|---|---|
+| Intellectual disability, mild–moderate | 5/5 | HP:0001249 Intellectual disability | *"All patients were male, aged 24–56 years, and had either mild or moderate ID (N = 5/5, 100%)."* |
+| Delayed speech and language | 5/5 | HP:0000750 Delayed speech and language development | First words at 2–3.5 y; intelligible speech by 6–8 y |
+| Oral motor dyspraxia | 5/5 | HP:0007301 Oromotor apraxia | Recorded as "Yes" for all 5 in Table 1 |
+| Intention tremor | 5/5 | HP:0002080 Intention tremor | *"In addition, they had intention tremor and slow diadochokinesis (N = 5/5, 100%)."* |
+| Dysdiadochokinesis | 5/5 | HP:0002075 Dysdiadochokinesis | Same sentence as above |
+| Lower-limb hypertonia / spasticity | 5/5 | HP:0002061 Lower limb spasticity | *"All patients had muscular hypertonia and clonic or very brisk reflexes in their lower limbs."* |
+| Ankle clonus; brisk patellar reflexes | 5/5 | HP:0011448 Ankle clonus; HP:0001347 Hyperreflexia | Brachioradialis reflex also brisk in 2/5 |
+| Frequent falls in childhood | 5/5 | HP:0002359 Frequent falls | — |
+| Childhood ataxia | 4/5 | HP:0001251 Ataxia | *"Four patients were described as ataxic when they were children (N = 4/5, 80%)."* |
+| Strabismus | 4/5 (vertical 3/5) | HP:0000486 Strabismus; HP:0000577 Exotropia | Exotropia or esotropia with hyper- or hypotropia; 3 patients had surgery |
+| Abnormal EEG without epilepsy | 3/5 | HP:0011182 Interictal epileptiform activity | Spike-and-slow-wave complexes; *"none of the patients were diagnosed with epilepsy"* |
+| Childhood hypotonia | 2/5 | HP:0001252 Hypotonia | — |
+| Pes planovalgus | 3/5 | HP:0001763 Pes planus | — |
