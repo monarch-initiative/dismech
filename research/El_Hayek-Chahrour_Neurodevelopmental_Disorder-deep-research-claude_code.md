@@ -581,3 +581,85 @@ PMID:41889174 [full text]: *"In conclusion, both monoallelic and biallelic KDM5A
 **Protective factors, modifiers, gene–environment interactions:** none reported.
 
 **Historical antecedent.** One homozygous *KDM5A* missense family was reported in the Najmabadi et al. 2011 autosomal-recessive intellectual disability screen (*Nature*; PMID:21937992 — verify the PMID).
+
+PMID:33350388 [full text]: *"To date only a single recessive missense variant in KDM5A has been reported to be associated with an undefined developmental disorder (intellectual disability and facial dysmorphisms) in one family (Najmabadi et al."*
+
+---
+
+## 3. Phenotypes
+
+**Counting basis.** Frequencies combine the 2020 cohort (n = 9) and the 2026 cohort (n = 24); the denominator is about 33 individuals. The 2026 cohort figures are counted from the published Table 1, split by monoallelic (n = 11–12 evaluable) and biallelic (n = 13) groups. Counts are approximate where the table reports "UK" (unknown) or "N/A".
+
+| Phenotype | Type / onset | Approx. frequency | Suggested HPO (verify) | Notes |
+|---|---|---|---|---|
+| Absent or severely impaired speech | Sign; infancy/childhood | ~100% impaired; ~70% absent | HP:0001344 Absent speech; HP:0002463 Language impairment / HP:0000750 Delayed speech and language development | The defining feature. All 9 in 2020 lacked speech. |
+| Intellectual disability | Childhood | ~90–100% | HP:0001249 Intellectual disability | Universal in the biallelic group. |
+| Global developmental delay | Infancy | ~90–100% | HP:0001263 | |
+| Autism spectrum disorder | Childhood | Majority (~75–85%) | HP:0000729 Autistic behavior; HP:0000717 Autism | Repetitive behaviour, hand flapping, echolalia |
+| Muscle hypotonia | Infancy | ~50% overall; higher in biallelic (~10/13) | HP:0001252 | |
+| Seizures | Childhood | ~30%; more often biallelic (~7/13) | HP:0001250 | |
+| Feeding difficulties | Infancy | ~50% | HP:0011968 | Includes selective eating |
+| Sleep disturbance | Childhood | ~40% | HP:0002360 | |
+| Joint hypermobility / hyperextensible joints | — | ~40% | HP:0001382 | |
+| Facial dysmorphism | Congenital | ~50% | HP:0001999 | MedGen lists frontal bossing, micrognathia and low-set ears |
+| Thin / hypoplastic corpus callosum | Congenital | ~5 biallelic individuals | HP:0002079 Hypoplasia of the corpus callosum | |
+| Ventriculomegaly (mild) | — | Several | HP:0002119 | |
+| Cerebral atrophy / reduced white matter / periventricular leukomalacia | — | Several biallelic | HP:0002059; HP:0006970 | |
+| Dandy-Walker spectrum with hydrocephalus | Congenital | 1 | HP:0001305 | Monoallelic |
+| Congenital heart defects (ASD, VSD, complex CHD, coarctation, pulmonary stenosis) | Congenital | ~6–8 individuals | HP:0001631 ASD; HP:0001629 VSD; HP:0001627 | |
+| Inability to walk / motor impairment | Childhood | ~3 biallelic | HP:0002540 Inability to walk; HP:0001270 Motor delay | |
+| ADHD / hyperactivity / attention deficit | Childhood | Several | HP:0007018; HP:0000752 | |
+| Self-injurious behaviour, aggression, anxiety, mood disorders | Childhood/adult | Several | HP:0100716; HP:0000718; HP:0000739 | |
+| Constipation | — | Several | HP:0002019 | |
+| Visual issues (cortical visual impairment, hyperopia) and hearing loss | — | Few | HP:0100704; HP:0000365 | |
+| Recurrent upper respiratory infections | — | Few | HP:0002788 | |
+| Microcephaly / macrocephaly | Congenital | Few, discordant | HP:0000252 / HP:0000256 | One case of progressive fetal macrocephaly; MedGen lists microcephaly |
+| Toe syndactyly, clinodactyly, hallux valgus | Congenital | Few | HP:0001770; HP:0030084; HP:0001822 | |
+
+**Supporting quotes (PMID:41889174 [full text])**
+- *"Additional phenotypes included autistic features, developmental delay, intellectual disability, muscle hypotonia, seizures, and cardiac abnormalities"*
+- *"Additional shared phenotypes included developmental delay (five individuals), feeding difficulties (five individuals), intellectual disability (four individuals), and sleep disturbances (four individuals)."*
+- *"The condition is often accompanied by comorbidities, including intellectual disability, developmental delay, motor impairments, and seizures."*
+
+**Genotype–phenotype trend (observed in this report, not stated by the authors).** Biallelic individuals in Table 1 appear to have more seizures, hypotonia, structural brain MRI abnormalities and non-ambulation. The authors do not formally state this, so record it as an observation rather than a curated claim.
+
+**Severity, course and quality of life**
+- Severity: moderate to severe.
+- Course: static neurodevelopmental. No regression is reported.
+- Burden: lifelong dependence driven mainly by absent speech and intellectual disability.
+- No QoL instrument data exist.
+
+---
+
+## 4. Genetic and molecular information
+
+**Gene.** *KDM5A* (JARID1A, RBP2). Transcript NM_001042603. Protein of 1,690 aa.
+
+**Domain map** (PMID:41889174 [full text]):
+
+| Domain | Residues |
+|---|---|
+| JmjN | 18–59 |
+| ARID | 85–170 |
+| PHD1 | 295–343 |
+| JmjC | 470–586 |
+| Zn | 676–728 |
+| PLU1 | 741–1,072 |
+| PHD2 | 1,163–1,215 |
+| PHD3 | 1,608–1,659 |
+
+- The catalytic core is JmjN plus JmjC (Fe(II)/2-oxoglutarate dependent).
+- PHD1 binds unmodified H3K4 and stimulates catalytic activity.
+- PHD3 binds H3K4me2/3.
+
+**Variant spectrum**
+- Across both cohorts there are **31 unique, all private variants** in 33 individuals from 28 families: missense, nonsense, frameshift, splice-site, and multi-exon deletions of 4 and 10 exons.
+- **2020 cohort (PMID:33350388) [full text]:** *"Three individuals carried homozygous deletions removing four exons (in two individuals) or ten exons (in one individual) of KDM5A, three individuals carried homozygous recessive variants (two splice site and one missense), and the remaining three individuals were heterozygous for de novo variants (two missense and one nonsense)"*
+- **2026 cohort (PMID:41889174) [full text]:** *"There were 12 individuals with biallelic variants and 12 individuals with monoallelic variants"*. Of these, 7 were de novo, 13 inherited, and 4 of unknown inheritance.
+- **Location in the protein (2026 cohort):** JmjC 1, JmjN 1, PHD1 1, PHD3 1, PLU1 7, inter-domain 13. PLU1 is a clear cluster.
+- **Recurrence:** PMID:41889174 [full text]: *"Importantly, all 31 unique variants identified to date are private, with no recurrent alleles observed across unrelated individuals."*
+
+**Classification.** PMID:41889174 [abstract]: *"American College of Medical Genetics and Genomics-guided reclassification supported pathogenicity for the majority of variants, including multiple upgrades from uncertain significance to pathogenic or likely pathogenic."*
+
+**Functional consequence**
+- **Loss of function / reduced dosage.** PMID:41889174 [abstract]: *"For a subset of variants, we demonstrated reduced KDM5A protein levels in cell lines derived from affected individuals."*
