@@ -709,3 +709,57 @@ No disease-specific therapy exists, and there are no trials.
   > "She was treated with a single course of intravenous methylprednisolone pulse therapy (1 g/day for 3 days), which resulted in an immediate improvement in her symptoms." (PMID:35990002, verified)
 - **Supportive care:** antiseizure medication for acute seizures, fever control, and treatment of the infection. Suggested NCIT term: NCIT:C15747 Supportive Care.
 - **Gene, cell, or RNA therapies; clinical trials:** none. No NCT or ICTRP records were found.
+
+---
+
+## 13. Prevention
+
+- **Primary prevention:** not applicable beyond genetic counseling. Each child of a carrier has a 50% chance of inheriting the variant, and penetrance is incomplete. Suggested NCIT term: NCIT:C15240 Genetic Counseling.
+- **Secondary and tertiary prevention:** avoid infections and keep vaccinations up to date, including influenza and COVID-19 (expert suggestion, PMID:38155716). Prompt MRI and supportive care during febrile illness in known carriers.
+- **Prenatal or preimplantation testing:** technically possible once the familial variant is known. Its use for a mild, reversible disorder would need careful counseling.
+
+---
+
+## 14. Other Species and Natural Disease
+
+- No naturally occurring MYRF-related reversible myelin vacuolization has been reported in animals. No OMIA entry was found.
+- **Orthologs:** mouse *Myrf* (MGI), zebrafish *myrf*, and *C. elegans* *myrf-1* (which acts in synaptic rewiring). The Ndt80-like DNA-binding domain is conserved down to yeast Ndt80 and *Dictyostelium*.
+- **Comparative note:** some veterinary toxic and inherited spongiform leukoencephalopathies show intramyelinic vacuolization, but none has been linked to *MYRF*.
+
+---
+
+## 15. Model Organisms
+
+| Model | Phenotype | Relevance and limits |
+|---|---|---|
+| *Myrf* oligodendrocyte-specific conditional knockout, developmental (Emery et al. 2009, Cell; PMID:19596243, unverified) | Severe CNS hypomyelination; oligodendrocytes fail to mature | Shows MYRF is needed for myelination. It is a null allele, not a hypomorph, and does not model episodic disease. |
+| Inducible adult *Myrf* deletion in mature oligodendrocytes (Koenning et al. 2012, J Neurosci; PMID:22956843, unverified) | Progressive demyelination; loss of myelin gene expression | Shows MYRF is needed to *maintain* myelin. This is the closest mechanistic support for the model above, but it is progressive and irreversible, not episodic. |
+| Cell lines / HEK293 luciferase assays (PMID:29265453) | Reduced transactivation by Q403R | The only functional test of the variant itself (in vitro). |
+| Heterologous reconstitution in *E. coli* and yeast (PMID:23966832) | Constitutive trimerization-dependent self-cleavage | Mechanism of MYRF activation. |
+| **Gap** | No Q403R knock-in mouse; no fever or infection challenge model; no patient iPSC-derived oligodendrocytes | Whether infection causes reversible vacuolization in a hypomorphic *Myrf* background has not been tested. In the repository's scheme this is a `KNOWLEDGE_GAP` (evidence absent), not a `HUMAN_MODEL_MISMATCH`. |
+
+---
+
+## Key References
+
+| PMID | Citation | Use | Status |
+|---|---|---|---|
+| 29265453 | Kurahashi H et al. *MYRF is associated with encephalopathy with reversible myelin vacuolization.* Ann Neurol 2018;83:98–106 | Gene discovery, phenotype, functional assay | Cached, verified |
+| 35990002 | Saito M et al. *Mild encephalitis with a reversible splenial lesion associated with SARS-CoV-2 infection in a patient with MYRF variant.* Front Pediatr 2022 | Trigger, recurrence, steroids | Cached, verified |
+| 38155716 | Yao S et al. *MYRF-related MMERV: a case report and literature review.* Front Genet 2023 | Chinese family, penetrance, review | Cached, verified |
+| 41190523 | Hu J et al. *Persistent leukoencephalopathy following H1N1 infection associated with a novel MYRF variant (p.Gly735Asp).* Ann Clin Transl Neurol 2026 | Allelic, non-reversible phenotype | Cached, verified |
+| 23966833 | Bujalka H et al. *MYRF is a membrane-associated transcription factor that autoproteolytically cleaves…* PLoS Biol 2013 | Mechanism, ChIP-seq | Cached, verified |
+| 23966832 | Li Z et al. *A bacteriophage tailspike domain promotes self-cleavage of… MYRF.* PLoS Biol 2013 | Trimerization and self-cleavage | Cached, verified |
+| 20042198 | Imamura T et al. *Sisters with clinically mild encephalopathy with a reversible splenial lesion (MERS)-like features; familial MERS?* J Neurol Sci 2010;290:153–156 | First clinical description of Family B | PMID taken from OMIM; not cached |
+| 22956843 | Koenning M et al. J Neurosci 2012 (adult *Myrf* deletion) | Model organism | Unverified |
+| 19596243 | Emery B et al. Cell 2009 (*Myrf* discovery) | Model organism | Unverified |
+
+**Web sources consulted:**
+- [OMIM #618113 (mirror)](https://git.lsit.ucsb.edu/publicdata/nih-gov/raw/commit/16b4b23030b9c25e5a647a69ebd82dc9aecccaad/www.ncbi.nlm.nih.gov/omim/618113)
+- [OMIM *608329 MYRF (mirror)](https://git.lsit.ucsb.edu/publicdata/nih-gov/raw/commit/16b4b23030b9c25e5a647a69ebd82dc9aecccaad/www.ncbi.nlm.nih.gov/omim/608329)
+- [MedGen C4722446](https://ncbi.nlm.nih.gov/medgen/C4722446)
+- [KEGG H02489](https://www.kegg.jp/entry/H02489)
+- [Frontiers in Genetics 2023 (PMID:38155716)](https://www.frontiersin.org/journals/genetics/articles/10.3389/fgene.2023.1284060/pdf)
+- [Saito et al. 2022, PMC9386134](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9386134/)
+- [Imamura et al. 2010 bibliographic record](https://wicri-demo.istex.fr/Wicri/Sante/explor/MersV1/Site/fr/Ncbi/Merge/bibRecord.php?hk=000728)
+- [Recurrent MERS case series, PMC8722321](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8722321/)
