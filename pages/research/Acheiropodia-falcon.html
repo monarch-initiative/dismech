@@ -1,0 +1,1631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acheiropodia · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Acheiropodia</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Acheiropodia</h1>
+                
+                <p class="report-subtitle">Disease Characteristics Research Template</p>
+                
+                
+                <div class="report-date">2026-10-08</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0008700" target="_blank" rel="noopener noreferrer">MONDO:0008700</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">25 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Acheiropodia</li>
+<li><strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0008700" target="_blank" rel="noopener noreferrer">MONDO:0008700</a> (if available)</li>
+<li><strong>Category:</strong> Mendelian</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Acheiropodia</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Present this section as an ordered causal chain first, then the detail below.</strong>
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.</p>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest NCIT (NCI Thesaurus) clinical-intervention terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (NCIT terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h1>Acheiropodia: disease-characteristics research report</h1>
+<p><strong>Scope and evidence standard.</strong> Acheiropodia is an exceptionally rare congenital limb-development disorder. The principal disease-specific evidence consists of a five-family Brazilian genetic study published in 2001 and a 2021 study combining a patient genome, patient-derived cells, and mouse experiments. Consequently, many requested knowledge-base fields cannot be populated with reliable disease-specific measurements. Evidence from other SHH-locus disorders or animal models is identified separately below. The information here is aggregated from publications and a disease–target resource, <strong>not</strong> extracted from a patient's electronic health record. (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, <a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>, OpenTargets Search: Acheiropodia)</p>
+<p>The following evidence summary separates observations from interpretations and identifies the principal quantitative findings.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Validated human observation or numeric detail</th>
+<th>Evidence type and important limitation</th>
+<th>Citation IDs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease identifier</td>
+<td>Acheiropodia; <strong>OMIM/MIM 200500</strong></td>
+<td>Explicitly reported in primary human literature; no unverified Orphanet or HPO identifiers included</td>
+<td>(<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>)</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>Historical incidence estimate in Brazil: <strong>approximately 1 per 250,000 births</strong></td>
+<td>Historical estimate cited in 2001; <strong>not a modern prevalence or incidence measurement</strong>; global rates are unknown</td>
+<td>(<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>)</td>
+</tr>
+<tr>
+<td>Core phenotype</td>
+<td>Congenital, severe, bilateral transverse truncation of all four limbs, with absent hands, feet, and forearms; defects include distal humeral and tibial truncation and absence of the radius, ulna, fibula, and distal hand and foot bones</td>
+<td>Human clinical observations from Brazilian families; published cohorts are extremely small</td>
+<td>(<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, ianakiev2001acheiropodiaiscaused media 964b69bc)</td>
+</tr>
+<tr>
+<td>Phenotypic variation</td>
+<td>Some affected individuals had an implanted residual digit, small finger-like appendages, or an ectopic <strong>Bohomoletz bone</strong> near the distal humerus</td>
+<td>Human case-series evidence; frequencies were not quantified</td>
+<td>(<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>)</td>
+</tr>
+<tr>
+<td>Inheritance</td>
+<td>Autosomal recessive; affected individuals were homozygous, whereas heterozygous parents were clinically unaffected; consanguinity was common in the original families</td>
+<td>Human pedigree evidence; penetrance is supported within reported families but has not been estimated in a population cohort</td>
+<td>(<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, <a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Founder evidence</td>
+<td>The same mutation and an approximately <strong>1.3-cM shared haplotype</strong> occurred in five unrelated Brazilian families, supporting inheritance from a common ancestor</td>
+<td>Linkage and haplotype evidence from five families; mutation-age estimates were imprecise</td>
+<td>(<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-4-7">ianakiev2001acheiropodiaiscaused pages 4-7</a>)</td>
+</tr>
+<tr>
+<td>Initial deletion definition, 2001</td>
+<td>PCR initially delimited a <strong>4–6-kb</strong> genomic deletion spanning <strong>C7orf2/LMBR1 exon 4</strong></td>
+<td>Primary human molecular study; boundaries were approximate because contemporary WGS was unavailable</td>
+<td>(<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-4-7">ianakiev2001acheiropodiaiscaused pages 4-7</a>)</td>
+</tr>
+<tr>
+<td>Refined deletion definition, 2021</td>
+<td>WGS resolved a homozygous <strong>12,041-bp</strong> deletion at <strong>GRCh38 chr7:156,816,030–156,828,070</strong>, corresponding to <strong>GRCh37/hg19 chr7:156,608,724–156,620,764</strong>; a two-base <strong>CA</strong> insertion occurred at the breakpoint</td>
+<td>Human WGS with PCR and Sanger validation in a proband and carrier parents; evidence concerns the recurrent Brazilian lesion rather than every possible acheiropodia allele</td>
+<td>(<a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>, <a href="#ref-ushiki2021deletionofctcf-pages-10-10">ushiki2021deletionofctcf pages 10-10</a>)</td>
+</tr>
+<tr>
+<td>Original molecular interpretation</td>
+<td>Exon 4 loss produced an exon 3–exon 5 junction, frameshift, and premature stop codon in exon 6; originally interpreted as a <strong>C7orf2/LMBR1 null allele</strong></td>
+<td>Human RNA evidence; this coding-loss interpretation was later supplemented by chromatin-architecture evidence</td>
+<td>(<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-4-7">ianakiev2001acheiropodiaiscaused pages 4-7</a>)</td>
+</tr>
+<tr>
+<td>Revised regulatory interpretation</td>
+<td>The 12-kb interval contains three CTCF sites, <strong>LSC3–LSC5</strong>, with RAD21 occupancy; deletion alters SHH-locus contacts and removes detectable ZRS–SHH-promoter interaction in proband cells</td>
+<td>Patient-derived lymphoblastoid-cell ChIP-seq, 4C-seq, and DNA-FISH evidence; lymphoblasts are not embryonic limb-bud cells</td>
+<td>(<a href="#ref-ushiki2021deletionofctcf-pages-4-5">ushiki2021deletionofctcf pages 4-5</a>)</td>
+</tr>
+<tr>
+<td>ZRS status</td>
+<td>The limb enhancer <strong>ZRS remains physically intact</strong> outside the deleted interval; no rare causal ZRS variant was identified, and the deleted sequence lacked consistent limb-enhancer activity</td>
+<td>Human sequencing plus mouse transgenic reporter evidence; supports disrupted enhancer–promoter communication rather than deletion of ZRS</td>
+<td>(<a href="#ref-ushiki2021deletionofctcf-pages-2-4">ushiki2021deletionofctcf pages 2-4</a>, <a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>SHH expression</td>
+<td>SHH expression was low in lymphoblastoid cells but significantly lower in proband cells than in wild-type cells</td>
+<td>Human cell-line evidence; no fold-change was available, and embryonic limb expression was not measured directly</td>
+<td>(<a href="#ref-ushiki2021deletionofctcf-pages-4-5">ushiki2021deletionofctcf pages 4-5</a>)</td>
+</tr>
+<tr>
+<td>Mouse ortholog deletion</td>
+<td>Homozygous deletion of the orthologous interval caused <strong>no apparent limb phenotype</strong> and no significant E11.5 autopod Shh-expression difference, <strong>P = 0.7796</strong></td>
+<td>Engineered mouse model; the negative result highlights species-specific CTCF architecture and limits direct phenotypic recapitulation</td>
+<td>(<a href="#ref-ushiki2021deletionofctcf-pages-4-5">ushiki2021deletionofctcf pages 4-5</a>, <a href="#ref-ushiki2021deletionofctcf-pages-7-9">ushiki2021deletionofctcf pages 7-9</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: Compact evidence table separating verified human findings from model-organism results and noting major limitations. It reconciles the original exon-loss interpretation with the later CTCF-mediated SHH regulatory mechanism.</em></p>
+<h2>1. Disease information and identifiers</h2>
+<p>Acheiropodia, also indexed as <strong>acheiropody</strong>, is an autosomal-recessive disorder characterized by severe, usually bilateral congenital truncation of upper and lower limbs with absent hands and feet. The original investigators emphasized that the reported phenotype appeared confined to the extremities; this should not be converted into a claim that extracranial or systemic findings have been systematically excluded in a large cohort. Their abstract states: <strong>“This severely handicapping condition appears to affect only the extremities, with no other systemic manifestations reported.”</strong> (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, OpenTargets Search: Acheiropodia)</p>
+<p><strong>Verified identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0008700" target="_blank" rel="noopener noreferrer">MONDO:0008700</a>, displayed as “acheiropody” in Open Targets; OMIM/MIM <strong>200500</strong>, explicitly given in the clinical genetics literature. The implicated chromosomal region is <strong>7q36</strong>. For disease indexing, <code>https://mondo.monarchinitiative.org/</code> and <code>https://omim.org/entry/200500</code> are useful entry points; the MONDO–LMBR1 association was directly recovered from Open Targets. A disease-specific Orphanet number, MeSH descriptor, and ICD-10/ICD-11 code were <strong>not independently verified</strong> in the sources examined. Generic congenital-limb-deficiency codes should not be represented as unique identifiers for acheiropodia. “Terminal transverse hemimelia” describes its limb presentation, not necessarily an exact database synonym. (OpenTargets Search: Acheiropodia, <a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, <a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>)</p>
+<h2>2. Etiology, risk, protection, and gene–environment interaction</h2>
+<p>The established causal association is <strong>biallelic, germline deletion of a region of LMBR1</strong>—called <em>C7orf2</em> in the original report—that also contains regulatory architecture governing distant <strong>SHH</strong> expression. The original families shared a deletion and a linked haplotype; unaffected heterozygous parents establish the recessive pattern in those pedigrees. Consanguinity increases the probability that relatives inherit two copies of the same rare ancestral allele, but is neither a biological prerequisite nor an environmental cause. There is no demonstrated infectious, toxic, dietary, behavioral, occupational, sex-specific, or age-related cause of this <strong>particular genetic syndrome</strong>, and no validated protective allele or exposure. Potential effects of embryonic exposures on limb formation in general must not be misclassified as evidence for this genotype-specific condition. Disease-specific gene–environment interaction and modifier-gene studies were not identified. (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, <a href="#ref-ianakiev2001acheiropodiaiscaused-pages-4-7">ianakiev2001acheiropodiaiscaused pages 4-7</a>, <a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>)</p>
+<h2>3. Phenotypes and functional effects</h2>
+<p>The following are <strong>congenital physical signs</strong>, rather than acquired amputations or laboratory abnormalities. In the small published series, bilateral upper- and lower-limb involvement, major transverse truncation, and absent hands and feet define the reported syndrome. The investigators describe distal humeral and tibial truncation; aplasia of the radius, ulna, fibula, and distal hand and foot skeleton; and absent forearms in some descriptions. Some patients instead retain a single implanted digit, finger-like appendages, or an ectopic distal-humeral ossicle termed the <strong>Bohomoletz bone</strong>. A published clinical photograph and radiographs illustrate the bilateral defects and skeletal configuration. The original abstract describes <strong>“bilateral congenital amputations of the upper and lower extremities and aplasia of the hands and feet.”</strong> (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, ianakiev2001acheiropodiaiscaused media 964b69bc)</p>
+<p><strong>Suggested phenotype annotations, pending confirmation against the live Human Phenotype Ontology:</strong> bilateral limb reduction/terminal transverse limb defect; absent hand; absent foot; absent forearm; absent radius; absent ulna; absent fibula; shortened humerus; shortened tibia; abnormal finger morphology or residual digit where documented. Apply terms <strong>per patient</strong>, rather than assigning every anatomical finding to every affected person; verified HP identifiers and population-level phenotype percentages were unavailable from the consulted primary reports. Onset is prenatal, the anatomical defect is apparent at birth, and the skeletal absence is permanent rather than an episodic or progressively degenerative process. Severe limitations to grasping, mobility, and self-care are plausible consequences, but phenotype-specific EQ-5D, SF-36, PROMIS, pain, educational, and employment data have not been established for this disorder. (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, ianakiev2001acheiropodiaiscaused media 964b69bc, <a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>)</p>
+<h2>4. Genetics and molecular lesion</h2>
+<p>The disease-associated gene locus is <strong>LMBR1</strong>, formerly <strong>C7orf2</strong>; <strong>SHH</strong> is the distant developmental target of its limb regulatory landscape, <strong>not</strong> a separately demonstrated pathogenic SHH coding variant in the Brazilian families. Open Targets identifies LMBR1 as the associated target under <a href="http://purl.obolibrary.org/obo/MONDO_0008700" target="_blank" rel="noopener noreferrer">MONDO:0008700</a>. The 2001 study used PCR and RNA analysis to estimate a <strong>4–6-kb</strong> deletion encompassing LMBR1 exon 4 in affected members of five Brazilian families. Exon 4 skipping joined exon 3 to exon 5, shifted the reading frame, and introduced a premature stop in exon 6. The authors therefore initially interpreted the allele as a likely LMBR1 null. This remains a documented <strong>transcript consequence</strong>, but is not sufficient by itself to establish that loss of LMBR1 protein, rather than altered SHH regulation, produces the limb phenotype. (OpenTargets Search: Acheiropodia, <a href="#ref-ianakiev2001acheiropodiaiscaused-pages-4-7">ianakiev2001acheiropodiaiscaused pages 4-7</a>)</p>
+<p>Whole-genome sequencing in 2021 refined the associated deletion to <strong>12,041 bp</strong>, <strong>GRCh38/hg38 chr7:156,816,030–156,828,070</strong>; the paper also reports <strong>GRCh37/hg19 chr7:156,608,724–156,620,764</strong>. A two-base <strong>CA insertion</strong> occurs at the breakpoint; PCR/Sanger sequencing confirmed the junction. The proband was homozygous and both unaffected parents heterozygous. The approximately 4–6-kb <strong>early PCR estimate</strong> and the approximately 12-kb <strong>subsequent genome-sequencing definition</strong> should not be entered as distinct established disease alleles without independent breakpoint evidence. Importantly, the ZRS limb enhancer lies <strong>outside</strong> the deleted interval and was retained; the investigators did not find a rare explanatory sequence variant in ZRS. A standardized HGVS expression, rsID, confirmed ClinVar accession/classification, and allele frequency in gnomAD or other population datasets were <strong>not verified</strong>. The deletion is best described here as a <strong>disease-associated pathogenic structural deletion supported by segregation and functional evidence</strong>, not assigned an invented database classification. (<a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>, <a href="#ref-ushiki2021deletionofctcf-pages-10-10">ushiki2021deletionofctcf pages 10-10</a>, <a href="#ref-ushiki2021deletionofctcf-pages-2-4">ushiki2021deletionofctcf pages 2-4</a>)</p>
+<p>The predicted LMBR1 product was described historically as a 490-amino-acid multipass membrane protein, but the stronger current disease mechanism concerns the <strong>deleted cis-regulatory architecture</strong>. Three CTCF-bound sites within the interval are lost, affecting SHH enhancer–promoter organization; do not annotate CTCF or RAD21 as independently mutated causal genes. Disease-specific modifier genes, altered DNA-methylation patterns, epigenetic biomarkers, non-founder pathogenic alleles, and additional pathogenic chromosomal abnormalities have not been validated in the examined studies. (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-4-7">ianakiev2001acheiropodiaiscaused pages 4-7</a>, <a href="#ref-ushiki2021deletionofctcf-pages-4-5">ushiki2021deletionofctcf pages 4-5</a>, <a href="#ref-ushiki2021deletionofctcf-pages-7-9">ushiki2021deletionofctcf pages 7-9</a>)</p>
+<h2>5. Environmental and infectious information</h2>
+<p>No environmental exposure, lifestyle practice, or pathogen has been demonstrated to cause or trigger genetically defined acheiropodia. There is no reported zoonotic or infectious transmission. The relevant non-genetic context is <strong>reproductive relatedness</strong>, which changes the probability of homozygosity for a segregating founder deletion rather than changing limb development through an exposure mechanism. Environmental prevention claims should therefore not be inferred from data on unrelated causes of congenital limb reduction. (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, <a href="#ref-ianakiev2001acheiropodiaiscaused-pages-4-7">ianakiev2001acheiropodiaiscaused pages 4-7</a>)</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<p><strong>Ordered causal chain; “inferred” identifies a step not directly demonstrated in affected human embryonic limbs:</strong></p>
+<ol>
+<li><strong>Inherited homozygosity for the LMBR1-region deletion leads to</strong> loss of exon 4 <strong>and</strong> three adjacent SHH-locus CTCF-binding sites; the ZRS enhancer itself remains present. The exon-loss and CTCF-site losses are experimentally documented. (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-4-7">ianakiev2001acheiropodiaiscaused pages 4-7</a>, <a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>)</li>
+<li><strong>Loss of those CTCF sites leads to</strong> altered CTCF/RAD21 occupancy and altered SHH-locus chromatin contacts in patient-derived lymphoblastoid cells, <strong>resulting in</strong> reduced detectable ZRS–SHH-promoter contact and alternative contacts with other CTCF sites. (<a href="#ref-ushiki2021deletionofctcf-pages-4-5">ushiki2021deletionofctcf pages 4-5</a>, <a href="#ref-ushiki2021deletionofctcf-pages-5-7">ushiki2021deletionofctcf pages 5-7</a>)</li>
+<li><strong>Altered long-range contacts likely lead to</strong> insufficiently robust <strong>SHH transcription in embryonic posterior limb-bud mesenchyme</strong>; this <em>limb-specific step is inferred</em>, because the human patient assays used lymphoblastoid cells, not affected embryonic limb buds. One reported cell-line comparison found low SHH expression in both groups but significantly higher expression in controls than proband cells; no reliable patient-limb expression magnitude is available. (<a href="#ref-ushiki2021deletionofctcf-pages-4-5">ushiki2021deletionofctcf pages 4-5</a>, <a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>)</li>
+<li><strong>Inferred reduction in localized SHH signaling leads to</strong> disturbed embryonic limb outgrowth and skeletal patterning, <strong>resulting in</strong> congenital bilateral distal upper- and lower-limb truncation and loss of hands and feet. Mouse experiments manipulating the ZRS/SHH pathway support biological plausibility, but they are not direct observation of this final sequence in human embryos. (<a href="#ref-bower2024conservedcisactingrangeextender-pages-4-8">bower2024conservedcisactingrangeextender pages 4-8</a>, <a href="#ref-koyanonakagawa2022etv2regulatesenhancer-pages-1-2">koyanonakagawa2022etv2regulatesenhancer pages 1-2</a>, <a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>)</li>
+<li><strong>Parallel branch:</strong> exon 4 loss <strong>leads to</strong> a frameshifted LMBR1 transcript and predicted premature termination; whether this <strong>independently contributes to</strong> the patient's limb phenotype, rather than accompanying the CTCF-site deletion, remains unresolved. A second proposed architectural possibility involving a changed domain boundary was not definitively excluded. (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-4-7">ianakiev2001acheiropodiaiscaused pages 4-7</a>, <a href="#ref-ushiki2021deletionofctcf-pages-9-10">ushiki2021deletionofctcf pages 9-10</a>)</li>
+</ol>
+<p>Thus, the <strong>upstream lesion</strong> is a structural variant, the intermediate biochemical processes are <strong>CTCF/cohesin-associated chromosome organization and long-range enhancer control</strong>, and the downstream tissue process is impaired embryonic limb formation. This is not established as an enzyme deficiency, metabolic disease, immune disease, chronic inflammation, or postnatal oxidative/ischemic injury. Appropriate <strong>GO-process suggestions, without asserting verified accession numbers</strong>, include regulation of transcription by RNA polymerase II, chromatin organization, embryonic limb morphogenesis, and Hedgehog signaling; appropriate cellular-component annotations include the nucleus/chromatin for CTCF, RAD21, and regulatory DNA. <strong>Posterior limb-bud mesenchymal cells</strong> are the biologically relevant proposed target cell population; a precise Cell Ontology ID requires independent validation. These annotations describe the <em>proposed pathway</em>, not direct single-cell profiling of human affected limbs. (<a href="#ref-ushiki2021deletionofctcf-pages-4-5">ushiki2021deletionofctcf pages 4-5</a>, <a href="#ref-koyanonakagawa2022etv2regulatesenhancer-pages-1-2">koyanonakagawa2022etv2regulatesenhancer pages 1-2</a>, <a href="#ref-kane2022cohesinisrequired-pages-1-3">kane2022cohesinisrequired pages 1-3</a>)</p>
+<p><strong>Orthogonal experimental support and important restraint.</strong> Patient-derived cell experiments used CTCF/RAD21 ChIP-seq, chromosome-conformation capture/4C-seq, and DNA-FISH; a mouse transgenic enhancer assay failed to show consistent limb-enhancer activity in the deleted human interval. In 2022, a separate mouse-cell perturbation study found that <strong>cohesin, but not CTCF, was required for activation by distant SHH enhancers</strong> in its specific experimental assay: this establishes context dependence, not a refutation of the disease-associated human CTCF-site findings. A separate 2022 mouse study demonstrated ETV2-dependent ZRS opening and initiation of Shh transcription; it did <strong>not</strong> show that ETV2 is mutated in acheiropodia. A <strong>2024 bioRxiv preprint</strong>, subsequently published in <strong>2025</strong>, found that conserved motifs within ZRS support long-range activity and that disrupting them produces severe mouse limb reduction; those are comparative mechanistic findings, <strong>not new 2023–2024 human acheiropodia cases</strong>. The 2021 disease abstract states: <strong>“Using whole-genome sequencing, we fine-mapped the acheiropodia-associated region to 12 kb and show that it does not function as an enhancer.”</strong> (<a href="#ref-ushiki2021deletionofctcf-pages-2-4">ushiki2021deletionofctcf pages 2-4</a>, <a href="#ref-kane2022cohesinisrequired-pages-1-3">kane2022cohesinisrequired pages 1-3</a>, <a href="#ref-koyanonakagawa2022etv2regulatesenhancer-pages-1-2">koyanonakagawa2022etv2regulatesenhancer pages 1-2</a>, <a href="#ref-bower2024conservedcisactingrangeextender-pages-4-8">bower2024conservedcisactingrangeextender pages 4-8</a>, <a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>)</p>
+<p>No disease-specific human-embryo transcriptomic, proteomic, metabolomic, lipidomic, single-cell, spatial-transcriptomic, or integrated multi-omic signature was established in the available sources. The human cell-line chromatin profiling and WGS are research assays, not validated clinical molecular-profiling biomarkers. (<a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>, <a href="#ref-ushiki2021deletionofctcf-pages-4-5">ushiki2021deletionofctcf pages 4-5</a>)</p>
+<h2>7. Affected anatomy and localization</h2>
+<p>The primary anatomical structures are the <strong>bilateral upper and lower limbs</strong>, especially distal upper-arm/forearm and lower-leg segments, hands, feet, and their developing skeleton. Reported defects include absent or truncated radius, ulna, fibula, distal humerus and tibia, with absent distal hand and foot bones; variable rudimentary digits or a distal-humeral Bohomoletz bone may be present. The apparent bilateral pattern is characteristic, although accessory appendages may be unilateral or bilateral. The musculoskeletal system is directly affected; systemic organ involvement is not a recognized feature of the described families. The relevant developmental tissue is limb-bud mesenchyme and nascent cartilage/bone; no established disease-specific lesion of muscle, nerve, vessels, or epithelia is reported. Suggested <strong>UBERON labels</strong> are upper limb, lower limb, forearm, hand, foot, humerus, radius, ulna, tibia, and fibula; exact UBERON and CL accession numbers should be resolved against ontology releases before ingestion. At the mechanistic subcellular level, the demonstrable regulatory interactions involve <strong>nuclear chromatin</strong>, not an established mitochondrial, lysosomal, or ER defect. (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, ianakiev2001acheiropodiaiscaused media 964b69bc, <a href="#ref-ushiki2021deletionofctcf-pages-4-5">ushiki2021deletionofctcf pages 4-5</a>)</p>
+<h2>8. Temporal development</h2>
+<p>The initiating disruption acts during <strong>embryonic limb development</strong>; anatomical manifestations are <strong>congenital</strong> and visible at birth. The limb difference remains lifelong and is not described as episodic, relapsing, remitting, or progressively destructive. The embryonic limb-bud patterning period is the biologically important vulnerability window; mouse developmental data demonstrate that ZRS accessibility and Shh initiation are timed events, but a validated gestational-week threshold for human acheiropodia or a prenatal rescue window is unavailable. No formal clinical stage system, longitudinal progression rate, spontaneous remission, or postnatal anatomical recovery has been established. (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, <a href="#ref-koyanonakagawa2022etv2regulatesenhancer-pages-1-2">koyanonakagawa2022etv2regulatesenhancer pages 1-2</a>, <a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>)</p>
+<h2>9. Inheritance and population epidemiology</h2>
+<p>Inheritance is <strong>autosomal recessive</strong>. One affected individual in each of <strong>five Brazilian families</strong> shared the deletion; several families involved consanguinity. All five shared an approximately <strong>1.3-cM</strong> haplotype, consistent with a founder allele. A mutation age estimated using combined historical families was approximately <strong>20 generations</strong>, with a broad <strong>95% interval of 4–60 generations</strong>; this is a population-genetic inference, not a dated historical event. An older report cited by the 2001 authors described two affected siblings in Puerto Rico; most previously reported cases were Brazilian. <strong>Approximately one affected birth per 250,000 births in Brazil</strong> is an historical estimate quoted by the original authors, <strong>not</strong> a current global prevalence estimate and <strong>not</strong> one affected person per 250,000 living people. A corresponding crude rate would be about <strong>0.4 per 100,000 births</strong>, subject to the original estimate's substantial uncertainty. Current incidence, worldwide prevalence, carrier frequency, sex ratio, and variant frequencies by ancestry are unknown from these data. (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, <a href="#ref-ianakiev2001acheiropodiaiscaused-pages-4-7">ianakiev2001acheiropodiaiscaused pages 4-7</a>)</p>
+<p>Heterozygotes in the reported pedigrees were clinically unaffected; the observed affected subjects had severe manifestations, with some variation in residual digits and ectopic bone. Formal population penetrance and expressivity estimates, anticipation, germline mosaicism, and reproducible modifier alleles have not been quantified. For a couple both heterozygous for the same fully recessive causal allele, the <em>Mendelian</em> probability of a biallelic child is <strong>25% per pregnancy</strong>; that number is a segregation calculation, not an observed incidence in the study families. (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, <a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>)</p>
+<h2>10. Diagnosis and differential diagnosis</h2>
+<p><strong>Clinical assessment:</strong> congenital bilateral four-limb transverse reduction with absent hands/feet prompts examination of residual limb anatomy, family history, and <strong>plain radiographs</strong> to characterize missing or truncated bones and any residual ossicle. Photographs and radiographs in the original publication document this approach. Prenatal anatomical ultrasound may reasonably detect major limb deficiencies, but an acheiropodia-specific screening sensitivity, diagnostic ultrasound protocol, and confirmatory imaging accuracy were not reported. There is no validated disease-specific blood chemistry, protein/metabolite biomarker, enzymatic assay, biopsy morphology, electrophysiological signature, or functional cardiopulmonary test. (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, ianakiev2001acheiropodiaiscaused media 964b69bc)</p>
+<p><strong>Molecular confirmation:</strong> when a familial breakpoint is known, a <strong>targeted deletion/breakpoint assay</strong> with parental segregation testing is the most direct molecular approach. Otherwise, use a clinically validated assay capable of detecting <strong>structural variants spanning LMBR1 exon 4 and adjacent noncoding CTCF sites</strong>; genome sequencing with structural-variant analysis is specifically supported by the 2021 discovery. A limb-malformation panel is useful only if it has appropriate <strong>copy-number/structural-variant and noncoding-region coverage</strong>. Exome sequencing focused on coding single-nucleotide variants may miss or incompletely characterize this lesion; standard CMA resolution also requires verification against the approximately 12-kb event. Karyotype and FISH are not established first-line confirmatory tests for this small founder deletion; mitochondrial, repeat-expansion, liquid-biopsy, methylome, proteome, and metabolome tests have no established role. No disease-specific standardized diagnostic criteria, clinical genetic-testing sensitivity, or professional diagnostic algorithm was identified. (<a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>, <a href="#ref-ushiki2021deletionofctcf-pages-10-10">ushiki2021deletionofctcf pages 10-10</a>, <a href="#ref-ianakiev2001acheiropodiaiscaused-pages-4-7">ianakiev2001acheiropodiaiscaused pages 4-7</a>)</p>
+<p><strong>Differential diagnosis:</strong> other congenital transverse limb deficiencies and other genetic or non-genetic causes of severe limb reduction. Bilateral symmetry, the specific distal humeral/tibial and radial/ulnar/fibular pattern, affected siblings/consanguinity, and confirmation of <strong>biallelic LMBR1-region deletion</strong> help distinguish the documented syndrome. Preaxial polydactyly and triphalangeal thumb can also involve SHH/ZRS regulatory variation, but have materially different digit phenotypes and generally should not be collapsed into acheiropodia. Diagnostic comparison with specific competing syndromes requires patient-specific imaging and genetics. (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, vandermeer2011cis‐regulatorymutationsare pages 6-7, <a href="#ref-ushiki2021deletionofctcf-pages-2-4">ushiki2021deletionofctcf pages 2-4</a>)</p>
+<h2>11. Outcome and prognosis</h2>
+<p>The principal established morbidity is <strong>persistent, severe limb-related disability</strong>. Congenital limb truncation does not biologically regrow; improvement in activities may nevertheless be possible through individualized adaptations and rehabilitation. No disease-specific prospective natural-history cohort supports a numerical survival rate, lifespan estimate, mortality rate, complication frequency, or validated prognostic biomarker. Descriptions of apparently isolated limb involvement <strong>do not prove normal life expectancy</strong>; similarly, the documented residual-digit variability does not establish a predictive genotype–phenotype scale. Quantitative patient-reported quality-of-life results for acheiropodia were not found. (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, ianakiev2001acheiropodiaiscaused media 964b69bc)</p>
+<h2>12. Treatment and clinical implementation</h2>
+<p>No pharmacotherapy, molecularly targeted drug, approved gene therapy, RNA treatment, cell therapy, immunotherapy, or established intervention restores the absent limbs; disease-specific response rates and adverse-event estimates are unavailable. Management is therefore <strong>individualized supportive care</strong>: multidisciplinary assessment of limb function, prosthetic and assistive-device options, occupational/physical rehabilitation, mobility and self-care adaptations, and psychosocial support. These are <strong>reasonable applications of general congenital limb-deficiency practice</strong>, not interventions whose effectiveness was measured in the identified acheiropodia case series. Surgical procedures, if considered for an individual residual limb or device interface, cannot be assigned an acheiropodia-specific recommended operation, timing, or success rate from the available evidence. ClinicalTrials.gov searches did not yield a substantiated disease-specific interventional trial or NCT efficacy dataset. (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, <a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>)</p>
+<p><strong>Suggested intervention concepts for later NCIT mapping:</strong> prosthetic device, occupational therapy, physical therapy, rehabilitation, and genetic counseling. Exact NCIT codes and disease-specific approved treatment annotations were <strong>not verified</strong>; no drug or ChEBI therapeutic entity should be entered on the basis of this evidence. (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, <a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>)</p>
+<h2>13. Prevention, screening, and counseling</h2>
+<p>There is <strong>no demonstrated vaccine, environmental avoidance measure, diet, supplement, or prophylactic medication</strong> that prevents a child who has inherited the causal biallelic deletion from developing the syndrome. The evidence-based actionable context is <strong>reproductive risk assessment</strong>: offer genetic counseling and targeted carrier/cascade testing after confirming a familial variant, discuss the <strong>25% per-pregnancy recessive risk</strong> for two carriers, and consider prenatal molecular diagnosis or preimplantation genetic testing for a known familial allele according to access, preferences, and local practice. These are <strong>general Mendelian reproductive options</strong>, not proven population-level acheiropodia screening programs or evidence that treatment during gestation rescues the phenotype. Early recognition after birth can facilitate function-oriented services but is not primary prevention of the developmental lesion. Routine population newborn screening and universal carrier screening specifically for acheiropodia were not documented. (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, <a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>)</p>
+<h2>14. Natural disease in other species</h2>
+<p>The clinically defined human founder-deletion syndrome has <strong>not been demonstrated as the same naturally occurring disorder in another species</strong> in the materials reviewed. SHH/ZRS-related limb abnormalities occur in other animals—including naturally occurring ZRS-related polydactyly in cats and a chicken model with altered ZRS-associated limb patterning—but these are <strong>comparative limb-development phenotypes, not animal acheiropodia diagnoses</strong>. Mouse <em>Lmbr1</em> and <em>Shh</em> are orthologous components of the human regulatory landscape; taxonomically, the principal experimentally investigated species are <strong>human (<em>Homo sapiens</em>, NCBI Taxon 9606)</strong> and <strong>laboratory mouse (<em>Mus musculus</em>, NCBI Taxon 10090)</strong>. Breed-specific VBO entries, verified orthologue NCBI Gene IDs, veterinary incidence, and zoonotic transmission are unavailable or inapplicable; the condition is inherited, not contagious. (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-4-7">ianakiev2001acheiropodiaiscaused pages 4-7</a>, <a href="#ref-ushiki2021deletionofctcf-pages-7-9">ushiki2021deletionofctcf pages 7-9</a>, <a href="#ref-bower2024conservedcisactingrangeextender-pages-4-8">bower2024conservedcisactingrangeextender pages 4-8</a>)</p>
+<h2>15. Model organisms and model limitations</h2>
+<p><strong>Closest engineered model:</strong> a homozygous mouse deletion of the region orthologous to the human approximately 12-kb interval was produced by genome editing. Contrary to a straightforward disease-model prediction, the mice had <strong>no apparent limb defects</strong> and <strong>no significant E11.5 autopod <em>Shh</em> expression difference</strong>; the reported comparison was <strong>P = 0.7796</strong>. The mouse edit also had different boundaries from the exact human deletion, and the human and mouse CTCF motif distribution/occupancy differ. Therefore, this is a useful <strong>negative mechanistic model</strong>, not a phenotype-recapitulating acheiropodia mouse. The 2021 abstract explicitly states: <strong>“Mouse knockouts of the orthologous 12 kb sequence have no apparent abnormalities.”</strong> (<a href="#ref-ushiki2021deletionofctcf-pages-4-5">ushiki2021deletionofctcf pages 4-5</a>, <a href="#ref-ushiki2021deletionofctcf-pages-7-9">ushiki2021deletionofctcf pages 7-9</a>, <a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>)</p>
+<p><strong>Related, non-equivalent models:</strong> mouse ZRS disruption produces severe limb reduction by preventing limb-specific <em>Shh</em> activation; ETV2 perturbation affects ZRS accessibility and <em>Shh</em> initiation; mouse-cell cohesin degradation affects distant-enhancer action. A 2024 mouse enhancer-range <strong>preprint</strong> and its later peer-reviewed publication further explore motifs required for long-distance ZRS activity. These systems test <strong>pathway components</strong>, but a ZRS knockout, ETV2 edit, or cohesin perturbation is <strong>not the patient's intact-ZRS, LMBR1-region founder deletion</strong>. No validated patient-derived limb-bud organoid, human iPSC developmental model, or single-cell acheiropodia atlas was established by the retrieved studies. The 2021 engineered-deletion study is the primary source for an MGI/IMSR-style model annotation; exact stock or allele registry IDs were not verified. (<a href="#ref-bower2024conservedcisactingrangeextender-pages-4-8">bower2024conservedcisactingrangeextender pages 4-8</a>, <a href="#ref-koyanonakagawa2022etv2regulatesenhancer-pages-1-2">koyanonakagawa2022etv2regulatesenhancer pages 1-2</a>, <a href="#ref-kane2022cohesinisrequired-pages-1-3">kane2022cohesinisrequired pages 1-3</a>, <a href="#ref-ushiki2021deletionofctcf-pages-7-9">ushiki2021deletionofctcf pages 7-9</a>, <a href="#ref-ushiki2021deletionofctcf-pages-2-4">ushiki2021deletionofctcf pages 2-4</a>)</p>
+<h3>Source record and research currency</h3>
+<ul>
+<li><strong>Ianakiev P et al.</strong> “Acheiropodia Is Caused by a Genomic Deletion in C7orf2, the Human Orthologue of the Lmbr1 Gene.” <em>American Journal of Human Genetics</em> <strong>68:38–45</strong>, electronically published <strong>22 November 2000</strong>, journal issue <strong>January 2001</strong>. <a href="https://doi.org/10.1086/316955" target="_blank" rel="noopener noreferrer">https://doi.org/10.1086/316955</a>. <strong>Primary human pedigrees, anatomy, and transcript analysis.</strong> (<a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, <a href="#ref-ianakiev2001acheiropodiaiscaused-pages-4-7">ianakiev2001acheiropodiaiscaused pages 4-7</a>)</li>
+<li><strong>Ushiki A et al.</strong> “Deletion of CTCF sites in the SHH locus alters enhancer–promoter interactions and leads to acheiropodia.” <em>Nature Communications</em> <strong>12:2282</strong>, <strong>April 2021</strong>. <a href="https://doi.org/10.1038/s41467-021-22470-z" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-021-22470-z</a>. <strong>Primary human genome/patient-cell and engineered-mouse study.</strong> (<a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>, <a href="#ref-ushiki2021deletionofctcf-pages-4-5">ushiki2021deletionofctcf pages 4-5</a>)</li>
+<li><strong>Koyano-Nakagawa N et al.</strong> “Etv2 regulates enhancer chromatin status to initiate Shh expression in the limb bud.” <em>Nature Communications</em> <strong>13</strong>, <strong>July 2022</strong>. <a href="https://doi.org/10.1038/s41467-022-31848-6" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-022-31848-6</a>. <strong>Related mouse developmental mechanism, not an acheiropodia cohort.</strong> (<a href="#ref-koyanonakagawa2022etv2regulatesenhancer-pages-1-2">koyanonakagawa2022etv2regulatesenhancer pages 1-2</a>)</li>
+<li><strong>Kane L et al.</strong> “Cohesin is required for long-range enhancer action at the Shh locus.” <em>Nature Structural &amp; Molecular Biology</em> <strong>29:891–897</strong>, <strong>September 2022</strong>. <a href="https://doi.org/10.1038/s41594-022-00821-8" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41594-022-00821-8</a>. <strong>Related experimental chromatin mechanism.</strong> (<a href="#ref-kane2022cohesinisrequired-pages-1-3">kane2022cohesinisrequired pages 1-3</a>)</li>
+<li><strong>Bower G et al.</strong> “Conserved Cis-Acting Range Extender Element Mediates Extreme Long-Range Enhancer Activity in Mammals,” <strong>May 2024 preprint</strong>: <a href="https://doi.org/10.1101/2024.05.26.595809" target="_blank" rel="noopener noreferrer">https://doi.org/10.1101/2024.05.26.595809</a>; later published as “Range extender mediates long-distance enhancer activity,” <em>Nature</em>, <strong>July 2025</strong>, <a href="https://doi.org/10.1038/s41586-025-09221-6" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41586-025-09221-6</a>. <strong>Related mouse mechanism; no additional human acheiropodia patients.</strong> (<a href="#ref-bower2024conservedcisactingrangeextender-pages-4-8">bower2024conservedcisactingrangeextender pages 4-8</a>)</li>
+</ul>
+<p><strong>Bibliographic limitation:</strong> PMID numbers for these papers were not independently retrieved and are deliberately not supplied rather than guessed. Likewise, current Orphanet, HPO, GO, CL, UBERON, HGNC, ChEBI, and NCIT accession numbers require direct vocabulary validation before knowledge-base import. No verified 2023–2024 study updating the <em>human clinical natural history or treatment</em> of acheiropodia was identified; recent advances above principally concern the relevant regulatory biology. (<a href="#ref-ushiki2021deletionofctcf-pages-1-2">ushiki2021deletionofctcf pages 1-2</a>, <a href="#ref-ianakiev2001acheiropodiaiscaused-pages-1-3">ianakiev2001acheiropodiaiscaused pages 1-3</a>, <a href="#ref-bower2024conservedcisactingrangeextender-pages-4-8">bower2024conservedcisactingrangeextender pages 4-8</a>)</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-ianakiev2001acheiropodiaiscaused-pages-1-3"></a>(ianakiev2001acheiropodiaiscaused pages 1-3): P. Ianakiev, M.J. van Baren, M.J. Daly, S.P.A. Toledo, M.G. Cavalcanti, J. Correa Neto, E. Lemos Silveira, A. Freire-Maia, P. Heutink, M.W. Kilpatrick, and P. Tsipouras. Acheiropodia is caused by a genomic deletion in c7orf2, the human orthologue of the lmbr1 gene. American journal of human genetics, 68 1:38-45, Jan 2001. URL: <a href="https://doi.org/10.1086/316955" target="_blank" rel="noopener noreferrer">https://doi.org/10.1086/316955</a>, <a href="https://doi.org/10.1086/316955" target="_blank" rel="noopener noreferrer">doi:10.1086/316955</a>. This article has 126 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-ushiki2021deletionofctcf-pages-1-2"></a>(ushiki2021deletionofctcf pages 1-2): Aki Ushiki, Yichi Zhang, Chenling Xiong, Jingjing Zhao, Ilias Georgakopoulos-Soares, Lauren Kane, Kirsty Jamieson, Michael J. Bamshad, Deborah A. Nickerson, Yin Shen, Laura A. Lettice, Elizabeth Lemos Silveira-Lucas, Florence Petit, and Nadav Ahituv. Deletion of ctcf sites in the shh locus alters enhancer–promoter interactions and leads to acheiropodia. Nature Communications, Apr 2021. URL: <a href="https://doi.org/10.1038/s41467-021-22470-z" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-021-22470-z</a>, <a href="https://doi.org/10.1038/s41467-021-22470-z" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-021-22470-z</a>. This article has 74 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-opentargets-search-acheiropodia"></a>(OpenTargets Search: Acheiropodia): Open Targets Query (Acheiropodia, 1 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p><a id="ref-ianakiev2001acheiropodiaiscaused-media-964b69bc"></a>(ianakiev2001acheiropodiaiscaused media 964b69bc): P. Ianakiev, M.J. van Baren, M.J. Daly, S.P.A. Toledo, M.G. Cavalcanti, J. Correa Neto, E. Lemos Silveira, A. Freire-Maia, P. Heutink, M.W. Kilpatrick, and P. Tsipouras. Acheiropodia is caused by a genomic deletion in c7orf2, the human orthologue of the lmbr1 gene. American journal of human genetics, 68 1:38-45, Jan 2001. URL: <a href="https://doi.org/10.1086/316955" target="_blank" rel="noopener noreferrer">https://doi.org/10.1086/316955</a>, <a href="https://doi.org/10.1086/316955" target="_blank" rel="noopener noreferrer">doi:10.1086/316955</a>. This article has 126 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-ianakiev2001acheiropodiaiscaused-pages-4-7"></a>(ianakiev2001acheiropodiaiscaused pages 4-7): P. Ianakiev, M.J. van Baren, M.J. Daly, S.P.A. Toledo, M.G. Cavalcanti, J. Correa Neto, E. Lemos Silveira, A. Freire-Maia, P. Heutink, M.W. Kilpatrick, and P. Tsipouras. Acheiropodia is caused by a genomic deletion in c7orf2, the human orthologue of the lmbr1 gene. American journal of human genetics, 68 1:38-45, Jan 2001. URL: <a href="https://doi.org/10.1086/316955" target="_blank" rel="noopener noreferrer">https://doi.org/10.1086/316955</a>, <a href="https://doi.org/10.1086/316955" target="_blank" rel="noopener noreferrer">doi:10.1086/316955</a>. This article has 126 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-ushiki2021deletionofctcf-pages-10-10"></a>(ushiki2021deletionofctcf pages 10-10): Aki Ushiki, Yichi Zhang, Chenling Xiong, Jingjing Zhao, Ilias Georgakopoulos-Soares, Lauren Kane, Kirsty Jamieson, Michael J. Bamshad, Deborah A. Nickerson, Yin Shen, Laura A. Lettice, Elizabeth Lemos Silveira-Lucas, Florence Petit, and Nadav Ahituv. Deletion of ctcf sites in the shh locus alters enhancer–promoter interactions and leads to acheiropodia. Nature Communications, Apr 2021. URL: <a href="https://doi.org/10.1038/s41467-021-22470-z" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-021-22470-z</a>, <a href="https://doi.org/10.1038/s41467-021-22470-z" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-021-22470-z</a>. This article has 74 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-ushiki2021deletionofctcf-pages-4-5"></a>(ushiki2021deletionofctcf pages 4-5): Aki Ushiki, Yichi Zhang, Chenling Xiong, Jingjing Zhao, Ilias Georgakopoulos-Soares, Lauren Kane, Kirsty Jamieson, Michael J. Bamshad, Deborah A. Nickerson, Yin Shen, Laura A. Lettice, Elizabeth Lemos Silveira-Lucas, Florence Petit, and Nadav Ahituv. Deletion of ctcf sites in the shh locus alters enhancer–promoter interactions and leads to acheiropodia. Nature Communications, Apr 2021. URL: <a href="https://doi.org/10.1038/s41467-021-22470-z" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-021-22470-z</a>, <a href="https://doi.org/10.1038/s41467-021-22470-z" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-021-22470-z</a>. This article has 74 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-ushiki2021deletionofctcf-pages-2-4"></a>(ushiki2021deletionofctcf pages 2-4): Aki Ushiki, Yichi Zhang, Chenling Xiong, Jingjing Zhao, Ilias Georgakopoulos-Soares, Lauren Kane, Kirsty Jamieson, Michael J. Bamshad, Deborah A. Nickerson, Yin Shen, Laura A. Lettice, Elizabeth Lemos Silveira-Lucas, Florence Petit, and Nadav Ahituv. Deletion of ctcf sites in the shh locus alters enhancer–promoter interactions and leads to acheiropodia. Nature Communications, Apr 2021. URL: <a href="https://doi.org/10.1038/s41467-021-22470-z" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-021-22470-z</a>, <a href="https://doi.org/10.1038/s41467-021-22470-z" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-021-22470-z</a>. This article has 74 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-ushiki2021deletionofctcf-pages-7-9"></a>(ushiki2021deletionofctcf pages 7-9): Aki Ushiki, Yichi Zhang, Chenling Xiong, Jingjing Zhao, Ilias Georgakopoulos-Soares, Lauren Kane, Kirsty Jamieson, Michael J. Bamshad, Deborah A. Nickerson, Yin Shen, Laura A. Lettice, Elizabeth Lemos Silveira-Lucas, Florence Petit, and Nadav Ahituv. Deletion of ctcf sites in the shh locus alters enhancer–promoter interactions and leads to acheiropodia. Nature Communications, Apr 2021. URL: <a href="https://doi.org/10.1038/s41467-021-22470-z" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-021-22470-z</a>, <a href="https://doi.org/10.1038/s41467-021-22470-z" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-021-22470-z</a>. This article has 74 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-ushiki2021deletionofctcf-pages-5-7"></a>(ushiki2021deletionofctcf pages 5-7): Aki Ushiki, Yichi Zhang, Chenling Xiong, Jingjing Zhao, Ilias Georgakopoulos-Soares, Lauren Kane, Kirsty Jamieson, Michael J. Bamshad, Deborah A. Nickerson, Yin Shen, Laura A. Lettice, Elizabeth Lemos Silveira-Lucas, Florence Petit, and Nadav Ahituv. Deletion of ctcf sites in the shh locus alters enhancer–promoter interactions and leads to acheiropodia. Nature Communications, Apr 2021. URL: <a href="https://doi.org/10.1038/s41467-021-22470-z" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-021-22470-z</a>, <a href="https://doi.org/10.1038/s41467-021-22470-z" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-021-22470-z</a>. This article has 74 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-bower2024conservedcisactingrangeextender-pages-4-8"></a>(bower2024conservedcisactingrangeextender pages 4-8): Grace Bower, Ethan W. Hollingsworth, Sandra Jacinto, Benjamin Clock, Kaitlyn Cao, Mandy Liu, Adam Dziulko, Ana Alcaina-Caro, Qianlan Xu, Dorota Skowronska-Krawczyk, Javier Lopez-Rios, Diane E. Dickel, Anaïs F. Bardet, Len A. Pennacchio, Axel Visel, and Evgeny Z. Kvon. Conserved<i>cis</i>-acting range extender element mediates extreme long-range enhancer activity in mammals. BioRxiv, May 2024. URL: <a href="https://doi.org/10.1101/2024.05.26.595809" target="_blank" rel="noopener noreferrer">https://doi.org/10.1101/2024.05.26.595809</a>, <a href="https://doi.org/10.1101/2024.05.26.595809" target="_blank" rel="noopener noreferrer">doi:10.1101/2024.05.26.595809</a>. This article has 25 citations.</p>
+</li>
+<li>
+<p><a id="ref-koyanonakagawa2022etv2regulatesenhancer-pages-1-2"></a>(koyanonakagawa2022etv2regulatesenhancer pages 1-2): Naoko Koyano-Nakagawa, Wuming Gong, Satyabrata Das, Joshua W. M. Theisen, Tran B. Swanholm, Daniel Van Ly, Nikita Dsouza, Bhairab N. Singh, Hiroko Kawakami, Samantha Young, Katherine Q. Chen, Yasuhiko Kawakami, and Daniel J. Garry. Etv2 regulates enhancer chromatin status to initiate shh expression in the limb bud. Nature Communications, Jul 2022. URL: <a href="https://doi.org/10.1038/s41467-022-31848-6" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-022-31848-6</a>, <a href="https://doi.org/10.1038/s41467-022-31848-6" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-022-31848-6</a>. This article has 22 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-ushiki2021deletionofctcf-pages-9-10"></a>(ushiki2021deletionofctcf pages 9-10): Aki Ushiki, Yichi Zhang, Chenling Xiong, Jingjing Zhao, Ilias Georgakopoulos-Soares, Lauren Kane, Kirsty Jamieson, Michael J. Bamshad, Deborah A. Nickerson, Yin Shen, Laura A. Lettice, Elizabeth Lemos Silveira-Lucas, Florence Petit, and Nadav Ahituv. Deletion of ctcf sites in the shh locus alters enhancer–promoter interactions and leads to acheiropodia. Nature Communications, Apr 2021. URL: <a href="https://doi.org/10.1038/s41467-021-22470-z" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-021-22470-z</a>, <a href="https://doi.org/10.1038/s41467-021-22470-z" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-021-22470-z</a>. This article has 74 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-kane2022cohesinisrequired-pages-1-3"></a>(kane2022cohesinisrequired pages 1-3): Lauren Kane, Iain Williamson, Ilya M. Flyamer, Yatendra Kumar, Robert E. Hill, Laura A. Lettice, and Wendy A. Bickmore. Cohesin is required for long-range enhancer action at the shh locus. Nature Structural &amp; Molecular Biology, 29:891-897, Sep 2022. URL: <a href="https://doi.org/10.1038/s41594-022-00821-8" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41594-022-00821-8</a>, <a href="https://doi.org/10.1038/s41594-022-00821-8" target="_blank" rel="noopener noreferrer">doi:10.1038/s41594-022-00821-8</a>. This article has 192 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-vandermeer2011cis-regulatorymutationsare-pages-6-7"></a>(vandermeer2011cis‐regulatorymutationsare pages 6-7): Julia E. VanderMeer and Nadav Ahituv. Cis‐regulatory mutations are a genetic cause of human limb malformations. Developmental Dynamics, 240:920-930, May 2011. URL: <a href="https://doi.org/10.1002/dvdy.22535" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/dvdy.22535</a>, <a href="https://doi.org/10.1002/dvdy.22535" target="_blank" rel="noopener noreferrer">doi:10.1002/dvdy.22535</a>. This article has 68 citations and is from a peer-reviewed journal.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Acheiropodia-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a>
+<img alt="## Context ID: pqac-00000026 Figure 2 illustrates the clinical and radiological features of acheiropodia in an affected individual. Panels A and B show the bila" src="../../research/Acheiropodia-deep-research-falcon_artifacts/image-1.png" /></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>7</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0008700</code> (3 mentions) - the report calls it "if available"; MONDO calls it <strong>acheiropody</strong></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Acetaminophen_Hepatotoxicity-falcon.html">← Acetaminophen Hepatotoxicity (Falcon)</a>
+                
+                
+                <a href="Achondrogenesis_Type_IA-perplexity.html">Achondrogenesis Type IA (Perplexity) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Acheiropodia.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Acheiropodia-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -19,6 +19,7 @@ import typer
 
 from dismech.structured_sources.base import (
     ChecksumMismatchError,
+    MissingBulkDataError,
     StructuredSource,
     repin_manifest,
 )
@@ -187,6 +188,31 @@ def refresh_cmd(
     typer.echo(f"refreshed {source}")
 
 
+def _rebuild(
+    src: StructuredSource,
+    id_: list[str] | None,
+    source: str,
+    cache_dir: Path,
+    progress_every: int,
+) -> tuple[int, list[str], list[str]]:
+    """Write cache files; return (written, skipped ids, targets)."""
+    targets = list(id_) if id_ else list(src.identifiers())
+    typer.echo(f"rebuilding {len(targets)} {source} entries → {cache_dir}")
+    written = 0
+    skipped: list[str] = []
+    for ident in targets:
+        try:
+            src.write_cache_file(ident, cache_dir)
+        except KeyError as exc:
+            typer.echo(f"  skipped {ident}: {exc}", err=True)
+            skipped.append(ident)
+            continue
+        written += 1
+        if written % progress_every == 0:
+            typer.echo(f"  ... {written}/{len(targets)}")
+    return written, skipped, targets
+
+
 @app.command("rebuild")
 def rebuild_cmd(
     source: str = typer.Argument(..., help="Source name"),
@@ -204,6 +230,15 @@ def rebuild_cmd(
     progress_every: int = typer.Option(
         500, "--progress-every", help="Log every N entries"
     ),
+    csv: Path | None = typer.Option(
+        None,
+        "--csv",
+        help=(
+            "ClinGen gene validity only: read this export instead of "
+            "data/clingen/gene_validity.csv (or the committed fallback). The "
+            "cache file is stamped with this file's own date and sha256."
+        ),
+    ),
 ) -> None:
     """Regenerate cache files for a source from current bulk data."""
     logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -211,23 +246,31 @@ def rebuild_cmd(
     src = _get_source(source)
     if isinstance(src, (ClinGenSource, ClinGenDosageSource)):
         src.include_report_text = include_report_text
+    if csv is not None:
+        if not isinstance(src, ClinGenSource):
+            raise typer.BadParameter("--csv is only supported for the clingen source")
+        src.csv_path = csv
     cache_dir.mkdir(parents=True, exist_ok=True)
-    if id_:
-        targets = list(id_)
-    else:
-        targets = list(src.identifiers())
-    typer.echo(f"rebuilding {len(targets)} {source} entries → {cache_dir}")
-    written = 0
-    for ident in targets:
-        try:
-            src.write_cache_file(ident, cache_dir)
-        except KeyError as exc:
-            typer.echo(f"  skipped {ident}: {exc}", err=True)
-            continue
-        written += 1
-        if written % progress_every == 0:
-            typer.echo(f"  ... {written}/{len(targets)}")
+    try:
+        written, skipped, targets = _rebuild(
+            src, id_, source, cache_dir, progress_every
+        )
+    except MissingBulkDataError as exc:
+        # The message names the refresh command; a traceback buries it (#13941).
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
     typer.echo(f"wrote {written} cache files")
+    if id_ and skipped:
+        # An explicitly requested id that is not in the export is a failure,
+        # not a quiet skip: `just fetch-reference` routes here, agents read its
+        # exit code, and a typo or a withdrawn assertion must not look like
+        # success (review on #13766). The ids that did resolve are written.
+        typer.echo(
+            f"{len(skipped)} of {len(targets)} requested id(s) not found in the "
+            f"{source} export: " + ", ".join(skipped),
+            err=True,
+        )
+        raise typer.Exit(code=1)
 
 
 @app.command("list")
@@ -237,7 +280,11 @@ def list_cmd(
 ) -> None:
     """List the first N identifiers a source can serialize."""
     src = _get_source(source)
-    ids = list(src.identifiers())
+    try:
+        ids = list(src.identifiers())
+    except MissingBulkDataError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
     typer.echo(f"{len(ids)} identifiers in {source}")
     for ident in ids[:limit]:
         typer.echo(f"  {ident}")
