@@ -812,3 +812,17 @@ There is no disease-modifying therapy. Management is reproductive.
 - Sun Y et al. 2019 (compound heterozygous sisters), PMID:31292994
 - Cao Q et al. 2020 (ZP1/ZP3 heterozygous), PMID:32573113
 - Dai C et al. 2019 / Zhou Z et al. 2019, PMID:30810869
+- Case report, ovarian histology, PMID:31734689
+- Diagnostic ICSI case report, PMID:32847637
+- ZP1-Y262C, PMID:38966008 — [Frontiers Genet 2024](https://www.frontiersin.org/journals/genetics/articles/10.3389/fgene.2024.1407202/epub)
+- Rat Zp1 knock-in, PMID:33624742; macaque ZP1, PMID:40923306 — [Zool Res PDF](https://www.zoores.ac.cn/en/article/pdf/preview/10.24272/j.issn.2095-8137.2024.415.pdf), [OMIA 003005-9541](https://omia.org/OMIA003005/9541/)
+- Rankin T et al. 1999 (Zp1-null mouse), PMID:10433913
+- Feng R et al. 2016 (TUBB8), PMID:26789871
+- [NCBI MedGen C4014291](https://www.ncbi.nlm.nih.gov/medgen/C4014291)
+- [NORD entry](https://rarediseases.org/?p=269989)
+- [ZP3 homozygous EFS case, Front Genet 2023](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10613883/)
+- [ZP2 loss of function in humans and rats](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10244809/)
+- [BJOG 2025 ZP variant study (EBSCO record)](https://www.ebsco.com/articles/consumer-health/69a12748-795d-5bf3-b0ff-8e762861e656/association-of-zona-pellucida-gene-variants-with-female-infertility-a-retrospective-genetic-analysis/)
+- [AlphaGalileo summary](https://www.alphagalileo.org/en-gb/Item-Display/ItemId/277784)
+- [News-Medical, 2026-09-08](https://www.news-medical.net/news/20260908/Study-identifies-14-egg-layer-gene-variants-linked-to-female-infertility.aspx)
+- Other search results consulted: [PMC7822995](https://pmc.ncbi.nlm.nih.gov/articles/PMC7822995), [PMC9107549](https://pmc.ncbi.nlm.nih.gov/articles/PMC9107549), [PMC7642144](https://pmc.ncbi.nlm.nih.gov/articles/PMC7642144), [PMC7412702](https://pmc.ncbi.nlm.nih.gov/articles/PMC7412702), [PMC7336750](https://pmc.ncbi.nlm.nih.gov/articles/PMC7336750), [J Assist Reprod Genet 2022](https://www.doi.org/10.1007/s10815-022-02466-4), [J Ovarian Res 2025](https://biomedcentral-ovarianresearch.publicaciones.saludcastillayleon.es/articles/10.1186/s13048-025-01674-7), [PMC7492330](https://pmc.ncbi.nlm.nih.gov/articles/PMC7492330), [eLife ZP](https://elifesciences.org/articles/48904.pdf), [ZP2 IVF failure](https://www.medchemexpress.com/publications/29895852.html), [GTR ZP1](https://https.ncbi.nlm.nih.gov/gtr/genes/22917)
