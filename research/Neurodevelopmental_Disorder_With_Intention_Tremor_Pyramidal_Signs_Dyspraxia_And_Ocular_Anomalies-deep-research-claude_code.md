@@ -364,3 +364,122 @@ For each mechanism, describe:
   - Targeted therapies (treatments directed at specific molecular targets)
     > **Search first:** My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals
   - Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    > **Search first:** Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov
+- **Surgical and Interventional**:
+  - Surgical interventions (types of surgery, timing, outcomes)
+    > **Search first:** CPT codes, surgical registries, clinical guidelines, PubMed
+- **Supportive and Rehabilitative**:
+  - Supportive care (symptom management, pain control, nutrition)
+    > **Search first:** Clinical guidelines, Cochrane Library, PubMed
+  - Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    > **Search first:** Rehabilitation medicine databases, clinical guidelines, PubMed
+- **Experimental**:
+  - Experimental treatments in clinical trials (with NCT identifiers if available)
+    > **Search first:** ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP
+- **Treatment Outcomes**:
+  - Treatment response rates
+    > **Search first:** Clinical trial databases, FDA reviews, systematic reviews, PubMed
+  - Side effects and adverse events
+    > **Search first:** FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed
+- **Treatment Strategy**:
+  - Treatment algorithms (clinical pathways, decision trees)
+    > **Search first:** Clinical practice guidelines, NCCN Guidelines, UpToDate
+  - Combination therapies
+    > **Search first:** ClinicalTrials.gov, treatment guidelines, PubMed
+  - Personalized medicine approaches (genotype-guided treatment)
+    > **Search first:** My Cancer Genome, CIViC, PharmGKB, precision medicine databases
+
+For each treatment, suggest NCIT (NCI Thesaurus) clinical-intervention terms where applicable.
+
+### 13. Prevention
+
+- **Prevention Levels**:
+  - Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    > **Search first:** CDC, WHO, USPSTF recommendations, Cochrane Library
+  - Secondary prevention (early detection and treatment: screening programs, early intervention)
+    > **Search first:** USPSTF, CDC screening guidelines, WHO
+  - Tertiary prevention (preventing complications in those with disease)
+    > **Search first:** Clinical guidelines, disease management protocols, PubMed
+- **Immunization**: Vaccine strategies (if applicable)
+  > **Search first:** CDC vaccine schedules, WHO immunization, FDA vaccine database
+- **Screening and Early Detection**:
+  - Screening programs (population-based: newborn screening, cancer screening)
+    > **Search first:** CDC screening programs, USPSTF, cancer screening databases
+  - Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    > **Search first:** ACMG recommendations, ACOG guidelines, GTR
+  - Risk stratification (identifying high-risk individuals for targeted prevention)
+    > **Search first:** Risk prediction models, clinical calculators, PubMed
+- **Behavioral Interventions**: Lifestyle modifications to reduce risk
+  > **Search first:** CDC, WHO, behavioral intervention databases, Cochrane Library
+- **Counseling**: Genetic counseling (risk assessment, family planning guidance)
+  > **Search first:** NSGC resources, ACMG guidelines, GeneReviews
+- **Public Health**:
+  - Public health interventions (sanitation, vector control, health education)
+    > **Search first:** CDC, WHO, public health databases, PubMed
+  - Environmental interventions (reducing environmental risk factors)
+    > **Search first:** EPA databases, WHO environmental health, PubMed
+- **Prophylaxis**: Preventive medications or procedures
+  > **Search first:** Clinical guidelines, FDA approvals, PubMed
+
+### 14. Other Species / Natural Disease
+
+- **Taxonomy**: Species affected (with NCBI Taxon identifiers)
+  > **Search first:** NCBI Taxonomy
+- **Breed**: Specific breeds affected (with VBO identifiers if applicable)
+  > **Search first:** VBO (Vertebrate Breed Ontology)
+- **Gene**: Orthologous genes in other species (with NCBI Gene IDs)
+  > **Search first:** NCBI Gene
+- **Natural Disease**:
+  - Naturally occurring disease in other species (companion animals, wildlife)
+    > **Search first:** OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed
+  - Veterinary relevance and importance in animal health
+    > **Search first:** OMIA, veterinary databases, PubMed
+- **Comparative Biology**:
+  - Comparative pathology (similarities and differences across species)
+    > **Search first:** OMIA, comparative pathology databases, PubMed
+  - Evolutionary conservation of disease mechanisms
+    > **Search first:** HomoloGene, OrthoMCL, Alliance of Genome Resources
+- **Transmission** (if applicable):
+  - Zoonotic potential
+    > **Search first:** CDC zoonotic diseases, WHO zoonoses, GIDEON
+  - Cross-species susceptibility
+    > **Search first:** NCBI Taxonomy, veterinary databases, PubMed
+
+### 15. Model Organisms
+
+- **Model Types**:
+  - Model organism type (mammalian, invertebrate, cellular, in vitro)
+    > **Search first:** Alliance of Genome Resources, model organism databases
+  - Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    > **Search first:** MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus
+  - Induced models (drug treatment, surgical intervention, environmental manipulation)
+    > **Search first:** MGI, model organism databases, PubMed
+- **Genetic Models**:
+  - Types available (knockout, knock-in, transgenic, conditional, humanized)
+    > **Search first:** MGI, IMPC, KOMP, EuMMCR, IMSR
+- **Model Characteristics**:
+  - Phenotype recapitulation (how well model reproduces human disease features)
+    > **Search first:** Model organism databases, comparative studies, PubMed
+  - Model limitations (aspects of human disease not captured)
+    > **Search first:** Model organism databases, PubMed, review articles
+- **Applications**:
+  - Research applications (what aspects of disease can be studied)
+    > **Search first:** Model organism databases, PubMed
+- **Resources**:
+  - Model databases
+    > **Search first:** MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC
+
+---
+
+## Citation Requirements
+
+- Cite primary literature (PMID preferred) for all mechanistic and clinical claims
+- Prioritize recent reviews and landmark papers
+- Include direct quotes from abstracts where possible to support key statements
+- Distinguish evidence source types: human clinical, model organism, in vitro, computational
+
+## Output Format
+
+Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
