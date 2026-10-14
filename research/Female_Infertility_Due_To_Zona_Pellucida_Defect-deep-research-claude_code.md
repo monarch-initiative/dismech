@@ -726,3 +726,89 @@ Not applicable. No toxin, lifestyle or infectious contribution is known. Note th
 
 - Survival, life expectancy and mortality are **not affected**. There is no systemic morbidity.
 - The outcome is infertility with autologous oocytes. Prognosis depends on genotype and phenotype:
+  > "Three patients with ZP1 mutations, two with ZP2 mutations, and three with ZP4 mutations had successful pregnancies through Intracytoplasmic sperm injection (ICSI) from ZFO or ZTO." — PMID:36476320
+
+  The same review built a pregnancy-prediction model (AUC 0.898) from mutation type and location **[verify the figure in the full text]**.
+- **Poor-prognosis predictors:** biallelic truncating ZP1 variants, EFS, and fully degenerated oocytes. Patients in this group usually need oocyte donation.
+- **Complications:** repeated futile stimulation cycles, OHSS risk with re-stimulation, and psychological burden.
+
+---
+
+## 12. Treatment
+
+There is no disease-modifying therapy. Management is reproductive.
+
+| Intervention | Rationale / outcome | NCIT |
+|---|---|---|
+| **ICSI** of ZP-free/thin-ZP MII oocytes | Bypasses ZP-dependent sperm binding. Live births reported for ZP1 (PMID:32573113, PMID:32847637), ZP2 and ZP4. Requires careful handling and individual microdrop culture of zona-free embryos. | NCIT:C185482 Intracytoplasmic Sperm Injection |
+| Low-pressure follicular aspiration / modified retrieval | Reduces rupture of fragile ZP-free oocytes (described in ZP4 and ZP1 reports **[verify source]**) | Surgical/retrieval procedure; ID to look up |
+| Diagnostic (test) ICSI | Assesses embryo potential before a full cycle (PMID:32847637) | NCIT:C185482 |
+| **Oocyte donation** | The only option for EFS or complete degeneration | Look up an NCIT oocyte-donation / ART term |
+| Genetic counseling | Explains AR and sex-limited AD inheritance, sister testing, and avoiding futile cycles (PMID:42060237) | NCIT:C15240 |
+
+- **Embryo transfer:** zona-free embryos are fragile, so blastocyst-stage transfer is preferred.
+- **Pharmacogenomics, gene/cell/RNA therapies:** none. No clinical trials were found on ClinicalTrials.gov for ZP1 **[search not exhaustive]**.
+- **Experimental idea (not in human use):** artificial zona or ZP-substitute matrices.
+
+---
+
+## 13. Prevention
+
+- **Primary:** none. The disease is genetic.
+- **Secondary:** genotype-guided ART planning. Women with prior EFS, degenerated oocytes or ZP-free oocytes should be offered ZP-gene testing *before* repeat cycles. They should go straight to ICSI rather than IVF, or to donation when the genotype predicts EFS (PMID:32573113; PMID:36476320; 2025 *BJOG* study).
+- **Counseling:** cascade testing of female siblings, especially in consanguineous or North African families. PGT for future generations is theoretically possible, but no one has reported it and there is little rationale because the phenotype is only infertility.
+- **Vaccination / public health:** not applicable.
+
+---
+
+## 14. Other Species / Natural Disease
+
+- **OMIA:** "Infertility, ZP1-related" in *Macaca fascicularis* (NCBITaxon:9541), OMIA 003005-9541. This entry records the engineered model (PMID:40923306), not natural disease.
+- No naturally occurring ZP1 disease is documented in companion animals or livestock **[OMIA search for other species advised]**.
+- **Comparative biology:** ZP gene composition differs across species, and this explains the phenotypes seen in models:
+  - humans, macaques and rats have four ZP proteins (ZP1–4);
+  - in mice, *Zp4* is a pseudogene (three proteins);
+  - birds and fish have different ZP repertoires.
+
+  The ZP1-N1 cross-linking cysteine is conserved from chicken to human (PMID:31300655).
+- **Orthologs:** mouse Zp1 (MGI), rat Zp1 (RGD), macaque ZP1. Look up the NCBI Gene IDs.
+- **Transmission/zoonosis:** not applicable.
+
+---
+
+## 15. Model Organisms
+
+| Model | Genotype | Recapitulation | Ref |
+|---|---|---|---|
+| **Rat** (*Rattus norvegicus*, Sprague-Dawley) | Homozygous Zp1 knock-in of human I390fs404X | High. Complete ZP absence, cytoplasmic ZP1, 1–2 vs ~21 eggs ovulated, IVF failure, sterility. | PMID:33624742 |
+| **Cynomolgus macaque** | CRISPR ZP1 loss-of-function (#ZP1-2) | High (primate, 4-ZP). ZP-deficient oocytes, low IVM and blastocyst rates, disrupted folliculogenesis, mitochondrial swelling, SOD2 down. Single animal. | PMID:40923306 |
+| **Mouse** | Zp1-null (Zp1 tm/tm) | Partial. Loose, porous ZP2/ZP3 zona; ectopic granulosa cells; *subfertile*, with smaller litters from early embryo loss. | PMID:10433913 |
+| Mouse Zp2-null / Zp3-null | Knockout | No ZP, sterile; models the ZP2/ZP3 differentials | Rankin et al. 1996/2001 **[PMIDs to look up]** |
+| Rat Zp2 model | Loss-of-function variant | ZP2 differential | PMC10244809 |
+| **Cell lines** (HeLa, CHO, HEK293T) | Co-transfected WT/mutant ZP1 ± ZP2/3/4 | Moderate. Retention, co-sequestration, dimerization and secretion assays. | PMID:24670168, 31300655, 33272616, 32573113 |
+
+- **Human–model mismatch.** The mouse knockout is milder because mice lack ZP4, and a null allele (unlike a retained truncated protein) does not trap partner ZPs. The rat and macaque are the preferred models. This fits a `HUMAN_MODEL_MISMATCH` discussion, which the draft YAML already carries.
+- **Resources:** MGI, RGD, IMPC (check for a Zp1 line), OMIA.
+
+---
+
+## Key gaps and cautions for curation
+
+1. **Population prevalence:** none exists. Record it as unknown and use only cohort-enriched frequencies.
+2. **Heterozygous ZP1 causality** rests on very few families. Mark the AD claim with moderate confidence.
+3. **The step from ZP loss to degeneration** (oocyte–cumulus communication, oxidative stress) is supported only by human hypothesis and one macaque model. Edges for it should carry `directness: INDIRECT` or MODEL_ORGANISM evidence.
+4. **HPO IDs** for "Absent zona pellucida", empty follicle syndrome and oocyte degeneration need lookup. Do not write them from memory.
+5. **[unverified] PMIDs** for Chen 2017 *AJHG* (ZP3), Dai 2019 (ZP2), the 2025 *BJOG* cohort, and Rankin's Zp2/Zp3 knockouts need confirmation with `just fetch-reference`.
+6. **Draft YAML check:** the existing YAML uses the deprecated `percentage` prevalence field and `updated_date`. Migrate both to structured prevalence (`measure_type: UNKNOWN` / cohort fraction) before PR.
+
+---
+
+### Sources
+- Huang HL et al. *NEJM* 2014, PMID:24670168
+- Sun L et al. 2021, PMID:33272616
+- Zhang Z et al. 2022 review, PMID:36476320 — [PMC9730648](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9730648/)
+- Loeuillet C et al. 2022, PMID:35460069; North African ZP1 follow-up, PMID:42060237
+- Nishio S et al. 2019 (ZP1 cross-linking), PMID:31300655
+- Sun Y et al. 2019 (compound heterozygous sisters), PMID:31292994
+- Cao Q et al. 2020 (ZP1/ZP3 heterozygous), PMID:32573113
+- Dai C et al. 2019 / Zhou Z et al. 2019, PMID:30810869
