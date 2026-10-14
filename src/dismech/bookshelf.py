@@ -58,8 +58,11 @@ SOURCE_TAGS: dict[str, str] = {
 TAG_SOURCES: dict[str, str] = {tag: source for source, tag in SOURCE_TAGS.items()}
 
 #: Match kinds from strongest to weakest. ``EXACT`` is a normalised-title
-#: equality and is the only kind a gate should trust on its own.
-MATCH_KINDS = ("EXACT", "CONTAINS", "TITLE_IN_NAME", "NEAR")
+#: equality and is the only kind a gate should trust on its own. ``ONLINE`` is
+#: a live PubMed ``<name>[TI]`` hit on a chapter newer than the snapshot: PubMed
+#: matched the name's words somewhere in the title, and nothing here compared
+#: the two, so it ranks last and is only ever a candidate.
+MATCH_KINDS = ("EXACT", "CONTAINS", "TITLE_IN_NAME", "NEAR", "ONLINE")
 NEAR_THRESHOLD = 0.95
 
 #: Tokens that carry no disease identity on their own. A name made only of
@@ -159,7 +162,17 @@ class Match:
 
     @property
     def rank(self) -> int:
-        return MATCH_KINDS.index(self.kind)
+        return kind_rank(self.kind)
+
+
+def kind_rank(kind: str) -> int:
+    """Position of ``kind`` in :data:`MATCH_KINDS`; ``""`` (no title match) sorts last.
+
+    The one ordering every caller sorts by, so a title match and a row found
+    only by citation compare on the same scale. An unknown kind raises rather
+    than sorting somewhere arbitrary.
+    """
+    return MATCH_KINDS.index(kind) if kind else len(MATCH_KINDS)
 
 
 @dataclass

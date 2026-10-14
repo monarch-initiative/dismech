@@ -92,6 +92,7 @@ from dismech.bookshelf import (
     Chapter,
     Match,
     entry_names,
+    kind_rank,
     source_from_cache_text,
 )
 
@@ -352,7 +353,7 @@ def assess_source(
     for match in sorted(matches, key=lambda m: (m.rank, int(m.chapter.pmid))):
         pmid = match.chapter.pmid
         if pmid in rows:
-            if not rows[pmid].kind or match.rank < _rank(rows[pmid].kind):
+            if not rows[pmid].kind or match.rank < kind_rank(rows[pmid].kind):
                 rows[pmid].kind, rows[pmid].name = match.kind, match.name
             continue
         cited_as = _cited_as(match.chapter, cited_pmids, cited_nbks)
@@ -369,7 +370,7 @@ def assess_source(
         )
 
     report.chapters = sorted(
-        rows.values(), key=lambda r: (not r.tagged, _rank(r.kind), int(r.pmid))
+        rows.values(), key=lambda r: (not r.tagged, kind_rank(r.kind), int(r.pmid))
     )
 
     if any(p.problem == "MISTAGGED" for p in report.tag_problems):
@@ -393,18 +394,6 @@ def _cited_as(chapter: Chapter, cited_pmids: set[str], cited_nbks: set[str]) -> 
     if chapter.nbk and chapter.nbk in cited_nbks:
         return "NBK"
     return ""
-
-
-def _rank(kind: str) -> int:
-    order = {
-        "EXACT": 0,
-        "ONLINE": 0,
-        "CONTAINS": 1,
-        "TITLE_IN_NAME": 2,
-        "NEAR": 3,
-        "": 9,
-    }
-    return order.get(kind, 9)
 
 
 def assess_entry(
