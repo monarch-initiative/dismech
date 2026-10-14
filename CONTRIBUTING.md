@@ -2,6 +2,9 @@
 
 Thank you for your interest in contributing to the Disorder Mechanisms Knowledge Base!
 
+A browsable version of this guide, with the same setup steps and screenshots, is at
+[dismech.monarchinitiative.org/contributing/](https://dismech.monarchinitiative.org/contributing/index.html).
+
 > [!WARNING]
 > This guide is aimed at **real humans**. Agents are welcome to read this for context,
 > but instructions aimed at people should not be confused for instructions for agents.
@@ -69,7 +72,8 @@ in incremental improvement. No entry is ever considered "finished", and in fact 
 
 Do not open pull requests from forks. This repository depends on automated AI
 review and GitHub does not expose repository secrets to workflows triggered from
-forks, so fork-based PRs will not receive automated AI review.
+forks, so fork-based PRs cannot be reviewed; the `close-fork-prs` workflow closes
+them automatically.
 
 Contributors should push branches directly to `origin` and open PRs from those
 branches. If you are a new contributor and do not yet have access, first open an
@@ -80,13 +84,13 @@ granted branch access.
 
 ## A note on 'draft' status
 
-Currently the GitHub 'draft' status is not very meaningful. Any PR that is created will be reviewed
+The GitHub 'draft' status does not hold a PR back. Any PR that is created will be reviewed
 and possibly modified and advanced towards a final merge, regardless of draft status. If you do not wish this to
 happen then you can push changes without making a PR. However, in general you should follow the "be bold" guidelines.
 
-In terms of GitHub mechanics, draft status may block auto-merge.
-
-In future the workflow may be modified since the current status is a bit confusing.
+Draft status does not block auto-merge either: the merge automation marks an otherwise-eligible draft as ready
+before merging it. To keep a PR from merging, assign it to yourself (a human assignee is a hold) or leave a
+"changes requested" review. See [Pull Request Process](#pull-request-process).
 
 ## Technical Guidelines for Contributing
 
@@ -100,13 +104,14 @@ An easier option for many people who want to curate diseases in DisMech is to se
 For instructions on that, please see the section on [Running dismech in Claude Code on the web](#running-dismech-in-claude-code-on-the-web).
 
 ### 1. Install Claude Code
-- Get a Claude Pro subscription at [claude.ai](https://claude.ai) - you won't be able to do curation with the free version of Claude.
+- Get a Claude Pro, Max, Team, or Enterprise plan at [claude.ai](https://claude.ai) (or use a Console account) - the free plan does not include Claude Code.
 - Install Claude Code CLI:
   ```bash
-  brew install claude-code  # macOS
+  curl -fsSL https://claude.ai/install.sh | bash   # macOS, Linux, WSL (recommended)
+  brew install --cask claude-code                  # or with Homebrew
   ```
 
-For installing on other (non-macOS) platforms, see [claude.ai/code](https://claude.ai/code).
+For Windows and other options, see the [setup guide](https://code.claude.com/docs/en/setup).
 
 ### 2. Install `just` Command Runner
 Test if you have it:
@@ -122,7 +127,14 @@ brew install just  # macOS
 
 (or just ask your agent to do this)
 
+You also need [uv](https://docs.astral.sh/uv/), which manages the Python environment
+(`brew install uv` on macOS).
+
 ### 3. Set Up a Deep Research Provider (Required)
+
+Every new disorder entry needs a committed deep-research report. `/curate` uses Edison (`falcon`)
+unless you name another provider (`/curate Cholera using openscientist`). The `claude_code` provider
+needs no separate key: it reuses your Claude Code login.
 
 For comprehensive biomedical literature research, we recommend **Edison Scientific (falcon)**:
 
@@ -207,6 +219,7 @@ repository policy and the reference-validation patches in the wrapper.
 ```bash
 git clone https://github.com/monarch-initiative/dismech.git
 cd dismech
+just install
 ```
 
 Open Claude Code and ask:
@@ -214,7 +227,14 @@ Open Claude Code and ask:
 Give me a tour of the dismech project
 ```
 
-Then start curating using the `curate` skill:
+Then start curating. To pick an unclaimed disease from the curation queue (`stubs/`) and claim it
+so nobody else takes it, use the `claim-disease` skill:
+
+```
+/claim-disease
+```
+
+Or curate a specific disorder, new or existing, with the `curate` command:
 
 ```
 /curate Parkinson Disease
@@ -268,18 +288,18 @@ Now you're ready to set up your cloud environment (this is a one-time step).
    variables, and setup script.
    (The "Create your environment" step of [the get-started guide](https://code.claude.com/docs/en/web-quickstart) describes these fields.)
 
-3. **Name your environment.**
+2. **Name your environment.**
    Click on the Name box and choose a name for your environment (e.g., "dismech").
 
-4. **Set Network access to Full.**
+3. **Set Network access to Full.**
    Use the **Network
    access** selector and choose **Full**. The default setting, **Trusted**,
    only allows an allowlist of package registries and GitHub, which blocks the
    literature/deep-research and structured-source hosts that dismech curation accesses
    (PubMed, ClinicalTrials.gov, Edison, OpenScientist, Orphanet, ClinGen).
 
-5. **Add your deep-research API keys** in the Environment variables field. This field
-   uses `.env` format — one `KEY=value` per line, and **do not use quotes** (quotes are stored as part of the value):
+4. **Add your deep-research API keys** in the Environment variables field. This field
+   uses `.env` format — one `KEY=value` per line. Quotes are not needed:
    ```text
    EDISON_API_KEY=<YOUR_EDISON_KEY>
    OPENSCIENTIST_API_KEY=<YOUR_OPENSCIENTIST_KEY>
@@ -293,7 +313,7 @@ Now you're ready to set up your cloud environment (this is a one-time step).
    Note: the Environment variables field is plain text, not a secrets store — the values are
    visible to anyone who can open the environment's settings. On a personal account, that's only you.
 
-6. **Add an install of `just` to the setup script** in the "Setup script" box (just this one line):
+5. **Add an install of `just` to the setup script** in the "Setup script" box (just this one line):
    ```
    uv tool install rust-just
    ```
@@ -309,7 +329,7 @@ as on the command line — `/curate` a disorder, then create the PR when ready.
 One of the nice things about running Claude on the web is that you can set up multiple sessions, and archive them when they're finished. Archived sessions don't use any tokens, but you can restart them if you want.
 
 **Tip: keep each session focused.** Every cloud session runs in a fresh VM with
-approximate ceilings (a memory limit and ~30 GB of disk). A single session that
+approximate ceilings (~16 GB of memory and ~30 GB of disk). A single session that
 curates one disorder or a small group of related disorders stays well within
 those limits; one that keeps going across many unrelated diseases accumulates
 context and on-disk state (downloaded ontology DBs, caches) and can slow down or
@@ -318,8 +338,9 @@ then let it finish; you can archive finished sessions from the sidebar to keep
 the list tidy. The environment config is reused automatically, so a new session
 costs you nothing to set up.
 
-**Tip: how to find (and potentially restart) your archived sessions.** In the sidebar, click the toggle icon next to Recents,
-choose "Status", and change from "Active" to "Archived" or "All".
+**Tip: how to find (and potentially restart) your archived sessions.** Filter the sidebar session list for archived
+sessions (at the time of writing: click the toggle icon next to Recents, choose "Status", and change from "Active"
+to "Archived" or "All").
 
 ## Curation Model: AI-Assisted with Human Oversight
 
@@ -356,7 +377,7 @@ agent to issue"** (Preview) dispatches a coding agent — there, assignment *is*
 trigger. DisMech's own workflow agents are **mention**-driven (`@claude`,
 `@ai4c-agent`) and never fire on assignment; to them an assignee means
 "claimed", which removes the issue from the curation scanner's queue. See
-[What assigning an issue actually does](https://monarch-initiative.github.io/dismech/explanation/automation-and-agents/#what-assigning-an-issue-actually-does).
+[What assigning an issue actually does](https://dismech.monarchinitiative.org/elements/explanation/automation-and-agents/#what-assigning-an-issue-actually-does).
 
 ### ai4c-agent
 
@@ -378,12 +399,12 @@ In dismech, ai4c-agent acts as an autonomous curator/reviewer bot integrated int
 - Neither name is an account you can notify. The agent runs as the ai4c-agent
   GitHub App, and GitHub Apps cannot be @-mentioned, so both are plain text
   keywords that the workflow matches. Autocomplete will not offer them.
-- You must be a registered ai-controller in the json file
+- You must be a registered ai-controller in `.github/ai-controllers.json`
 
 ### Claude issue responder
 
-- watches github issues and responds
-- you must be part of the project for this to work. Contact dismech team to be added.
+- responds when you mention **@claude** in an issue (title or body), comment, or review
+- only responds to repository owners, organization members, and collaborators. Contact the dismech team to be added.
 - Note: letting it watch issues consumes org API tokens, so use that judiciously
 
 ### Standard CI/CD
@@ -407,8 +428,9 @@ Various scanners operate at different intervals:
 - scans for incomplete entries using linkml-data-qc and creates PRs to enhance them
 
 Unlike the review agent, which always uses a top-tier model, some scanners for low-risk tasks may
-use cheaper models. Additionally, github labels can be used to manually assign tasks to
-lower quality models (use the `low_effort` tag).
+use cheaper models. The curation scanner picks a model tier from an issue's effort label
+(`low_effort`, `medium_effort`, `high_effort`, or `very-hard`), so labelling an issue `low_effort`
+assigns it to a cheaper model. The mapping is in `.github/agent-config.yaml`.
 
 ### For AI Agents (Claude Code, etc.)
 
@@ -494,7 +516,7 @@ All contributions must pass validation (this is done for you; your PR will not b
 just validate-all
 
 # Ontology term validation (catches fake/mismatched term IDs)
-just validate-terms
+just validate-terms kb/disorders/YourFile.yaml
 
 # Snippet check against the local reference cache (seconds — use this while you
 # curate; it accepts any number of files)
@@ -512,30 +534,27 @@ just validate-kb-references kb/disorders/YourFile.yaml
 
 ### Ontology databases and constrained environments
 
-Term validation is backed by OAK's `sqlite:obo:*` databases (mapped in
-`conf/oak_config.yaml`). When a database is missing, OAK downloads it on demand
-from the public [`bbop-sqlite`](https://s3.amazonaws.com/bbop-sqlite) bucket into
-`~/.data/oaklib/`. Some of these are large:
-
-| Ontology | Approx. size (unpacked) |
-|----------|-------------------------|
-| `ncbitaxon` | ~13.5 GB (2.1 GB gzipped) |
-| `ncit` | ~2.7 GB |
-| `mondo`, `chebi`, `uberon`, `hp`, `go` | tens–hundreds of MB each |
+Most ontologies (MONDO, HP, GO, CL, CHEBI, UBERON, NCIT, NCBITaxon and others)
+are looked up through the EBI Ontology Lookup Service (`ols:` adapters in
+`conf/oak_config.yaml`), so term validation does not download them. A few
+(HGNC, GENO, ECTO, XCO, ICD-10-CM, ICD-11, OPL) still use OAK's `sqlite:obo:*`
+databases, which OAK downloads on demand from the public
+[`bbop-sqlite`](https://s3.amazonaws.com/bbop-sqlite) bucket into
+`~/.data/oaklib/`. Some modules and ad-hoc `runoak` commands build a local
+adapter directly (for example `sqlite:obo:hp` or `sqlite:obo:ncit`), and those
+databases are larger (NCIT is ~2.7 GB unpacked).
 
 In network- or disk-constrained environments (Claude Code on the web, sandboxed
-agents, metered connections) an interrupted big-file download can abort a
-validation run. Two things make this manageable:
-
-NOTE: we should be using OLS for the above now
+agents, metered connections) an interrupted download can abort a run. Two
+things make this manageable:
 
 - **Single-file validation does not force these downloads.** `just validate`,
   `just validate-terms`, `just validate-module`, `just validate-grouping`, and
   `just validate-comorbidity` trust the committed `cache/*.csv` and only query
   OAK for CURIEs that are *not* already cached (typically only when you add a
   brand-new term). They deliberately skip the whole-cache `check-enum-cache`
-  integrity step, which re-derives every dynamic enum from OAK (and would pull
-  `ncbitaxon`/`ncit`). That integrity check still runs in whole-KB commands
+  integrity step, which re-derives every dynamic enum from OAK (a lookup for
+  every cached term, against OLS and the local databases). That integrity check still runs in whole-KB commands
   (`just validate-all`, `just qc`) and in CI.
 
 - **Pre-provision the databases when you do need them** (e.g. before a full
@@ -544,10 +563,8 @@ NOTE: we should be using OLS for the above now
 
   ```bash
   just fetch-ontology-dbs                 # all sqlite:obo:* DBs in oak_config.yaml
-  just fetch-ontology-dbs ncbitaxon hp    # only the ones you need
+  just fetch-ontology-dbs hgnc geno       # only the ones you need
   ```
-
-  Unpacking `ncbitaxon` needs ~16 GB free; the full OAK cache can reach ~26 GB.
 
 - **Offline structural check.** `just check-enum-cache-offline` audits the
   committed enum caches (stale files, malformed headers, duplicate rows) without
@@ -566,11 +583,12 @@ default = no-refresh
 ## Pull Request Process
 
 1. Create a branch for your changes on `origin`, not on a fork
-2. Make edits to YAML files in `kb/disorders/`
-3. Run `just qc` to validate
-4. Submit a pull request
-5. Address any CI failures
-6. Wait for review from maintainers
+2. Have your agent make edits to YAML files in `kb/disorders/` and validate them
+3. Submit a pull request
+4. An AI reviewer reviews it, usually within minutes, and marks it "changes requested" or approved
+5. Have your agent address CI failures and review findings, in one push per round (every push drops the approval)
+6. The PR is merged automatically once it is approved, passing all checks, conflict-free, more than
+   3 days old, and not assigned to a person. Assign it to yourself to hold it.
 
 ## Questions?
 
