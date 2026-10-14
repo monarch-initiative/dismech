@@ -2,7 +2,9 @@
 
 from pathlib import Path
 
+from linkml.generators.jsonschemagen import JsonSchemaGenerator
 from linkml.validator import Validator
+from linkml.validator.plugins import JsonschemaValidationPlugin
 
 from dismech.yaml_io import safe_load
 
@@ -11,10 +13,31 @@ MATCHING_SCHEMA_PATH = ROOT_DIR / "src" / "phenoagent" / "schema" / "matching.ya
 VALID_MATCHING_FILE = ROOT_DIR / "tests" / "phenoagent" / "data" / "valid" / "MatchingRun-001.yaml"
 
 
+def _matching_validator() -> Validator:
+    # An explicit plugin is required: a plugin-less Validator returns an empty
+    # report for any instance, making every assertion vacuous (dismech#11011).
+    return Validator(
+        MATCHING_SCHEMA_PATH,
+        validation_plugins=[JsonschemaValidationPlugin(closed=True)],
+    )
+
+
 def test_matching_schema_loads():
-    """Ensure the matching schema is valid LinkML."""
-    validator = Validator(MATCHING_SCHEMA_PATH)
-    assert validator is not None
+    """Ensure the matching schema compiles to JSON Schema.
+
+    Constructing a Validator compiles nothing, so this generates the schema
+    explicitly; an undeclared slot used to pass here unnoticed.
+    """
+    assert JsonSchemaGenerator(str(MATCHING_SCHEMA_PATH)).serialize()
+
+
+def test_matching_validator_rejects_an_invalid_run():
+    """Guard: the validator these tests use must actually report errors."""
+    report = _matching_validator().validate(
+        {"run_id": "x", "matches": [{"exact": "not a boolean", "bogus": 1}]},
+        target_class="MatchingRun",
+    )
+    assert [r for r in report.results if r.severity.name == "ERROR"]
 
 
 def test_valid_matching_run_example():
@@ -22,8 +45,7 @@ def test_valid_matching_run_example():
     with open(VALID_MATCHING_FILE) as stream:
         data = safe_load(stream)
 
-    validator = Validator(MATCHING_SCHEMA_PATH)
-    report = validator.validate(data, target_class="MatchingRun")
+    report = _matching_validator().validate(data, target_class="MatchingRun")
     errors = [result for result in report.results if result.severity.name == "ERROR"]
     assert not errors, f"Validation errors in {VALID_MATCHING_FILE}: {[str(e) for e in errors]}"
 

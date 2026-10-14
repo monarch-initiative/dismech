@@ -175,13 +175,17 @@ class Sources:
     agr: Path
     clingen: Path
 
-    def build(self, kb: Path, out: Path):
+    def build(self, kb: Path, out: Path, curated_dir: Path | None = None):
+        # Always explicit: the default is the real kb/genes/curated, relative to
+        # the CWD, so a test that left it unset would pull the repository's own
+        # summaries into a tmp build.
         return build_ingest(
             kb_root=kb,
             hgnc_dir=self.hgnc,
             agr_dir=self.agr,
             clingen_dir=self.clingen,
             out_dir=out,
+            curated_dir=curated_dir if curated_dir is not None else out / "_no_curated",
         )
 
 
@@ -206,6 +210,15 @@ def ingest_sources(tmp_path: Path) -> Sources:
                 "symbol": "GENE2",
                 "name": "gene two",
                 "uniprot_ids": "P00002",
+            },
+            {
+                # Named by no KB entry. Reachable only through a curated
+                # summary, which is how a no-disease gene gets a page.
+                **base,
+                "hgnc_id": "HGNC:9",
+                "symbol": "GENE9",
+                "name": "gene nine",
+                "uniprot_ids": "P00009",
             },
         ],
     )
@@ -287,6 +300,56 @@ def test_ingest_joins_on_uniprot_not_symbol(
     assert function["terms"]["molecular_function"] == [
         ("GO:0000002", "activity, with comma")
     ]
+
+
+def test_a_curated_summary_pulls_its_gene_into_the_ingest_tables(
+    kb: Path, ingest_sources, tmp_path: Path
+) -> None:
+    """A gene no entry names still gets its HGNC row when it has a summary.
+
+    The renderer publishes a page for any gene with a curated summary, so the
+    ingest selection has to agree. The case this exists for is a gene curated
+    *because* it causes no disease: no entry names it, so a KB-only selection
+    would leave the page titled with the bare CURIE.
+    """
+    curated = tmp_path / "curated"
+    curated.mkdir()
+    (curated / "hgnc_9.md").write_text("---\nhgnc_id: hgnc:9\n---\n", encoding="utf-8")
+    # A file that is not a summary must not widen the selection.
+    (curated / "README.md").write_text("not a summary\n", encoding="utf-8")
+
+    out = kb / "genes" / "ingest"
+    report = ingest_sources.build(kb, out, curated_dir=curated)
+
+    assert report.curated_only_genes == ["hgnc:9"]
+    assert report.kb_genes == 2, "the KB count stays the KB count"
+    assert report.hgnc_rows == 3
+    assert load_ingest(out).hgnc["hgnc:9"]["symbol"] == "GENE9"
+
+
+def test_ingest_and_renderer_read_curated_ids_through_one_function(
+    tmp_path: Path,
+) -> None:
+    """Neither side can drift from the other, because there is one function.
+
+    The ingest selection and the renderer's page rule have to agree on which
+    genes have a summary. They did not when gene pages landed: the renderer
+    published a page for any curated gene while the ingest wrote rows only for
+    genes a KB entry named, so a curated gene no entry named got a page with no
+    identity row behind it.
+    """
+    import dismech.genes.ingest as ingest_mod
+    import dismech.genes.render as render_mod
+    from dismech.genes.curated import curated_ids
+
+    assert render_mod.curated_ids is curated_ids
+    assert ingest_mod.curated_ids is curated_ids
+
+    curated = tmp_path / "curated"
+    curated.mkdir()
+    (curated / "hgnc_22980.md").write_text("---\n---\n", encoding="utf-8")
+    (curated / "hgnc_bogus.md").write_text("---\n---\n", encoding="utf-8")
+    assert curated_ids(curated) == {"hgnc:22980"}
 
 
 def test_clingen_rows_are_limited_to_kb_genes_and_joined_by_mondo(
