@@ -484,3 +484,100 @@ For each section, provide:
 - Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
 - Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT, MONDO) where applicable
 - Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease
+
+This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (NCIT terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details
+
+
+## Output
+
+Let me grab the abstracts and key passages from these full texts.
+
+Gathering the remaining clinical and model-organism details from the cached full texts, then I'll write the report.
+
+# El Hayek-Chahrour Neurodevelopmental Disorder (NEDEHC; KDM5A-related neurodevelopmental disorder): Research Report
+
+**Prepared:** 2026-10-14 · **MONDO:** MONDO:0970951 · **OMIM:** #620820 · **Gene:** *KDM5A* (12p13.33)
+
+### Scope and source basis
+
+Three primary papers from one group, the Chahrour laboratory at UT Southwestern, define what is known about this ultra-rare disorder:
+
+| PMID | Citation | Type | What it contributes |
+|---|---|---|---|
+| **33350388** | El Hayek L et al., *eLife* 2020;9:e56883, doi:10.7554/eLife.56883 | Mouse forward genetics plus a human cohort (n = 9) | Discovers the gene and defines the disorder. Characterises the *Kdm5a* knockout mouse. |
+| **41889174** | El Hayek L, Gogate A, … Chahrour MH, *HGG Advances* 2026 | Human cohort (n = 24) plus in vitro and computational work | Widens the variant and phenotype spectrum. Adds LCL protein levels, RNA-seq, structural modelling and ACMG reclassification. |
+| **37992166** | El Hayek L et al., *Sci Adv* 2023, doi:10.1126/sciadv.adi0074 | Mouse snRNA-seq | Shows how hippocampal cell identity is disrupted. |
+
+In this report:
+- Quotes marked **[abstract]** come from the abstract.
+- Quotes marked **[full text]** come from the PMC full text cached in the repository (`references_cache/`).
+- No GeneReviews chapter, Orphanet record, natural-history study, clinical guideline or clinical trial was found.
+- The OLS and PubMed MCP connectors were not authorised in this session. Ontology IDs below are **leads to verify with `runoak`/OLS before binding**, not looked-up values.
+
+---
+
+## 1. Disease information
+
+**Overview.** NEDEHC is a Mendelian neurodevelopmental chromatinopathy caused by germline variants in *KDM5A*. It can be inherited in either of two ways:
+- **Monoallelic:** de novo, or inherited dominant.
+- **Biallelic:** homozygous or compound heterozygous.
+
+*KDM5A* encodes lysine-specific demethylase 5A (JARID1A/RBP2), which removes methyl groups from H3K4me2/3. The core clinical picture is:
+- severe speech impairment, often with no speech at all;
+- intellectual disability or global developmental delay;
+- autism spectrum disorder (ASD).
+
+Variable additional features include hypotonia, seizures, feeding difficulties, sleep disturbance, joint hypermobility, facial dysmorphism, cardiac septal defects and structural brain abnormalities.
+
+- OMIM/MedGen defines it as *"characterized by absent speech, impaired intellectual development, and autism"* ([MedGen C5935620](https://git.lsit.ucsb.edu/publicdata/nih-gov/raw/branch/main/www.ncbi.nlm.nih.gov/medgen/C5935620/index.html)).
+- PMID:41889174 [abstract]: *"All individuals presented with severe speech impairment and intellectual disability, often alongside ASD and other neurodevelopmental features."*
+
+**Identifiers**
+
+| System | ID | Notes |
+|---|---|---|
+| OMIM | 620820 | Phenotype entry; gene MIM 180202 (*KDM5A*). |
+| MONDO | MONDO:0970951 | "El Hayek-Chahrour neurodevelopmental disorder" |
+| MedGen | C5935620 | |
+| KEGG DISEASE | H02803 | Listed as a subtype of "Neurodevelopmental disorder with histone modification defect", alongside KMT2E, KDM6B, SETD1A, KAT5, DOT1L and other genes ([KEGG H02803](https://www.kegg.jp/entry/H02803)). |
+| Orphanet | None found | |
+| ICD-10/ICD-11 | No specific code | Code under F84.0 (autism), F72/F79 (intellectual disability) or the ICD-11 6A00 / LD90 family. |
+| MeSH | No specific heading | Nearest: Autism Spectrum Disorder; Intellectual Disability. |
+| HGNC | hgnc:9886 (*KDM5A*) | Write it in lowercase `hgnc:` in dismech. **Verify before binding.** |
+
+**Synonyms:** El Hayek-Chahrour neurodevelopmental syndrome; neurodevelopmental disorder with absent speech, impaired intellectual development, and autism; NEDEHC; KDM5A-related neurodevelopmental disorder.
+
+**Data provenance.** All data are aggregated case series assembled through international collaboration (GeneMatcher-style matchmaking, the CAUSES study, and clinical exome and microarray cohorts). No EHR-level data exist.
+
+**Gene–disease curation status**
+- **Genomics England PanelApp:** Intellectual Disability panel **Green**, "BOTH monoallelic and biallelic, autosomal or pseudoautosomal"; Fetal Anomalies panel **Amber**; DDG2P **Red** (biallelic, "autosomal recessive mental retardation") ([PanelApp](https://panelapp.genomicsengland.co.uk/panels/entities/KDM5A)).
+- **PanelApp Australia:** lists *KDM5A* on its ID panel ([PanelApp-AUS](https://panelapp-aus.org/panels/250/gene/KDM5A/)).
+- **ClinGen:** no gene–disease validity classification was found. **Check `cache/clingen/` and `just list-gene-validity` before recording a tier.**
+
+---
+
+## 2. Etiology
+
+**Cause.** The disorder is purely genetic: pathogenic germline *KDM5A* variants. No environmental or infectious component has been described.
+
+PMID:41889174 [full text]: *"In conclusion, both monoallelic and biallelic KDM5A variants cause a neurodevelopmental disorder characterized by ASD, severe speech abnormalities, developmental delay, and intellectual disability."*
+
+**Genetic risk factors**
+- Consanguinity: many of the biallelic families come from Iran, Saudi Arabia, Egypt and Kuwait.
+- A parent carrying a heterozygous variant: several monoallelic variants were inherited from parents described as mildly affected or unaffected, which raises the question of incomplete penetrance (see §9).
+
+**Protective factors, modifiers, gene–environment interactions:** none reported.
+
+**Historical antecedent.** One homozygous *KDM5A* missense family was reported in the Najmabadi et al. 2011 autosomal-recessive intellectual disability screen (*Nature*; PMID:21937992 — verify the PMID).
