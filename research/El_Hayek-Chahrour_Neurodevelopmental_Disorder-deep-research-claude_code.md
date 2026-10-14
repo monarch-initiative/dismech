@@ -862,3 +862,86 @@ Brain imaging findings are bilateral and diffuse.
 **Research directions (speculative; no data in this disease)**
 - KDM5 inhibitors are oncology tools and would go the wrong way for a loss-of-function disorder.
 - Approaches that restore dosage (gene therapy, CRISPRa) have not been tested.
+
+---
+
+## 13. Prevention
+
+- **Primary:** not applicable.
+- **Genetic counselling:**
+  - Recurrence risk is 25% for biallelic families.
+  - Risk is up to 50% when an affected or carrier parent transmits a monoallelic variant.
+  - Risk is low (germline-mosaicism level) for de novo cases.
+- **Reproductive options:** prenatal diagnosis or PGT-M for known familial variants.
+- **Tertiary prevention:**
+  - seizure surveillance;
+  - cardiac screening by echocardiography at diagnosis;
+  - early intensive communication intervention.
+
+---
+
+## 14. Other species and natural disease
+
+- No naturally occurring animal disease was found; OMIA was not checked in detail.
+- Orthologs:
+  - mouse *Kdm5a* (MGI:2136268 — verify), NCBITaxon:10090;
+  - *Drosophila* has a single KDM5 ortholog (*Kdm5/lid*), which is implicated in intellectual-disability-related behaviour in flies through the *KDM5C* literature.
+- KDM5 family function in H3K4 demethylation is conserved from yeast (Jhd2) to humans.
+
+---
+
+## 15. Model organisms
+
+### *Kdm5a* Selbst ENU allele (p.C322\*), C57BL/6J mouse
+
+- **Phenotypes:** recessive reduction in USV peak frequency and impaired nest building.
+- **Fidelity:** found by unbiased forward genetics, with strong linkage (p = 2.9×10⁻⁵ for USV; p = 7.0×10⁻⁵ for nesting).
+
+### *Kdm5a*⁻/⁻ targeted knockout mouse (PMID:33350388; PMID:37992166)
+
+**What it recapitulates**
+- vocalization deficit, as a proxy for absent speech;
+- repetitive grooming;
+- sociability deficit;
+- Morris water maze learning and memory deficit;
+- reduced dendritic complexity and spine density;
+- hippocampal transcriptome dysregulation;
+- mis-specified CA1 superficial and deep identity (snRNA-seq).
+
+**Limitations**
+- Heterozygous mice learn normally. PMID:33350388 [full text]: *"WT and Kdm5a+/- littermates had normal learning abilities"*. So the model does not reproduce the human **monoallelic** disease. This is a `HUMAN_MODEL_MISMATCH` candidate in dismech terms.
+- USV is a proxy for speech, not speech itself.
+- No seizure, cardiac, corpus callosum or joint phenotypes were reported.
+- Missense alleles have not been modelled.
+
+**Suggested dismech link encoding:** `RECAPITULATES` / `PARTIALLY_RECAPITULATES` to the ASD-behaviour and dendritic nodes; `model_scale: ORGANISM`; `evidence_source: MODEL_ORGANISM`.
+
+### Cellular models
+
+- Patient-derived LCLs (PMID:41889174): reduced KDM5A protein and variant-specific transcriptomes. Encode these as `IN_VITRO` evidence.
+- No iPSC-derived neurons or organoids have been reported. This is a gap.
+
+---
+
+## Knowledge gaps (candidates for `KNOWLEDGE_GAP` discussions)
+
+1. **Haploinsufficiency mismatch.** Heterozygous *Kdm5a* mice show no cognitive phenotype, yet humans with monoallelic variants are affected. Is the human disease caused by dominant-negative effects, a species-specific dosage threshold, or incomplete penetrance?
+2. **Direct chromatin readout.** No H3K4me3 ChIP-seq or CUT&Tag exists in patient cells or mutant neurons.
+3. **Episignature.** No DNA-methylation episignature is available as a diagnostic aid.
+4. **Natural history.** There are no longitudinal data, adult outcomes or seizure semiology.
+5. **Extra-neural features.** The mechanism behind the cardiac and connective-tissue features is unexplored.
+
+---
+
+## Sources
+
+- El Hayek L et al. (2020) KDM5A mutations identified in autism spectrum disorder using forward genetics. *eLife* 9:e56883. PMID:33350388. https://doi.org/10.7554/eLife.56883
+- El Hayek L et al. (2023) Disruption of the autism gene and chromatin regulator KDM5A alters hippocampal cell identity. *Sci Adv*. PMID:37992166. https://doi.org/10.1126/sciadv.adi0074
+- El Hayek L, Gogate A, et al., Chahrour MH (2026) Monoallelic and biallelic KDM5A variants identified in patients with autism spectrum disorder. *HGG Adv*. PMID:41889174. [Maastricht CRIS record](https://cris.maastrichtuniversity.nl/en/publications/monoallelic-and-biallelic-kdm5a-variants-identified-in-patients-w/)
+- [MedGen C5935620 / OMIM 620820 mirror](https://git.lsit.ucsb.edu/publicdata/nih-gov/raw/branch/main/www.ncbi.nlm.nih.gov/medgen/C5935620/index.html)
+- [KEGG DISEASE H02803](https://www.kegg.jp/entry/H02803)
+- [Genomics England PanelApp – KDM5A](https://panelapp.genomicsengland.co.uk/panels/entities/KDM5A)
+- [PanelApp Australia – KDM5A](https://panelapp-aus.org/panels/250/gene/KDM5A/)
+- [ERN-ITHACA syndrome page](https://ern-ithaca.eu/?p=2416) (listed in search results; not reviewed)
+- Najmabadi H et al. (2011) Deep sequencing reveals 50 novel genes for recessive cognitive disorders. *Nature*. PMID:21937992 (verify; cited secondhand through PMID:33350388)
+- Excluded as off-target: Sotoudeh Anvari et al. 2024, *Iran J Pediatr*, which describes a **KDM5C** case and not KDM5A ([brieflands](https://brieflands.com/articles/ijp-143515)).
