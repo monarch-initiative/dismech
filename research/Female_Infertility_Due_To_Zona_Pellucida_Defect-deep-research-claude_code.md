@@ -576,3 +576,69 @@ ZP4-related thin-zona infertility currently has no OMIM phenotype entry **[verif
 | Absent zona pellucida (ZP-free oocytes) | Laboratory/ART finding | Found at oocyte retrieval | Common. About 20–25% of ZP1 patients yield ZP-free MII oocytes **[count from PMID:36476320 review — check text]** | "Absent zona pellucida" (term exists; listed in MedGen), ID to look up |
 | Thin or irregular zona pellucida | ART finding | Retrieval | Occasional | "Abnormal zona pellucida morphology" or similar, ID to look up |
 | Empty follicle syndrome (no oocytes despite normal follicle growth and hCG/E2) | ART finding | Retrieval | Most frequent ZP1 presentation (EFS plus degeneration ≈ 75%+ of reported ZP1 cases) | Look up an HPO term for empty follicle syndrome. None may exist; if so, bind to Female infertility and keep the detail in `preferred_term` |
+| Degenerated, shrivelled or dark oocytes | ART finding | Retrieval | Frequent | "Oocyte degeneration"-type term, ID to look up |
+| Failure of fertilization in conventional IVF | ART finding | ART | Universal when ZP-free oocytes are inseminated by IVF | "Fertilization failure"-type term, ID to look up |
+| Normal menstrual cycle, hormones, AMH | Negative findings | — | Typical | — (diagnostic context) |
+
+Key quotes:
+> "All the oocytes from ZP1-associated patients appeared shriveled and dark indicating that the abnormal ZP1 protein induced oocyte death and degeneration." — PMID:35460069
+
+> "Sixty-nine mutations of the ZP genes were reported in 87 patients with different clinical phenotypes, including empty follicle syndrome (EFS), ZP-free oocytes (ZFO), ZP-thin oocytes (ZTO), degenerated and immature oocytes. The phenotypes of patients were influenced by the types and location of the mutations." — Zhang et al. 2022 review, PMID:36476320
+
+**Severity, progression and quality of life.** The phenotype is stable and lifelong. There are no systemic or somatic features. The burden is psychosocial: repeated failed stimulation cycles, cost, and infertility distress. No disease-specific QoL studies exist. Generic FertiQoL data on infertility apply.
+
+---
+
+## 4. Genetic / Molecular Information
+
+**Causal gene:** ZP1 (hgnc:13187; 12 exons; 638-aa type I membrane glycoprotein). Its domains run from N- to C-terminus: signal peptide, ZP-N1 (the cross-linking domain), proline-rich linker, trefoil (P-type) domain, bipartite ZP module (ZP-N and ZP-C), consensus furin cleavage site, transmembrane domain and cytoplasmic tail.
+
+**Variant spectrum.**
+> "A total of 47 ZP1 mutations have been reported in 19 pieces of literature … Mutations are distributed in all 12 exons of ZP1 gene … including 13 nonsense mutations, 16 missense mutations, seven splicing mutations and 11 frameshift mutations" — PMID:36476320
+
+Notable variants (transcript NM_207341):
+
+| Variant | Domain | Zygosity / inheritance | Phenotype | Source |
+|---|---|---|---|---|
+| c.1169_1176del, p.Ile390Thrfs*16 (I390fs404X) | ZP module | Homozygous, AR | ZP-free oocytes; the original family | PMID:24670168 |
+| c.1097G>A, p.Arg366Gln | ZP-N | Homozygous; North African founder | Degenerated oocytes / EFS | PMID:35460069, PMID:42060237 |
+| p.Trp83Arg | ZP-N1 | Compound heterozygous / heterozygous | Blocks ZP1-N1 homodimerization | PMID:31300655 |
+| c.326G>A, p.Arg109His | ZP-N1 | Heterozygous | ZP-free oocytes; live birth after ICSI | PMID:32573113 |
+| p.Tyr262Cys | Trefoil | Heterozygous, paternally inherited | Abnormal ZP formation | PMID:38966008 |
+| Compound heterozygous pairs in sisters | various | AR | EFS | PMID:31292994 |
+| 20 ZP1 variants (in a cohort of 35 GEFS/degeneration patients) | various | AR | GEFS / degeneration | PMID:33272616 |
+
+**Classification and frequency.** Most variants are reported as pathogenic or likely pathogenic in the original papers. ClinVar curation is sparse and there is no ClinGen gene–disease validity curation **[verify via `just list-gene-validity`/CGGV cache]**. Variants are rare or absent in gnomAD. The Arg366Gln carrier frequency in North African populations has not been formally estimated.
+
+**Origin and function.** All variants are germline. The functional consequence is loss of function: truncation, absent secretion, or loss of ZP1-N1 dimerization. Some heterozygous missense and frameshift alleles are proposed to act dominant-negatively, by trapping wild-type ZP2, ZP3 and ZP4 inside the cell (PMID:24670168; PMID:33272616; PMID:32573113). Strictly, heterozygous causality rests on a few families and in-vitro data, so treat it as moderate evidence.
+
+**Related ZP genes (differential/allelic group):**
+- **ZP3**, heterozygous p.Ala134Thr. Autosomal dominant EFS with paternal transmission (Chen et al., *AJHG* 2017, PMID:28886344 **[verify]**). A homozygous ZP3 EFS variant has also been reported (Front Genet 2023, PMC10613883).
+- **ZP2.** Biallelic variants cause a thin ZP that cannot bind sperm (Dai et al. 2019 **[PMID to verify]**). A ZP2 loss-of-function variant has been modelled in humans and rats (PMC10244809).
+- **ZP4.** Heterozygous loss-of-function variants were found in 3 of 26 women with thin, irregular ZP (about 11%); ICSI pregnancies were achieved (summarized in PMID:36476320).
+- **Combined cohorts:**
+  > "We identified zona pellucida (ZP) gene variants in 18 individuals, which included 20 variants in the ZP1 gene, two variants in the ZP2 gene, and one previously reported recurrent variant in the ZP3 gene. The women carrying ZP variants constituted 51.43% of the GEFS cohort." — PMID:33272616
+
+**Epigenetics and chromosomal abnormalities:** none reported. Karyotype is normal (46,XX).
+
+---
+
+## 5. Environmental Information
+
+Not applicable. No toxin, lifestyle or infectious contribution is known. Note that acquired, iatrogenic "false" EFS (for example from a faulty hCG trigger) is a non-genetic phenocopy and has to be excluded clinically (see §10).
+
+---
+
+## 6. Mechanism / Pathophysiology
+
+### Ordered causal chain
+
+1. **Germline ZP1 variant**: truncating, splice, or missense in ZP-N1, trefoil or ZP module.
+2. **This leads to loss of secreted ZP1.** Mutant ZP1 is misfolded or truncated and is retained in the oocyte cytoplasm / ER instead of being secreted (shown in HeLa, CHO and 293T cells, and in rat oocytes).
+   > "secretion of hZP1Mut is completely abolished" — PMID:31300655 (in vitro)
+3. **Branch A (mainly truncating and dominant-negative alleles).** Retained mutant ZP1 binds and co-sequesters wild-type ZP3 and ZP4, and possibly ZP2, inside the cell, so they cannot be exported.
+   > "the aberrant ZP1 results in the sequestration of ZP3 in the cytoplasm, thereby preventing the formation of the zona pellucida around the oocyte." — PMID:24670168 (in vitro)
+
+   **Branch B (ZP-N1 missense alleles).** ZP1 is secreted but cannot form the disulfide-bonded ZP1-N1 homodimer, so ZP2/ZP3/ZP4 filaments are not cross-linked. Human ZP4 cannot substitute.
+   > "W83R … significantly reduces its ability to form disulphide-bonded homodimers … the mutation leads to lack of the ZP by hindering human ZP filament cross-linking." — PMID:31300655 (in vitro, structural)
+4. **Both branches result in failed ZP matrix assembly or maintenance.** The ZP is absent, very thin, or fragile around growing oocytes. Human ovarian histology shows a thin, ZP1-lacking ZP in preantral follicles (PMID:31734689; one case).
