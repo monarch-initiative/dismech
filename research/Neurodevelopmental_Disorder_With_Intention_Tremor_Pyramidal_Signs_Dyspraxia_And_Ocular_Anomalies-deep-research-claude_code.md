@@ -620,3 +620,95 @@ No environmental, lifestyle or infectious factors are reported. This section doe
 **Suggested ontology terms:**
 - **GO:** GO:0000184 nuclear-transcribed mRNA catabolic process, nonsense-mediated decay; GO:0006598 polyamine catabolic process; GO:0072593 reactive oxygen species metabolic process; GO:0098869 cellular oxidant detoxification; GO:0007005 mitochondrion organization; GO:0022008 neurogenesis; GO:0007420 brain development; GO:0007507 heart development.
 - **CL:** CL:0000681 radial glial cell; CL:2000029 central nervous system neuron.
+
+**Not available:** proteomics, metabolomics, single-cell, spatial or epigenetic data.
+
+## 7. Anatomical structures affected
+
+- **Primary:** brain, UBERON:0000955. The signs point to cerebellum (UBERON:0002037) and corticospinal tract involvement.
+- **Secondary:** extraocular muscle control (strabismus), heart (UBERON:0000948; 1/5), middle ear (otitis), feet and hands.
+- **Subcellular:** cytoplasm (the NMD and SMG1C machinery), and mitochondria in the model.
+- **Laterality:** neurological signs are bilateral. Strabismus is variable; right-sided exotropia or hypertropia is common.
+
+## 8. Temporal development
+
+- **Onset:** infancy to early childhood, insidious. Speech delay is the most prominent early sign.
+- **Course:** static and lifelong, with childhood ataxia and falls. Five adults evaluated at 24–56 years had persistent tremor and pyramidal signs.
+- **Stages and remission:** none described.
+- **Critical period:** early neurodevelopment, when speech and motor therapy may matter most (inferred).
+
+## 9. Inheritance and population
+
+- **Inheritance:** autosomal recessive (HP:0000007). Penetrance is apparently complete for the neurological core. Expressivity varies for heart defects, MRI findings and growth.
+- **Founder effect:** Finnish (see §4). No homozygotes are listed in gnomAD.
+- **Prevalence:** 5 reported cases (ultra-rare). About 14 homozygotes are predicted in Finland.
+- **Sex:** all 5 reported patients are male, which is probably chance given recessive inheritance.
+- **Not reported:** anticipation and germline mosaicism.
+- **Carrier frequency:** about 1 in 313 Finns (2 × 0.0016), derived arithmetically from the gnomAD frequency.
+
+## 10. Diagnostics
+
+- **Genetic testing:** exome sequencing was how the diagnosis was made. Targeted testing for c.551T>C is reasonable in Finnish patients with ID plus intention tremor. SMG9 appears on intellectual-disability gene panels (PanelApp Australia).
+- **Supporting tests:** EEG (interictal discharges), brain MRI (usually normal or mild changes), echocardiography, ophthalmology.
+- **Biomarkers:** none validated. Upregulation of SMOX and GPX3 in blood is a research signal only.
+- **Differential diagnosis:**
+  - HBMS (biallelic SMG9 LoF: severe, with microcephaly and heart and brain malformations).
+  - SMG8-related NDD (PMID:33242396).
+  - Other NMD-factor disorders (UPF3B, UPF2).
+  - Hereditary spastic paraplegias with ID.
+  - Autosomal recessive cerebellar ataxias with ID.
+- **Screening:** no newborn screening. Carrier screening could be considered in Finland.
+
+## 11. Outcome and prognosis
+
+Life expectancy appears normal: *"All the patients were adults with good general health, providing evidence that the homozygous SMG9 c.551T > C variant was not significantly associated with reduced life expectancy."*
+
+Disability comes from intellectual disability and motor and speech impairment. Adult comorbidities were noted in some patients (hypertension, hypercholesterolemia, type 2 diabetes), but their relationship to the disorder is unknown. No prognostic markers exist.
+
+## 12. Treatment
+
+There is no disease-specific therapy. Management is supportive. NCIT terms are suggested from the dismech CLAUDE.md list:
+- speech-language therapy (NCIT:C159273)
+- physical therapy (NCIT:C15302)
+- occupational therapy (NCIT:C121351)
+- strabismus surgery (NCIT:C15329, Surgical Procedure); 3 of 5 patients had surgery
+- cardiac surgical repair where a heart defect is present (NCIT:C15329)
+- special education, supportive care (NCIT:C15747) and genetic counseling (NCIT:C15240)
+
+**Experimental only.** SMOX inhibition (MDL72527) and antioxidant N-acetylcysteine rescued brain size in *smg9* null zebrafish (PMID:38806677). There is no human data and no clinical trials are listed.
+
+## 13. Prevention
+
+The only prevention options are genetic counseling (25% recurrence risk for carrier couples), cascade carrier testing in families, and prenatal or preimplantation testing.
+
+## 14. Other species
+
+No naturally occurring disease in other species has been identified (no OMIA entry found). SMG9 is conserved across vertebrates.
+
+## 15. Model organisms
+
+| Model | Phenotype | Fidelity to NEDITPO |
+|---|---|---|
+| **Smg9 knockout mouse** (CRISPR/Cas9; PMID:27018474) | *"…we were able to recapitulate the major features of the SMG9-related multiple congenital anomaly syndrome"*. Brain, heart and eye defects; early embryonic lethality | Models HBMS (null allele), not the hypomorphic Val184Ala |
+| **smg9 oi7/oi7 null zebrafish** (PMID:38806677) | Small telencephalon, fewer radial glia, reduced cardiac contraction, premature aging. Smox/gpx3 upregulation matches the patient transcriptome; MDL72527/NAC rescue | Partial. A null allele, but it reproduces the human SMOX/GPX3 signature |
+| **Patient cells** (whole blood RNA-seq; PMID:35087184) | Transcriptome dysregulation | Only the peripheral tissue was examined |
+
+No Val184Ala knock-in model exists. That is the main gap in the mechanistic evidence.
+
+---
+
+### Evidence gaps
+- Only one human cohort exists, and every patient is Finnish.
+- The structural effect of Val184Ala comes only from modelling; it has not been tested biochemically.
+- There are no brain-relevant cell data from patients (iPSC-derived neurons).
+- The SMOX and oxidative-stress mechanism is shown only in null zebrafish.
+
+### Sources
+- [Rahikkala et al. 2022, PMC9090808 (PMID:35087184)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9090808/)
+- [ClinVar RCV002274864](https://https.ncbi.nlm.nih.gov/clinvar/RCV002274864.1)
+- [Yang et al. 2022, compound heterozygous SMG9 HBMS (PMID:35321723)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8943999/)
+- [PanelApp Australia, SMG9](https://panelapp-aus.org/panels/76/gene/SMG9/)
+- Shaheen et al. 2016, *Am J Hum Genet* (PMID:27018474)
+- Lai et al. 2024, *Commun Biol* (PMID:38806677)
+- SMG1–SMG8–SMG9 cryo-EM structure (PMID:31792449)
+- SMG8 developmental disorder (PMID:33242396)
