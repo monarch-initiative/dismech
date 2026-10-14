@@ -249,3 +249,119 @@ For each mechanism, describe:
   - Carrier frequency
     > **Search first:** gnomAD, carrier screening databases, GeneReviews, GTR
 - **Population Demographics**:
+  - Affected populations (ethnic or demographic groups with higher prevalence)
+    > **Search first:** gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries
+  - Geographic distribution (endemic areas, regional variation)
+    > **Search first:** WHO, CDC, GBD, Orphanet, geographic epidemiology databases
+  - Geographic distribution of specific variants
+  - Sex ratio (male:female)
+    > **Search first:** Disease registries, OMIM, PubMed, epidemiological databases
+  - Age distribution of affected individuals
+    > **Search first:** CDC, disease registries, SEER, Orphanet
+
+### 10. Diagnostics
+
+- **Clinical Tests**:
+  - Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    > **Search first:** LOINC, LabTests Online, PubMed
+  - Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    > **Search first:** FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed
+  - Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    > **Search first:** RadLex, DICOM, Radiopaedia, imaging databases
+  - Functional tests (pulmonary function, cardiac stress tests)
+    > **Search first:** LOINC, clinical guidelines, PubMed
+  - Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    > **Search first:** LOINC, clinical neurophysiology databases, PubMed
+  - Biopsy findings (histopathology, immunohistochemistry)
+    > **Search first:** SNOMED CT, College of American Pathologists resources, PubMed
+  - Pathology findings (microscopic examination)
+    > **Search first:** SNOMED CT, Digital Pathology databases, PubMed
+- **Genetic Testing**:
+  > **Search first:** GTR (Genetic Testing Registry), GeneReviews, ClinGen
+  - Overview of recommended genetic testing approach
+  - Whole genome sequencing (WGS) utility
+    > **Search first:** GTR, ClinVar, GEL (Genomics England), gnomAD
+  - Whole exome sequencing (WES) utility
+    > **Search first:** GTR, ClinVar, OMIM, GeneMatcher
+  - Gene panels (which panels, which genes)
+    > **Search first:** GTR, ClinVar, laboratory-specific databases
+  - Single gene testing
+    > **Search first:** GTR, ClinVar, OMIM, GeneReviews
+  - Chromosomal microarray (CMA)
+    > **Search first:** DECIPHER, ClinVar, dbVar, ECARUCA
+  - Karyotyping
+    > **Search first:** Chromosome Abnormality Database, ClinVar, cytogenetics resources
+  - FISH
+    > **Search first:** ClinVar, cytogenetics databases, PubMed
+  - Mitochondrial DNA testing
+    > **Search first:** MITOMAP, MSeqDR, ClinVar, GTR
+  - Repeat expansion testing
+    > **Search first:** GTR, ClinVar, repeat expansion databases, PubMed
+- **Omics-Based Diagnostics** (if applicable):
+  - RNA sequencing / transcriptomics
+    > **Search first:** GEO, ArrayExpress, GTEx, RNA-seq databases
+  - Proteomics
+    > **Search first:** PRIDE, ProteomeXchange, FDA Biomarker database
+  - Metabolomics
+    > **Search first:** MetaboLights, Metabolomics Workbench, HMDB
+  - Epigenomics
+    > **Search first:** GEO, ENCODE, Roadmap Epigenomics, MethBase
+  - Liquid biopsy
+    > **Search first:** COSMIC, ClinVar, liquid biopsy databases, PubMed
+- **Clinical Criteria**:
+  - Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    > **Search first:** DSM-5, ICD-11, clinical society guidelines, UpToDate
+  - Differential diagnosis (other conditions to rule out, with distinguishing features)
+    > **Search first:** DynaMed, UpToDate, clinical decision support systems
+- **Screening**:
+  - Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    > **Search first:** ACMG recommendations, CDC newborn screening, GTR
+
+### 11. Outcome/Prognosis
+
+- **Survival and Mortality**:
+  - Survival rate (5-year, 10-year, overall)
+    > **Search first:** SEER, cancer registries, disease-specific registries, PubMed
+  - Life expectancy (with and without treatment if applicable)
+    > **Search first:** Orphanet, disease registries, actuarial databases, PubMed
+  - Mortality rate
+    > **Search first:** CDC, WHO, GBD, national mortality databases
+  - Disease-specific mortality (deaths directly attributable to disease)
+    > **Search first:** Disease registries, CDC Wonder, GBD, PubMed
+- **Morbidity and Function**:
+  - Morbidity (disease-related disability and health impacts)
+    > **Search first:** GBD, WHO, disability databases, PubMed
+  - Disability outcomes (long-term functional impairments)
+    > **Search first:** ICF (International Classification of Functioning), disability registries
+  - Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    > **Search first:** EQ-5D database, SF-36, PROMIS, PubMed
+- **Disease Course**:
+  - Complications (secondary problems: infections, organ failure, etc.)
+    > **Search first:** ICD codes, disease registries, clinical databases, PubMed
+  - Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    > **Search first:** Natural history studies, rehabilitation databases, PubMed
+- **Prediction**:
+  - Prognostic factors (age, disease severity, biomarkers, treatment response)
+    > **Search first:** Prognostic models databases, clinical calculators, PubMed
+  - Prognostic biomarkers (molecular markers predicting disease course)
+    > **Search first:** FDA Biomarker database, PubMed, cancer prognostic databases
+
+### 12. Treatment
+
+- **Pharmacotherapy**:
+  - Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    > **Search first:** DrugBank, RxNorm, ATC classification, DailyMed, FDA databases
+  - Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    > **Search first:** PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers
+- **Advanced Therapeutics**:
+  - Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    > **Search first:** ClinicalTrials.gov, FDA gene therapy database, ASGCT resources
+  - Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    > **Search first:** ClinicalTrials.gov, FDA cell therapy database, FACT standards
+  - RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    > **Search first:** ClinicalTrials.gov, FDA approvals, PubMed
+  - Targeted therapies (treatments directed at specific molecular targets)
+    > **Search first:** My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals
+  - Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    > **Search first:** Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov
+- **Surgical and Interventional**:
