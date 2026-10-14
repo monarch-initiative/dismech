@@ -633,3 +633,101 @@ The KB already records this as a HUMAN_MODEL_MISMATCH discussion.
 | Category | Terms |
 |---|---|
 | GO biological process | GO:0160063 multi-pass transmembrane protein insertion into ER membrane *(verify)*; GO:0007029 endoplasmic reticulum organization; GO:0006998 nuclear envelope organization; GO:0070828 heterochromatin organization; GO:0030851 granulocyte differentiation; GO:0007420 brain development; GO:0022010 CNS myelination; GO:0000184 NMD; GO:1905146 lysosomal protein catabolic process |
+| GO cellular component | GO:0005789 ER membrane; GO:0005637 nuclear inner membrane; GO:0005635 nuclear envelope |
+| GO molecular function | GO:0043022 ribosome binding *(verify)* |
+| Cell Ontology | CL:0000775 neutrophil; CL:0000771 eosinophil; CL:0000057 fibroblast; CL:0000540 neuron |
+| Other genes | LBR hgnc:6518; DHCR7; TMCO1; CCDC47; NCLN; NOMO1 |
+
+Terms marked *verify* came from memory and must be looked up before binding.
+
+No transcriptomic, proteomic, metabolomic, single-cell or CRISPR-screen datasets specific to this disease were found.
+
+## 7. Anatomical structures affected
+
+- **Primary:** brain (UBERON:0000955): corpus callosum (UBERON:0002336), cerebral white matter (UBERON:0002316), lateral ventricles (UBERON:0002285), cerebellum (UBERON:0002037).
+- **Craniofacial:** face (UBERON:0001456), forehead, philtrum, external ear.
+- **Blood:** blood (UBERON:0000178), with granulocytes as the affected cells.
+- **Heart (occasional):** interatrial septum (UBERON:0002085) and ductus arteriosus.
+- **Subcellular:** ER membrane, inner nuclear membrane, heterochromatin.
+- **Lateralisation:** findings are bilateral and symmetric.
+
+## 8. Temporal development
+
+- **Onset:** congenital or infantile. Some patients had intrauterine growth restriction or neonatal problems; delay is evident in infancy.
+- **Course:** a static developmental encephalopathy.
+  - Walking is achieved late, between about 1.5 and 5 years, with an unsteady gait.
+  - Speech remains absent or minimal into adolescence.
+  - Myelination delay improves on follow-up imaging: "visible improvement upon follow-up (i5 – F4-IV-9, available MRIs at 2 and 5 years of age)" [full text].
+- **Regression and remission:** neither has been reported.
+- **Critical period:** early childhood, the window for communication and behaviour intervention.
+
+## 9. Inheritance and population
+
+- **Inheritance:** autosomal recessive (HP:0000007). Penetrance appears complete. Heterozygous carriers are healthy: "Heterozygous carriers were healthy." [full text]
+- **Consanguinity:** 87% of the founding cohort.
+- **Expressivity:** fairly consistent. ID ranges from moderate to profound.
+- **Anticipation, mosaicism:** none reported.
+- **Population:** cases come mostly from consanguineous families, including North African/Egyptian and Iranian families (PMID:37668766).
+- **Prevalence:** unknown (`prevalence_class: NOT_YET_DOCUMENTED`; `measure_type: CASES_IN_LITERATURE`). The literature totals 25 patients in 16 families.
+- **Sex ratio:** no sex bias is expected; detailed counts are in Table S2.
+- **Carrier frequency:** not established.
+
+## 10. Diagnostics
+
+- **Genetic testing**
+  - Exome or genome sequencing is the diagnostic route: "Whole exome sequencing and validating Sanger sequencing were utilized to confirm the identified causal variant." (PMID:37668766 [abstract])
+  - *TMEM147* is on intellectual-disability panels, including the Genomics England PanelApp entity.
+  - Chromosomal microarray, karyotype, FISH, mtDNA and repeat-expansion testing are not informative except to exclude other diagnoses.
+- **Blood smear (cheap supportive biomarker):** look for hyposegmented or bilobed "sack-shaped" neutrophil nuclei, chromatin clumping, and drumstick-like appendages in ~15–25% of neutrophils.
+  - It is called **pseudo**-Pelger-Huët because "the majority of mature granulocytes were not bilobed" [full text].
+  - It can be used to support the pathogenicity of a variant of uncertain significance.
+- **Brain MRI:** thin corpus callosum, ventriculomegaly, posterior delayed myelination.
+- **Echocardiography:** screen for septal defects and PDA.
+- **EpiSign:** a negative chromatinopathy episignature helps steer away from look-alike disorders.
+- **Differential diagnosis:**
+  - Cornelia de Lange, Rubinstein–Taybi, Coffin–Siris and Wiedemann–Steiner syndromes (all excluded by EpiSign and sequencing).
+  - LBR-related Pelger-Huët anomaly or HEM/Greenberg dysplasia.
+  - Disorders of the same translocon complex: *TMCO1* (cerebrofaciothoracic dysplasia) and *CCDC47* (trichohepatoneurodevelopmental syndrome).
+  - Acquired pseudo-Pelger-Huët (myelodysplasia, drugs).
+- **Screening:** no newborn screening. Carrier and cascade testing is possible in families with a known variant.
+
+## 11. Outcome and prognosis
+
+- No deaths attributed to the disorder have been reported, but follow-up is limited to childhood and adolescence. Life expectancy is unknown.
+- Morbidity is lifelong dependence because of profound ID, absent speech and behavioural problems.
+- Complications include occasional seizures and congenital heart defects.
+- No prognostic biomarkers are known, and there is no genotype–phenotype correlation.
+
+## 12. Treatment
+
+There is no disease-modifying therapy and no registered clinical trials (no NCT or ICTRP entries found). Care is supportive:
+
+| Intervention | NCIT |
+|---|---|
+| Supportive care | NCIT:C15747 |
+| Speech-language therapy and augmentative and alternative communication (AAC) | NCIT:C159273 |
+| Physical therapy | NCIT:C15302 |
+| Occupational therapy | NCIT:C121351 |
+| Behavioural intervention for self-injury and aggression | NCIT:C15184 |
+| Antiseizure medication when needed | NCIT:C15986 Pharmacotherapy, with the agent recorded in `therapeutic_agent` |
+| Cardiac follow-up or repair of septal defects/PDA | surgical procedure NCIT:C15329 only if repair is done |
+| Genetic counselling | NCIT:C15240 |
+
+Pharmacogenomic, gene, RNA and cell therapies are not available. A sterol-directed approach is speculative only, because no sterol abnormality has been shown in patients.
+
+## 13. Prevention
+
+- **Primary:** genetic counselling. The recurrence risk is 25% per pregnancy for carrier couples. Carrier testing within consanguineous kindreds, and prenatal or preimplantation testing once familial variants are known.
+- **Tertiary:** early developmental and behavioural intervention, echocardiography, and seizure surveillance.
+- **Not applicable:** vaccination and environmental measures.
+
+## 14. Other species and natural disease
+
+- No naturally occurring animal disease is known; no OMIA entry was found.
+- TMEM147 is highly conserved in vertebrates, with orthologues in mouse (*Tmem147*, MGI:1915011) and zebrafish (ZFIN ZDB-GENE-040718-187).
+- The protein is "a novel, highly conserved membrane protein with a putative topology similar to APH-1" (Dettmer et al. 2010, PMID:20538592).
+- Not infectious or zoonotic.
+
+## 15. Model organisms
+
+- **Mouse (IMPC, *Tmem147<sup>em1(IMPC)J</sup>* exon-deletion allele).** The IMPC summary lists significant phenotypes in three systems: mortality/aging, integument and growth/body region. The search summary reported **complete preweaning lethality in homozygotes**, abnormal body wall at E18.5, and nail anomalies in heterozygotes. The IMPC data table did not render in my fetch, so this lethality call must be checked on the IMPC viability page before it is curated.
