@@ -1,0 +1,1739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>White Sponge Nevus · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>White Sponge Nevus</span>
+            </div>
+
+            <header class="report-header">
+                <h1>White Sponge Nevus</h1>
+                
+                <p class="report-subtitle">Disease Characteristics Research Template</p>
+                
+                
+                <div class="report-date">2026-10-08</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0015748" target="_blank" rel="noopener noreferrer">MONDO:0015748</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">45 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> White Sponge Nevus</li>
+<li><strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0015748" target="_blank" rel="noopener noreferrer">MONDO:0015748</a> (if available)</li>
+<li><strong>Category:</strong> Mendelian</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>White Sponge Nevus</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Present this section as an ordered causal chain first, then the detail below.</strong>
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.</p>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest NCIT (NCI Thesaurus) clinical-intervention terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (NCIT terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h1>White sponge nevus: disease-characteristics research report</h1>
+<p><strong>Scope and evidence standard.</strong> White sponge nevus (WSN) is a rare, usually asymptomatic, inherited disorder of mucosal epithelium. The strongest disease-specific evidence consists of molecularly investigated families, small diagnostic series, individual clinical reports, and genetically engineered mice—not population registries or randomized treatment trials. The distinction matters particularly for estimates of prevalence, penetrance, treatment response, and cancer risk. This report describes <strong>aggregated published disease-level evidence</strong>, not an individual’s electronic health record. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-1-2">lajolo2023exfoliativecytologyand pages 1-2</a>, <a href="#ref-haseth2017anovelkeratin-pages-1-2">haseth2017anovelkeratin pages 1-2</a>, <a href="#ref-simonson2020keratin13deficiency-pages-1-2">simonson2020keratin13deficiency pages 1-2</a>)</p>
+<h2>1. Disease information and identifiers</h2>
+<p>WSN produces soft, thickened, white-to-gray, corrugated or spongy plaques, principally on the <strong>bilateral buccal mucosa</strong> and other nonkeratinizing oral surfaces. It is a <em>keratinization disorder</em>, not an infectious nevus or a diagnosis synonymous with oral leukoplakia. A 2024 biopsy-confirmed case illustrates a common real-world presentation: asymptomatic bilateral buccal plaques in a 30-year-old man, managed with counseling rather than medication. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-1-2">lajolo2023exfoliativecytologyand pages 1-2</a>, <a href="#ref-batalha2024whitespongenevus-pages-1-2">batalha2024whitespongenevus pages 1-2</a>)</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Knowledge-base field</th>
+<th>Supported designation or qualification</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease</td>
+<td>White sponge nevus; <strong><a href="http://purl.obolibrary.org/obo/MONDO_0015748" target="_blank" rel="noopener noreferrer">MONDO:0015748</a></strong> is the identifier supplied in the question and should be verified against the current MONDO release before automated import.</td>
+</tr>
+<tr>
+<td>Molecular subtypes</td>
+<td><strong>OMIM #193900</strong>, white sponge nevus 1, associated with <em>KRT4</em>; <strong>OMIM #615785</strong>, white sponge nevus 2, associated with <em>KRT13</em>. Gene entries: <em>KRT4</em> <strong>OMIM *123940</strong> and <em>KRT13</em> <strong>OMIM *148065</strong>. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-1-2">lajolo2023exfoliativecytologyand pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Other names</td>
+<td>White sponge <strong>naevus</strong>, Cannon disease, <em>naevus spongiosus albus mucosae</em>, congenital leukokeratosis mucosa oris, and white folded gingivostomatitis; older terms are not necessarily exact modern coding synonyms. (<a href="#ref-batalha2024whitespongenevus-pages-2-4">batalha2024whitespongenevus pages 2-4</a>, <a href="#ref-mahdani2025whitespongenevus-pages-1-2">mahdani2025whitespongenevus pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Orphanet, ICD-10/ICD-11, MeSH</td>
+<td>An unambiguous, verified disease-specific identifier was <strong>not established from the retrieved primary sources</strong>. Do not substitute a generic oral-lesion code or invent a mapping.</td>
+</tr>
+</tbody>
+</table></div></details>
+<h2>2. Etiology, risk, protection, and gene–environment interplay</h2>
+<p><strong>Primary cause:</strong> germline alterations affecting the mucosal intermediate-filament partners keratin 4 and keratin 13. Familial transmission is usually autosomal dominant; sporadic or apparently sporadic presentations also occur. A clinically similar lesion can instead be HPV-associated Heck disease, so appearance alone is not proof of genetic WSN. Family history is informative but a negative history does not rule the condition out. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-1-2">lajolo2023exfoliativecytologyand pages 1-2</a>, <a href="#ref-schwartz2019themolecularbaseddifferentiation-pages-1-2">schwartz2019themolecularbaseddifferentiation pages 1-2</a>, <a href="#ref-lajolo2023exfoliativecytologyand-pages-2-4">lajolo2023exfoliativecytologyand pages 2-4</a>)</p>
+<p><strong>Risk factors:</strong> an affected biological parent or a demonstrably pathogenic <em>KRT4/KRT13</em> variant is the principal established risk. Age at recognition is often birth or childhood. There is no established sex predilection. Smoking, alcohol, toxins, occupational exposure, diet, and infections have <strong>not been demonstrated to cause inherited WSN</strong>. They can confound assessment of a new oral white lesion or contribute to oral cancer risk independently: the individual with dysplasia described in 2024 had smoked at least 20 cigarettes daily for 40 years, making attribution of dysplasia to his <em>KRT4</em> variant alone unsound. (<a href="#ref-qiao2022whitespongenevus-pages-1-3">qiao2022whitespongenevus pages 1-3</a>, <a href="#ref-liu2024malignanttransformationof-pages-1-3">liu2024malignanttransformationof pages 1-3</a>, <a href="#ref-haseth2017anovelkeratin-pages-1-2">haseth2017anovelkeratin pages 1-2</a>)</p>
+<p><strong>Protective factors:</strong> no validated protective allele, exposure, diet, vaccine, or drug preventing the genetic disorder was identified. <strong>Mechanistic interaction:</strong> postnatal chewing/suckling-type mechanical stresses unmasked epithelial dysfunction in <em>Krt13</em>-null mice; scraping isolated neonatal knockout tongues induced <em>Ccne1/Ccne2</em> expression whereas wild-type tissue resisted the same challenge. This is experimentally supported <strong>in mice</strong>, not a quantified human exposure–risk interaction. Oral bacterial/fungal overgrowth may add symptoms without causing the germline disorder. (<a href="#ref-simonson2020keratin13deficiency-pages-4-6">simonson2020keratin13deficiency pages 4-6</a>, <a href="#ref-simonson2020keratin13deficiency-pages-1-2">simonson2020keratin13deficiency pages 1-2</a>)</p>
+<h2>3. Phenotypes and patient impact</h2>
+<p>The following are <strong>candidate HPO label mappings</strong>, not asserted database-verified HP identifiers. Case-series fractions are presented only when a defined series supports them; they are <strong>not population phenotype frequencies</strong>. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-2-4">lajolo2023exfoliativecytologyand pages 2-4</a>, <a href="#ref-haseth2017anovelkeratin-pages-1-2">haseth2017anovelkeratin pages 1-2</a>)</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Manifestation; phenotype type</th>
+<th>Onset, course, severity, frequency and impact</th>
+<th>Candidate HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bilateral thick, white, folded/spongy buccal plaques; <strong>physical sign</strong></td>
+<td>Hallmark oral presentation; usually present at birth or develops in childhood, usually painless and persistent, with variable thickness. All <strong>4/4</strong> selected 2023 cases had bilateral cheek plaques, but selection prevents a population-rate interpretation. Cosmetic concern or diagnostic anxiety may occur. (<a href="#ref-qiao2022whitespongenevus-pages-1-3">qiao2022whitespongenevus pages 1-3</a>, <a href="#ref-lajolo2023exfoliativecytologyand-pages-2-4">lajolo2023exfoliativecytologyand pages 2-4</a>)</td>
+<td>Oral leukokeratosis / abnormal oral mucosa morphology; verify preferred HPO label.</td>
+</tr>
+<tr>
+<td>Tongue or floor-of-mouth plaques; <strong>physical sign</strong></td>
+<td>Variable additional oral distribution. The 2023 series describes ventral-tongue involvement in its four selected patients; one 2024 dysplasia case involved the right floor of mouth. Neither supplies an all-patient frequency. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-2-4">lajolo2023exfoliativecytologyand pages 2-4</a>, <a href="#ref-liu2024malignanttransformationof-pages-1-3">liu2024malignanttransformationof pages 1-3</a>)</td>
+<td>Abnormality of tongue morphology / abnormality of oral mucosa.</td>
+</tr>
+<tr>
+<td>Labial, gingival/alveolar or palatal plaques; <strong>physical sign</strong></td>
+<td>Less consistently described sites; extent varies by family and patient. The twins in a 2022 family had upper-lip lesions. (<a href="#ref-qiao2022whitespongenevus-pages-3-7">qiao2022whitespongenevus pages 3-7</a>, <a href="#ref-simonson2020keratin13deficiency-pages-1-2">simonson2020keratin13deficiency pages 1-2</a>)</td>
+<td>Oral mucosal abnormality; exact site-specific labels require verification.</td>
+</tr>
+<tr>
+<td>Genital/vaginal/cervical plaques, and occasional esophageal, nasal, rectal or laryngeal involvement; <strong>physical signs</strong></td>
+<td>Uncommon relative to oral involvement; gynecological lesions can be painless or cause irritation, pruritus or burning. <strong>Four examined adult women in one selected <em>KRT13</em> family</strong> had gynecological WSN; this is a within-family observation, not a general frequency. (<a href="#ref-haseth2017anovelkeratin-pages-1-2">haseth2017anovelkeratin pages 1-2</a>, <a href="#ref-haseth2017anovelkeratin-pages-2-4">haseth2017anovelkeratin pages 2-4</a>)</td>
+<td>Abnormal vaginal/cervical mucosa; esophageal mucosal abnormality—verify ontology labels.</td>
+</tr>
+<tr>
+<td>Discomfort, burning or pain, and secondary infection; <strong>symptoms/complications</strong></td>
+<td>Usually absent; possible with irritation or superinfection. In one 2024 adult case, numbness and mild pain accompanied a <strong>changing dysplastic lesion</strong>, not uncomplicated childhood WSN. No reliable symptom percentages or validated WSN-specific quality-of-life scores were identified. (<a href="#ref-liu2024malignanttransformationof-pages-1-3">liu2024malignanttransformationof pages 1-3</a>, <a href="#ref-simonson2020keratin13deficiency-pages-1-2">simonson2020keratin13deficiency pages 1-2</a>, <a href="#ref-haseth2017anovelkeratin-pages-1-2">haseth2017anovelkeratin pages 1-2</a>)</td>
+<td>Oral pain / mucosal irritation; symptom should be recorded separately from the plaque.</td>
+</tr>
+<tr>
+<td>Acanthosis, parakeratosis, suprabasal edema/vacuolation, perinuclear eosinophilic keratin condensation; <strong>tissue pathology findings</strong></td>
+<td>Common diagnostic pattern in sampled lesions, usually without atypia. These are <strong>histology observations</strong>, not routine circulating laboratory abnormalities. A 2023 four-patient series found concordant biopsy and liquid-based cytology showing acanthosis/spongiosis without atypia. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-1-2">lajolo2023exfoliativecytologyand pages 1-2</a>, <a href="#ref-bezerra2020whitespongenevus-pages-4-5">bezerra2020whitespongenevus pages 4-5</a>)</td>
+<td>Abnormal oral mucosa morphology; record detailed microscopic findings as pathology data rather than inventing HPO terms.</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>No established WSN-related behavioral phenotype or characteristic blood, urine, enzyme, or metabolic laboratory abnormality was found. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-1-2">lajolo2023exfoliativecytologyand pages 1-2</a>, <a href="#ref-simonson2020keratin13deficiency-pages-1-2">simonson2020keratin13deficiency pages 1-2</a>)</p>
+<h2>4. Genetic and molecular information</h2>
+<ul>
+<li>KRT4<em> encodes the type-II keratin 4 (</em><em>OMIM </em>123940<strong>, 12q13.13); <em>KRT13</em> encodes its type-I partner keratin 13 (</strong>OMIM <em>148065</em><em>, 17q21.2). Their expression in mucosal epithelium explains the site selectivity. Most reported disease-associated human alleles are heterozygous missense or small in-frame changes, but a functionally established intronic </em>KRT13<em> splice defect shows that disease alleles are not confined to that class. Exact </em><em>HGNC identifier numbers</em>* were not verified here; use the approved symbols rather than guessing the IDs. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-1-2">lajolo2023exfoliativecytologyand pages 1-2</a>, <a href="#ref-haseth2017anovelkeratin-pages-2-4">haseth2017anovelkeratin pages 2-4</a>, <a href="#ref-simonson2020keratin13deficiency-pages-6-7">simonson2020keratin13deficiency pages 6-7</a>)</li>
+<li>A four-generation human family showed a <em>KRT13</em> intronic deletion causing an in-frame 18-amino-acid protein deletion; the variant was detected in <strong>9/9 tested affected</strong> and <strong>0/11 tested unaffected</strong> relatives. RNA experiments demonstrated the altered splice product. This is substantially stronger causal evidence than a rare-variant annotation alone. (<a href="#ref-haseth2017anovelkeratin-pages-2-4">haseth2017anovelkeratin pages 2-4</a>, <a href="#ref-haseth2017anovelkeratin-pages-4-6">haseth2017anovelkeratin pages 4-6</a>)</li>
+<li>In a 2023 four-patient series, many detected variants were <strong>benign population polymorphisms despite co-occurrence with disease</strong>. The authors explicitly caution that most identified variants “do not have a direct pathogenetic effect.” In particular, an apparently rare in-frame <em>KRT4</em> insertion is a <strong>VUS</strong>, not a proved causative mutation. Population frequencies below are source-reported historical gnomAD denominators, <strong>not current live frequencies</strong>. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-8-9">lajolo2023exfoliativecytologyand pages 8-9</a>, <a href="#ref-lajolo2023exfoliativecytologyand-pages-9-10">lajolo2023exfoliativecytologyand pages 9-10</a>)</li>
+</ul>
+<p>The following evidence table preserves reported nomenclature, classification and uncertainty. (<a href="#ref-qiao2022whitespongenevus-pages-1-3">qiao2022whitespongenevus pages 1-3</a>, <a href="#ref-lajolo2023exfoliativecytologyand-pages-8-9">lajolo2023exfoliativecytologyand pages 8-9</a>, <a href="#ref-haseth2017anovelkeratin-pages-2-4">haseth2017anovelkeratin pages 2-4</a>, <a href="#ref-liu2024malignanttransformationof-pages-3-6">liu2024malignanttransformationof pages 3-6</a>)</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Gene / variant</th>
+<th>Evidence type and exact reported observation</th>
+<th>Interpretation / limitation</th>
+<th>Primary source DOI and publication year</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>KRT4</strong> c.438_440delCAA; in-frame deletion of one aspartic-acid residue</td>
+<td>Familial human case report: heterozygous variant detected by trio exome sequencing in the affected 2-year-old proband and affected father, confirmed by paternal Sanger sequencing; absent from the unaffected mother. Two monozygotic twin sisters had similar lesions but were not sequenced. (<a href="#ref-qiao2022whitespongenevus-pages-1-3">qiao2022whitespongenevus pages 1-3</a>, <a href="#ref-qiao2022whitespongenevus-pages-3-7">qiao2022whitespongenevus pages 3-7</a>)</td>
+<td>Phenotype co-segregation in the tested father–son pair supports pathogenicity, but the family is small and no functional assay was reported.</td>
+<td><a href="https://doi.org/10.3390/genes13122184">10.3390/genes13122184</a>, <strong>2022</strong></td>
+</tr>
+<tr>
+<td><strong>KRT13</strong> c.1023+23_1024-39del; 32-bp intronic deletion causing aberrant splicing and <strong>p.Lys342_Gln359del</strong></td>
+<td>Four-generation human pedigree: RT-PCR demonstrated deletion of 54 bases from the transcript and an in-frame loss of 18 amino acids. The variant was present in all <strong>9/9 tested affected carriers</strong> and absent from <strong>11/11 tested unaffected relatives</strong>; it arose de novo in the affected ancestral branch. (<a href="#ref-haseth2017anovelkeratin-pages-2-4">haseth2017anovelkeratin pages 2-4</a>, <a href="#ref-haseth2017anovelkeratin-pages-4-6">haseth2017anovelkeratin pages 4-6</a>)</td>
+<td>Strong segregation plus RNA-level functional evidence supports pathogenicity. Full penetrance was observed in this pedigree, but this does not establish universal penetrance or prove that the variant caused the two oral cancers reported in the family.</td>
+<td><a href="https://doi.org/10.1002/ccr3.1073">10.1002/ccr3.1073</a>, <strong>2017</strong></td>
+</tr>
+<tr>
+<td><strong>KRT13</strong> c.340C&gt;T (<strong>p.Arg114Cys</strong>), rs545085703</td>
+<td>Four-patient diagnostic case series: inherited maternally by patient P-2; listed at <strong>1/251,496 alleles</strong> in gnomAD and classified “likely pathogenic” using VarSome. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-8-9">lajolo2023exfoliativecytologyand pages 8-9</a>, <a href="#ref-lajolo2023exfoliativecytologyand-pages-9-10">lajolo2023exfoliativecytologyand pages 9-10</a>)</td>
+<td>Rare missense candidate, but the transmitting mother was unaffected, no functional assay was reported, and the classification was an author-reported VarSome output rather than an independently curated ClinGen conclusion. Incomplete penetrance or non-causality remains possible.</td>
+<td><a href="https://doi.org/10.3390/bioengineering10020154">10.3390/bioengineering10020154</a>, <strong>2023</strong></td>
+</tr>
+<tr>
+<td><strong>KRT4</strong> c.244_245insTTGGTGGCTTTGGTGCCGGCGGCTTCGGAGCTGGTTTCGGCA; <strong>p.Gly81_Thr82insIleGlyGlyPheGlyAlaGlyGlyPheGlyAlaGlyPheGly</strong></td>
+<td>Diagnostic case series: inherited from an unaffected parent in multiple patients; reported at <strong>2/47,694 alleles</strong> in gnomAD and classified as a variant of uncertain significance. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-8-9">lajolo2023exfoliativecytologyand pages 8-9</a>, <a href="#ref-lajolo2023exfoliativecytologyand-pages-9-10">lajolo2023exfoliativecytologyand pages 9-10</a>)</td>
+<td><strong>VUS</strong>: rarity and in-frame location do not establish causality. Presence in unaffected parents and lack of functional evidence require cautious interpretation; common benign variants reported in the same series should not be treated as causal.</td>
+<td><a href="https://doi.org/10.3390/bioengineering10020154">10.3390/bioengineering10020154</a>, <strong>2023</strong></td>
+</tr>
+<tr>
+<td><strong>KRT4</strong> c.259_260insCCGGCGGCTTCGGAGCTGGTTTCGGCACTGGTGGCTTTGGTG; <strong>p.G87delinsAGGFGAGFGTGGFGG</strong></td>
+<td>Single human case: found by exome sequencing in a 70-year-old man whose WSN lesion developed focal moderate-to-severe epithelial dysplasia over one year; absent from his healthy daughter. Single-cell RNA sequencing showed altered epithelial proliferation/differentiation and increased epithelial–fibroblast communication. (<a href="#ref-liu2024malignanttransformationof-pages-3-6">liu2024malignanttransformationof pages 3-6</a>, <a href="#ref-liu2024malignanttransformationof-pages-1-3">liu2024malignanttransformationof pages 1-3</a>, <a href="#ref-liu2024malignanttransformationof-pages-6-7">liu2024malignanttransformationof pages 6-7</a>)</td>
+<td>Novel candidate reported in one patient. The study provided no direct variant-specific functional assay; smoking history and single-case observational design confound attribution. Association with dysplasia does <strong>not</strong> prove that the variant causes WSN or malignant transformation.</td>
+<td><a href="https://doi.org/10.1186/s12903-024-04300-y">10.1186/s12903-024-04300-y</a>, <strong>2024</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: Variant-level evidence for KRT4- and KRT13-associated white sponge nevus, separating segregation and functional observations from uncertain or single-case interpretations. Population frequencies and classification limitations are retained to prevent overcalling causality.</em></p>
+<p><strong>Functional classification:</strong> disruption of structural keratin filament assembly and mechanical resilience is supported, but it is not correct to classify <strong>every</strong> human WSN allele uniformly as simple loss-of-function, gain-of-function or dominant-negative without variant-specific assays. Complete <em>Krt13</em> loss produces a WSN-like <strong>recessive knockout phenotype in experimental mice</strong>, whereas typical human disease is <strong>heterozygous dominant</strong>. No validated WSN-specific modifier gene, protective allele, disease-specific methylation/histone change, recurrent chromosomal rearrangement, or common susceptibility locus was established. (<a href="#ref-simonson2020keratin13deficiency-pages-1-2">simonson2020keratin13deficiency pages 1-2</a>, <a href="#ref-simonson2020keratin13deficiency-pages-6-7">simonson2020keratin13deficiency pages 6-7</a>, <a href="#ref-haseth2017anovelkeratin-pages-2-4">haseth2017anovelkeratin pages 2-4</a>)</p>
+<h2>5. Environmental and infectious information</h2>
+<p>WSN is not a contagious disease and no bacterial, viral, fungal, toxic, radiation, dietary, or occupational exposure is established as its initiating cause. Candida or bacteria may secondarily colonize abnormal mucosal folds. Importantly, a 2019 molecular pathology comparison found <strong>HPV-13 DNA in two lesions clinically called WSN</strong>, supporting diagnostic reclassification of some WSN-like lesions as HPV-driven Heck disease; the HPV observation is <strong>not</strong> evidence that HPV causes genetically confirmed WSN. Smoking and alcohol histories are relevant when assessing <strong>other oral pathologies and malignant-risk confounding</strong>, not established penetrance modifiers. (<a href="#ref-schwartz2019themolecularbaseddifferentiation-pages-1-2">schwartz2019themolecularbaseddifferentiation pages 1-2</a>, <a href="#ref-simonson2020keratin13deficiency-pages-1-2">simonson2020keratin13deficiency pages 1-2</a>, <a href="#ref-liu2024malignanttransformationof-pages-1-3">liu2024malignanttransformationof pages 1-3</a>)</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<p><strong>Ordered causal chain—human genetic observations supplemented with mouse experiments:</strong> </p>
+<ol>
+<li>A germline pathogenic <strong>KRT4 or KRT13 alteration</strong> <strong>leads to</strong> an altered mucosal keratin protein or protein availability; an established <em>KRT13</em> splice allele deletes 18 amino acids, whereas the precise functional effect of many individual missense/in-frame human variants remains <strong>inferred</strong>. (<a href="#ref-haseth2017anovelkeratin-pages-2-4">haseth2017anovelkeratin pages 2-4</a>, <a href="#ref-haseth2017anovelkeratin-pages-4-6">haseth2017anovelkeratin pages 4-6</a>)</li>
+<li>Altered keratin-4/keratin-13 intermediate-filament organization <strong>leads to</strong> diminished epithelial structural resilience and abnormal keratin accumulation. Perinuclear tonofilament condensation is seen in human tissue; the extent to which each patient allele produces the same filament defect is <strong>inferred</strong>. (<a href="#ref-bezerra2020whitespongenevus-pages-4-5">bezerra2020whitespongenevus pages 4-5</a>, <a href="#ref-haseth2017anovelkeratin-pages-1-2">haseth2017anovelkeratin pages 1-2</a>, <a href="#ref-simonson2020keratin13deficiency-pages-6-7">simonson2020keratin13deficiency pages 6-7</a>)</li>
+<li>Weakened mucosal keratinocytes exposed to ordinary postnatal mechanical stress <strong>lead to</strong> disrupted epithelial homeostasis; this interaction is <strong>experimentally demonstrated in <em>Krt13</em>-null mouse tongue explants</strong>, not prospectively established in human carriers. Electron microscopy in mutant mice found reduced desmosome-associated filaments, damaged desmosomes, gaps and vacuolated cells. (<a href="#ref-simonson2020keratin13deficiency-pages-3-4">simonson2020keratin13deficiency pages 3-4</a>, <a href="#ref-simonson2020keratin13deficiency-pages-4-6">simonson2020keratin13deficiency pages 4-6</a>)</li>
+<li>Loss of homeostasis <strong>leads to</strong> abnormal differentiation <strong>and, in a branch, to</strong> expanded epithelial proliferation. Mouse basal markers p63/Krt5 and proliferative PCNA/PH3 staining extend above the normal basal compartment; <em>Ccne1/Ccne2</em> and other cell-cycle genes increase. Direct requirement for cyclin E in producing the plaque remains <strong>unproven</strong>. (<a href="#ref-simonson2020keratin13deficiency-pages-3-4">simonson2020keratin13deficiency pages 3-4</a>, <a href="#ref-simonson2020keratin13deficiency-pages-4-6">simonson2020keratin13deficiency pages 4-6</a>, simonson2020keratin13deficiency media 065ab824)</li>
+<li><strong>Parallel downstream branches</strong>—stress-activated-kinase/EGFR-associated transcripts, inflammatory/immune-response transcripts, and sphingolipid/threonine-metabolism-associated transcripts—<strong>accompany</strong> the mouse phenotype and may contribute to it. These are <strong>expression/enrichment findings</strong>, not demonstrated primary drivers or proof of a specific MAPK, PI3K–AKT, mTOR, or Wnt signaling dependency in human WSN. (<a href="#ref-simonson2020keratin13deficiency-pages-3-4">simonson2020keratin13deficiency pages 3-4</a>, <a href="#ref-simonson2020keratin13deficiency-pages-4-6">simonson2020keratin13deficiency pages 4-6</a>)</li>
+<li>Epithelial thickening, incomplete surface keratinization, suprabasal vacuolation and keratin aggregation <strong>result in</strong> the clinically visible thick, corrugated white mucosal plaque. A possible later branch to <strong>oral epithelial dysplasia</strong> has been observed in isolated humans, but causation by WSN itself or a particular keratin allele <strong>has not been demonstrated</strong>. (<a href="#ref-qiao2022whitespongenevus-pages-1-3">qiao2022whitespongenevus pages 1-3</a>, <a href="#ref-liu2024malignanttransformationof-pages-1-3">liu2024malignanttransformationof pages 1-3</a>, <a href="#ref-haseth2017anovelkeratin-pages-2-4">haseth2017anovelkeratin pages 2-4</a>)</li>
+</ol>
+<p><strong>Molecular profiling and advanced technologies.</strong> Bulk RNA-seq of <em>Krt13</em>-knockout versus wild-type mouse tongue found <strong>125</strong> differentially expressed genes at birth and <strong>2,907</strong> at postnatal day 20 under the authors’ reported analyses; enriched processes included keratinization, inflammatory signaling, cell cycle, stress-response and lipid metabolism. Data are reported as <strong>GEO GSE145215</strong>. These are <em>mouse tissue</em> findings and do not establish a validated human transcriptomic, proteomic, metabolomic or lipidomic clinical signature. A <strong>2024 single-patient</strong> human single-cell analysis identified basal, cycling, differentiating and HES1-positive keratinocyte subsets, with altered proliferation/differentiation scores and inferred increased epithelial–fibroblast communication; external healthy-control data and a dysplastic lesion limit causal interpretation. No WSN-specific spatial transcriptomics, integrated multi-omics, or therapeutic CRISPR/RNAi screening result was confirmed. (<a href="#ref-simonson2020keratin13deficiency-pages-3-4">simonson2020keratin13deficiency pages 3-4</a>, <a href="#ref-simonson2020keratin13deficiency-pages-7-8">simonson2020keratin13deficiency pages 7-8</a>, <a href="#ref-liu2024malignanttransformationof-pages-3-6">liu2024malignanttransformationof pages 3-6</a>)</p>
+<p><strong>Ontology annotations proposed for curation:</strong> GO biological process labels <em>intermediate filament organization</em>, <em>keratinization</em>, <em>epithelial cell differentiation</em>, <em>epithelial cell proliferation</em>, <em>response to mechanical stimulus</em> and, <strong>mouse-evidence only</strong>, <em>regulation of inflammatory response</em>. GO cellular-component labels <em>keratin filament</em>, <em>intermediate filament cytoskeleton</em>, <em>cytoplasm</em> and <em>desmosome</em> are anatomically appropriate candidates; precise GO accessions should be verified rather than assigned from memory. CL candidates are <strong>oral mucosal keratinocyte/squamous epithelial cell</strong>, <strong>basal epithelial cell</strong>, <strong>suprabasal differentiating keratinocyte</strong>, and—<strong>single-cell observational data only</strong>—<strong>fibroblast</strong>. No established primary mitochondrial, lysosomal, nuclear or enzyme-deficiency mechanism was identified. (<a href="#ref-simonson2020keratin13deficiency-pages-3-4">simonson2020keratin13deficiency pages 3-4</a>, <a href="#ref-liu2024malignanttransformationof-pages-3-6">liu2024malignanttransformationof pages 3-6</a>, <a href="#ref-simonson2020keratin13deficiency-pages-6-7">simonson2020keratin13deficiency pages 6-7</a>)</p>
+<h2>7. Anatomical structures affected</h2>
+<p>The <strong>primary system</strong> is mucosal epithelium of the oral/digestive entrance, especially bilateral buccal lining; tongue, lips, gingival/alveolar lining and floor of mouth may also be affected. Involvement of esophageal, nasal/airway, rectal and anogenital epithelium is reported but not assumed in every patient. The principally affected tissue is stratified squamous epithelial mucosa, especially differentiating suprabasal keratinocytes; basal progenitor behavior may be secondarily altered. Oral lesions are typically <strong>bilateral and roughly symmetrical</strong>, but a unilateral lesion was documented in an older patient later diagnosed with dysplasia, requiring a wider differential. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-1-2">lajolo2023exfoliativecytologyand pages 1-2</a>, <a href="#ref-liu2024malignanttransformationof-pages-1-3">liu2024malignanttransformationof pages 1-3</a>, <a href="#ref-simonson2020keratin13deficiency-pages-1-2">simonson2020keratin13deficiency pages 1-2</a>, <a href="#ref-haseth2017anovelkeratin-pages-1-2">haseth2017anovelkeratin pages 1-2</a>)</p>
+<p><strong>UBERON label suggestions</strong>, pending identifier-level validation: oral mucosa, buccal mucosa, tongue/ventral tongue, floor of mouth, labial mucosa, esophagus, vaginal mucosa, cervix and nasal mucosa. <strong>GO cellular component:</strong> keratin intermediate filament and desmosome-associated cytoskeleton. There is no established primary cardiovascular, neurologic, endocrine, muscle, or bone involvement. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-2-4">lajolo2023exfoliativecytologyand pages 2-4</a>, <a href="#ref-haseth2017anovelkeratin-pages-1-2">haseth2017anovelkeratin pages 1-2</a>, <a href="#ref-simonson2020keratin13deficiency-pages-3-4">simonson2020keratin13deficiency pages 3-4</a>)</p>
+<h2>8. Temporal development</h2>
+<p>Onset is usually <strong>congenital or in childhood</strong>, though lesions may become apparent or be diagnosed in adolescence/adulthood; the 2023 diagnostic series included patients aged <strong>14, 19, 22 and 37</strong> at assessment, which are ages <strong>at presentation, not proof of onset</strong>. In a 2022 family, twin sisters reportedly had plaques from birth, whereas their brother’s lesions became apparent by early childhood. The disorder is usually <strong>chronic and relatively stable</strong>, with variable thickness and occasional superficial sloughing. There are no validated early/intermediate/end-stage categories or measured progression rates. Isolated treatment responses may reverse while the underlying germline predisposition persists: a father’s plaques decreased after topical retinoic acid and returned at <strong>three months</strong>. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-2-4">lajolo2023exfoliativecytologyand pages 2-4</a>, <a href="#ref-qiao2022whitespongenevus-pages-1-3">qiao2022whitespongenevus pages 1-3</a>, <a href="#ref-qiao2022whitespongenevus-pages-3-7">qiao2022whitespongenevus pages 3-7</a>)</p>
+<p>A new adult-onset, unilateral, enlarging, painful, erythematous or ulcerated focus should <strong>not</strong> automatically be assigned the ordinary stable WSN course: the 2024 reported floor-of-mouth lesion enlarged at six months and had focal moderate-to-severe dysplasia at 12 months. No reproducible disease-specific developmental critical period or spontaneous cure rate was identified. (<a href="#ref-liu2024malignanttransformationof-pages-1-3">liu2024malignanttransformationof pages 1-3</a>, <a href="#ref-liu2024malignanttransformationof-pages-3-6">liu2024malignanttransformationof pages 3-6</a>)</p>
+<h2>9. Inheritance, epidemiology and population</h2>
+<p>WSN is generally <strong>autosomal dominant</strong>. The 2017 four-generation <em>KRT13</em> family demonstrated a de novo ancestral event, subsequent dominant transmission and <strong>9/9 tested variant carriers clinically affected</strong>; that is evidence of <strong>full penetrance in that particular pedigree</strong>, not a universal percentage. Other reports describe incomplete penetrance and variable expressivity. Each child of an affected <strong>heterozygous</strong> parent would conventionally face a <strong>50% transmission probability</strong> for that allele, but the probability and severity of clinical expression remain variant/family dependent. Germline mosaicism, anticipation, consanguinity effects, founder alleles and population carrier frequencies were not established for WSN. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-1-2">lajolo2023exfoliativecytologyand pages 1-2</a>, <a href="#ref-haseth2017anovelkeratin-pages-2-4">haseth2017anovelkeratin pages 2-4</a>, <a href="#ref-haseth2017anovelkeratin-pages-4-6">haseth2017anovelkeratin pages 4-6</a>)</p>
+<p>Publications frequently repeat an estimate around <strong>one affected person per 200,000</strong>—approximately <strong>0.5 per 100,000</strong>—but sources alternately describe this as prevalence, incidence or occurrence per births. <strong>Do not interpret it as a validated annual incidence or precision prevalence estimate</strong>: an underlying population ascertainment study was not established here. No defensible annual incidence, regional or ancestry-specific prevalence, affected-population age distribution, or numeric male:female ratio was found. Available reports state no established sex predilection; four males in a deliberately selected 2023 series cannot estimate a sex ratio. (<a href="#ref-qiao2022whitespongenevus-pages-1-3">qiao2022whitespongenevus pages 1-3</a>, <a href="#ref-lajolo2023exfoliativecytologyand-pages-1-2">lajolo2023exfoliativecytologyand pages 1-2</a>, <a href="#ref-liu2024malignanttransformationof-pages-1-3">liu2024malignanttransformationof pages 1-3</a>, <a href="#ref-lajolo2023exfoliativecytologyand-pages-2-4">lajolo2023exfoliativecytologyand pages 2-4</a>)</p>
+<h2>10. Diagnosis and differential diagnosis</h2>
+<p><strong>Practical clinical approach.</strong> Take age-at-onset, family and exposure history; inspect distribution and whether superficial material versus the underlying plaque can be gently removed; assess other mucosal sites where clinically relevant. Typical bilateral lifelong familial plaques can be recognized clinically. <strong>Biopsy is important</strong> for a new, changing, focal, unilateral, symptomatic or diagnostically uncertain lesion, especially to rule out dysplasia. Histology shows prominent acanthosis, parakeratosis, intracellular edema/vacuolation and sometimes eosinophilic perinuclear keratin condensation, usually without atypia. The 2024 changing lesion required repeat biopsies; its third specimen demonstrated <strong>dysplasia rather than invasive cancer</strong>. (<a href="#ref-batalha2024whitespongenevus-pages-1-2">batalha2024whitespongenevus pages 1-2</a>, <a href="#ref-bezerra2020whitespongenevus-pages-4-5">bezerra2020whitespongenevus pages 4-5</a>, <a href="#ref-liu2024malignanttransformationof-pages-1-3">liu2024malignanttransformationof pages 1-3</a>)</p>
+<p><strong>Noninvasive option under evaluation:</strong> in 2023, oral-brush liquid-based cytology/cell block plus buccal-swab <em>KRT4/KRT13</em> sequencing gave findings concordant with biopsy in <strong>four selected patients</strong>. This is promising, particularly for children, but <strong>4/4 concordance is not a validated population sensitivity or a blanket reason to forgo biopsy when cancer is a concern</strong>. Positive <em>KRT4/KRT13</em> immunostaining shows protein expression, <strong>not</strong> that a detected allele is pathogenic. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-1-2">lajolo2023exfoliativecytologyand pages 1-2</a>, <a href="#ref-lajolo2023exfoliativecytologyand-pages-8-9">lajolo2023exfoliativecytologyand pages 8-9</a>, <a href="#ref-lajolo2023exfoliativecytologyand-pages-2-4">lajolo2023exfoliativecytologyand pages 2-4</a>)</p>
+<p><strong>Genetic testing:</strong> sequence coding and splice regions of <strong>both <em>KRT4<em> and </em>KRT13</em></strong>, using targeted sequencing/a relevant keratin-disorder panel; confirm segregation in affected and unaffected relatives and interpret under formal variant-classification standards. WES identified an affected father–son <em>KRT4</em> deletion in 2022 and a candidate insertion in a 2024 case; WGS might be considered for unresolved atypical families but has no demonstrated WSN-specific diagnostic advantage. Consider RNA analysis for a candidate splice allele, as in the 2017 family. Karyotype, FISH, chromosomal microarray, mitochondrial sequencing and repeat-expansion testing are <strong>not routine tests for isolated WSN</strong>. There is no established WSN-specific circulating biomarker, routine blood assay, CT/MRI, electrophysiologic test, liquid biopsy, omics-based clinical assay, or formal quantitative diagnostic criterion. Narrow-band imaging was used <strong>exploratorily</strong> in one changing lesion and cannot replace tissue diagnosis. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-4-6">lajolo2023exfoliativecytologyand pages 4-6</a>, <a href="#ref-haseth2017anovelkeratin-pages-2-4">haseth2017anovelkeratin pages 2-4</a>, <a href="#ref-qiao2022whitespongenevus-pages-1-3">qiao2022whitespongenevus pages 1-3</a>, <a href="#ref-liu2024malignanttransformationof-pages-3-6">liu2024malignanttransformationof pages 3-6</a>)</p>
+<p><strong>Exclude mimics:</strong> candidiasis (removable pseudomembrane or fungal evidence; distinguish partial superficial WSN sloughing from removal of an entire plaque); friction/cheek-biting or thermal injury; leukoedema; oral lichen planus/lichenoid reaction; leukoplakia including proliferative verrucous leukoplakia; and inherited conditions including hereditary benign intraepithelial dyskeratosis and pachyonychia congenita. HPV-13-associated <strong>Heck disease</strong> can mimic WSN: a small molecular comparison used viral in-situ testing and KRT4/KRT13 immunohistochemistry to distinguish lesions. The WSN diagnosis must not delay biopsy of a suspicious possible leukoplakia or malignancy. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-2-4">lajolo2023exfoliativecytologyand pages 2-4</a>, <a href="#ref-schwartz2019themolecularbaseddifferentiation-pages-1-2">schwartz2019themolecularbaseddifferentiation pages 1-2</a>, <a href="#ref-bezerra2020whitespongenevus-pages-4-5">bezerra2020whitespongenevus pages 4-5</a>)</p>
+<p>There is no established population newborn-screening program. <strong>Cascade examination/testing</strong> can be considered when a pathogenic family variant is established; preimplantation or prenatal testing is technically conceivable after variant confirmation but should not be portrayed as routine for this generally mild condition. (<a href="#ref-haseth2017anovelkeratin-pages-2-4">haseth2017anovelkeratin pages 2-4</a>, <a href="#ref-batalha2024whitespongenevus-pages-1-2">batalha2024whitespongenevus pages 1-2</a>)</p>
+<h2>11. Outcome and prognosis</h2>
+<p>Most patients have a benign, longstanding, minimally symptomatic mucosal phenotype; no WSN-attributable survival decrement, disease-specific mortality rate, disability estimate or EQ-5D/SF-36 score was identified. The principal documented burdens are cosmetic concern, occasionally irritation/infection, and diagnostic confusion with conditions demanding different care. There are no validated prognostic biomarkers or published quantitative recovery probabilities. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-1-2">lajolo2023exfoliativecytologyand pages 1-2</a>, <a href="#ref-simonson2020keratin13deficiency-pages-1-2">simonson2020keratin13deficiency pages 1-2</a>, <a href="#ref-batalha2024whitespongenevus-pages-1-2">batalha2024whitespongenevus pages 1-2</a>)</p>
+<p><strong>Malignancy requires calibrated wording.</strong> In the 2017 report, <strong>2 of 12 oral-WSN-affected family members</strong> developed oral squamous-cell carcinoma and <strong>two of four adult women examined</strong> had premalignant cervical lesions; these figures describe <strong>one selected family</strong>, not WSN-wide cancer incidence. A 2024 single-patient report documented progression to <strong>focal moderate-to-severe dysplasia, not documented invasive carcinoma</strong>, and surgical removal with no recurrence over the following year. Neither a causal oncogenic role for a particular keratin variant nor a general WSN cancer-risk multiplier is established. The proper expert interpretation is neither “WSN inevitably becomes malignant” nor “a changing lesion cannot be malignant”: examine atypical changes on their own merits. (<a href="#ref-haseth2017anovelkeratin-pages-1-2">haseth2017anovelkeratin pages 1-2</a>, <a href="#ref-haseth2017anovelkeratin-pages-2-4">haseth2017anovelkeratin pages 2-4</a>, <a href="#ref-liu2024malignanttransformationof-pages-3-6">liu2024malignanttransformationof pages 3-6</a>)</p>
+<h2>12. Treatment and applications</h2>
+<p><strong>First-line strategy is accurate diagnosis, reassurance and observation</strong> for established, asymptomatic disease. The 2024 Portuguese patient was counseled, followed initially at six months and received <strong>no lesion-directed medication</strong>. Treat proven secondary infection, pain or another independently diagnosed lesion according to that condition rather than prescribing an antibiotic for the inherited keratin defect itself. No disease-modifying approved drug, formal WSN treatment algorithm, established pharmacogenomic marker, gene/RNA/cell therapy, or disease-specific randomized efficacy estimate was identified. <strong>NCIT labels below are proposed intervention concepts</strong>, not verified NCIT identifier codes. (<a href="#ref-batalha2024whitespongenevus-pages-1-2">batalha2024whitespongenevus pages 1-2</a>, <a href="#ref-simonson2020keratin13deficiency-pages-1-2">simonson2020keratin13deficiency pages 1-2</a>, <a href="#ref-qiao2022whitespongenevus-pages-1-3">qiao2022whitespongenevus pages 1-3</a>)</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Option; suggested NCIT intervention concept</th>
+<th>Case-based findings and limitations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Observation, oral examination, patient education; <em>clinical observation</em></td>
+<td>Standard practical choice when asymptomatic; prevents unnecessary antifungals, surgery or immunosuppression. (<a href="#ref-batalha2024whitespongenevus-pages-1-2">batalha2024whitespongenevus pages 1-2</a>, <a href="#ref-sanjeeta2016whitespongenevus-pages-4-4">sanjeeta2016whitespongenevus pages 4-4</a>)</td>
+</tr>
+<tr>
+<td>Topical tetracycline rinse; <em>tetracycline administration / mouthwash</em>; chemical entity <strong>tetracycline</strong>, verify ChEBI identifier</td>
+<td>Reported lesion/symptom improvement in individual cases, but benefit is inconsistent, can recur, and does not correct the gene defect. No disease-specific controlled response rate or adverse-event denominator is available. (<a href="#ref-qiao2022whitespongenevus-pages-10-11">qiao2022whitespongenevus pages 10-11</a>, <a href="#ref-jinbu2004acaseof-pages-3-3">jinbu2004acaseof pages 3-3</a>)</td>
+</tr>
+<tr>
+<td>Oral doxycycline or azithromycin; <em>antibiotic therapy</em>; ChEBI concepts <strong>doxycycline</strong>, <strong>azithromycin</strong></td>
+<td>Selected reports describe improvement: a 2004 <strong>“WSN-like”</strong>, genetically unconfirmed case cleared after azithromycin and remained clear at one year, which must <strong>not</strong> be generalized to molecularly confirmed WSN. A doxycycline case is cited in treatment literature; controlled comparative efficacy is unavailable. Antibiotic prescribing should account for usual patient-specific risks and stewardship. (<a href="#ref-jinbu2004acaseof-pages-1-3">jinbu2004acaseof pages 1-3</a>, <a href="#ref-qiao2022whitespongenevus-pages-10-11">qiao2022whitespongenevus pages 10-11</a>, <a href="#ref-mahdani2025whitespongenevus-pages-4-4">mahdani2025whitespongenevus pages 4-4</a>)</td>
+</tr>
+<tr>
+<td>Topical retinoic acid/tretinoin; <em>retinoid therapy</em>; ChEBI concept <strong>tretinoin</strong></td>
+<td>In a molecularly investigated 2022 family, a father improved after <strong>one week</strong> of topical retinoic acid but relapsed by <strong>three months</strong>. This is not durable disease correction or a measured response rate. (<a href="#ref-qiao2022whitespongenevus-pages-1-3">qiao2022whitespongenevus pages 1-3</a>, <a href="#ref-qiao2022whitespongenevus-pages-3-7">qiao2022whitespongenevus pages 3-7</a>)</td>
+</tr>
+<tr>
+<td>Antifungal therapy; <em>antifungal therapy</em>; ChEBI concept <strong>nystatin</strong> or <strong>clotrimazole</strong> if indicated</td>
+<td>Reserved for documented or clinically credible concomitant candidiasis; nystatin did not improve a 2024 patient’s WSN plaques. Do not misclassify genetic WSN as primary candidiasis. (<a href="#ref-batalha2024whitespongenevus-pages-1-2">batalha2024whitespongenevus pages 1-2</a>, <a href="#ref-sanjeeta2016whitespongenevus-pages-4-4">sanjeeta2016whitespongenevus pages 4-4</a>)</td>
+</tr>
+<tr>
+<td>Excision/CO₂ laser; <em>surgical excision / laser therapy</em></td>
+<td>Consider only an independently suspicious focal lesion or selected persistent symptomatic/cosmetic problems after diagnosis. Published treatment summaries describe post-laser recurrence. The 2024 dysplastic floor-of-mouth lesion was excised and had no recurrence during the reported next year; this supports management of <strong>dysplasia in one patient</strong>, not routine prophylactic removal of WSN. (<a href="#ref-qiao2022whitespongenevus-pages-10-11">qiao2022whitespongenevus pages 10-11</a>, <a href="#ref-liu2024malignanttransformationof-pages-3-6">liu2024malignanttransformationof pages 3-6</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>A 2024 adolescent report of combined tetracycline rinse and CO₂ laser was identified only <strong>secondarily</strong> in the retrieved sources; without the primary full text, no regimen, benefit or safety rate is asserted. No verifiable WSN-specific interventional <strong>NCT identifier</strong> was obtained from the clinical-trial search. (<a href="#ref-mahdani2025whitespongenevus-pages-4-4">mahdani2025whitespongenevus pages 4-4</a>)</p>
+<h2>13. Prevention and counseling</h2>
+<p><strong>Primary prevention:</strong> there is no vaccine, proven protective lifestyle intervention or preventive medication against a germline WSN allele. Genetic counseling can explain variant-specific uncertainty and the <strong>50% per-pregnancy allele-transmission probability</strong> for a heterozygous affected parent, while avoiding an unjustified promise of identical clinical severity. <strong>Secondary prevention:</strong> recognizing familial mucosal plaques early can prevent mistaken diagnosis and unnecessary treatment; relatives can be examined when a family variant is known. <strong>Tertiary prevention:</strong> relieve verified infection or irritation and reassess any new focal change, rather than automatically treating it as stable WSN. Routine HPV/cervical screening should follow relevant general-population recommendations; the single-family cervical findings do <strong>not</strong> establish a universal WSN-specific screening schedule. There is no validated WSN-specific population screening, environmental control, chemoprophylaxis or immunization strategy. (<a href="#ref-haseth2017anovelkeratin-pages-2-4">haseth2017anovelkeratin pages 2-4</a>, <a href="#ref-haseth2017anovelkeratin-pages-4-6">haseth2017anovelkeratin pages 4-6</a>, <a href="#ref-batalha2024whitespongenevus-pages-1-2">batalha2024whitespongenevus pages 1-2</a>, <a href="#ref-schwartz2019themolecularbaseddifferentiation-pages-1-2">schwartz2019themolecularbaseddifferentiation pages 1-2</a>)</p>
+<h2>14. Other species and naturally occurring disease</h2>
+<p>The confirmed naturally affected species in the reviewed evidence is <strong>human (<em>Homo sapiens</em>, NCBI Taxon 9606)</strong>. The experimental species is <strong>house mouse (<em>Mus musculus</em>, NCBI Taxon 10090)</strong>. Orthologous mouse gene symbols are <em>Krt4</em> and <em>Krt13</em>; gene <strong>numeric NCBI IDs</strong>, OMIA entries and VBO breed identifiers were not independently validated and are intentionally not fabricated. No verified <strong>naturally occurring</strong>, heritable canine, feline, livestock or wildlife WSN—or disease-specific veterinary breed predisposition—was identified. Human-to-animal transmission and zoonosis are not relevant to a germline keratinopathy; an experimental mouse phenotype is <strong>not</strong> evidence of naturally occurring cross-species infection. (<a href="#ref-simonson2020keratin13deficiency-pages-1-2">simonson2020keratin13deficiency pages 1-2</a>, <a href="#ref-simonson2020keratin13deficiency-pages-6-7">simonson2020keratin13deficiency pages 6-7</a>)</p>
+<h2>15. Model organisms and research uses</h2>
+<p><strong>Primary model:</strong> Simonson and colleagues’ CRISPR/Cas9 <em>Krt13</em> premature-stop <strong>homozygous knockout mouse</strong>, backcrossed onto C57BL/6. At birth the tongue lacked detectable Krt13 but gross morphology and proliferation were largely normal; by <strong>postnatal day 20/approximately three weeks</strong>, the tongue was white and wrinkled and the buccal mucosa and esophagus showed abnormal thickened epithelia. Histology and electron microscopy showed disrupted maturation, vacuolization, loss/reduction of desmosome-associated filaments and altered epithelial structure. PCNA and PH3 staining demonstrated proliferation extending beyond the basal layer; Figure 4 provides primary visual support for this comparison. A controlled tongue-explant scraping experiment links stress susceptibility to increased cyclin-E expression. This model enables tests of barrier integrity, mechanical stress and candidate cell-cycle mechanisms; it does <strong>not</strong> itself establish that a heterozygous human point mutation works identically, nor that cyclin-E inhibition rescues human disease. (<a href="#ref-simonson2020keratin13deficiency-pages-1-2">simonson2020keratin13deficiency pages 1-2</a>, <a href="#ref-simonson2020keratin13deficiency-pages-2-3">simonson2020keratin13deficiency pages 2-3</a>, <a href="#ref-simonson2020keratin13deficiency-pages-3-4">simonson2020keratin13deficiency pages 3-4</a>, <a href="#ref-simonson2020keratin13deficiency-pages-4-6">simonson2020keratin13deficiency pages 4-6</a>, simonson2020keratin13deficiency media 065ab824, <a href="#ref-simonson2020keratin13deficiency-pages-6-7">simonson2020keratin13deficiency pages 6-7</a>)</p>
+<p>Earlier <strong>targeted <em>Krt4</em> deletion</strong> and <strong>ENU-induced <em>Krt4</em> point-mutation mice</strong> reportedly exhibited WSN-like lingual/epithelial phenotypes; the source discussing them notes that the knockout tongue phenotype appeared later, around <strong>five months</strong>, than the <em>Krt13</em> knockout phenotype. These are mechanistic comparators, <strong>not</strong> naturally affected animal breeds. An established WSN-specific patient iPSC, organoid, zebrafish, fly, rat, genome-wide CRISPR-screen or humanized knock-in platform was not verified in the consulted literature. Candidate model resources for future validation are MGI/IMSR for the engineered mouse lines and GEO <strong>GSE145215</strong> for the mouse bulk-transcriptome dataset; current repository accession details beyond the GEO series were not checked. (<a href="#ref-simonson2020keratin13deficiency-pages-1-2">simonson2020keratin13deficiency pages 1-2</a>, <a href="#ref-simonson2020keratin13deficiency-pages-6-7">simonson2020keratin13deficiency pages 6-7</a>, <a href="#ref-simonson2020keratin13deficiency-pages-7-8">simonson2020keratin13deficiency pages 7-8</a>)</p>
+<h3>Selected primary literature: publication date, direct abstract evidence and URL</h3>
+<ul>
+<li><strong>Lajolo et al., published 23 January 2023</strong>, <em>Bioengineering</em> 10:154, DOI <strong><a href="https://doi.org/10.3390/bioengineering10020154">10.3390/bioengineering10020154</a></strong>. Four-patient human diagnostic series. Abstract: “<strong>Pathology and cytology showed similar results, leading to the same diagnosis of hyperkeratotic epithelium with acanthosis and spongiosis, without atypia</strong>.” PMID was not verified in the retrieved material. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-1-2">lajolo2023exfoliativecytologyand pages 1-2</a>)</li>
+<li><strong>Liu et al., 2024; accepted 26 April 2024</strong>, <em>BMC Oral Health</em> 24:588, DOI <strong><a href="https://doi.org/10.1186/s12903-024-04300-y">10.1186/s12903-024-04300-y</a></strong>. Single human longitudinal dysplasia case. Abstract: “<strong>Single-cell RNA sequencing further revealed altered epithelial proliferation and differentiation dynamics within the lesion</strong>”; the authors say further studies are warranted. PMID not verified. (<a href="#ref-liu2024malignanttransformationof-pages-1-3">liu2024malignanttransformationof pages 1-3</a>, <a href="#ref-liu2024malignanttransformationof-pages-6-7">liu2024malignanttransformationof pages 6-7</a>)</li>
+<li><strong>Batalha et al., online 11 June 2024</strong>, <em>Revista Portuguesa de Estomatologia, Medicina Dentária e Cirurgia Maxilofacial</em> 65:94–98, DOI <strong><a href="https://doi.org/10.24873/j.rpemd.2024.06.1216">10.24873/j.rpemd.2024.06.1216</a></strong>. Biopsy-confirmed clinical case. Abstract: “<strong>No treatment was necessary other than patient counseling and initial 6-month follow-up consultation</strong>.” PMID not verified. (<a href="#ref-batalha2024whitespongenevus-pages-1-2">batalha2024whitespongenevus pages 1-2</a>)</li>
+<li><strong>Qiao et al., published 22 November 2022</strong>, <em>Genes</em> 13:2184, DOI <strong><a href="https://doi.org/10.3390/genes13122184">10.3390/genes13122184</a></strong>. Four-member family; abstract reports “<strong>a heterozygous deletion (C. 438_440delCAA) in exon 1 of the K4 gene</strong>.” PMID not verified. (<a href="#ref-qiao2022whitespongenevus-pages-1-3">qiao2022whitespongenevus pages 1-3</a>)</li>
+<li><strong>Simonson et al., 2020</strong>, <em>Developmental Biology</em> 468:146–153, DOI <strong><a href="https://doi.org/10.1016/j.ydbio.2020.07.016">10.1016/j.ydbio.2020.07.016</a></strong>. Experimental knockout mouse. Abstract: “<strong>Krt13 knockout mice show a WSN-like phenotype in several tissues, including the tongue, buccal mucosa, and esophagus</strong>.” PMID not verified. (<a href="#ref-simonson2020keratin13deficiency-pages-1-2">simonson2020keratin13deficiency pages 1-2</a>)</li>
+<li><strong>de Haseth et al., 2017</strong>, <em>Clinical Case Reports</em> 5:1503–1509, DOI <strong><a href="https://doi.org/10.1002/ccr3.1073">10.1002/ccr3.1073</a></strong>. Human four-generation pedigree; article’s key clinical statement: “<strong>Two of the 12 patients with oral WSN developed oral squamous cell carcinoma</strong>.” This is a family observation, not population cancer risk. PMID not verified. (<a href="#ref-haseth2017anovelkeratin-pages-1-2">haseth2017anovelkeratin pages 1-2</a>)</li>
+</ul>
+<p><strong>Evidence and ontology-import caution:</strong> The supplied and retrieved primary full texts provided DOIs but did <strong>not reliably provide PMID numbers</strong>. Fabricating PMIDs, unverified ontology accession numbers, current live ClinVar assertions or standardized phenotype frequencies would be less accurate than retaining verified titles, dates, DOI URLs, explicit candidate ontology labels and the evidence-source distinctions above. (<a href="#ref-lajolo2023exfoliativecytologyand-pages-1-2">lajolo2023exfoliativecytologyand pages 1-2</a>, <a href="#ref-lajolo2023exfoliativecytologyand-pages-8-9">lajolo2023exfoliativecytologyand pages 8-9</a>, <a href="#ref-liu2024malignanttransformationof-pages-1-3">liu2024malignanttransformationof pages 1-3</a>)</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-lajolo2023exfoliativecytologyand-pages-1-2"></a>(lajolo2023exfoliativecytologyand pages 1-2): Carlo Lajolo, Concetta Cafiero, Egidio Stigliano, Francesca Romana Grippaudo, Pietro Chiurazzi, and Cristina Grippaudo. Exfoliative cytology and genetic analysis for a non-invasive approach to the diagnosis of white sponge nevus: case series. Bioengineering, 10:154, Jan 2023. URL: <a href="https://doi.org/10.3390/bioengineering10020154" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/bioengineering10020154</a>, <a href="https://doi.org/10.3390/bioengineering10020154" target="_blank" rel="noopener noreferrer">doi:10.3390/bioengineering10020154</a>. This article has 8 citations.</p>
+</li>
+<li>
+<p><a id="ref-haseth2017anovelkeratin-pages-1-2"></a>(haseth2017anovelkeratin pages 1-2): Stephanie B. de Haseth, Egbert Bakker, Maarten H. Vermeer, Hakima el Idrissi, Tjalling Bosse, Vincent T.H.B.M. Smit, Anna Terron‐Kwiatkowski, W.H. Irwin McLean, Alexander A.W. Peters, and Frederik J. Hes. A novel keratin 13 variant in a four‐generation family with white sponge nevus. Clinical Case Reports, 5:1503-1509, Jul 2017. URL: <a href="https://doi.org/10.1002/ccr3.1073" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/ccr3.1073</a>, <a href="https://doi.org/10.1002/ccr3.1073" target="_blank" rel="noopener noreferrer">doi:10.1002/ccr3.1073</a>. This article has 11 citations.</p>
+</li>
+<li>
+<p><a id="ref-simonson2020keratin13deficiency-pages-1-2"></a>(simonson2020keratin13deficiency pages 1-2): Laura Simonson, Samantha Vold, Colton Mowers, Randall J. Massey, Irene M. Ong, B. Jack Longley, and Hao Chang. Keratin 13 deficiency causes white sponge nevus in mice. Developmental Biology, 468:146-153, Dec 2020. URL: <a href="https://doi.org/10.1016/j.ydbio.2020.07.016" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.ydbio.2020.07.016</a>, <a href="https://doi.org/10.1016/j.ydbio.2020.07.016" target="_blank" rel="noopener noreferrer">doi:10.1016/j.ydbio.2020.07.016</a>. This article has 20 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-batalha2024whitespongenevus-pages-1-2"></a>(batalha2024whitespongenevus pages 1-2): B Batalha, D Abreu, A Moreira, F Freitas, and H Francisco. White sponge nevus of the oral mucosa. Unknown journal, 2024.</p>
+</li>
+<li>
+<p><a id="ref-batalha2024whitespongenevus-pages-2-4"></a>(batalha2024whitespongenevus pages 2-4): B Batalha, D Abreu, A Moreira, F Freitas, and H Francisco. White sponge nevus of the oral mucosa. Unknown journal, 2024.</p>
+</li>
+<li>
+<p><a id="ref-mahdani2025whitespongenevus-pages-1-2"></a>(mahdani2025whitespongenevus pages 1-2): Fatma Yasmin Mahdani, Karlina Puspasari, Ida Bagus Pramana Putra Manuaba, Salsabila Fitriana Putri, Naqiya Ayunnisa, Diah Savitri Ernawati, and Hening Tuti Hendarti. White sponge nevus as a hereditary disease: a brief narrative review. Indonesian Journal of Dental Medicine, 8:49-52, Mar 2025. URL: <a href="https://doi.org/10.20473/ijdm.v8i1.2025.49-52" target="_blank" rel="noopener noreferrer">https://doi.org/10.20473/ijdm.v8i1.2025.49-52</a>, <a href="https://doi.org/10.20473/ijdm.v8i1.2025.49-52" target="_blank" rel="noopener noreferrer">doi:10.20473/ijdm.v8i1.2025.49-52</a>. This article has 0 citations.</p>
+</li>
+<li>
+<p><a id="ref-schwartz2019themolecularbaseddifferentiation-pages-1-2"></a>(schwartz2019themolecularbaseddifferentiation pages 1-2): Ziv Schwartz, Cynthia Magro, and Gerard Nuovo. The molecular-based differentiation of heck's disease from its mimics including oral condyloma and white sponge nevus. Annals of diagnostic pathology, 43:151402, Dec 2019. URL: <a href="https://doi.org/10.1016/j.anndiagpath.2019.151402" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.anndiagpath.2019.151402</a>, <a href="https://doi.org/10.1016/j.anndiagpath.2019.151402" target="_blank" rel="noopener noreferrer">doi:10.1016/j.anndiagpath.2019.151402</a>. This article has 18 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-lajolo2023exfoliativecytologyand-pages-2-4"></a>(lajolo2023exfoliativecytologyand pages 2-4): Carlo Lajolo, Concetta Cafiero, Egidio Stigliano, Francesca Romana Grippaudo, Pietro Chiurazzi, and Cristina Grippaudo. Exfoliative cytology and genetic analysis for a non-invasive approach to the diagnosis of white sponge nevus: case series. Bioengineering, 10:154, Jan 2023. URL: <a href="https://doi.org/10.3390/bioengineering10020154" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/bioengineering10020154</a>, <a href="https://doi.org/10.3390/bioengineering10020154" target="_blank" rel="noopener noreferrer">doi:10.3390/bioengineering10020154</a>. This article has 8 citations.</p>
+</li>
+<li>
+<p><a id="ref-qiao2022whitespongenevus-pages-1-3"></a>(qiao2022whitespongenevus pages 1-3): Yahui Qiao, Binjie Liu, Ruiqi Bai, Jingwen Cai, and Qian Peng. White sponge nevus caused by keratin 4 gene mutation: a case report. Genes, 13:2184, Nov 2022. URL: <a href="https://doi.org/10.3390/genes13122184" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/genes13122184</a>, <a href="https://doi.org/10.3390/genes13122184" target="_blank" rel="noopener noreferrer">doi:10.3390/genes13122184</a>. This article has 13 citations.</p>
+</li>
+<li>
+<p><a id="ref-liu2024malignanttransformationof-pages-1-3"></a>(liu2024malignanttransformationof pages 1-3): Dan Liu, Tianyu Zhang, Hangfan Zhou, Chuanji Wu, Taiwen Li, and Lu Jiang. Malignant transformation of white sponge nevus: a case report of a novel keratin 4 mutation. BMC Oral Health, May 2024. URL: <a href="https://doi.org/10.1186/s12903-024-04300-y" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12903-024-04300-y</a>, <a href="https://doi.org/10.1186/s12903-024-04300-y" target="_blank" rel="noopener noreferrer">doi:10.1186/s12903-024-04300-y</a>. This article has 6 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-simonson2020keratin13deficiency-pages-4-6"></a>(simonson2020keratin13deficiency pages 4-6): Laura Simonson, Samantha Vold, Colton Mowers, Randall J. Massey, Irene M. Ong, B. Jack Longley, and Hao Chang. Keratin 13 deficiency causes white sponge nevus in mice. Developmental Biology, 468:146-153, Dec 2020. URL: <a href="https://doi.org/10.1016/j.ydbio.2020.07.016" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.ydbio.2020.07.016</a>, <a href="https://doi.org/10.1016/j.ydbio.2020.07.016" target="_blank" rel="noopener noreferrer">doi:10.1016/j.ydbio.2020.07.016</a>. This article has 20 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-qiao2022whitespongenevus-pages-3-7"></a>(qiao2022whitespongenevus pages 3-7): Yahui Qiao, Binjie Liu, Ruiqi Bai, Jingwen Cai, and Qian Peng. White sponge nevus caused by keratin 4 gene mutation: a case report. Genes, 13:2184, Nov 2022. URL: <a href="https://doi.org/10.3390/genes13122184" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/genes13122184</a>, <a href="https://doi.org/10.3390/genes13122184" target="_blank" rel="noopener noreferrer">doi:10.3390/genes13122184</a>. This article has 13 citations.</p>
+</li>
+<li>
+<p><a id="ref-haseth2017anovelkeratin-pages-2-4"></a>(haseth2017anovelkeratin pages 2-4): Stephanie B. de Haseth, Egbert Bakker, Maarten H. Vermeer, Hakima el Idrissi, Tjalling Bosse, Vincent T.H.B.M. Smit, Anna Terron‐Kwiatkowski, W.H. Irwin McLean, Alexander A.W. Peters, and Frederik J. Hes. A novel keratin 13 variant in a four‐generation family with white sponge nevus. Clinical Case Reports, 5:1503-1509, Jul 2017. URL: <a href="https://doi.org/10.1002/ccr3.1073" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/ccr3.1073</a>, <a href="https://doi.org/10.1002/ccr3.1073" target="_blank" rel="noopener noreferrer">doi:10.1002/ccr3.1073</a>. This article has 11 citations.</p>
+</li>
+<li>
+<p><a id="ref-bezerra2020whitespongenevus-pages-4-5"></a>(bezerra2020whitespongenevus pages 4-5): Kelly T. Bezerra, Taiana C. Leite, Ana Luiza O.C. Roza, Rubem Araújo, Mônica S. Israel, Nathalie H.S. Canedo, Michelle Agostini, Bruno Augusto Benevenuto de Andrade, and Mário J. Romañach. White sponge nevus: a condition not always clinically suspected. Journal of Cutaneous Pathology, 47:22-26, Oct 2020. URL: <a href="https://doi.org/10.1111/cup.13581" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/cup.13581</a>, <a href="https://doi.org/10.1111/cup.13581" target="_blank" rel="noopener noreferrer">doi:10.1111/cup.13581</a>. This article has 36 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-simonson2020keratin13deficiency-pages-6-7"></a>(simonson2020keratin13deficiency pages 6-7): Laura Simonson, Samantha Vold, Colton Mowers, Randall J. Massey, Irene M. Ong, B. Jack Longley, and Hao Chang. Keratin 13 deficiency causes white sponge nevus in mice. Developmental Biology, 468:146-153, Dec 2020. URL: <a href="https://doi.org/10.1016/j.ydbio.2020.07.016" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.ydbio.2020.07.016</a>, <a href="https://doi.org/10.1016/j.ydbio.2020.07.016" target="_blank" rel="noopener noreferrer">doi:10.1016/j.ydbio.2020.07.016</a>. This article has 20 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-haseth2017anovelkeratin-pages-4-6"></a>(haseth2017anovelkeratin pages 4-6): Stephanie B. de Haseth, Egbert Bakker, Maarten H. Vermeer, Hakima el Idrissi, Tjalling Bosse, Vincent T.H.B.M. Smit, Anna Terron‐Kwiatkowski, W.H. Irwin McLean, Alexander A.W. Peters, and Frederik J. Hes. A novel keratin 13 variant in a four‐generation family with white sponge nevus. Clinical Case Reports, 5:1503-1509, Jul 2017. URL: <a href="https://doi.org/10.1002/ccr3.1073" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/ccr3.1073</a>, <a href="https://doi.org/10.1002/ccr3.1073" target="_blank" rel="noopener noreferrer">doi:10.1002/ccr3.1073</a>. This article has 11 citations.</p>
+</li>
+<li>
+<p><a id="ref-lajolo2023exfoliativecytologyand-pages-8-9"></a>(lajolo2023exfoliativecytologyand pages 8-9): Carlo Lajolo, Concetta Cafiero, Egidio Stigliano, Francesca Romana Grippaudo, Pietro Chiurazzi, and Cristina Grippaudo. Exfoliative cytology and genetic analysis for a non-invasive approach to the diagnosis of white sponge nevus: case series. Bioengineering, 10:154, Jan 2023. URL: <a href="https://doi.org/10.3390/bioengineering10020154" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/bioengineering10020154</a>, <a href="https://doi.org/10.3390/bioengineering10020154" target="_blank" rel="noopener noreferrer">doi:10.3390/bioengineering10020154</a>. This article has 8 citations.</p>
+</li>
+<li>
+<p><a id="ref-lajolo2023exfoliativecytologyand-pages-9-10"></a>(lajolo2023exfoliativecytologyand pages 9-10): Carlo Lajolo, Concetta Cafiero, Egidio Stigliano, Francesca Romana Grippaudo, Pietro Chiurazzi, and Cristina Grippaudo. Exfoliative cytology and genetic analysis for a non-invasive approach to the diagnosis of white sponge nevus: case series. Bioengineering, 10:154, Jan 2023. URL: <a href="https://doi.org/10.3390/bioengineering10020154" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/bioengineering10020154</a>, <a href="https://doi.org/10.3390/bioengineering10020154" target="_blank" rel="noopener noreferrer">doi:10.3390/bioengineering10020154</a>. This article has 8 citations.</p>
+</li>
+<li>
+<p><a id="ref-liu2024malignanttransformationof-pages-3-6"></a>(liu2024malignanttransformationof pages 3-6): Dan Liu, Tianyu Zhang, Hangfan Zhou, Chuanji Wu, Taiwen Li, and Lu Jiang. Malignant transformation of white sponge nevus: a case report of a novel keratin 4 mutation. BMC Oral Health, May 2024. URL: <a href="https://doi.org/10.1186/s12903-024-04300-y" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12903-024-04300-y</a>, <a href="https://doi.org/10.1186/s12903-024-04300-y" target="_blank" rel="noopener noreferrer">doi:10.1186/s12903-024-04300-y</a>. This article has 6 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-liu2024malignanttransformationof-pages-6-7"></a>(liu2024malignanttransformationof pages 6-7): Dan Liu, Tianyu Zhang, Hangfan Zhou, Chuanji Wu, Taiwen Li, and Lu Jiang. Malignant transformation of white sponge nevus: a case report of a novel keratin 4 mutation. BMC Oral Health, May 2024. URL: <a href="https://doi.org/10.1186/s12903-024-04300-y" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12903-024-04300-y</a>, <a href="https://doi.org/10.1186/s12903-024-04300-y" target="_blank" rel="noopener noreferrer">doi:10.1186/s12903-024-04300-y</a>. This article has 6 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-simonson2020keratin13deficiency-pages-3-4"></a>(simonson2020keratin13deficiency pages 3-4): Laura Simonson, Samantha Vold, Colton Mowers, Randall J. Massey, Irene M. Ong, B. Jack Longley, and Hao Chang. Keratin 13 deficiency causes white sponge nevus in mice. Developmental Biology, 468:146-153, Dec 2020. URL: <a href="https://doi.org/10.1016/j.ydbio.2020.07.016" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.ydbio.2020.07.016</a>, <a href="https://doi.org/10.1016/j.ydbio.2020.07.016" target="_blank" rel="noopener noreferrer">doi:10.1016/j.ydbio.2020.07.016</a>. This article has 20 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-simonson2020keratin13deficiency-media-065ab824"></a>(simonson2020keratin13deficiency media 065ab824): Laura Simonson, Samantha Vold, Colton Mowers, Randall J. Massey, Irene M. Ong, B. Jack Longley, and Hao Chang. Keratin 13 deficiency causes white sponge nevus in mice. Developmental Biology, 468:146-153, Dec 2020. URL: <a href="https://doi.org/10.1016/j.ydbio.2020.07.016" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.ydbio.2020.07.016</a>, <a href="https://doi.org/10.1016/j.ydbio.2020.07.016" target="_blank" rel="noopener noreferrer">doi:10.1016/j.ydbio.2020.07.016</a>. This article has 20 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-simonson2020keratin13deficiency-pages-7-8"></a>(simonson2020keratin13deficiency pages 7-8): Laura Simonson, Samantha Vold, Colton Mowers, Randall J. Massey, Irene M. Ong, B. Jack Longley, and Hao Chang. Keratin 13 deficiency causes white sponge nevus in mice. Developmental Biology, 468:146-153, Dec 2020. URL: <a href="https://doi.org/10.1016/j.ydbio.2020.07.016" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.ydbio.2020.07.016</a>, <a href="https://doi.org/10.1016/j.ydbio.2020.07.016" target="_blank" rel="noopener noreferrer">doi:10.1016/j.ydbio.2020.07.016</a>. This article has 20 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-lajolo2023exfoliativecytologyand-pages-4-6"></a>(lajolo2023exfoliativecytologyand pages 4-6): Carlo Lajolo, Concetta Cafiero, Egidio Stigliano, Francesca Romana Grippaudo, Pietro Chiurazzi, and Cristina Grippaudo. Exfoliative cytology and genetic analysis for a non-invasive approach to the diagnosis of white sponge nevus: case series. Bioengineering, 10:154, Jan 2023. URL: <a href="https://doi.org/10.3390/bioengineering10020154" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/bioengineering10020154</a>, <a href="https://doi.org/10.3390/bioengineering10020154" target="_blank" rel="noopener noreferrer">doi:10.3390/bioengineering10020154</a>. This article has 8 citations.</p>
+</li>
+<li>
+<p><a id="ref-sanjeeta2016whitespongenevus-pages-4-4"></a>(sanjeeta2016whitespongenevus pages 4-4): Ngairangbam Sanjeeta, DB Nandini, Takhellambam Premlata, and Sumita Banerjee. White sponge nevus: report of three cases in a single family. Journal of Oral and Maxillofacial Pathology : JOMFP, 20:300-303, May 2016. URL: <a href="https://doi.org/10.4103/0973-029x.185915" target="_blank" rel="noopener noreferrer">https://doi.org/10.4103/0973-029x.185915</a>, <a href="https://doi.org/10.4103/0973-029x.185915" target="_blank" rel="noopener noreferrer">doi:10.4103/0973-029x.185915</a>. This article has 28 citations.</p>
+</li>
+<li>
+<p><a id="ref-qiao2022whitespongenevus-pages-10-11"></a>(qiao2022whitespongenevus pages 10-11): Yahui Qiao, Binjie Liu, Ruiqi Bai, Jingwen Cai, and Qian Peng. White sponge nevus caused by keratin 4 gene mutation: a case report. Genes, 13:2184, Nov 2022. URL: <a href="https://doi.org/10.3390/genes13122184" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/genes13122184</a>, <a href="https://doi.org/10.3390/genes13122184" target="_blank" rel="noopener noreferrer">doi:10.3390/genes13122184</a>. This article has 13 citations.</p>
+</li>
+<li>
+<p><a id="ref-jinbu2004acaseof-pages-3-3"></a>(jinbu2004acaseof pages 3-3): Yoshinori Jinbu, Keiichi Tsukinoki, Mayumi Hori, Miki Aoki, Mikio Kusama, and Yoshihisa Watanabe. A case of white sponge nevus-like lesion of the oral mucosa successfully treated with azithromycin. Oral Medicine &amp; Pathology, 9:35-37, Mar 2004. URL: <a href="https://doi.org/10.3353/omp.9.35" target="_blank" rel="noopener noreferrer">https://doi.org/10.3353/omp.9.35</a>, <a href="https://doi.org/10.3353/omp.9.35" target="_blank" rel="noopener noreferrer">doi:10.3353/omp.9.35</a>. This article has 15 citations.</p>
+</li>
+<li>
+<p><a id="ref-jinbu2004acaseof-pages-1-3"></a>(jinbu2004acaseof pages 1-3): Yoshinori Jinbu, Keiichi Tsukinoki, Mayumi Hori, Miki Aoki, Mikio Kusama, and Yoshihisa Watanabe. A case of white sponge nevus-like lesion of the oral mucosa successfully treated with azithromycin. Oral Medicine &amp; Pathology, 9:35-37, Mar 2004. URL: <a href="https://doi.org/10.3353/omp.9.35" target="_blank" rel="noopener noreferrer">https://doi.org/10.3353/omp.9.35</a>, <a href="https://doi.org/10.3353/omp.9.35" target="_blank" rel="noopener noreferrer">doi:10.3353/omp.9.35</a>. This article has 15 citations.</p>
+</li>
+<li>
+<p><a id="ref-mahdani2025whitespongenevus-pages-4-4"></a>(mahdani2025whitespongenevus pages 4-4): Fatma Yasmin Mahdani, Karlina Puspasari, Ida Bagus Pramana Putra Manuaba, Salsabila Fitriana Putri, Naqiya Ayunnisa, Diah Savitri Ernawati, and Hening Tuti Hendarti. White sponge nevus as a hereditary disease: a brief narrative review. Indonesian Journal of Dental Medicine, 8:49-52, Mar 2025. URL: <a href="https://doi.org/10.20473/ijdm.v8i1.2025.49-52" target="_blank" rel="noopener noreferrer">https://doi.org/10.20473/ijdm.v8i1.2025.49-52</a>, <a href="https://doi.org/10.20473/ijdm.v8i1.2025.49-52" target="_blank" rel="noopener noreferrer">doi:10.20473/ijdm.v8i1.2025.49-52</a>. This article has 0 citations.</p>
+</li>
+<li>
+<p><a id="ref-simonson2020keratin13deficiency-pages-2-3"></a>(simonson2020keratin13deficiency pages 2-3): Laura Simonson, Samantha Vold, Colton Mowers, Randall J. Massey, Irene M. Ong, B. Jack Longley, and Hao Chang. Keratin 13 deficiency causes white sponge nevus in mice. Developmental Biology, 468:146-153, Dec 2020. URL: <a href="https://doi.org/10.1016/j.ydbio.2020.07.016" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.ydbio.2020.07.016</a>, <a href="https://doi.org/10.1016/j.ydbio.2020.07.016" target="_blank" rel="noopener noreferrer">doi:10.1016/j.ydbio.2020.07.016</a>. This article has 20 citations and is from a peer-reviewed journal.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/White_Sponge_Nevus-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a>
+<img alt="## Context ID: pqac-00000038 Figure 4 shows that Krt13 deletion leads to increased epithelial cell proliferation. Specifically, panels G-H show PCNA staining an" src="../../research/White_Sponge_Nevus-deep-research-falcon_artifacts/image-1.png" /></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>12</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0015748</code> (2 mentions) - the report calls it "if available"; MONDO calls it <strong>hereditary mucosal leukokeratosis</strong></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Whipple_Disease-falcon.html">← Whipple Disease (Falcon)</a>
+                
+                
+                <a href="White-Sutton_Syndrome-falcon.html">White-Sutton Syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/White_Sponge_Nevus.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/White_Sponge_Nevus-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

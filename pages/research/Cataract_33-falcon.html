@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cataract 33 · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Cataract 33</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Cataract 33</h1>
+                
+                <p class="report-subtitle">Disease Characteristics Research Template</p>
+                
+                
+                <div class="report-date">2026-10-13</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0012665" target="_blank" rel="noopener noreferrer">MONDO:0012665</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">31 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Cataract 33</li>
+<li><strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0012665" target="_blank" rel="noopener noreferrer">MONDO:0012665</a> (if available)</li>
+<li><strong>Category:</strong> Mendelian</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Cataract 33</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Present this section as an ordered causal chain first, then the detail below.</strong>
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.</p>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest NCIT (NCI Thesaurus) clinical-intervention terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (NCIT terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h1>Cataract 33: disease-characteristics research report</h1>
+<p><strong>Scope and evidence.</strong> Cataract 33 (<a href="http://purl.obolibrary.org/obo/MONDO_0012665" target="_blank" rel="noopener noreferrer">MONDO:0012665</a>) is a rare, <strong>BFSP1-associated inherited lens opacity</strong>. The strongest subtype-defining evidence is a 2007 study of autosomal-recessive, juvenile-onset cataract in an Indian family. Later reports associate other <em>BFSP1</em> variants with <strong>autosomal-dominant</strong> pediatric cataracts of different morphologies. Findings from congenital cataract generally should not be interpreted as measured frequencies, risks, or treatment effects for Cataract 33 specifically. The evidence summarized here comes from published families, experimental systems, and aggregated disease resources—not individual electronic health records. (OpenTargets Search: Cataract 33, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-li2019novelmutationsidentified-pages-1-2">li2019novelmutationsidentified pages 1-2</a>, <a href="#ref-jones2022pathogenicgeneticvariants-pages-4-4">jones2022pathogenicgeneticvariants pages 4-4</a>)</p>
+<h2>1. Disease information and identifiers</h2>
+<p><em>Cataract 33</em> denotes hereditary opacification of the crystalline lens associated with <strong>BFSP1</strong>, which encodes beaded filament structural protein 1, also called <strong>filensin</strong> or <strong>CP115</strong>. Its defining recessive presentation was developmental/juvenile cataract with predominantly cortical opacity; the broader gene-associated spectrum includes congenital total and posterior sutural/pulverulent cataracts. Thus, “congenital cataract” is not an accurate onset description for every affected person. <em>BFSP2</em> encodes the distinct partner protein phakinin/CP49 and should not be substituted for <em>BFSP1</em>. (<a href="#ref-shiels2024throughthecatmap-pages-11-12">shiels2024throughthecatmap pages 11-12</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-2-4">ramachandran2007autosomalrecessivejuvenile pages 2-4</a>, <a href="#ref-li2019novelmutationsidentified-pages-1-2">li2019novelmutationsidentified pages 1-2</a>, <a href="#ref-jones2022pathogenicgeneticvariants-pages-4-4">jones2022pathogenicgeneticvariants pages 4-4</a>)</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Identifier or term</th>
+<th>Evidence-calibrated entry</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/MONDO_0012665" target="_blank" rel="noopener noreferrer">MONDO:0012665</a></strong>, cataract 33.</td>
+</tr>
+<tr>
+<td>Causal gene</td>
+<td><strong>BFSP1</strong>; the 2019 primary report labels its gene-level OMIM entry <strong>611391</strong>. This is a <strong>gene</strong> identifier, not a verified disease-entry identifier.</td>
+</tr>
+<tr>
+<td>Useful names</td>
+<td>Cataract 33; <em>BFSP1</em>-associated cataract; filensin-associated hereditary cataract; autosomal-recessive juvenile-onset cataract for the original family.</td>
+</tr>
+<tr>
+<td>Orphanet, subtype-specific OMIM, ICD-11, MeSH</td>
+<td>A verified Cataract 33-specific identifier was <strong>not established</strong> from the retrieved evidence. Do not invent one. Broad congenital/developmental cataract coding may be used clinically, but does not encode the molecular subtype.</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td><strong>Q12.0</strong>, congenital cataract, is documented in a pediatric cataract clinical cohort; its applicability depends on actual onset and should not automatically be assigned to juvenile-onset cases.</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The disease–gene and MONDO association comes from an aggregated Open Targets record; the individual-family phenotype and segregation evidence come from primary studies. (OpenTargets Search: Cataract 33, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-li2019novelmutationsidentified-pages-1-2">li2019novelmutationsidentified pages 1-2</a>)</p>
+<h2>2. Etiology, risk, protection, and environment</h2>
+<p><strong>Established causal factor:</strong> a familial homozygous 3,343-bp deletion encompassing <em>BFSP1</em> exon 6 segregated with recessive juvenile cataract. The investigators examined <strong>19 family members—11 affected and eight unaffected</strong>—and identified the deletion in affected relatives; it was absent in <strong>50 ethnically matched controls, or 100 control chromosomes</strong>. The maximum two-point linkage LOD was <strong>5.40</strong> at D20S860 in a chromosome-20q interval containing <em>BFSP1</em>. Consanguinity was important to this family’s recessive segregation, but is not itself a molecular lesion. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-4-7">ramachandran2007autosomalrecessivejuvenile pages 4-7</a>)</p>
+<p>Other published <em>BFSP1</em> candidates segregate with dominant cataract; their interpretation must be variant-specific. A 2024 expert genetics review also discusses common variation near <em>BFSP1</em> in <strong>age-related nuclear cataract</strong>, but that association concerns a different, complex trait and does not establish an exposure or susceptibility factor for Mendelian Cataract 33. No protective <em>BFSP1</em> allele, validated modifier gene in human patients, genotype-specific dietary or environmental protection, or measured <em>BFSP1</em>–environment interaction was established. Smoking, ultraviolet exposure, diabetes, steroids, radiation, and maternal infection may matter in the <strong>differential diagnosis of cataract</strong>, but none was shown to cause or prevent this specific inherited condition in the cited pedigrees. (<a href="#ref-shiels2024throughthecatmap-pages-11-12">shiels2024throughthecatmap pages 11-12</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-li2019novelmutationsidentified-pages-8-10">li2019novelmutationsidentified pages 8-10</a>)</p>
+<h2>3. Phenotypes and their consequences</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype; suggested HPO search term</th>
+<th>Type, timing, and evidence</th>
+<th>Frequency and functional effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Cataract</strong>; <em>Cataract</em> / <em>Juvenile cataract</em></td>
+<td>Clinical sign. In the original recessive family, opacities were generally documented by <strong>age five</strong>, with one documented at <strong>age two</strong>. Early-childhood onset is supported; onset at birth in this family is not established.</td>
+<td>Cataract was the ascertainment phenotype in the <strong>11 affected members</strong>; 11/19 is a <strong>pedigree proportion, not population prevalence</strong>. Opacity can obstruct sight and require surgery.</td>
+</tr>
+<tr>
+<td><strong>Cortical cataract</strong>; <em>Cortical cataract</em></td>
+<td>Clinical sign. The three affected relatives still available for native-lens examination had fluffy, cotton-like cortical opacities, sometimes with anterior cortical grape-like cysts.</td>
+<td>Observed in <strong>three examined phakic affected relatives</strong>; the others had already undergone surgery, so 3/11 is <strong>not</strong> a defensible phenotype frequency.</td>
+</tr>
+<tr>
+<td><strong>Reduced visual acuity</strong>; <em>Decreased visual acuity</em> / <em>Visual impairment</em></td>
+<td>Clinical functional manifestation. Family records include preoperative vision as poor as hand motion or light perception and variable acuities after intervention.</td>
+<td>No rigorously estimated <em>BFSP1</em>-specific percentage. Impairs learning, mobility, and everyday visual tasks according to severity; subtype-specific quality-of-life scales were not reported.</td>
+</tr>
+<tr>
+<td><strong>Total cataract</strong>; <em>Total cataract</em></td>
+<td>Congenital clinical sign in the separate 2019 Chinese family carrying heterozygous p.Gly602Arg.</td>
+<td><strong>Five affected relatives</strong> were recorded as having total cataract from birth; this is a separate genotype and should not be pooled with the 2007 family.</td>
+</tr>
+<tr>
+<td><strong>Posterior sutural/pulverulent cataract</strong>; <em>Sutural cataract</em> / <em>Punctate cataract</em></td>
+<td>Pediatric clinical sign reported in a 2022 Australian family with a heterozygous <em>BFSP1</em> frameshift.</td>
+<td>Consistent among the reported affected relatives, but a reliable numeric penetrance or frequency is unavailable.</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The first family’s clinical examination reported <strong>normal corneal diameter and axial length</strong> and no other detected ocular abnormality; that observation does not prove that every <em>BFSP1</em> case lacks extracocular disease. Older relatives with nuclear sclerosis beginning around <strong>age 50</strong> were treated as <em>unaffected</em> for the recessive linkage analysis, not as additional proven Cataract 33 cases. The original paper’s Figure 2 directly illustrates three cortical cases and one older nuclear case. Suggested HPO labels require verification against the current ontology release before assigning exact <strong>HP identifiers</strong>. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-2-4">ramachandran2007autosomalrecessivejuvenile pages 2-4</a>, ramachandran2007autosomalrecessivejuvenile media 82382e04, ramachandran2007autosomalrecessivejuvenile media 07d9e375, <a href="#ref-li2019novelmutationsidentified-pages-4-6">li2019novelmutationsidentified pages 4-6</a>, <a href="#ref-jones2022pathogenicgeneticvariants-pages-4-4">jones2022pathogenicgeneticvariants pages 4-4</a>)</p>
+<h2>4. Genetics and molecular findings</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th><em>BFSP1</em> finding</th>
+<th>Human evidence and interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>c.736-1384_c.957-66del</strong>, 3,343 bp encompassing exon 6; reported predicted <strong>p.Thr246fs</strong></td>
+<td><strong>Homozygous</strong> in affected members of the consanguineous Indian family and heterozygous in relatives predicted to be carriers. Removes exon 6, shifts reading frame, and predicts the first <strong>245 normal amino acids</strong>, six new amino acids, premature termination, and loss of the normal protein’s final <strong>414 amino acids</strong>. Strong recessive segregation evidence; RNA decay and protein behavior were <strong>predicted, not measured</strong>. The notation is the original authors’ and should be re-normalized against a named reference transcript before clinical reporting.</td>
+</tr>
+<tr>
+<td><strong>c.625+3A&gt;G</strong></td>
+<td>Reported as a <strong>heterozygous splice-region candidate</strong> in family 19 of a 2017 Chinese cataract sequencing study. An experimental demonstration of aberrant <em>BFSP1</em> splicing was not established from the available evidence.</td>
+</tr>
+<tr>
+<td><strong>NM_001195.3:c.1804G&gt;C, p.Gly602Arg</strong></td>
+<td>Heterozygous in a 2019 Chinese dominant-congenital-cataract family: <strong>five affected and four unaffected</strong> relatives supported segregation. Reported <strong>ExAC frequency 0.000066</strong>. Its residue was relatively poorly conserved and computational predictions conflicted; the investigators described <strong>suspected</strong> pathogenicity. Do not elevate this result to a verified pathogenic ClinVar/ACMG classification without current review.</td>
+</tr>
+<tr>
+<td><strong>NM_001195.5:c.1124del, p.(Glu375GlyfsTer2)</strong></td>
+<td>A <strong>heterozygous</strong> frameshift segregating with dominantly inherited posterior sutural/pulverulent pediatric cataract in Australian family <strong>CSA182</strong>. The 2022 investigators included this family among those with a disease-causing <strong>likely pathogenic</strong> variant. The study screened <strong>37 families</strong> and confirmed likely pathogenic variants across several genes in <strong>eight</strong>; those are cohort-wide figures, not a <em>BFSP1</em> diagnostic yield.</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>These are <strong>constitutional/germline family findings</strong>, not evidence for a somatic cancer variant. A reliable subtype-wide carrier frequency, current gnomAD allele count for each variant, verified ClinVar assertion, HGNC numeric ID, founder effect, repeat expansion, aneuploidy, or separate disease-causing chromosome rearrangement was not established. The exon-6 <strong>intragenic</strong> deletion is the relevant structural variant; do not reinterpret its chromosome-20 linkage interval as a chromosomal deletion. Dominant frameshift inheritance also means one cannot assume that haploinsufficiency explains every <em>BFSP1</em> allele. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-4-7">ramachandran2007autosomalrecessivejuvenile pages 4-7</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-7-8">ramachandran2007autosomalrecessivejuvenile pages 7-8</a>, <a href="#ref-li2019novelmutationsidentified-pages-1-2">li2019novelmutationsidentified pages 1-2</a>, <a href="#ref-li2019novelmutationsidentified-pages-8-10">li2019novelmutationsidentified pages 8-10</a>, <a href="#ref-jones2022pathogenicgeneticvariants-pages-3-3">jones2022pathogenicgeneticvariants pages 3-3</a>, <a href="#ref-jones2022pathogenicgeneticvariants-pages-4-4">jones2022pathogenicgeneticvariants pages 4-4</a>, <a href="#ref-zhai2017targetedexomesequencing-pages-1-2">zhai2017targetedexomesequencing pages 1-2</a>)</p>
+<h2>5. Environmental, lifestyle, and infectious information</h2>
+<p>No toxin, diet, occupational exposure, infectious agent, vaccine-preventable pathogen, or behavioral trigger has been demonstrated as necessary or sufficient for <em>BFSP1</em>-associated disease. Exposures relevant to <strong>other</strong> pediatric or age-related cataracts should be assessed when clinically indicated, rather than entered as established Cataract 33 causes. No disease-specific metabolite, circulating biomarker, or chemopreventive <strong>ChEBI</strong> entity was established. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-li2019novelmutationsidentified-pages-8-10">li2019novelmutationsidentified pages 8-10</a>)</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<p><strong>Ordered causal chain—supported steps and inferences:</strong></p>
+<ol>
+<li><strong>A biallelic <em>BFSP1</em> exon-6 deletion leads to</strong> an out-of-frame predicted transcript and premature stop; the alternate branch, <strong>RNA degradation, is inferred</strong> rather than demonstrated in patients. A surviving truncated-protein branch is likewise hypothetical. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-4-7">ramachandran2007autosomalrecessivejuvenile pages 4-7</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-7-8">ramachandran2007autosomalrecessivejuvenile pages 7-8</a>)</li>
+<li><strong>Reduced functional filensin leads to</strong> deficient assembly or maintenance of filensin–phakinin/<strong>BFSP2</strong> beaded filaments in <strong>lens fiber cells</strong>; this direction is supported by <em>Bfsp1</em>-deletion mouse observations, whereas direct measurement of filaments in the affected human family was unavailable. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-7-8">ramachandran2007autosomalrecessivejuvenile pages 7-8</a>)</li>
+<li><strong>Impaired beaded-filament cytoskeleton leads to</strong> altered fiber-cell support, packing, biomechanics, and transparency. Mouse perturbation of the partner filament protein <strong>CP49/Bfsp2</strong>, especially together with <strong>Tmod1</strong>, demonstrates fiber-cell disorder, altered compressive properties, and light scattering; the precise contribution of each intermediate to a given human <em>BFSP1</em> allele remains <strong>inferred</strong>. (<a href="#ref-gokhin2012tmod1andcp49-pages-1-2">gokhin2012tmod1andcp49 pages 1-2</a>, <a href="#ref-gokhin2012tmod1andcp49-pages-13-14">gokhin2012tmod1andcp49 pages 13-14</a>, <a href="#ref-gokhin2012tmod1andcp49-pages-12-13">gokhin2012tmod1andcp49 pages 12-13</a>)</li>
+<li><strong>Increased lens light scattering results in</strong> childhood cortical opacity and impaired visual acuity; sustained obstruction during visual development <strong>can lead to</strong> secondary deprivation amblyopia. The original family establishes the opacity and visual impairment, but not a quantified amblyopia rate or direct molecular-to-optical measurements. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-2-4">ramachandran2007autosomalrecessivejuvenile pages 2-4</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-4-7">ramachandran2007autosomalrecessivejuvenile pages 4-7</a>)</li>
+<li><strong>Alternative allele branch:</strong> heterozygous missense, splice-region, and truncating alleles <strong>are associated with</strong> congenital total, lamellar, or sutural cataract in separate families; a shared dominant-negative, gain-of-function, or haploinsufficiency mechanism has <strong>not</strong> been demonstrated across them. (<a href="#ref-li2019novelmutationsidentified-pages-8-10">li2019novelmutationsidentified pages 8-10</a>, <a href="#ref-jones2022pathogenicgeneticvariants-pages-4-4">jones2022pathogenicgeneticvariants pages 4-4</a>, <a href="#ref-zhai2017targetedexomesequencing-pages-1-2">zhai2017targetedexomesequencing pages 1-2</a>)</li>
+</ol>
+<p><strong>Molecular context.</strong> Filensin is a lens-enriched intermediate-filament-like cytoskeletal protein that associates with <strong>BFSP2/phakinin</strong> and α-crystallin-containing complexes; the principal supported process is <strong>beaded-filament organization</strong>, not a demonstrated disease-specific Wnt, MAPK, PI3K–AKT, or mTOR cascade. In experimental mouse lenses, Tmod1-linked spectrin–actin organization interacts functionally with the beaded-filament network, but <strong>TMOD1 is a mechanistic partner, not a validated human Cataract 33 modifier</strong>. No disease-specific enzyme deficiency, inflammatory/immune pathway, mitochondrial lesion, oxidative-stress measurement, or metabolomic/lipidomic signature was established. Suggested annotation concepts are <strong><a href="http://purl.obolibrary.org/obo/GO_0005882" target="_blank" rel="noopener noreferrer">GO:0005882</a>, intermediate filament</strong> and <strong><a href="http://purl.obolibrary.org/obo/GO_0005856" target="_blank" rel="noopener noreferrer">GO:0005856</a>, cytoskeleton</strong>, with a lens fiber-cell differentiation/organization biological-process term selected after ontology lookup; assign specific <strong>GO process and CL identifiers only after database validation</strong>. (<a href="#ref-shiels2024throughthecatmap-pages-11-12">shiels2024throughthecatmap pages 11-12</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-7-8">ramachandran2007autosomalrecessivejuvenile pages 7-8</a>, <a href="#ref-gokhin2012tmod1andcp49-pages-1-2">gokhin2012tmod1andcp49 pages 1-2</a>, <a href="#ref-gokhin2012tmod1andcp49-pages-12-13">gokhin2012tmod1andcp49 pages 12-13</a>)</p>
+<p><strong>Profiling and advanced technologies—context, not patient data.</strong> A 2022 <strong>embryonic-chicken</strong> lens epithelial-versus-fiber multi-omics study included <em>BFSP1</em> among genes associated with differentiation-related methylation, accessibility, and expression changes. Across the experiment, investigators found <strong>7,621</strong> differentially methylated regions; methylation versus expression had <strong>r = −0.37</strong>, and methylation versus chromatin accessibility <strong>r = −0.86</strong>. These are <strong>genome-wide correlations in chick development</strong>, not human Cataract 33 epigenetic lesions or <em>BFSP1</em>-specific effect sizes. No disease-specific single-cell, spatial-transcriptomic, proteomic, CRISPR-screen, or patient multi-omics diagnostic signature was established. (<a href="#ref-disatham2022changesindna-pages-2-3">disatham2022changesindna pages 2-3</a>, <a href="#ref-disatham2022changesindna-pages-1-2">disatham2022changesindna pages 1-2</a>)</p>
+<h2>7. Anatomy and localization</h2>
+<p>The <strong>primary organ</strong> is the eye’s <strong>crystalline lens</strong>; in the original family the visible lesion was chiefly the <strong>lens cortex</strong>, with some <strong>anterior cortical</strong> cyst-like opacities. Differentiating and mature <strong>lens fiber cells</strong> are the mechanistically implicated cells; the anterior lens epithelium supplies differentiating fiber cells but was not demonstrated to be the primary damaged cell population. The affected subcellular structures are <strong>cytoplasmic and membrane-associated beaded filaments</strong>. No primary brain, kidney, skin, or systemic organ lesion was established. Corneal dimensions and axial lengths were normal in the examined family. Suggested ontology concepts: <strong><a href="http://purl.obolibrary.org/obo/UBERON_0000963" target="_blank" rel="noopener noreferrer">UBERON:0000963</a>, lens of camera-type eye</strong>, pending release verification; lens cortex and lens fiber cell should be mapped to appropriate current <strong>UBERON/CL</strong> entries rather than assigned unverified numbers. Laterality should be recorded <strong>patient by patient</strong>; avoid assigning a numerical bilateral frequency from incomplete clinical records. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-2-4">ramachandran2007autosomalrecessivejuvenile pages 2-4</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-7-8">ramachandran2007autosomalrecessivejuvenile pages 7-8</a>, ramachandran2007autosomalrecessivejuvenile media 82382e04)</p>
+<h2>8. Temporal development</h2>
+<p>For the original recessive phenotype, this is a <strong>persistent, early-childhood/developmental cataract</strong>, often first documented at five years and in one child at two years; the paper describes maturation of the opacities in early childhood. The separate dominant p.Gly602Arg family instead reported opacities <strong>from birth</strong>. There is no validated Cataract 33 staging system, subtype-wide annual progression rate, spontaneous-remission frequency, or lifetime natural-history curve. Removal of an opaque lens corrects the optical obstruction but does not reverse the genotype; timely visual rehabilitation matters most when opacity threatens developing vision. Older heterozygous carriers’ nuclear sclerosis does <strong>not</strong> establish age-dependent penetrance for the Mendelian subtype. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-2-4">ramachandran2007autosomalrecessivejuvenile pages 2-4</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-7-8">ramachandran2007autosomalrecessivejuvenile pages 7-8</a>, <a href="#ref-li2019novelmutationsidentified-pages-4-6">li2019novelmutationsidentified pages 4-6</a>)</p>
+<h2>9. Inheritance and population</h2>
+<p><strong>Autosomal recessive inheritance</strong> is firmly documented for the original homozygous exon-6 deletion. <strong>Autosomal dominant segregation</strong> is reported for certain other <em>BFSP1</em> variants; the evidential strength differs among alleles. Although the 2007 linkage model assumed complete penetrance, that is an <strong>analysis assumption</strong>, not a measured population penetrance estimate. Cataract morphology and onset differ among the described families, supporting gene-level phenotypic variability. No subtype-specific incidence per 100,000/year, prevalence per 100,000, population carrier frequency, male:female ratio, anticipation, germline mosaicism, or founder mutation has been established. Reported Indian, Chinese, and Australian families demonstrate geographical occurrence, <strong>not</strong> differential population risk. Broad congenital-cataract prevalence estimates are not a valid substitute for Cataract 33 epidemiology. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-2-4">ramachandran2007autosomalrecessivejuvenile pages 2-4</a>, <a href="#ref-li2019novelmutationsidentified-pages-1-2">li2019novelmutationsidentified pages 1-2</a>, <a href="#ref-li2019novelmutationsidentified-pages-8-10">li2019novelmutationsidentified pages 8-10</a>, <a href="#ref-jones2022pathogenicgeneticvariants-pages-1-2">jones2022pathogenicgeneticvariants pages 1-2</a>, <a href="#ref-jones2022pathogenicgeneticvariants-pages-4-4">jones2022pathogenicgeneticvariants pages 4-4</a>)</p>
+<h2>10. Diagnosis, differential diagnosis, and screening</h2>
+<p><strong>Clinical evaluation:</strong> a pediatric ophthalmologist assesses the red reflex, dilated lens and anterior segment by <strong>slit lamp</strong>, visual acuity or age-appropriate visual behavior, refraction, intraocular pressure, and fundus where visible. The original investigators used slit-lamp examination, Snellen acuity, tonometry, fundus examination, and pediatric retinoscopy. Ultrasound/A-scan can support biometry or evaluation when opacity prevents a satisfactory posterior view; in the original family <strong>A-scan determined intraocular-lens power</strong>, not <em>BFSP1</em> genotype. Clinical appearance alone does not distinguish reliably among the many hereditary cataract genes. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-2-4">ramachandran2007autosomalrecessivejuvenile pages 2-4</a>, <a href="#ref-li2019novelmutationsidentified-pages-1-2">li2019novelmutationsidentified pages 1-2</a>)</p>
+<p><strong>Molecular workflow:</strong> document phenotype and pedigree; offer a comprehensive pediatric-cataract <strong>NGS panel containing BFSP1 and BFSP2</strong> and other established crystallin, gap-junction, membrane, and developmental genes, or use <strong>WES/WGS</strong> when the panel is unrevealing or the phenotype suggests a broader disorder. <strong>Assess exon-level copy-number changes and structural breakpoints</strong>: sequencing that detects only single-nucleotide variants could miss the defining 3,343-bp deletion. Confirm candidate findings, test familial segregation, and interpret each allele under current ACMG/AMP and laboratory standards; use RNA studies where a splice-region candidate needs functional clarification. WGS can help characterize structural/noncoding variants; neither WES nor WGS has a demonstrated Cataract 33-specific diagnostic-yield estimate. Targeted NGS was used in the Chinese families, and genome sequencing in the Australian families. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-4-7">ramachandran2007autosomalrecessivejuvenile pages 4-7</a>, <a href="#ref-li2019novelmutationsidentified-pages-1-2">li2019novelmutationsidentified pages 1-2</a>, <a href="#ref-jones2022pathogenicgeneticvariants-pages-1-2">jones2022pathogenicgeneticvariants pages 1-2</a>, <a href="#ref-jones2022pathogenicgeneticvariants-pages-4-4">jones2022pathogenicgeneticvariants pages 4-4</a>, <a href="#ref-zhai2017targetedexomesequencing-pages-1-2">zhai2017targetedexomesequencing pages 1-2</a>)</p>
+<p><strong>Differential diagnosis:</strong> <em>BFSP2</em>, crystallin, <em>GJA3/GJA8</em>, <em>MIP</em>, and other hereditary cataracts; metabolic, infectious, traumatic, developmental, and syndromic cataracts according to history and examination. Routine blood enzymes, electrophysiology, biopsy, karyotype, FISH, mitochondrial sequencing, and repeat-expansion testing are <strong>not established as subtype-specific tests</strong>; deploy alternatives when a different suspected cause warrants them. There is no validated liquid-biopsy or epigenomic assay for Cataract 33. Targeted testing and cascade examination/genotyping may identify relatives at risk; a normal neonatal red reflex cannot definitively exclude the original <strong>juvenile-onset</strong> phenotype. (<a href="#ref-shiels2024throughthecatmap-pages-11-12">shiels2024throughthecatmap pages 11-12</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-li2019novelmutationsidentified-pages-1-2">li2019novelmutationsidentified pages 1-2</a>, <a href="#ref-jones2022pathogenicgeneticvariants-pages-1-2">jones2022pathogenicgeneticvariants pages 1-2</a>)</p>
+<h2>11. Outcomes and prognosis</h2>
+<p>The principal morbidity is <strong>potentially substantial visual impairment</strong>, with risk of lasting visual-development consequences when a dense childhood opacity is untreated. In the original family, many affected relatives had already undergone surgery; individual outcomes varied, so neither a gene-specific surgical-response percentage nor a quality-of-life score can be calculated. No Cataract 33-specific mortality, reduced life expectancy, systemic failure, or disease-specific survival statistic was identified. Prognosis is plausibly affected by opacity density and timing of detection, surgery, optical correction, and amblyopia care, but genotype-specific prognostic biomarkers and validated risk models are unavailable. Cataract recurrence as a genetically affected <em>native lens</em> is not relevant once that lens is removed; postoperative visual-axis opacification or glaucoma are distinct <strong>treatment complications</strong> requiring follow-up, not established primary <em>BFSP1</em> phenotypes. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-2-4">ramachandran2007autosomalrecessivejuvenile pages 2-4</a>, ramachandran2007autosomalrecessivejuvenile media 07d9e375)</p>
+<h2>12. Treatment and current applications</h2>
+<p><strong>Established management treats the opacity and visual consequences, not the causal allele.</strong> Observe an opacity only if its visual significance allows; otherwise perform pediatric cataract removal/lensectomy with age- and anatomy-appropriate <strong>intraocular lens</strong> or aphakic optical correction, followed by refraction, amblyopia management, and long-term surveillance. In the original family, two examined relatives underwent <strong>small-incision cataract surgery with intraocular-lens implantation</strong>. Suggested <strong>NCIT intervention labels</strong> for verification are <em>Cataract Extraction</em>, <em>Intraocular Lens Implantation</em>, <em>Visual Rehabilitation</em>, and <em>Genetic Counseling</em>; do not attach unverified NCIT codes. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-2-4">ramachandran2007autosomalrecessivejuvenile pages 2-4</a>)</p>
+<p><strong>Contemporary, non-genotype-specific evidence:</strong> a 2024 prospective Kinshasa cohort of <strong>91 children with bilateral congenital or juvenile cataracts</strong> reported improvement in WHO visual-acuity category in <strong>93/182 eyes (51.1%)</strong>, unchanged category in <strong>63/182 (34.6%)</strong>, and secondary cataract in <strong>26.37% of operated eyes</strong>. These are real-world pediatric-care figures, <strong>not outcomes measured in Cataract 33</strong>. Registered pediatric cataract studies include <strong>NCT00212134</strong> (Infant Aphakia Treatment Study), <strong>NCT01297153</strong> (bilateral surgery: aphakia versus pseudophakia), and <strong>NCT03908359</strong> (minimally invasive versus traditional surgery); no <em>BFSP1</em>-specific intervention trial was found in the trial search. No proven <em>BFSP1</em>-directed pharmacotherapy, pharmacogenomic protocol, gene editing, cell therapy, RNA therapy, or approved molecularly targeted treatment was established. (<a href="#ref-shiels2024throughthecatmap-pages-22-23">shiels2024throughthecatmap pages 22-23</a>)</p>
+<h2>13. Prevention and counseling</h2>
+<p><strong>Primary:</strong> there is no vaccine, medication, dietary measure, or exposure avoidance proven to prevent a pathogenic <em>BFSP1</em> genotype from causing cataract. Genetic counseling, family-variant testing, and informed reproductive planning can clarify familial risk; in a recessive family where <strong>both parents are confirmed carriers of the same pathogenic allele</strong>, the standard Mendelian probability for each pregnancy is <strong>25% biallelic affected</strong>, <strong>50% carrier</strong>, and <strong>25% neither inherited familial allele</strong>. These probabilities do <strong>not</strong> apply unchanged to a confirmed dominant family. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-4-7">ramachandran2007autosomalrecessivejuvenile pages 4-7</a>, <a href="#ref-jones2022pathogenicgeneticvariants-pages-4-4">jones2022pathogenicgeneticvariants pages 4-4</a>)</p>
+<p><strong>Secondary:</strong> newborn eye examination and age-appropriate follow-up of at-risk children can detect early lens opacity; a family with juvenile onset requires observation beyond birth. <strong>Tertiary:</strong> prompt assessment of visually significant opacity, optical correction, amblyopia care, and postsurgical monitoring seek to limit avoidable visual disability. Prenatal or preimplantation testing is conceptually possible once the familial variant is rigorously established and appropriate counseling is provided; no subtype-specific screening program was identified. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-2-4">ramachandran2007autosomalrecessivejuvenile pages 2-4</a>, <a href="#ref-li2019novelmutationsidentified-pages-1-2">li2019novelmutationsidentified pages 1-2</a>)</p>
+<h2>14. Other species and natural disease</h2>
+<p>The cited comparative evidence concerns <strong>experimental mouse lens phenotypes</strong>, not a confirmed naturally occurring veterinary condition caused by the orthologous <em>BFSP1</em> allele. No defensible breed-specific <strong>VBO</strong> term, OMIA condition, animal carrier frequency, cross-species transmission, or zoonotic risk was established. A Mendelian lens-cytoskeleton defect is <strong>not infectious or zoonotic</strong>. Suggested taxonomic identifiers: human <strong>NCBI Taxon 9606</strong>, laboratory mouse <strong>10090</strong>; ortholog-specific NCBI Gene identifiers require database verification before knowledge-base ingestion. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-7-8">ramachandran2007autosomalrecessivejuvenile pages 7-8</a>, <a href="#ref-gokhin2012tmod1andcp49-pages-1-2">gokhin2012tmod1andcp49 pages 1-2</a>)</p>
+<h2>15. Model organisms and experimental systems</h2>
+<p><strong>Mouse:</strong> targeted deletion of <em>Bfsp1</em>/filensin was reported to prevent lens-fiber beaded-filament formation; lens light scattering increased with age, supporting a role in <strong>maintaining</strong> transparency rather than initiating lens formation. <em>Bfsp2</em>/CP49 knockout is a <strong>related-pathway model</strong>, not an exact <em>BFSP1</em> allele model. In a separate mouse experiment, removing <strong>Tmod1</strong>, <strong>CP49</strong>, or both tested cytoskeletal cooperation; combined loss produced greater fiber-cell disorganization and optical effects than could be inferred from either network alone. These models illuminate filament organization and biomechanics but do not reproduce the specific human 3,343-bp deletion, all human inheritance modes, or the complete clinical course. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-7-8">ramachandran2007autosomalrecessivejuvenile pages 7-8</a>, <a href="#ref-gokhin2012tmod1andcp49-pages-1-2">gokhin2012tmod1andcp49 pages 1-2</a>, <a href="#ref-gokhin2012tmod1andcp49-pages-13-14">gokhin2012tmod1andcp49 pages 13-14</a>, <a href="#ref-gokhin2012tmod1andcp49-pages-12-13">gokhin2012tmod1andcp49 pages 12-13</a>)</p>
+<p><strong>Other systems:</strong> embryonic-chicken lens-cell multi-omics profiles normal differentiation rather than a disease model. Human stem-cell-derived lentoid bodies are an emerging <strong>general cataract-model platform</strong>, but a validated patient-derived <em>BFSP1</em> Cataract 33 organoid or allele-specific rescue experiment was not established in the retrieved evidence. Relevant model-resource suggestions are <strong>MGI/IMPC</strong> for mouse alleles and <strong>GEO</strong> for lens-expression datasets; accession numbers need independent verification. (<a href="#ref-disatham2022changesindna-pages-2-3">disatham2022changesindna pages 2-3</a>, <a href="#ref-disatham2022changesindna-pages-1-2">disatham2022changesindna pages 1-2</a>)</p>
+<h3>Selected primary and recent sources; abstract excerpts</h3>
+<ul>
+<li><strong>Ramachandran RD, Perumalsamy V, Hejtmancik JF.</strong> <em>Human Genetics</em> <strong>121:475–482</strong>, published online <strong>16 January 2007</strong>. DOI: <a href="https://doi.org/10.1007/s00439-006-0319-6" target="_blank" rel="noopener noreferrer">https://doi.org/10.1007/s00439-006-0319-6</a>. Original abstract: “<strong>Direct sequencing revealed a 3343 bp deletion including exon 6 ... predicted to result in a shift of the open reading frame.</strong>” This is the key <strong>human clinical/genetic</strong> source for the recessive phenotype. The corresponding PubMed record should be checked for its PMID before database import rather than assigning an unverified number. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>)</li>
+<li><strong>Zhai Y et al.</strong> <em>Scientific Reports</em> <strong>7</strong>, <strong>April 2017</strong>. DOI: <a href="https://doi.org/10.1038/s41598-017-01182-9" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41598-017-01182-9</a>. <strong>Human family sequencing</strong>, including a heterozygous <em>BFSP1</em> splice-region candidate; experimental splice validation was not established here. (<a href="#ref-zhai2017targetedexomesequencing-pages-1-2">zhai2017targetedexomesequencing pages 1-2</a>, <a href="#ref-zhai2017targetedexomesequencing-pages-2-4">zhai2017targetedexomesequencing pages 2-4</a>)</li>
+<li><strong>Li S et al.</strong> <em>BMC Medical Genetics</em> <strong>20:196</strong>, <strong>December 2019</strong>. DOI: <a href="https://doi.org/10.1186/s12881-019-0933-5" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12881-019-0933-5</a>. Original abstract calls the reported alleles “<strong>five potential causative mutations</strong>,” appropriately qualifying the <strong>human clinical/computational</strong> p.Gly602Arg finding. (<a href="#ref-li2019novelmutationsidentified-pages-1-2">li2019novelmutationsidentified pages 1-2</a>, <a href="#ref-li2019novelmutationsidentified-pages-8-10">li2019novelmutationsidentified pages 8-10</a>)</li>
+<li><strong>Jones JL et al.</strong> <em>BMJ Open Ophthalmology</em> <strong>7:e001064</strong>, accepted <strong>5 August 2022</strong>. DOI: <a href="https://doi.org/10.1136/bmjophth-2022-001064" target="_blank" rel="noopener noreferrer">https://doi.org/10.1136/bmjophth-2022-001064</a>. Its abstract states that likely pathogenic findings included “<strong>BFSP1 p.(Glu375GlyfsTer2)</strong>.” This is <strong>human genome-sequencing</strong> evidence for a dominant, different-morphology family. (<a href="#ref-jones2022pathogenicgeneticvariants-pages-1-2">jones2022pathogenicgeneticvariants pages 1-2</a>, <a href="#ref-jones2022pathogenicgeneticvariants-pages-4-4">jones2022pathogenicgeneticvariants pages 4-4</a>)</li>
+<li><strong>Gokhin DS et al.</strong> <em>PLoS ONE</em> <strong>7:e48734</strong>, <strong>November 2012</strong>. DOI: <a href="https://doi.org/10.1371/journal.pone.0048734" target="_blank" rel="noopener noreferrer">https://doi.org/10.1371/journal.pone.0048734</a>. The abstract concludes that spectrin–actin and beaded filaments show “<strong>a novel functional synergy critical for regulating lens fiber cell geometry, transparency, and mechanical stiffness</strong>.” This is <strong>experimental mouse</strong>, not patient evidence. (<a href="#ref-gokhin2012tmod1andcp49-pages-1-2">gokhin2012tmod1andcp49 pages 1-2</a>)</li>
+<li><strong>Disatham J et al.</strong> <em>Epigenetics &amp; Chromatin</em> <strong>15:8</strong>, <strong>March 2022</strong>. DOI: <a href="https://doi.org/10.1186/s13072-022-00440-z" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s13072-022-00440-z</a>. Original abstract: “<strong>Whole genome bisulfite sequencing identified 7621 genomic loci</strong>” differing between lens-cell states. This is <strong>embryonic-chick developmental multi-omics</strong>, not disease-specific human epigenetics. (<a href="#ref-disatham2022changesindna-pages-2-3">disatham2022changesindna pages 2-3</a>, <a href="#ref-disatham2022changesindna-pages-1-2">disatham2022changesindna pages 1-2</a>)</li>
+<li><strong>Shiels A.</strong> <em>Genes</em> <strong>15:785</strong>, <strong>June 2024</strong>. DOI: <a href="https://doi.org/10.3390/genes15060785" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/genes15060785</a>. This <strong>expert review</strong>, rather than a new Cataract 33 case series, places <em>BFSP1</em> within the now broad inherited-cataract gene landscape and distinguishes recessive <em>BFSP1</em> discovery from dominant <em>BFSP2</em> discovery. (<a href="#ref-shiels2024throughthecatmap-pages-11-12">shiels2024throughthecatmap pages 11-12</a>, <a href="#ref-shiels2024throughthecatmap-pages-23-25">shiels2024throughthecatmap pages 23-25</a>)</li>
+</ul>
+<p><strong>Knowledge-base ingestion caution:</strong> retain the exact evidence distinctions—<strong>human recessive deletion versus separately reported dominant alleles; directly observed versus predicted molecular effects; patient data versus mouse/chick models; gene-level versus disease-level identifiers</strong>. Exact PMIDs, HGNC/HP/GO/CL/NCIT codes, present-day ClinVar classifications, and currently indexed population allele frequencies were not independently verified in the retrieved records and should remain unset rather than guessed. (<a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2">ramachandran2007autosomalrecessivejuvenile pages 1-2</a>, <a href="#ref-ramachandran2007autosomalrecessivejuvenile-pages-4-7">ramachandran2007autosomalrecessivejuvenile pages 4-7</a>, <a href="#ref-li2019novelmutationsidentified-pages-8-10">li2019novelmutationsidentified pages 8-10</a>, <a href="#ref-jones2022pathogenicgeneticvariants-pages-4-4">jones2022pathogenicgeneticvariants pages 4-4</a>, <a href="#ref-disatham2022changesindna-pages-2-3">disatham2022changesindna pages 2-3</a>)</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-opentargets-search-cataract-33"></a>(OpenTargets Search: Cataract 33): Open Targets Query (Cataract 33, 41 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p><a id="ref-ramachandran2007autosomalrecessivejuvenile-pages-1-2"></a>(ramachandran2007autosomalrecessivejuvenile pages 1-2): Ramya Devi Ramachandran, Ramya Devi Ramachandran, Vijayalakshmi Perumalsamy, and J. Hejtmancik. Autosomal recessive juvenile onset cataract associated with mutation in bfsp1. Human Genetics, 121:475-482, Jan 2007. URL: <a href="https://doi.org/10.1007/s00439-006-0319-6" target="_blank" rel="noopener noreferrer">https://doi.org/10.1007/s00439-006-0319-6</a>, <a href="https://doi.org/10.1007/s00439-006-0319-6" target="_blank" rel="noopener noreferrer">doi:10.1007/s00439-006-0319-6</a>. This article has 127 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-li2019novelmutationsidentified-pages-1-2"></a>(li2019novelmutationsidentified pages 1-2): Shan Li, Jianfei Zhang, Yixuan Cao, Yi You, and Xiuli Zhao. Novel mutations identified in chinese families with autosomal dominant congenital cataracts by targeted next-generation sequencing. BMC Medical Genetics, Dec 2019. URL: <a href="https://doi.org/10.1186/s12881-019-0933-5" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12881-019-0933-5</a>, <a href="https://doi.org/10.1186/s12881-019-0933-5" target="_blank" rel="noopener noreferrer">doi:10.1186/s12881-019-0933-5</a>. This article has 18 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-jones2022pathogenicgeneticvariants-pages-4-4"></a>(jones2022pathogenicgeneticvariants pages 4-4): Johanna L Jones, Bennet J McComish, Sandra E Staffieri, Emmanuelle Souzeau, Lisa S Kearns, James E Elder, Jac C Charlesworth, David A Mackey, Jonathan B Ruddle, Deepa Taranath, John Pater, Theresa Casey, Jamie E Craig, and Kathryn P Burdon. Pathogenic genetic variants identified in australian families with paediatric cataract. BMJ Open Ophthalmology, 7:e001064, Aug 2022. URL: <a href="https://doi.org/10.1136/bmjophth-2022-001064" target="_blank" rel="noopener noreferrer">https://doi.org/10.1136/bmjophth-2022-001064</a>, <a href="https://doi.org/10.1136/bmjophth-2022-001064" target="_blank" rel="noopener noreferrer">doi:10.1136/bmjophth-2022-001064</a>. This article has 18 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-shiels2024throughthecatmap-pages-11-12"></a>(shiels2024throughthecatmap pages 11-12): Alan Shiels. Through the cat-map gateway: a brief history of cataract genetics. Genes, 15:785, Jun 2024. URL: <a href="https://doi.org/10.3390/genes15060785" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/genes15060785</a>, <a href="https://doi.org/10.3390/genes15060785" target="_blank" rel="noopener noreferrer">doi:10.3390/genes15060785</a>. This article has 25 citations.</p>
+</li>
+<li>
+<p><a id="ref-ramachandran2007autosomalrecessivejuvenile-pages-2-4"></a>(ramachandran2007autosomalrecessivejuvenile pages 2-4): Ramya Devi Ramachandran, Ramya Devi Ramachandran, Vijayalakshmi Perumalsamy, and J. Hejtmancik. Autosomal recessive juvenile onset cataract associated with mutation in bfsp1. Human Genetics, 121:475-482, Jan 2007. URL: <a href="https://doi.org/10.1007/s00439-006-0319-6" target="_blank" rel="noopener noreferrer">https://doi.org/10.1007/s00439-006-0319-6</a>, <a href="https://doi.org/10.1007/s00439-006-0319-6" target="_blank" rel="noopener noreferrer">doi:10.1007/s00439-006-0319-6</a>. This article has 127 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-ramachandran2007autosomalrecessivejuvenile-pages-4-7"></a>(ramachandran2007autosomalrecessivejuvenile pages 4-7): Ramya Devi Ramachandran, Ramya Devi Ramachandran, Vijayalakshmi Perumalsamy, and J. Hejtmancik. Autosomal recessive juvenile onset cataract associated with mutation in bfsp1. Human Genetics, 121:475-482, Jan 2007. URL: <a href="https://doi.org/10.1007/s00439-006-0319-6" target="_blank" rel="noopener noreferrer">https://doi.org/10.1007/s00439-006-0319-6</a>, <a href="https://doi.org/10.1007/s00439-006-0319-6" target="_blank" rel="noopener noreferrer">doi:10.1007/s00439-006-0319-6</a>. This article has 127 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-li2019novelmutationsidentified-pages-8-10"></a>(li2019novelmutationsidentified pages 8-10): Shan Li, Jianfei Zhang, Yixuan Cao, Yi You, and Xiuli Zhao. Novel mutations identified in chinese families with autosomal dominant congenital cataracts by targeted next-generation sequencing. BMC Medical Genetics, Dec 2019. URL: <a href="https://doi.org/10.1186/s12881-019-0933-5" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12881-019-0933-5</a>, <a href="https://doi.org/10.1186/s12881-019-0933-5" target="_blank" rel="noopener noreferrer">doi:10.1186/s12881-019-0933-5</a>. This article has 18 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-ramachandran2007autosomalrecessivejuvenile-media-82382e04"></a>(ramachandran2007autosomalrecessivejuvenile media 82382e04): Ramya Devi Ramachandran, Ramya Devi Ramachandran, Vijayalakshmi Perumalsamy, and J. Hejtmancik. Autosomal recessive juvenile onset cataract associated with mutation in bfsp1. Human Genetics, 121:475-482, Jan 2007. URL: <a href="https://doi.org/10.1007/s00439-006-0319-6" target="_blank" rel="noopener noreferrer">https://doi.org/10.1007/s00439-006-0319-6</a>, <a href="https://doi.org/10.1007/s00439-006-0319-6" target="_blank" rel="noopener noreferrer">doi:10.1007/s00439-006-0319-6</a>. This article has 127 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-ramachandran2007autosomalrecessivejuvenile-media-07d9e375"></a>(ramachandran2007autosomalrecessivejuvenile media 07d9e375): Ramya Devi Ramachandran, Ramya Devi Ramachandran, Vijayalakshmi Perumalsamy, and J. Hejtmancik. Autosomal recessive juvenile onset cataract associated with mutation in bfsp1. Human Genetics, 121:475-482, Jan 2007. URL: <a href="https://doi.org/10.1007/s00439-006-0319-6" target="_blank" rel="noopener noreferrer">https://doi.org/10.1007/s00439-006-0319-6</a>, <a href="https://doi.org/10.1007/s00439-006-0319-6" target="_blank" rel="noopener noreferrer">doi:10.1007/s00439-006-0319-6</a>. This article has 127 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-li2019novelmutationsidentified-pages-4-6"></a>(li2019novelmutationsidentified pages 4-6): Shan Li, Jianfei Zhang, Yixuan Cao, Yi You, and Xiuli Zhao. Novel mutations identified in chinese families with autosomal dominant congenital cataracts by targeted next-generation sequencing. BMC Medical Genetics, Dec 2019. URL: <a href="https://doi.org/10.1186/s12881-019-0933-5" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12881-019-0933-5</a>, <a href="https://doi.org/10.1186/s12881-019-0933-5" target="_blank" rel="noopener noreferrer">doi:10.1186/s12881-019-0933-5</a>. This article has 18 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-ramachandran2007autosomalrecessivejuvenile-pages-7-8"></a>(ramachandran2007autosomalrecessivejuvenile pages 7-8): Ramya Devi Ramachandran, Ramya Devi Ramachandran, Vijayalakshmi Perumalsamy, and J. Hejtmancik. Autosomal recessive juvenile onset cataract associated with mutation in bfsp1. Human Genetics, 121:475-482, Jan 2007. URL: <a href="https://doi.org/10.1007/s00439-006-0319-6" target="_blank" rel="noopener noreferrer">https://doi.org/10.1007/s00439-006-0319-6</a>, <a href="https://doi.org/10.1007/s00439-006-0319-6" target="_blank" rel="noopener noreferrer">doi:10.1007/s00439-006-0319-6</a>. This article has 127 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-jones2022pathogenicgeneticvariants-pages-3-3"></a>(jones2022pathogenicgeneticvariants pages 3-3): Johanna L Jones, Bennet J McComish, Sandra E Staffieri, Emmanuelle Souzeau, Lisa S Kearns, James E Elder, Jac C Charlesworth, David A Mackey, Jonathan B Ruddle, Deepa Taranath, John Pater, Theresa Casey, Jamie E Craig, and Kathryn P Burdon. Pathogenic genetic variants identified in australian families with paediatric cataract. BMJ Open Ophthalmology, 7:e001064, Aug 2022. URL: <a href="https://doi.org/10.1136/bmjophth-2022-001064" target="_blank" rel="noopener noreferrer">https://doi.org/10.1136/bmjophth-2022-001064</a>, <a href="https://doi.org/10.1136/bmjophth-2022-001064" target="_blank" rel="noopener noreferrer">doi:10.1136/bmjophth-2022-001064</a>. This article has 18 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-zhai2017targetedexomesequencing-pages-1-2"></a>(zhai2017targetedexomesequencing pages 1-2): Yi Zhai, Jinyu Li, Wangshu Yu, Sha Zhu, Yinhui Yu, Menghan Wu, Guizhen Sun, Xiaohua Gong, and Ke Yao. Targeted exome sequencing of congenital cataracts related genes: broadening the mutation spectrum and genotype–phenotype correlations in 27 chinese han families. Scientific Reports, Apr 2017. URL: <a href="https://doi.org/10.1038/s41598-017-01182-9" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41598-017-01182-9</a>, <a href="https://doi.org/10.1038/s41598-017-01182-9" target="_blank" rel="noopener noreferrer">doi:10.1038/s41598-017-01182-9</a>. This article has 60 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-gokhin2012tmod1andcp49-pages-1-2"></a>(gokhin2012tmod1andcp49 pages 1-2): David S. Gokhin, Roberta B. Nowak, Nancy E. Kim, Ernest E. Arnett, Albert C. Chen, Robert L. Sah, John I. Clark, and Velia M. Fowler. Tmod1 and cp49 synergize to control the fiber cell geometry, transparency, and mechanical stiffness of the mouse lens. PLoS ONE, 7:e48734, Nov 2012. URL: <a href="https://doi.org/10.1371/journal.pone.0048734" target="_blank" rel="noopener noreferrer">https://doi.org/10.1371/journal.pone.0048734</a>, <a href="https://doi.org/10.1371/journal.pone.0048734" target="_blank" rel="noopener noreferrer">doi:10.1371/journal.pone.0048734</a>. This article has 82 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-gokhin2012tmod1andcp49-pages-13-14"></a>(gokhin2012tmod1andcp49 pages 13-14): David S. Gokhin, Roberta B. Nowak, Nancy E. Kim, Ernest E. Arnett, Albert C. Chen, Robert L. Sah, John I. Clark, and Velia M. Fowler. Tmod1 and cp49 synergize to control the fiber cell geometry, transparency, and mechanical stiffness of the mouse lens. PLoS ONE, 7:e48734, Nov 2012. URL: <a href="https://doi.org/10.1371/journal.pone.0048734" target="_blank" rel="noopener noreferrer">https://doi.org/10.1371/journal.pone.0048734</a>, <a href="https://doi.org/10.1371/journal.pone.0048734" target="_blank" rel="noopener noreferrer">doi:10.1371/journal.pone.0048734</a>. This article has 82 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-gokhin2012tmod1andcp49-pages-12-13"></a>(gokhin2012tmod1andcp49 pages 12-13): David S. Gokhin, Roberta B. Nowak, Nancy E. Kim, Ernest E. Arnett, Albert C. Chen, Robert L. Sah, John I. Clark, and Velia M. Fowler. Tmod1 and cp49 synergize to control the fiber cell geometry, transparency, and mechanical stiffness of the mouse lens. PLoS ONE, 7:e48734, Nov 2012. URL: <a href="https://doi.org/10.1371/journal.pone.0048734" target="_blank" rel="noopener noreferrer">https://doi.org/10.1371/journal.pone.0048734</a>, <a href="https://doi.org/10.1371/journal.pone.0048734" target="_blank" rel="noopener noreferrer">doi:10.1371/journal.pone.0048734</a>. This article has 82 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-disatham2022changesindna-pages-2-3"></a>(disatham2022changesindna pages 2-3): Joshua Disatham, Lisa Brennan, Xiaodong Jiao, Zhiwei Ma, J. Fielding Hejtmancik, and Marc Kantorow. Changes in dna methylation hallmark alterations in chromatin accessibility and gene expression for eye lens differentiation. Epigenetics &amp; Chromatin, Mar 2022. URL: <a href="https://doi.org/10.1186/s13072-022-00440-z" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s13072-022-00440-z</a>, <a href="https://doi.org/10.1186/s13072-022-00440-z" target="_blank" rel="noopener noreferrer">doi:10.1186/s13072-022-00440-z</a>. This article has 22 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-disatham2022changesindna-pages-1-2"></a>(disatham2022changesindna pages 1-2): Joshua Disatham, Lisa Brennan, Xiaodong Jiao, Zhiwei Ma, J. Fielding Hejtmancik, and Marc Kantorow. Changes in dna methylation hallmark alterations in chromatin accessibility and gene expression for eye lens differentiation. Epigenetics &amp; Chromatin, Mar 2022. URL: <a href="https://doi.org/10.1186/s13072-022-00440-z" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s13072-022-00440-z</a>, <a href="https://doi.org/10.1186/s13072-022-00440-z" target="_blank" rel="noopener noreferrer">doi:10.1186/s13072-022-00440-z</a>. This article has 22 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-jones2022pathogenicgeneticvariants-pages-1-2"></a>(jones2022pathogenicgeneticvariants pages 1-2): Johanna L Jones, Bennet J McComish, Sandra E Staffieri, Emmanuelle Souzeau, Lisa S Kearns, James E Elder, Jac C Charlesworth, David A Mackey, Jonathan B Ruddle, Deepa Taranath, John Pater, Theresa Casey, Jamie E Craig, and Kathryn P Burdon. Pathogenic genetic variants identified in australian families with paediatric cataract. BMJ Open Ophthalmology, 7:e001064, Aug 2022. URL: <a href="https://doi.org/10.1136/bmjophth-2022-001064" target="_blank" rel="noopener noreferrer">https://doi.org/10.1136/bmjophth-2022-001064</a>, <a href="https://doi.org/10.1136/bmjophth-2022-001064" target="_blank" rel="noopener noreferrer">doi:10.1136/bmjophth-2022-001064</a>. This article has 18 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-shiels2024throughthecatmap-pages-22-23"></a>(shiels2024throughthecatmap pages 22-23): Alan Shiels. Through the cat-map gateway: a brief history of cataract genetics. Genes, 15:785, Jun 2024. URL: <a href="https://doi.org/10.3390/genes15060785" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/genes15060785</a>, <a href="https://doi.org/10.3390/genes15060785" target="_blank" rel="noopener noreferrer">doi:10.3390/genes15060785</a>. This article has 25 citations.</p>
+</li>
+<li>
+<p><a id="ref-zhai2017targetedexomesequencing-pages-2-4"></a>(zhai2017targetedexomesequencing pages 2-4): Yi Zhai, Jinyu Li, Wangshu Yu, Sha Zhu, Yinhui Yu, Menghan Wu, Guizhen Sun, Xiaohua Gong, and Ke Yao. Targeted exome sequencing of congenital cataracts related genes: broadening the mutation spectrum and genotype–phenotype correlations in 27 chinese han families. Scientific Reports, Apr 2017. URL: <a href="https://doi.org/10.1038/s41598-017-01182-9" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41598-017-01182-9</a>, <a href="https://doi.org/10.1038/s41598-017-01182-9" target="_blank" rel="noopener noreferrer">doi:10.1038/s41598-017-01182-9</a>. This article has 60 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-shiels2024throughthecatmap-pages-23-25"></a>(shiels2024throughthecatmap pages 23-25): Alan Shiels. Through the cat-map gateway: a brief history of cataract genetics. Genes, 15:785, Jun 2024. URL: <a href="https://doi.org/10.3390/genes15060785" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/genes15060785</a>, <a href="https://doi.org/10.3390/genes15060785" target="_blank" rel="noopener noreferrer">doi:10.3390/genes15060785</a>. This article has 25 citations.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<p><img alt="## Context ID: pqac-00000015 The requested visual content has been extracted from the document. The first image shows Figure 2, which consists of slit-lamp phot" src="../../research/Cataract_33-deep-research-falcon_artifacts/image-1.png" /></p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>7</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0012665</code> (3 mentions) - the report calls it "if available"; MONDO calls it <strong>cataract 33</strong></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Cataract_13_With_Adult_I_Phenotype-openscientist.html">← Cataract 13 With Adult I Phenotype (OpenScientist)</a>
+                
+                
+                <a href="Catecholaminergic_Polymorphic_Ventricular_Tachycardia-claude_code.html">Catecholaminergic Polymorphic Ventricular Tachycardia (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Cataract_33.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Cataract_33-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
