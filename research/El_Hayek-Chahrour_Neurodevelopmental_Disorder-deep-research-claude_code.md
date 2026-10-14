@@ -739,3 +739,126 @@ None. No environmental, lifestyle or infectious factors apply.
 - cerebral cortex neuron (CL:0010012)
 
 **Other mechanistic categories:** no immune, metabolic or tissue-damage mechanisms are described. The disorder is a developmental chromatin-regulation defect.
+
+**Molecular profiling.** RNA-seq exists from patient LCLs (PMID:41889174) and mouse hippocampus (bulk and snRNA-seq). Check GEO for the accessions with `just discover-datasets`; the accessions were not verified here. No proteomics, metabolomics or human single-cell data were found.
+
+---
+
+## 7. Anatomical structures
+
+| Level | Structures | Suggested ontology terms |
+|---|---|---|
+| Primary organ | Brain | UBERON:0000955 |
+| Brain regions | Hippocampus, especially CA1 (mouse); cerebral cortex; corpus callosum; lateral ventricles; cerebral white matter | UBERON:0001954 hippocampus (Ammon's horn); UBERON:0003881 CA1 field; UBERON:0000956; UBERON:0002336; UBERON:0002285; UBERON:0002437 |
+| Secondary systems | Heart (interatrial and interventricular septa); joints / connective tissue; gastrointestinal tract (feeding, constipation) | UBERON:0000948 |
+| Subcellular | Nucleus / chromatin | GO:0005634; GO:0000785 |
+
+Brain imaging findings are bilateral and diffuse.
+
+---
+
+## 8. Temporal development
+
+| Aspect | Finding |
+|---|---|
+| Onset | Congenital or infantile. Delayed milestones, hypotonia and feeding problems appear in infancy. Absent speech and ASD become apparent in the toddler years. One individual had progressive macrocephaly and polyhydramnios in late pregnancy. |
+| Course | Static or non-progressive, and lifelong. Ages at last evaluation ranged from 1 y 3 m to 29 y. Some adults have psychiatric comorbidity (bipolar disorder, depression, panic attacks). |
+| Stages and remission | None defined. |
+| Critical period | The mouse data place KDM5A's action in early hippocampal development ("a differentiation switch early in development"). This suggests an early prenatal or postnatal window, which bears on any future therapy. |
+
+---
+
+## 9. Inheritance and population
+
+**Inheritance**
+- Autosomal dominant (HP:0000006): 15 of 33 individuals.
+- Autosomal recessive (HP:0000007): 18 of 33 individuals.
+- PanelApp lists "BOTH monoallelic and biallelic".
+
+**Penetrance and expressivity**
+- Several monoallelic variants were inherited from a parent. Penetrance may be incomplete, or the transmitting parents may have mild phenotypes. Parental phenotypes are only partly described.
+- Expressivity is variable.
+
+**Other inheritance features**
+- No anticipation.
+- No reported germline or somatic mosaicism.
+- No founder alleles, because every variant is private.
+
+**Consanguinity.** Prominent in the biallelic families, which come mainly from Iran, the Arabian Peninsula, Egypt and Kuwait. Monoallelic cases come mainly from Europe and the USA.
+
+**Prevalence.** Unknown; ultra-rare. Exactly 33 published individuals from 28 families (PMID:41889174 [full text]: *"significantly increasing the number of known cases to a total of 33"*). For a dismech entry this is `measure_type: CASES_IN_LITERATURE` with `prevalence_class: ULTRA_RARE` — and should not use the deprecated `percentage` field.
+
+**Demographics.** Both sexes are affected. There are too few cases to establish a sex ratio.
+
+---
+
+## 10. Diagnostics
+
+**Genetic testing (primary)**
+- First-tier test: exome or genome sequencing.
+- *Use CNV-aware calling.* Intragenic homozygous deletions of 4 or 10 exons were found by read depth and split reads. PMID:33350388 [full text]: *"A combination of read depth calling and split-read analysis identified a homozygous deletion encompassing four exons of KDM5A, spanning 10 kb"*.
+- Chromosomal microarray can detect the larger deletions.
+- *KDM5A* is on the Genomics England ID panel (green).
+
+**Functional and adjunctive tests (research use only)**
+- Western blot of patient LCLs shows reduced KDM5A protein.
+- Patient-cell RNA-seq.
+- No validated biomarker or episignature exists.
+
+**Clinical work-up**
+- Brain MRI (corpus callosum, ventricles, white matter).
+- EEG if seizures occur.
+- Echocardiography, given the septal defects.
+- Formal ASD assessment (ADOS-2).
+- Developmental and IQ testing.
+- Audiology and ophthalmology.
+
+**Differential diagnosis**
+- Other H3K4-methylation chromatinopathies:
+  - *KDM5C* (X-linked Claes-Jensen ID);
+  - *KDM5B* (AR ID);
+  - *KMT2A* (Wiedemann-Steiner syndrome);
+  - *KMT2D* (Kabuki syndrome);
+  - *SETD1A*, *KMT2E*.
+- Other syndromes with absent speech and ASD:
+  - *MECP2* (Rett syndrome);
+  - Angelman syndrome (*UBE3A*);
+  - *CHD8*, *ARID1B*, *SETD5*, *FOXP1*.
+- Molecular testing is required to tell these apart.
+
+**Screening.** No newborn screening. Cascade testing of parents and siblings, and prenatal or preimplantation testing, are feasible once the familial variants are known.
+
+---
+
+## 11. Outcome and prognosis
+
+- **Mortality and life expectancy:** no mortality data. The oldest reported individual is 29.
+- **Morbidity:**
+  - absent or minimal speech;
+  - intellectual disability;
+  - non-ambulation in a subset of biallelic individuals;
+  - seizures;
+  - behavioural and psychiatric comorbidity (self-injury, ADHD, mood disorders);
+  - congenital heart disease, some of which resolved and one case with pulmonary hypertension.
+- **Prognostic factors:** none established. The biallelic genotype and PLU1/JmjC variants are hypothesised to be more severe, based on LCL transcriptomic data.
+
+---
+
+## 12. Treatment
+
+**Disease-modifying treatments:** none. No trials appear on ClinicalTrials.gov or WHO ICTRP. Management is supportive and multidisciplinary.
+
+| Intervention | Suggested NCIT terms (verify) | `therapeutic_modality` |
+|---|---|---|
+| Speech-language therapy and augmentative and alternative communication (AAC) | Speech Language Therapy (NCIT:C159273) | BEHAVIORAL |
+| Applied behaviour analysis / behavioural therapy for ASD | Behavioral counseling NCIT:C181743 or a behavioural-therapy term | BEHAVIORAL |
+| Physical and occupational therapy for hypotonia and motor delay | Physical Therapy (NCIT:C15302); Occupational Therapy (NCIT:C121351) | BEHAVIORAL |
+| Antiseizure medication | Pharmacotherapy (NCIT:C15986) with an agent class | — |
+| Feeding and nutritional support | Dietary Intervention / Nutritional Support | — |
+| Cardiac surgical repair of septal defects where indicated | Surgical Procedure (NCIT:C15329) | SURGERY |
+| Sleep management, e.g. melatonin | Pharmacotherapy (NCIT:C15986); agent melatonin, CHEBI:16796 (verify) | — |
+| Genetic counselling | Genetic Counseling (NCIT:C15240) | — |
+
+**Research directions (speculative; no data in this disease)**
+- KDM5 inhibitors are oncology tools and would go the wrong way for a loss-of-function disorder.
+- Approaches that restore dosage (gene therapy, CRISPRa) have not been tested.
