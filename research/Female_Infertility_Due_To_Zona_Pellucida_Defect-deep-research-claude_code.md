@@ -642,3 +642,87 @@ Not applicable. No toxin, lifestyle or infectious contribution is known. Note th
    **Branch B (ZP-N1 missense alleles).** ZP1 is secreted but cannot form the disulfide-bonded ZP1-N1 homodimer, so ZP2/ZP3/ZP4 filaments are not cross-linked. Human ZP4 cannot substitute.
    > "W83R … significantly reduces its ability to form disulphide-bonded homodimers … the mutation leads to lack of the ZP by hindering human ZP filament cross-linking." — PMID:31300655 (in vitro, structural)
 4. **Both branches result in failed ZP matrix assembly or maintenance.** The ZP is absent, very thin, or fragile around growing oocytes. Human ovarian histology shows a thin, ZP1-lacking ZP in preantral follicles (PMID:31734689; one case).
+5. **Branch point at the antral transition.**
+   - **5a.** If the matrix is lost or unstable in antral follicles, cumulus–oocyte complex (COC) organization and transzonal oocyte–granulosa communication fail. **[Partly inferred]** Human histology supports the COC defect (PMID:31734689). The mechanism through communication loss is hypothesized (PMID:36476320). In macaques, ZP1 loss causes oxidative stress, SOD2 downregulation, mitochondrial swelling and autophagy (PMID:40923306; model organism).
+   - **5a → 6a.** These changes lead to oocyte degeneration in the follicle, or to fragile oocytes that rupture during aspiration. Clinically this is **GEFS or degenerated oocytes**.
+   - **5b.** If oocytes survive to MII, they lack the ZP sperm-binding matrix. ZP2-N terminus binding, the ZP-induced acrosome reaction, and the zona block to polyspermy are all missing.
+   - **5b → 6b.** This leads to **fertilization failure in conventional IVF**. ICSI bypasses it (§12).
+6. **Clinical endpoint:** primary female infertility (obligate).
+
+**Upstream vs downstream.** Steps 1–3 are molecular and oocyte-intrinsic. Step 4 is extracellular matrix. Steps 5–6 are follicular and gamete-level.
+
+**Suggested terms:**
+- **GO BP** (validated in the draft YAML): extracellular matrix assembly GO:0085029; protein secretion GO:0009306; protein retention in ER lumen GO:0006621; ovarian follicle development GO:0001541; oocyte development GO:0048599; female gamete generation GO:0007292. Also worth looking up: "binding of sperm to zona pellucida", "egg coat formation", "acrosome reaction".
+- **GO CC:** extracellular matrix GO:0031012; endoplasmic reticulum GO:0005783. Look up "egg coat" for the zona pellucida itself.
+- **GO MF:** extracellular matrix structural constituent GO:0005201.
+- **CL:** oocyte CL:0000023; primary oocyte CL:0000654; granulosa cell CL:0000501. Look up cumulus cell.
+- **Biochemical:** no metabolic or immune involvement. This is a structural ECM glycoprotein defect.
+- **Omics:** macaque single-oocyte transcriptomics showed disrupted granulosa–oocyte signalling (PMID:40923306). There are no human omics datasets.
+
+---
+
+## 7. Anatomical Structures Affected
+
+- **Organ:** ovary, UBERON:0000992 (primary; the only organ affected). No secondary organ involvement. Body system: female reproductive.
+- **Tissue:** ovarian follicle (look up the UBERON ID), cumulus oophorus, and the zona pellucida ECM.
+- **Cells:** oocyte, primary oocyte, granulosa/cumulus cells.
+- **Subcellular:** oocyte ER/secretory pathway (retention) and the extracellular egg coat.
+- **Laterality:** bilateral (all oocytes affected).
+
+---
+
+## 8. Temporal Development
+
+- **Onset:** the molecular defect is present from oocyte growth, which is fetal/prepubertal for primordial follicles and pubertal onward for growth. It is **clinically silent until adulthood**, when infertility is investigated or ART is attempted.
+- **Course:** stable and lifelong. No stages and no remission.
+- **Critical window:** the preantral→antral follicle transition, when the ZP must be assembled and maintained (PMID:31734689).
+
+---
+
+## 9. Inheritance and Population
+
+- **Inheritance:** autosomal recessive (HP:0000007) is the main mode. A minority is autosomal dominant (HP:0000006) with **sex-limited expression**: male carriers, homozygous or heterozygous, are fertile.
+  > "The ZP1 variants were inherited in an autosomal recessive pattern; the ZP2 and ZP3 variants were inherited in an autosomal dominant pattern." — PMID:33272616
+- **Penetrance:** complete in homozygous females, as far as reported. Penetrance of heterozygous alleles is uncertain.
+- **Expressivity:** variable (EFS vs degeneration vs ZP-free MII), correlated with genotype.
+- **Founder effect:** p.Arg366Gln in North Africa (Algeria/Tunisia/Morocco **[country breakdown to verify]**).
+- **Consanguinity:** a major contributor in reported families.
+- **Prevalence:** unknown in the general population; ultra-rare (ORPHA lists no estimate **[verify]**). In enriched cohorts:
+  - ZP gene variants in 18/35 (51.4%) of Chinese GEFS/degeneration patients (PMID:33272616);
+  - homozygous ZP1 p.Arg366Gln in 5/27 (18.5%) of North African oocyte-maturation-defect patients (PMID:35460069);
+  - a 2025 *BJOG* retrospective study of 12 Chinese women with EFS or degenerated oocytes found rare ZP variants **[PMID to verify]**.
+  - Underlying context: GEFS itself is reported in roughly 0.016–0.07% of IVF cycles **[verify]**.
+- **Sex ratio:** female-only phenotype.
+
+---
+
+## 10. Diagnostics
+
+- **Clinical and laboratory work-up:**
+  - Normal FSH, LH, E2 and AMH; normal antral follicle count; normal follicular growth on ultrasound during stimulation.
+  - At retrieval: no oocytes, degenerated oocytes, or ZP-free/thin-ZP oocytes, seen under light microscopy (polarized-light ZP imaging can quantify thickness).
+  - **Exclude "false EFS"** by confirming adequate serum hCG or LH on trigger day.
+- **Histology** (research only): ZP1 immunostaining of ovarian tissue shows a thin ZP lacking ZP1 (PMID:31734689).
+- **Genetic testing (definitive).** Use whole-exome sequencing, or a female-infertility / oocyte-maturation-defect panel covering ZP1, ZP2, ZP3, ZP4, TUBB8, PATL2, WEE2, PANX1, BTG4, TLE6, NLRP family genes and others.
+  > "In this cohort of North African OMD patients, whole exome sequencing permitted to diagnose 44% of the patients studied and to identify a new frequent ZP1 variant." — PMID:35460069
+
+  Targeted testing for p.Arg366Gln is reasonable in North African patients. Microarray, karyotype, FISH, mtDNA and repeat testing are not relevant beyond confirming 46,XX.
+- **Diagnostic ICSI.** A small test ICSI can reveal the embryo-development potential of ZP-free oocytes (PMID:32847637).
+- **NCIT:** Genetic Testing NCIT:C15709. LOINC has no disease-specific assay.
+- **Differential diagnosis:**
+  - OOMD3 (ZP3; AD)
+  - OOMD6 (ZP2; thin ZP with sperm-binding failure)
+  - ZP4 thin zona
+  - OOMD2 (TUBB8; MI arrest with an *intact* ZP; PMID:26789871)
+  - PATL2 (GV arrest; PMID:35460069 contrasts it with ZP1)
+  - WEE2 (fertilization failure, intact ZP)
+  - iatrogenic false EFS
+  - diminished ovarian reserve / POI (abnormal AMH and FSH)
+- **Screening:** none at population level. Cascade testing of sisters is reasonable. Carrier screening is possible in founder populations but not established.
+
+---
+
+## 11. Outcome / Prognosis
+
+- Survival, life expectancy and mortality are **not affected**. There is no systemic morbidity.
+- The outcome is infertility with autologous oocytes. Prognosis depends on genotype and phenotype:
