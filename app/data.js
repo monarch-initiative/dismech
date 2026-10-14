@@ -10329,7 +10329,10 @@ window.searchData = [
       "Heterozygous Pathogenic COL2A1 Variant",
       "Type II Collagen Triple-Helix Destabilization",
       "Chondrocyte Type II Collagen Retention and Poor Secretion",
+      "Chondrocyte Endoplasmic Reticulum Stress",
+      "ER Stress-Associated Chondrocyte Apoptosis",
       "Abnormal Cartilage Extracellular Matrix",
+      "Disproportionate Craniofacial Cartilage Growth",
       "Growth-Plate Architectural Disorganization",
       "Impaired Endochondral Ossification",
       "Restricted Thoracic Growth",
@@ -10346,7 +10349,10 @@ window.searchData = [
     ],
     "biological_processes": [
       "collagen biosynthetic process",
+      "endoplasmic reticulum unfolded protein response",
+      "intrinsic apoptotic signaling pathway in response to endoplasmic reticulum stress",
       "extracellular matrix organization",
+      "cartilage collagen fibril organization",
       "cartilage development involved in endochondral bone morphogenesis",
       "ossification",
       "lung development"
@@ -10430,11 +10436,11 @@ window.searchData = [
     "source_file": "Achondrogenesis_Type_II.yaml",
     "page_url": "../pages/disorders/Achondrogenesis_Type_II.html",
     "num_phenotypes": 25,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 12,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "28",
-    "causal_graph_longest_path": "11"
+    "causal_graph_edges": "46",
+    "causal_graph_longest_path": "12"
   },
   {
     "name": "Achondroplasia",
@@ -10447,7 +10453,7 @@ window.searchData = [
     "creation_date": "2026-02-02T00:16:36Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Achondroplasia is the most common cause of disproportionate short stature. It is caused by heterozygous gain-of-function variation in FGFR3, almost always p.Gly380Arg, which prolongs inhibitory FGFR3 signaling in growth-plate chondrocytes and impairs endochondral ossification. Rhizomelic limb shortening, macrocephaly, frontal bossing, midface retrusion, and trident hands are characteristic. Important complications include craniocervical-junction compression in infancy, sleep-disordered breathing, middle-ear dysfunction, limb bowing, obesity, and symptomatic spinal stenosis in adulthood. Daily vosoritide and once-weekly navepegritide increase growth velocity in eligible children with open epiphyses; both US indications use annualized growth velocity as an accelerated-approval endpoint, so final-height and complication-prevention benefits remain under study.",
+    "description": "Achondroplasia is the most common cause of disproportionate short stature. It is caused by heterozygous gain-of-function variation in FGFR3, almost always p.Gly380Arg, which prolongs inhibitory FGFR3 signaling in growth-plate chondrocytes and impairs endochondral ossification. Rhizomelic limb shortening, macrocephaly, frontal bossing, midface retrusion, and trident hands are characteristic. Important complications include craniocervical-junction compression in infancy, sleep-disordered breathing, middle-ear dysfunction, limb bowing, obesity, and symptomatic spinal stenosis in adulthood. Daily vosoritide and once-weekly navepegritide increase growth velocity in eligible children with open epiphyses; both US indications use annualized growth velocity as an accelerated-approval endpoint, so final-height and complication-prevention benefits remain under study. Oral infigratinib, which inhibits the FGFR kinase directly, increased height velocity in a phase 3 trial; meclizine and the soluble FGFR3 decoy recifercept have not shown a height-velocity effect in children. Life expectancy is reduced by about ten years.",
     "pathophysiology": [
       "FGFR3 p.Gly380Arg gain-of-function with impaired receptor down-regulation",
       "Prolonged FGFR3 signaling in growth-plate chondrocytes",
@@ -10603,6 +10609,8 @@ window.searchData = [
       "Vosoritide (Voxzogo)",
       "Navepegritide (Yuviwel)",
       "Infigratinib (oral FGFR1-3 tyrosine kinase inhibitor)",
+      "Meclizine (investigational oral repurposed antihistamine)",
+      "Recifercept (discontinued soluble FGFR3 decoy)",
       "Surgical limb lengthening",
       "Foramen magnum decompression",
       "Surgery for symptomatic spinal stenosis",
@@ -10618,8 +10626,8 @@ window.searchData = [
     "num_phenotypes": 43,
     "num_pathophysiology": 11,
     "num_genes": 1,
-    "num_treatments": 10,
-    "causal_graph_edges": "53",
+    "num_treatments": 12,
+    "causal_graph_edges": "56",
     "causal_graph_longest_path": "9"
   },
   {
@@ -55984,6 +55992,109 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "48",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Bone Marrow Failure Syndrome 5",
+    "disease_id": "MONDO:0032573",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited bone marrow failure syndrome",
+      "Bone marrow failure syndrome"
+    ],
+    "creation_date": "2026-10-13T20:15:41Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Bone marrow failure syndrome 5 (BMFS5), also called germline p53 (TP53) activation syndrome, is an inherited bone marrow failure syndrome caused by heterozygous germline frameshift variants near the 3' end of TP53 that truncate the p53 C-terminal domain. It was defined in 2018 in two unrelated individuals with de novo variants that both removed the last 32 residues of p53; the truncated protein had augmented, not reduced, transcriptional activity. The presentation mimics Diamond-Blackfan anaemia (DBA): anaemia with a paucity of erythroid precursors (pure red cell aplasia), beginning within the first year of life where onset is reported, together with hypogammaglobulinaemia, growth retardation and microcephaly. Later reports added intellectual disability, seizures, short stature, cellular radiosensitivity and transient neutropenia.\nThe literature is small. Four case reports describe seven individuals. Every allele whose position the abstracts state is a C-terminal frameshift; the 2022 abstract describing two further patients (PMID:35084091) calls their de novo variants activating without naming them. Corticosteroid response is inconsistent (one responder, two non-responders), two patients became transfusion independent on L-leucine, and one patient is reported cured by matched-sibling haematopoietic stem cell transplantation.\nBMFS5 is the mechanistic inverse of Li-Fraumeni syndrome. Li-Fraumeni variants mostly inactivate the p53 DNA-binding domain and predispose to cancer; the BMFS5 alleles truncate the C-terminal domain and raise p53 transcriptional output. None of the four case-report abstracts reports a malignancy, and no source located for this entry addresses cancer risk in carriers, so the entry records no cancer phenotype and treats cancer risk as an open question. The C-terminally truncated p53-delta-31 mouse, which predates the human syndrome, has increased p53 activity and aplastic anaemia with features of dyskeratosis congenita when homozygous, but heterozygous mice are only mildly affected.\n",
+    "pathophysiology": [
+      "TP53 C-Terminal Domain Truncation",
+      "p53 Pathway Hyperactivation",
+      "Impaired Erythropoiesis"
+    ],
+    "cell_types": [
+      "erythroid progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000038"
+    ],
+    "biological_processes": [
+      "signal transduction by p53 class mediator",
+      "erythrocyte differentiation"
+    ],
+    "phenotypes": [
+      "Pure red cell aplasia",
+      "Macrocytic anemia",
+      "Normocytic anemia",
+      "Transient neutropenia",
+      "Hypogammaglobulinemia",
+      "Growth delay",
+      "Short stature",
+      "Microcephaly",
+      "Intellectual disability",
+      "Seizure",
+      "Cellular radiosensitivity",
+      "Reticular skin pigmentation",
+      "Hypogonadism",
+      "Tooth anomalies"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Immunologic",
+      "Growth",
+      "Neurological",
+      "Cellular",
+      "Integument",
+      "Endocrine",
+      "Dental"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0012410",
+      "HP:0001972",
+      "HP:0001897",
+      "HP:0001875",
+      "HP:0004313",
+      "HP:0001510",
+      "HP:0004322",
+      "HP:0000252",
+      "HP:0001249",
+      "HP:0001250",
+      "HP:0011133",
+      "HP:0007588",
+      "HP:0000135",
+      "HP:0000164"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TP53"
+    ],
+    "treatments": [
+      "Red Blood Cell Transfusion",
+      "Corticosteroid Therapy",
+      "L-Leucine",
+      "Hematopoietic Stem Cell Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Bone_Marrow_Failure_Syndrome_5.yaml",
+    "page_url": "../pages/disorders/Bone_Marrow_Failure_Syndrome_5.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Bone Marrow Failure Syndrome 6",
@@ -150724,6 +150835,67 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "GPR161-related medulloblastoma predisposition",
+    "disease_id": "MONDO:1010204",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary neoplastic syndrome"
+    ],
+    "creation_date": "2026-10-13T19:45:06Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "GPR161-related medulloblastoma predisposition is an autosomal dominant, low-penetrance childhood brain tumor predisposition caused by heterozygous germline loss-of-function variants, mostly truncating, in GPR161 (1q24.2). GPR161 encodes a cilium-localized orphan G protein-coupled receptor that keeps the Sonic hedgehog pathway basally repressed through cAMP and protein kinase A. The only established tumor is SHH-activated, TP53-wildtype medulloblastoma of infancy, with a median age at diagnosis of 1.5 years in the defining series. In the tumor the wild-type allele is lost, usually by somatic copy-neutral loss of heterozygosity of chromosome 1q, and no other SHH-pathway driver is shared across carrier tumors. Germline variants explain about 3 per cent of pediatric and 5 per cent of infant SHH medulloblastoma. Because truncating variants are common in the general population and are usually inherited from an unaffected parent, the childhood risk for a carrier has been estimated at about 1 in 1,600 to 1 in 2,500. Brain imaging surveillance is not recommended; families are counselled about the signs and symptoms of medulloblastoma. Whether carriers have any further tumor risk is unknown.",
+    "pathophysiology": [
+      "Germline GPR161 Loss-of-Function",
+      "Somatic Loss of the Wild-Type GPR161 Allele",
+      "Biallelic GPR161 Loss in Cerebellar Granule Cell Precursors",
+      "Derepression of Hedgehog Signaling",
+      "Granule Cell Precursor Overproduction and Proliferation",
+      "SHH-Activated Medulloblastoma Initiation"
+    ],
+    "cell_types": [
+      "cerebellar granule cell precursor"
+    ],
+    "cell_type_ids": [
+      "CL:0002362"
+    ],
+    "biological_processes": [
+      "negative regulation of smoothened signaling pathway",
+      "smoothened signaling pathway",
+      "cerebellar granule cell precursor proliferation"
+    ],
+    "phenotypes": [
+      "Infant SHH-Activated Medulloblastoma"
+    ],
+    "phenotype_categories": [
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002885"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GPR161"
+    ],
+    "treatments": [
+      "Genetic Counseling and Symptom Education"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "GPR161-related_Medulloblastoma_Predisposition.yaml",
+    "page_url": "../pages/disorders/GPR161-related_medulloblastoma_predisposition.html",
+    "num_phenotypes": 1,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "GRIN1-Related Neurodevelopmental Disorder",
@@ -343034,26 +343206,31 @@ window.searchData = [
       "TD1",
       "TD2"
     ],
-    "description": "Thanatophoric dysplasia (TD) is the commonest neonatal-lethal skeletal dysplasia, caused by de novo heterozygous gain-of-function variants in FGFR3. It is a short-limb chondrodysplasia with micromelia, short ribs and a narrow thorax, relative macrocephaly, brachydactyly, hypotonia, redundant skin folds and distinctive facial features; most affected infants die of respiratory insufficiency shortly after birth, with rare long-term survivors on intensive respiratory support. TD is divided into two subtypes distinguished by femur and skull shape and by the underlying FGFR3 allele: TD type 1 (curved/bowed femurs, craniosynostosis uncommon; heterogeneous alleles including R248C, Y373C, S249C, S371C and the stop-codon-extension changes) and TD type 2 (straight femurs with uniform moderate-to-severe craniosynostosis and cloverleaf skull; essentially always the K650E kinase-domain change).\nThis root entry deliberately carries only what is reported for TD as a whole \u2014 the TD-level birth prevalence, the shared prenatal-ultrasound to radiographic to molecular-confirmation diagnostic pathway (one assay covers both subtypes), the allelic-series framing that places TD at the severe end of the FGFR3 gradient, the TD1/TD2 discriminator, and the thoracic-insufficiency step that makes the disorder lethal. The receptor biology and the growth-plate cascade are not re-derived here; they are held once in the `fgfr_gain_of_function_skeletal_dysplasia` module, and the full subtype detail lives in the Thanatophoric Dysplasia Type 1 and Type 2 entries.\n",
+    "description": "Thanatophoric dysplasia (TD) is the commonest neonatal-lethal skeletal dysplasia, caused by de novo heterozygous gain-of-function variants in FGFR3. It is a short-limb chondrodysplasia with micromelia, short ribs and a narrow thorax, relative macrocephaly, brachydactyly, hypotonia, redundant skin folds and distinctive facial features; most affected infants die of respiratory insufficiency shortly after birth. When respiratory support is offered, a substantial minority survive beyond infancy, ventilator-dependent and severely disabled. TD is divided into two subtypes distinguished by femur and skull shape and by the underlying FGFR3 allele: TD type 1 (curved/bowed femurs, craniosynostosis uncommon; heterogeneous alleles including R248C, Y373C, S249C, S371C and the stop-codon-extension changes) and TD type 2 (straight femurs with uniform moderate-to-severe craniosynostosis and cloverleaf skull; essentially always the K650E kinase-domain change).\nThis root entry deliberately carries only what is reported for TD as a whole \u2014 the TD-level birth prevalence, the shared prenatal-ultrasound to radiographic to molecular-confirmation diagnostic pathway (one assay covers both subtypes), the allelic-series framing that places TD at the severe end of the FGFR3 gradient, the TD1/TD2 discriminator, the thoracic-insufficiency step that makes the disorder lethal, the temporal-lobe dysplasia found in both subtypes, and the course of the long-term survivors who receive continuous respiratory support. ClinGen curates FGFR3 at this lumped level (Definitive). The receptor biology and the growth-plate cascade are not re-derived here; they are held once in the `fgfr_gain_of_function_skeletal_dysplasia` module, and the full subtype detail lives in the Thanatophoric Dysplasia Type 1 and Type 2 entries.\n",
     "pathophysiology": [
       "Graded FGFR3 Gain-of-Function Activation",
       "Severe Endochondral Growth Failure and Micromelia",
-      "Thoracic Insufficiency and Pulmonary Hypoplasia"
+      "Thoracic Insufficiency and Pulmonary Hypoplasia",
+      "Disordered Temporal Lobe Cortical Development"
     ],
     "cell_types": [
       "Growth-plate chondrocyte",
-      "Hypertrophic chondrocyte"
+      "Hypertrophic chondrocyte",
+      "radial glial cell"
     ],
     "cell_type_ids": [
       "CL:0000138",
-      "CL:0000743"
+      "CL:0000743",
+      "CL:0000681"
     ],
     "biological_processes": [
       "fibroblast growth factor receptor signaling pathway",
       "endochondral ossification",
       "growth plate cartilage development",
       "lung development",
-      "respiratory gaseous exchange"
+      "respiratory gaseous exchange",
+      "cerebral cortex radially oriented cell migration",
+      "cerebral cortex development"
     ],
     "phenotypes": [
       "Micromelia",
@@ -343065,20 +343242,33 @@ window.searchData = [
       "Hypotonia",
       "Redundant skin folds along the limbs",
       "Platyspondyly",
-      "Respiratory insufficiency"
+      "Respiratory insufficiency",
+      "Pulmonary hypoplasia",
+      "Disproportionate short-limb short stature",
+      "Temporal lobe dysplasia",
+      "Seizure",
+      "Ventriculomegaly",
+      "Global developmental delay",
+      "Small foramen magnum",
+      "Acanthosis nigricans",
+      "Polyhydramnios"
     ],
     "phenotype_categories": [
       "Skeletal",
       "Craniofacial",
       "Neurological",
       "Integumentary",
-      "Respiratory"
+      "Respiratory",
+      "Prenatal"
     ],
     "phenotype_hpo_categories": [
+      "Growth",
       "Head and Neck",
       "Integument",
       "Limbs",
       "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
       "Respiratory"
     ],
     "phenotype_ids": [
@@ -343091,28 +343281,40 @@ window.searchData = [
       "HP:0001252",
       "HP:0001582",
       "HP:0000926",
-      "HP:0002093"
+      "HP:0002093",
+      "HP:0002089",
+      "HP:0008873",
+      "HP:0034222",
+      "HP:0001250",
+      "HP:0002119",
+      "HP:0001263",
+      "HP:0002677",
+      "HP:0000956",
+      "HP:0001561"
     ],
     "frequencies": [
-      "VERY_FREQUENT"
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
     ],
     "genes": [
       "FGFR3"
     ],
     "treatments": [
       "Comfort-focused and supportive perinatal care",
-      "Vosoritide (off-label, single case report)"
+      "Vosoritide (off-label, single case report)",
+      "Genetic counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Thanatophoric_Dysplasia.yaml",
     "page_url": "../pages/disorders/Thanatophoric_Dysplasia.html",
-    "num_phenotypes": 10,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 19,
+    "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 3,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Thanatophoric Dysplasia Type 1",
@@ -366111,17 +366313,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3393,
+  "total_disorder_pages": 3395,
   "total_subtypes": 4717,
-  "total_disorders_and_subtypes": 8110,
-  "total_unique_evidence_sources": 51106,
-  "total_unique_publications": 47627,
+  "total_disorders_and_subtypes": 8112,
+  "total_unique_evidence_sources": 51162,
+  "total_unique_publications": 47677,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 299,
-  "total_pathographs": 3389,
-  "total_unique_pathological_events": 22401,
+  "total_pathographs": 3391,
+  "total_unique_pathological_events": 22413,
   "total_modules": 192,
-  "total_research_reports": 3510,
+  "total_research_reports": 3515,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
