@@ -572,3 +572,63 @@ All phenotypes are episodic, start in childhood (as young as 2–3 years) throug
 | Ataxia | HP:0001251 Ataxia | Occasional |
 | Limb numbness / transient motor weakness | Suggest paresthesia or hemiparesis terms (look up) | Occasional (PMID:35990002) |
 | Reversible white matter lesions (corpus callosum, centrum semiovale) | HP:0002352 Leukoencephalopathy; suggest a "splenium of corpus callosum" abnormality term; HP:0002181 Brain edema (intramyelinic) | Defining imaging finding |
+| Restricted diffusion on DWI (low ADC) | Suggest a "restricted diffusion on MRI" term (look up) | Defining |
+| Normal serum sodium | Laboratory finding | Differs from sporadic MERS, where hyponatremia is common (Imamura 2010) |
+
+Key clinical quotes (verified):
+- PMID:29265453: *"recurrent encephalopathy with extensive but reversible cerebral myelin vacuolization and neurological symptoms similar to those of MERS spanning 3 generations."*
+- PMID:35990002: *"a 14-year-old girl with a heterozygous p. Gln403Arg variant in the MYRF gene, who had five episodes of encephalopathy. She experienced reduced consciousness, numbness in the arm, and impaired verbal communication from day 4 of SARS-CoV-2 infection."*
+- PMID:38155716: *"The clinical manifestations of MMERV include seizures, impaired speech (such as lack of fluency, dysarthria, and language difficulties), recurrent episodes of impaired consciousness (confusion or delirium), spontaneous motor difficulties, and limb numbness"*
+
+**Quality of life.** No quality-of-life instrument data exist. Between episodes patients function normally. The burden comes from recurrent acute hospitalizations and the anxiety that goes with them.
+
+---
+
+## 4. Genetic and Molecular Information
+
+- **Gene:** *MYRF* (myelin regulatory factor; formerly C11orf9). Location 11q12.2. hgnc:1181 (in the local HGNC cache).
+- **Variant:** NM_001127392 c.1208A>G, p.Gln403Arg. It is in the N-terminal Ndt80/PhoG-like DNA-binding domain and was found in both Japanese families. OMIM reports that haplotype analysis suggested a **founder effect**. The Chinese family (PMID:38155716) carries a heterozygous *MYRF* variant described as related. Check the exact variant in that paper's full text before recording it.
+- **Classification:** OMIM lists it as allelic variant .0001. I did not check its ClinVar classification in this session.
+- **Origin:** Germline, segregating with disease.
+- **Population frequency:** Not established here. Kurahashi et al. filtered for rare variants. Check gnomAD.
+- **Functional effect:** Partial loss of function, a hypomorphic reduction in transactivation:
+  > "Luciferase assay revealed that transcriptional activity of the N-terminal region of MYRF was significantly diminished by introducing the c.1208A>G variant." (PMID:29265453, verified)
+
+  Whether Q403R acts dominant-negatively on the MYRF trimer has not been tested. The trimerization requirement (PMID:23966832) makes this a reasonable open question.
+- **Allelic MYRF disorders (spectrum context).** These are the reason to keep MMERV as its own entry:
+  - **Cardiac-urogenital syndrome:** de novo, mostly loss-of-function variants; congenital heart disease, diaphragmatic hernia, and genital anomalies. Key paper: Pinz et al. 2018 (unverified PMID).
+  - **Nanophthalmos / high hyperopia:** Garnai et al. 2019 and others (unverified PMIDs).
+  - **Persistent (non-reversible) leukoencephalopathy after H1N1 infection,** caused by the C-terminal variant p.Gly735Asp:
+    > "establishes persistent leukoencephalopathy as a novel clinical phenotype within the MYRF disease spectrum." (PMID:41190523, verified)
+- **Epigenetic or chromosomal changes:** None reported.
+
+---
+
+## 5. Environmental Information
+
+- **Infectious triggers:** non-specific febrile viral infections; SARS-CoV-2 (NCBITaxon:2697049, look up); influenza A virus (NCBITaxon:11320, look up) in the allelic persistent-leukoencephalopathy case.
+- **Lifestyle factors:** none known.
+- **Toxins:** none implicated.
+- **Suggested exposure term:** an ECTO "exposure to virus" class. Search ECTO before binding one; the repository forbids writing CURIEs from memory.
+
+---
+
+## 6. Mechanism and Pathophysiology
+
+### Causal chain
+1. **Heterozygous *MYRF* c.1208A>G (p.Gln403Arg)** changes a conserved residue in the N-terminal DNA-binding domain (PMID:29265453).
+2. This **reduces the transcriptional activation activity** of the cleaved N-terminal MYRF fragment. This was shown in luciferase assays (in vitro).
+3. MYRF is normally a membrane-anchored ER protein. It trimerizes and cleaves itself through an intramolecular chaperone domain related to bacteriophage tailspike proteins, which releases the N-terminal transcription factor into the nucleus (PMID:23966832, PMID:23966833). The variant therefore **weakens a normally constitutive myelin-gene transcription program** after release; the cleavage step itself is unaffected.
+4. **Less direct activation of myelin and oligodendrocyte gene enhancers.** The link to specific genes is inferred. ChIP-seq in the normal state shows that the N-terminal fragment *"directly binds the enhancer regions of oligodendrocyte-specific and myelin genes"* (PMID:23966833, verified). Target genes include MBP, PLP1, MOG, and MAG.
+5. **Mature oligodendrocytes have a reduced reserve for maintaining myelin.** This is inferred from mouse models: adult deletion of *Myrf* causes loss of oligodendrocyte identity and myelin integrity (Koenning et al. 2012, J Neurosci, PMID:22956843, unverified).
+6. **Febrile or systemic infection** acts as a second hit, through fever, cytokines, and possibly metabolic stress. The mechanism is hypothesized, not demonstrated.
+7. **Intramyelinic edema and myelin vacuolization** follow, through splitting of myelin lamellae at the intraperiod line. The authors infer this from imaging; there is no human histopathology.
+   - **Branch, imaging:** restricted diffusion (low ADC) and T2/FLAIR hyperintensity in the corpus callosum (splenium first) and the centrum semiovale.
+8. **Transiently impaired axonal conduction** in the affected white matter tracts (inferred) causes encephalopathy, confusion or delirium, seizures, dysarthria, and ataxia.
+9. **The vacuolization resolves** once the trigger clears, so imaging and symptoms normalize within about 1–2 weeks. Steroids may speed recovery, but there are no controlled data.
+
+**Contrast with sporadic MERS / cytotoxic lesions of the corpus callosum (CLOCCs).** In sporadic MERS, cytokine-mediated cytotoxic edema and hyponatremia have been proposed. MMERV adds a constitutional myelin-maintenance defect, which probably explains why its lesions are more extensive and why episodes recur.
+
+### Annotations (from the current entry unless marked)
+- **Molecular function:** GO:0000981, DNA-binding transcription factor activity, RNA polymerase II-specific.
+- **Biological processes:** GO:0045944 positive regulation of transcription by RNA polymerase II; GO:0043217 myelin maintenance; GO:0022010 central nervous system myelination; GO:0019227 neuronal action potential propagation. Suggested additions, to look up: protein autoprocessing and protein homotrimerization.
