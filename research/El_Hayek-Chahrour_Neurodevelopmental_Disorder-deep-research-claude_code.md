@@ -663,3 +663,79 @@ PMID:33350388 [full text]: *"To date only a single recessive missense variant in
 
 **Functional consequence**
 - **Loss of function / reduced dosage.** PMID:41889174 [abstract]: *"For a subset of variants, we demonstrated reduced KDM5A protein levels in cell lines derived from affected individuals."*
+- **Domain disruption without protein loss is also proposed.** PMID:41889174 [full text]: *"While variants in the JmjC domain can impair its demethylase function, variants in other domains may disrupt non-enzymatic functions, such as chromatin positioning or interactions with regulatory complexes, leading to equally severe phenotypes."*
+
+**Origin, population frequency and other genomic features**
+- Origin: germline only. No somatic mosaic cases are reported.
+- Population frequency: variants are absent or ultra-rare in gnomAD, per the cohort filtering criteria.
+- Modifier genes, epigenetic signatures and chromosomal rearrangements: none described.
+- Episignature: no DNA-methylation episignature has been reported, unlike KDM5C and other chromatinopathies. This is a gap.
+- Microdeletions: some biallelic alleles are intragenic CNVs found by read-depth or split-read analysis, so CNV-aware analysis matters (see §10).
+- Nearby locus: *KDM5A* sits at the 12p13.33 subtelomere, near the *CACNA1C*/*ERC1* region. No reports of contiguous-gene syndromes involving *KDM5A* were found.
+
+---
+
+## 5. Environmental information
+
+None. No environmental, lifestyle or infectious factors apply.
+
+---
+
+## 6. Mechanism and pathophysiology
+
+### Ordered causal chain
+
+1. **Initiating lesion.** Germline *KDM5A* variants occur in one of two configurations:
+   - Monoallelic: de novo or inherited missense or truncating variants.
+   - Biallelic: multi-exon deletions, splice, frameshift, nonsense or missense variants.
+
+   These lead to →
+2. **Reduced KDM5A protein or a domain-specific functional defect.** Patient lymphoblastoid cell lines (LCLs) show reduced protein for a subset of variants; JmjC, PLU1 and PHD variants are predicted to disrupt catalysis or chromatin binding. This is demonstrated in LCLs and inferred from structural modelling for the rest. It results in →
+3. **Altered H3K4me2/3 demethylation at KDM5A target promoters and enhancers.** This step is *inferred*: no patient or mouse H3K4me3 ChIP data are cited in these papers. It leads to →
+4. **Dysregulated transcription.**
+   - Patient LCL RNA-seq shows variant-specific expression changes, worst for PLU1, then JmjC, then inter-domain variants.
+   - Mouse *Kdm5a*⁻/⁻ hippocampus has 450 differentially expressed genes, including ASD genes (*Oxtr*, *Cnr1*, *Ppp1r1b*, *Ace*) and brain-development genes (*Otx2*, *Sema3b*, *Cdh3*).
+
+   This leads to →
+5. **A defect in the switch that sets neuronal differentiation and cell identity during hippocampal development.** Superficial (Satb2⁺) and deep (Col11a1⁺) CA1 identity is mis-specified, and specific excitatory and inhibitory subtypes are affected. This is shown in mouse snRNA-seq. In parallel (branch) →
+6. **Impaired dendritic morphogenesis.** Cortical neurons show about 67% less dendritic complexity, about 50% shorter dendrites and about 33% lower spine density (mouse, Golgi-Cox). This results in →
+7. **Abnormal circuit formation and synaptic connectivity.** This step is *inferred*. It leads to →
+8. **Clinical phenotype:**
+   - absent speech / communication deficit (mouse USV deficit);
+   - ASD-like behaviour (repetitive grooming, sociability deficit, poor nest building);
+   - intellectual disability (Morris water maze learning and memory deficit);
+   - seizures.
+
+   **Branch:** multisystem features (cardiac septal defects, corpus callosum hypoplasia, joint laxity) presumably reflect KDM5A's ubiquitous expression and its developmental role outside the brain. These are *not mechanistically studied*.
+
+### Key evidence
+
+- **Mouse knockout phenotype.** PMID:33350388 [abstract]: *"Kdm5a-/- mice displayed repetitive behaviors, sociability deficits, cognitive dysfunction, and abnormal dendritic morphogenesis. Loss of KDM5A also resulted in dysregulation of the hippocampal transcriptome."*
+- **Dendritic measurements.** PMID:33350388 [full text]: *"cortical neurons from Kdm5a-/- mice had significant reduction in dendritic length (∼50% decrease) and dendritic spine density (∼33% decrease) compared with neurons from WT littermates"*
+- **Hippocampal transcriptome.** PMID:33350388 [full text]: *"Out of 450 differentially expressed genes, 15 were homologs of known ASD genes, including Ace, Cnr1, Mfrp, Oxtr, and Ppp1r1b, and 33 were homologs of genes essential for brain development"*
+- **Predicted direction of target-gene change.** PMID:33350388 [full text]: *"By demethylating H3K4me3, an activating histone mark, KDM5A would be expected to repress the expression of its target genes, suggesting that genes upregulated in the hippocampus of the Kdm5a-/- mice are potential direct targets of KDM5A."* The paper frames this as an expectation, so it is not demonstrated.
+- **Cell identity.** PMID:37992166 [abstract]: *"KDM5A regulates the development of specific subtypes of excitatory and inhibitory neurons. We found that KDM5A is essential for establishing hippocampal cell identity by controlling a differentiation switch early in development."*
+- **Loss of a CA1 population.** PMID:37992166 [full text]: *"the loss of CA1 superficial neurons marked by the expression of Satb2 in Kdm5a−/− is predicted to be one major factor leading to the severe cognitive deficits observed upon loss of KDM5A"*
+- **Patient transcriptomics.** PMID:41889174 [abstract]: *"Transcriptomic profiling revealed variant-specific gene expression changes, most pronounced in variants affecting the PLU1 chromatin-binding motif and the Jumonji C domain of the enzymatic core."*
+
+### Ontology suggestions (verify each)
+
+**GO biological processes**
+- histone H3-K4 demethylation (GO:0034720) — the current GO label may be "histone H3K4 demethylation"
+- regulation of DNA-templated transcription (GO:0006355)
+- dendrite morphogenesis (GO:0048813)
+- dendritic spine development (GO:0060996)
+- neuron differentiation (GO:0030182)
+- hippocampus development (GO:0021766)
+- vocalization behavior (GO:0071625)
+- learning or memory (GO:0007611)
+
+**GO molecular function:** histone H3K4me/H3K4me2/H3K4me3 demethylase activity (GO:0032453 / GO:0034647 family — verify the current IDs).
+
+**Cell types (CL)**
+- excitatory neuron / glutamatergic neuron (CL:0000679)
+- GABAergic interneuron (CL:0000617)
+- hippocampal CA1 pyramidal neuron (CL:4023111 or similar — verify)
+- cerebral cortex neuron (CL:0010012)
+
+**Other mechanistic categories:** no immune, metabolic or tissue-damage mechanisms are described. The disorder is a developmental chromatin-regulation defect.
