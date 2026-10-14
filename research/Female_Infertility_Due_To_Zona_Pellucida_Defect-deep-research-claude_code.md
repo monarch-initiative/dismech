@@ -484,3 +484,95 @@ For each section, provide:
 - Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
 - Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT, MONDO) where applicable
 - Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease
+
+This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (NCIT terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details
+
+
+## Output
+
+Checking a few last details: the 2025 BJOG cohort, ZP2 and ZP3 nosology, and the identifiers. After that I'll write the report.
+
+# Female Infertility Due to Zona Pellucida Defect (OOMD1; ZP1-related): Research Report
+
+**Target:** MONDO:0014342 · OMIM 615774 · ORPHA:404466 · Category: Mendelian
+**Report date:** 2026-10-14
+
+**How to read the citations.** I took the direct quotes marked "abstract quote" from abstracts already cached in this repository's `references_cache/`, or from the existing draft entry `kb/disorders/Female_Infertility_Due_To_Zona_Pellucida_Defect.yaml`, which has passed snippet validation. Claims marked **[unverified]** came from web search or memory and need a PMID lookup with `just fetch-reference` before they are used as evidence. Some ontology IDs are marked "ID to look up"; I was not able to source those IDs, so I did not write them.
+
+**Tooling note.** The PubMed, OLS and bgpt MCP connectors in this session need authorization through claude.ai connector settings, and I could not use them here. OMIM returned HTTP 403. Identifiers were confirmed through NCBI MedGen instead.
+
+---
+
+## 1. Disease Information
+
+**Overview.** The disorder is an autosomal recessive form of primary female infertility, with a smaller autosomal dominant arm. It is caused mainly by pathogenic variants in **ZP1**, which encodes zona pellucida glycoprotein 1. ZP1 cross-links the filaments of the zona pellucida (ZP), the extracellular coat around the oocyte.
+
+Affected women otherwise look reproductively normal: normal karyotype, menarche, menstrual cycles, hormone levels, ovarian reserve and tubal/uterine anatomy. The defect only shows up during ART cycles. Retrieval then yields one of three things:
+- no oocytes at all (genuine empty follicle syndrome, GEFS);
+- shrivelled, degenerated oocytes;
+- mature MII oocytes with no ZP, or a very thin one, which fail conventional IVF.
+
+> "Here we describe a form of infertility with an autosomal recessive mode of inheritance, characterized by abnormal eggs that lack a zona pellucida. We identified a homozygous frameshift mutation in ZP1 in six family members." — Huang et al., *NEJM* 2014, PMID:24670168 (abstract quote)
+
+**Identifiers** (from NCBI MedGen C4014291, MedGen UID 862728):
+
+| Resource | ID |
+|---|---|
+| MONDO | MONDO:0014342 |
+| OMIM | 615774 (gene ZP1, OMIM 195000 **[verify]**) |
+| Orphanet | ORPHA:404466 |
+| MedGen | C4014291 |
+| Gene locus | ZP1, 11q12.2; HGNC hgnc:13187 |
+| ICD-10 / ICD-11 | No specific code. Nearest are N97.x (female infertility) and ICD-11 GA31 (female infertility) **[verify]** |
+| MeSH | No specific descriptor. Nearest are "Infertility, Female" and "Zona Pellucida" |
+
+**Synonyms:** oocyte maturation defect 1 (OOMD1); oocyte/zygote/embryo maturation arrest 1 (OZEMA1); ZP1-related empty follicle syndrome; ZP1-related zona pellucida defect; zona-free oocytes, familial.
+
+**Nosology caveat.** OMIM 615774 and MONDO:0014342 are **ZP1-specific**. The overlapping ZP2 and ZP3 disorders have their own entries:
+- ZP3: OOMD3 / OZEMA3, OMIM 617712, MONDO:0021574
+- ZP2: OOMD6 / OZEMA6, OMIM 618353, MONDO:0032696
+
+ZP4-related thin-zona infertility currently has no OMIM phenotype entry **[verify]**. A dismech entry should keep ZP1 as the defining gene and handle ZP2, ZP3 and ZP4 as differentials or a grouping, not lump them in.
+
+**Data provenance.** All knowledge comes from aggregated case reports and small cohorts, mostly Chinese and North African. There are no registry or EHR-scale data.
+
+---
+
+## 2. Etiology
+
+**Primary cause.** Germline pathogenic ZP1 variants. Inheritance is mostly biallelic (homozygous or compound heterozygous), with a minority of heterozygous variants that appear to act in a dominant-negative way.
+
+**Genetic risk factors:**
+- **Consanguinity.** The index family was a consanguineous Chinese pedigree (PMID:24670168), and the North African founder families are also consanguineous (PMID:42060237).
+- **Founder variant** ZP1 c.1097G>A p.(Arg366Gln) in North African populations (PMID:35460069, PMID:42060237).
+  > "The recurrent ZP1 c.1097G > A p.(Arg366Gln) variant contributes to EFS in consanguineous North African families." — PMID:42060237 (abstract quote)
+- **Paternally transmitted heterozygous variants** with sex-limited expression, for example ZP1 p.Tyr262Cys (PMID:38966008). Carrier fathers are fertile.
+
+**Environmental risk factors:** none known. The disorder is fully genetic. Maternal age and stimulation protocol affect ART outcome but do not cause the zona defect.
+
+**Protective factors / gene–environment interactions:** none described.
+
+**Modifiers.** Phenotype severity (EFS vs ZP-free MII oocytes) depends on variant type and location. Truncating and splice variants lean toward EFS or degeneration. Some missense variants (for example in the ZP-N1 domain) allow retrieval of ZP-free MII oocytes (PMID:36476320; PMID:42060237). No modifier genes have been identified.
+
+---
+
+## 3. Phenotypes
+
+| Phenotype | Type | Onset | Frequency | Suggested HPO |
+|---|---|---|---|---|
+| Primary female infertility | Clinical sign | Adult (found when trying to conceive) | Obligate (100%) | HP:0008222 Female infertility |
+| Absent zona pellucida (ZP-free oocytes) | Laboratory/ART finding | Found at oocyte retrieval | Common. About 20–25% of ZP1 patients yield ZP-free MII oocytes **[count from PMID:36476320 review — check text]** | "Absent zona pellucida" (term exists; listed in MedGen), ID to look up |
+| Thin or irregular zona pellucida | ART finding | Retrieval | Occasional | "Abnormal zona pellucida morphology" or similar, ID to look up |
+| Empty follicle syndrome (no oocytes despite normal follicle growth and hCG/E2) | ART finding | Retrieval | Most frequent ZP1 presentation (EFS plus degeneration ≈ 75%+ of reported ZP1 cases) | Look up an HPO term for empty follicle syndrome. None may exist; if so, bind to Female infertility and keep the detail in `preferred_term` |
