@@ -500,3 +500,76 @@ This report will be used to populate a disease knowledge base entry with:
 - Epidemiology, prognosis, diagnostic, and prevention information
 - Animal model descriptions with phenotype recapitulation details
 
+
+## Output
+
+I'm checking the local reference cache for TMEM147 papers before I write the report.
+
+# Research Report: Neurodevelopmental disorder with facial dysmorphism, absent language, and pseudo-Pelger-Huët anomaly (TMEM147-related disorder)
+
+**MONDO:0859298 · OMIM #620075 · Gene: TMEM147 (hgnc:30414), 19q13.12**
+
+**How this was researched.** The main sources are the founding cohort paper (Thomas et al., *Am J Hum Genet* 2022, PMID:36044892) and the later family report (Ghorashi et al., *Neurogenetics* 2023, PMID:37668766). I also used the two papers on TMEM147's cellular function (PMID:32694168 and PMID:32820719) and the cached abstracts and full text in `references_cache/`. I cross-checked against web searches of OMIM/MedGen, IMPC, and the nicalin–NOMO literature. Searches for 2024–2026 found no newer patient series, so the whole literature comes from 25 patients in 16 families. The claude.ai PubMed and OLS connectors need authorization (in claude.ai connector settings) before they can be used, so I did not query them.
+
+Quotes marked **[abstract]** are exact text from the PubMed abstract. Quotes marked **[full text]** come from the cached PMC full text of PMID:36044892.
+
+---
+
+## 1. Disease information
+
+**Overview.** This is an ultra-rare autosomal recessive syndromic intellectual disability caused by biallelic loss-of-function variants in *TMEM147*. Its main features are:
+- global developmental delay
+- moderate-to-profound intellectual disability
+- absent or minimal speech
+- behavioural problems, especially self-injury
+- consistent coarse facial dysmorphism
+- a pseudo-Pelger-Huët anomaly on blood smear
+
+> "These affected children displayed congruent clinical features including coarse facies, developmental delay, intellectual disability, and behavioral problems." — PMID:36044892 [abstract]
+
+> "Our findings provide clinical, genetic, and functional evidence that bi-allelic loss-of-function variants in TMEM147 cause syndromic intellectual disability due to ER-translocon and nuclear organization dysfunction." — PMID:36044892 [abstract]
+
+**Identifiers**
+
+| Resource | ID |
+|---|---|
+| MONDO | MONDO:0859298 |
+| OMIM | #620075 (gene *603890? — not verified; check OMIM for the TMEM147 gene MIM number*) |
+| MedGen | UID 1824005 |
+| LOVD | disease 07058 |
+| Orphanet | No specific ORPHA code found. Probably filed under a generic syndromic ID grouping. |
+| ICD-10/11, MeSH | No specific codes. Generic options: ICD-10 Q87.8 / F72–F73; ICD-11 LD90 (disorders of intellectual development). |
+
+**Synonyms.** TMEM147-related neurodevelopmental disorder; TMEM147 deficiency. OMIM's abbreviation is **NEDFLPH**. The existing KB entry uses "NEDFLPA", which should be corrected.
+
+**Source type.** All data come from aggregated case series (individual patient tables in the publications). There are no EHR or registry data.
+
+## 2. Etiology
+
+- **Cause:** germline biallelic (homozygous or compound heterozygous) loss-of-function variants in *TMEM147*.
+- **Risk factor:** parental consanguinity. "Twenty individuals were born to consanguineous parents (87%)." [full text, PMID:36044892]
+- **Founder alleles:** p.Ile133Asn recurs in North African/Egyptian families and p.Gly7Arg recurs in two families. These counts come from the KB entry's reading of the full-text table and should be re-verified against Table S1.
+- **Environmental, protective, and gene–environment factors:** none known; none are expected for a fully penetrant recessive Mendelian disorder.
+
+## 3. Phenotypes
+
+Denominators are from the founding cohort (n = 23) unless stated otherwise. Onset is in infancy for all features. The course is static: a non-progressive developmental encephalopathy.
+
+| Phenotype | HPO | Frequency | Source / quote |
+|---|---|---|---|
+| Global developmental delay | HP:0001263 | 23/23 | "All individuals had global developmental delay and intellectual disability." [full text] |
+| Intellectual disability, severe/profound | HP:0001249 (HP:0010864, HP:0002187) | 21/21 evaluable | "All individuals presented ID, which was considered severe for all but one individual" [full text] |
+| Motor delay | HP:0001270 | 23/23 | "most children were ambulatory by 5 years of age" [full text] |
+| Delayed speech and language development | HP:0000750 | 22/22 | "eight individuals (36%) had developed no speech at all, 12 (55%) could only babble or speak a few words, and only two (9%) could make short sentences." [full text] |
+| Absent speech | HP:0001344 | 8/22 (36%) | same quote |
+| Behavioural problems / self-injury | HP:0000708 / HP:0100716 | 15 (65%) | "Behavioral problems were observed in 15 individuals (65%) who shared a common tendency of self-injury." [full text] |
+| Hyperactivity; aggression; anger outbursts | HP:0000752; HP:0000718 | subset of the 15 | same paragraph |
+| Coarse facial features | HP:0000280 | 22/22 | "coarse facies, prominent forehead, board depressed nasal root, tented mouth, long smooth philtrum, and low-set ears as major features" [full text] |
+| Prominent forehead; depressed nasal bridge; long philtrum; smooth philtrum; tented upper lip vermilion; low-set ears | HP:0011220; HP:0005280; HP:0000343; HP:0000319; HP:0010804; HP:0000369 | major features (per-feature counts in Table S2) | same; confirmed by composite face analysis |
+| Hyposegmentation of neutrophil nuclei (pseudo-Pelger-Huët) | HP:0011447 | in the patients tested; affects ~15–25% of neutrophils per patient | "Abnormal nuclear segmentation and chromatin compaction were also observed in approximately 20% of neutrophils" [abstract] |
+| Thin corpus callosum | HP:0033725 | most of those with abnormal MRI (18 imaged) | "Corpus callosum was thin in most individuals but never dysplastic" [full text] |
+| Ventriculomegaly; delayed CNS myelination (posterior/temporal, improving over time); mild cerebellar atrophy | HP:0002119; HP:0002188; HP:0001272 | some of 18 | "enlarged ventricles, thin corpus callosum, and white matter hyperintensities … mild cerebellar atrophy without dysplasia in some individuals" [full text] |
+| Growth parameter below −2 SD | — | 8/23 (35%) | "eight individuals (35%) presented at least one measurement below −2 standard deviations" [full text] |
+| Secondary (postnatal) microcephaly | HP:0005484 | 4/23 | "four presented isolated microcephaly that was not present at birth" [full text] |
+| Hypotonia | HP:0001252 | 3 (14%) | "three individuals (14%) presented with hypotonia, two had tonic seizures (9%)" [full text] |
+| Tonic seizures | HP:0032792 | 2 (9%) | same |
