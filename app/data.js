@@ -45615,6 +45615,63 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "BARD1-related Cancer Predisposition",
+    "disease_id": "MONDO:0700267",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-13T20:15:40Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "BARD1-related cancer predisposition is an autosomal dominant susceptibility caused by heterozygous germline loss-of-function variants in BARD1, which encodes the obligate RING-domain heterodimeric partner of BRCA1. The BRCA1-BARD1 heterodimer is an E3 ubiquitin ligase and a mediator of RAD51-dependent homologous recombination. Female breast cancer is the established manifestation, at moderate absolute risk, with enrichment for estrogen-receptor-negative and triple-negative tumors and for earlier onset in familial series. Rare germline loss-of-function variants are also enriched in childhood neuroblastoma, which ClinGen lumps into this gene-disease entity. Ovarian cancer is not part of the entity: ClinGen curates BARD1 and familial ovarian cancer separately and classifies that relationship as Disputed. Some carrier-associated tumors show somatic loss of the remaining allele with a homologous-recombination-deficiency phenotype, while heterozygous loss-of-function cell models already show reduced repair efficiency. Common BARD1 polymorphisms associated with high-risk neuroblastoma in GWAS are a separate, non-Mendelian susceptibility signal.",
+    "pathophysiology": [
+      "Germline BARD1 Loss of Function",
+      "Somatic BARD1 Second-Hit Inactivation",
+      "Impaired BRCA1-BARD1 Homologous Recombination",
+      "Genomic Instability and Homologous-Recombination Deficiency",
+      "PARP-Inhibitor and Platinum Sensitivity"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "double-strand break repair via homologous recombination"
+    ],
+    "phenotypes": [
+      "Breast carcinoma",
+      "Neuroblastoma"
+    ],
+    "phenotype_categories": [
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003002",
+      "HP:0003006"
+    ],
+    "frequencies": [],
+    "genes": [
+      "BARD1"
+    ],
+    "treatments": [
+      "Breast cancer surveillance",
+      "Genetic counseling and cascade testing",
+      "Talazoparib in BARD1-associated refractory neuroblastoma"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "BARD1-related_Cancer_Predisposition.yaml",
+    "page_url": "../pages/disorders/BARD1-related_Cancer_Predisposition.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "BBOX1-Related Carnitine Biosynthesis Deficiency",
     "disease_id": null,
     "category": "Mendelian",
@@ -109988,6 +110045,117 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "DDX41-related Hematologic Malignancy Predisposition Syndrome",
+    "disease_id": "MONDO:0014809",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary neoplastic syndrome"
+    ],
+    "creation_date": "2026-10-13T18:57:44Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant predisposition to hematologic malignancy caused by a heterozygous germline loss-of-function variant in DDX41, a DEAD-box RNA helicase. Unlike RUNX1, GATA2 or CEBPA predisposition, the malignancies are late-onset: risk of a myeloid neoplasm is negligible before age 40 and rises steeply thereafter, the median age at myelodysplastic syndrome or acute myeloid leukemia diagnosis is in the seventh decade, and men are affected several-fold more often than women. Most carriers have no recognized family history, so the syndrome is usually found by germline confirmation of a DDX41 variant on a myeloid tumor panel. Germline alleles are mostly truncating or start-loss and population-specific; the malignant clone typically acquires a somatic missense variant, most often p.R525H in the helicase domain, on the other allele. Disease is characteristically hypocellular, normal-karyotype and low-blast, often preceded by years of cytopenia, and responds well to intensive chemotherapy or hypomethylating agents but relapses late. Lymphoid neoplasms are also over-represented. Pediatric presentation is exceptional. Related-donor selection for allogeneic transplant requires DDX41 genotyping because donor-cell leukemia from carrier relatives has been documented.",
+    "pathophysiology": [
+      "Germline DDX41 Heterozygous Loss of Function",
+      "Impaired snoRNA Processing and Ribosome Biogenesis",
+      "Splicing-Coupled R-Loop Accumulation and Replication Stress",
+      "Erythroid Genome Instability",
+      "cGAS-STING Activation in Hematopoietic Progenitors",
+      "p53-Dependent Hematopoietic Stress Response",
+      "Ineffective Erythropoiesis and Marrow Dysplasia",
+      "Somatic Second-Hit DDX41 Mutation",
+      "Myeloid Transformation"
+    ],
+    "cell_types": [
+      "erythroid progenitor cell",
+      "hematopoietic stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000038",
+      "CL:0000037"
+    ],
+    "biological_processes": [
+      "snoRNA processing",
+      "ribosome biogenesis",
+      "mRNA splicing",
+      "R-loop resolution",
+      "DNA damage response",
+      "cGAS/STING signaling pathway",
+      "p53-mediated intrinsic apoptosis",
+      "erythrocyte differentiation",
+      "myeloid cell differentiation"
+    ],
+    "phenotypes": [
+      "Myelodysplastic Syndrome",
+      "Acute Myeloid Leukemia",
+      "Chronic Myelomonocytic Leukemia",
+      "Myeloproliferative Neoplasm",
+      "Chronic Myeloid Leukemia",
+      "Therapy-Related Myeloid Neoplasm",
+      "Lymphoma",
+      "Multiple Myeloma",
+      "Chronic Lymphocytic Leukemia",
+      "Acute Lymphoblastic Leukemia",
+      "Macrocytic Anemia",
+      "Thrombocytopenia",
+      "Neutropenia",
+      "Pancytopenia",
+      "Aplastic Anemia",
+      "Increased Mean Corpuscular Volume",
+      "Megakaryocyte Hypolobulation",
+      "Bone Marrow Hypocellularity"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Immune",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0002863",
+      "HP:0004808",
+      "HP:0012325",
+      "HP:0005547",
+      "HP:0005506",
+      "HP:0002665",
+      "HP:0006775",
+      "HP:0005550",
+      "HP:0006721",
+      "HP:0001972",
+      "HP:0001873",
+      "HP:0001875",
+      "HP:0001876",
+      "HP:0001915",
+      "HP:0005518",
+      "HP:0031385",
+      "HP:0005528"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DDX41"
+    ],
+    "treatments": [
+      "Allogeneic Hematopoietic Stem Cell Transplantation with Donor DDX41 Genotyping",
+      "Intensive Chemotherapy",
+      "Hypomethylating Agent Therapy",
+      "Lenalidomide for Transfusion-Dependent Anemia",
+      "Carrier Surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "DDX41-related_Hematologic_Malignancy_Predisposition_Syndrome.yaml",
+    "page_url": "../pages/disorders/DDX41-related_Hematologic_Malignancy_Predisposition_Syndrome.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "46",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "DECR Deficiency",
     "disease_id": "MONDO:0014464",
     "category": "Mendelian",
@@ -127989,6 +128157,93 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "EGLN1-related Erythrocytosis and Pheochromocytoma/Paraganglioma Predisposition",
+    "disease_id": "MONDO:1060184",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary neoplastic syndrome",
+      "Congenital Secondary Erythrocytosis"
+    ],
+    "creation_date": "2026-10-13T19:42:52Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "EGLN1-related erythrocytosis and pheochromocytoma/paraganglioma predisposition is an autosomal dominant disorder of oxygen sensing caused by heterozygous germline loss-of-function variants in EGLN1, which encodes prolyl hydroxylase domain protein 2 (PHD2), the principal HIF prolyl hydroxylase. In normoxia PHD2 hydroxylates the alpha subunits of hypoxia-inducible factor, marking them for VHL-dependent proteasomal destruction; when PHD2 activity falls, HIF-alpha (predominantly HIF-2-alpha) accumulates despite adequate oxygen \u2014 pseudohypoxia. The systemic consequence is inappropriate erythropoietin output with erythrocytosis; the erythropoietin level is generally inappropriately normal for the hemoglobin, occasionally elevated, and rarely low, the arm that dominates the clinical picture and is driven by haploinsufficiency alone. The neoplastic consequence is a predisposition to pseudohypoxic (cluster 1) pheochromocytoma and paraganglioma; this is a two-hit tumor-suppressor mechanism in which somatic loss of the wild-type EGLN1 allele (loss of heterozygosity has been demonstrated in tumor tissue) completes biallelic inactivation in a chromaffin progenitor. ClinGen (SOP11, Childhood/Adolescent/ Young Adult Cancer Predisposition GCEP) classifies the gene-disease relationship as Definitive and lumped familial erythrocytosis 3 (OMIM:609820) and the PPGL predisposition (OMIM:171300) into this single entity. Two points of granularity matter for a reader: tumor development is a very rare event among EGLN1 carriers and shows variable expressivity, so most carriers present with erythrocytosis only; and the PPGL predisposition shares its final common pathway (pseudohypoxic HIF-2-alpha stabilization) with VHL-, EPAS1-, and SDHx-driven PPGL while reaching it from the opposite direction \u2014 a direct genetic lesion of the hydroxylase rather than ligase loss or oncometabolite inhibition. This entry is the germline predisposition syndrome and is kept separate from the somatic pheochromocytoma/paraganglioma it predisposes to (design decisions section 3a).",
+    "pathophysiology": [
+      "Germline EGLN1/PHD2 Loss-of-Function",
+      "Pseudohypoxic HIF-2-alpha Stabilization",
+      "Inappropriate Erythropoietin Drive",
+      "Erythroid Progenitor Expansion",
+      "Somatic Loss of the Wild-Type EGLN1 Allele in Chromaffin Tissue",
+      "Pseudohypoxic Chromaffin Tumorigenesis"
+    ],
+    "cell_types": [
+      "EPO-producing kidney interstitial fibroblast",
+      "erythroid progenitor cell",
+      "chromaffin cell"
+    ],
+    "cell_type_ids": [
+      "CL:1000692",
+      "CL:0000038",
+      "CL:0000166"
+    ],
+    "biological_processes": [
+      "HIF-mediated hypoxia response in normoxia",
+      "cellular response to hypoxia driving EPO transcription",
+      "erythrocyte differentiation"
+    ],
+    "phenotypes": [
+      "Polycythemia",
+      "Increased circulating hemoglobin concentration",
+      "Increased hematocrit",
+      "Elevated circulating erythropoietin concentration",
+      "Thromboembolism",
+      "Pheochromocytoma",
+      "Paraganglioma"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Vascular",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Endocrine",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001901",
+      "HP:0001900",
+      "HP:0001899",
+      "HP:0033644",
+      "HP:0001907",
+      "HP:0002666",
+      "HP:0002668"
+    ],
+    "frequencies": [
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "EGLN1 germline loss-of-function"
+    ],
+    "treatments": [
+      "Tumor surveillance",
+      "Therapeutic phlebotomy and low-dose aspirin",
+      "HIF-2-alpha inhibition (belzutifan)",
+      "Surgical resection of pheochromocytoma/paraganglioma"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "EGLN1-related_Erythrocytosis_And_Pheochromocytoma_Paraganglioma_Predisposition.yaml",
+    "page_url": "../pages/disorders/EGLN1-related_Erythrocytosis_and_Pheochromocytoma_Paraganglioma_Predisposition.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "EML1-related Ribbon-like Subcortical Heterotopia",
@@ -177433,6 +177688,85 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Hypertrophic Cardiomyopathy 12",
+    "disease_id": "MONDO:0012804",
+    "category": "Mendelian",
+    "parents": [
+      "Hypertrophic Cardiomyopathy"
+    ],
+    "creation_date": "2026-10-13T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypertrophic cardiomyopathy 12 (CMH12) is familial hypertrophic cardiomyopathy caused by germline variants in CSRP3, which encodes muscle LIM protein (MLP). MLP is a small striated-muscle protein with two zinc-finger LIM domains. It is found at the Z-disc and costamere, in the cytosol and in the nucleus, and is not an integral part of the sarcomere, so CSRP3 is one of the few established non-sarcomeric HCM genes.\nThe first CSRP3 HCM variants were missense changes in the first LIM domain that cosegregated with disease and weakened MLP binding to alpha-actinin (2003). Linkage in a large German family and segregation in four more families confirmed the gene in 2008. Later reports added homozygous truncating alleles (human CSRP3 knockouts) with adult-onset HCM, and a LIM2 missense allele, p.Cys150Tyr, that causes late-onset, low-risk HCM in heterozygotes and a more severe phenotype in a homozygote. ClinGen now classifies CSRP3 as Definitive for hypertrophic cardiomyopathy with semidominant inheritance. Patients with CSRP3-associated HCM resemble patients with sarcomeric HCM clinically; asymmetric septal hypertrophy is the usual pattern, and mild skeletal muscle involvement has been described.\nThe best-supported mechanism is loss of functional MLP. Pathogenic LIM-domain missense proteins misfold and are cleared by the proteasome, so heterozygous knock-in mouse hearts keep about half the normal MLP, and biallelic truncation removes it. Loss of MLP is linked to disinhibited calcineurin-NFAT hypertrophic signalling, disturbed calcium handling and sarcomere disorganisation in human stem-cell-derived cardiomyocytes. The common N-terminal allele p.Trp4Arg (W4R) is carried by up to 1% of Europeans and is curated here as a modifier, not a cause. The allelic dilated phenotype is a separate entry (Dilated Cardiomyopathy 1M).",
+    "pathophysiology": [
+      "CSRP3 Germline Variant",
+      "Reduced MLP Binding to Alpha-Actinin and N-RAP",
+      "MLP Protein Destabilization and Depletion",
+      "Proteotoxic Stress Response",
+      "Disinhibited Calcineurin-NFAT Hypertrophic Signalling",
+      "Abnormal Cardiomyocyte Calcium Handling",
+      "Sarcomere Disorganization and Myocyte Disarray",
+      "Maladaptive Hypertrophic Remodeling",
+      "Myocardial Fibrotic Remodeling"
+    ],
+    "cell_types": [
+      "Cardiomyocyte",
+      "Cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "Proteasome-mediated degradation of mutant MLP",
+      "Response to unfolded protein",
+      "Calcineurin-NFAT signaling cascade",
+      "Intracellular calcium ion homeostasis",
+      "Sarcomere organization",
+      "Cardiac muscle hypertrophy in response to stress"
+    ],
+    "phenotypes": [
+      "Hypertrophic cardiomyopathy",
+      "Asymmetric septal hypertrophy",
+      "Skeletal myopathy"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0001639",
+      "HP:0001670",
+      "HP:0003756"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CSRP3",
+      "CSRP3 p.Trp4Arg (W4R) modifier allele"
+    ],
+    "treatments": [
+      "Cascade Screening and Cardiac Surveillance of At-Risk Relatives",
+      "Genetic Counseling",
+      "Pharmacotherapy for Symptomatic Hypertrophic Cardiomyopathy",
+      "Cardiac Myosin Inhibitor Therapy",
+      "Implantable Cardioverter-Defibrillator"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypertrophic_Cardiomyopathy_12.yaml",
+    "page_url": "../pages/disorders/Hypertrophic_Cardiomyopathy_12.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 9,
+    "num_genes": 2,
+    "num_treatments": 5,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Hypertrophic Cardiomyopathy 13",
     "disease_id": "MONDO:0013195",
     "category": "Genetic",
@@ -218688,6 +219022,103 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "MBD4-Related Tumor Predisposition Syndrome",
+    "disease_id": "MONDO:0859267",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary cancer-predisposing syndrome"
+    ],
+    "creation_date": "2026-10-13T18:57:50Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "MBD4-related tumor predisposition syndrome (MBD4-TPDS; MBD4-associated neoplasia syndrome, MANS) is an autosomal recessive multi-tumor predisposition caused by biallelic germline loss-of-function variants in MBD4, the base-excision-repair glycosylase that removes thymine from the G:T mismatch left when 5-methylcytosine deaminates at a CpG site. The core phenotype is early-onset gastrointestinal adenomatous polyposis together with myelodysplastic syndrome or acute myeloid leukemia, with schwannoma, colorectal carcinoma, uveal melanoma, meningioma and papillary thyroid carcinoma each reported in more than one biallelic individual. Like MUTYH- and NTHL1-associated polyposis, it is a constitutional mutator state rather than a Knudson two-hit tumor suppressor syndrome: every cell lacks the repair activity from conception, and the tumors that arise carry a CpG>TpG transition excess (a signature close to COSMIC SBS1) that inactivates tissue-appropriate drivers somatically - DNMT3A in the hematopoietic compartment, APC in intestinal epithelium, NF2 in a schwannoma. Onset in the reported cases is in young adulthood rather than childhood: AML has been diagnosed mostly in the third and fourth decades and polyposis from the late teens or twenties, with a single juvenile ovarian granulosa cell tumor at age 12 as the only pediatric neoplasm reported. Fewer than twenty biallelic individuals had been published by 2026, so the tumor spectrum and lifetime risks are not established and the frequency values below describe a small, ascertainment-biased case series. Heterozygous MBD4 carriers have an increased uveal melanoma risk; that dominant susceptibility was split by ClinGen into a separate disease entity and is not curated as part of this entry (see notes).",
+    "pathophysiology": [
+      "Biallelic Germline MBD4 Loss of Function",
+      "Unrepaired G:T Mismatches from 5-Methylcytosine Deamination",
+      "CpG>TpG Hypermutator Phenotype",
+      "Somatic DNMT3A CpG>TpG Mutation",
+      "Clonal Hematopoiesis",
+      "Somatic APC Inactivation by CpG>TpG Transition",
+      "Somatic Biallelic NF2 Inactivation by CpG>TpG Transitions"
+    ],
+    "cell_types": [
+      "hematopoietic progenitor cell",
+      "colon epithelial cell",
+      "Schwann cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008001",
+      "CL:0011108",
+      "CL:0002573"
+    ],
+    "biological_processes": [
+      "base-excision repair initiated by removal of deaminated bases"
+    ],
+    "phenotypes": [
+      "Adenomatous Colonic Polyposis",
+      "Duodenal Polyposis",
+      "Colorectal Carcinoma",
+      "Myelodysplastic Syndrome",
+      "Acute Myeloid Leukemia",
+      "Schwannoma",
+      "Uveal Melanoma",
+      "Meningioma",
+      "Papillary Thyroid Carcinoma",
+      "Juvenile Ovarian Granulosa Cell Tumor"
+    ],
+    "phenotype_categories": [
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Immune",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0005227",
+      "HP:0004783",
+      "HP:0003003",
+      "HP:0002863",
+      "HP:0004808",
+      "HP:0100008",
+      "HP:0007716",
+      "HP:0002858",
+      "HP:0002895",
+      "HP:0031919"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "MBD4"
+    ],
+    "treatments": [
+      "Colonoscopic Surveillance and Polypectomy",
+      "Hematologic Surveillance",
+      "Ophthalmologic Surveillance",
+      "Allogeneic Hematopoietic Stem Cell Transplantation with Donor MBD4 Testing",
+      "Genetic Counseling and Cascade Testing of Siblings"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "MBD4-Related_Tumor_Predisposition_Syndrome.yaml",
+    "page_url": "../pages/disorders/MBD4-Related_Tumor_Predisposition_Syndrome.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "MBD5 Haploinsufficiency Syndrome",
     "disease_id": "MONDO:0007974",
     "category": "Mendelian",
@@ -248200,6 +248631,96 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "NTHL1-deficiency Tumor Predisposition Syndrome",
+    "disease_id": "MONDO:0100502",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary neoplastic syndrome"
+    ],
+    "creation_date": "2026-10-13T18:57:45Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "NTHL1-deficiency tumor predisposition syndrome (NTHL1 tumor syndrome, NATS) is an autosomal recessive adult-onset multi-tumor predisposition caused by biallelic germline loss-of-function variants in NTHL1, the bifunctional DNA glycosylase that initiates base excision repair of oxidized pyrimidines. Like MUTYH-associated polyposis, and unlike the Knudson two-hit syndromes, the inherited state is a constitutional caretaker defect present in every cell: unrepaired oxidized cytosine is read as thymine, and somatic cells accumulate C>T transitions at non-CpG sites that make up COSMIC single base substitution signature SBS30. SBS30 dominates the somatic mutational profile of adenomas and of colorectal, breast, endometrial and other cancers from biallelic carriers, and arises de novo in NTHL1-knockout human colon organoids. The clinical picture is attenuated adenomatous polyposis (median about 20 polyps, with hyperplastic and serrated polyps in a minority) with colorectal cancer in about half of reported individuals, breast cancer in about half of affected women, and an extracolonic spectrum including endometrial cancer, meningioma, urothelial carcinoma, duodenal adenomas and cancer, and hematologic malignancy. No tumor has been reported before age 18, which is the basis for surveillance starting at 18 to 20 years. The recurrent allele is c.244C>T p.(Gln82*) in NM_002528.7, reported in older literature as p.(Gln90*). Heterozygous carriers are not this disorder.",
+    "pathophysiology": [
+      "Biallelic Germline NTHL1 Loss of Function",
+      "Failure to Excise Oxidized Pyrimidines",
+      "SBS30 C>T Transition Mutator Phenotype"
+    ],
+    "cell_types": [
+      "intestinal crypt stem cell of colon"
+    ],
+    "cell_type_ids": [
+      "CL:0009043"
+    ],
+    "biological_processes": [
+      "base-excision repair"
+    ],
+    "phenotypes": [
+      "Adenomatous Colonic Polyposis",
+      "Serrated and Hyperplastic Colorectal Polyps",
+      "Colorectal Carcinoma",
+      "Breast Carcinoma",
+      "Endometrial Carcinoma",
+      "Meningioma",
+      "Duodenal Polyposis",
+      "Urothelial Carcinoma of the Bladder",
+      "Hematological Neoplasm",
+      "Basal Cell Carcinoma",
+      "Head and Neck Squamous Cell Carcinoma"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Breast",
+      "Digestive",
+      "Genitourinary",
+      "Integument",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0005227",
+      "HP:0032222",
+      "HP:0003003",
+      "HP:0003002",
+      "HP:0012114",
+      "HP:0002858",
+      "HP:0004783",
+      "HP:0006740",
+      "HP:0004377",
+      "HP:0002671",
+      "HP:0020357"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "NTHL1"
+    ],
+    "treatments": [
+      "Colonoscopic Surveillance and Polypectomy",
+      "Colectomy for Unmanageable Polyp Burden",
+      "Upper Gastrointestinal Endoscopic Surveillance",
+      "Breast Cancer Surveillance",
+      "Endometrial Cancer Surveillance",
+      "Brain MRI for Meningioma"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "NTHL1-deficiency_Tumor_Predisposition_Syndrome.yaml",
+    "page_url": "../pages/disorders/NTHL1-deficiency_Tumor_Predisposition_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "NTRK Fusion-Positive Cancer",
@@ -305046,6 +305567,143 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "SAMD9L-Related Spectrum and Myeloid Neoplasm Risk",
+    "disease_id": "MONDO:1060111",
+    "category": "Genetic",
+    "parents": [
+      "hereditary neoplastic syndrome"
+    ],
+    "creation_date": "2026-10-13T18:58:31Z",
+    "updated_date": null,
+    "subtypes": [
+      "ATXPC",
+      "M7MLS1",
+      "SCA49",
+      "SAAD"
+    ],
+    "description": "Autosomal dominant multisystem disorder caused by heterozygous germline gain-of-function variants in SAMD9L, an interferon-inducible negative regulator of cell proliferation on 7q21. The hyperactive protein represses global protein translation and restricts hematopoietic progenitor growth, producing cytopenias in a hypocellular marrow that usually present in infancy or early childhood, B- and NK-cell deficiency, and a predisposition to marrow failure, myelodysplasia and myeloid leukemia. A defining feature is frequent somatic genetic rescue in hematopoiesis. Clones that lose the mutant allele by monosomy 7 escape the growth block but carry myeloid-neoplasm risk (maladaptive rescue; monosomy 7 can be transient in young children), whereas clones with copy-neutral UPD7q or an in-cis somatic SAMD9L inactivating variant restore hematopoiesis (adaptive rescue). Neurologic disease (slowly progressive cerebellar ataxia, sensorimotor axonal neuropathy, white matter change) usually appears later, in adolescence or adulthood, and is not corrected by hematopoietic rescue or transplantation. ClinGen lumps ataxia-pancytopenia syndrome, monosomy 7 myelodysplasia and leukemia syndrome 1 and spinocerebellar ataxia 49 into this entity; GeneReviews additionally includes the truncating-variant SAMD9L-associated autoinflammatory subtype (SAAD). The paralogous SAMD9 disorder (MIRAGE syndrome and SAMD9-related myeloid predisposition) is a separate disease and is not covered here.",
+    "pathophysiology": [
+      "SAMD9L Gain-of-Function Variant",
+      "Interferon-Driven SAMD9L Induction",
+      "Global Translational Repression",
+      "Hematopoietic Progenitor Growth Restriction and Death",
+      "Maladaptive Somatic Rescue by Monosomy 7",
+      "Adaptive Somatic Rescue by UPD7q or In-cis SAMD9L Inactivation",
+      "Clonal Evolution with Cooperating Somatic Mutations",
+      "B and NK Lymphocyte Deficiency",
+      "Cerebellar and Peripheral Neurodegeneration",
+      "Autoinflammation"
+    ],
+    "cell_types": [
+      "CD34+ hematopoietic stem and progenitor cell",
+      "B cell",
+      "natural killer cell",
+      "Purkinje cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000837",
+      "CL:0000236",
+      "CL:0000623",
+      "CL:0000121"
+    ],
+    "biological_processes": [
+      "response to type I interferon",
+      "cellular response to type II interferon",
+      "negative regulation of translation",
+      "negative regulation of cell population proliferation"
+    ],
+    "phenotypes": [
+      "Pancytopenia",
+      "Thrombocytopenia",
+      "Neutropenia",
+      "Bone Marrow Hypocellularity",
+      "Myelodysplasia",
+      "Acute Myeloid Leukemia",
+      "Decreased Total B Cell Count",
+      "Reduced Natural Killer Cell Count",
+      "Hypogammaglobulinemia",
+      "Recurrent Infections",
+      "Progressive Cerebellar Ataxia",
+      "Cerebellar Atrophy",
+      "Cerebral White Matter Abnormalities",
+      "Sensorimotor Neuropathy",
+      "Dysautonomia",
+      "Dysarthria",
+      "Gaze-Evoked Nystagmus",
+      "Panniculitis",
+      "Lipoatrophy",
+      "Interstitial Lung Disease",
+      "Basal Ganglia Calcification"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Neoplasm",
+      "Immunologic",
+      "Neurologic",
+      "Dermatologic",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Eye",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001876",
+      "HP:0001873",
+      "HP:0001875",
+      "HP:0005528",
+      "HP:0002863",
+      "HP:0004808",
+      "HP:0010976",
+      "HP:0040218",
+      "HP:0004313",
+      "HP:0002719",
+      "HP:0002073",
+      "HP:0001272",
+      "HP:0002500",
+      "HP:0007141",
+      "HP:0012332",
+      "HP:0001260",
+      "HP:0000640",
+      "HP:0012490",
+      "HP:0100578",
+      "HP:0006530",
+      "HP:0002135"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SAMD9L"
+    ],
+    "treatments": [
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Hematologic and Genetic Surveillance",
+      "Transfusion Support",
+      "Corticosteroids or JAK Inhibitors for Autoinflammation",
+      "Immunoglobulin Replacement",
+      "Riluzole Trial for Ataxia",
+      "Avoidance of Antiplatelet, Anticoagulant and Thrombolytic Agents in Severe Thrombocytopenia",
+      "Avoidance of Alcohol and Sedating Medications",
+      "Cascade Testing of At-Risk Relatives"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SAMD9L-related_Spectrum_And_Myeloid_Neoplasm_Risk.yaml",
+    "page_url": "../pages/disorders/SAMD9L-Related_Spectrum_and_Myeloid_Neoplasm_Risk.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 9,
+    "causal_graph_edges": "44",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "SAPHO Syndrome",
     "disease_id": "MONDO:0019266",
     "category": "Complex",
@@ -356080,6 +356738,87 @@ window.searchData = [
     "causal_graph_longest_path": "10"
   },
   {
+    "name": "WT1-Related Wilms Tumor Predisposition",
+    "disease_id": "MONDO:0008679",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary Wilms tumor"
+    ],
+    "creation_date": "2026-10-13T19:38:14Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "WT1-related Wilms tumor predisposition (Wilms tumor 1) is autosomal dominant predisposition to Wilms tumor caused by heterozygous constitutional loss-of-function variants in WT1, mostly nonsense and frameshift, many of them arising de novo. ClinGen grades WT1 to this condition as Definitive and curates it separately from the WT1 congenital malformation syndromes (Denys-Drash, Frasier, Meacham, nephrotic syndrome type 4) on the basis of lesion class: truncating loss of function here, dominant-negative zinc finger missense in Denys-Drash. Carriers develop Wilms tumor in infancy, at a median of 12.5 months against 36 months in children without a germline WT1 alteration, often in both kidneys and sometimes metachronously. The tumors are typically stromal-predominant with rhabdomyogenic differentiation and arise from intralobar nephrogenic rests. The wild-type allele is lost in the tumor, most often by somatic paternal uniparental disomy of 11p that also produces biallelic IGF2 expression, and activating CTNNB1 mutations follow as a later event in nearly every WT1-mutant tumor. Germline WT1 variants are found in 2.1 per cent of nonsyndromic Wilms tumor and 14.8 per cent of synchronous bilateral Wilms tumor. Cryptorchidism and hypospadias occur, mainly in 46,XY carriers, and a minority of truncating-variant carriers develop chronic kidney disease, including kidney failure in adulthood. Carriers are offered renal ultrasound every three months until the seventh birthday, nephron-sparing surgery where feasible, and lifelong monitoring of kidney function.",
+    "pathophysiology": [
+      "Germline WT1 Loss-of-Function",
+      "Somatic Paternal Uniparental Disomy of 11p",
+      "Biallelic WT1 Loss in Nephron Progenitors",
+      "Biallelic IGF2 Expression",
+      "Arrested Early Nephrogenesis in Intralobar Rests",
+      "Somatic CTNNB1 Activation",
+      "Stromal-Predominant Wilms Tumor Initiation",
+      "Constitutional WT1 Haploinsufficiency in Gonadal and Glomerular Development"
+    ],
+    "cell_types": [
+      "metanephric mesenchyme stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000324"
+    ],
+    "biological_processes": [
+      "mesenchymal to epithelial transition involved in metanephros morphogenesis",
+      "nephron development",
+      "canonical Wnt signaling pathway"
+    ],
+    "phenotypes": [
+      "Early-Onset Wilms Tumor",
+      "Bilateral Wilms Tumor",
+      "Intralobar Nephrogenic Rests",
+      "Cryptorchidism",
+      "Hypospadias",
+      "Chronic Kidney Disease"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Renal",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0002667",
+      "HP:0012783",
+      "HP:0000028",
+      "HP:0000047",
+      "HP:0012622"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "WT1",
+      "CTNNB1"
+    ],
+    "treatments": [
+      "Renal Ultrasound Surveillance",
+      "Nephron-Sparing Surgery and Standard Wilms Tumor Therapy",
+      "Lifelong Kidney Function Monitoring",
+      "Genetic Counseling and Cascade Testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "WT1-Related_Wilms_Tumor_Predisposition.yaml",
+    "page_url": "../pages/disorders/WT1-Related_Wilms_Tumor_Predisposition.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 8,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "WWOX-Related Developmental and Epileptic Encephalopathy",
     "disease_id": "MONDO:0014533",
     "category": "Mendelian",
@@ -364900,17 +365639,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3381,
-  "total_subtypes": 4713,
-  "total_disorders_and_subtypes": 8094,
-  "total_unique_evidence_sources": 50929,
-  "total_unique_publications": 47459,
+  "total_disorder_pages": 3389,
+  "total_subtypes": 4717,
+  "total_disorders_and_subtypes": 8106,
+  "total_unique_evidence_sources": 51069,
+  "total_unique_publications": 47591,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 299,
-  "total_pathographs": 3377,
-  "total_unique_pathological_events": 22326,
+  "total_pathographs": 3385,
+  "total_unique_pathological_events": 22379,
   "total_modules": 192,
-  "total_research_reports": 3498,
+  "total_research_reports": 3506,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
