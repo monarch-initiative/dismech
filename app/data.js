@@ -97507,6 +97507,85 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Cone-rod dystrophy 10",
+    "disease_id": "MONDO:0012464",
+    "category": "Mendelian",
+    "parents": [
+      "Cone-rod dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-10-14T13:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Cone-rod dystrophy 10 is an inherited retinal dystrophy attributed to biallelic variants in SEMA4A, which encodes semaphorin 4A, a transmembrane semaphorin expressed in the retinal pigment epithelium. It was defined by a single 2006 screen of Pakistani patients with retinal degeneration, in which the semaphorin-domain missense variants p.Asp345His and p.Phe350Cys were found in patients with cone-rod dystrophy and with retinitis pigmentosa; the retinitis pigmentosa presentation is catalogued separately as retinitis pigmentosa 35. No independent family with SEMA4A cone-rod dystrophy has been reported since, so the human phenotype is thinly described and the gene-disease relationship is weak. The third variant from that screen, p.Arg713Gln, is unlikely to be pathogenic: it fails to segregate with disease and occurs homozygous in an unaffected relative. The mechanistic picture comes from mice. Sema4a-null and Phe350Cys knock-in mice lose their photoreceptors early in life. Sema4A loss, or misfolding of the Phe350Cys protein so that it never reaches the RPE cell surface, removes two Sema4A-dependent endosomal sorting steps: exosomal release of the anti-apoptotic factor prosaposin under oxidative stress, and delivery of retinoid-binding proteins for the visual cycle. Asp345His and Arg713Gln knock-in mice, by contrast, have normal retinas. There is no disease-specific treatment; subretinal Sema4a gene transfer rescues photoreceptors in mice.",
+    "pathophysiology": [
+      "Biallelic SEMA4A Semaphorin-Domain Missense Variants",
+      "SEMA4A Misfolding and Failure to Reach the RPE Cell Surface",
+      "Impaired Sema4A-Dependent Endosomal Sorting in RPE",
+      "Reduced Exosomal Prosaposin Release from RPE",
+      "Impaired Retinoid-Binding Protein Sorting for the Visual Cycle",
+      "RPE Susceptibility to ER and Oxidative Stress",
+      "Photoreceptor Degeneration"
+    ],
+    "cell_types": [
+      "retinal pigment epithelial cell",
+      "retinal cone cell",
+      "retinal rod cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002586",
+      "CL:0000573",
+      "CL:0000604"
+    ],
+    "biological_processes": [
+      "protein localization to plasma membrane",
+      "endosomal transport",
+      "exosomal secretion",
+      "retinoid metabolic process",
+      "response to endoplasmic reticulum stress",
+      "phagocytosis",
+      "photoreceptor cell maintenance"
+    ],
+    "phenotypes": [
+      "Cone/cone-rod dystrophy",
+      "Reduced visual acuity",
+      "Color vision defect",
+      "Nyctalopia",
+      "Constriction of peripheral visual field"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000548",
+      "HP:0007663",
+      "HP:0000551",
+      "HP:0000662",
+      "HP:0001133"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SEMA4A"
+    ],
+    "treatments": [
+      "Low-vision support and genetic counseling",
+      "Subretinal Sema4a gene transfer (preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cone-rod_Dystrophy_10.yaml",
+    "page_url": "../pages/disorders/Cone-rod_dystrophy_10.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Cone-rod dystrophy 20",
     "disease_id": "MONDO:0014427",
     "category": "Mendelian",
@@ -367492,17 +367571,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3405,
+  "total_disorder_pages": 3406,
   "total_subtypes": 4722,
-  "total_disorders_and_subtypes": 8127,
-  "total_unique_evidence_sources": 51299,
-  "total_unique_publications": 47813,
+  "total_disorders_and_subtypes": 8128,
+  "total_unique_evidence_sources": 51306,
+  "total_unique_publications": 47820,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 299,
-  "total_pathographs": 3401,
-  "total_unique_pathological_events": 22483,
+  "total_pathographs": 3402,
+  "total_unique_pathological_events": 22489,
   "total_modules": 192,
-  "total_research_reports": 3525,
+  "total_research_reports": 3526,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
