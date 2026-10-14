@@ -632,3 +632,80 @@ Key clinical quotes (verified):
 ### Annotations (from the current entry unless marked)
 - **Molecular function:** GO:0000981, DNA-binding transcription factor activity, RNA polymerase II-specific.
 - **Biological processes:** GO:0045944 positive regulation of transcription by RNA polymerase II; GO:0043217 myelin maintenance; GO:0022010 central nervous system myelination; GO:0019227 neuronal action potential propagation. Suggested additions, to look up: protein autoprocessing and protein homotrimerization.
+- **Cell types:** CL:0000128 oligodendrocyte; CL:0002453 mature oligodendrocyte.
+- **Cellular component, suggested:** endoplasmic reticulum membrane (full-length MYRF) and nucleus (cleaved N-terminal fragment).
+- **Biological scale tags:** the variant node is MOLECULAR; oligodendrocyte myelin maintenance is CELLULAR; vacuolization and edema are TISSUE; encephalopathy is ORGANISM.
+
+**Molecular profiling:** No transcriptomic, proteomic, metabolomic, or single-cell data exist for MMERV patients. No GEO datasets were found.
+
+---
+
+## 7. Anatomical Structures Affected
+
+- **Organ and system:** brain, central nervous system (UBERON:0001017). No other organs are involved, unlike the syndromic MYRF disorders.
+- **Specific sites:** corpus callosum (UBERON:0002336), splenium of the corpus callosum (UBERON:0013750), cerebral hemisphere white matter (UBERON:0002437; centrum semiovale), white matter (UBERON:0002316).
+- **Cells:** oligodendrocytes, mature oligodendrocytes, and the myelin sheath (GO cellular component "myelin sheath"; look up).
+- **Lateralization:** bilateral and symmetric.
+
+---
+
+## 8. Temporal Development
+
+- **Onset:** early childhood (seizures from about 32 months in Family A; ages 2–9 in Family B, with the mother affected at age 6). The Chinese proband had adult episodes from age 19, after febrile seizures in childhood.
+- **Pattern:** acute, starting within days of a febrile illness (day 4 of SARS-CoV-2 infection in PMID:35990002).
+- **Course:** episodic, relapsing and remitting. The disease does not progress between episodes. Up to five episodes have been reported in one patient.
+- **Duration of an episode:** a few days to about 1 week clinically. MRI normalized within days to 13 days (PMID:38155716).
+- **Critical window:** the febrile phase of infection.
+- **Remission:** spontaneous, or after steroid treatment.
+
+---
+
+## 9. Inheritance and Population
+
+- **Inheritance:** autosomal dominant (HP:0000006). Three-generation transmission is documented.
+- **Penetrance:** incomplete. Verified quote from PMID:38155716: *"His father, aunt, and grandmother all carry the same variant in the MYRF gene, despite having no history of recursive neurological symptoms or cognitive deterioration."* (Note: the cached sentence says "His", although the proband is described elsewhere in the paper as female. Check this against the full text before quoting.)
+- **Expressivity:** variable. It ranges from a single childhood febrile seizure, to adult speech dysfluency, to five or more full encephalopathy episodes.
+- **Founder effect:** suggested in the two Japanese families (OMIM, from Kurahashi et al.).
+- **Epidemiology:** ultra-rare. About 9 individuals in the two Japanese families (4 definite, 5 suspected affected according to OMIM), plus the Saito 2022 patient (one of the original family members followed up) and the Chinese family (2023). There is no prevalence figure.
+- **Populations:** Japanese and Chinese so far. This probably reflects ascertainment bias, since MERS is recognized most often in East Asia.
+- **Sex ratio:** both sexes affected.
+- **Anticipation, consanguinity:** not reported.
+
+---
+
+## 10. Diagnostics
+
+- **Neuroimaging (the key test):** brain MRI during an episode shows symmetric diffusion-weighted hyperintensity with low ADC in the corpus callosum and centrum semiovale, and follow-up imaging shows it resolving. Suggested NCIT term: NCIT:C16809 Magnetic Resonance Imaging (already in the entry). Repeat MRI to document reversal is required for the diagnosis.
+- **EEG:** may show slowing during an episode (Kurahashi et al. used EEG; the details are in the full text).
+- **Laboratory:** cerebrospinal fluid is generally unremarkable. Serum sodium is normal, unlike in many sporadic MERS cases. Infectious workup identifies the trigger. Mitochondrial DNA testing was negative in the Chinese proband.
+- **Genetic testing:** exome sequencing found the gene. Targeted *MYRF* sequencing, or a leukoencephalopathy or epilepsy panel that includes *MYRF*, is appropriate for familial or recurrent MERS. Testing of relatives (cascade testing) is reasonable. Suggested NCIT term: NCIT:C15709 Genetic Testing (already in the entry).
+  > "The definitive diagnosis of MMERV can be confirmed through genetic analysis." (PMID:38155716, verified)
+- **Diagnostic criteria:** none formal. In practice: familial or recurrent MERS-like episodes, plus extensive reversible white matter diffusion restriction, plus a heterozygous *MYRF* variant.
+- **Differential diagnosis:**
+  - Sporadic MERS / CLOCCs (single episode, mostly splenial lesion, often hyponatremia)
+  - X-linked Charcot-Marie-Tooth disease type 1 (CMTX1, *GJB1*), which causes transient stroke-like white matter lesions
+  - Acute disseminated encephalomyelitis (ADEM)
+  - Acute necrotizing encephalopathy (*RANBP2*)
+  - Mitochondrial disease
+  - Toxic or metabolic leukoencephalopathy (for example, metronidazole)
+  - Persistent MYRF leukoencephalopathy (PMID:41190523)
+- **Screening:** none at the population level.
+
+---
+
+## 11. Outcome and Prognosis
+
+- **Mortality:** none reported.
+- **Recovery:** complete after each episode. OMIM states there are no permanent neurologic sequelae. The Saito patient recovered *"completely within a week"* (PMID:35990002, verified).
+- **Morbidity:** recurrent acute admissions. No cognitive decline was seen in follow-up up to adulthood.
+- **Prognostic factors:** unknown. Allelic variants outside the DNA-binding domain (G735D) can leave persistent lesions, which suggests that genotype affects reversibility.
+
+---
+
+## 12. Treatment
+
+No disease-specific therapy exists, and there are no trials.
+- **Corticosteroids (empirical):** intravenous methylprednisolone pulse, 1 g/day for 3 days (PMID:35990002), or a methylprednisolone 500 mg taper followed by oral prednisone (PMID:38155716). Suggested annotation: NCIT:C15986 Pharmacotherapy as `treatment_term`, with methylprednisolone (CHEBI term, look up) as `therapeutic_agent` and modality SMALL_MOLECULE. Recovery also happens spontaneously, so the benefit of steroids is unproven.
+  > "She was treated with a single course of intravenous methylprednisolone pulse therapy (1 g/day for 3 days), which resulted in an immediate improvement in her symptoms." (PMID:35990002, verified)
+- **Supportive care:** antiseizure medication for acute seizures, fever control, and treatment of the infection. Suggested NCIT term: NCIT:C15747 Supportive Care.
+- **Gene, cell, or RNA therapies; clinical trials:** none. No NCT or ICTRP records were found.
