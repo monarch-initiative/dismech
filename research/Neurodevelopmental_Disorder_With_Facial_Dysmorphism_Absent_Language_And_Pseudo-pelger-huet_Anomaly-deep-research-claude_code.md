@@ -731,3 +731,31 @@ Pharmacogenomic, gene, RNA and cell therapies are not available. A sterol-direct
 ## 15. Model organisms
 
 - **Mouse (IMPC, *Tmem147<sup>em1(IMPC)J</sup>* exon-deletion allele).** The IMPC summary lists significant phenotypes in three systems: mortality/aging, integument and growth/body region. The search summary reported **complete preweaning lethality in homozygotes**, abnormal body wall at E18.5, and nail anomalies in heterozygotes. The IMPC data table did not render in my fetch, so this lethality call must be checked on the IMPC viability page before it is curated.
+  - This is a **HUMAN_MODEL_MISMATCH** candidate: the null mouse appears to die, while humans with biallelic loss of function survive. Possible explanations include residual function of human alleles or species differences.
+- **Zebrafish.** tmem147 is expressed in early embryos. nicalin/Nomo antagonise Nodal signalling in mesendodermal patterning (Dettmer et al. 2010). *nomo* mutant zebrafish show craniofacial cartilage hypoplasia (ZFIN ZDB-PUB-181213-5, PMID:30539698), which is indirect support for a role of the complex in facial development. No *tmem147*-specific zebrafish mutant phenotype was found.
+- **Cell models.**
+  - HeLa RNAi knockdown: LBR and DHCR7 loss, cholesterol changes (PMID:32694168).
+  - HEK293 translocon biochemistry and cryo-EM (PMID:32820719).
+  - COS-1 overexpression of mutant proteins, and patient primary dermal fibroblasts (PMID:36044892).
+  - No iPSC-derived neurons or organoids have been reported. This is a clear gap for testing which branch (ER or nuclear envelope) drives the neurodevelopmental phenotype.
+
+---
+
+## Things to fix in the existing KB entry
+
+- **Abbreviation:** OMIM uses **NEDFLPH**; the entry's description says "NEDFLPA".
+- **Self-injury frequency:** the entry says 15/22 (68%); the paper says "15 individuals (65%)". Align with the source.
+- **Deprecated fields:** the entry still carries `updated_date` and the deprecated free-text `prevalence.percentage`. Convert to `measure_type: CASES_IN_LITERATURE` plus a `prevalence_class`.
+- **Possible additions:**
+  - the IMPC mouse as an `animal_models` record, once lethality is verified;
+  - the Dettmer 2010 nicalin–NOMO paper (PMID:20538592) as a reference;
+  - the DHCR7/cholesterol branch, either as an emerging hypothesis or as a knowledge gap.
+
+## Sources
+- Thomas Q et al. 2022, *AJHG*, PMID:36044892 — [PMC9606387](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9606387/)
+- Ghorashi T et al. 2023, *Neurogenetics*, PMID:37668766 — [scholarhub](https://scholarhub.vn/publication/:slug/2944755b-6e85-452a-bbc6-267b68c976ae)
+- Christodoulou A et al. 2020, *J Cell Sci*, PMID:32694168
+- McGilvray PT et al. 2020, *eLife*, PMID:32820719
+- Dettmer U et al. 2010, *J Biol Chem*, PMID:20538592 — [CIPSM](https://www.cipsm.de/publications/research-area-f/transmembrane-protein-147-tmem147-is-a-novel-component-of-the-nicalin-nomo-protein-complex), [TUM](https://portal.fis.tum.de/en/publications/transmembrane-protein-147-tmem147-is-a-novel-component-of-the-nic/)
+- [MedGen 1824005](https://ncbi.nlm.nih.gov/medgen/1824005) · [LOVD disease 07058](https://databases.lovd.nl/shared/diseases/07058) · [PanelApp TMEM147](https://nhsgms-panelapp.genomicsengland.co.uk/entities/TMEM147) · [GeneCards TMEM147](https://www.genecards.org/card/TMEM147)
+- [IMPC Tmem147 (MGI:1915011)](https://mousephenotype.org/data/genes/MGI:1915011) · [ZFIN tmem147](https://www.zfin.org/ZDB-GENE-040718-187) · [ZFIN nomo paper](https://www.zfin.org/ZDB-PUB-181213-5)
