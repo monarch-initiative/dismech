@@ -89547,7 +89547,8 @@ window.searchData = [
       "Lung Transplantation",
       "Mucolytic Therapy",
       "Macrolide Antibiotics",
-      "Biologic Therapies"
+      "Biologic Therapies",
+      "GLP-1 Receptor Agonist plus SGLT2 Inhibitor Combination"
     ],
     "environmental": [
       "Smoking",
@@ -89564,7 +89565,7 @@ window.searchData = [
     "num_phenotypes": 11,
     "num_pathophysiology": 14,
     "num_genes": 7,
-    "num_treatments": 11,
+    "num_treatments": 12,
     "causal_graph_edges": "25",
     "causal_graph_longest_path": "4"
   },
@@ -166332,6 +166333,7 @@ window.searchData = [
     ],
     "environmental": [],
     "biochemical": [
+      "Factor IX Activity",
       "Thrombin generation capacity"
     ],
     "source_file": "Hemophilia_B.yaml",
@@ -169225,6 +169227,130 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "21",
     "causal_graph_longest_path": "9"
+  },
+  {
+    "name": "Hereditary Hypophosphatemic Rickets with Hypercalciuria",
+    "disease_id": "MONDO:0009431",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary Hypophosphatemic Rickets",
+      "Metabolic Bone Disorders"
+    ],
+    "creation_date": "2026-10-11T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hereditary hypophosphatemic rickets with hypercalciuria (HHRH) is an autosomal recessive renal phosphate-wasting disorder caused by biallelic loss-of-function variants in SLC34A3, which encodes the proximal-tubule sodium-phosphate cotransporter NaPi-IIc (NPT2c). Reduced tubular phosphate reabsorption causes hypophosphatemia, rickets or osteomalacia, limb bowing, short stature, bone pain and muscle weakness. Unlike X-linked and other FGF23-mediated hypophosphatemias, FGF23 is normal or low, so hypophosphatemia raises calcitriol appropriately. The elevated calcitriol increases intestinal calcium absorption and suppresses parathyroid hormone, producing hypercalciuria, nephrocalcinosis and kidney stones. Kidney and bone phenotypes do not always coexist, and heterozygous carriers frequently show an intermediate biochemical phenotype with isolated hypercalciuria. Oral phosphate monotherapy is standard care; active vitamin D analogues, the mainstay in FGF23-mediated disease, are avoided because they worsen hypercalciuria.",
+    "pathophysiology": [
+      "Biallelic SLC34A3 Loss of Function",
+      "Renal Phosphate Wasting",
+      "Systemic Phosphate Depletion",
+      "FGF23-Independent Calcitriol Elevation",
+      "Calcitriol-Driven Calcium Hyperabsorption",
+      "Reduced PTH-Dependent Distal Tubular Calcium Reabsorption",
+      "Impaired Skeletal Mineralization"
+    ],
+    "cell_types": [
+      "epithelial cell of proximal tubule",
+      "enterocyte",
+      "distal convoluted tubule epithelial cell",
+      "osteoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0002306",
+      "CL:0000584",
+      "CL:1000849",
+      "CL:0000062"
+    ],
+    "biological_processes": [
+      "renal phosphate reabsorption",
+      "phosphate ion homeostasis",
+      "intestinal calcium absorption",
+      "bone mineralization"
+    ],
+    "phenotypes": [
+      "Hypophosphatemia",
+      "Hyperphosphaturia",
+      "Elevated circulating calcitriol",
+      "Hypercalciuria",
+      "Decreased circulating parathyroid hormone",
+      "Nephrocalcinosis",
+      "Nephrolithiasis",
+      "Rickets",
+      "Osteomalacia",
+      "Bowing of the legs",
+      "Short stature",
+      "Bone pain",
+      "Renal cyst",
+      "Fractures",
+      "Muscle weakness",
+      "Reduced bone mineral density"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Renal",
+      "Endocrine",
+      "Skeletal",
+      "Growth",
+      "Neuromuscular"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002148",
+      "HP:0003109",
+      "HP:0031415",
+      "HP:0002150",
+      "HP:0031817",
+      "HP:0000121",
+      "HP:0000787",
+      "HP:0002748",
+      "HP:0002749",
+      "HP:0002979",
+      "HP:0004322",
+      "HP:0002653",
+      "HP:0000107",
+      "HP:0002659",
+      "HP:0001324",
+      "HP:0004349"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "Biallelic SLC34A3 Pathogenic Variants",
+      "SLC34A1 Heterozygous Variant in Digenic Inheritance"
+    ],
+    "treatments": [
+      "Oral Phosphate Monotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum Phosphate",
+      "Tubular Phosphate Reabsorption (TRP and TmP/GFR)",
+      "FGF23",
+      "1,25-Dihydroxyvitamin D",
+      "Urinary Calcium Excretion",
+      "Intact Parathyroid Hormone",
+      "Serum Calcium",
+      "Alkaline Phosphatase"
+    ],
+    "source_file": "Hereditary_Hypophosphatemic_Rickets_with_Hypercalciuria.yaml",
+    "page_url": "../pages/disorders/Hereditary_Hypophosphatemic_Rickets_with_Hypercalciuria.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
+    "num_treatments": 1,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Hereditary intrinsic factor deficiency",
@@ -203083,6 +203209,136 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "KIF2A-related Complex Cortical Dysplasia",
+    "disease_id": "MONDO:0014170",
+    "category": "Mendelian",
+    "parents": [
+      "congenital nervous system disorder",
+      "hereditary neurological disease",
+      "neuronal migration disorder"
+    ],
+    "creation_date": "2026-10-13T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "KIF2A-related complex cortical dysplasia (CDCBM3) is a rare autosomal dominant malformation of cortical development caused by heterozygous, typically de novo missense variants in KIF2A, which encodes a kinesin-13 family member. Unlike most kinesins, KIF2A does not transport cargo: it uses ATP to depolymerize microtubule ends. Pathogenic variants cluster in and around the nucleotide-binding pocket of the motor domain, with recurrent hotspots at Ser317 and His321, and are expected to disrupt ATP binding or hydrolysis and therefore the microtubule-depolymerizing activity. The typical picture is classic posterior-predominant lissencephaly (agyria/pachygyria), closely resembling LIS1/PAFAH1B1 lissencephaly, combined with congenital or postnatal microcephaly, early-onset epilepsy including infantile spasms, and severe motor and cognitive impairment. Milder presentations with intellectual disability or developmental delay have been reported for variants just outside the core nucleotide-binding residues. In model systems the variants disturb several microtubule-dependent steps of corticogenesis: the multipolar-to-bipolar transition and positioning of projection neurons, interneuron migration, progenitor proliferation coupled to ciliogenesis, and neuronal survival.",
+    "pathophysiology": [
+      "KIF2A Motor-Domain Nucleotide-Pocket Disruption",
+      "Impaired Microtubule Depolymerization",
+      "Defective Neuronal Migration and Positioning",
+      "Progenitor Ciliogenesis and Cell-Cycle Coupling Defect",
+      "Increased Neuronal Apoptosis",
+      "Interneuron Inhibitory Synapse Formation Defect",
+      "Posterior-Predominant Classic Lissencephaly"
+    ],
+    "cell_types": [
+      "cortical neuron",
+      "migrating cortical neuron",
+      "cortical interneuron",
+      "cortical neural progenitor cell",
+      "cortical GABAergic interneuron"
+    ],
+    "cell_type_ids": [
+      "CL:0010012",
+      "CL:0000099",
+      "CL:0011020",
+      "CL:0010011"
+    ],
+    "biological_processes": [
+      "microtubule depolymerization",
+      "cerebral cortex radially oriented cell migration",
+      "cerebral cortex tangential migration",
+      "cilium disassembly",
+      "neural precursor cell proliferation",
+      "neuron apoptotic process",
+      "inhibitory synapse assembly"
+    ],
+    "phenotypes": [
+      "Lissencephaly",
+      "Anterior Subcortical Band Heterotopia",
+      "Microcephaly",
+      "Seizures",
+      "Infantile Spasms",
+      "Global Developmental Delay",
+      "Absent Speech",
+      "Intellectual Disability",
+      "Hypotonia",
+      "Dysplastic Corpus Callosum",
+      "Nystagmus",
+      "Microphthalmia",
+      "Persistent Hyperplastic Primary Vitreous",
+      "Laryngomalacia",
+      "Spastic Tetraplegia",
+      "Growth Delay",
+      "Scoliosis",
+      "Cortical Blindness",
+      "Thin Lips",
+      "Frontal Pachygyria"
+    ],
+    "phenotype_categories": [
+      "Nervous System",
+      "Eye",
+      "Respiratory",
+      "Growth",
+      "Musculoskeletal",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001339",
+      "HP:0032412",
+      "HP:0000252",
+      "HP:0001250",
+      "HP:0012469",
+      "HP:0011344",
+      "HP:0001344",
+      "HP:0001249",
+      "HP:0001252",
+      "HP:0006989",
+      "HP:0000639",
+      "HP:0000568",
+      "HP:0007968",
+      "HP:0001601",
+      "HP:0002510",
+      "HP:0001510",
+      "HP:0002650",
+      "HP:0100704",
+      "HP:0000233",
+      "HP:0001302"
+    ],
+    "frequencies": [
+      "4/4",
+      "3/4",
+      "4/9",
+      "5/9",
+      "3/9",
+      "2/9"
+    ],
+    "genes": [
+      "KIF2A"
+    ],
+    "treatments": [
+      "Anti-Seizure Medication",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "KIF2A-related_Complex_Cortical_Dysplasia.yaml",
+    "page_url": "../pages/disorders/KIF2A-related_Complex_Cortical_Dysplasia.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "KIF5B-Related Kyphomelic Dysplasia",
     "disease_id": null,
     "category": "Mendelian",
@@ -233684,6 +233940,116 @@ window.searchData = [
     "num_treatments": 9,
     "causal_graph_edges": "18",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Microcephaly, Facial Dysmorphism, Renal Agenesis, and Ambiguous Genitalia Syndrome",
+    "disease_id": "MONDO:0020647",
+    "category": "Mendelian",
+    "parents": [
+      "Multiple congenital anomalies syndrome",
+      "tRNA modification disorder"
+    ],
+    "creation_date": "2026-10-13T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive multiple congenital anomalies syndrome caused by biallelic loss-of-function variants in CTU2, the scaffold subunit of the cytosolic tRNA thiouridylase complex (CTU1-CTU2) that adds a 2-thio group to the wobble uridine (U34) of cytosolic tRNA-Lys(UUU), tRNA-Glu(UUC) and tRNA-Gln(UUG), completing the mcm5s2U modification together with Elongator. Patient cells lack wobble uridine thiolation. The acronym DREAM-PL names the features of the founding Saudi Arabian and Emirati families - dysmorphic facies, renal agenesis, ambiguous genitalia, microcephaly, polydactyly and lissencephaly - but later families show that only microcephaly and facial dysmorphism are near-constant; congenital heart defects, corpus callosum agenesis, seizures and developmental delay are common, while polydactyly and lissencephaly are seen in a minority. Many affected infants die in the first year, although survivors into childhood and adulthood are reported. Most reported patients are homozygous for the founder splice variant c.873G>A, which is apparently synonymous and is therefore easily filtered out of exome data. How a modification defect confined to three tRNAs produces this developmental pattern is not known.",
+    "pathophysiology": [
+      "Biallelic CTU2 Loss of Function",
+      "Loss of Cytosolic tRNA Wobble Uridine 2-Thiolation",
+      "Impaired Translational Decoding at Lys Glu and Gln Codons",
+      "Disrupted Embryonic Organogenesis"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "tRNA wobble position uridine thiolation",
+      "translation",
+      "brain development",
+      "kidney development",
+      "external genitalia morphogenesis"
+    ],
+    "phenotypes": [
+      "Microcephaly",
+      "Facial Dysmorphism",
+      "Micrognathia",
+      "Renal Agenesis",
+      "Ambiguous Genitalia",
+      "Lissencephaly",
+      "Agenesis of the Corpus Callosum",
+      "Congenital Heart Defects",
+      "Polydactyly",
+      "Talipes Equinovarus",
+      "Seizures",
+      "Developmental Delay",
+      "Hypotonia",
+      "Intrauterine Growth Restriction",
+      "Hearing Impairment",
+      "Microphthalmia",
+      "Chorioretinal Coloboma"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Craniofacial",
+      "Renal",
+      "Genitourinary",
+      "Cardiovascular",
+      "Skeletal",
+      "Growth",
+      "Sensory",
+      "Ocular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011451",
+      "HP:0001999",
+      "HP:0000347",
+      "HP:0000104",
+      "HP:0000062",
+      "HP:0001339",
+      "HP:0001274",
+      "HP:0001627",
+      "HP:0010442",
+      "HP:0001762",
+      "HP:0001250",
+      "HP:0001263",
+      "HP:0001290",
+      "HP:0001511",
+      "HP:0000365",
+      "HP:0000568",
+      "HP:0000567"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "CTU2"
+    ],
+    "treatments": [
+      "Supportive Multidisciplinary Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Microcephaly_Facial_Dysmorphism_Renal_Agenesis_And_Ambiguous_Genitalia_Syndrome.yaml",
+    "page_url": "../pages/disorders/Microcephaly,_Facial_Dysmorphism,_Renal_Agenesis,_and_Ambiguous_Genitalia_Syndrome.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Microcephaly, Growth Restriction, and Increased Sister Chromatid Exchange 2",
@@ -269713,6 +270079,109 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "POLD2-related Combined Immunodeficiency",
+    "disease_id": "MONDO:1010175",
+    "category": "Mendelian",
+    "parents": [
+      "Combined Immunodeficiency",
+      "Inborn Errors of Immunity"
+    ],
+    "creation_date": "2026-10-13T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "POLD2-related combined immunodeficiency is the syndromic combined immunodeficiency caused by a biallelic hypomorphic variant in POLD2, the structural accessory subunit of DNA polymerase delta. One patient is published: P1 of the 2019 series that first described human polymerase delta deficiency, a boy from a consanguineous family homozygous for p.Asp293Asn in the POLD2 phosphodiesterase domain.\nPOLD2 is the scaffold of the polymerase delta heterotetramer, contacting both the catalytic subunit POLD1 and the accessory subunit POLD3. The p.Asp293Asn protein is unstable and binds POLD1 and POLD3 poorly, so the patient's cells carry less of all three subunits, although the mutant complex keeps normal polymerase activity when assembled in vitro. The disease therefore follows from too little polymerase delta, not from a less active enzyme. That separates it from the POLD1 form (IMD120), where the compound heterozygous alleles lower catalytic activity with the complex intact.\nLess polymerase delta limits replication origin firing and slows progression through S phase. The patient's fibroblasts show persistent replication stress with checkpoint activation at steady state, increased double-strand-break foci and 53BP1 nuclear bodies in G1, all of which were reversed by re-expressing wild-type POLD2. Repair of exogenous DNA damage was preserved. Lymphocytes, which must expand rapidly on demand, show the clearest functional failure: T cells from the patient proliferate poorly after stimulation and most remain in G1.\nClinically the patient had recurrent respiratory infections from infancy leading to bronchiectasis by six months, chronic facial molluscum contagiosum, recurrent skin abscesses, CD4+ T, B and NK cell lymphopenia, short stature and severe intellectual disability with speech impairment, attention deficit and hyperactivity. Intravenous immunoglobulin with antibacterial and antifungal prophylaxis reduced the infections.",
+    "pathophysiology": [
+      "Biallelic Hypomorphic POLD2 Variant",
+      "Destabilisation of the Polymerase Delta Complex",
+      "Reduced Replication Origin Firing and Slowed S-Phase Progression",
+      "Replication Stress and Replication-Associated DNA Lesions",
+      "Impaired T Cell Proliferation",
+      "Combined Cellular and Humoral Immune Deficiency",
+      "Syndromic Growth and Neurodevelopmental Features"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "T cell",
+      "lymphocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000084",
+      "CL:0000542"
+    ],
+    "biological_processes": [
+      "DNA replication initiation",
+      "DNA damage checkpoint signaling",
+      "DNA damage response",
+      "T cell proliferation"
+    ],
+    "phenotypes": [
+      "Recurrent Respiratory Infections",
+      "Bronchiectasis",
+      "Persistent Molluscum Contagiosum",
+      "Recurrent Cutaneous Abscesses",
+      "Combined Immunodeficiency",
+      "CD4+ T Cell Lymphopenia",
+      "Decreased B Cell Count",
+      "Reduced NK Cell Count",
+      "Increased CD8+ TEMRA T Cell Proportion",
+      "Decreased Mitogen-Induced T Cell Proliferation",
+      "Short Stature",
+      "Severe Intellectual Disability",
+      "Hyperactivity"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Integumentary",
+      "Immune",
+      "Growth",
+      "Nervous System"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002205",
+      "HP:0002110",
+      "HP:5210309",
+      "HP:0031292",
+      "HP:0005387",
+      "HP:5210418",
+      "HP:0010976",
+      "HP:0040218",
+      "HP:0500265",
+      "HP:0031381",
+      "HP:0004322",
+      "HP:0010864",
+      "HP:0000752"
+    ],
+    "frequencies": [],
+    "genes": [
+      "POLD2"
+    ],
+    "treatments": [
+      "Immunoglobulin Replacement Therapy",
+      "Antibacterial and Antifungal Prophylaxis"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "POLD2-related_Combined_Immunodeficiency.yaml",
+    "page_url": "../pages/disorders/POLD2-related_Combined_Immunodeficiency.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "POLR-Related Leukodystrophy",
@@ -324811,7 +325280,8 @@ window.searchData = [
       "Blood-feeding hookworms cause iron deficiency anemia",
       "Trichuris anterior-end embedding in colonic mucosa",
       "Colonic mucosal mechanical and chemical injury",
-      "Chronic intestinal blood loss"
+      "Chronic intestinal blood loss",
+      "Ascaris worm intestinal obstruction"
     ],
     "cell_types": [],
     "cell_type_ids": [],
@@ -324819,7 +325289,8 @@ window.searchData = [
     "phenotypes": [
       "Anemia",
       "Rectal Prolapse",
-      "Growth delay"
+      "Growth delay",
+      "Intestinal obstruction"
     ],
     "phenotype_categories": [
       "Hematologic",
@@ -324834,7 +325305,8 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0001903",
       "HP:0002035",
-      "HP:0001510"
+      "HP:0001510",
+      "HP:0005214"
     ],
     "frequencies": [],
     "genes": [],
@@ -324845,11 +325317,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Soil_Transmitted_Helminthiases.yaml",
     "page_url": "../pages/disorders/Soil-transmitted_helminthiases.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 1,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "6",
     "causal_graph_longest_path": "3"
   },
   {
@@ -365639,17 +366111,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3389,
+  "total_disorder_pages": 3393,
   "total_subtypes": 4717,
-  "total_disorders_and_subtypes": 8106,
-  "total_unique_evidence_sources": 51069,
-  "total_unique_publications": 47591,
+  "total_disorders_and_subtypes": 8110,
+  "total_unique_evidence_sources": 51105,
+  "total_unique_publications": 47626,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 299,
-  "total_pathographs": 3385,
-  "total_unique_pathological_events": 22379,
+  "total_pathographs": 3389,
+  "total_unique_pathological_events": 22401,
   "total_modules": 192,
-  "total_research_reports": 3506,
+  "total_research_reports": 3510,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
