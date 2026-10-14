@@ -83,7 +83,7 @@ challenge summary.
 | 17 | Organoid Modeling of RA Joints (Rao, Brigham and Women's) | None found | `Rheumatoid_Arthritis` (0) | `ORGANOID` / `namo:Organoid` | Carries the lesion (patient cells, per the proposal) | No paper yet |
 | 18 | Population Diversity in Vaccine Responses (Pompano, UVA) | PMID:39661075, a multi-compartment chip with murine lymph node slices; no brain or adipose compartment, no infection | none | `OTHER` (ex vivo slice) / none | No disease | Does not fit yet |
 | 19 | Pregnancy on Chip (Menon, UTMB) | PMID:33112317, four-chamber feto-maternal interface organ-on-chip (decidua, chorion, amnion) with LPS as ascending infection. Also PMID:41106448, environmental chemicals linked to preterm birth | `Chorioamnionitis` (0) or `Preterm_Premature_Rupture_of_the_Membranes` (0) | `ORGAN_ON_CHIP` / `namo:OrganOnChip` | Exposure that causes the disease (LPS for infection); risk-factor exposure for the chemicals paper | Fits |
-| 20 | Pulse of the Future: AI-human MEHC (Yang, North Texas) | Only the image-analysis software (PMID:37672553, Organalysis) and a cardiomyocyte micropattern study (PMID:38699629). No disease model found | none | `IPSC_DERIVED_MODEL` / `namo:Organoid` | No disease | Does not fit yet |
+| 20 | Pulse of the Future: AI-human MEHC (Yang, North Texas) | Only the image-analysis software (PMID:37672553, Organalysis) and a cardiomyocyte micropattern study (PMID:38699629). No disease model found | none | `IPSC_DERIVED_MODEL` / none | No disease | Does not fit yet |
 
 ## Notes on individual rows
 
@@ -139,8 +139,8 @@ Two things here are not in the inventory:
   decidua, chorion and amnion, or a joint with bone, cartilage, synovium and
   fat, records one tissue.
 - **Models with no disease.** Five winners published a platform with no
-  disease in it (rows 1, 14, 16, 18 and 20). Under #13602's framing these are not fringe models but not
-  models of a disease at all, which supports the suggestion in that thread of a
+  disease in it (rows 1, 14, 16, 18 and 20). Under #13602's framing these are not fringe disease
+  models; they are not disease models at all, which supports the suggestion in that thread of a
   verdict for "belongs somewhere other than a disease entry".
 
 ## Follow-up curation
