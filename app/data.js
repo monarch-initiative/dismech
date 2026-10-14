@@ -66844,6 +66844,107 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "CNGA1-Related Retinopathy",
+    "disease_id": "MONDO:0800405",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-10-14T15:02:40Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "CNGA1-related retinopathy is an autosomal recessive rod-cone dystrophy (retinitis pigmentosa 49) caused by biallelic pathogenic variants in CNGA1, which encodes the alpha subunit of the cGMP-gated cation channel in the rod outer-segment plasma membrane. The rod channel is a heterotetramer of three CNGA1 subunits and one CNGB1 subunit and carries the dark current that light closes. Most reported alleles are truncating or frameshift variants; characterized missense alleles reduce channel abundance at the plasma membrane or impair channel function. Loss of the channel abolishes rod light responses, so night blindness typically begins in early childhood and the rod electroretinogram is severely reduced or nonrecordable. Rods then degenerate, producing progressive peripheral field constriction, bone-spicule pigmentation, vascular attenuation and optic disc pallor, followed by secondary cone loss. Central acuity is often preserved until the fourth decade, which has made the disease a candidate for gene augmentation. Epiretinal membrane, cystoid macular change and cataract are common accompanying findings. CNGA1 variants are an uncommon cause of autosomal recessive retinitis pigmentosa in the original North American screen but are more frequent in East Asian cohorts, where a recurrent frameshift allele predominates.",
+    "pathophysiology": [
+      "Biallelic CNGA1 Loss of Function",
+      "Defective Rod CNG Channel Membrane Expression",
+      "Loss of Rod Light Responses",
+      "Rod cGMP Accumulation",
+      "Progressive Rod Photoreceptor Degeneration",
+      "Secondary Cone Degeneration"
+    ],
+    "cell_types": [
+      "retinal rod cell",
+      "microglial cell",
+      "retinal cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000604",
+      "CL:0000129",
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "phototransduction",
+      "microglial cell activation",
+      "chaperone-mediated autophagy"
+    ],
+    "phenotypes": [
+      "Nyctalopia",
+      "Rod-cone dystrophy",
+      "Undetectable electroretinogram",
+      "Constriction of peripheral visual field",
+      "Spicular pigmentation of the retina",
+      "Attenuation of retinal blood vessels",
+      "Optic disc pallor",
+      "Perifoveal ring of hyperautofluorescence",
+      "Reduced visual acuity",
+      "Macular atrophy",
+      "Epiretinal membrane",
+      "Cystoid macular edema",
+      "Cataract",
+      "Myopia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000662",
+      "HP:0000510",
+      "HP:0000550",
+      "HP:0001133",
+      "HP:0007737",
+      "HP:0007843",
+      "HP:0000543",
+      "HP:0030629",
+      "HP:0007663",
+      "HP:0007401",
+      "HP:0100014",
+      "HP:0011505",
+      "HP:0000518",
+      "HP:0000545"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "CNGA1"
+    ],
+    "treatments": [
+      "AAV-Mediated CNGA1 Gene Augmentation Therapy",
+      "Genetic counseling",
+      "Low-vision rehabilitation",
+      "Carbonic anhydrase inhibition for cystoid macular edema",
+      "Cataract surgery when visually significant"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CNGA1-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/CNGA1-Related_Retinopathy.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "CNGB1-Related Retinopathy",
     "disease_id": "MONDO:0800403",
     "category": "Mendelian",
@@ -72388,6 +72489,103 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "40",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "CYLD Cutaneous Syndrome",
+    "disease_id": "MONDO:0011512",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary neoplastic syndrome"
+    ],
+    "creation_date": "2026-10-13T20:32:52Z",
+    "updated_date": null,
+    "subtypes": [
+      "FC",
+      "MFT1"
+    ],
+    "description": "CYLD cutaneous syndrome is the autosomal dominant skin adnexal tumor predisposition caused by heterozygous germline loss-of-function variants in CYLD at 16q12-q13, which encodes a deubiquitinase that removes K63-linked polyubiquitin from signalling intermediates and restrains NF-kappaB and Wnt/beta-catenin signalling. Carriers develop multiple cylindromas, spiradenomas, spiradenocylindromas and trichoepitheliomas, chiefly on the scalp and face but also on the trunk and in sun-protected genital and axillary skin. The first tumor typically appears around puberty and tumors accumulate through adulthood; in the most severe cases confluent scalp tumors (\"turban tumor\") lead to total scalp removal. Each tumor completes a second hit at CYLD, most often by loss of heterozygosity of 16q. Tumors overexpress TRKB/TRKC and MYB, which are candidate therapeutic targets. Brooke-Spiegler syndrome, familial cylindromatosis and multiple familial trichoepithelioma were described as separate disorders, but the same germline CYLD variant produces more than one of these presentations within a family, so they are curated here as one entity with phenotypic variants recorded as subtypes. The GeneReviews chapter uses the inclusive name CYLD cutaneous syndrome, which is the name of this entry; MONDO and ClinGen label the concept Brooke-Spiegler syndrome. Rare manifestations are salivary gland membranous basal cell adenoma, pulmonary (large-airway) cylindromas and malignant transformation of a preexisting benign tumor.",
+    "pathophysiology": [
+      "Germline CYLD First-Hit Inactivation",
+      "Somatic CYLD Second-Hit Inactivation",
+      "Biallelic CYLD Loss in Adnexal Keratinocytes",
+      "Impaired DNA Damage-Induced p53 Stabilization",
+      "NF-kappaB Pathway Derepression",
+      "Wnt-beta-Catenin Pathway Hyperactivation",
+      "TRK Receptor Signalling Upregulation",
+      "MYB Oncogenic Transcription Program Activation",
+      "Clonal Expansion of CYLD-Null Adnexal Tumor Cells"
+    ],
+    "cell_types": [
+      "hair follicle keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:2000092"
+    ],
+    "biological_processes": [
+      "DNA damage-induced p53 signalling",
+      "canonical NF-kappaB signal transduction",
+      "apoptotic process",
+      "canonical Wnt signaling pathway",
+      "neurotrophin TRK receptor signaling pathway",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Multiple Skin Appendage Tumors",
+      "Cylindroma",
+      "Spiradenoma",
+      "Trichoepithelioma",
+      "Salivary Gland Membranous Basal Cell Adenoma",
+      "Pulmonary Cylindromas",
+      "Malignant Transformation of Adnexal Tumors",
+      "Conductive Hearing Impairment"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Otologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Head and Neck",
+      "Integument",
+      "Neoplasm",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0012842",
+      "HP:0031024",
+      "HP:0025367",
+      "HP:6000007",
+      "HP:0034637",
+      "HP:0000405"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "VERY_RARE",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "CYLD"
+    ],
+    "treatments": [
+      "Surgical Excision of Tumors",
+      "Hyfrecation or Laser Ablation of Small Tumors",
+      "Dermatologic Surveillance",
+      "Avoidance of Radiotherapy",
+      "Topical Pegcantratinib (investigational)",
+      "Topical Salicylic Acid (investigational)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CYLD_Cutaneous_Syndrome.yaml",
+    "page_url": "../pages/disorders/CYLD_Cutaneous_Syndrome.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Cadmium Poisoning",
@@ -97680,6 +97878,9 @@ window.searchData = [
     "phenotypes": [
       "Cone/cone-rod dystrophy",
       "Reduced visual acuity",
+      "Photophobia",
+      "Abnormal light-adapted electroretinogram",
+      "Abnormal dark-adapted electroretinogram",
       "Color vision defect",
       "Nyctalopia",
       "Constriction of peripheral visual field"
@@ -97688,11 +97889,15 @@ window.searchData = [
       "Ophthalmologic"
     ],
     "phenotype_hpo_categories": [
-      "Eye"
+      "Eye",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0000548",
       "HP:0007663",
+      "HP:0000613",
+      "HP:0008275",
+      "HP:0030469",
       "HP:0000551",
       "HP:0000662",
       "HP:0001133"
@@ -97709,11 +97914,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Cone-rod_Dystrophy_10.yaml",
     "page_url": "../pages/disorders/Cone-rod_dystrophy_10.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 8,
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "18",
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "7"
   },
   {
@@ -140334,6 +140539,93 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "23",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Familial Erythrocytosis 4",
+    "disease_id": "MONDO:0012729",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital Secondary Erythrocytosis"
+    ],
+    "creation_date": "2026-10-14T15:02:40Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Familial erythrocytosis 4 (ECYT4) is an autosomal dominant congenital secondary erythrocytosis caused by heterozygous germline gain-of-function missense variants in EPAS1, the gene encoding hypoxia-inducible factor 2 alpha (HIF-2-alpha). The reported variants cluster in exon 12, close to Pro531, the prolyl-hydroxyl-acceptor residue of HIF-2-alpha (for example G537W, G537R, M535V, M535I, M535T and P534L). In normoxia the prolyl hydroxylase domain protein 2 (PHD2) hydroxylates Pro531, which lets the von Hippel-Lindau protein recognise HIF-2-alpha and target it for proteasomal degradation; the erythrocytosis variants impair that hydroxylation and VHL binding, so HIF-2-alpha escapes degradation and is aberrantly stabilised despite adequate oxygen (pseudohypoxia). Stabilised HIF-2-alpha drives transcription of the erythropoietin gene, so serum erythropoietin is inappropriately normal or frankly elevated for the haemoglobin and red cell mass rises. Patients present at a young age with an isolated erythrocytosis: haemoglobin and haematocrit are raised while white cell and platelet counts are normal. Beyond the red cell mass, carriers are at increased risk of pulmonary hypertension and of arterial and venous thrombosis (stroke, infarction, pulmonary embolism). Unlike the somatic mosaic EPAS1 disorder Pacak-Zhuang syndrome, germline ECYT4 does not carry the paraganglioma/pheochromocytoma and somatostatinoma predisposition, and unlike Chuvash polycythemia (germline VHL) and EGLN1/PHD2-related erythrocytosis, the lesion here is a direct gain of function of HIF-2-alpha rather than loss of one of its negative regulators. Management is supportive (phlebotomy, low-dose aspirin/anticoagulation); HIF-2-alpha inhibition with belzutifan has been reported to normalise the erythrocytosis.",
+    "pathophysiology": [
+      "Germline EPAS1/HIF-2-alpha Gain-of-Function Variant",
+      "HIF-2-alpha Escape from Degradation and Stabilization",
+      "Inappropriate Erythropoietin Transcription",
+      "Erythroid Progenitor Expansion",
+      "Pulmonary Vascular Remodeling and Hypertension"
+    ],
+    "cell_types": [
+      "EPO-producing kidney interstitial fibroblast",
+      "erythroid progenitor cell",
+      "pulmonary artery smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:1000692",
+      "CL:0000038",
+      "CL:0002591"
+    ],
+    "biological_processes": [
+      "HIF-mediated hypoxia response in normoxia",
+      "cellular response to hypoxia driving EPO transcription",
+      "erythrocyte differentiation",
+      "pulmonary vasoconstriction"
+    ],
+    "phenotypes": [
+      "Polycythemia",
+      "Increased circulating hemoglobin concentration",
+      "Increased hematocrit",
+      "Elevated circulating erythropoietin concentration",
+      "Pulmonary arterial hypertension",
+      "Thromboembolism",
+      "Ischemic stroke"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Cardiovascular",
+      "Vascular",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Endocrine",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001901",
+      "HP:0001900",
+      "HP:0001899",
+      "HP:0033644",
+      "HP:0002092",
+      "HP:0001907",
+      "HP:0002140"
+    ],
+    "frequencies": [
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "EPAS1 germline gain-of-function"
+    ],
+    "treatments": [
+      "Therapeutic phlebotomy",
+      "Low-dose aspirin and antithrombotic prophylaxis",
+      "HIF-2-alpha inhibition (belzutifan)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Familial_Erythrocytosis_4.yaml",
+    "page_url": "../pages/disorders/Familial_Erythrocytosis_4.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Familial Expansile Osteolysis",
@@ -252658,6 +252950,82 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Neurocardiorenal Malformation Syndrome",
+    "disease_id": "MONDO:0980704",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-14T17:36:29Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Neurocardiorenal malformation syndrome is an autosomal recessive syndromic neurodevelopmental disorder caused by biallelic variants in TM2D3, which encodes a transmembrane protein of the conserved TM2 domain family. The defining report describes four affected individuals from four unrelated families with microcephaly, severe global developmental delay with absent speech, autistic features, heart malformation and dysmorphic facial features. The OMIM synopsis of the same report adds renal malformations, which is where the name comes from.\nTwo mechanistic strands are recorded, and they rest on different kinds of evidence. The one demonstrated in patient material is endoplasmic reticulum (ER) dysfunction: TM2D3 is an ER protein, and patient fibroblasts and TM2D3-knockout cells show a dysregulated ER-stress response, ER swelling, secondary mitochondrial ultrastructural changes, and altered expression of extracellular matrix genes. The second strand is Notch signaling. The fly orthologue almondex is a classical maternal-effect neurogenic gene required for Notch signaling, and Tm2d3-deficient mouse cells present less Notch1 and Notch2 at the cell surface. Whether reduced Notch signaling contributes to the human malformations has not been tested in patients, so it is carried as an emerging hypothesis rather than as the disease mechanism.",
+    "pathophysiology": [
+      "TM2D3 Biallelic Loss of Function",
+      "Dysregulated Endoplasmic Reticulum Stress Response",
+      "Endoplasmic Reticulum Swelling",
+      "Secondary Mitochondrial Ultrastructural Alterations",
+      "Altered Extracellular Matrix Gene Expression",
+      "Reduced Notch Receptor Surface Presentation"
+    ],
+    "cell_types": [
+      "skin fibroblast",
+      "embryonic fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0002620",
+      "CL:2000042"
+    ],
+    "biological_processes": [
+      "response to endoplasmic reticulum stress",
+      "endoplasmic reticulum organization",
+      "mitochondrion organization",
+      "protein localization to plasma membrane",
+      "Notch signaling pathway"
+    ],
+    "phenotypes": [
+      "Microcephaly",
+      "Severe global developmental delay",
+      "Absent speech",
+      "Autistic features",
+      "Heart malformation",
+      "Dysmorphic facial features"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Cardiovascular",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000252",
+      "HP:0011344",
+      "HP:0001344",
+      "HP:0000729",
+      "HP:0001627",
+      "HP:0001999"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TM2D3"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurocardiorenal_Malformation_Syndrome.yaml",
+    "page_url": "../pages/disorders/Neurocardiorenal_Malformation_Syndrome.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Neurodegeneration Childhood-onset With Cerebellar Atrophy",
     "disease_id": "MONDO:0032650",
     "category": "Mendelian",
@@ -293975,6 +294343,176 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "27",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Proximal Myopathy With Extrapyramidal Signs",
+    "disease_id": "MONDO:0014300",
+    "category": "Mendelian",
+    "parents": [
+      "myopathy",
+      "movement disorder",
+      "hereditary skeletal muscle disorder",
+      "hereditary neurological disease"
+    ],
+    "creation_date": "2026-10-14T15:02:40Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive neuromuscular disorder caused by biallelic loss-of-function variants in MICU1, the calcium-sensing gatekeeper subunit of the mitochondrial calcium uniporter. Onset is usually in early childhood, with proximal muscle weakness, easy fatigability, motor and speech delay, learning difficulties and a persistently raised serum creatine kinase with normal lactate. Many patients develop a progressive extrapyramidal movement disorder (chorea, tremor, dystonia), and variable features include ataxia, hyporeflexia, raised liver transaminases, short stature, microcephaly, nystagmus, cataract and optic atrophy. Loss of MICU1 removes the calcium threshold and cooperative activation of the uniporter, so mitochondria take up calcium at resting cytosolic concentrations and fail to boost uptake during muscle activity, leading to mitochondrial calcium overload and fragmentation, impaired muscle energetics and sarcolemmal repair, and vulnerability of neurons to calcium overload-induced death.",
+    "pathophysiology": [
+      "MICU1 Biallelic Loss of Function",
+      "Loss of Uniporter Calcium Threshold and Cooperative Activation",
+      "Resting Mitochondrial Calcium Overload",
+      "Mitochondrial Network Fragmentation",
+      "Impaired Mitochondrial Calcium Uptake During Muscle Activity",
+      "Impaired Muscle Aerobic Metabolism",
+      "Defective Sarcolemmal Repair",
+      "Activity-Induced Myofiber Damage",
+      "Impaired Satellite Cell-Mediated Muscle Regeneration",
+      "Neuronal Susceptibility to Calcium Overload-Induced Death",
+      "Progressive Neurodegeneration"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "skeletal muscle fiber",
+      "skeletal muscle satellite cell",
+      "neuron",
+      "motor neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0008002",
+      "CL:0000594",
+      "CL:0000540",
+      "CL:0000100"
+    ],
+    "biological_processes": [
+      "calcium import into the mitochondrion",
+      "mitochondrial calcium ion homeostasis",
+      "mitochondrial fission",
+      "aerobic respiration",
+      "plasma membrane repair",
+      "skeletal muscle satellite cell activation",
+      "skeletal muscle tissue regeneration",
+      "positive regulation of mitochondrial membrane permeability"
+    ],
+    "phenotypes": [
+      "Proximal muscle weakness",
+      "Progressive extrapyramidal movement disorder",
+      "Chorea",
+      "Tremor",
+      "Dystonia",
+      "Learning difficulties",
+      "Motor delay",
+      "Delayed speech and language development",
+      "Easy fatigability",
+      "Episodic fatigue and lethargy",
+      "Exercise-induced myalgia",
+      "Elevated serum creatine kinase",
+      "Elevated hepatic transaminases",
+      "Ataxia",
+      "Hyporeflexia",
+      "Hypotonia",
+      "Short stature",
+      "Failure to thrive",
+      "Microcephaly",
+      "Nystagmus",
+      "Cataract",
+      "Optic atrophy",
+      "Ptosis",
+      "Strabismus",
+      "Attention deficits",
+      "Increased variability in muscle fiber diameter",
+      "Centrally nucleated skeletal muscle fibers",
+      "Orofacial dyskinesia",
+      "Progressive extrapyramidal muscular rigidity",
+      "Ophthalmoplegia",
+      "Peripheral axonal neuropathy",
+      "Calf muscle hypertrophy",
+      "Abnormal mitochondria in muscle"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Neurologic",
+      "Laboratory",
+      "Hepatic",
+      "Growth",
+      "Craniofacial",
+      "Ophthalmologic",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Cellular",
+      "Constitutional",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003701",
+      "HP:0007153",
+      "HP:0002072",
+      "HP:0001337",
+      "HP:0001332",
+      "HP:0001249",
+      "HP:0001270",
+      "HP:0000750",
+      "HP:0003388",
+      "HP:0001254",
+      "HP:0003738",
+      "HP:0003236",
+      "HP:0002910",
+      "HP:0001251",
+      "HP:0001265",
+      "HP:0001252",
+      "HP:0004322",
+      "HP:0001508",
+      "HP:0000252",
+      "HP:0000639",
+      "HP:0000518",
+      "HP:0000648",
+      "HP:0000508",
+      "HP:0000486",
+      "HP:0000736",
+      "HP:0003557",
+      "HP:0003687",
+      "HP:0002310",
+      "HP:0007158",
+      "HP:0000602",
+      "HP:0003477",
+      "HP:0008981",
+      "HP:0008316"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "MICU1"
+    ],
+    "treatments": [
+      "Physical, Speech and Occupational Therapy",
+      "Supportive Care",
+      "Levocarnitine and Glutathione Supplementation",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum creatine kinase",
+      "Serum lactate"
+    ],
+    "source_file": "Proximal_Myopathy_With_Extrapyramidal_Signs.yaml",
+    "page_url": "../pages/disorders/Proximal_Myopathy_With_Extrapyramidal_Signs.html",
+    "num_phenotypes": 33,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Proximal tubulopathy-diabetes mellitus-cerebellar ataxia syndrome",
@@ -368315,17 +368853,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3413,
-  "total_subtypes": 4722,
-  "total_disorders_and_subtypes": 8135,
-  "total_unique_evidence_sources": 51430,
-  "total_unique_publications": 47941,
+  "total_disorder_pages": 3418,
+  "total_subtypes": 4724,
+  "total_disorders_and_subtypes": 8142,
+  "total_unique_evidence_sources": 51513,
+  "total_unique_publications": 48018,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 299,
-  "total_pathographs": 3409,
-  "total_unique_pathological_events": 22530,
+  "total_pathographs": 3414,
+  "total_unique_pathological_events": 22562,
   "total_modules": 192,
-  "total_research_reports": 3533,
+  "total_research_reports": 3539,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
