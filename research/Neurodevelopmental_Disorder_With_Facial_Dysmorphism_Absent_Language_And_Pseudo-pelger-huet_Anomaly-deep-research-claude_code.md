@@ -573,3 +573,63 @@ Denominators are from the founding cohort (n = 23) unless stated otherwise. Onse
 | Secondary (postnatal) microcephaly | HP:0005484 | 4/23 | "four presented isolated microcephaly that was not present at birth" [full text] |
 | Hypotonia | HP:0001252 | 3 (14%) | "three individuals (14%) presented with hypotonia, two had tonic seizures (9%)" [full text] |
 | Tonic seizures | HP:0032792 | 2 (9%) | same |
+| Mirror movements (transient) | HP:0001335 | 1 | same |
+| Spasticity | HP:0001257 | 2/2 in the 2023 family | "featured spasticity as a phenotypic expansion" — PMID:37668766 [abstract] |
+| Patent foramen ovale; atrial septal defect; patent ductus arteriosus | HP:0001655; HP:0001631; HP:0001643 | 2/11, 1/11, 1/11 on echo | "two presented a patent foramen ovale, one presented an atrial septum defect, and one a large patent ductus arteriosus" [full text] |
+
+**Quality of life.** There are no formal QoL data (EQ-5D, PedsQL). The main burdens come from profound ID, lack of functional speech, and self-injurious behaviour.
+
+## 4. Genetic and molecular information
+
+- **Gene:** *TMEM147*, a ~22 kDa protein with seven transmembrane helices, located at 19q13.12. The 2023 report uses transcript NM_001242597.2.
+- **Variant spectrum.** The founding cohort reported 12 variants: "stop-gain (3/12), frameshift (4/12), missense (3/12), and splice-site variants (2/12)" [full text]. The 2023 report added a 13th, the frameshift NM_001242597.2:c.193_197del.
+  - Examples cited in full text and in the KB: c.100_118del (p.Lys34Serfs*33); c.540_543dup (p.Val182Leufs*66); c.344+5G>A (exon 4 skipping); c.345-1G>T; p.Tyr162*; missense p.Gly7Arg, p.Ile133Asn, p.Arg166Trp.
+- **Functional consequence: loss of function.**
+  - Truncating alleles are predicted to undergo nonsense-mediated decay.
+  - Missense proteins localise correctly but are unstable: "accelerated degradation of TMEM147 mutant proteins occurs via the autophagy-lysosomal pathway" [full text]. Bafilomycin rescues their levels.
+- **Genotype–phenotype:** "No phenotypic differences between affected individuals with predicted loss-of-function versus missense variants were noted." [full text]
+- **ClinVar / ClinGen:** no ClinGen gene–disease validity curation was found. Check ClinVar for current classifications. gnomAD allele frequencies were not retrieved.
+- **Modifiers, epigenetics, chromosomal abnormalities:**
+  - No modifier genes are known.
+  - The peripheral-blood **EpiSign** profile matched none of 59 episignatures: "incompatible with all 59 episignatures assessed, including chomatinopathy conditions such as Cornelia de Lange, Rubinstein-Taybi, Coffin-Siris, and Wiedemann-Steiner syndromes" [full text].
+  - No chromosomal or CNV mechanism has been reported.
+
+## 5. Environmental information
+
+None applicable. No environmental, lifestyle or infectious contributors are known.
+
+## 6. Mechanism / pathophysiology
+
+**Causal chain**
+
+1. Biallelic *TMEM147* truncating, splice or destabilising missense variants **lead to** loss of TMEM147 protein. Truncating alleles are lost through nonsense-mediated decay (inferred); missense proteins through autophagy-lysosomal degradation (shown in COS-1 cells, PMID:36044892).
+2. **Branch A (ER).** Loss of TMEM147 **disrupts** the nicalin–TMEM147–NOMO module of the ribosome-bound multipass translocon (Sec61–TMCO1–CCDC47–NCLN–TMEM147–NOMO). This translocon is needed to make multipass membrane proteins:
+   > "a ~ 360 kDa ribosome-associated complex comprising the core Sec61 channel and five accessory factors: TMCO1, CCDC47 and the Nicalin-TMEM147-NOMO complex" — PMID:32820719 [abstract]
+
+   This **results in** upregulation of CKAP4 (CLIMP-63) and RTN4 (NOGO) and reorganisation of the ER in patient fibroblasts:
+   > "TMEM147-deficient cells showed CKAP4 (CLIMP-63) and RTN4 (NOGO) upregulation with a concomitant reorientation of the ER, which was also witnessed in primary fibroblast cell culture." — PMID:36044892 [abstract]
+
+   The defect in multipass protein biogenesis in patient cells is *inferred* from the complex's known function; it has not been measured.
+3. **Branch B (nuclear envelope).** Loss of TMEM147 **causes** LBR to lose its anchoring at the inner nuclear membrane. In patient fibroblasts LBR spreads through the nucleus, and nuclei show abnormal segmentation:
+   > "We show that TMEM147 physically interacts with LBR, and that the C-terminus of LBR is essential for their functional interaction." — PMID:32694168 [abstract]
+
+   > "LBR mislocalization and nuclear segmentation was observed in primary fibroblast cells." — PMID:36044892 [abstract]
+4. **Branch B to blood.** Mislocalised LBR **leads to** defective nuclear lobulation and chromatin compaction in maturing granulocytes. This shows as the pseudo-Pelger-Huët anomaly in ~15–25% of neutrophils, a partial version of the phenotype seen with LBR haploinsufficiency. The link is inferred from the LBR mechanism; it has not been shown directly in TMEM147-deficient granulocytes.
+5. **Branch C (sterol; speculative).** In HeLa cells, knockdown of *TMEM147* lowers LBR and DHCR7 and changes cholesterol homeostasis:
+   > "TMEM147 also physically interacts with the key sterol reductase DHCR7 … lipidomic analysis upon TMEM147 silencing identified changes in cellular cholesterol levels" — PMID:32694168 [abstract]
+
+   Whether patients have abnormal sterol levels has not been tested.
+6. **Convergence (inferred).** ER translocon/ER-shape dysfunction, possibly with nuclear-envelope and chromatin dysfunction, **impairs** neuronal development. This **results in** a non-progressive developmental encephalopathy: thin corpus callosum, ventriculomegaly, delayed myelination, intellectual disability, absent speech and behavioural disturbance. The supporting evidence is computational (brain-specific co-expression of TMEM147 with NDD genes) plus clinical correlation.
+   > "TMEM147-related disorders cannot be considered as primary white matter disorders but rather as encephalopathies." [full text]
+7. **Facial dysmorphism.** The mechanism is unknown. A possible link to nicalin–NOMO, which modulates Nodal signalling in zebrafish mesendoderm patterning (Dettmer et al. 2010, PMID:20538592), is hypothetical.
+
+**Open question.** In HeLa cells, knocking down *TMEM147* lowers LBR protein. In patient fibroblasts LBR is mislocalised but its level is normal:
+> "the diffusional mobility of LBR is not accompanied by decreased protein levels in primary fibroblast cells from affected individuals" [full text]
+
+The KB already records this as a HUMAN_MODEL_MISMATCH discussion.
+
+**Suggested terms**
+
+| Category | Terms |
+|---|---|
+| GO biological process | GO:0160063 multi-pass transmembrane protein insertion into ER membrane *(verify)*; GO:0007029 endoplasmic reticulum organization; GO:0006998 nuclear envelope organization; GO:0070828 heterochromatin organization; GO:0030851 granulocyte differentiation; GO:0007420 brain development; GO:0022010 CNS myelination; GO:0000184 NMD; GO:1905146 lysosomal protein catabolic process |
