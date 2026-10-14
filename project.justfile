@@ -4,6 +4,9 @@
 schema_path := "src/dismech/schema/dismech.yaml"
 history_schema_path := "src/dismech/schema/history.yaml"
 synthesis_schema_path := "src/dismech/schema/research_synthesis.yaml"
+phenodist_schema_path := "src/dismech/schema/phenotype_distribution.yaml"
+phenodist_dir := "kb/phenotype_distributions"
+phenodist_examples_dir := "examples/phenotype_distributions"
 kb_dir := "kb/disorders"
 modules_dir := "kb/modules"
 comorbidity_dir := "kb/comorbidities"
@@ -342,6 +345,43 @@ validate-synthesis-all:
     printf 'Validating %s research synthesis file(s).\n' "${#files[@]}"
     uv run linkml-validate --schema {{synthesis_schema_path}} --target-class ResearchSynthesis "${files[@]}"
     uv run python -m dismech.research_synthesis "${files[@]}"
+
+# Validate a single phenotype profile set
+[group('QC')]
+validate-phenotype-distribution file:
+    #!/usr/bin/env bash
+    set -e
+    uv run linkml-validate --schema {{phenodist_schema_path}} --target-class ProfileSet {{file}}
+    uv run python -m dismech.phenotype_distribution --check-terms {{file}}
+
+# Validate all phenotype profile sets (kb + examples)
+[group('QC')]
+validate-phenotype-distributions:
+    #!/usr/bin/env bash
+    set -e
+    shopt -s nullglob
+    files=({{phenodist_dir}}/*.yaml {{phenodist_examples_dir}}/*.yaml)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No phenotype profile sets found."
+        exit 0
+    fi
+    printf 'Validating %s phenotype profile set(s).\n' "${#files[@]}"
+    for f in "${files[@]}"; do
+        uv run linkml-validate --schema {{phenodist_schema_path}} --target-class ProfileSet "$f"
+    done
+    uv run python -m dismech.phenotype_distribution --check-terms "${files[@]}"
+
+# Regenerate references_cache/PHENODIST_*.md for curated (kb/) profile sets.
+# Examples are deliberately excluded: they are demonstrations and must not
+# become citable. NEVER hand-write these cache files.
+[group('Data')]
+phenodist-rebuild:
+    #!/usr/bin/env bash
+    set -e
+    # Pass the directory, not a file glob: a full rebuild must still prune when
+    # the directory is empty or absent, which is exactly the case where stale
+    # citable cache files would otherwise be left behind.
+    uv run python -m dismech.phenotype_distribution --write-cache {{phenodist_dir}}
 
 # Schema validation for all files in bounded batches (safe as the corpus grows)
 [group('QC')]
@@ -815,6 +855,22 @@ validate-terms-all:
     echo "Validating terms in ${#files[@]} disorder files (batched)..."
     {{term_validator}} validate-data "${files[@]}" -s {{schema_path}} -t Disease --labels -c {{oak_config}}
 
+# Validate the LOINC codes in KB files against the Monarch KG and write their
+# rows into cache/loinc/terms.csv. TEMPORARY: overlays the oaklib fix from
+# INCATools/ontology-access-kit#920 in an ephemeral env because the pinned
+# release returns no label for LOINC codes; delete once the pin carries the fix
+# and conf/oak_config.yaml routes LOINC. See scripts/seed_loinc_cache.sh.
+[group('QC')]
+loinc-seed-cache +files:
+    scripts/seed_loinc_cache.sh {{files}}
+
+# Rebuild cache/loinc/external_copyright_{codes,notices}.csv from the Tuva LOINC
+# table pinned in data/loinc/MANIFEST.yaml (LOINC's EXTERNAL_COPYRIGHT_NOTICE field,
+# which the Monarch KG does not carry). --repin accepts a changed download.
+[group('QC')]
+loinc-copyright-notices *flags:
+    uv run python scripts/build_loinc_copyright_notices.py {{flags}}
+
 # Validate terms in a single file
 # Skips `check-enum-cache` (whole-cache OAK re-derivation); see `validate`.
 [group('QC')]
@@ -1007,7 +1063,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1424,6 +1480,15 @@ node-classes *args:
 check-skill-files:
     uv run python scripts/check_skill_files.py
 
+# Rewrite the shared site header into the hand-written pages (index.html,
+# app/, details/) from src/dismech/templates/_site_nav.html.j2, which every
+# Jinja template includes. Run after editing the partial; --check reports only.
+# tests/test_site_nav.py fails while any copy is stale (issue #14022).
+# Copy the shared site header into the hand-written site pages.
+[group('QC')]
+sync-site-nav *args:
+    uv run python scripts/sync_site_nav.py {{args}}
+
 # Census of every skill and its description length, exit 0.
 [group('QC')]
 list-skill-files:
@@ -1438,6 +1503,12 @@ list-skill-files:
 [group('QC')]
 check-duplicate-keys *files:
     uv run python scripts/check_duplicate_yaml_keys.py "$@"
+
+# Detect the fingerprint left by older yamlfix hooks inside block scalars (#12101).
+# Also fails on a plain scalar cut short by an unquoted ' #' (#12094).
+[group('QC')]
+check-block-scalar-comments *files:
+    uv run python scripts/check_block_scalar_comments.py "$@"
 
 # Guard against tracked paths that differ only in letter case (#11204). On the
 # macOS/Windows default case-insensitive filesystem only one file of such a pair
@@ -2189,7 +2260,7 @@ gen-gene-pages *ARGS:
 genes-ingest-refresh *ARGS:
     uv run python -m dismech.genes ingest-refresh {{ARGS}}
 
-# Rewrite kb/genes/ingest/*.tsv for every gene the KB names (never hand-edit)
+# Rewrite kb/genes/ingest/*.tsv for every gene the KB names or curates (never hand-edit)
 [group('Genes')]
 genes-ingest-build:
     uv run python -m dismech.genes ingest-build
@@ -2282,6 +2353,16 @@ export-kgx-maximal out_dir="output/maximal_kgx":
 [group('Export')]
 export-hpoa *args:
     uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa {{args}}
+
+# OMIM-keyed variant of `export-hpoa`, joinable against the HPO release: rows are rekeyed
+# through MONDO's SSSOM exactMatch set (downloaded once into output/hpoa; delete it to
+# refresh). Writes output/hpoa/phenotype.dismech.omim.hpoa and omim_unmapped.tsv, which
+# lists the diseases withheld for having no single exact OMIM match.
+[group('Export')]
+export-hpoa-omim *args:
+    mkdir -p output/hpoa
+    test -s output/hpoa/mondo.sssom.tsv || curl --fail -sSL -o output/hpoa/mondo.sssom.tsv http://purl.obolibrary.org/obo/mondo/mappings/mondo.sssom.tsv
+    uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa --key omim --sssom output/hpoa/mondo.sssom.tsv {{args}}
 
 # Runs `export-hpoa` first (the script reads its output), then downloads the release,
 # hp.obo, mondo.obo and MONDO's SSSOM set into `dir` (cached; delete a file to refresh
@@ -3203,6 +3284,56 @@ fetch-reference +identifiers:
                 ;;
             ICTRP:*|ictrp:*)
                 uv run python -m dismech.structured_sources.cli rebuild ictrp --id "$identifier"
+                ;;
+            # Structured-source prefixes have no linkml-reference-validator
+            # fetcher, so handing them to `cache reference` only ever printed
+            # "No source found" (#13575). Route each to its own rebuild.
+            # Prefixes are matched as the serializers spell them (CGGV:, CGDS:,
+            # ORPHA:/Orphanet:, ICEES:, NCIT:); a lowercase id would only
+            # reach a KeyError. A requested id absent from the export makes
+            # the rebuild exit 1, so this recipe fails the way it did when
+            # LRV reported "No source found".
+            CGGV:*)
+                if [ ! -f data/clingen/gene_validity.csv ]; then
+                    # A drifted-pin failure still leaves the download on disk
+                    # (#10426), which is what we want: the rebuild stamps the
+                    # file's own date and warns about the pin.
+                    uv run python -m dismech.structured_sources.cli refresh clingen || true
+                fi
+                uv run python -m dismech.structured_sources.cli rebuild clingen --id "$identifier"
+                ;;
+            CGDS:*)
+                if [ ! -f data/clingen-dosage/gene_dosage.csv ] || [ ! -f data/clingen-dosage/gene_dosage_grch38.tsv ]; then
+                    uv run python -m dismech.structured_sources.cli refresh clingen-dosage || true
+                fi
+                uv run python -m dismech.structured_sources.cli rebuild clingen-dosage --id "$identifier"
+                ;;
+            ORPHA:*|Orphanet:*)
+                # Every record merges five Orphadata products, so all five must
+                # be present (#13941). A drifted pin fails the refresh but
+                # still downloads every file, so `|| true` lets the rebuild
+                # run; it stamps the files' own release date and warns. If the
+                # download itself failed, the rebuild names the remedy.
+                for orpha_file in en_product1.xml en_product4.xml en_product6.xml en_product9_prev.xml en_product9_ages.xml; do
+                    if [ ! -f "data/orphadata/$orpha_file" ]; then
+                        uv run python -m dismech.structured_sources.cli refresh orphanet || true
+                        break
+                    fi
+                done
+                uv run python -m dismech.structured_sources.cli rebuild orphanet --id "$identifier"
+                ;;
+            ICEES:*)
+                uv run python -m dismech.structured_sources.cli rebuild icees --id "$identifier"
+                ;;
+            NCIT:*)
+                # `rebuild ncit` opens sqlite:obo:ncit, and OAK downloads that
+                # multi-hundred-MB build when it is absent (CLAUDE.md, oak_db).
+                # Ask first, rather than start a download from a fetch recipe.
+                if ! uv run python -c "from dismech.oak_db import local_build_present as p; raise SystemExit(0 if p('sqlite:obo:ncit') else 1)"; then
+                    echo "The local NCIT build is not present; run \`just ncit-edges-refresh\` (downloads it), then \`just ncit-edges-rebuild --id $identifier\`." >&2
+                    exit 1
+                fi
+                uv run python -m dismech.structured_sources.cli rebuild ncit --id "$identifier"
                 ;;
             *)
                 scripts/run_reference_validator.sh cache reference "$identifier"
