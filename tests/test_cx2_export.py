@@ -400,7 +400,7 @@ def test_disorder_to_cx2_exports_animal_model_edges() -> None:
     # and the mapped predicate silently drops both -- and would pass a test
     # that checked the `models` edge alone.
     assert degeneration["description"]
-    assert "PMID:7988544" in degeneration["Evidence"]
+    assert "PMID:2209016" in degeneration["Evidence"]
     assert edges[(equine, "Oxidative Stress")]["v"]["predicate"] == "models"
 
     # Nodes the models point at advertise them back.

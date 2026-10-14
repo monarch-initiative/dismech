@@ -44,7 +44,7 @@ def ingest_refresh_cmd(
 
 @app.command("ingest-build")
 def ingest_build_cmd() -> None:
-    """Rewrite kb/genes/ingest/*.tsv for every gene the KB names."""
+    """Rewrite kb/genes/ingest/*.tsv for every gene the KB names or curates."""
     from dismech import kb_cache
     from dismech.genes.ingest import build_ingest
 
