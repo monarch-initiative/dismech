@@ -1359,3 +1359,37 @@ References
 
 - [Edison artifact artifact-00](Cerebral_Amyloid_Angiopathy-deep-research-falcon_artifacts/artifact-00.md)
 ![## Context ID: pqac-00000042 The requested sensitivity (38.8%) and specificity (83.5%) for the Boston criteria v2.0 (under 'Probable CAA*') are reported in Tabl](Cerebral_Amyloid_Angiopathy-deep-research-falcon_artifacts/image-1.png)
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.3.0rc3.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 13 |
+| Resolved | 13 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| References weighed for topical relevance | 13 |
+| On topic | 6 |
+| Off topic | 0 |
+
+All extracted references resolved successfully.
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 24 |
+| Resolved | 0 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 0 |
+| Unverifiable | 24 |
+
+### Prefixes with no resolver
+
+Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: `HP`, `GO`, `CL`, `UBERON`, `MAXO`.
+
+No term could be looked up either way, so nothing here was confirmed or contradicted.
