@@ -1604,6 +1604,16 @@ list-hypothesis-links:
 aop-chain-census *args:
     uv run python scripts/aop_chain_census.py "$@"
 
+# Census of toxicokinetic (ADME) pathophysiology nodes: where exposures land,
+# what binds an absorption/distribution/metabolism/excretion node, and which
+# sit at ORGANISM scale on a molecular term. Backs the toxicokinetic sections
+# of projects/AOP_EMOD_ALIGNMENT.md -- run this rather than trusting the
+# figures there. Report-only, exits 0.
+# Example: just tk-node-census --format list
+[group('QC')]
+tk-node-census *args:
+    uv run python scripts/toxicokinetic_node_census.py "$@"
+
 # Regenerate the grandfathered dangling-target baseline. Only ever to REMOVE
 # entries as the backlog is burned down -- never to admit a new break.
 [group('QC')]
