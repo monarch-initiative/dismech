@@ -353783,7 +353783,8 @@ window.searchData = [
       "Impaired Colonocyte Energy Metabolism",
       "Increased Microbial Community Instability",
       "NLRP3 Inflammasome-Mediated Pyroptosis",
-      "Intestinal Epithelial Cell Ferroptosis"
+      "Intestinal Epithelial Cell Ferroptosis",
+      "Somatic Clonal Remodeling of Colonic Epithelium"
     ],
     "cell_types": [
       "Colonic Epithelial Cell",
@@ -353802,7 +353803,8 @@ window.searchData = [
       "Short-chain Fatty Acid Metabolism",
       "Pyroptosis",
       "Ferroptosis",
-      "Antioxidant Defense"
+      "Antioxidant Defense",
+      "IL-17 signalling in mutant epithelial clones"
     ],
     "phenotypes": [
       "Bloody Diarrhea",
@@ -353910,10 +353912,10 @@ window.searchData = [
     "source_file": "Ulcerative_Colitis.yaml",
     "page_url": "../pages/disorders/Ulcerative_Colitis.html",
     "num_phenotypes": 14,
-    "num_pathophysiology": 11,
+    "num_pathophysiology": 12,
     "num_genes": 18,
     "num_treatments": 8,
-    "causal_graph_edges": "22",
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "5"
   },
   {
@@ -368856,12 +368858,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3418,
   "total_subtypes": 4724,
   "total_disorders_and_subtypes": 8142,
-  "total_unique_evidence_sources": 51513,
-  "total_unique_publications": 48018,
+  "total_unique_evidence_sources": 51514,
+  "total_unique_publications": 48019,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 299,
   "total_pathographs": 3414,
-  "total_unique_pathological_events": 22562,
+  "total_unique_pathological_events": 22563,
   "total_modules": 192,
   "total_research_reports": 3539,
   "total_classifications": 21,
