@@ -733,3 +733,88 @@ No gene therapy, ASO or cell therapy has been developed.
 ## 14. Other Species / Natural Disease
 
 - No naturally occurring animal disease is known. OMIA was not searched **[unverified]**.
+- DCC and netrin signalling is conserved from *C. elegans* (*unc-40*) and *Drosophila* (*frazzled*) to vertebrates. PMID:28250456 calls the pathway *"evolutionarily conserved from C. elegans through vertebrates"*.
+
+## 15. Model Organisms
+
+**Dcc knockout mouse.** Fazeli et al. 1997, *Nature* 386:796–804, **PMID:9126737**. The PMID comes from a web search and is not cached; run `just fetch-reference PMID:9126737` before citing.
+- Inactivating Dcc caused axonal-projection defects resembling those in netrin-1-deficient mice and had no intestinal tumour phenotype.
+- Jamuar notes that Netrin-1 and DCC knockout mice *"are also acallosal"*.
+- **Recapitulates:** forebrain commissure agenesis.
+- **Limitations:** perinatal lethality is commonly reported **[unverified]**, which limits study of scoliosis and cognition. Brainstem crossing defects are *"less consistently predicted from animal studies"* (PMID:28250456).
+- Fidelity: high for ACC, low or unknown for gaze palsy and scoliosis.
+
+**Netrin-1–deficient mice.** These show disrupted spinal left–right interneuron circuits and are the basis of the scoliosis hypothesis (PMID:28250456, refs 29–30; primary PMIDs **[not retrieved]**).
+
+**Zebrafish *dcc* mutants.** These show hindbrain startle-circuit abnormalities (PMID:28250456; primary PMID **[not retrieved]**).
+
+**Kanga (Dcc^kanga) mouse.** A spontaneous allele that removes the P3 intracellular domain and causes corticospinal and spinal midline defects with a hopping gait. This is a **[lead, unverified]**.
+
+**Other systems:** no iPSC or organoid model of HGPPS2 has been reported.
+
+---
+
+## Gaps and recommendations for curation
+
+1. Fetch and cite PMID:9126737 for the mouse model. Search for primary PMIDs for the Netrin-1 interneuron, zebrafish and kanga papers.
+2. Look up every HPO, GO, CL, UBERON and NCIT term listed above. None were checked in this session because the OLS connector needs authorization.
+3. No case reports after 2024 were found in a standard web search. The count of about 8 patients is current as of PMID:38585553.
+4. The mechanism behind scoliosis and the specific gaze-pathway tract are hypotheses. Model them with `directness: INDIRECT` or as an `EMERGING` mechanistic hypothesis rather than as established edges.
+5. The existing KB entry, `kb/disorders/Gaze_Palsy_Familial_Horizontal_With_Progressive_Scoliosis_2.yaml`, already cites five of the six references above.
+
+**Sources**
+- Jamuar et al. 2017, PMID:28250456 — https://www.nature.com/articles/ng.3804.pdf
+- Rahikkala et al. 2024, PMID:38585553 — https://www.utupub.fi/items/21c918e6-1e57-4076-bbcd-562f429bd836/full ; https://oulurepo.oulu.fi/handle/10024/48657 ; https://research.utu.fi/converis/portal/detail/Publication/380543436
+- Zaka et al. 2021, PMID:33141514 (cached abstract)
+- Marsh et al. 2018, PMID:29068161 (cached)
+- Xie et al. 2024, PMID:38516134 (cached)
+- Jen et al. 2004, PMID:15105459 (cached)
+- Fazeli et al. 1997, PMID:9126737 — https://www.nature.com/articles/386796a0 ; https://pesquisa.bvsalud.org/ses/resource/es/mdl-9126737 ; https://wi.mit.edu/news/deleted-colorectal-cancer-dcc-gene-plays-role-wiring-mouse-brain-and-spinal-cord
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.3.0.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 7 |
+| Resolved | 7 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| References weighed for topical relevance | 7 |
+| On topic | 6 |
+| Off topic | 0 |
+
+All extracted references resolved successfully.
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 17 |
+| Resolved | 17 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 0 |
+| Unverifiable | 0 |
+| Terms whose name was checked | 7 |
+| Terms named correctly | 1 |
+| Terms named as a **different** term | 4 |
+| Terms whose name is worth a second look | 2 |
+
+### Terms the report names something else
+
+These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:
+
+- `MONDO:0054602` (1 mention) - the report calls it "MONDO"; MONDO calls it **gaze palsy, familial horizontal, with progressive scoliosis, 2**
+- `HP:0001263` (1 mention) - the report calls it "most"; HP calls it **Global developmental delay**
+- `HP:0001249` (1 mention) - the report calls it "most (one patient described as "modest")"; HP calls it **Intellectual disability**
+- `GO:0005042` (1 mention) - the report calls it "already in the entry"; GO calls it **netrin receptor activity**
+
+### Terms whose name is worth a second look
+
+The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a *related* synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:
+
+- `HP:0001274` (1 mention) - the report calls it "all imaged"; HP calls it **Agenesis of corpus callosum**, and lists "Callosal agenesis" among its other names
+- `NCIT:C15240` (1 mention) - the report calls it "Genetic counselling"; NCIT calls it **Genetic Counseling**
