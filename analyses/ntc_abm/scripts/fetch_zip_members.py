@@ -24,7 +24,7 @@ from pathlib import Path
 
 def fetch_range(url: str, start: int, end: int) -> bytes:
     return subprocess.run(
-        ["curl", "-sSfL", "--retry", "4", "-r", f"{start}-{end}", url],  # noqa: S607
+        ["curl", "-sSfL", "--retry", "4", "-r", f"{start}-{end}", url],
         capture_output=True,
         check=True,
     ).stdout
@@ -33,7 +33,7 @@ def fetch_range(url: str, start: int, end: int) -> bytes:
 def remote_size(url: str) -> int:
     head = subprocess.run(
         ["curl", "-sSfLI", url], capture_output=True, check=True, text=True
-    ).stdout  # noqa: S607
+    ).stdout
     sizes = re.findall(r"(?im)^content-length:\s*(\d+)", head)
     if not sizes:
         raise SystemExit(f"no Content-Length for {url}")

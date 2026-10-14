@@ -33,7 +33,7 @@ COLOURS = {
 
 def image(path: str) -> np.ndarray:
     with Path(path).open("rb") as fh:
-        cells = pickle.load(fh)  # noqa: S301 - the model's own output format
+        cells = pickle.load(fh)
     img = np.ones((200, 252, 3))
     for cell in cells.values():
         for x, y, *_ in cell["cell_pixels"]:

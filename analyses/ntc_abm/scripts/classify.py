@@ -46,7 +46,7 @@ OUTCOMES = {0: "normal", 1: "midline_fusion", 2: "open_ntd", 3: "closed_ntd"}
 
 def features(path: Path) -> dict:
     with Path(path).open("rb") as fh:
-        cells = pickle.load(fh)  # noqa: S301 - the model's own output format
+        cells = pickle.load(fh)
     lab = np.zeros((W, H), dtype=np.int16)
     for cell in cells.values():
         for x, y, *_ in cell["cell_pixels"]:
