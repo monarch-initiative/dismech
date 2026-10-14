@@ -568,3 +568,55 @@ All 5 patients were adult men aged 24–56 years. Frequencies are out of 5 (PMID
 | Abnormal EEG without epilepsy | 3/5 | HP:0011182 Interictal epileptiform activity | Spike-and-slow-wave complexes; *"none of the patients were diagnosed with epilepsy"* |
 | Childhood hypotonia | 2/5 | HP:0001252 Hypotonia | — |
 | Pes planovalgus | 3/5 | HP:0001763 Pes planus | — |
+| Recurrent otitis media in childhood | 3/5 recurrent (5/5 had at least one episode) | HP:0000403 Recurrent otitis media | — |
+| Facial dysmorphism | variable | HP:0005280 Depressed nasal bridge; HP:0009765 Low hanging columella; HP:0000455 Broad nasal tip; HP:0011220 Prominent forehead; HP:0000218 High palate (3/5) | Mild |
+| Brachydactyly | 2/5 | HP:0001156 Brachydactyly | — |
+| Congenital heart defect | 1/5 | HP:0001669 Transposition of the great arteries; HP:0001629 VSD; HP:0001631 ASD; HP:0001643 PDA | One patient had TGA, VSD, ASD, PDA and a hypoplastic right atrium |
+| Brain MRI abnormality | 1/5 (2 normal, 2 not available) | HP:0006956 Lateral ventricle dilatation; HP:0034295 Reduced cerebral white matter volume | *"…mild dilation of lateral ventricles and mild lack of white matter in the trigonum area."* |
+| Short stature | 1/5 | HP:0004322 Short stature | Other growth parameters normal |
+
+**Onset, severity and course.** Onset is in infancy or early childhood. Severity is mild to moderate. The course is non-progressive and lifelong. All patients walked independently; PMID:35321723 tabulates walking as achieved by ≤20 months.
+
+**Quality of life.** No formal measures (EQ-5D, SF-36) have been reported. The functional burden comes mainly from intellectual disability, speech and dyspraxia, and motor incoordination. Adults are described as being in good general health.
+
+## 4. Genetic and molecular information
+
+- **Causal gene:** SMG9 (hgnc:25763). The variant lies in the central nucleotide-binding G-domain.
+- **Variant classification:** likely pathogenic under ACMG/AMP criteria in the original paper (*"classified as likely pathogenic (PS4, PM2, PP1, PP3)"*). The ClinVar/OMIM-linked record lists it as Pathogenic (web search).
+- **In silico scores:** CADD 23.8. MutationTaster: disease-causing. SIFT: deleterious. PolyPhen: benign.
+- **Population frequency** (gnomAD v2.1.1): overall MAF 0.0001627. *"…the allele frequency is 34 times higher in the Finns (0.001598) than in non-Finnish Europeans (0.00004644), and there are no homozygous individuals in the gnomAD."* The expected number of homozygotes in Finland is about 14.
+- **Founder haplotype:** shared ancestral haplotype with median length 1.7 Mb.
+- **Origin and functional effect:** germline. Hypomorphic (partial loss of function). RNA-seq showed *"the SMG9 c.551T > C variant did not affect the splicing or expression level of SMG9 gene products."*
+- **Allelic spectrum (HBMS, for comparison):**
+  - Homozygous LoF variants: c.520_521delCC p.(Pro174Argfs*12); c.701+4A>G; c.1177C>T p.(Gln393*).
+  - Missense: c.1508G>C p.(Trp503Ser).
+  - Compound heterozygous: c.947A>G p.(His316Arg) + c.1318_1319delAG.
+
+  These are tabulated in PMID:35321723 and PMID:27018474. PMID:35321723 notes that homozygous missense genotypes give milder disease: *"patients with SMG9 homozygous missense variants exhibited a milder phenotype"*.
+- **Modifier genes, epigenetic changes, chromosomal abnormalities:** none reported.
+
+## 5. Environmental information
+
+No environmental, lifestyle or infectious factors are reported. This section does not apply.
+
+## 6. Mechanism and pathophysiology
+
+**Causal chain:**
+
+1. **Lesion.** Homozygous SMG9 p.Val184Ala in the G-domain. Expression and splicing are unchanged (shown, human RNA-seq).
+2. **The structural defect is predicted to impair SMG1C assembly or regulation** (inferred, from computational modelling): *"In the predicted model of mutated SMG9 p.184Ala structure, the magnesium ion is not conserved and there is a structural defect in the G-domain, which is the ATP binding site. This structural change could affect the binding of UPF1 to SMG1-SMG8-SMG9 protein complex, altering the kinase activity of SMG1."* The SMG1–SMG8–SMG9 architecture is from cryo-EM (PMID:31792449).
+3. **Canonical NMD of transcripts with a premature termination codon (PTC) is preserved** (shown, allele-specific expression analysis): *"…indicating a functioning PTC-induced NMD mechanism"*.
+4. **Endogenous transcripts are selectively dysregulated** (shown in blood). 112 genes were differentially expressed: *"~ 6.5 times more upregulated (97) than downregulated (15) genes"*. Many of these transcripts carry upstream ORFs (uORFs) or long 3′UTRs, both features of NMD targets.
+   - Up: SMOX (logFC 2.1), OSBP2 (2.2), GPX3 (2.4), RAP1GAP (4.0), HEY1 (2.0), MAP1B (2.9).
+   - Down: ZNF155 (−2.3), OLFM1, NTSR1, TUBB2A (−2.9).
+   - Enriched pathways include hydrogen peroxide metabolism and cellular oxidant detoxification.
+5. **Branch A: oxidative stress** (shown in zebrafish; inferred in humans). Raised SMOX leads to excess polyamine catabolism, which produces H₂O₂ (reactive oxygen species, ROS) and acrolein. These cause mitochondrial swelling and vacuolization in the brain. *"Spermidine oxidase (Smox) is increased in smg9oi7/oi7 zebrafish, resulting in the accumulation of byproducts, reactive oxygen species, and acrolein."* (PMID:38806677)
+6. **Branch B: neurodevelopmental genes** (inferred). Dysregulation of HEY1 (Notch signalling, gliogenesis), RAP1GAP (neuronal differentiation), and the microtubule genes MAP1B and TUBB2A plausibly disturbs neural progenitor and circuit development.
+7. **Cellular outcome** (shown in zebrafish). Fewer proliferating radial glial progenitors and a smaller telencephalon. Both were partly rescued by the SMOX inhibitor MDL72527 and by N-acetylcysteine.
+8. **Clinical outcome** (inferred). Abnormal maturation of cerebellar and corticospinal circuits leads to intention tremor, dysdiadochokinesis and ataxia (cerebellar signs) and to spasticity and clonus (pyramidal signs). Cortical involvement leads to intellectual disability and dyspraxia. Heart defects have low penetrance (1/5), reflecting SMG9's role in heart development, which HBMS shows fully.
+
+**Upstream versus downstream:** the SMG9/SMG1C defect is upstream. The transcriptome change is the intermediate step. Oxidative stress and progenitor defects are downstream. All human molecular data come from whole blood; there are no data from patient brain tissue.
+
+**Suggested ontology terms:**
+- **GO:** GO:0000184 nuclear-transcribed mRNA catabolic process, nonsense-mediated decay; GO:0006598 polyamine catabolic process; GO:0072593 reactive oxygen species metabolic process; GO:0098869 cellular oxidant detoxification; GO:0007005 mitochondrion organization; GO:0022008 neurogenesis; GO:0007420 brain development; GO:0007507 heart development.
+- **CL:** CL:0000681 radial glial cell; CL:2000029 central nervous system neuron.
