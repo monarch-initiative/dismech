@@ -26,6 +26,8 @@ import sys
 import time
 from pathlib import Path
 
+FINAL_FRAME = "12000_cell_data.pkl"
+
 
 def configure(params: Path, celldata: Path, gene: str, level: float) -> None:
     text = params.read_text()
@@ -83,10 +85,16 @@ def run_replicate(args: argparse.Namespace, rep: int) -> None:
         "returncode": returncode,
         "runtime_s": round(time.time() - started, 1),
     }
+    # A run that exits 0 without writing its final frame would otherwise be
+    # marked DONE and skipped forever on restart.
+    record["final_frame"] = any(
+        (run_dir / "celldata").glob(f"*_celldata/{FINAL_FRAME}")
+    )
+    ok = returncode == 0 and record["final_frame"]
     (run_dir / "run.json").write_text(json.dumps(record) + "\n")
-    if returncode == 0:
+    if ok:
         (run_dir / "DONE").touch()
-    print(f"{'ok' if returncode == 0 else 'FAILED'} {run_dir} {record['runtime_s']}s")
+    print(f"{'ok' if ok else 'FAILED'} {run_dir} {record['runtime_s']}s")
 
 
 def main() -> None:

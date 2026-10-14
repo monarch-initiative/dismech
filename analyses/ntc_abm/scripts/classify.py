@@ -27,6 +27,7 @@ import argparse
 import collections
 import csv
 import pickle
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -42,6 +43,19 @@ SLIT_MIN = 600
 CROSS = ndimage.generate_binary_structure(2, 1)
 FINAL_FRAME = "12000_cell_data.pkl"
 OUTCOMES = {0: "normal", 1: "midline_fusion", 2: "open_ntd", 3: "closed_ntd"}
+UNSCORED = "unscored"
+FIELDS = [
+    "condition",
+    "frame",
+    "neural_area",
+    "lumen_area",
+    "slit_area",
+    "ecto_continuous",
+    "neural_ecto_contact",
+    "outcome_code",
+    "outcome",
+    "error",
+]
 
 
 def features(path: Path) -> dict:
@@ -103,33 +117,34 @@ def main() -> None:
     args = parser.parse_args()
     rows = []
     for frame in sorted(args.root.rglob(f"*_celldata/{FINAL_FRAME}")):
-        f = features(frame)
+        row = {
+            "condition": condition_of(args.root, frame),
+            "frame": str(frame.relative_to(args.root)),
+        }
+        try:
+            f = features(frame)
+        except Exception as exc:
+            # One unreadable or degenerate frame (e.g. too few neural pixels for
+            # a convex hull) must not discard the rest of the batch.
+            print(f"unscored {frame}: {exc}", file=sys.stderr)
+            rows.append({**row, "outcome": UNSCORED, "error": str(exc)})
+            continue
         code = classify(f)
-        rows.append(
-            {
-                "condition": condition_of(args.root, frame),
-                "frame": str(frame.relative_to(args.root)),
-                **f,
-                "outcome_code": code,
-                "outcome": OUTCOMES[code],
-            }
-        )
+        rows.append({**row, **f, "outcome_code": code, "outcome": OUTCOMES[code]})
     if not rows:
         raise SystemExit(f"no */{FINAL_FRAME} under {args.root}")
     with args.out.open("w", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=list(rows[0]))
+        writer = csv.DictWriter(fh, fieldnames=FIELDS, restval="")
         writer.writeheader()
         writer.writerows(rows)
     counts = collections.defaultdict(collections.Counter)
     for row in rows:
         counts[row["condition"]][row["outcome"]] += 1
-    print("condition\tn\t" + "\t".join(OUTCOMES.values()))
+    columns = [*OUTCOMES.values(), UNSCORED]
+    print("condition\tn\t" + "\t".join(columns))
     for cond in sorted(counts):
         c = counts[cond]
-        print(
-            f"{cond}\t{sum(c.values())}\t"
-            + "\t".join(str(c[o]) for o in OUTCOMES.values())
-        )
+        print(f"{cond}\t{sum(c.values())}\t" + "\t".join(str(c[o]) for o in columns))
 
 
 if __name__ == "__main__":
