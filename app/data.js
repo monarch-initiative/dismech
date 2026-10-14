@@ -111522,6 +111522,159 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "DNASE2 Deficiency",
+    "disease_id": "MONDO:0800132",
+    "category": "Mendelian",
+    "parents": [
+      "Type I Interferonopathy",
+      "Autoinflammatory Disorder",
+      "Inborn Errors of Immunity"
+    ],
+    "creation_date": "2026-10-14T12:36:44Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DNASE2 deficiency is an autosomal recessive type I interferonopathy caused by biallelic loss-of-function variants in DNASE2, which encodes deoxyribonuclease II, the acid endonuclease that digests DNA inside lysosomes. Macrophages rely on it to degrade the nuclei expelled by maturing erythroblasts and the chromatin of engulfed apoptotic cells. When it fails, undigested self DNA engages the cGAS-STING DNA-sensing pathway, and the result is constitutive type I interferon production with a high interferon-stimulated gene signature, plus an interferon-independent proinflammatory cytokine arm.\nThe presentation is neonatal: severe non-regenerative anemia and thrombocytopenia needing transfusion, hepatosplenomegaly and cholestatic hepatitis, sometimes beginning before birth with fetal anemia and hydrops. In the published patients the neonatal cytopenias resolved over weeks to months and were followed in childhood by recurrent fevers, membranoproliferative glomerulonephritis with proteinuria, hepatic fibrosis, a deforming arthropathy with contractures, vasculitic and nodular skin lesions, chilblain-like lesions, lipodystrophy, anti-DNA autoantibodies and failure to thrive. Two of the three index patients had subcortical white matter lesions on MRI with learning difficulties. Fewer than fifteen patients are reported. JAK1/2 inhibition has been followed by clinical improvement in several of them.",
+    "pathophysiology": [
+      "Biallelic DNASE2 Loss of Function",
+      "Undegraded DNA Accumulation in Macrophage Lysosomes",
+      "cGAS-STING Activation by Undegraded Self DNA",
+      "Type I Interferon Overproduction and JAK-STAT Signaling",
+      "STING-TBK1-Driven Proinflammatory Cytokine Production",
+      "Interferon-Driven Suppression of Fetal and Neonatal Erythropoiesis",
+      "Endosomal TLR-Dependent Anti-Nucleic Acid Autoantibody Production",
+      "AIM2 Inflammasome Activation in Inflamed Joints"
+    ],
+    "cell_types": [
+      "macrophage",
+      "Kupffer cell",
+      "monocyte",
+      "erythroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000091",
+      "CL:0000576",
+      "CL:0000765"
+    ],
+    "biological_processes": [
+      "DNA catabolic process",
+      "cGAS/STING signaling pathway",
+      "positive regulation of type I interferon production",
+      "JAK-STAT signaling",
+      "tumor necrosis factor production",
+      "definitive erythrocyte differentiation",
+      "toll-like receptor 9 signaling pathway",
+      "AIM2 inflammasome complex assembly"
+    ],
+    "phenotypes": [
+      "Neonatal Anemia",
+      "Thrombocytopenia",
+      "Pancytopenia",
+      "Circulating nucleated red blood cells",
+      "Hepatosplenomegaly",
+      "Cholestasis",
+      "Hepatic Fibrosis",
+      "Membranoproliferative Glomerulonephritis",
+      "Proteinuria",
+      "Subcortical White Matter Lesions",
+      "Learning Difficulties",
+      "Failure to Thrive",
+      "Reduced Growth Hormone Response",
+      "Deforming Arthropathy",
+      "Joint contracture",
+      "Recurrent Fever",
+      "Vasculitis in the skin",
+      "Lipodystrophy",
+      "Chilblains",
+      "Anti-dsDNA antibody positivity",
+      "Type I Interferon Signature",
+      "Elevated erythrocyte sedimentation rate",
+      "Hydrops fetalis",
+      "Type I diabetes mellitus",
+      "Hypogammaglobulinemia"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Hepatic",
+      "Renal",
+      "Neurological",
+      "Growth",
+      "Endocrine",
+      "Musculoskeletal",
+      "Inflammatory",
+      "Dermatologic",
+      "Immunologic",
+      "Laboratory",
+      "Prenatal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0001903",
+      "HP:0001873",
+      "HP:0001876",
+      "HP:0033281",
+      "HP:0001433",
+      "HP:0001396",
+      "HP:0001395",
+      "HP:0000793",
+      "HP:0000093",
+      "HP:0030890",
+      "HP:0001328",
+      "HP:0001508",
+      "HP:0000824",
+      "HP:0001369",
+      "HP:0034392",
+      "HP:0001954",
+      "HP:0200029",
+      "HP:0009125",
+      "HP:0009710",
+      "HP:0020151",
+      "HP:0034513",
+      "HP:0003565",
+      "HP:0001789",
+      "HP:0100651",
+      "HP:0004313"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "DNASE2"
+    ],
+    "treatments": [
+      "JAK Inhibition (Ruxolitinib)",
+      "Supportive Transfusion",
+      "Immunoglobulin Replacement Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Interferon-stimulated gene score",
+      "Hyperferritinemia"
+    ],
+    "source_file": "DNASE2_Deficiency.yaml",
+    "page_url": "../pages/disorders/DNASE2_Deficiency.html",
+    "num_phenotypes": 25,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "DNM1 Encephalopathy",
     "disease_id": "MONDO:0014598",
     "category": "Mendelian",
@@ -158027,6 +158180,139 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Goldberg-Shprintzen Syndrome",
+    "disease_id": "MONDO:0012280",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-09T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Goldberg-Shprintzen syndrome (GOSHS) is a rare autosomal recessive neurodevelopmental malformation syndrome caused by biallelic loss-of-function variants in KIFBP (formerly KIAA1279 or KBP), which encodes a kinesin-binding protein that inhibits a subset of kinesin motors and associates with the actin and microtubule cytoskeleton. Core features are microcephaly, intellectual disability and developmental delay, a recognizable facial gestalt, cortical malformation such as polymicrogyria, and axonal neuropathy. Hirschsprung disease is frequent but variable, even between relatives sharing the same variant. Model organisms show defective axon outgrowth and maintenance, delayed enteric neural crest colonization of the gut, and impaired cortical neuron migration; how these defects produce the human malformations is not established. It is distinct from the SKI-related Shprintzen-Goldberg craniosynostosis syndrome.",
+    "pathophysiology": [
+      "Biallelic KIFBP Loss of Function",
+      "Loss of KIFBP Kinesin Inhibition and Cytoskeletal Interaction",
+      "Impaired Axon Outgrowth with Axonal Microtubule Disruption",
+      "Axon Degeneration",
+      "Delayed Enteric Neural Crest Colonization of the Gut",
+      "Impaired Cortical Neuron Migration",
+      "Cortical Neuron Apoptosis",
+      "Cytokinesis Failure in Dividing Cells"
+    ],
+    "cell_types": [
+      "neuron",
+      "enteric neural crest cell",
+      "cerebral cortex neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0002607",
+      "CL:0010012"
+    ],
+    "biological_processes": [
+      "axon extension",
+      "microtubule cytoskeleton organization",
+      "enteric nervous system development",
+      "neuron migration",
+      "dendrite morphogenesis",
+      "apoptotic process",
+      "cytokinesis"
+    ],
+    "phenotypes": [
+      "Aganglionic megacolon",
+      "Microcephaly",
+      "Intellectual disability",
+      "Global developmental delay",
+      "Polymicrogyria",
+      "Hypoplasia of the corpus callosum",
+      "Peripheral axonal neuropathy",
+      "Ptosis",
+      "Hypertelorism",
+      "Wide nasal bridge",
+      "Synophrys",
+      "Highly arched eyebrow",
+      "Macrotia",
+      "Prominent nose",
+      "Iris coloboma",
+      "Corneal ulceration",
+      "Cleft palate",
+      "Hypotonia",
+      "Seizure",
+      "Congenital heart defects",
+      "Short stature",
+      "Ataxia",
+      "Ophthalmoparesis",
+      "Hypogonadotropic hypogonadism"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Neurological",
+      "Craniofacial",
+      "Ophthalmological",
+      "Cardiovascular",
+      "Growth",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002251",
+      "HP:0000252",
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0002126",
+      "HP:0002079",
+      "HP:0003477",
+      "HP:0000508",
+      "HP:0000316",
+      "HP:0000431",
+      "HP:0000664",
+      "HP:0002553",
+      "HP:0000400",
+      "HP:0000448",
+      "HP:0000612",
+      "HP:0012804",
+      "HP:0000175",
+      "HP:0001252",
+      "HP:0001250",
+      "HP:0001627",
+      "HP:0004322",
+      "HP:0001251",
+      "HP:0000597",
+      "HP:0000044"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "KIFBP"
+    ],
+    "treatments": [
+      "Saline rectal irrigation",
+      "Pull-through surgery for Hirschsprung disease"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Goldberg-Shprintzen_Syndrome.yaml",
+    "page_url": "../pages/disorders/Goldberg-Shprintzen_Syndrome.html",
+    "num_phenotypes": 24,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Gonorrhea",
     "disease_id": "MONDO:0004277",
     "category": "Infectious Disease",
@@ -181105,6 +181391,109 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Hypomyelination with Brain Stem and Spinal Cord Involvement and Leg Spasticity",
+    "disease_id": "MONDO:0014115",
+    "category": "Mendelian",
+    "parents": [
+      "leukodystrophy"
+    ],
+    "creation_date": "2026-10-09T20:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypomyelination with brain stem and spinal cord involvement and leg spasticity (HBSL) is an autosomal recessive leukodystrophy caused by biallelic germline variants in DARS1, mostly missense, which encodes the cytoplasmic aspartyl-tRNA synthetase that charges tRNA(Asp) with aspartate. Typical disease begins in infancy with delayed or regressing motor development and progressive, leg-predominant spasticity with pyramidal signs; ataxia, nystagmus, seizures and variable cognitive impairment are reported. MRI shows a recognisable pattern of hypomyelination involving the supratentorial white matter, the anterior brainstem and cerebellar peduncles, and the dorsal columns and lateral corticospinal tracts of the spinal cord. The spectrum is wider than the founding description: adolescent-onset patients can present with subacute spastic paraplegia, only minor focal cerebral white matter lesions, the same spinal long-tract changes, and a partial response to steroids, so the disease can mimic multiple sclerosis. HBSL closely resembles LBSL, which is caused by variants in DARS2 (the mitochondrial aspartyl-tRNA synthetase); the two are different diseases of different genes and should not be conflated. Complete loss of Dars1 is embryonic lethal in mice, so disease alleles are thought to retain residual function, but how a DARS1 defect produces a tract-selective white matter disease, and whether neurons or oligodendrocytes are affected first, is unresolved. There is no disease-modifying treatment.",
+    "pathophysiology": [
+      "DARS1 Biallelic Variants",
+      "Reduced Cytosolic Aspartyl-tRNA Charging",
+      "Impaired Protein Synthesis in CNS Neurons and Glia",
+      "Deficient Myelin in Brainstem, Cerebral and Spinal Long Tracts",
+      "Corticospinal Tract Dysfunction"
+    ],
+    "cell_types": [
+      "neuron",
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "aspartyl-tRNA aminoacylation",
+      "translation",
+      "central nervous system myelination"
+    ],
+    "phenotypes": [
+      "Lower limb spasticity",
+      "Subacute spastic paraplegia",
+      "Lower limb hyperreflexia",
+      "Babinski sign",
+      "Motor delay",
+      "Motor regression",
+      "Ataxia",
+      "Nystagmus",
+      "Seizure",
+      "Variable cognitive impairment",
+      "CNS hypomyelination",
+      "Brainstem and cerebellar peduncle white matter involvement",
+      "Spinal cord dorsal column hypomyelination",
+      "Lateral corticospinal tract involvement",
+      "Focal supratentorial white matter lesions",
+      "Myopia",
+      "Dysarthria"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Neuroimaging",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002061",
+      "HP:0001258",
+      "HP:0002395",
+      "HP:0003487",
+      "HP:0001270",
+      "HP:0033044",
+      "HP:0001251",
+      "HP:0000639",
+      "HP:0001250",
+      "HP:0100543",
+      "HP:0003429",
+      "HP:0012501",
+      "HP:0008311",
+      "HP:0020030",
+      "HP:0007052",
+      "HP:0000545",
+      "HP:0001260"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "DARS1"
+    ],
+    "treatments": [
+      "Corticosteroid Therapy",
+      "Supportive and Rehabilitative Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypomyelination_With_Brain_Stem_And_Spinal_Cord_Involvement_And_Leg_Spasticity.yaml",
+    "page_url": "../pages/disorders/Hypomyelination_with_Brain_Stem_and_Spinal_Cord_Involvement_and_Leg_Spasticity.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Hypoparathyroidism-Deafness-Renal Disease Syndrome",
     "disease_id": "MONDO:0007797",
     "category": "Mendelian",
@@ -203914,6 +204303,81 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "KLICK Syndrome",
+    "disease_id": "MONDO:0011169",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary Palmoplantar Keratoderma",
+      "Inherited Ichthyosis"
+    ],
+    "creation_date": "2026-10-09T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "KLICK syndrome (keratosis linearis with ichthyosis congenita and sclerosing keratoderma) is a rare autosomal recessive keratinization disorder. It combines congenital ichthyosiform scaling, sclerosing palmoplantar keratoderma with constricting digital bands, and keratotic papules arranged in linear, cord-like bands in the flexures, especially the arm folds and wrists. Every genetically studied patient has been homozygous for the same single nucleotide deletion in the 5' untranslated region of POMP, which encodes the proteasome maturation chaperone. The deletion shifts POMP transcription toward long 5' UTR isoforms and reduces effective POMP in differentiating keratinocytes, producing proteasome insufficiency, endoplasmic reticulum stress and defective profilaggrin processing in the upper epidermis. Disease is confined to the skin; whether mild dermal inflammation reflects an autoinflammatory component is debated.",
+    "pathophysiology": [
+      "Homozygous POMP 5' UTR Deletion",
+      "POMP Transcriptional Switch to Long 5' UTR Variants",
+      "Reduced POMP in Differentiating Keratinocytes",
+      "Epidermal Proteasome Insufficiency",
+      "Keratinocyte ER Stress and Unfolded Protein Response",
+      "Defective Profilaggrin Processing",
+      "Perturbed Terminal Epidermal Differentiation",
+      "ER Stress-Driven Cutaneous Autoinflammation"
+    ],
+    "cell_types": [
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "proteasome assembly",
+      "endoplasmic reticulum unfolded protein response",
+      "keratinocyte differentiation"
+    ],
+    "phenotypes": [
+      "Ichthyosis",
+      "Sclerosing palmoplantar keratoderma",
+      "Constricting digital bands (pseudoainhum)",
+      "Linear keratotic flexural papules",
+      "Hyperkeratosis",
+      "Hypergranulosis",
+      "Epidermal acanthosis"
+    ],
+    "phenotype_categories": [
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Integument",
+      "Limbs"
+    ],
+    "phenotype_ids": [
+      "HP:0008064",
+      "HP:0007447",
+      "HP:0045059",
+      "HP:0000962",
+      "HP:0025114",
+      "HP:0025092"
+    ],
+    "frequencies": [],
+    "genes": [
+      "POMP"
+    ],
+    "treatments": [
+      "Oral retinoids"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "KLICK_Syndrome.yaml",
+    "page_url": "../pages/disorders/KLICK_Syndrome.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "KMT2B-Related Dystonia",
@@ -292356,6 +292820,76 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Protan Color Vision Deficiency",
+    "disease_id": "MONDO:0010565",
+    "category": "Mendelian",
+    "parents": [
+      "Color vision disorder",
+      "Congenital stationary cone dysfunction"
+    ],
+    "creation_date": "2026-10-14T12:36:44Z",
+    "updated_date": null,
+    "subtypes": [
+      "Protanopia",
+      "Protanomaly"
+    ],
+    "description": "X-linked red-green color vision deficiency of the protan type, in which the long-wavelength-sensitive (L) cone contribution to vision is absent. It covers the dichromatic form, protanopia, and the anomalous trichromatic form, protanomaly. The X-chromosome opsin gene array at Xq28 normally carries one OPN1LW (L-opsin) gene followed by one or more OPN1MW (M-opsin) genes, and only the first two genes are expressed. Unequal homologous recombination between the highly similar genes in female meiosis produces arrays that lack OPN1LW or replace it with a 5'L-3'M hybrid gene whose product absorbs in the M range, so every expressed gene encodes an M-class pigment. Cones that would have been L cones contain M-class pigment instead. When the expressed pigments are spectrally identical the result is protanopia; when they differ by a few nanometres the result is protanomaly, whose severity scales with that spectral separation. Affected males have reduced red-green discrimination and reduced sensitivity to long-wavelength (red) light. No disease-modifying treatment exists; gene addition of L opsin restored trichromatic behaviour in adult dichromatic squirrel monkeys but has not been tested in humans.",
+    "pathophysiology": [
+      "Unequal Recombination in the Xq28 L/M Opsin Gene Array",
+      "Absence of an Expressed L-Class Opsin Gene",
+      "L Cones Filled with M-Class Photopigment",
+      "Loss of L-versus-M Cone Opponent Signal",
+      "Reduced Long-Wavelength Luminous Sensitivity"
+    ],
+    "cell_types": [
+      "L cone cell",
+      "M cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0003048",
+      "CL:0003049"
+    ],
+    "biological_processes": [
+      "detection of long-wavelength light in visual perception"
+    ],
+    "phenotypes": [
+      "Protanopia",
+      "Protanomaly",
+      "Red-Green Dyschromatopsia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0011522",
+      "HP:0200018",
+      "HP:0000642"
+    ],
+    "frequencies": [],
+    "genes": [
+      "OPN1LW"
+    ],
+    "treatments": [
+      "Colour-enhancing filter glasses",
+      "Occupational and driving counselling",
+      "Genetic counselling",
+      "L-opsin gene addition (preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Protan_Color_Vision_Deficiency.yaml",
+    "page_url": "../pages/disorders/Protan_Color_Vision_Deficiency.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Proteasome-Associated Autoinflammatory Syndrome",
     "disease_id": "MONDO:0009726",
     "category": "Mendelian",
@@ -329782,6 +330316,75 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Split-Foot Malformation with Mesoaxial Polydactyly",
+    "disease_id": "MONDO:0014816",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-09T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Split-foot malformation with mesoaxial polydactyly (SFMMP) is an autosomal recessive congenital limb malformation syndrome caused by biallelic MAP3K20 (ZAK) lesions that affect the sterile alpha motif (SAM) domain, which is present only in the long ZAK-alpha isoform. It was defined in two consanguineous families (one Pakistani family with four affected members and one Tunisian boy) with a variable split foot, partial duplication of the second toe, toe syndactyly, duplicated fingernail beds and, in the larger family, bilateral sensorineural hearing impairment. The missense allele destabilizes the isolated SAM domain and makes ZAK constitutively active in cell experiments, while a mouse SAM-domain deletion causes low-penetrance hindlimb duplication with reduced Trp63 expression. How either finding leads to the human foot defect is unresolved.",
+    "pathophysiology": [
+      "Biallelic MAP3K20 SAM-Domain Lesions",
+      "Loss of Normal ZAK-alpha SAM Domain Structure",
+      "Constitutive ZAK-alpha Kinase Activation",
+      "Reduced Hindlimb Bud Trp63 Expression",
+      "Disrupted Distal Hindlimb Patterning"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "protein autophosphorylation",
+      "embryonic hindlimb morphogenesis"
+    ],
+    "phenotypes": [
+      "Split foot",
+      "Mesoaxial foot polydactyly",
+      "1-2 toe syndactyly",
+      "4-5 toe syndactyly",
+      "Hypoplasia of toe phalanges",
+      "Toe symphalangism",
+      "Abnormal fingernail with duplicated nail bed",
+      "Bilateral sensorineural hearing impairment"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Dermatologic",
+      "Auditory"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0001839",
+      "HP:0010112",
+      "HP:0010711",
+      "HP:0004692",
+      "HP:0010746",
+      "HP:0010179",
+      "HP:0001231",
+      "HP:0008619"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MAP3K20"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Split-Foot_Malformation_with_Mesoaxial_Polydactyly.yaml",
+    "page_url": "../pages/disorders/Split-Foot_Malformation_with_Mesoaxial_Polydactyly.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Split Hand-Foot Malformation",
     "disease_id": "MONDO:0016576",
     "category": "Mendelian",
@@ -366313,17 +366916,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3395,
-  "total_subtypes": 4717,
-  "total_disorders_and_subtypes": 8112,
-  "total_unique_evidence_sources": 51162,
-  "total_unique_publications": 47677,
+  "total_disorder_pages": 3401,
+  "total_subtypes": 4719,
+  "total_disorders_and_subtypes": 8120,
+  "total_unique_evidence_sources": 51235,
+  "total_unique_publications": 47750,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 299,
-  "total_pathographs": 3391,
-  "total_unique_pathological_events": 22413,
+  "total_pathographs": 3397,
+  "total_unique_pathological_events": 22450,
   "total_modules": 192,
-  "total_research_reports": 3515,
+  "total_research_reports": 3521,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
