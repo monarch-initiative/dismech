@@ -483,3 +483,92 @@ Structure your response as a comprehensive narrative organized by the sections a
 For each section, provide:
 - Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
 - Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease
+
+This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (NCIT terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details
+
+
+## Output
+
+I'm collecting the primary literature: the Kurahashi 2018 discovery paper, the OMIM entry, and the later case reports. The report comes next.
+
+# Encephalitis/Encephalopathy, Mild, with Reversible Myelin Vacuolization (MMERV): Research Report
+
+**MONDO:0020853 · OMIM #618113 · Gene: *MYRF* (OMIM *608329; hgnc:1181)**
+
+*Scope:* Fewer than 20 genotyped patients have been published. The quotes below marked "verified" were read in this session from the repository's local reference cache (`references_cache/`) or from OMIM. I have not checked PMIDs marked "unverified". Run `just fetch-reference` on them before citing. The PubMed and OLS MCP servers need authorization in claude.ai connector settings and were not available, so no new ontology lookups were made. Every CURIE below either already appears in `kb/disorders/Encephalitis_Encephalopathy_Mild_With_Reversible_Myelin_Vacuolization.yaml` or is marked as a suggestion to be looked up.
+
+---
+
+## 1. Disease Information
+
+**Overview.** MMERV is an autosomal dominant disorder. It causes repeated or single episodes of acute, mild encephalopathy, usually triggered by fever or infection, in people whose development is otherwise normal. During an episode, MRI shows extensive symmetric restricted diffusion in the corpus callosum (especially the splenium) and the deep cerebral white matter. The lesions and the symptoms resolve within days to about 2 weeks. The disorder lies on the same clinical spectrum as sporadic MERS (mild encephalitis/encephalopathy with a reversible splenial lesion), but it is familial and the white matter involvement is more extensive.
+
+OMIM summary (verified via OMIM mirror): MMERV is an *"episodic acute reversible encephalopathy that occurs in children and is frequently associated with a trigger, such as a febrile illness."*
+
+**Identifiers**
+| System | ID |
+|---|---|
+| MONDO | MONDO:0020853 |
+| OMIM (phenotype) | #618113 |
+| OMIM (gene) | *608329 (MYRF); allelic variant .0001 = Q403R |
+| MedGen | C4722446 |
+| KEGG Disease | H02489 |
+| Orphanet / ICD-10 / ICD-11 | No specific code found. ICD-10 G93.4 (other and unspecified encephalopathy) or G93.40 is the nearest generic code. |
+
+**Synonyms:** MMERV; MYRF-related mild encephalopathy with reversible myelin vacuolization (the name proposed by Kurahashi et al. 2018); familial MERS; familial mild encephalopathy with a reversible splenial lesion and extensive white matter involvement.
+
+**Source of the data:** Everything comes from individual pedigree and case reports. No registry or EHR cohort exists.
+
+**Name origin (verified, PMID:29265453):** *"We propose the term 'MYRF-related mild encephalopathy with reversible myelin vacuolization.'"*
+
+---
+
+## 2. Etiology
+
+**Primary cause.** A heterozygous germline missense variant in *MYRF*. The recurrent variant is c.1208A>G, p.Gln403Arg (Q403R), which sits in the conserved Ndt80-like DNA-binding domain.
+
+> "we identified a heterozygous c.1208A>G predicting p.Gln403Arg in the highly conserved DNA-binding domain in the myelin regulatory factor (MYRF) gene." (PMID:29265453, verified)
+
+**Triggers (environmental and infectious).** Febrile infections trigger episodes. Reported triggers include unspecified febrile viral illnesses, SARS-CoV-2 (PMID:35990002), and influenza or COVID-like fever in the Chinese proband (PMID:38155716). One allelic case with a different variant was triggered by influenza A H1N1 (PMID:41190523). OMIM also lists stress as a trigger.
+
+> "Infectious diseases in children are a major triggering factor for MMERV" (PMID:38155716, verified)
+
+**Gene–environment interaction.** The published working model is that mutant MYRF supports myelin adequately at baseline but becomes insufficient under the metabolic and inflammatory stress of infection. OMIM attributes this hypothesis to Kurahashi et al. It is plausible but has not been tested experimentally.
+
+**Genetic risk and modifiers.** No modifier genes are known. Penetrance is incomplete (Section 9).
+
+**Protective factors.** None are known. The 2023 review suggests reducing infections:
+
+> "Minimizing infections can help reduce disease recurrence." (PMID:38155716, verified) This is an expert suggestion without supporting data.
+
+**Sporadic MERS is genetically different.** Kurahashi et al. sequenced *MYRF* in 33 sporadic MERS cases and found the variant only in the second family. *MYRF* therefore does not account for typical sporadic MERS.
+
+---
+
+## 3. Phenotypes
+
+All phenotypes are episodic, start in childhood (as young as 2–3 years) through young adulthood, are mild, and reverse completely. Frequencies cannot be estimated reliably from roughly 9–15 patients; the qualitative estimates below are my own.
+
+| Phenotype | HPO (from current entry, or suggested) | Frequency / notes |
+|---|---|---|
+| Acute encephalopathy | HP:0001298 Encephalopathy | Defining (all affected) |
+| Impaired consciousness / confusion | HP:0001289 Confusion; suggest looking up "Reduced consciousness/confusion" | Very frequent |
+| Delirium / abnormal behavior | HP:0031258 Delirium | Frequent |
+| Seizures, often febrile in early childhood, with lip smacking or eye deviation | HP:0001250 Seizure; consider HP:0002373 Febrile seizure (look up) | Frequent; often the first sign |
+| Speech disturbance: dysarthria, non-fluency, aphasia-like "impaired verbal communication" | HP:0001260 Dysarthria | Frequent; recurrent episodes of non-fluency in the adult Chinese proband |
+| Ataxia | HP:0001251 Ataxia | Occasional |
+| Limb numbness / transient motor weakness | Suggest paresthesia or hemiparesis terms (look up) | Occasional (PMID:35990002) |
+| Reversible white matter lesions (corpus callosum, centrum semiovale) | HP:0002352 Leukoencephalopathy; suggest a "splenium of corpus callosum" abnormality term; HP:0002181 Brain edema (intramyelinic) | Defining imaging finding |
