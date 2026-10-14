@@ -500,3 +500,96 @@ For each treatment, suggest NCIT (NCI Thesaurus) clinical-intervention terms whe
   - Phenotype recapitulation (how well model reproduces human disease features)
     > **Search first:** Model organism databases, comparative studies, PubMed
   - Model limitations (aspects of human disease not captured)
+    > **Search first:** Model organism databases, PubMed, review articles
+- **Applications**:
+  - Research applications (what aspects of disease can be studied)
+    > **Search first:** Model organism databases, PubMed
+- **Resources**:
+  - Model databases
+    > **Search first:** MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC
+
+---
+
+## Citation Requirements
+
+- Cite primary literature (PMID preferred) for all mechanistic and clinical claims
+- Prioritize recent reviews and landmark papers
+- Include direct quotes from abstracts where possible to support key statements
+- Distinguish evidence source types: human clinical, model organism, in vitro, computational
+
+## Output Format
+
+Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease
+
+This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (NCIT terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details
+
+
+## Output
+
+Reviewing the cached abstracts; next I'll pull the key quotes, then do a short web check for any newer reports.
+
+Checking the web for reports newer than 2024 and for the mouse model citations.
+
+# Gaze Palsy, Familial Horizontal, With Progressive Scoliosis 2 (HGPPS2 / Developmental Split-Brain Syndrome): Research Report
+
+**Scope and sourcing.** This report is built mainly from six references already cached in this repository: PMID:28250456, 38585553, 33141514, 29068161, 38516134 and 15105459. Quotes from them were read from the cached abstract or full text. Two web searches were also run: one for newer case reports and one for the mouse knockout paper. Anything not checked against a source is marked **[unverified]** and should be treated as a lead.
+
+Several resources could not be used because they need authorization: the claude.ai PubMed, OLS, bgpt and Noctua connectors. As a result, no ontology CURIE below was looked up in this session. Every term ID is a **suggested lead** and must be checked with `runoak`, the term caches or `just validate-terms` before it goes into an entry.
+
+---
+
+## 1. Disease Information
+
+**Overview.** HGPPS2 is an ultra-rare autosomal recessive disorder of axon guidance caused by biallelic loss-of-function variants in **DCC**, the gene for the netrin-1 receptor "deleted in colorectal carcinoma". In ROBO3-related HGPPS1, the midline-crossing failure is limited to the hindbrain and spinal cord. In HGPPS2 it affects commissures along the whole neuraxis.
+
+- Rahikkala et al. 2024 (PMID:38585553, Mol Syndromol; abstract): *"Horizontal gaze palsy with progressive scoliosis-2 (HGPPS2, MIM 617542) with impaired intellectual development aka developmental split-brain syndrome is an ultra-rare congenital disorder caused by pathogenic biallelic variants in the deleted in colorectal cancer (DCC) gene."*
+- Jamuar et al. 2017 (PMID:28250456, Nat Genet), the defining paper: *"Here we report a new human syndrome in which these commissures are widely disrupted, thus causing clinical manifestations of horizontal gaze palsy, scoliosis, and intellectual disability."*
+
+**Identifiers**
+
+| Resource | ID | Status |
+|---|---|---|
+| MONDO | MONDO:0054602 | already the entry's `disease_term` |
+| OMIM | 617542 | quoted in PMID:38585553 and PMID:29068161 |
+| Gene (OMIM) | DCC 120470 | quoted in PMID:28250456 |
+| HGNC | hgnc:2701 (DCC) | already used in the KB entry |
+| Orphanet / ICD-10 / ICD-11 / MeSH | not checked | **[unverified]** ICD-10 probably falls under Q04.x/H51.0 only by analogy; do not assert it |
+
+**Synonyms:** HGPPS2; Horizontal gaze palsy with progressive scoliosis 2 with impaired intellectual development; Developmental split-brain syndrome (DSBS). PMID:29068161 uses "developmental split brain syndrome (DSBS, MIM# 617542)".
+
+**Data basis:** aggregated case reports, about 8 published patients from 5 families. There are no registry or EHR data.
+
+## 2. Etiology
+
+- **Cause:** biallelic germline loss-of-function variants in DCC on 18q21.2. Marsh et al. 2018 (PMID:29068161): *"Biallelic, predicted loss-of-function DCC mutations cause developmental split brain syndrome (DSBS)."*
+- **Consanguinity** is a recurrent risk context: a Saudi family with first-cousin parents (PMID:28250456) and a consanguineous Pakistani family (PMID:33141514).
+- **Environmental, protective and gene–environment factors:** none reported. This is a monogenic developmental disorder.
+- **Possible modifiers:** Jamuar et al. attribute the variable mirror movements to *"additional, as yet uncharacterized, background genetic modifier effects"*. This is speculation and is not established.
+
+## 3. Phenotypes
+
+The phenotypes below come from about 8 patients, so frequencies are qualitative. Rahikkala 2024 (PMID:38585553) summarizes them: *"HGPPS2 phenotype caused by biallelic DCC variants appears to be fully penetrant and shows a similar clinical presentation including developmental delay, intellectual disability, neuromuscular scoliosis, horizontal gaze palsy, agenesis of corpus callosum, and the absence of cerebral commissures."*
+
+| Phenotype | Onset / course | Frequency | Suggested HPO **[verify]** | Key source |
+|---|---|---|---|---|
+| Horizontal gaze palsy (no conjugate horizontal eye movements) | congenital, stable | essentially all | Horizontal gaze palsy (HP:0000641?) / Ophthalmoplegia | 33141514, 28250456 |
+| Progressive scoliosis | childhood to adolescence, progressive | essentially all | Progressive scoliosis / Scoliosis HP:0002650 | 33141514 |
+| Global developmental delay | infancy | most | HP:0001263 | 28250456, 33141514 |
+| Intellectual disability | childhood, static | most (one patient described as "modest") | HP:0001249 | 28250456 |
+| Agenesis of the corpus callosum | congenital | all imaged | HP:0001274 | 28250456 |
