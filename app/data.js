@@ -115494,6 +115494,93 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Dermatopathia Pigmentosa Reticularis",
+    "disease_id": "MONDO:0007445",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-09T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dermatopathia pigmentosa reticularis (DPR) is a very rare autosomal dominant ectodermal dysplasia defined by the triad of generalized reticulate hyperpigmentation that begins at birth or in early childhood and persists for life, diffuse noncicatricial alopecia, and onychodystrophy. Adermatoglyphia, palmoplantar hyperkeratosis, hypohidrosis or hyperhidrosis, heat intolerance, acral nonscarring blisters and mucosal pigmentation are variable associated features. DPR is allelic with Naegeli-Franceschetti-Jadassohn syndrome (NFJS): both are caused by heterozygous nonsense or frameshift variants in the region of KRT14 encoding the nonhelical head (E1/V1) domain, in contrast to the rod-domain KRT14 variants that cause epidermolysis bullosa simplex. Ultrastructural study of affected skin shows increased apoptosis in the KRT14-expressing basal layer, and work on NFJS alleles shows keratin 14 haploinsufficiency with increased keratinocyte susceptibility to TNF-alpha induced apoptosis. The steps from basal-cell apoptosis to the reticulate pigment pattern, hair loss and nail dystrophy are inferred rather than demonstrated.",
+    "pathophysiology": [
+      "KRT14 Head Domain Truncating Variant",
+      "Keratin 14 Haploinsufficiency",
+      "Increased Basal Keratinocyte Apoptosis",
+      "Basal Layer Degeneration and Pigment Incontinence",
+      "Defective Dermatoglyphic and Sweat Gland Ontogenesis"
+    ],
+    "cell_types": [
+      "basal cell of epidermis",
+      "melanophage"
+    ],
+    "cell_type_ids": [
+      "CL:0002187",
+      "CL:0002060"
+    ],
+    "biological_processes": [
+      "keratinocyte apoptotic process",
+      "cellular response to tumor necrosis factor",
+      "sweat gland development"
+    ],
+    "phenotypes": [
+      "Reticulate hyperpigmentation",
+      "Diffuse nonscarring alopecia",
+      "Onychodystrophy",
+      "Adermatoglyphia",
+      "Palmoplantar hyperkeratosis",
+      "Hypohidrosis",
+      "Hyperhidrosis",
+      "Heat intolerance",
+      "Acral nonscarring blisters",
+      "Reticulate pigmentation of oral mucosa",
+      "Salzmann corneal nodules"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Constitutional",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0007588",
+      "HP:0001596",
+      "HP:0008404",
+      "HP:0007455",
+      "HP:0000972",
+      "HP:0000966",
+      "HP:0000975",
+      "HP:0002046",
+      "HP:0031045",
+      "HP:0012788",
+      "HP:6001230"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KRT14"
+    ],
+    "treatments": [
+      "Topical minoxidil",
+      "Topical retinoids and keratolytics",
+      "Heat avoidance and hydration"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dermatopathia_Pigmentosa_Reticularis.yaml",
+    "page_url": "../pages/disorders/Dermatopathia_Pigmentosa_Reticularis.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Dermatosparaxis Ehlers-Danlos Syndrome",
     "disease_id": "MONDO:0009161",
     "category": "Mendelian",
@@ -342538,6 +342625,108 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Tall Stature-Scoliosis-Macrodactyly of the Great Toes Syndrome",
+    "disease_id": "MONDO:0014401",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia"
+    ],
+    "creation_date": "2026-10-09T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Tall stature-scoliosis-macrodactyly of the great toes syndrome (epiphyseal chondrodysplasia, Miura type; ECDM) is a rare autosomal dominant skeletal overgrowth disorder caused by heterozygous activating variants in NPR2, which encodes the C-type natriuretic peptide (CNP) receptor NPR-B (guanylyl cyclase-B). Activating alleles raise ligand-independent and CNP-stimulated cGMP production, and in a chondrocyte-targeted transgenic mouse the excess cartilage cGMP widens the growth plate and lengthens the long bones, vertebrae and digits. Affected people have tall stature, long and broad great toes, arachnodactyly, scoliosis, coxa valga, valgus deformity of the lower limbs, slipped capital femoral epiphysis and pseudoepiphyses of the phalanges, with marked intrafamilial variability. It is the mirror image of NPR2 loss of function, which causes short stature and acromesomelic dysplasia, Maroteaux type.",
+    "pathophysiology": [
+      "Heterozygous Activating NPR2 Variant",
+      "Constitutive and CNP-Hypersensitive NPR-B Guanylyl Cyclase Activity",
+      "Increased cGMP in Growth-Plate Chondrocytes",
+      "CREB-Driven Continued Proliferation of Hypertrophic Chondrocytes",
+      "Growth Plate Widening with Expanded Hypertrophic Zone",
+      "Excessive Endochondral Longitudinal Bone Growth"
+    ],
+    "cell_types": [
+      "growth plate cartilage chondrocyte",
+      "hypertrophic chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:1000217",
+      "CL:0000743"
+    ],
+    "biological_processes": [
+      "receptor guanylyl cyclase signaling pathway",
+      "cGMP biosynthetic process",
+      "proliferation of hypertrophic chondrocytes",
+      "growth plate cartilage development",
+      "chondrocyte hypertrophy",
+      "endochondral bone growth"
+    ],
+    "phenotypes": [
+      "Tall stature",
+      "Macrodactyly of the great toes",
+      "Broad hallux",
+      "Arachnodactyly",
+      "Scoliosis",
+      "Coxa valga",
+      "Genu valgum",
+      "Slipped capital femoral epiphysis",
+      "Pseudoepiphyses of the phalanges of the hand",
+      "Pseudoepiphyses of the toes",
+      "Clinodactyly of the 5th finger",
+      "Reduced bone mineral density",
+      "Vertebral compression fracture",
+      "Elevated bone-specific alkaline phosphatase"
+    ],
+    "phenotype_categories": [
+      "Growth",
+      "Skeletal",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0000098",
+      "HP:0001847",
+      "HP:0010055",
+      "HP:0001166",
+      "HP:0002650",
+      "HP:0002673",
+      "HP:0002857",
+      "HP:0006461",
+      "HP:0010235",
+      "HP:0010169",
+      "HP:0004209",
+      "HP:0004349",
+      "HP:0002953",
+      "HP:0010639"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NPR2"
+    ],
+    "treatments": [
+      "Great-toe epiphysiodesis",
+      "Corrective osteotomy and guided growth",
+      "Hallux arthrodesis",
+      "High-dose estrogen for adult height reduction"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma cGMP",
+      "Serum amino-terminal proCNP"
+    ],
+    "source_file": "Tall_Stature-Scoliosis-Macrodactyly_of_the_Great_Toes_Syndrome.yaml",
+    "page_url": "../pages/disorders/Tall_Stature-Scoliosis-Macrodactyly_of_the_Great_Toes_Syndrome.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Tangier_Disease",
     "disease_id": "MONDO:0008783",
     "category": "Mendelian",
@@ -367571,17 +367760,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3406,
+  "total_disorder_pages": 3408,
   "total_subtypes": 4722,
-  "total_disorders_and_subtypes": 8128,
-  "total_unique_evidence_sources": 51306,
-  "total_unique_publications": 47820,
+  "total_disorders_and_subtypes": 8130,
+  "total_unique_evidence_sources": 51335,
+  "total_unique_publications": 47849,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 299,
-  "total_pathographs": 3402,
-  "total_unique_pathological_events": 22489,
+  "total_pathographs": 3404,
+  "total_unique_pathological_events": 22500,
   "total_modules": 192,
-  "total_research_reports": 3526,
+  "total_research_reports": 3528,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
