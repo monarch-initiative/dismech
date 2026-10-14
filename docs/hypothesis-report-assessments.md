@@ -290,6 +290,71 @@ uv run python scripts/hypothesis_deep_research.py run \
   --analysis-objective 'Prespecified case-versus-control expression contrast'
 ```
 
+### Recovering a finished OpenScientist job
+
+An OpenScientist job keeps running on the provider's side when the local client
+dies, for example on a read timeout while it waits. The runner reads the job ID
+from the client's log and writes it beside the report as
+`<provider>.md.job.yaml`, so a failed or timed-out run names the job and the
+command that recovers it. `fetch` downloads the job's bundle (retrying gateway
+timeouts and resuming a partial download), writes the report in the usual
+`## Question` / `## Output` layout with the job ID in its frontmatter, restores
+the run's whole `openscientist_artifacts/` directory with its original paths, and
+then applies the same manifest binding and analysis gate as `run`:
+
+```bash
+uv run python scripts/hypothesis_deep_research.py fetch \
+  openscientist <Disease> <hypothesis_id> \
+  [--template <the template the job ran under>] [--job-id <id>] [--overwrite]
+```
+
+The `.job.yaml` record also stores the template the job ran under and its git
+blob hash, and `fetch` uses that template by default; an explicit `--template`
+that disagrees with the record is refused, because it would apply the wrong
+analysis gate. The recovered report's frontmatter says where its
+`template_file` came from (`recorded-at-run`, `fetch-argument`, or
+`fetch-default` when no record exists). Commit the `.job.yaml` beside the report
+it describes: it is small, and it is the only link from the report back to the
+provider job.
+
+Without `--job-id`, `fetch` uses the `.job.yaml` record, then a single recent job
+whose question names the hypothesis; when several match it lists them and stops.
+After a successful `run` that produces an artifact bundle (an analysis-contract
+template, or a report claiming `ANALYSIS_STATUS: SUCCEEDED`), the runner also
+restores the artifact directory from the bundle. The client otherwise keeps only
+some file extensions and flattens paths, which drops `MANIFEST.yaml`,
+`analysis.py` and `environment.txt` (#11254); flattened copies identical to a
+restored file are removed. Recovery does not correct the bundle: a manifest that
+uses the wrong field names still fails the gate.
+
+### Testing a hypothesis by running a published model
+
+`templates/hypothesis_model_simulation.md` is the counterpart of the dataset
+template for a published simulation model (an agent-based, ODE or other model
+deposited with its paper). It opts into the same analysis contract, and it asks
+the provider to do three things before launching any batch:
+
+- reuse runs the authors deposited, instead of re-running them;
+- confirm that every setting it is asked to perturb is actually read by the model
+  code, because a setting the code never reads gives runs identical to control;
+- time a short run and estimate the whole batch, and stop with a
+  `compute_budget` failure rather than start a batch that cannot finish.
+
+When the authors scored outcomes by eye, an automated classifier is a new
+instrument and has to be checked against their labels on the deposited runs. The
+worked case, and why the budget step exists, is the neural tube closure model in
+#13616: a provider sandbox of 2 cores for 2 hours against roughly 150 CPU-hours
+of simulation.
+
+```bash
+uv run python scripts/hypothesis_deep_research.py run \
+  openscientist <Disease> <hypothesis_id> \
+  --template templates/hypothesis_model_simulation.md \
+  --dataset-inputs '<model archive URL, deposited outputs, publication>' \
+  --target-variables '<settings to perturb and their levels>' \
+  --analysis-objective '<the prediction being tested>'
+```
+
 Commit when reviewable and reasonably small:
 
 - a manifest naming external inputs, accessions/versions, retrieval dates, and

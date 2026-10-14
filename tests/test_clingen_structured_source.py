@@ -150,3 +150,198 @@ def test_serialize_accepts_native_bare_and_url_identifiers(
     entry = clingen_source.serialize(identifier)
     assert entry.reference_id == HEXB_ASSERTION
     assert entry.title == "HEXB / Sandhoff disease (Definitive)"
+
+
+# ---------------------------------------------------------------------------
+# Provenance of the file actually read (dismech#13575)
+# ---------------------------------------------------------------------------
+
+ALT_CSV_TEXT = CSV_TEXT.replace("FILE CREATED: 2026-01-24", "FILE CREATED: 2026-10-08")
+
+
+def _sha256(path: Path) -> str:
+    import hashlib
+
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+@pytest.fixture()
+def manifest_loaded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Load a manifest whose pin does NOT match the fixture CSV, then restore.
+
+    ``load_manifest`` mutates class attributes, so without the restore every
+    later test in the process would see this manifest.
+    """
+    for attr in ("bulk_files", "_manifest_snapshot_date", "_manifest_schema_tag"):
+        monkeypatch.setattr(
+            ClinGenSource, attr, getattr(ClinGenSource, attr, None), raising=False
+        )
+    manifest = tmp_path / "MANIFEST.yaml"
+    manifest.write_text(
+        "snapshot_date: '2026-08-13'\n"
+        "schema_tag: gene_validity.csv\n"
+        "bulk_files:\n"
+        "  - name: gene_validity.csv\n"
+        "    url: https://search.clinicalgenome.org/kb/gene-validity/download\n"
+        "    sha256: " + "deadbeef" * 8 + "\n"  # a string, not YAML int 0
+        "    size_bytes: 1\n",
+        encoding="utf-8",
+    )
+    ClinGenSource.load_manifest(manifest)
+    return manifest
+
+
+def test_snapshot_date_comes_from_the_csv_read_not_the_manifest(
+    clingen_source: ClinGenSource, manifest_loaded: Path
+):
+    # The manifest says August; the CSV that was parsed says January. A cache
+    # file must describe the data it was built from (dismech#13575).
+    assert clingen_source.snapshot_date == "2026-01-24"
+    text = clingen_source.serialize(HEXB_ASSERTION).render()
+    assert "CSV snapshot **2026-01-24**" in text
+    assert "2026-08-13" not in text
+
+
+def test_cache_frontmatter_records_source_snapshot_and_sha256(
+    clingen_source: ClinGenSource, tmp_path: Path
+):
+    path = clingen_source.write_cache_file(HEXB_ASSERTION, tmp_path / "out")
+    text = path.read_text(encoding="utf-8")
+    assert 'source_snapshot: "2026-01-24"' in text
+    assert f'source_sha256: "{_sha256(tmp_path / "gene_validity.csv")}"' in text
+    # ...and the deterministic frontmatter contract still accepts the file.
+    assert check_cache_file(path) is None
+
+
+def test_warns_when_the_pinned_sha256_differs_from_the_csv_read(
+    tmp_path: Path, manifest_loaded: Path, caplog: pytest.LogCaptureFixture
+):
+    (tmp_path / "gene_validity.csv").write_text(CSV_TEXT, encoding="utf-8")
+    src = ClinGenSource(tmp_path, include_report_text=False)
+    with caplog.at_level("WARNING", logger="dismech.structured_sources.clingen"):
+        src.index()
+    messages = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert any("does not match" in m and "MANIFEST" in m for m in messages), messages
+
+
+def test_no_pin_warning_when_the_csv_matches_the_manifest(
+    tmp_path: Path, manifest_loaded: Path, caplog: pytest.LogCaptureFixture
+):
+    csv = tmp_path / "gene_validity.csv"
+    csv.write_text(CSV_TEXT, encoding="utf-8")
+    from dismech.structured_sources.base import BulkFile
+
+    ClinGenSource.bulk_files = (
+        BulkFile(name="gene_validity.csv", url="u", sha256=_sha256(csv)),
+    )
+    src = ClinGenSource(tmp_path, include_report_text=False)
+    with caplog.at_level("WARNING", logger="dismech.structured_sources.clingen"):
+        src.index()
+    assert not [r for r in caplog.records if r.levelname == "WARNING"]
+
+
+def test_warns_when_falling_back_to_the_committed_csv(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+):
+    # No gene_validity.csv under data_dir: the source falls back to the
+    # committed cache/clingen/gene_validity.csv, and must say so, because on a
+    # fresh checkout that file is a January 2026 export (dismech#13575).
+    src = ClinGenSource(tmp_path / "empty", include_report_text=False)
+    with caplog.at_level("WARNING", logger="dismech.structured_sources.clingen"):
+        path = src._csv_path()
+    assert path.parts[-3:] == ("cache", "clingen", "gene_validity.csv")
+    messages = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert any("cache/clingen/gene_validity.csv" in m for m in messages), messages
+
+
+def test_explicit_csv_path_overrides_the_data_dir(tmp_path: Path):
+    (tmp_path / "gene_validity.csv").write_text(CSV_TEXT, encoding="utf-8")
+    other = tmp_path / "elsewhere" / "fresh.csv"
+    other.parent.mkdir()
+    other.write_text(ALT_CSV_TEXT, encoding="utf-8")
+    src = ClinGenSource(tmp_path, include_report_text=False, csv_path=other)
+    assert src.snapshot_date == "2026-10-08"
+    assert src.serialize(HEXB_ASSERTION).extra_frontmatter["source_sha256"] == _sha256(
+        other
+    )
+
+
+def test_rebuild_cli_accepts_an_explicit_csv(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    from typer.testing import CliRunner
+
+    from dismech.structured_sources.cli import app
+
+    for attr in ("bulk_files", "_manifest_snapshot_date", "_manifest_schema_tag"):
+        monkeypatch.setattr(
+            ClinGenSource, attr, getattr(ClinGenSource, attr, None), raising=False
+        )
+    csv = tmp_path / "fresh.csv"
+    csv.write_text(ALT_CSV_TEXT, encoding="utf-8")
+    out = tmp_path / "out"
+    result = CliRunner().invoke(
+        app,
+        [
+            "rebuild",
+            "clingen",
+            "--csv-only",
+            "--csv",
+            str(csv),
+            "--cache-dir",
+            str(out),
+            "--id",
+            HEXB_ASSERTION,
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    text = (
+        out
+        / "CGGV_assertion_7f53d03d-f936-4628-ab75-351ae4da012a-2022-09-15T160000.000Z.md"
+    ).read_text()
+    assert "CSV snapshot **2026-10-08**" in text
+    assert f'source_sha256: "{_sha256(csv)}"' in text
+
+
+def test_rebuild_cli_fails_when_a_requested_id_is_not_in_the_export(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """`just fetch-reference CGGV:<typo or withdrawn id>` must not succeed.
+
+    Before #13766 LRV failed such an id with "No source found" (exit 1); the
+    rebuild used to print "skipped ..." and exit 0, which an agent reads as
+    success (review on #13766).
+    """
+    from typer.testing import CliRunner
+
+    from dismech.structured_sources.cli import app
+
+    for attr in ("bulk_files", "_manifest_snapshot_date", "_manifest_schema_tag"):
+        monkeypatch.setattr(
+            ClinGenSource, attr, getattr(ClinGenSource, attr, None), raising=False
+        )
+    csv = tmp_path / "fresh.csv"
+    csv.write_text(CSV_TEXT, encoding="utf-8")
+    withdrawn = (
+        "CGGV:assertion_c3d96af7-fd6a-4c40-b9db-3c1cd1df17a3-2025-04-15T160000.000Z"
+    )
+    result = CliRunner().invoke(
+        app,
+        [
+            "rebuild",
+            "clingen",
+            "--csv-only",
+            "--csv",
+            str(csv),
+            "--cache-dir",
+            str(tmp_path / "out"),
+            "--id",
+            HEXB_ASSERTION,
+            "--id",
+            withdrawn,
+        ],
+    )
+    assert result.exit_code != 0, result.output
+    assert "not found" in (result.output + str(result.exception or ""))
+    # The id that does exist is still written; the failure is about the other one.
+    assert (tmp_path / "out").exists() and any((tmp_path / "out").glob("CGGV_*.md"))
