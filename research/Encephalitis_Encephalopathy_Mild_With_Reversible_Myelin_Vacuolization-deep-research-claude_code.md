@@ -137,3 +137,114 @@ For each phenotype, provide:
 Open with a numbered sequence of mechanistic steps running from the initiating
 lesion (mutation, exposure, infection) to the clinical manifestation, one step per
 line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.
+
+- **Molecular Pathways**: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)
+  > **Search first:** KEGG, Reactome, WikiPathways, PathBank, BioCyc
+- **Cellular Processes**: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)
+  > **Search first:** Gene Ontology (GO), Reactome, KEGG, PubMed
+- **Protein Dysfunction**: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)
+  > **Search first:** UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold
+- **Metabolic Changes**: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)
+  > **Search first:** KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA
+- **Immune System Involvement**: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)
+  > **Search first:** ImmPort, Immunome Database, IEDB, Gene Ontology
+- **Tissue Damage Mechanisms**: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)
+  > **Search first:** PubMed, Gene Ontology, Reactome
+- **Biochemical Abnormalities**: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)
+  > **Search first:** BRENDA, UniProt, KEGG, OMIM, PubMed
+- **Epigenetic Changes**: DNA methylation, histone modifications affecting gene expression in disease
+  > **Search first:** ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth
+- **Molecular Profiling** (if available):
+  - Transcriptomics/gene expression changes
+    > **Search first:** GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA
+  - Proteomics findings
+    > **Search first:** PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID
+  - Metabolomics signatures
+    > **Search first:** MetaboLights, Metabolomics Workbench, HMDB, METLIN
+  - Lipidomics alterations
+    > **Search first:** LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench
+  - Genomic structural features
+    > **Search first:** UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV
+- **Advanced Technologies** (if applicable):
+  - Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    > **Search first:** Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE
+  - Spatial transcriptomics findings
+    > **Search first:** GEO, Spatial Research, Vizgen, 10x Genomics data
+  - Multi-omics integration results
+    > **Search first:** TCGA, ICGC, cBioPortal, LinkedOmics, PubMed
+  - Functional genomics screens (CRISPR, RNAi)
+    > **Search first:** DepMap, GenomeRNAi, PubMed, BioGRID ORCS
+
+For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types
+
+### 7. Anatomical Structures Affected
+
+- **Organ Level**:
+  - Primary organs directly affected
+  - Secondary organ involvement (complications, secondary effects)
+  - Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)
+  > **Search first:** Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT
+- **Tissue and Cell Level**:
+  - Specific tissue types affected (epithelial, connective, muscle, nervous)
+  - Specific cell populations targeted (with Cell Ontology terms)
+  > **Search first:** Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB
+- **Subcellular Level**:
+  - Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)
+  > **Search first:** Gene Ontology (Cellular Component), UniProt, Human Protein Atlas
+- **Localization**:
+  - Specific anatomical sites (with UBERON terms)
+    > **Search first:** FMA, Uberon, NeuroNames (for brain), SNOMED CT
+  - Lateralization (unilateral, bilateral, asymmetric)
+    > **Search first:** HPO, clinical literature, imaging databases
+
+### 8. Temporal Development
+
+- **Onset**:
+  - Typical age of onset (congenital, pediatric, adult, geriatric)
+  - Onset pattern (acute, subacute, chronic, insidious)
+  > **Search first:** OMIM, Orphanet, HPO, PubMed
+- **Progression**:
+  - Disease stages (early, intermediate, advanced, end-stage)
+    > **Search first:** Cancer Staging Manual (AJCC), WHO classifications, PubMed
+  - Progression rate (rapid, slow, variable)
+  - Disease course pattern (episodic, relapsing-remitting, progressive, stable)
+  - Disease duration (self-limited, chronic lifelong)
+  > **Search first:** Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM
+- **Patterns**:
+  - Remission patterns (spontaneous, treatment-induced)
+    > **Search first:** Clinical trial databases, disease registries, PubMed
+  - Critical periods (time windows of vulnerability or opportunity for intervention)
+    > **Search first:** PubMed, developmental biology databases, clinical guidelines
+
+### 9. Inheritance and Population
+
+- **Epidemiology**:
+  - Prevalence (cases per 100,000 at given time)
+  - Incidence (new cases per 100,000 per year)
+  > **Search first:** Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries
+- **For Genetic Etiology**:
+  - Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    > **Search first:** OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)
+  - Penetrance (complete, incomplete, age-dependent)
+    > **Search first:** ClinVar, OMIM, PubMed, ClinGen
+  - Expressivity (variable, consistent)
+    > **Search first:** OMIM, ClinVar, PubMed
+  - Genetic anticipation (increasing severity in successive generations)
+    > **Search first:** OMIM, PubMed (especially for repeat expansion disorders)
+  - Germline mosaicism
+    > **Search first:** ClinVar, OMIM, genetic counseling literature, PubMed
+  - Founder effects (population-specific mutations)
+    > **Search first:** gnomAD, population genetics databases, PubMed
+  - Consanguinity role
+    > **Search first:** OMIM, population studies, genetic counseling resources
+  - Carrier frequency
+    > **Search first:** gnomAD, carrier screening databases, GeneReviews, GTR
