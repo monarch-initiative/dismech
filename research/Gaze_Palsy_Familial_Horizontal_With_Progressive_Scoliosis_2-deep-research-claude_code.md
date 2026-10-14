@@ -593,3 +593,55 @@ The phenotypes below come from about 8 patients, so frequencies are qualitative.
 | Global developmental delay | infancy | most | HP:0001263 | 28250456, 33141514 |
 | Intellectual disability | childhood, static | most (one patient described as "modest") | HP:0001249 | 28250456 |
 | Agenesis of the corpus callosum | congenital | all imaged | HP:0001274 | 28250456 |
+| Absent anterior and hippocampal commissures | congenital | Family 1 and Pakistani family | Absent anterior commissure **[lookup]** | 28250456, 33141514 |
+| Midline brainstem cleft, "butterfly" medulla, hypoplastic pons and midbrain | congenital | Families 1 and 2 | Pontine hypoplasia HP:0012110?; Brainstem dysplasia | 28250456 |
+| Failed decussation of the superior cerebellar peduncles (no "red dot" sign); absent transverse pontine fibers | congenital | Family 2 (DTI) | **[no specific HPO; search]** | 28250456 |
+| Probst bundles; widespread white-matter disorganization with low FA | congenital | Family 2 (DTI) | Abnormal cerebral white matter morphology | 28250456 |
+| Mirror movements | — | **variable**: Family 1 proband only | Mirror movements HP:0001335? | 28250456 |
+| Interhemispheric cyst | — | 1 patient (missense Family 3) | Interhemispheric cyst | 28250456 |
+
+Supporting quotes:
+
+- **Imaging, Family 1** (PMID:28250456): *"Pons and midbrain structures were hypoplastic, and there was a large midline cleft throughout the extent of the brainstem contributing to a butterfly shaped medulla."*
+- **Tractography** (PMID:28250456): *"In place of the normal pattern of interdigitating callosal fibers, no commissural tracts were evident, either on tractography or FA maps."* The same paper adds that the disorganization *"was not limited to commissural fibers, but was strongly evident in associational and subcortical fibers as well."*
+- **Mirror movements** (PMID:28250456): *"while the proband in Family 1 exhibited mirror movements, the affected individuals in Family 2 and 3 did not."*
+
+**Quality of life:** no formal QoL instruments (EQ-5D, SF-36) have been reported. The functional burden comes from intellectual disability, the need for scoliosis care, and compensatory head movements for horizontal gaze. That last point is extrapolated from HGPPS1 **[unverified for HGPPS2]**.
+
+## 4. Genetic / Molecular Information
+
+**Causal gene:** DCC (hgnc:2701; OMIM 120470; 18q21.2). The gene has 29 exons and encodes a 1447-amino-acid, 159 kDa single-pass transmembrane protein of the immunoglobulin superfamily, with 4 Ig and 6 fibronectin type III repeats (PMID:29068161, PMID:28250456).
+
+**Reported HGPPS2 alleles** (all homozygous):
+
+| Family / origin | Variant | Class | Ref |
+|---|---|---|---|
+| 1, Mexico (2 boys) | 7,682 bp deletion removing the 3′ end of exon 1 (61 bp of coding sequence); RT-PCR shows exon 1 skipping | intragenic deletion; functional null | 28250456 |
+| 2, Saudi Arabia | c.788_794delTTTCTGG, p.Val263Alafs*36 (exon 4, Ig3) | frameshift | 28250456 |
+| 3 (ACC plus interhemispheric cyst cohort) | c.2071C>A, p.Gln691Lys (FN3 domain 3) | missense; possibly hypomorphic | 28250456 |
+| Pakistan (3 sibs) | c.2399dupA, p.(Asn800Lysfs*11) (exon 16) | frameshift | 33141514 |
+| Syria | c.(?_1912)_(2359_?)dup, p.(Ser788Tyrfs*4) | intragenic duplication | 38585553 |
+
+- Count: *"three different homozygous pathogenic frameshift variants, one homozygous missense variant, and an intragenic duplication in the DCC gene have been reported in 8 patients"* (PMID:38585553).
+- Family 1 deletion: *"Disruption of these features strongly predicts that this mutation represents a functional null."* (PMID:28250456)
+- Possible genotype–phenotype gradient for Family 3: *"This finding suggests that weaker biallelic mutations in DCC may cause milder phenotypes, although additional cases will be required to confirm this."* (PMID:28250456)
+- **Functional consequence:** loss of function. All variants are germline. ClinVar classifications and gnomAD frequencies were **not checked** in this session. The papers state the variants are absent from ExAC, EVS, dbSNP and 1000 Genomes.
+- **Allelic disorders of the same gene** (relevant to counselling and differential diagnosis): monoallelic DCC variants cause congenital mirror movements (MRMV1, MIM 157600) and/or isolated ACC (MIM 217990), with incomplete penetrance (PMID:29068161). The LOVD locus database is https://databases.lovd.nl/shared/genes/DCC.
+- **Copy-number testing:** two of the five alleles are CNVs. Rahikkala concludes: *"The analysis of duplications and deletions in the DCC should be included in the routine genetic diagnostic evaluation of patients with suspected HGPPS2."*
+- **Epigenetic or chromosomal abnormalities:** none reported beyond the intragenic CNVs.
+
+## 5. Environmental Information
+
+None. There are no known environmental, lifestyle or infectious contributors. This section is not applicable.
+
+## 6. Mechanism / Pathophysiology
+
+**Causal chain**
+
+1. Biallelic DCC loss-of-function variants (deletion, frameshift, duplication, or possibly hypomorphic missense) **lead to** absent or nonfunctional DCC receptor on growth cones of developing commissural axons. This is demonstrated at the RNA level for the exon-1 deletion and inferred for the other variants.
+2. Loss of DCC **results in** failure to transduce netrin-1 midline attraction and long-range signalling (PMID:29068161). In the hindbrain and spinal cord, the DCC–ROBO3 complex that silences Slit repulsion is also lost (PMID:28250456: *"Robo3 forms a direct molecular complex with DCC that silences repulsion from Slits … and enhances attraction to Netrins"*). The human DCC–ROBO3 link is **inferred** from the overlap with HGPPS1 and from mouse work.
+3. Commissural axons fail to cross the midline at every level of the neuraxis. This **leads to** branching consequences:
+   - **3a. Forebrain:** agenesis of the corpus callosum and the anterior and hippocampal commissures. Probst bundles form instead.
+   - **3b. Brainstem:** absent pontine crossing fibers and failed decussation of the superior cerebellar peduncles, producing the midline cleft or split pons and the butterfly medulla. The failure of crossing gaze pathways **results in** horizontal gaze palsy. The exact crossing tract has not been shown in humans; the authors write of *"shared brainstem crossing defects disrupting pathways controlling conjugate gaze"*.
+   - **3c. Spinal cord:** defective left–right interneuron circuits are thought to **lead to** unbalanced paraspinal muscle activity and progressive scoliosis. The authors call this **speculative**: *"We speculate that scoliosis may pertain to unbalanced paraspinal muscle activity due to defective spinal interneuron circuits."* It is supported only by Netrin-1/Dcc-deficient mice.
+   - **3d. Non-commissural white matter:** broad disorganization of associational and subcortical tracts with reduced FA. A possible additional role of DCC/netrin in oligodendrocyte myelin regulation is a hypothesis only. Together these probably **contribute to** intellectual disability and developmental delay (inferred: *"cognitive deficits may at least partially be attributable to non-commissural forebrain white matter abnormalities"*).
