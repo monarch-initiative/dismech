@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goldberg-Shprintzen Syndrome · Perplexity · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Goldberg-Shprintzen Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Goldberg-Shprintzen Syndrome</h1>
+                
+                <p class="report-subtitle">Goldberg–Shprintzen syndrome: disease-characteristics research report</p>
+                
+                
+                <div class="report-date">2026-10-09</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-perplexity">Perplexity</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0012280" target="_blank" rel="noopener noreferrer">MONDO:0012280</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: sonar-deep-research</span>
+                    
+                    
+                    <span class="meta-chip">61 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Goldberg–Shprintzen syndrome: disease-characteristics research report</h1>
+<p><strong>Goldberg–Shprintzen syndrome (GOSHS; <a href="http://purl.obolibrary.org/obo/MONDO_0012280" target="_blank" rel="noopener noreferrer">MONDO:0012280</a>) is a rare, autosomal-recessive neurodevelopmental disorder caused by biallelic loss-of-function variants in <em>KIFBP</em>.</strong> Its defining clinical pattern combines microcephaly, developmental impairment and characteristic facial features; many, but not all, affected people also have Hirschsprung disease and malformations of cerebral cortical development. It is <strong>not</strong> Shprintzen–Goldberg syndrome, the distinct <em>SKI</em>-associated condition. [3][23][51]</p>
+<p><strong>Evidence boundary.</strong> This is an aggregated, disease-level synthesis of published patients, experimental studies, and curated resources—not an analysis of individual electronic health records. The small, inconsistently ascertained case literature supports clinical descriptions but seldom supports population-wide frequencies, treatment-response rates, or survival estimates. In particular, Orphanet’s description says 24 published cases, whereas a 2020 paper identified <strong>37 previously reported people and added nine</strong>; those counts should not be combined as if they were contemporaneous estimates. [1][37]</p>
+<h2>1. Disease information and identifiers</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Identifier or name</th>
+<th>Value and interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/MONDO_0012280" target="_blank" rel="noopener noreferrer">MONDO:0012280</a></strong>. [3]</td>
+</tr>
+<tr>
+<td>OMIM phenotype</td>
+<td><strong>609460</strong>, Goldberg–Shprintzen megacolon syndrome. The associated <em>KIFBP</em> gene entry is <strong>OMIM 609367</strong>. [51][88]</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><strong><a href="https://bioregistry.io/ORPHA:66629" target="_blank" rel="noopener noreferrer">ORPHA:66629</a></strong>. [1]</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td><strong>C537279</strong>, as cross-referenced by Orphanet. [1]</td>
+</tr>
+<tr>
+<td>ICD-10; ICD-11</td>
+<td><strong>Q87.8; LD2F.1Y</strong>, respectively, as listed by Orphanet; these are classification mappings rather than GOSHS-specific molecular diagnoses. [1]</td>
+</tr>
+<tr>
+<td>UMLS/MedGen; SNOMED CT</td>
+<td><strong>C1836123 / MedGen 332131; SNOMED CT 717822006</strong>. [3]</td>
+</tr>
+<tr>
+<td>Synonyms</td>
+<td>Goldberg–Shprintzen megacolon syndrome; megacolon–microcephaly syndrome; GOSHS. [1][3]</td>
+</tr>
+<tr>
+<td>Crucial disambiguation</td>
+<td><strong>Shprintzen–Goldberg syndrome</strong> is <em>SKI</em>-associated and has a different OMIM/Orphanet entry; its craniosynostosis/connective-tissue phenotype should <strong>not</strong> be imported into this entry. [21][32]</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The original molecular study, published <strong>9 May 2005</strong>, linked homozygous <em>KIAA1279</em>—the former name for <em>KIFBP</em>—nonsense variants to central and enteric nervous-system malformations. Its abstract states: “homozygous nonsense mutations in KIAA1279 … underlie this syndromic form of Hirschsprung disease and generalized polymicrogyria.” <a href="https://pubmed.ncbi.nlm.nih.gov/15883926/">PMID: <strong>15883926</strong></a>. [151]</p>
+<h2>2. Etiology: causal, risk, protective, and environmental factors</h2>
+<p><strong>Established cause:</strong> pathogenic variants affecting both germline <em>KIFBP</em> alleles, usually nonsense, frameshift, splice-disrupting or exon-deletion variants; some missense variants reduce protein abundance. A 2020 human-patient and transfected-cell study found that truncating variants produced no detectable KIFBP protein, while the tested missense variants reduced expression. The authors concluded: “reduced, as well as lack of KIFBP expression can lead to GOSHS.” Published <strong>16 September 2020</strong>; <a href="https://pubmed.ncbi.nlm.nih.gov/32939943/">PMID: <strong>32939943</strong></a>. [37][154]</p>
+<p><strong>Risk and variation:</strong> having two disease-causing alleles is the established genetic risk; family history and consanguinity can increase the chance that both parents transmit the same rare recessive allele. Hirschsprung disease is variably expressed even among siblings carrying the same <em>KIFBP</em> variant. Proposed genetic or stochastic modifiers remain <strong>unconfirmed</strong>: in a small analysis, selected common <em>RET</em>, <em>NRG1</em>, and <em>SEMA3A</em> SNPs did not significantly explain Hirschsprung status (<em>p</em>=0.526). A mouse study found a <em>Kif1bp–Ret</em> interaction affecting <strong>vagal stomach innervation</strong>, but did <strong>not</strong> demonstrate an interaction explaining delayed enteric neural-crest migration. [37][38][151]</p>
+<p><strong>Not established:</strong> no protective allele, protective diet, toxin, lifestyle exposure, pathogen, or reproducible gene–environment interaction has been identified for GOSHS onset. Nutrition, infection prevention, and bowel care can influence <strong>complications</strong>; they do not correct the inherited cause. No GOSHS-specific epigenetic mechanism has been demonstrated. [37][1]</p>
+<h2>3. Phenotypes</h2>
+<p>The table distinguishes <strong>cohort observations</strong> from <strong>resource descriptions</strong>. The strongest numerical disease-specific estimate is Hirschsprung disease in <strong>24/34 people (~71%)</strong> in the 2020 literature-assembled dataset; this is not a population prevalence. Orphanet describes cerebral MRI abnormalities in <strong>about half</strong> of patients. Its HPO sign page places terms in frequency groupings, but its initially listed signs have no visible frequency-group heading in the retrieved page; they should <strong>not</strong> be interpreted as 100% penetrant. [37][1][226]</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype type</th>
+<th>Phenotype and suggested HPO term</th>
+<th>Onset, severity, course, frequency, and functional impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Physical manifestation</td>
+<td><strong>Microcephaly — <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" rel="noopener noreferrer">HP:0000252</a></strong></td>
+<td>Congenital or early infancy; prominent but severity varies. Small brain/head size accompanies developmental disability; an exact unbiased frequency is unavailable. [1][37][226]</td>
+</tr>
+<tr>
+<td>Gastrointestinal sign/pathology</td>
+<td><strong>Aganglionic megacolon / Hirschsprung disease — <a href="http://purl.obolibrary.org/obo/HP_0002251" target="_blank" rel="noopener noreferrer">HP:0002251</a></strong></td>
+<td>Congenital; <strong>24/34 (~71%)</strong> in a published-case compilation. Presentation ranges from constipation to neonatal obstruction; untreated obstruction can threaten life and bowel function. [37][1][226]</td>
+</tr>
+<tr>
+<td>Developmental/behavioral manifestation</td>
+<td><strong>Global developmental delay — <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a></strong></td>
+<td>Recognized in infancy or childhood; often substantial, particularly for expressive language. Affects communication, schooling, and independence; no validated syndrome-wide percentage or quality-of-life score. [1][141]</td>
+</tr>
+<tr>
+<td>Neurocognitive manifestation</td>
+<td><strong>Intellectual disability — <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></strong></td>
+<td>Childhood recognition; commonly moderate to severe in clinical descriptions, with variable expressivity. Long-term support needs vary. [1][226]</td>
+</tr>
+<tr>
+<td>Neuromuscular sign</td>
+<td><strong>Hypotonia — <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a></strong></td>
+<td>Usually early-life; Orphanet’s HPO listing calls it <em>very frequent</em>, but no reliable patient denominator is supplied. Can compound motor and feeding difficulties. [1][226]</td>
+</tr>
+<tr>
+<td>Brain-imaging sign</td>
+<td><strong>Polymicrogyria — <a href="http://purl.obolibrary.org/obo/HP_0002126" target="_blank" rel="noopener noreferrer">HP:0002126</a></strong></td>
+<td>Congenital cortical malformation, sometimes focal or generalized; variable among families. Potential developmental and seizure burden should be assessed individually. [1][185]</td>
+</tr>
+<tr>
+<td>Brain-imaging sign</td>
+<td><strong>Pachygyria — <a href="http://purl.obolibrary.org/obo/HP_0001302" target="_blank" rel="noopener noreferrer">HP:0001302</a></strong></td>
+<td>Congenital; Orphanet HPO listing calls it <em>frequent</em>. An imaging finding, not a separate disease stage. [226][37]</td>
+</tr>
+<tr>
+<td>Brain-imaging sign</td>
+<td><strong>Corpus-callosum hypoplasia — <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" rel="noopener noreferrer">HP:0002079</a></strong></td>
+<td>Congenital; <em>frequent</em> in Orphanet’s HPO listing. Possible contribution to impaired interhemispheric connectivity is mechanistic inference. [226][151]</td>
+</tr>
+<tr>
+<td>Brain-imaging sign</td>
+<td><strong>Ventriculomegaly — <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" rel="noopener noreferrer">HP:0002119</a></strong></td>
+<td>Prenatally or postnatally detectable; <em>frequent</em> in Orphanet’s HPO listing; clinical effect depends on context. [226][136]</td>
+</tr>
+<tr>
+<td>Neurological sign</td>
+<td><strong>Seizures — <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></strong></td>
+<td>Variable onset and occurrence; <em>frequent</em> in Orphanet’s HPO listing, but present in only some individually described patients. Episode severity and burden vary. [226][37]</td>
+</tr>
+<tr>
+<td>Peripheral-neurological sign</td>
+<td><strong>Peripheral, including axonal, neuropathy</strong></td>
+<td>Childhood or later detection; sensory/motor impact varies. Some reported patients had mixed axonal/demyelinating findings; no dependable syndrome-wide frequency or single specific HPO subtype is established here. [37][145]</td>
+</tr>
+<tr>
+<td>Craniofacial signs</td>
+<td><strong>Ptosis — <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" rel="noopener noreferrer">HP:0000508</a>; hypertelorism — <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" rel="noopener noreferrer">HP:0000316</a>; wide nasal bridge — <a href="http://purl.obolibrary.org/obo/HP_0000431" target="_blank" rel="noopener noreferrer">HP:0000431</a>; pointed chin — <a href="http://purl.obolibrary.org/obo/HP_0000307" target="_blank" rel="noopener noreferrer">HP:0000307</a></strong></td>
+<td>Typically apparent at birth, sometimes clearer with age. Features aid recognition but are not independently diagnostic; ptosis may affect vision and warrants eye assessment. [1][226]</td>
+</tr>
+<tr>
+<td>Eye manifestations</td>
+<td><strong>Iris coloboma — <a href="http://purl.obolibrary.org/obo/HP_0000612" target="_blank" rel="noopener noreferrer">HP:0000612</a>; hypermetropia, megalocornea, corneal disease</strong></td>
+<td>Variable; vision or corneal symptoms may require treatment. Iris coloboma is listed as <em>very frequent</em> by Orphanet HPO, while individual clinical series differ in ascertainment. [226][1][37]</td>
+</tr>
+<tr>
+<td>Growth/skeletal findings</td>
+<td><strong>Short stature — <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a>; scoliosis and digital anomalies</strong></td>
+<td>Growth concerns emerge in childhood; highly variable. Scoliosis or limb findings may affect mobility. [1][37][226]</td>
+</tr>
+<tr>
+<td>Cardiovascular/urogenital findings</td>
+<td><strong>Ventricular septal defect; aortic regurgitation; vesicoureteral reflux; genital or renal anomalies</strong></td>
+<td>Congenital and <strong>variable</strong>, not defining findings. Their presence determines organ-specific monitoring and intervention. [1][3]</td>
+</tr>
+<tr>
+<td>Newly reported adult manifestations</td>
+<td><strong>Progressive ataxia, ophthalmoparesis, hypogonadotropic hypogonadism</strong></td>
+<td>Reported in <strong>four affected siblings</strong> with a homozygous <em>KIFBP</em> variant; early-adulthood-onset progression was described for the first time. These findings must not be treated as established frequencies or the universal course. Published <strong>February 2024</strong>, online <strong>30 October 2023</strong>; <a href="https://pubmed.ncbi.nlm.nih.gov/37903629/">PMID: <strong>37903629</strong></a>. [24]</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Quality-of-life evidence:</strong> no GOSHS-specific EQ-5D, SF-36, or PROMIS cohort estimate was identified in these sources. Effects on continence, communication, mobility, learning, and caregiver burden are clinically plausible and individually important, but should not be presented as measured GOSHS outcomes. Orphanet explicitly recommends individualized developmental assessment to improve quality of life. [1][125]</p>
+<h2>4. Genetic and molecular information</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Gene or variant class</th>
+<th>Evidence and knowledge-base interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Causal gene:</strong> <em>KIFBP</em> (<strong><a href="https://bioregistry.io/HGNC:23419" target="_blank" rel="noopener noreferrer">HGNC:23419</a>; NCBI Gene:26128; <a href="https://bioregistry.io/OMIM:609367" target="_blank" rel="noopener noreferrer">OMIM:609367</a></strong>), 10q22.1</td>
+<td>Also called <em>KIAA1279</em> or <em>KIF1BP</em> in older papers. The associated phenotype is <a href="https://bioregistry.io/OMIM:609460" target="_blank" rel="noopener noreferrer">OMIM:609460</a>. Use current approved symbol <strong><em>KIFBP</em></strong>, not <em>SKI</em>. [82][86][136]</td>
+</tr>
+<tr>
+<td><strong>Germline truncating variants</strong></td>
+<td>Established recessive loss-of-function class; examples include <strong>c.268C&gt;T (p.Arg90Ter)</strong>, <strong>c.250G&gt;T (p.Glu84Ter)</strong>, <strong>c.604_605delAG (p.Arg202IlefsTer2)</strong>, and exon deletions. The 2020 study reports its truncating patient variants as pathogenic by ACMG assessment. These are <strong>germline</strong>, not tumor-somatic drivers. [37][50]</td>
+</tr>
+<tr>
+<td><strong>Functionally investigated missense variants</strong></td>
+<td><strong>c.565C&gt;T (p.Pro189Ser)</strong> was reported homozygous and <em>pathogenic</em> in the study, absent from its cited gnomAD exome and genome samples (<strong>AC 0</strong> in each). <strong>c.68A&gt;G (p.Glu23Gly)</strong> and <strong>c.1279A&gt;G (p.Ser427Gly)</strong> occurred together in another patient, reduced expression in transfected cells, but were described as <strong>likely benign by the stated ACMG assessment</strong>; their role must not be upgraded to definitively pathogenic solely from that experiment. Reported 2020 gnomAD exome allele frequencies were <strong>0.001707</strong> and <strong>2.44×10⁻⁵</strong>, respectively—not current universal frequencies. [37]</td>
+</tr>
+<tr>
+<td><strong>2024 case-level variants</strong></td>
+<td>An August 2024 case report labeled homozygous <strong>c.1694_1695del (p.Glu565AlafsTer16)</strong> <em>likely pathogenic</em>; however, a related exon-7 deletion had been catalogued earlier, so it is not securely a novel recurrent allele. An October 2024 report described homozygous <strong>p.Glu98Ter</strong> but supplied inconsistent notation and lacked parental segregation testing. These reports broaden individual observations, not population estimates. [48][37][47]</td>
+</tr>
+<tr>
+<td><strong>Modifiers, epigenetics, chromosomal findings</strong></td>
+<td>No validated GOSHS-specific modifier gene, protective variant, DNA-methylation signature, anticipation mechanism, or characteristic aneuploidy/translocation. <strong>Intragenic exon deletions</strong> are relevant structural <em>KIFBP</em> alleles; a chromosome-wide rearrangement is not the established cause. [37][51]</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The 2020 authors found <strong>no clear variant-position/severity correlation</strong> and proposed a KIFBP-expression threshold as one explanation for variable presentation. That proposal is mechanistically plausible, not a validated prognostic biomarker or individual-patient prediction rule. <a href="https://pubmed.ncbi.nlm.nih.gov/32939943/">PMID: <strong>32939943</strong></a>. [37]</p>
+<h2>5. Environmental information</h2>
+<p>No environmental toxin, radiation exposure, smoking pattern, diet, occupational exposure, or infectious agent is established as a <strong>cause</strong> of GOSHS. Infections can instead occur <strong>downstream</strong> of complications: a 2024 patient report describes bacteremia during severe bowel/respiratory illness, which does not make the bacterium a cause of the genetic syndrome. Likewise, nutrition and access to surgical care can alter outcomes without changing genotype. No GOSHS-specific CheBI exposure or prophylactic chemical should be annotated as etiologic. [48][1]</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<p><strong>Ordered causal chain — demonstrated steps and inferences separated:</strong></p>
+<ol>
+<li><strong>Biallelic germline <em>KIFBP</em> loss-of-function leads to absent or reduced KIFBP protein</strong>; this is supported by patient genetics and variant-expression experiments. [37][151]</li>
+<li><strong>Altered KIFBP abundance leads to dysregulation of interactions with selected kinesin motors and the actin–microtubule cytoskeleton</strong>; protein interactions and motor inhibition are experimentally demonstrated, but the exact effects of each patient allele in each developing tissue remain inferred. [234][211][234]</li>
+<li><strong>Cytoskeletal/motor dysregulation leads to impaired neurite extension, axonal organization, and neuronal migration/survival</strong> in zebrafish and mouse perturbation models; extension of every modeled effect to human tissue is <strong>inferred</strong>. [92][225]</li>
+<li><strong>Enteric branch:</strong> impaired development <strong>leads to delayed enteric neural-crest colonization</strong> in knockout mouse embryos; failure to populate the <strong>human distal bowel</strong> is the <strong>inferred species-sensitive step</strong>, resulting in aganglionosis → dysmotility, constipation or obstruction. Mouse and zebrafish bowel can be fully ganglionated at birth despite model defects. [38][151]</li>
+<li><strong>Cerebral branch:</strong> impaired neuronal migration, dendritic growth, callosal axon extension, and survival <strong>leads to abnormal cortical organization/connectivity</strong> in models; their contribution to human polymicrogyria, callosal hypoplasia, microcephaly and developmental disability is <strong>inferred</strong>, not proven lesion by lesion. [225]</li>
+<li><strong>Possible parallel cerebral branch:</strong> KIFBP depletion <strong>leads to midbody/cytokinesis defects</strong> in cultured dividing cells; reduced neural-progenitor production <strong>may lead to microcephaly</strong>, but that final link remains a <strong>hypothesis</strong>, not a demonstrated GOSHS patient mechanism. [224]</li>
+</ol>
+<p>At the protein level, cryo-EM and biochemical work showed that KIFBP can bind and remodel selected kinesin motor heads, obstructing their microtubule-binding surface. This describes <strong>normal KIFBP molecular activity</strong>: loss of an inhibitor can have complex, context-dependent developmental consequences and should not be simplified to “all kinesin transport decreases.” <a href="https://pubmed.ncbi.nlm.nih.gov/33252036/">PMID: <strong>33252036</strong></a> (2020); <a href="https://pubmed.ncbi.nlm.nih.gov/34797717/">PMID: <strong>34797717</strong></a> (2021). [219][211]</p>
+<p><strong>Experimental detail and annotation candidates:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Mechanistic process</th>
+<th>Evidence level; cells and candidate ontology terms</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Neuronal migration and morphogenesis</td>
+<td><strong>Mouse in vivo / cultured neurons:</strong> embryonic cortical <em>Kbp</em> shRNA impaired migration; at postnatal day 6, <strong>34.3% ± 4.9%</strong> of labeled cells remained ectopic in white matter, with reduced dendritic and callosal axon growth. Rescue by shRNA-resistant Kbp supported perturbation specificity. Candidate <strong><a href="http://purl.obolibrary.org/obo/GO_0001764" target="_blank" rel="noopener noreferrer">GO:0001764</a></strong> neuron migration; <strong><a href="http://purl.obolibrary.org/obo/GO_0007409" target="_blank" rel="noopener noreferrer">GO:0007409</a></strong> axonogenesis; <strong><a href="http://purl.obolibrary.org/obo/CL_0002609" target="_blank" rel="noopener noreferrer">CL:0002609</a></strong> neuron of cerebral cortex. <a href="https://pubmed.ncbi.nlm.nih.gov/31736709/">PMID: <strong>31736709</strong></a> (2019). [225][180][183]</td>
+</tr>
+<tr>
+<td>Axonal microtubules and enteric development</td>
+<td><strong>Zebrafish mutant / mouse knockout:</strong> axonal microtubule disorganization, reduced outgrowth and later degeneration in fish; delayed <strong>Sox10-positive</strong> enteric neural-crest-cell wavefront in mouse embryos. Candidate <strong><a href="http://purl.obolibrary.org/obo/GO_0007017" target="_blank" rel="noopener noreferrer">GO:0007017</a></strong> microtubule-based process; <strong><a href="http://purl.obolibrary.org/obo/CL_0002607" target="_blank" rel="noopener noreferrer">CL:0002607</a></strong> enteric neural crest cell. Fish: <a href="https://pubmed.ncbi.nlm.nih.gov/18192286/">PMID: <strong>18192286</strong></a> (2008); mouse: <a href="https://pubmed.ncbi.nlm.nih.gov/29192291/">PMID: <strong>29192291</strong></a> (2017). [92][151][179]</td>
+</tr>
+<tr>
+<td>Cytokinesis and possible microcephaly mechanism</td>
+<td><strong>Cultured-cell interaction/knockdown:</strong> KIFBP interacts with CITK, localizes to the midbody and is needed for normal midbody maturation and abscission. Abstract: “cytokinesis failure may contribute to the microcephaly phenotype”—<strong>the authors’ proposed clinical link</strong>. Candidate <strong><a href="http://purl.obolibrary.org/obo/GO_0000910" target="_blank" rel="noopener noreferrer">GO:0000910</a></strong> cytokinesis. <a href="https://pubmed.ncbi.nlm.nih.gov/34100550/">PMID: <strong>34100550</strong></a> (2021). [224][182]</td>
+</tr>
+<tr>
+<td>Cell survival</td>
+<td><strong>Mouse cortical-neuron perturbation:</strong> increased cleaved caspase-3 after Kbp knockdown; the initiating cause of apoptosis is unresolved. Candidate <strong><a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a></strong> apoptosis. <a href="https://pubmed.ncbi.nlm.nih.gov/31736709/">PMID: <strong>31736709</strong></a>. [225][182]</td>
+</tr>
+<tr>
+<td>Mitochondrial/metabolic hypothesis</td>
+<td><strong>Human fibroblasts:</strong> three reported truncating variants led to transcript decay and protein loss, yet respiratory-chain-complex activity was <strong>normal</strong> and KIFBP did <strong>not</strong> colocalize with mitochondria in control fibroblasts. Consequently, a primary oxidative-phosphorylation deficiency is <strong>not established</strong>. <a href="https://pubmed.ncbi.nlm.nih.gov/23427148/">PMID: <strong>23427148</strong></a> (2013). [223]</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Not established as disease mechanisms:</strong> a GOSHS-specific Wnt/MAPK/mTOR/PI3K-AKT cascade, immune or inflammatory primary lesion, disease-specific metabolomic/lipidomic or epigenomic signature, single-cell or spatial-transcriptomic disease atlas, or validated multi-omics diagnostic profile. Cultured-cell, imaging, proteomic-interaction, and cryo-EM results should not be relabeled as such profiles. [225][224][211]</p>
+<h2>7. Anatomical structures affected</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Structures, localization, and suggested ontology terms</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Primary organ/system</td>
+<td><strong>Brain and nervous system</strong>—particularly cerebral cortex (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" rel="noopener noreferrer">UBERON:0000956</a></strong>), callosal pathways (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002336" target="_blank" rel="noopener noreferrer">UBERON:0002336</a></strong>), and peripheral nerves; <strong>distal large intestine/enteric nervous system</strong> when Hirschsprung disease occurs. Suggested cells: cortical neuron <strong><a href="http://purl.obolibrary.org/obo/CL_0002609" target="_blank" rel="noopener noreferrer">CL:0002609</a></strong>, enteric neural crest cell <strong><a href="http://purl.obolibrary.org/obo/CL_0002607" target="_blank" rel="noopener noreferrer">CL:0002607</a></strong>. [1][151][167][179]</td>
+</tr>
+<tr>
+<td>Tissue/cell</td>
+<td>Cortical neural progenitors and migrating neurons; embryonic enteric neural-crest-derived cells, enteric ganglion cells, and developing autonomic axons. These are developmental populations, not evidence of an acquired inflammatory attack. [225][151]</td>
+</tr>
+<tr>
+<td>Secondary involvement</td>
+<td>Eye/cornea, cardiac structures, kidneys/urinary tract, skeletal tissues, growth, and respiratory health variably; these are <strong>not required</strong> to establish the molecular diagnosis. [1][37]</td>
+</tr>
+<tr>
+<td>Subcellular</td>
+<td>Cytoplasmic microtubules and actin-associated structures, axonal projections, and the <strong>midbody</strong> during cell division. Earlier mitochondrial-localization proposals are not uniformly supported by patient-fibroblast experiments. Appropriate GO cellular-component <strong>labels</strong> include cytoplasm, microtubule and midbody; assign exact accession IDs only after ontology-version validation. [223][224][211]</td>
+</tr>
+<tr>
+<td>Lateralization</td>
+<td>No consistent right-versus-left disease localization is established. Cerebral malformations may be focal or generalized; a 2024 individual had bilaterally asymmetric periventricular volume loss. [1][47]</td>
+</tr>
+</tbody>
+</table></div></details>
+<h2>8. Temporal development</h2>
+<p>GOSHS begins <strong>prenatally as a developmental disorder</strong>; microcephaly and bowel obstruction may become apparent in the neonatal period, whereas intellectual disability becomes measurable through childhood. Facial differences can become more recognizable with age. The condition is lifelong rather than relapsing–remitting, but <strong>individual manifestations differ</strong>: congenital structural findings are generally persistent; bowel symptoms may improve after treatment; and progressive adult ataxia was newly reported in one family in 2023/2024. There is no validated mild/intermediate/end-stage classification, progression rate, or spontaneous-remission estimate. Prenatal neural and enteric development, neonatal bowel decompression, and early developmental support are the most evident intervention windows. [1][24][125]</p>
+<h2>9. Inheritance and population</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Population or inheritance measure</th>
+<th>Best-supported assessment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inheritance; recurrence</td>
+<td><strong>Autosomal recessive.</strong> When both parents are heterozygous carriers of the familial pathogenic variants, each pregnancy has <strong>25% affected, 50% carrier, 25% neither</strong> probabilities under the standard Mendelian model. [1][151]</td>
+</tr>
+<tr>
+<td>Penetrance and expressivity</td>
+<td>Penetrance of the <strong>entire molecular syndrome</strong> is not precisely estimated. Hirschsprung disease has <strong>incomplete/variable expression</strong>: <strong>24/34</strong> reported individuals in the 2020 compilation had it, including families discordant for the bowel phenotype. Do not equate its penetrance with syndrome penetrance. [37]</td>
+</tr>
+<tr>
+<td>Prevalence</td>
+<td>Orphanet estimates <strong>&lt;1 per 1,000,000</strong>, equivalent to <strong>&lt;0.1 per 100,000</strong>; ascertainment is uncertain. [1]</td>
+</tr>
+<tr>
+<td>Incidence; carrier frequency; sex ratio</td>
+<td><strong>No reliable disease-specific estimate</strong> identified. Hirschsprung disease’s general-population sex ratio must not be substituted for a GOSHS ratio. [1][125]</td>
+</tr>
+<tr>
+<td>Geography, founder effects, anticipation, mosaicism</td>
+<td>Families from multiple geographic backgrounds have been reported; no validated worldwide founder allele, geographic incidence pattern, genetic anticipation, or quantified germline-mosaicism risk. Consanguinity aided identification in some families but is not required. [151][37]</td>
+</tr>
+</tbody>
+</table></div></details>
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical suspicion:</strong> microcephaly and developmental delay with Hirschsprung disease or cortical malformation—<strong>or the neural phenotype without Hirschsprung disease</strong>—warrant molecular evaluation. No standalone consensus diagnostic score or syndrome-specific circulating biomarker is established. [3][37]</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Test or assessment</th>
+<th>Purpose and interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>KIFBP</em> sequencing, with deletion/duplication assessment</td>
+<td><strong>Molecular confirmation:</strong> identify and classify two pathogenic/likely pathogenic variants <strong>in trans</strong>, or a homozygous causal variant; examine segregation where possible. A phenotype alone or a single VUS does not establish the same molecular certainty. Targeted single-gene testing is reasonable when findings and familial variants are known. [37][151]</td>
+</tr>
+<tr>
+<td>Neurodevelopmental/Hirschsprung or brain-malformation multigene panel; trio WES/WGS</td>
+<td>Useful when signs overlap other syndromes, Hirschsprung disease is absent, or the causal gene is unclear. <strong>WES</strong> identified an atypical 2020 patient and was used in 2024 case reports. WGS can assess coding and otherwise difficult-to-detect variants when earlier testing is unrevealing; a GOSHS-specific incremental diagnostic yield is unavailable. [37][48][47]</td>
+</tr>
+<tr>
+<td>Copy-number analysis</td>
+<td>Include <em>KIFBP</em> exon-level deletions where indicated. Chromosomal microarray can evaluate broader developmental-delay differentials, but a normal CMA does <strong>not</strong> exclude sequence-level <em>KIFBP</em> disease. Routine karyotype/FISH, mitochondrial DNA, and repeat-expansion testing do not target the established cause. [37][51]</td>
+</tr>
+<tr>
+<td>Rectal suction or surgical biopsy</td>
+<td><strong>Confirm suspected Hirschsprung disease</strong> by adequate submucosal sampling and absent ganglion cells; appropriate histology may include H&amp;E and calretinin/peripherin assessment. The underlying Hirschsprung guideline recommends histologic confirmation <strong>before pull-through</strong>. <a href="https://pubmed.ncbi.nlm.nih.gov/32586397/">PMID: <strong>32586397</strong></a> (2020). [125][1]</td>
+</tr>
+<tr>
+<td>Abdominal radiograph/contrast enema; anorectal manometry</td>
+<td>Evaluate obstruction, the likely transition zone, or an absent recto-anal inhibitory reflex; <strong>none replaces diagnostic rectal histology</strong>. [125][37]</td>
+</tr>
+<tr>
+<td>Brain MRI; examination and targeted tests</td>
+<td>Characterize cortical, callosal and other malformations. Use developmental assessment, ophthalmology, growth/nutrition review, neurological examination ± nerve studies, EEG <strong>if seizures are suspected</strong>, and cardiac/renal assessment according to findings. These evaluate manifestations, not the causal genotype. [1][37][47]</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Differential:</strong> especially <strong><em>ZEB2</em>-related Mowat–Wilson syndrome</strong> and Baraitser–Winter syndrome for overlapping microcephaly/developmental and facial findings; consider other genetic causes of syndromic Hirschsprung disease and cortical malformations. <strong>Do not substitute the <em>SKI</em>-associated Shprintzen–Goldberg diagnosis</strong>, which has a different defining constellation. Molecular testing resolves ambiguous presentations. [1][3][21]</p>
+<p>No validated GOSHS-specific RNA-seq, proteomic, metabolomic, methylation, or liquid-biopsy clinical diagnostic exists. Symptom-directed investigation in an affected child is distinct from population newborn screening. [37][1]</p>
+<h2>11. Outcome and prognosis</h2>
+<p><strong>There are no reliable GOSHS-specific five- or ten-year survival rates, mortality rates, or life-expectancy estimates.</strong> Orphanet says long-term prognosis depends on the nature and severity of associated birth defects. Individual clinical reports document survival into adulthood—including a <strong>28-year-old</strong> in the 2020 study and the adult-affected family reported in 2024—but cannot define average survival. A neonatal sibling death from postoperative sepsis in one family illustrates potential complication severity, not an estimated mortality rate. [1][37][24]</p>
+<p>Long-term morbidity can involve developmental disability, speech difficulty, neuropathy, visual problems, and treated or persistent bowel dysfunction. Hirschsprung-specific guidance notes that constipation, incontinence, and enterocolitis can continue after surgery, but its outcome percentages <strong>must not be relabeled as GOSHS-specific rates</strong>. Neither variant position, KIFBP protein level, nor a serum marker is validated to forecast an individual GOSHS course. [1][125][37]</p>
+<h2>12. Treatment and real-world implementation</h2>
+<p><strong>Treatment is complication-directed; no therapy is established to restore KIFBP function.</strong> The following are care approaches or, where indicated, extrapolations from Hirschsprung disease guidelines—not GOSHS-specific efficacy trials. [1][125]</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Clinical need</th>
+<th>Intervention and suggested NCIt annotation</th>
+<th>Evidence, outcomes, and cautions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Confirmed Hirschsprung disease with obstruction</td>
+<td>Specialist bowel decompression, often <strong>saline rectal irrigations</strong> before definitive <strong>pull-through surgery</strong>; a stoma when decompression fails or complications require it. Suggested broad NCIt <strong>Surgical Procedure C15329</strong>; use a more specific, verified procedure term in a coded record.</td>
+<td>ERNICA recommends histologic confirmation, decompression and surgery once stable and growing. Its rectosigmoid guidance is <strong>not a GOSHS-specific trial</strong>; operative approach depends on disease extent and clinical status. [125][209]</td>
+</tr>
+<tr>
+<td>Hirschsprung-associated enterocolitis</td>
+<td>Urgent surgical assessment; admitted patients may require <strong>IV fluids, broad-spectrum antibiotics and rectal washouts</strong>. Suggested broad NCIt <strong>Therapeutic Procedure C49236</strong> where a more specific verified term is unavailable.</td>
+<td>Treat as a potentially severe <strong>downstream complication</strong>, not as an infectious cause of GOSHS. ERNICA guidance provides the management basis; drug selection depends on clinical setting. [125][181]</td>
+</tr>
+<tr>
+<td>Developmental, speech and motor impairment</td>
+<td>Individualized early intervention, education, speech-language and physical/occupational rehabilitation. Candidate NCIt <strong>Physical Therapy C15302</strong> and <strong>Speech Language Therapy C159273</strong>; verify local terminology version.</td>
+<td>Supported as individualized supportive care by Orphanet; <strong>no syndrome-specific response percentage</strong> exists. [1][208][209]</td>
+</tr>
+<tr>
+<td>Ocular, cardiac, renal, skeletal, neurological complications</td>
+<td>Specialist assessment and manifestation-specific treatment; antiseizure medication <strong>only if clinically indicated</strong>, not universal prophylaxis.</td>
+<td>Orphanet recommends multidisciplinary care; there is no established GOSHS-specific drug or pharmacogenomic prescribing rule. [1][37]</td>
+</tr>
+<tr>
+<td>Family planning</td>
+<td>Genetic counseling; candidate NCIt <strong>Genetic Counseling C15240</strong>.</td>
+<td>Confirm molecular findings and explain recessive reproductive risks, testing options, and phenotype variability. [1][208]</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Investigational status:</strong> no disease-modifying drug, gene replacement/editing, RNA therapy, cell therapy, immunotherapy, genotype-directed medication, or established GOSHS-specific treatment response rate is supported by the retrieved clinical evidence. Orphanet’s website category count for “clinical trial(s)” is <strong>not</strong> evidence that an interventional KIFBP trial exists; no verified GOSHS-specific NCT identifier is supplied here. <strong>In vitro</strong> restoration of expression in an experimental model is not a patient therapy. [1][225]</p>
+<h2>13. Prevention</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Prevention level</th>
+<th>Disease-specific interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Primary</td>
+<td>There is <strong>no demonstrated vaccine, diet, exposure avoidance, or medication</strong> that prevents a child who inherits two causal variants from having GOSHS. For a family with known variants, offer counseling and discuss <strong>carrier, prenatal, or preimplantation genetic testing</strong> according to preferences and local practice; these are reproductive options, not treatment of an affected person. [1]</td>
+</tr>
+<tr>
+<td>Secondary</td>
+<td>Targeted <strong>family testing</strong> and prompt assessment of neonatal stooling/obstruction, growth, vision and development can enable earlier recognition and management. Orphanet notes that prenatal molecular diagnosis is possible once familial variants are known; ultrasound suspicion alone is difficult and requires confirmation. No established population newborn-screening program is identified. [1][125]</td>
+</tr>
+<tr>
+<td>Tertiary</td>
+<td>Manage confirmed bowel aganglionosis and promptly recognize enterocolitis; provide developmental support and monitoring tailored to actual cardiac, ocular, urogenital or skeletal abnormalities. Routine age-appropriate immunization remains ordinary healthcare, <strong>not GOSHS-specific prophylaxis</strong>. [1][125]</td>
+</tr>
+</tbody>
+</table></div></details>
+<h2>14. Other species and naturally occurring disease</h2>
+<p><strong>Confirmed syndrome:</strong> humans, <em>Homo sapiens</em> (<strong>NCBI Taxon:9606</strong>). Ortholog-based <strong>experimental phenotypes</strong> have been studied in house mouse, <em>Mus musculus</em> (<strong>Taxon:10090</strong>; <em>Kifbp</em>, <strong>NCBI Gene:72320</strong>, <a href="https://bioregistry.io/MGI:1919570" target="_blank" rel="noopener noreferrer">MGI:1919570</a>), and zebrafish, <em>Danio rerio</em> (<strong>Taxon:7955</strong>; <em>kifbp</em>, <strong>ZFIN:ZDB-GENE-070117-1989</strong>). These are <strong>models</strong>, not documented naturally occurring Goldberg–Shprintzen syndrome in an animal breed. No verified veterinary breed/VBO association, animal-to-human transmission, or zoonotic potential applies to this inherited disorder. [107][111][151][92]</p>
+<h2>15. Model organisms and research applications</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Recapitulated findings, limitations, and application</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>CRISPR/Cas9 <em>Kif1bp</em> exon-1 knockout mice</strong>, two independent lines</td>
+<td><strong>Model evidence:</strong> smaller brains and olfactory bulbs, thin anterior commissure, defective vagal/sympathetic innervation and delayed embryonic enteric-neural-crest colonization. Both lines died <strong>within 3–4 hours of birth</strong> with respiratory failure signs. <strong>Important limitation:</strong> ganglion cells occupied the entire bowel by birth—<strong>not</strong> a faithful human Hirschsprung phenotype; mice cannot model long-term adult human outcomes. Useful for developmental neurobiology and species comparison. <a href="https://pubmed.ncbi.nlm.nih.gov/29192291/">PMID: <strong>29192291</strong></a> (2017); <a href="https://bioregistry.io/MGI:1919570" target="_blank" rel="noopener noreferrer">MGI:1919570</a>. [151][107]</td>
+</tr>
+<tr>
+<td><strong>Zebrafish <em>kifbp</em> mutant</strong>, including ZFIN-listed <em>kifbp</em>^st23/st23^</td>
+<td><strong>Model evidence:</strong> reduced early axonal-outgrowth speed, disrupted axonal microtubules and later axonal degeneration. <strong>Limitation:</strong> no full human-like distal-bowel aganglionosis demonstrated. Useful for live imaging and axon-growth mechanisms. <a href="https://pubmed.ncbi.nlm.nih.gov/18192286/">PMID: <strong>18192286</strong></a> (2008); ZFIN:ZDB-GENE-070117-1989. [92][111][151]</td>
+</tr>
+<tr>
+<td><strong>Mouse embryonic cortical shRNA and primary-neuron cultures</strong></td>
+<td><strong>Model evidence:</strong> migration, arborization, axonal-projection and apoptosis findings; shRNA-resistant <em>Kbp</em> rescued the tested migration phenotype. <strong>Limitation:</strong> partial, spatially restricted knockdown is not a patient’s lifelong biallelic genotype. Useful for distinguishing cell-development processes. <a href="https://pubmed.ncbi.nlm.nih.gov/31736709/">PMID: <strong>31736709</strong></a> (2019). [225]</td>
+</tr>
+<tr>
+<td><strong>Human fibroblasts; SH-SY5Y and transfected HEK293T cells; dividing-cell assays</strong></td>
+<td><strong>In vitro evidence:</strong> patient-variant transcript/protein effects, actin–microtubule associations, neurite growth, and CITK/midbody function. <strong>Limitation:</strong> these assays do not replicate a developing human enteric or cerebral tissue or prove treatment efficacy. <a href="https://pubmed.ncbi.nlm.nih.gov/23427148/">PMID: <strong>23427148</strong></a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32939943/">PMID: <strong>32939943</strong></a>; <a href="https://pubmed.ncbi.nlm.nih.gov/34100550/">PMID: <strong>34100550</strong></a>. [223][37][224]</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Knowledge-base conclusion:</strong> annotate <strong><em>KIFBP</em> biallelic germline loss of function</strong> as the established initiating cause; annotate developmental cytoskeletal, enteric-neural-crest and cortical-neuron processes with their <strong>model or in-vitro evidence provenance</strong>; and keep hypothesized cytokinesis-to-microcephaly and expression-threshold effects separate from demonstrated human causal steps. Record <strong>Hirschsprung disease as variable</strong>, not obligatory, and do not merge this entry with <em>SKI</em>-associated Shprintzen–Goldberg syndrome. [37][151][224][21]</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>18</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:33252036</code> (2 mentions) - The mechanism of kinesin inhibition by kinesin-binding protein.</li>
+<li>shared terms: molecular, cell</li>
+<li><code>PMC:PMC12905500</code> (1 mention) - Rules of the road: how to turn off kinesin motors.</li>
+<li>shared terms: molecular, cell</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>kifbp</code>, <code>disease</code>, <code>variant</code>, <code>gosh</code>, <code>developmental</code>, <code>established</code>, <code>goshs-specific</code>, <code>bowel</code>, <code>hirschsprung</code>, <code>phenotype</code>, <code>patient</code>, <code>molecular</code>, <code>genetic</code>, <code>syndrome</code>, <code>cause</code>, <code>individual</code>, <code>validated</code>, <code>cell</code>, <code>clinical</code>, <code>assessment</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>10</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>CL:0002609</code> (obsolete neuron of cerebral cortex) (2 mentions) - replaced by <code>CL:0010012</code></li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>, <code>Gene</code>, <code>OMIM</code>, <code>Taxon</code>, <code>MGI</code>.</p>
+<p>25 of 36 terms resolved to a current term; the rest could not be looked up either way.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="GNPTG-Mucolipidosis-falcon.html">← GNPTG-Mucolipidosis (Falcon)</a>
+                
+                
+                <a href="GOLGA2-Related_Golgin_A2_Deficiency-fallback.html">GOLGA2-Related Golgin A2 Deficiency (Fallback) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Goldberg-Shprintzen_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Goldberg-Shprintzen_Syndrome-deep-research-perplexity.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-perplexity" aria-current="page">Perplexity</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

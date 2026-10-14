@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KLICK Syndrome · Perplexity · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>KLICK Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>KLICK Syndrome</h1>
+                
+                <p class="report-subtitle">KLICK syndrome: disease-characteristics research report</p>
+                
+                
+                <div class="report-date">2026-10-09</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-perplexity">Perplexity</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0011169" target="_blank" rel="noopener noreferrer">MONDO:0011169</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: sonar-deep-research</span>
+                    
+                    
+                    <span class="meta-chip">53 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>KLICK syndrome: disease-characteristics research report</h1>
+<p><strong>KLICK syndrome</strong> is a lifelong, autosomal-recessive disorder of epidermal keratinization caused, in genetically confirmed reports, by a <strong>homozygous one-base deletion in the 5′ untranslated region of <em>POMP</em>, c.-95delC</strong>. Its defining combination is congenital ichthyosiform scaling, palmoplantar keratoderma, linear keratotic lesions—especially in flexures—and sclerosing constriction bands around digits (<em>pseudoainhum</em>). The strongest mechanistic evidence links reduced POMP activity in differentiating keratinocytes to defective proteasome maturation, disturbed epidermal differentiation, and endoplasmic-reticulum (ER) stress. Evidence for a further, disease-specific inflammatory signaling cascade remains preliminary. [121][122][146][80]</p>
+<p><strong>Evidence convention:</strong> “Human” denotes patients or their skin; “in vitro” denotes experimental cell or epidermal cultures; “computational” denotes pathway or drug-prediction analyses. Percentages derived from ontology aggregators are <strong>not</strong> treated as measured patient frequencies.</p>
+<h2>1. Disease information</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Identifier or name</th>
+<th>KLICK syndrome entry or interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/MONDO_0011169" target="_blank" rel="noopener noreferrer">MONDO:0011169</a></strong>. [300]</td>
+</tr>
+<tr>
+<td>OMIM phenotype</td>
+<td><strong>601952</strong>; the causal <em>POMP</em> gene is <strong>OMIM 613386</strong>. [24][108]</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><strong><a href="https://bioregistry.io/ORPHA:281201" target="_blank" rel="noopener noreferrer">ORPHA:281201</a></strong>. [146]</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td><strong>EC20.0Y</strong>, as mapped by KEGG; this is a keratinization-disorder code, not a uniquely named KLICK code. [296]</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>No verified <strong>KLICK-specific</strong> code identified. <strong>Q80.8</strong>, “other congenital ichthyosis,” is a broader potential coding category, not an exact synonym. [330][339]</td>
+</tr>
+<tr>
+<td>MeSH / MedGen</td>
+<td>MeSH supplementary concept <strong>C566600</strong>; MedGen concept <strong>C1866029</strong>. [296][300]</td>
+</tr>
+<tr>
+<td>Other</td>
+<td>KEGG disease <strong>H00790</strong>; SNOMED CT <strong>763775000</strong>. [296][1]</td>
+</tr>
+<tr>
+<td>Names</td>
+<td>“Keratosis linearis with ichthyosis congenita and sclerosing keratoderma”; “keratosis linearis–ichthyosis congenita–sclerosing keratoderma syndrome”; <strong>KLICK syndrome</strong>. [146][300]</td>
+</tr>
+<tr>
+<td>Evidence provenance</td>
+<td>This entry synthesizes <strong>published individuals and families, patient biopsies, experimental models, and aggregated disease resources</strong>. It is <strong>not</strong> an individual-patient EHR record. [121][122][146]</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The original 1989 report described four affected members of a consanguineous family; the 1997 report introduced “KLICK” and described a 32-year-old man without systemic involvement. The discovery study examined DNA from eight European probands. [181][151][121]</p>
+<h2>2. Etiology: causal, risk, protective, and environmental factors</h2>
+<p><strong>Established cause:</strong> biallelic germline <em>POMP</em> c.-95delC, a <strong>noncoding regulatory deletion</strong>, rather than a protein-truncating mutation. In the original series, 12 patients from eight European families were homozygous; six available parents were heterozygous, and five unaffected siblings tested were carriers or noncarriers. Several affected haplotypes support a <strong>recurrent variant</strong>, rather than one demonstrated founder chromosome. [121][125][135]</p>
+<p><strong>Risk factors:</strong> having two pathogenic alleles is the established genetic risk. A family history and consanguinity increase the chance of such a recessive genotype within a family, but consanguinity is <strong>not required</strong>: affected unrelated families and a later family with non-consanguineous parents have been reported. No validated KLICK susceptibility loci or severity-modifier genes have been established. A reported combination of KLICK and woolly hair/hypotrichosis was attributed to <strong>two separate recessive disorders</strong>, not proof that the hair-disorder gene modifies KLICK. [181][125][145][43]</p>
+<p><strong>Protective and gene–environment factors:</strong> no protective human allele, preventive diet, toxin exposure, infection, lifestyle determinant, or demonstrated gene–environment interaction has been established. Mechanical effects of established hyperkeratosis may contribute to digital constriction; this is a consequence of the skin disorder, not evidence that friction causes KLICK. [121][269]</p>
+<h2>3. Phenotypes</h2>
+<p>The table separates <strong>reported disease features</strong> from suggested HPO coding. Qualitative frequency is deliberately conservative: small case series do not justify patient-level percentages. A secondary phenotype aggregator labels ichthyosis and palmoplantar keratoderma “80–99%,” but supplies no corresponding observed-case denominator; those labels should <strong>not</strong> be entered as measured frequencies. [web:4nCoJaX02N7jbUnYFD4vhaVy][181][146]</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype and type</th>
+<th>Onset, severity, course, and defensible frequency</th>
+<th>Functional or quality-of-life effect</th>
+<th>Suggested HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Ichthyosiform scaling</strong>, clinical sign</td>
+<td>Often <strong>congenital</strong>; generalized or variably mild scaling; chronic. <strong>Characteristic</strong>, without a reliable percentage. [181][146][43]</td>
+<td>Visible scaling and continuing skin care may be burdensome; no KLICK-specific validated quality-of-life score was identified. [80]</td>
+<td>Ichthyosis <strong><a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" rel="noopener noreferrer">HP:0008064</a></strong>; use more specific subtypes only when documented. [web:4nCoJaX02N7jbUnYFD4vhaVy]</td>
+</tr>
+<tr>
+<td><strong>Palmoplantar keratoderma</strong>, clinical sign</td>
+<td>Congenital or develops in early childhood; diffuse, sometimes sclerosing and functionally severe; persistent. <strong>Characteristic</strong>, unquantified. [181][192][151]</td>
+<td>Thick, stiff skin and associated deformity can impair hand and foot function. [80]</td>
+<td>Palmoplantar keratoderma <strong><a href="http://purl.obolibrary.org/obo/HP_0000982" target="_blank" rel="noopener noreferrer">HP:0000982</a></strong>; diffuse palmoplantar hyperkeratosis <strong><a href="http://purl.obolibrary.org/obo/HP_0007447" target="_blank" rel="noopener noreferrer">HP:0007447</a></strong> when appropriate. [198][197]</td>
+</tr>
+<tr>
+<td><strong>Linear keratotic papules and plaques</strong>, clinical sign</td>
+<td>Typically symmetric, cord-like flexural lesions at wrists, antecubital or popliteal folds; plaques may affect other sites. <strong>Characteristic but not obligatory</strong>; one family report noted that typical flexural papules were not always present. [146][145]</td>
+<td>Visible lesions and thickened skin may affect comfort and daily care; effect has not been quantified separately. [146]</td>
+<td>Linear arrays of macular hyperkeratoses in flexural areas <strong><a href="http://purl.obolibrary.org/obo/HP_0007490" target="_blank" rel="noopener noreferrer">HP:0007490</a></strong>; hyperkeratotic papule <strong><a href="http://purl.obolibrary.org/obo/HP_0045059" target="_blank" rel="noopener noreferrer">HP:0045059</a></strong> where applicable. [web:4nCoJaX02N7jbUnYFD4vhaVy][246]</td>
+</tr>
+<tr>
+<td><strong>Digital sclerosis, constriction bands, pseudoainhum, flexural deformity</strong>, physical manifestations</td>
+<td>Can become conspicuous in childhood or later; severity varies and may restrict movement. <strong>Characteristic</strong>, without a trustworthy frequency or KLICK-specific progression rate. [151][146][43]</td>
+<td>Hand use and mobility may be impaired; assess threatened digits clinically. [80]</td>
+<td>Flexion contracture of digit <strong><a href="http://purl.obolibrary.org/obo/HP_0030044" target="_blank" rel="noopener noreferrer">HP:0030044</a></strong> if present. Describe <strong>pseudoainhum in free text</strong>: HPO <strong><a href="http://purl.obolibrary.org/obo/HP_0009775" target="_blank" rel="noopener noreferrer">HP:0009775</a></strong> means <em>amniotic</em> constriction ring and should not automatically be used for keratoderma-related bands. [247][250][277]</td>
+</tr>
+<tr>
+<td><strong>Hyperkeratosis, acanthosis, hypergranulosis, sometimes parakeratosis and enlarged keratohyaline granules</strong>, biopsy signs</td>
+<td>Findings in lesional epidermis; prevalence across patients <strong>unknown</strong>. Sparse upper-dermal inflammatory infiltrates have also been described. [80][337]</td>
+<td>These are diagnostic tissue findings, not independently measured patient-reported outcomes.</td>
+<td>Hyperkeratosis <strong><a href="http://purl.obolibrary.org/obo/HP_0000962" target="_blank" rel="noopener noreferrer">HP:0000962</a></strong>; epidermal acanthosis <strong><a href="http://purl.obolibrary.org/obo/HP_0025092" target="_blank" rel="noopener noreferrer">HP:0025092</a></strong>; hypergranulosis <strong><a href="http://purl.obolibrary.org/obo/HP_0025114" target="_blank" rel="noopener noreferrer">HP:0025114</a></strong>; parakeratosis <strong><a href="http://purl.obolibrary.org/obo/HP_0001036" target="_blank" rel="noopener noreferrer">HP:0001036</a></strong> when observed. [246][242][web:4nCoJaX02N7jbUnYFD4vhaVy]</td>
+</tr>
+<tr>
+<td><strong>Erythema or atypically placed plaques</strong>, variable clinical signs</td>
+<td>Reported in some individuals; a <strong>2024 clinically diagnosed but genetically unconfirmed</strong> boy had symmetric extensor-foot plaques. These are not universal defining findings. [80][43]</td>
+<td>Not separately measured.</td>
+<td>Code the observed erythema or plaque morphology individually; do not generalize from one case.</td>
+</tr>
+<tr>
+<td><strong>Nail or dental abnormalities</strong>, occasional findings</td>
+<td>Described inconsistently; normal hair, nails, teeth, and hearing have also been documented. Their absence does not exclude KLICK. [80][43][337]</td>
+<td>Not established.</td>
+<td>Nail dystrophy <strong><a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" rel="noopener noreferrer">HP:0008404</a></strong> only if actually present. [web:4nCoJaX02N7jbUnYFD4vhaVy]</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>No characteristic behavioral or psychiatric phenotype, systemic laboratory abnormality, or electrophysiologic phenotype has been demonstrated for KLICK. The characteristic disorder is predominantly <strong>cutaneous</strong>; do not transfer immunodeficiency or systemic autoinflammation findings from other <em>POMP</em>-related diseases to KLICK. [80][296]</p>
+<h2>4. Genetic and molecular information</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Knowledge-base annotation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Causal gene</td>
+<td><strong><em>POMP</em></strong>, proteasome maturation protein; <strong><a href="https://bioregistry.io/HGNC:20330" target="_blank" rel="noopener noreferrer">HGNC:20330</a></strong>, NCBI Gene <strong>51371</strong>, Ensembl <strong>ENSG00000132963</strong>, OMIM <strong>613386</strong>; chromosome <strong>13q12.3</strong>. [106][46][108]</td>
+</tr>
+<tr>
+<td>Established KLICK allele</td>
+<td><strong>NM_015932.5:c.-95delC</strong>, <strong>rs112368783</strong>, ClinVar variation <strong>116 / VCV000000116</strong>, OMIM allelic variant <strong>613386.0001</strong>. ClinVar’s GRCh38 expression is <strong>NC_000013.11:g.28659090del</strong>. Specify transcript and genome build when recording coordinates. [web:6g8nEzSiusklPoXtMf9sE4Zs]</td>
+</tr>
+<tr>
+<td>Classification and origin</td>
+<td><strong>Pathogenic germline</strong> deletion. ClinVar’s KLICK-specific record <strong>RCV000000136</strong> is pathogenic but its OMIM assertion has <strong>no assertion criteria provided</strong>; the overall <em>variant-level</em> record has additional concordant submissions. [web:6g8nEzSiusklPoXtMf9sE4Zs]</td>
+</tr>
+<tr>
+<td>Population frequency</td>
+<td>The ClinVar page quotes approximately <strong>0.01%</strong> in gnomAD and <strong>0.013% of European non-Finnish alleles</strong> in a submitter comment. These are quoted submitter figures, <strong>not</strong> an independently verified current release-wide carrier-frequency estimate. The discovery report found no deletion in <strong>280 Swedish control chromosomes</strong>. [web:6g8nEzSiusklPoXtMf9sE4Zs]</td>
+</tr>
+<tr>
+<td>Functional consequence</td>
+<td>Shift toward longer <em>POMP</em> 5′-UTR transcripts in patient keratinocytes, with reduced effective POMP expression in differentiating epidermis and altered proteasome-subunit distribution: <strong>regulatory hypomorphic effect</strong>, not a coding frameshift. [121][122]</td>
+</tr>
+<tr>
+<td>Important boundary</td>
+<td>Heterozygous truncating <em>POMP</em> variants are associated with a <strong>distinct immune-dysregulatory syndrome</strong>; other <em>POMP</em> variants appearing in disease aggregators must not automatically be annotated as KLICK-causing. [80][132][254]</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>No KLICK-specific pathogenic chromosomal rearrangement, somatic driver, modifier gene, disease-specific DNA-methylation signature, or histone-change signature has been established in the cited evidence. [121][80]</p>
+<h2>5. Environmental information</h2>
+<p>KLICK is <strong>not an infectious disease</strong>. No implicated pathogen, toxin, radiation exposure, occupation, smoking pattern, alcohol exposure, or diet has been identified as a cause or reproducible trigger. Skin care and physical stress can matter to <strong>symptom management</strong>, but they should not be recorded as proven etiologic exposures or gene–environment interactions. [121][146][43]</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Homozygous <em>POMP</em> c.-95delC leads to</strong> a shift toward longer 5′-UTR transcripts in patient keratinocytes; this upstream change was observed in human material. [121]</li>
+<li><strong>The transcript shift leads to</strong> reduced effective POMP availability during terminal keratinocyte differentiation; altered patient-skin staining and knockdown experiments support this connection. [121][122]</li>
+<li><strong>Reduced POMP leads to</strong> impaired maturation or availability of proteasomes, with altered epidermal α7 and β5 subunit distribution; patient staining and <em>POMP</em>-silenced cultures support this step. [121][122]</li>
+<li><strong>Proteasome insufficiency leads to two overlapping downstream branches:</strong> <strong>(a)</strong> disturbed profilaggrin processing and epidermal differentiation; <strong>(b)</strong> increased ER stress and unfolded-protein-response markers, including CHOP. These branches are supported experimentally, although their exact causal order and contribution in each patient are <strong>not fully demonstrated</strong>. [122]</li>
+<li><strong>Disordered differentiation leads to</strong> hyperkeratosis, scaling, thick palmoplantar skin, and keratotic flexural lesions; this clinicopathologic link is strongly supported, but the exact mechanism producing each lesion’s distribution remains <strong>inferred</strong>. [121][122][146]</li>
+<li><strong>Thickening and sclerosis of acral skin lead to</strong> constricting digital bands and functional deformity; their clinical co-occurrence is established, while a complete tissue-level account of band formation remains <strong>inferred</strong>. [181][151][80]</li>
+<li><strong>Possible inflammatory branch:</strong> chronic epidermal stress <strong>may lead to</strong> local inflammatory signaling and upper-dermal infiltrates. The infiltrates are observed; a causal, KLICK-specific type-I-interferon or innate-immune pathway has <strong>not</strong> been established. Single-patient 2023 transcriptomics subsequently implicated interferon and other inflammatory pathways, which remains hypothesis-generating. [80][web:Tf1ZaGLHBmtWAOFIPhrk7u7I]</li>
+</ol>
+<p><strong>Experimental detail.</strong> In 2012, <em>POMP</em> siRNA in human air–liquid-interface epidermal cultures reduced <em>POMP</em> transcripts by about <strong>54%</strong> and produced abnormal POMP, α7, and filaggrin staining resembling patient biopsies. Cultures showed altered profilaggrin cleavage; prolonged knockdown induced CHOP in cultured cells. This is an <strong>in-vitro approximation</strong>, not a precise recreation of the human regulatory deletion. The authors concluded that reduced POMP causes “<strong>proteasome insufficiency in differentiating keratinocytes</strong>.” PMID <strong>22235297</strong>. [122]</p>
+<p><strong>Recent molecular profiling.</strong> Two 2023–2024 conference abstracts describe analyses centered on a biopsy from a <strong>32-year-old woman</strong>, not a large cohort. Immunostaining showed early involucrin/loricrin expression and retained corneal loricrin; RNA sequencing implicated differentiation, cornification, interferon-related, WNT, and EGFR pathways. The 2024 abstract additionally reports hyperkeratosis, hypergranulosis, delayed cellular flattening, and upregulated epidermal-development pathways. Pathway enrichment shows <strong>association</strong>, not that EGFR, WNT, PI3K, or interferon signaling is an initiating lesion. No KLICK-specific proteomic, metabolomic, lipidomic, single-cell, or spatial-transcriptomic signature was established in these reports. [web:Tf1ZaGLHBmtWAOFIPhrk7u7I][web:D3ONl5rWbzCOhp8RZ9J0LKCn]</p>
+<p><strong>Suggested annotations:</strong> POMP’s established biological role maps to proteasome assembly <strong><a href="http://purl.obolibrary.org/obo/GO_0043248" target="_blank" rel="noopener noreferrer">GO:0043248</a></strong>; downstream processes can be annotated as ER unfolded-protein response <strong><a href="http://purl.obolibrary.org/obo/GO_0030968" target="_blank" rel="noopener noreferrer">GO:0030968</a></strong>, keratinocyte differentiation <strong><a href="http://purl.obolibrary.org/obo/GO_0030216" target="_blank" rel="noopener noreferrer">GO:0030216</a></strong>, and epidermis development <strong><a href="http://purl.obolibrary.org/obo/GO_0008544" target="_blank" rel="noopener noreferrer">GO:0008544</a></strong>. The principal cell type is keratinocyte <strong><a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a></strong>. KEGG proteasome pathway <strong>hsa03050</strong> is relevant. These are <strong>term suggestions</strong>, not claims that every branch has been causally validated in KLICK. [219][311][315][212][web:OBwZDlDrUUCwK4OoTkS8VFYr]</p>
+<h2>7. Anatomical structures affected</h2>
+<p>The principal organ is <strong>skin</strong>: especially palmoplantar skin, finger and toe skin, wrists, and flexural skin around large joints. Lesions are often <strong>bilaterally symmetric</strong>, though severity and location can vary. The key tissue is stratified <strong>epidermal epithelium</strong>, particularly differentiating granular and cornified layers; sparse inflammatory cells may occur in the superficial <strong>dermis</strong>. There is no reproducibly established primary internal-organ lesion. [146][80][43]</p>
+<p>Suggested anatomy codes are <strong>skin epidermis <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" rel="noopener noreferrer">UBERON:0001003</a></strong>, <strong>stratum granulosum <a href="http://purl.obolibrary.org/obo/UBERON_0002069" target="_blank" rel="noopener noreferrer">UBERON:0002069</a></strong>, and <strong>dermis <a href="http://purl.obolibrary.org/obo/UBERON_0002067" target="_blank" rel="noopener noreferrer">UBERON:0002067</a></strong>; principal cell <strong>keratinocyte <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a></strong>. The implicated subcellular machinery comprises proteasome precursors and ER-associated stress responses; proteasome component <strong><a href="http://purl.obolibrary.org/obo/GO_0000502" target="_blank" rel="noopener noreferrer">GO:0000502</a></strong> can be considered for the complex. The clinical reports do not establish a primary mitochondrial or lysosomal defect. [213][217][212][108][122]</p>
+<h2>8. Temporal development</h2>
+<p>Scaling can begin <strong>at birth</strong>; keratoderma and distinctive plaques become recognizable during childhood, and digital changes can remain or become more consequential over time. The course is <strong>chronic</strong>, not episodic or relapsing-remitting; formal early/intermediate/end-stage criteria and a measured progression rate are unavailable. In one reported patient, acitretin improved skin disease during ages <strong>8–18</strong>, symptoms worsened after withdrawal, and improvement followed restarting treatment—evidence for <strong>symptom recurrence</strong>, not cure or a defined remission pattern. No established critical intervention window or longitudinal natural-history cohort was found. [181][192][337][web:DbOxl2jVYciByL4D8NA19q5j]</p>
+<h2>9. Inheritance and population</h2>
+<p><strong>Inheritance is autosomal recessive.</strong> For two confirmed heterozygous parents, standard Mendelian counseling gives a <strong>25% affected, 50% carrier, and 25% noncarrier probability per pregnancy</strong>. Penetrance is not reliably quantified; expressivity varies in lesion distribution and severity. No evidence establishes anticipation, germline mosaicism, or a population-specific founder effect. The discovery families came from Spain, Italy, the Netherlands, Sweden, and Norway; this is <strong>case ascertainment</strong>, not a geographic prevalence map or sex-ratio estimate. [121][125][145]</p>
+<p>A <strong>2014 French capture–recapture study</strong> recorded <strong>two</strong> KLICK patients and estimated <strong>0.23 per million people</strong>—<strong>0.023 per 100,000</strong>—with a reported <strong>95% CI of 0.19–0.30 per million</strong>. Its regional sampling and two observed cases make that estimate unsuitable as a precise current global prevalence. <strong>Incidence, carrier frequency, sex ratio, and population age distribution are unknown.</strong> PMID <strong>24393603</strong>. [web:l8hwjUlxLNP95I2ckj2kB2E9][web:XLIpeecMmc7bsWpaMAssV2mA][166]</p>
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical approach:</strong> suspect KLICK when congenital scaling coexists with diffuse palmoplantar keratoderma, linear flexural keratoses, and digital sclerosis or pseudoainhum. Examine skin distribution, digital movement and constrictions, nails, hair, hearing, and family history; biopsy can show acanthosis, hypergranulosis, hyperkeratosis, abnormal keratohyaline granules, and sometimes parakeratosis. Histology supports but does <strong>not</strong> independently establish the molecular diagnosis. There are no validated KLICK-specific blood, urine, enzyme, circulating, imaging, electrophysiologic, or functional biomarkers. Imaging may be clinically useful for a severely affected digit, but is not a routine confirmatory KLICK test. [181][337][80][43]</p>
+<p><strong>Confirmatory genetic approach:</strong> test for <strong>biallelic <em>POMP</em> c.-95delC with explicit 5′-UTR coverage and deletion calling</strong>, followed by parental segregation testing where possible. Targeted variant testing is efficient for a classic presentation; a palmoplantar-keratoderma or ichthyosis panel that demonstrably covers this <strong>noncoding</strong> position is useful for broader differentials. WGS may help if the result is unresolved and covers the site; WES or an exon-only panel may miss it. CMA, karyotyping, FISH, mitochondrial sequencing, and repeat-expansion assays are <strong>not</strong> first-line confirmatory tests for this one-base regulatory deletion. RNA sequencing is research-useful, not a validated clinical diagnostic requirement. Genomics England lists <em>POMP</em> on relevant panels and flags the noncoding allele. [web:6g8nEzSiusklPoXtMf9sE4Zs][web:hxtT0cGAbBRZFmp1k1sc18df][121]</p>
+<p><strong>Differential:</strong> other inherited ichthyoses and mutilating palmoplantar keratodermas, including loricrin/Vohwinkel-spectrum disease; evaluate genetic results and accompanying features rather than assuming that ichthyosis plus constriction bands identifies KLICK. Also distinguish recessive KLICK from the <strong>different</strong>, often systemic phenotype of heterozygous truncating <em>POMP</em> variants. No validated population newborn-screening program or KLICK-specific clinical diagnostic scoring criteria were identified. [203][80][192]</p>
+<h2>11. Outcome and prognosis</h2>
+<p>Cutaneous morbidity can be substantial, particularly where stiff keratoderma and digital constriction impair function. The 1997 case and later descriptions did <strong>not</strong> establish a characteristic systemic illness or reduced life expectancy. <strong>Survival, mortality, life expectancy, formal disability rates, prognostic biomarkers, and KLICK-specific EQ-5D/SF-36/PROMIS results are unavailable.</strong> A <strong>2011 letter reported aggressive cutaneous squamous-cell carcinoma in one KLICK patient</strong>; this establishes an observed case, <strong>not</strong> a measured cancer incidence or proven elevated risk. Clinical attention to new or changing skin lesions is reasonable. [151][80][web:4MK80yHz0MUgrWJs1ZOMahEi]</p>
+<h2>12. Treatment</h2>
+<p>Treatment evidence consists chiefly of <strong>individual case reports</strong>, not comparative KLICK trials. Suggested NCIT labels below are <strong>intervention concepts to map and verify locally</strong>, not asserted numeric NCIT codes. [151][337][43]</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Intervention and suggested NCIT concept</th>
+<th>Evidence, intended role, and limits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Emollients and humectants</strong> — topical emollient therapy</td>
+<td>Supportive management of scaling and dryness. A 2024 case used emollients alongside systemic treatment; their isolated KLICK response was not quantified. [43]</td>
+</tr>
+<tr>
+<td><strong>Topical urea or other keratolytics</strong> — topical keratolytic therapy; urea</td>
+<td>Used to reduce thick scale; <strong>30% urea cream</strong> was reported in clinical care. No controlled response or adverse-event rate is available for KLICK. [43][36]</td>
+</tr>
+<tr>
+<td><strong>Oral acitretin</strong> — systemic retinoid therapy; acitretin</td>
+<td>Case experience reports improvement, including after re-initiation following worsening off treatment. A 2024 boy received <strong>25 mg/day</strong>, but that report did <strong>not</strong> quantify his response and did <strong>not</strong> genetically confirm KLICK. Assess systemic-retinoid risks and contraindications individually; no KLICK-specific optimal dose or response rate is established. [web:DbOxl2jVYciByL4D8NA19q5j][43]</td>
+</tr>
+<tr>
+<td><strong>Oral etretinate</strong> — systemic retinoid therapy; etretinate</td>
+<td>The 1997 primary case abstract reports that disease “<strong>improved on oral etretinate therapy</strong>.” This is case evidence, not a comparative efficacy estimate. PMID <strong>9188877</strong>. [151]</td>
+</tr>
+<tr>
+<td><strong>Digit assessment and functional support</strong> — dermatologic assessment; rehabilitative therapy</td>
+<td>Individualized clinical management of painful, function-threatening constrictions and impaired hand or foot function is reasonable. No validated KLICK-specific surgical algorithm, operation outcome, or rehabilitation trial was identified. [80][146]</td>
+</tr>
+<tr>
+<td><strong>Erlotinib / EGFR inhibition; PI3K inhibition</strong> — targeted therapy <strong>research candidates only</strong></td>
+<td>A 2024 <strong>computational reverse-transcriptomics</strong> analysis shortlisted erlotinib; a 2023 abstract also proposed EGFR and PI3K inhibition. Neither abstract establishes treatment efficacy or safety in a KLICK patient. [web:D3ONl5rWbzCOhp8RZ9J0LKCn][web:Tf1ZaGLHBmtWAOFIPhrk7u7I]</td>
+</tr>
+<tr>
+<td><strong>Anti-cytokine treatment or proteostasis-directed therapy</strong> — investigational interventions only</td>
+<td>Discussed as hypotheses by experts, <strong>not demonstrated KLICK therapies</strong>. A registered study <strong>NCT04996485</strong> concerns broader congenital ichthyosis; its listing is not evidence of KLICK-specific enrollment or benefit. [80][298]</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>No established KLICK gene therapy, cell therapy, RNA therapy, immunotherapy, genotype-specific pharmacogenomic rule, licensed targeted treatment, or comparative combination-treatment algorithm was identified. [80][web:D3ONl5rWbzCOhp8RZ9J0LKCn]</p>
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention of the mutation through lifestyle or vaccination is not applicable.</strong> Reproductive genetic counseling can explain recessive risk and discuss carrier testing of relatives and, where appropriate, prenatal or preimplantation testing for the <strong>known familial variant</strong>. <strong>Secondary prevention</strong> consists of timely clinical recognition and confirmatory testing in symptomatic relatives, with targeted family testing as appropriate; no population newborn-screening program is established. <strong>Tertiary prevention</strong> focuses on skin care, monitoring constricting digits and function, and assessment of concerning new lesions. No KLICK-specific vaccine, chemoprophylaxis, environmental intervention, or risk-prediction model has been established. [121][web:6g8nEzSiusklPoXtMf9sE4Zs][80][web:4MK80yHz0MUgrWJs1ZOMahEi]</p>
+<h2>14. Other species and naturally occurring disease</h2>
+<p>The genetically established <strong>natural disease</strong> described here is human (<strong>NCBI Taxon:9606</strong>). The mouse (<strong>NCBI Taxon:10090</strong>) has a <em>Pomp</em> ortholog, <strong>NCBI Gene:66537</strong>, but orthology is <strong>not</strong> evidence of naturally occurring veterinary KLICK. No confirmed companion-animal breed or VBO entry, spontaneous nonhuman KLICK disease, zoonotic potential, cross-species transmission, or comparative natural-disease prevalence was identified. Proteasome assembly is conserved, but the specific human clinical phenotype cannot be assigned to another species solely from that conservation. [116][112][122]</p>
+<h2>15. Model organisms and experimental systems</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model type and system</th>
+<th>Demonstrated recapitulation, use, and limitation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>In-vitro human epidermal air–liquid culture with <em>POMP</em> siRNA</strong></td>
+<td>Reproduced aspects of patient POMP/proteasome/filaggrin staining and disturbed profilaggrin processing. Useful for testing proteasome insufficiency and differentiation; knockdown is <strong>not</strong> the patient’s exact c.-95delC allele, and cultures cannot reproduce whole-person digital deformity. PMID <strong>22235297</strong>. [122]</td>
+</tr>
+<tr>
+<td><strong>In-vitro HaCaT keratinocytes and HeLa comparison cultures with <em>POMP</em> knockdown</strong></td>
+<td>Supported reduced proteasome-subunit abundance and CHOP induction with prolonged depletion; cell-line results cannot establish patient-level natural history or treatment response. PMID <strong>22235297</strong>. [122]</td>
+</tr>
+<tr>
+<td><strong>CRISPR-edited HaCaT cells carrying the KLICK allele</strong></td>
+<td>Reported as successfully generated in a <strong>2024 conference abstract</strong>; a genotype-matched experimental platform, <strong>not yet evidence</strong> that a candidate drug works. [web:D3ONl5rWbzCOhp8RZ9J0LKCn]</td>
+</tr>
+<tr>
+<td><strong>Patient-derived induced pluripotent stem-cell line</strong></td>
+<td>Reported generated in the same <strong>2024 abstract</strong> for prospective disease modeling. No differentiated-organism phenotype or drug-response result was reported there. [web:D3ONl5rWbzCOhp8RZ9J0LKCn]</td>
+</tr>
+<tr>
+<td><strong>KLICK-specific mouse or other whole-animal knock-in model</strong></td>
+<td><strong>Not established in the retrieved KLICK studies.</strong> A mouse <em>Pomp</em> ortholog exists, but an ortholog or a model of another inflammatory disorder must not be represented as a KLICK phenocopy. MGI is an appropriate resource for checking future alleles. [80][112][161]</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Primary-source anchors and exact abstract excerpts</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Publication date</th>
+<th>PMID and URL</th>
+<th>Exact supporting abstract excerpt and evidence type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>January 1989</strong></td>
+<td><strong>2521286</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/2521286/" target="_blank" rel="noopener noreferrer">https://pubmed.ncbi.nlm.nih.gov/2521286/</a></td>
+<td>“<strong>Four members of a consanguineous family showed a congenital disorder characterized by an ichthyosiform dermatosis, sclerosing palmoplantar keratoderma, and multiple keratotic papules arranged in bands with a linear, cordlike distribution.</strong>” <strong>Human clinical.</strong> [181]</td>
+</tr>
+<tr>
+<td><strong>May 1997</strong></td>
+<td><strong>9188877</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/9188877/" target="_blank" rel="noopener noreferrer">https://pubmed.ncbi.nlm.nih.gov/9188877/</a></td>
+<td>“<strong>The condition, which improved on oral etretinate therapy, had not appeared previously in the family.</strong>” <strong>Human clinical, single case.</strong> [151]</td>
+</tr>
+<tr>
+<td><strong>9 April 2010</strong></td>
+<td><strong>20226437</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/20226437/" target="_blank" rel="noopener noreferrer">https://pubmed.ncbi.nlm.nih.gov/20226437/</a></td>
+<td>“<strong>Sequence analysis of the ten annotated genes in the candidate region revealed homozygosity for a single-nucleotide deletion at position c.-95 in the proteasome maturation protein (POMP) gene, in all probands.</strong>” <strong>Human genetic and biopsy research.</strong> [web:nnNpUmDlV0JUFMameO0eW531][134]</td>
+</tr>
+<tr>
+<td><strong>3 January 2012</strong></td>
+<td><strong>22235297</strong> — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3250448/" target="_blank" rel="noopener noreferrer">https://pmc.ncbi.nlm.nih.gov/articles/PMC3250448/</a></td>
+<td>“<strong>The combined results indicate that KLICK is caused by reduced levels of POMP, leading to proteasome insufficiency in differentiating keratinocytes.</strong>” <strong>In vitro</strong>, compared with human biopsies. [122]</td>
+</tr>
+<tr>
+<td><strong>6 January 2014</strong></td>
+<td><strong>24393603</strong> — <a href="https://ojrd.biomedcentral.com/articles/10.1186/1750-1172-9-1/tables/5" target="_blank" rel="noopener noreferrer">https://ojrd.biomedcentral.com/articles/10.1186/1750-1172-9-1/tables/5</a></td>
+<td>The study’s disease table records <strong>“KLICK syndrome | 2 (1.7) | 0.23 [0.19 – 0.30]”</strong>, with prevalence per million. <strong>Population study</strong>, based on two recorded KLICK cases. [web:l8hwjUlxLNP95I2ckj2kB2E9][166]</td>
+</tr>
+<tr>
+<td><strong>7 July 2023</strong></td>
+<td><strong>No PMID verified</strong> — <a href="https://academic.oup.com/bjd/article/189/1/e21/7221241" target="_blank" rel="noopener noreferrer">https://academic.oup.com/bjd/article/189/1/e21/7221241</a></td>
+<td>“<strong>RNA sequencing revealed dysregulated pathways relating to keratinocyte differentiation, keratinization, cornification, and interferon signalling.</strong>” <strong>Single-patient biopsy and transcriptomics; conference abstract.</strong> [web:Tf1ZaGLHBmtWAOFIPhrk7u7I]</td>
+</tr>
+<tr>
+<td><strong>17 May 2024</strong></td>
+<td><strong>No PMID verified</strong> — <a href="https://academic.oup.com/bjd/article/190/6/e78/7675832" target="_blank" rel="noopener noreferrer">https://academic.oup.com/bjd/article/190/6/e78/7675832</a></td>
+<td>“<strong>HaCaT keratinocytes were successfully edited using CRISPR-Cas9 to carry the KLICK patient POMP variant and a KLICK patient iPSC line was generated</strong>.” <strong>Cell-model and computational research; conference abstract.</strong> [web:D3ONl5rWbzCOhp8RZ9J0LKCn]</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Knowledge-base caution:</strong> annotate <em>POMP</em> c.-95delC and the characteristic skin phenotype as established; annotate specific inflammatory cascades, repurposed EGFR inhibitors, long-term outcomes, and animal phenocopy claims as <strong>unproven or not available</strong>. [121][122][80][web:D3ONl5rWbzCOhp8RZ9J0LKCn]</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>14</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>5</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>, <code>Taxon</code>, <code>Gene</code>.</p>
+<p>22 of 27 terms resolved to a current term; the rest could not be looked up either way.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="KLHL24-Related_Hypertrophic_Cardiomyopathy-claude_code.html">← KLHL24-Related Hypertrophic Cardiomyopathy (Claude Code)</a>
+                
+                
+                <a href="Klinefelter_Syndrome-cyberian-codex.html">Klinefelter Syndrome (Cyberian Codex) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/KLICK_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/KLICK_Syndrome-deep-research-perplexity.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-perplexity" aria-current="page">Perplexity</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
