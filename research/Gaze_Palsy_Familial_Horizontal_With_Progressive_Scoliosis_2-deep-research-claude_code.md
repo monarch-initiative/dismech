@@ -645,3 +645,91 @@ None. There are no known environmental, lifestyle or infectious contributors. Th
    - **3b. Brainstem:** absent pontine crossing fibers and failed decussation of the superior cerebellar peduncles, producing the midline cleft or split pons and the butterfly medulla. The failure of crossing gaze pathways **results in** horizontal gaze palsy. The exact crossing tract has not been shown in humans; the authors write of *"shared brainstem crossing defects disrupting pathways controlling conjugate gaze"*.
    - **3c. Spinal cord:** defective left–right interneuron circuits are thought to **lead to** unbalanced paraspinal muscle activity and progressive scoliosis. The authors call this **speculative**: *"We speculate that scoliosis may pertain to unbalanced paraspinal muscle activity due to defective spinal interneuron circuits."* It is supported only by Netrin-1/Dcc-deficient mice.
    - **3d. Non-commissural white matter:** broad disorganization of associational and subcortical tracts with reduced FA. A possible additional role of DCC/netrin in oligodendrocyte myelin regulation is a hypothesis only. Together these probably **contribute to** intellectual disability and developmental delay (inferred: *"cognitive deficits may at least partially be attributable to non-commissural forebrain white matter abnormalities"*).
+4. Corticospinal-tract laterality is variable. This **may result in** mirror movements in some patients. The mechanism is unclear; partial and complete loss of DCC may differ.
+
+**Checklist detail (term IDs to verify)**
+
+| Category | Detail | Suggested terms |
+|---|---|---|
+| Pathways | Netrin-1/DCC signalling; Slit/ROBO crosstalk | GO "netrin-activated signaling pathway"; "axon midline choice point recognition"; "axon guidance" GO:0007411 |
+| Molecular function | Netrin receptor activity | GO:0005042 (already in the entry) |
+| Cellular processes | Growth-cone guidance, commissural axon crossing, possibly myelination | GO "corpus callosum development"; "commissural neuron axon guidance" |
+| Cell types | Commissural neurons; cortical (callosal) projection neurons; spinal commissural interneurons; possibly oligodendrocytes | CL search needed (e.g. CL:0000540 neuron is too broad; look for "commissural neuron") |
+| Subcellular | Growth cone; plasma membrane | GO:0030426 growth cone |
+| Metabolic, immune, omics | None reported; no transcriptomic, proteomic or single-cell data specific to the disease | — |
+
+## 7. Anatomical Structures Affected
+
+- **Primary:** CNS commissures, namely the corpus callosum, anterior commissure, hippocampal commissure, superior cerebellar peduncle decussation and transverse pontine fibers. Also the pons, midbrain and medulla oblongata.
+- **Secondary:** the vertebral column (scoliosis) and extraocular motor control.
+- **UBERON leads [verify]:** corpus callosum, anterior commissure, hippocampal commissure, pons, medulla oblongata, midbrain, superior cerebellar peduncle, cerebral white matter, vertebral column.
+- **Laterality:** midline and bilateral by nature. Scoliosis direction is not described.
+
+## 8. Temporal Development
+
+- **Onset:** congenital. The malformation forms prenatally, and the gaze palsy is present from birth.
+- **Progression:** scoliosis appears and worsens through childhood and adolescence (PMID:33141514). Cognitive and brain-structure features are static.
+- **Duration:** lifelong. Remission is not applicable.
+- **Critical periods:** scoliosis surveillance during the growth years. The window for commissure formation is embryonic, which is the axon-guidance window, inferred from mouse data.
+
+## 9. Inheritance and Population
+
+- **Inheritance:** autosomal recessive (HP:0000007). The Pakistani family shows co-segregation: *"the parents were heterozygous carriers of the mutation, in accordance with an autosomal recessive inheritance pattern"* (PMID:33141514).
+- **Penetrance:** described as full penetrance for biallelic loss of function (PMID:38585553). Heterozygous carriers are usually unaffected but are at risk of the allelic dominant conditions (mirror movements or isolated ACC) with incomplete penetrance.
+- **Expressivity:** variable for mirror movements, and possibly milder with missense alleles.
+- **Anticipation and germline mosaicism:** none reported.
+- **Epidemiology:** about 8 patients and 5 families worldwide (Mexico, Saudi Arabia, Pakistan, Syria, and Family 3 of unstated origin). There is no prevalence or incidence figure. Use `CASES_IN_LITERATURE` with `ULTRA_RARE`.
+- **Founder effects and carrier frequency:** unknown.
+- **Sex ratio:** too few cases to estimate.
+
+## 10. Diagnostics
+
+**Brain MRI and DTI.** Look for the combination of agenesis of the corpus callosum, absent anterior and hippocampal commissures, a split pons, a butterfly medulla, and an absent midbrain "red dot". That combination with horizontal gaze palsy and intellectual disability points to DCC rather than ROBO3.
+
+**Genetic testing.**
+- Exome or genome sequencing plus **CNV analysis of DCC**, which is mandatory because 2 of 5 alleles are CNVs.
+- Targeted DCC sequencing with ddPCR/qPCR for deletions or duplications.
+- Homozygosity mapping helps in consanguineous families. For example, the Pakistani family had loss of heterozygosity at 18q21.1–21.3 (PMID:33141514).
+
+**Other tests.** Orthoptic and ocular-motility examination; spine radiographs; developmental assessment.
+
+**Differential diagnosis**
+
+| Condition | Distinguishing features |
+|---|---|
+| HGPPS1 (ROBO3, MIM 607313) | Normal intellect, no ACC. PMID:38516134: *"HGPPS2 … distinguished from HGPPS1 by impaired intellectual development, global developmental delay, agenesis of the corpus callosum, and absence of the anterior and hippocampal commissures."* |
+| Joubert syndrome | Molar-tooth sign, oculomotor apraxia **[clinical knowledge]** |
+| Möbius and Duane syndromes (other congenital cranial dysinnervation disorders) | — |
+| Isolated ACC | — |
+| Pontine tegmental cap dysplasia | — |
+
+**Screening:** no newborn or population screening. Cascade carrier testing and prenatal or preimplantation testing are possible once the familial variants are known.
+
+## 11. Outcome / Prognosis
+
+- No survival or mortality data. The affected patients reported were alive in childhood to young adulthood; the Pakistani family included adolescents and adults, per MeSH age tags.
+- Morbidity comes from intellectual disability, progressive scoliosis (which may need surgery), and the gaze limitation.
+- No prognostic biomarkers. The only proposed modifier of severity is allele type (null versus missense), and that is unproven.
+
+## 12. Treatment
+
+There is no disease-modifying therapy, no trial, and no pharmacogenomics. Management is supportive and draws on HGPPS1 and scoliosis practice **[no HGPPS2-specific outcome data]**.
+
+| Intervention | Suggested NCIT term (verify) |
+|---|---|
+| Scoliosis bracing and spinal fusion (orthopedic surgery) | Orthopedic Surgical Procedure NCIT:C16186; therapeutic modality SURGERY |
+| Physical, occupational and speech therapy; special education for developmental delay | Physical Therapy NCIT:C15302; Rehabilitation NCIT:C15315 |
+| Strabismus or ophthalmologic management | — |
+| Genetic counselling | NCIT:C15240 |
+
+No gene therapy, ASO or cell therapy has been developed.
+
+## 13. Prevention
+
+- **Primary:** none.
+- **Secondary and tertiary:** spine surveillance through growth to allow early scoliosis intervention; developmental surveillance.
+- **Counselling:** 25% recurrence risk for carrier couples. Discuss carrier testing in consanguineous families and prenatal or preimplantation testing. Note the separate dominant risk to heterozygous relatives (mirror movements or isolated ACC).
+
+## 14. Other Species / Natural Disease
+
+- No naturally occurring animal disease is known. OMIA was not searched **[unverified]**.
