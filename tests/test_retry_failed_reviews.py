@@ -112,10 +112,11 @@ def test_manual_run_is_rerunnable_despite_main_sha():
     assert reason(run(event="workflow_dispatch", head_sha="main-sha")) is None
 
 
-def harness(monkeypatch, rows=None, current=None, reviews=None, fresh=None):
-    rows = rows or [run()]
+def harness(monkeypatch, rows=None, current=None, reviews=None, fresh=None, checks=()):
+    rows = [run()] if rows is None else rows
     writes = []
     monkeypatch.setattr(retry, "workflow_runs", lambda *args: list(rows))
+    monkeypatch.setattr(retry, "current_review_runs", lambda *args: (list(checks), []))
     monkeypatch.setattr(retry, "pages", lambda *args: reviews or [])
 
     def read(path):
@@ -141,7 +142,7 @@ def test_sweep_issues_exact_failed_job_rerun(monkeypatch):
     assert writes == [
         (("run", "rerun", "20", "--failed", "--repo", "owner/repo"), {"write": True})
     ]
-    assert "retried failed jobs" in rows[0]
+    assert any("retried failed jobs" in row for row in rows)
 
 
 @pytest.mark.parametrize(
@@ -190,7 +191,160 @@ def test_read_failure_does_not_retry(monkeypatch):
     monkeypatch.setattr(retry, "api", fail)
     rows, errors = retry.sweep("owner/repo", NOW)
     assert not writes and errors == 1
-    assert "error" in rows[0]
+    assert any("error" in row for row in rows)
+
+
+def test_missing_failure_is_recovered_from_current_pr_check(monkeypatch):
+    failure = run(updated_at=(NOW - timedelta(minutes=20)).isoformat())
+    writes = harness(monkeypatch, rows=[], current=failure, checks=[failure])
+    rows, errors = retry.sweep("owner/repo", NOW, minimum=0)
+    assert errors == 0
+    assert len(writes) == 1 and writes[0][0][2] == "20"
+    assert any("missing from Actions discovery" in row for row in rows)
+    summary = retry.render_summary("owner/repo", rows, False, 5)
+    assert "### Recovered from PR checks (1)" in summary
+    assert "Live run: 1 rerun requests accepted" in summary
+
+
+@pytest.mark.parametrize(
+    "overrides,reviews,kwargs",
+    [
+        ({}, [], {"dry_run": True, "minimum": 0}),
+        ({}, [], {"minimum": 1}),
+        ({"head_sha": "old"}, [], {"minimum": 0}),
+        ({"status": "in_progress", "conclusion": None}, [], {"minimum": 0}),
+        ({"created_at": (NOW - timedelta(days=2)).isoformat()}, [], {"lookback": 1}),
+        (
+            {},
+            [
+                {
+                    "id": 1,
+                    "user": {"login": "ai4c-reviewer[bot]"},
+                    "state": "APPROVED",
+                    "commit_id": "abc",
+                }
+            ],
+            {"minimum": 0},
+        ),
+    ],
+)
+def test_recovered_runs_still_obey_retry_guards(
+    monkeypatch, overrides, reviews, kwargs
+):
+    failure = run(updated_at=(NOW - timedelta(minutes=20)).isoformat(), **overrides)
+    writes = harness(
+        monkeypatch, rows=[], current=failure, checks=[failure], reviews=reviews
+    )
+    retry.sweep("owner/repo", NOW, **kwargs)
+    assert not writes
+
+
+def test_current_check_can_supersede_stale_discovery(monkeypatch):
+    writes = harness(monkeypatch, checks=[run(status="in_progress", conclusion=None)])
+    retry.sweep("owner/repo", NOW, minimum=0)
+    assert not writes
+
+
+@pytest.mark.parametrize("specific_pr", [None, 7])
+def test_current_check_discovery_validates_linked_workflow(monkeypatch, specific_pr):
+    pull = pr(number=7)
+    reads = []
+
+    def read_pages(path, key=None):
+        reads.append(path)
+        if path == "repos/owner/repo/pulls?state=open":
+            return [pull]
+        assert path == "repos/owner/repo/commits/abc/check-runs?filter=latest"
+        assert key == "check_runs"
+        return [
+            {
+                "name": "test",
+                "details_url": "https://github.com/owner/repo/actions/runs/99/job/3",
+            },
+            {
+                "name": "claude-review",
+                "details_url": "https://github.com/other/repo/actions/runs/98/job/2",
+            },
+            {
+                "name": "claude-review",
+                "details_url": "https://github.com/owner/repo/actions/runs/20/job/1",
+            },
+        ]
+
+    def read(path):
+        reads.append(path)
+        if path == "repos/owner/repo/pulls/7":
+            return pull
+        assert path == "repos/owner/repo/actions/runs/20"
+        return run(path=".github/workflows/claude-code-review.yml")
+
+    monkeypatch.setattr(retry, "pages", read_pages)
+    monkeypatch.setattr(retry, "api", read)
+    found, errors = retry.current_review_runs("owner/repo", specific_pr)
+    assert [row["id"] for row in found] == [20]
+    assert not errors
+    assert len(reads) == 3
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"path": ".github/workflows/other.yml"},
+        {"head_sha": "old"},
+        {"event": "workflow_dispatch"},
+        {"pull_requests": [{"number": 8}]},
+    ],
+)
+def test_current_check_does_not_trust_name_alone(monkeypatch, overrides):
+    monkeypatch.setattr(
+        retry,
+        "pages",
+        lambda *args: [
+            {
+                "name": "claude-review",
+                "details_url": "https://github.com/owner/repo/actions/runs/20/job/1",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        retry,
+        "api",
+        lambda path: (
+            pr(number=7)
+            if "/pulls/" in path
+            else run(
+                **({"path": ".github/workflows/claude-code-review.yml"} | overrides)
+            )
+        ),
+    )
+    assert retry.current_review_runs("owner/repo", 7) == ([], [])
+
+
+def test_current_check_lookup_error_is_reported(monkeypatch):
+    monkeypatch.setattr(retry, "api", lambda path: pr(number=7))
+
+    def fail(*args):
+        raise subprocess.CalledProcessError(1, ["gh"])
+
+    monkeypatch.setattr(retry, "pages", fail)
+    runs, errors = retry.current_review_runs("owner/repo", 7)
+    assert not runs
+    assert len(errors) == 1 and "PR #7: error" in errors[0]
+
+
+def test_incomplete_current_check_scan_marks_sweep_failed(monkeypatch):
+    writes = harness(monkeypatch, rows=[])
+    monkeypatch.setattr(
+        retry,
+        "current_review_runs",
+        lambda *args: (
+            [],
+            ["PR #7: error (CalledProcessError) checking current review checks."],
+        ),
+    )
+    rows, errors = retry.sweep("owner/repo", NOW)
+    assert errors == 1 and not writes
+    assert any("checking current review checks" in row for row in rows)
 
 
 def test_resolve_dispatch_and_legacy_dispatch(monkeypatch):
@@ -379,6 +533,7 @@ def test_main_writes_same_linked_summary_to_stdout_and_actions(
 def test_workflow_job_is_independent_and_respects_dry_run():
     config = yaml.safe_load((ROOT / ".github/workflows/pr-shepherd.yml").read_text())
     job = config["jobs"]["retry-reviews"]
+    assert job["permissions"]["checks"] == "read"
     assert "needs" not in job and "if" not in job
     assert job["concurrency"]["cancel-in-progress"] is False
     assert all("anthropics/" not in s.get("uses", "") for s in job["steps"])

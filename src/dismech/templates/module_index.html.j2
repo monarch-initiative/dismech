@@ -14,12 +14,6 @@
         body { font-family: var(--font); color: var(--gray-800); line-height: 1.6; background: linear-gradient(180deg, #fff 0%, var(--gray-50) 100%); }
         a { color: var(--teal); text-decoration: none; }
         a:hover { text-decoration: underline; }
-        nav { position: sticky; top: 0; z-index: 100; padding: .75rem 1.5rem; background: rgba(255,255,255,.96); border-bottom: 1px solid var(--gray-200); backdrop-filter: blur(12px); }
-        .nav-inner { max-width: 1120px; margin: auto; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
-        .nav-logo { font-weight: 700; color: var(--teal); }
-        .nav-links { display: flex; flex-wrap: wrap; gap: 1.1rem; font-size: .875rem; }
-        .nav-links a { color: var(--gray-600); }
-        .nav-links .active { color: var(--teal); font-weight: 700; }
         .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
         .hero { max-width: 1120px; margin: auto; padding: 4.8rem 1.5rem 2.8rem; }
         .hero h1 { color: var(--teal); font-size: 2.35rem; line-height: 1.15; letter-spacing: -.02em; }
@@ -63,7 +57,6 @@
         .empty { display: none; padding: 2rem; color: var(--gray-500); text-align: center; }
         [hidden] { display: none !important; }
         @media (max-width: 760px) {
-            nav { padding: .7rem 1rem; }
             .hero { padding: 4rem 1rem 2.2rem; }
             .hero h1 { font-size: 1.8rem; }
             main { padding: 1.3rem 1rem 3rem; }
@@ -75,19 +68,7 @@
 </head>
 <body>
     {% include '_disclaimer.html.j2' %}
-    <nav>
-        <div class="nav-inner">
-            <a href="../../" class="nav-logo">dismech</a>
-            <div class="nav-links">
-                <a href="../../app/index.html">Browse</a>
-                <a href="index.html" class="active">Modules</a>
-                <a href="../module-collections/">Collections</a>
-                <a href="../groupings/">Disease groupings</a>
-                <a href="../../details/">Docs</a>
-                <a href="https://github.com/monarch-initiative/dismech">GitHub</a>
-            </div>
-        </div>
-    </nav>
+    {% with nav_root='../../', nav_active='modules' %}{% include '_site_nav.html.j2' %}{% endwith %}
 
     <div class="hero-bg">
         <section class="hero">
@@ -145,7 +126,7 @@
 
         <section aria-labelledby="all-modules-heading">
             <h2 class="section-heading" id="all-modules-heading">All modules</h2>
-            <p class="section-intro">Search names and descriptions, or narrow the registry to a curated collection.</p>
+            <p class="section-intro">Search names and descriptions, or narrow the registry to a curated collection or a study-area category.</p>
             <div class="controls">
                 <input class="control" id="module-search" type="search" placeholder="Search modules…" aria-label="Search modules">
                 <select class="control" id="collection-filter" aria-label="Filter by module collection">
@@ -153,11 +134,18 @@
                     {% for collection in collections %}<option value="{{ collection.name }}">{{ collection.display_name or collection.name }}</option>{% endfor %}
                     <option value="__unclassified__">Not yet in a collection</option>
                 </select>
+                {% if category_legend %}
+                <select class="control" id="category-filter" aria-label="Filter by module category">
+                    <option value="">All categories</option>
+                    {% for category in category_legend %}<option value="{{ category.key }}">{{ category.label }}</option>{% endfor %}
+                    <option value="__uncategorized__">Uncategorized</option>
+                </select>
+                {% endif %}
             </div>
             <p class="section-intro" id="result-count" aria-live="polite">{{ modules | length }} modules</p>
             <div class="module-list" id="module-list">
                 {% for module in modules %}
-                <article class="module-row" data-module-row data-search="{{ module.name }} {{ module.id }} {{ module.description or '' }}{% for collection in module.collections %} {{ collection.name }}{% endfor %}" data-collections="{% for collection in module.collections %}{% if not loop.first %}|||{% endif %}{{ collection.name }}{% endfor %}">
+                <article class="module-row" data-module-row data-search="{{ module.name }} {{ module.id }} {{ module.description or '' }}{% for collection in module.collections %} {{ collection.name }}{% endfor %}" data-collections="{% for collection in module.collections %}{% if not loop.first %}|||{% endif %}{{ collection.name }}{% endfor %}" data-categories="{% for category in module.categories %}{% if not loop.first %}|||{% endif %}{{ category.key }}{% endfor %}">
                     <div>
                         <a class="module-name" href="{{ module.href }}">{{ module.name }}</a>
                         <span class="module-id">{{ module.id }}</span>
@@ -188,18 +176,23 @@
         (() => {
             const search = document.getElementById('module-search');
             const filter = document.getElementById('collection-filter');
+            // Absent when no rendered module carries a category.
+            const categoryFilter = document.getElementById('category-filter');
             const rows = [...document.querySelectorAll('[data-module-row]')];
             const count = document.getElementById('result-count');
             const empty = document.getElementById('empty-state');
             const update = () => {
                 const query = search.value.trim().toLocaleLowerCase();
                 const selected = filter.value;
+                const selectedCategory = categoryFilter ? categoryFilter.value : '';
                 let visible = 0;
                 rows.forEach((row) => {
                     const collections = row.dataset.collections ? row.dataset.collections.split('|||') : [];
                     const collectionMatch = !selected || (selected === '__unclassified__' ? collections.length === 0 : collections.includes(selected));
+                    const categories = row.dataset.categories ? row.dataset.categories.split('|||') : [];
+                    const categoryMatch = !selectedCategory || (selectedCategory === '__uncategorized__' ? categories.length === 0 : categories.includes(selectedCategory));
                     const searchMatch = !query || row.dataset.search.toLocaleLowerCase().includes(query);
-                    row.hidden = !(collectionMatch && searchMatch);
+                    row.hidden = !(collectionMatch && categoryMatch && searchMatch);
                     if (!row.hidden) visible += 1;
                 });
                 count.textContent = `${visible} module${visible === 1 ? '' : 's'}`;
@@ -207,6 +200,7 @@
             };
             search.addEventListener('input', update);
             filter.addEventListener('change', update);
+            if (categoryFilter) categoryFilter.addEventListener('change', update);
         })();
     </script>
 </body>

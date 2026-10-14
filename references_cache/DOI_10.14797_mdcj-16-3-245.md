@@ -1,5 +1,7 @@
 ---
 reference_id: DOI:10.14797/mdcj-16-3-245
+extractor_version: 1
+absent_content_version: 1
 title: "Brugada Phenocopy: A Case of Incessant Ventricular Tachycardia in a\n                        Patient with Tricyclic Antidepressant Overdose"
 authors:
 - Diana Otero

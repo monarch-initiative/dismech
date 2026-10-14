@@ -24,6 +24,7 @@ exactly which of its files are stable.
 | Kind | What it analyses |
 |---|---|
 | [`boomer/`](boomer/) | Whether dismech's curated structure is logically consistent with MONDO's and with the external vocabularies MONDO confirms equivalencies into, resolved with the BOOMER probabilistic ontology-alignment solver. |
+| [`ntc_abm/`](ntc_abm/) | Noggin dose-response in the published neural tube closure agent-based model (S-ONTX34), testing a spina bifida hypothesis. Scripts only; the simulations run on your own compute. |
 
 ## Running things
 

@@ -1,5 +1,7 @@
 ---
 reference_id: DOI:10.1038/s41564-017-0034-1
+extractor_version: 1
+absent_content_version: 1
 title: APOLs with low pH dependence can kill all African trypanosomes
 authors:
 - Frédéric Fontaine
@@ -18,7 +20,6 @@ year: '2017'
 doi: 10.1038/s41564-017-0034-1
 content_type: unavailable
 is_preprint: false
-full_text_attempted: true
 ---
 
 # APOLs with low pH dependence can kill all African trypanosomes

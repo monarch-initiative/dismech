@@ -34,6 +34,7 @@ from pathlib import Path
 # Run this through `uv run` (or `just verify-sedml-export`) so the installed
 # dismech package is on the path. No sys.path manipulation is needed, which is
 # what keeps every import below at the top of the file.
+from dismech import model_registry
 from dismech.perturb.sedml_export import (
     export_config,
     find_disorder_for_model,
@@ -183,18 +184,16 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    paths = sorted(Path(args.models_dir).glob("*.config.yaml"))
+    paths = model_registry.iter_configs(Path(args.models_dir))
     if args.id:
-        paths = [path for path in paths if path.name == f"{args.id}.config.yaml"]
+        paths = [path for path in paths if model_registry.model_id_of(path) == args.id]
         if not paths:
             parser.error(f"no config found for model_id '{args.id}'")
 
     failures: list[str] = []
     with tempfile.TemporaryDirectory() as tmp:
         for path in paths:
-            failures.extend(
-                verify_model(path, args.tolerance, args.atol, Path(tmp))
-            )
+            failures.extend(verify_model(path, args.tolerance, args.atol, Path(tmp)))
 
     print()
     if failures:

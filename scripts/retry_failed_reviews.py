@@ -150,6 +150,63 @@ def resolve_run(run, repo):
         return run, None, type(exc).__name__
 
 
+def current_review_runs(repo, specific_pr=None):
+    """Cross-check discovery against review checks attached to open PR heads.
+
+    A missing run in the status-filtered Actions census must not make a red
+    review check invisible. Resolve its Actions URL back to trusted workflow
+    metadata; a check's name alone is not sufficient to authorize a retry.
+    """
+    pulls = (
+        [api(f"repos/{repo}/pulls/{specific_pr}")]
+        if specific_pr is not None
+        else pages(f"repos/{repo}/pulls?state=open")
+    )
+
+    def inspect(pr):
+        if pr["state"] != "open":
+            return [], None
+        try:
+            checks = pages(
+                f"repos/{repo}/commits/{pr['head']['sha']}/check-runs?filter=latest",
+                "check_runs",
+            )
+            ids = set()
+            for check in checks:
+                if check["name"] != "claude-review":
+                    continue
+                match = re.fullmatch(
+                    rf"https://github\.com/{re.escape(repo)}/actions/runs/(\d+)(?:/job/\d+)?",
+                    check.get("details_url") or "",
+                )
+                if match:
+                    ids.add(int(match[1]))
+            runs = []
+            for run_id in sorted(ids):
+                run = api(f"repos/{repo}/actions/runs/{run_id}")
+                if (
+                    run.get("path") == f".github/workflows/{WORKFLOW}"
+                    and run["event"] == "pull_request"
+                    and run["head_sha"] == pr["head"]["sha"]
+                    and run_pr(run, repo) == pr["number"]
+                ):
+                    runs.append(run)
+            return runs, None
+        except (subprocess.SubprocessError, ValueError, KeyError, RuntimeError) as exc:
+            return (
+                [],
+                f"PR #{pr['number']}: error ({type(exc).__name__}) checking current review checks.",
+            )
+
+    runs, errors = [], []
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        for found, error in pool.map(inspect, pulls):
+            runs.extend(found)
+            if error:
+                errors.append(error)
+    return runs, errors
+
+
 def skip_reason(run, pr, peers, reviews, now, minimum):
     if run["status"] != "completed" or run["conclusion"] not in RETRYABLE:
         return "latest attempt is not a failed or timed-out run"
@@ -205,8 +262,18 @@ def sweep(
     runs = {
         r["id"]: r for r in workflow_runs(repo, now - timedelta(days=lookback), now)
     }
+    rows = [f"Actions discovery returned {len(runs)} distinct review runs."]
+    current, lookup_errors = current_review_runs(repo, specific_pr)
+    rows.extend(lookup_errors)
+    for run in current:
+        if run["id"] not in runs and run.get("conclusion") in RETRYABLE:
+            rows.append(
+                f"Run {run['id']}: recovered from an open PR's current review check; "
+                "missing from Actions discovery."
+            )
+        runs[run["id"]] = run
     runs = [r for r in runs.values() if r.get("conclusion") != "skipped"]
-    rows, errors, indexed, unknown_active = [], 0, {}, False
+    errors, indexed, unknown_active = len(lookup_errors), {}, False
     # Historic manual runs require separate jobs/log requests. Bound lookup
     # concurrency so the 30-day census fits the job lifetime. Writes stay serial.
     with ThreadPoolExecutor(max_workers=4) as pool:
@@ -224,7 +291,7 @@ def sweep(
         return [
             *rows,
             "Retries deferred: an active legacy review cannot yet be associated with a PR.",
-        ], 0
+        ], errors
 
     candidates = sorted(
         [
@@ -232,10 +299,13 @@ def sweep(
             for n, group in indexed.items()
             for r in [max(group, key=lambda item: item["created_at"])]
             if r.get("conclusion") in RETRYABLE
+            and timestamp(r["created_at"]) >= now - timedelta(days=lookback)
             and (specific_pr is None or n == specific_pr)
         ],
         key=lambda pair: pair[0]["updated_at"],
     )
+    if not candidates:
+        rows.append("No failed review runs need recovery.")
     retried = set()
     for run, number in candidates:
         if number in retried:
@@ -324,6 +394,7 @@ def render_summary(repo, rows, dry_run, limit):
         "Deferred at retry limit": [],
         "Errors": [],
         "Notices": [],
+        "Recovered from PR checks": [],
         "Skipped": [],
         "PR lookup diagnostics": [],
     }
@@ -334,6 +405,8 @@ def render_summary(repo, rows, dry_run, limit):
             group = "Would restart (dry run)"
         elif ": deferred; retry budget reached" in row:
             group = "Deferred at retry limit"
+        elif ": recovered from an open PR's current review check" in row:
+            group = "Recovered from PR checks"
         elif row.startswith("Run "):
             group = "PR lookup diagnostics"
         elif ": skipped;" in row:

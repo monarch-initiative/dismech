@@ -1,5 +1,6 @@
 ---
 reference_id: clinicaltrials:NCT03347422
+extractor_version: 1
 title: "A Phase 3, Randomized, Double-blind, Placebo-controlled Study to Assess the Efficacy and Safety of Sutimlimab in Patients With Primary Cold Agglutinin Disease Without a Recent History of Blood Transfusion"
 content_type: summary
 full_text_attempted: true

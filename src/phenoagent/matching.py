@@ -552,7 +552,10 @@ def build_matching_run_from_phenopacket(
         "disease_slug": disease_slug,
         "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "explanations": _default_explanations(),
-        "matches": matches,
+        # Absent optional fields are omitted rather than written as null: a
+        # null model_frequency is not a FrequencyEnum value, so the run would
+        # fail MatchingRun validation (dismech#11011).
+        "matches": [{key: value for key, value in row.items() if value is not None} for row in matches],
     }
     run["pr_is_diagnosis"] = calculate_pr_is_diagnosis(run)
     return run

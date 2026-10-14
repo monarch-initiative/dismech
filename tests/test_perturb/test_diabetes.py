@@ -14,7 +14,7 @@ import pytest
 
 from dismech.perturb.simulate import load_model_config
 
-CONFIG = Path("models/BIOMD0000000341.config.yaml")
+CONFIG = Path("models/BIOMD0000000341/config.yaml")
 T2DM = "kb/disorders/Type_2_Diabetes_Mellitus.yaml"
 
 
@@ -39,7 +39,7 @@ def test_diabetes_config_loads_severity_dial():
 
 def test_ckd_config_defaults_preserved():
     """The generalization keeps the CKD defaults (GFR dial, tight tolerance)."""
-    config = load_model_config(Path("models/BIOMD0000000613.config.yaml"))
+    config = load_model_config(Path("models/BIOMD0000000613/config.yaml"))
     assert config.coupling.gfr_parameter == "GFR"
     assert config.coupling.baseline_gfr == pytest.approx(6.0)
     assert config.coupling.abs_tol == pytest.approx(1e-12)

@@ -87,6 +87,7 @@ def repo_findings():
     return scan_repo()
 
 
+@pytest.mark.ci_step_twin("scripts/check_title_snippets.py")
 def test_no_new_title_snippets(repo_findings):
     """The gate itself: nothing outside the grandfathered backlog."""
     new = new_findings(repo_findings, resolve_baseline())

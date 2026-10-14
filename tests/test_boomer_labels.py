@@ -7,8 +7,6 @@ from pathlib import Path
 import pytest
 import yaml
 
-pytestmark = pytest.mark.usefixtures("preserve_kb_cache_environment")
-
 SCRIPT = (
     Path(__file__).resolve().parents[1] / "analyses/boomer/scripts/build_analyses.py"
 )

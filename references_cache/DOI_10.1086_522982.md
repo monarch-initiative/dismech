@@ -1,5 +1,7 @@
 ---
 reference_id: DOI:10.1086/522982
+extractor_version: 1
+absent_content_version: 1
 title: "Nifurtimox-Eflornithine Combination Therapy for Second-Stage Trypanosoma brucei gambiense Sleeping Sickness: A Randomized Clinical Trial in Congo"
 authors:
 - G. Priotto
@@ -14,7 +16,6 @@ year: '2007'
 doi: 10.1086/522982
 content_type: unavailable
 is_preprint: false
-full_text_attempted: true
 ---
 
 # Nifurtimox-Eflornithine Combination Therapy for Second-Stage Trypanosoma brucei gambiense Sleeping Sickness: A Randomized Clinical Trial in Congo

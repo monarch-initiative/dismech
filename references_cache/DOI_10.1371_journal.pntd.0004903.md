@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1371/journal.pntd.0004903
+extractor_version: 1
 title: A Primate APOL1 Variant That Kills Trypanosoma brucei gambiense
 authors:
 - Anneli Cooper
@@ -21,6 +22,7 @@ full_text_url: "https://journals.plos.org/plosntds/article/file?id=10.1371/journ
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1371_journal.pntd.0004903.pdf
+full_text_access_type: open
 ---
 
 # A Primate APOL1 Variant That Kills Trypanosoma brucei gambiense

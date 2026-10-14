@@ -1334,3 +1334,51 @@ References
 
 - [Edison artifact artifact-00](Cerebellar_Ataxia-Hypogonadism_Syndrome-deep-research-falcon_artifacts/artifact-00.md)
 ![## Context ID: pqac-00000016 The clinical, hormonal, imaging, and genetic data for the two sisters with Gordon Holmes syndrome (subjects II-1 and II-2) are deta](Cerebellar_Ataxia-Hypogonadism_Syndrome-deep-research-falcon_artifacts/image-1.png)
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.3.0rc3.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 18 |
+| Resolved | 18 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| Quoted claims checked | 0 |
+| Quoted claims found in source | 0 |
+| Quoted claims **not** found in source | 0 |
+| Quoted claims with nothing to check against | 1 |
+| References weighed for topical relevance | 18 |
+| On topic | 8 |
+| Off topic | 0 |
+
+### Quotes that could not be checked
+
+There was no text to compare these against, so they are neither confirmed nor contradicted:
+
+- `DOI:10.1093/hmg/ddt497`: "Gordon Holmes syndrome (GHS) is a rare Mendelian neurodegenerative disorder characterized by ataxia and hypogonadism."
+  - Reference resolved but exposes no abstract or full text to search
+
+All extracted references resolved successfully.
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 35 |
+| Resolved | 33 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 2 |
+| Unverifiable | 0 |
+
+### Obsolete terms
+
+These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:
+
+- `CL:0000543` (obsolete sieve tube member) (1 mention) - replaced by `PO:0000289`
+- `MAXO:0000129` (obsolete biopsy procedure) (1 mention) - replaced by `OBI:0002650`
+
+33 of 35 terms resolved to a current term; the rest could not be looked up either way.

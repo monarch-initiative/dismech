@@ -3,7 +3,7 @@ Run every dismech-perturb scenario and persist the results as a JSON artifact.
 
 ``dismech-perturb`` prints its scenario table to a terminal and keeps nothing, so
 the numbers a model actually produces never reach the disorder page. This module
-runs each ``models/<model_id>.config.yaml`` scenario, evaluates the curated
+runs each ``models/<model_id>/config.yaml`` scenario, evaluates the curated
 phenotype thresholds against the result, and writes
 ``exports/model_runs/<model_id>.json`` — a generated artifact in the same spirit
 as ``pathographs/``: committed so the site can render it and reviewers can diff
@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from dismech import model_registry
 from dismech.perturb.phenotypes import evaluate_phenotypes
 from dismech.perturb.sedml_export import find_disorder_for_model
 from dismech.perturb.simulate import (
@@ -282,16 +283,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run dismech-perturb scenarios and persist the results"
     )
-    parser.add_argument("--models-dir", default="models")
+    parser.add_argument("--models-dir", default=str(model_registry.MODELS_DIR))
     parser.add_argument("--disorders-dir", default="kb/disorders")
     parser.add_argument("--output", "-o", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--id", help="Run only this model_id")
     args = parser.parse_args()
 
     models_dir = Path(args.models_dir)
-    paths = sorted(models_dir.glob("*.config.yaml"))
+    paths = model_registry.iter_configs(models_dir)
     if args.id:
-        paths = [path for path in paths if path.name == f"{args.id}.config.yaml"]
+        paths = [path for path in paths if model_registry.model_id_of(path) == args.id]
         if not paths:
             parser.error(f"no config found for model_id '{args.id}' in {models_dir}")
 
