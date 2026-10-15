@@ -153,6 +153,12 @@ Maps ontology prefixes to OAK adapters for term validation:
   also records the precondition for migrating a further prefix)
 - HGNC (and lowercase `hgnc`), GENO, ECTO (and `ExO`, which is bundled with
   ECTO), XCO, OPL, ICD10CM, icd11f → `sqlite:obo:<name>`
+- UniProtKB → `uniprot:` (OAK's experimental UniProt SPARQL adapter), for a
+  gene product on a model's or dataset's `genes`. **NCBIGene and the Alliance
+  MOD prefixes (MGI, RGD, ZFIN, Xenbase, FB, WB, SGD) are not routed**: no OAK
+  adapter serves them reliably, so `just check-gene-namespaces` checks them
+  against `cache/<prefix>/terms.csv` instead (see *Naming Genes in a Model's
+  Own Species* below)
 
 Note this governs **automated term validation** only. Several modules build an
 adapter directly and ignore this file — notably
@@ -1718,6 +1724,89 @@ model, which is `PARTIALLY_RECAPITULATES` against `Motor Neuron Degeneration`
 (lower motor neurons only, so it misses the defining combined UMN/LMN degeneration)
 while `RECAPITULATES` `Oxidative Stress`, with a `RESTORED` readout for the
 vitamin-E rescue arm.
+
+### Naming Genes in a Model's Own Species (MOD first, then `NCBIGene:` / `UniProtKB:`)
+
+HGNC names human genes only. That is right for `genetic:` and for
+pathophysiology nodes, and wrong for a model system: a Coch knock-in mouse
+carries mouse *Coch*, not `hgnc:2180`, and a zebrafish morphant knocks down
+`tmem165`, which HGNC has no record of. So the `genes` of `animal_models[]`,
+`experimental_models[]` and `datasets[]` take a `GeneOrProductDescriptor`, which
+admits a gene in its own species:
+
+```yaml
+animal_models:
+- name: Coch G88E knock-in mouse
+  species: Mouse
+  genes:
+  - preferred_term: Coch
+    term:
+      id: MGI:1278313
+      label: Coch
+```
+
+**Pick the namespace in this order:**
+
+| Species | Prefix | Label |
+|---|---|---|
+| human (including a human transgene, a human cell line) | `hgnc:` | HGNC symbol |
+| mouse / rat / zebrafish / *Xenopus* / *Drosophila* / *C. elegans* / *S. cerevisiae* | `MGI:` / `RGD:` / `ZFIN:ZDB-GENE-…` / `Xenbase:XB-GENE-…` / `FB:FBgn…` / `WB:WBGene…` / `SGD:S…` | the MOD's official symbol |
+| anything else (pig, dog, macaque) | `NCBIGene:` | NCBI official symbol |
+| anything else, for a gene product | `UniProtKB:` | the protein's recommended name |
+
+- **A model organism always takes its MOD**, whether the model acts on the gene
+  (knockout, knockdown, a carried variant) or on its product (an injected
+  protein): injected mouse cochlin is `MGI:1278313`, not a UniProtKB accession.
+  This is the Monarch KG's convention — the MOD ID is the gene node there, and
+  NCBI Gene is ingested only for species without one. It is deliberately **not**
+  Biolink's `id_prefixes` order or Translator node normalization, which lead
+  with NCBIGene; do not "fix" a MOD binding to match them.
+- **Spell prefixes as Biolink does** (also the Monarch KG's and GO's forms):
+  `FB:` not `FlyBase:`, `WB:` not `WormBase:`, `Xenbase:` not `XENBASE:`, and
+  `MGI:1278313`, never GO's `MGI:MGI:1278313`.
+- **MGI's official symbol can differ from the name the paper uses.** Bbs8 is
+  `MGI:1923510` *Ttc8*: put the paper's name in `preferred_term` and MGI's
+  symbol in `label`.
+- **Orthology goes in `description` or `notes`** for now. Rebinding a mouse
+  gene off `hgnc:` takes the model off the human gene's page in the gene index,
+  which keys on HGNC; a structured orthology link is the planned follow-up.
+- **Nowhere else.** Every other gene slot stays HGNC-only, and the gate below
+  enforces that; the schema itself does not restrict prefixes.
+
+Look identifiers up at the source (the Alliance gene page or API, NCBI Gene,
+UniProt), never from memory. **The term validator does not check MOD or
+`NCBIGene:` labels**: none of those prefixes is routed in
+`conf/oak_config.yaml`, and a prefix with no adapter passes `just
+validate-terms` with any label at all. That gap is not theoretical: three
+`MGI:` bindings reached `main` carrying the right symbol on another gene's ID
+(`MGI:107573` labelled *Blm* is *Ott*). `UniProtKB:` labels *are* checked,
+through OAK's experimental `uniprot:` adapter.
+
+```bash
+just check-gene-namespaces                      # gate (offline, in `just qc`, ungated in CI)
+just check-gene-namespaces-online               # resolve new MOD/NCBIGene IDs into the caches, then gate
+just check-gene-namespaces --format list        # also the advisory worklist
+```
+
+The gate fails on a non-human binding outside a model's or dataset's `genes`; a
+misspelled or malformed MOD ID; a MOD or `NCBIGene:` ID that is uncached or
+whose label is not the official symbol; and an `NCBIGene:`/`UniProtKB:` binding
+on a record whose `organism` has a MOD. The online mode resolves MOD IDs through
+the Alliance API and NCBIGene through E-utilities, and also rejects retired
+records, human genes, and fallback-prefix records whose own taxon has a MOD —
+which is what covers animal models, whose `species` is free text. Run it after
+adding a binding and commit the `cache/<prefix>/terms.csv` rows with it.
+`--format list` also reports `hgnc:` genes on a record whose `organism` has a
+MOD (`HGNC_IN_MOD_ORGANISM`): usually the human ortholog standing in for the
+model's own gene, sometimes a genuine human transgene, so it is a worklist and
+never gates.
+
+Worked examples: `TMEM165-Congenital_Disorder_of_Glycosylation` (mouse
+knockouts on `MGI:`, a zebrafish morphant on `ZFIN:`, a human HEK293 knockout on
+`hgnc:`), `Autosomal_Dominant_Nonsyndromic_Hearing_Loss_9` (Coch knock-in and
+injected mouse cochlin both on `MGI:1278313`, human minigene cells on `hgnc:`),
+`Severe_Combined_Immunodeficiency_Due_To_CORO1A_Deficiency`,
+`BBSome-Related_Retinitis_Pigmentosa` (a mouse dataset's gene on `MGI:`).
 
 ### Linking Environmental Factors into the Pathograph
 
