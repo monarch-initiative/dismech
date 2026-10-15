@@ -120683,6 +120683,106 @@ window.searchData = [
     "causal_graph_longest_path": "10"
   },
   {
+    "name": "Dihydropyrimidinase Deficiency",
+    "disease_id": "MONDO:0009111",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn Error of Pyrimidine Metabolism"
+    ],
+    "creation_date": "2026-10-15T07:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive inborn error of pyrimidine catabolism caused by biallelic DPYS variants that abolish dihydropyrimidinase (DHP), the second of the three enzymes that break down uracil and thymine. DHP opens the ring of 5,6-dihydrouracil and 5,6-dihydrothymine, so its loss makes these two intermediates accumulate in urine, plasma and cerebrospinal fluid, which is the biochemical signature of the disease. Downstream, beta-aminoisobutyric acid, the product of thymine breakdown, is strongly reduced while beta-alanine stays normal.\nThe clinical picture is unusually variable. Reported patients have developmental delay, seizures including infantile spasms, white-matter abnormalities and brain atrophy, microcephaly, autistic features and gastrointestinal problems, while others with the same biochemical findings, including affected siblings, have no symptoms at all. How the metabolite changes would cause neurological disease is not known, and this entry records that link as a hypothesis rather than an established chain.\nDHP also catalyses the second step in the breakdown of 5-fluorouracil, so DHP deficiency is a candidate pharmacogenetic risk factor for fluoropyrimidine toxicity, by analogy with the upstream enzyme dihydropyrimidine dehydrogenase. The evidence for that arm is much weaker than for DPD deficiency: one reported case of severe toxicity in a partially deficient heterozygote, and cohort studies of DPYS variants that disagree with each other.",
+    "pathophysiology": [
+      "Biallelic DPYS Loss of Function",
+      "Block of Dihydropyrimidine Ring Opening",
+      "Dihydropyrimidine Accumulation with Beta-Aminoisobutyrate Depletion",
+      "Impaired Fluoropyrimidine Catabolism",
+      "Fluoropyrimidine Cytotoxicity"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "pyrimidine nucleobase catabolic process"
+    ],
+    "phenotypes": [
+      "Intellectual disability",
+      "Hypotonia",
+      "Feeding difficulties",
+      "Failure to thrive",
+      "Elevated urinary dihydrouracil level",
+      "Elevated urinary dihydrothymine level",
+      "Global developmental delay",
+      "Seizure",
+      "Abnormal cerebral white matter morphology",
+      "Autistic behavior",
+      "Microcephaly",
+      "Parkinsonism",
+      "Atrioventricular canal defect",
+      "Vomiting"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Gastrointestinal",
+      "Growth",
+      "Biochemical",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001252",
+      "HP:0011968",
+      "HP:0001508",
+      "HP:6000118",
+      "HP:6000119",
+      "HP:0001263",
+      "HP:0001250",
+      "HP:0002500",
+      "HP:0000729",
+      "HP:0000252",
+      "HP:0002548",
+      "HP:0001674",
+      "HP:0002013"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "DPYS"
+    ],
+    "treatments": [
+      "Fluoropyrimidine Avoidance or Dose Reduction",
+      "Levodopa for the Parkinsonian Presentation"
+    ],
+    "environmental": [
+      "Fluoropyrimidine chemotherapy administration"
+    ],
+    "biochemical": [
+      "Urinary dihydrouracil and dihydrothymine",
+      "Plasma beta-aminoisobutyric acid"
+    ],
+    "source_file": "Dihydropyrimidinase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Dihydropyrimidinase_Deficiency.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Dihydropyrimidine Dehydrogenase Deficiency",
     "disease_id": "MONDO:0010130",
     "category": "Mendelian",
@@ -140509,7 +140609,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "17",
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "8"
   },
   {
@@ -224224,6 +224324,118 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "MEHMO Syndrome",
+    "disease_id": "MONDO:0010258",
+    "category": "Mendelian",
+    "parents": [
+      "X-linked Syndromic Intellectual Disability"
+    ],
+    "creation_date": "2026-10-15T07:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "X-linked multisystem disorder caused by hemizygous variants in EIF2S3, which encodes the gamma subunit of eukaryotic translation initiation factor 2 (eIF2). The acronym records the features of the originally described families: mental disability, epileptic seizures, hypogenitalism and hypogonadism, microcephaly and obesity. eIF2 delivers initiator methionyl-tRNA to the 40S ribosome and selects the AUG start codon, and eIF2gamma is the core subunit that holds the heterotrimer together, so a partial loss of its function lowers the amount of active eIF2 ternary complex. Translation initiation becomes less accurate as well as less efficient: initiation at near-cognate, non-AUG codons increases. Because eIF2 is also the node the integrated stress response acts on, the same variants leave cells with an over-active stress response and more vulnerable to death under stress.\nEndocrine disease is as prominent as the neurological picture and was not in the original acronym. Neonatal hypoglycaemia, early-onset insulin-dependent diabetes and progressive anterior hypopituitarism recur across reported patients, and a milder EIF2S3 phenotype of X-linked hypopituitarism with glucose dysregulation and normal head circumference has been described in one family. A 2025 review proposes reclassifying the condition, with related conditions, as an eIF2-related neuroendocrinopathy.\nGenotype tracks severity in a way that is unusual for a rare syndrome. The recurrent C-terminal frameshift p.Ile465Serfs*4 impairs eIF2gamma function more than the tested missense variants and is found in the most severely affected patients, while missense variants in the guanine nucleotide binding domain generally give a milder, sometimes incomplete phenotype. The small molecule ISRIB, which activates the eIF2 guanine nucleotide exchange factor, rescued growth, translation and neuronal differentiation defects in patient-derived cells, which makes this one of the few disorders in this class with an experimentally supported therapeutic lead.",
+    "pathophysiology": [
+      "Hemizygous EIF2S3 Variants",
+      "Reduced eIF2 Ternary Complex Formation",
+      "Impaired and Error-Prone Translation Initiation",
+      "Over-Activated Integrated Stress Response",
+      "Neurodevelopmental Impairment",
+      "Pancreatic Beta Cell Failure",
+      "Anterior Pituitary Hormone Secretion Failure"
+    ],
+    "cell_types": [
+      "pancreatic beta cell",
+      "hormone-secreting cell of the anterior pituitary"
+    ],
+    "cell_type_ids": [
+      "CL:0000169",
+      "CL:0000637"
+    ],
+    "biological_processes": [
+      "formation of translation initiation ternary complex",
+      "translational initiation",
+      "integrated stress response signaling"
+    ],
+    "phenotypes": [
+      "Growth delay",
+      "Central hypothyroidism",
+      "Hypogonadism",
+      "Micropenis",
+      "Cryptorchidism",
+      "Global developmental delay",
+      "Motor delay",
+      "Intellectual disability",
+      "Seizure",
+      "Microcephaly",
+      "Obesity",
+      "External genital hypoplasia",
+      "Recurrent infections",
+      "Hypoglycemia",
+      "Diabetes mellitus",
+      "Hypopituitarism"
+    ],
+    "phenotype_categories": [
+      "Growth",
+      "Endocrine",
+      "Genitourinary",
+      "Neurological",
+      "Metabolic",
+      "Immunological"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001510",
+      "HP:0011787",
+      "HP:0000135",
+      "HP:0000054",
+      "HP:0000028",
+      "HP:0001263",
+      "HP:0001270",
+      "HP:0001249",
+      "HP:0001250",
+      "HP:0000252",
+      "HP:0001956",
+      "HP:0003241",
+      "HP:0002719",
+      "HP:0001998",
+      "HP:0000819",
+      "HP:0000830"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "EIF2S3"
+    ],
+    "treatments": [
+      "Insulin Therapy for the Diabetes",
+      "Ketogenic Diet for Refractory Epilepsy",
+      "Subcutaneous Immunoglobulin Replacement",
+      "Growth Hormone Replacement",
+      "Levothyroxine Replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "MEHMO_Syndrome.yaml",
+    "page_url": "../pages/disorders/MEHMO_Syndrome.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "MELAS Syndrome",
@@ -372452,17 +372664,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3452,
+  "total_disorder_pages": 3454,
   "total_subtypes": 4735,
-  "total_disorders_and_subtypes": 8187,
-  "total_unique_evidence_sources": 51979,
-  "total_unique_publications": 48455,
+  "total_disorders_and_subtypes": 8189,
+  "total_unique_evidence_sources": 52010,
+  "total_unique_publications": 48486,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 302,
-  "total_pathographs": 3448,
-  "total_unique_pathological_events": 22785,
+  "total_pathographs": 3450,
+  "total_unique_pathological_events": 22796,
   "total_modules": 192,
-  "total_research_reports": 3573,
+  "total_research_reports": 3575,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
