@@ -214,6 +214,22 @@ false. What remains open is whether ex vivo preconditioning says anything about
 systemic metformin and resident stem cells in aging tissue. That is a
 translational question, not this project's.
 
+Done with an OpenScientist report behind each (`just research-drug-mechanism`,
+reports in `research/drug_mechanism/`). Every quote used was re-checked against
+`references_cache/`:
+
+| Entry | Drug | Report verdict | Gap |
+|---|---|---|---|
+| `Major_Depressive_Disorder` | ketamine | several competing candidates | `gap_mdd_ketamine_therapeutic_mechanism` |
+| `Type_2_Diabetes_Mellitus` | metformin | physiological effect established, molecular route unknown | `gap_t2d_metformin_molecular_mechanism` |
+| `pseudotumor_cerebri` | topiramate | not established | `gap_iih_topiramate_mechanism` |
+| `Idiopathic_Hypersomnia` | modafinil | unknown | `gap_ih_modafinil_mechanism` |
+
+The reports are leads, not evidence. Two of their claims did not survive
+checking against the cited source and were left out (see the history records).
+OpenScientist jobs can exceed the client's default one-hour timeout; pass
+`--param timeout=7000`.
+
 Remaining: the other group 3 records above.
 
 A schema change, such as a treatment-level "mechanism unknown" flag, would
