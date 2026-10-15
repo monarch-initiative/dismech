@@ -101258,6 +101258,116 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Congenital Isolated ACTH Deficiency",
+    "disease_id": "MONDO:0008720",
+    "category": "Mendelian",
+    "parents": [
+      "Adrenal Insufficiency",
+      "Hypopituitarism"
+    ],
+    "creation_date": "2026-10-15T01:35:55Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Congenital isolated ACTH deficiency is an autosomal recessive form of secondary (central) adrenal insufficiency in which the anterior pituitary fails to produce adrenocorticotropin (ACTH) while every other pituitary hormone axis is preserved and pituitary imaging is normal. This entry is scoped to the neonatal-onset form caused by biallelic loss-of-function variants in TBX19 (TPIT), a T-box transcription factor expressed only in the pituitary pro-opiomelanocortin (POMC) lineages. Without TBX19, corticotroph precursors form but cannot complete terminal differentiation or express POMC, so ACTH is absent, the adrenal cortex is understimulated and becomes hypoplastic, and cortisol is deficient from birth. Affected neonates present with severe hypoglycemia, often with seizures, prolonged cholestatic jaundice, and a high risk of sudden neonatal death; an earlier sibling's unexplained neonatal death is a common feature of the family history. Mineralocorticoid secretion is preserved, so hyperkalemia is not a feature. Lifelong glucocorticoid replacement with hydrocortisone, with stress dosing, reverses the metabolic and hepatic features, and early treatment allows normal growth and development.",
+    "pathophysiology": [
+      "TBX19 Biallelic Loss of Function",
+      "Loss of TPIT-PITX1 Activation of POMC Transcription",
+      "Arrested Corticotroph Terminal Differentiation",
+      "Pituitary ACTH Deficiency",
+      "Adrenal Cortex Hypoplasia",
+      "Glucocorticoid Deficiency"
+    ],
+    "cell_types": [
+      "corticotroph"
+    ],
+    "cell_type_ids": [
+      "CL:0002309"
+    ],
+    "biological_processes": [
+      "positive regulation of transcription by RNA polymerase II",
+      "corticotropin hormone secreting cell differentiation",
+      "cortisol biosynthetic process"
+    ],
+    "phenotypes": [
+      "Adrenocorticotropin deficient adrenal insufficiency",
+      "Decreased circulating ACTH concentration",
+      "Decreased circulating cortisol level",
+      "Neonatal hypoglycemia",
+      "Hypoglycemic seizures",
+      "Prolonged cholestatic jaundice",
+      "Giant cell hepatitis",
+      "Adrenal hypoplasia",
+      "Sudden neonatal death",
+      "Hyponatremia",
+      "Hypotension",
+      "Fatigue",
+      "Feeding difficulties",
+      "Apnea",
+      "Global developmental delay"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Metabolic",
+      "Neurological",
+      "Hepatic",
+      "Mortality",
+      "Cardiovascular",
+      "Constitutional",
+      "Gastrointestinal",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Endocrine",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0011735",
+      "HP:0002920",
+      "HP:0008163",
+      "HP:0001998",
+      "HP:0002173",
+      "HP:0006579",
+      "HP:0200084",
+      "HP:0000835",
+      "HP:0001699",
+      "HP:0002902",
+      "HP:0002615",
+      "HP:0012378",
+      "HP:0011968",
+      "HP:0002104",
+      "HP:0001263"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "TBX19"
+    ],
+    "treatments": [
+      "Hydrocortisone Replacement Therapy",
+      "Genetic Counseling and Prenatal Diagnosis"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_Isolated_ACTH_Deficiency.yaml",
+    "page_url": "../pages/disorders/Congenital_Isolated_ACTH_Deficiency.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "10"
+  },
+  {
     "name": "Congenital Isolated Hyperinsulinism",
     "disease_id": "MONDO:0019010",
     "category": "Genetic",
@@ -140474,6 +140584,148 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Familial Acute Necrotizing Encephalopathy",
+    "disease_id": "MONDO:0011953",
+    "category": "Mendelian",
+    "parents": [
+      "Acute Infection-Induced Encephalopathy",
+      "Mendelian Encephalopathy"
+    ],
+    "creation_date": "2026-10-15T01:37:42Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Familial acute necrotizing encephalopathy (ANE1) is an autosomal dominant, incompletely penetrant susceptibility to acute necrotizing encephalopathy caused by heterozygous missense variants in the nuclear pore gene RANBP2, most often p.Thr585Met. In a carrier, a common febrile viral illness (influenza A in particular, but also influenza B, parainfluenza, human herpesvirus 6, enteroviruses and SARS-CoV-2) is followed within hours to a few days by rapidly progressive encephalopathy with lethargy, seizures and coma, and by bilateral symmetric necrotic lesions of the thalami, brainstem, putamina and other deep grey and white matter structures, without direct viral invasion of the brain. Raised interleukin-6 and TNF-alpha and raised CSF protein without pleocytosis point to a host hyperinflammatory response as the proximate cause, but how the RANBP2 variants produce it is unsettled. About a third of affected individuals die in the acute phase, half of survivors have permanent neurologic deficits, and recurrent episodes occur in about half of affected individuals, which distinguishes ANE1 from the usual sporadic, non-recurrent form of ANE. Median age at first episode is about two years, but first episodes also occur in adolescents and adults.",
+    "pathophysiology": [
+      "Germline RANBP2 Missense Variant",
+      "Loss of RANBP2 Nuclear Envelope Localization",
+      "Acute Febrile Viral Illness",
+      "Enhanced Influenza Virus Replication",
+      "Pro-Inflammatory Cytokine Overproduction",
+      "Hypercytokinemia",
+      "Blood-Brain Barrier Disruption",
+      "Impaired RANBP2-Dependent Mitochondrial Support",
+      "Symmetric Deep Grey Matter Necrosis"
+    ],
+    "cell_types": [
+      "respiratory tract epithelial cell",
+      "macrophage",
+      "brain microvascular endothelial cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0002368",
+      "CL:0000235",
+      "CL:2000044",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "protein localization to nuclear envelope",
+      "viral genome replication",
+      "cytokine production involved in inflammatory response",
+      "interleukin-6 production",
+      "tumor necrosis factor production",
+      "mitochondrion localization"
+    ],
+    "phenotypes": [
+      "Acute necrotizing encephalopathy",
+      "Recurrent encephalopathy",
+      "Fever",
+      "Vomiting",
+      "Lethargy",
+      "Coma",
+      "Seizure",
+      "Focal T2 hyperintense thalamic lesion",
+      "Abnormal brainstem MRI signal intensity",
+      "Abnormal putamen morphology",
+      "Cerebral edema",
+      "Thalamic hemorrhage",
+      "Increased CSF protein concentration",
+      "Increased circulating interleukin 6 concentration",
+      "Elevated circulating hepatic transaminase concentration",
+      "Disseminated intravascular coagulation",
+      "Abnormal pattern of respiration",
+      "Intellectual disability",
+      "Developmental regression",
+      "Spastic tetraplegia",
+      "Dysarthria",
+      "Gait disturbance",
+      "Polyneuropathy"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Constitutional",
+      "Gastrointestinal",
+      "Laboratory",
+      "Hematological",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0006965",
+      "HP:0007335",
+      "HP:0001945",
+      "HP:0002013",
+      "HP:0001254",
+      "HP:0001259",
+      "HP:0001250",
+      "HP:0012692",
+      "HP:0012747",
+      "HP:0031982",
+      "HP:0002181",
+      "HP:0025064",
+      "HP:0002922",
+      "HP:0030783",
+      "HP:0002910",
+      "HP:0005521",
+      "HP:0002793",
+      "HP:0001249",
+      "HP:0002376",
+      "HP:0002510",
+      "HP:0001260",
+      "HP:0001288",
+      "HP:0001271"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "RANBP2"
+    ],
+    "treatments": [
+      "High-dose corticosteroids during an episode",
+      "Prophylactic pulse corticosteroids during febrile infections",
+      "Intravenous immunoglobulin",
+      "Tocilizumab",
+      "Plasmapheresis",
+      "Supportive intensive care",
+      "Routine and annual influenza vaccination",
+      "Infection avoidance and hand hygiene",
+      "Genetic counseling"
+    ],
+    "environmental": [
+      "Influenza A virus infection",
+      "Other febrile viral infections"
+    ],
+    "biochemical": [],
+    "source_file": "Familial_Acute_Necrotizing_Encephalopathy.yaml",
+    "page_url": "../pages/disorders/Familial_Acute_Necrotizing_Encephalopathy.html",
+    "num_phenotypes": 23,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 9,
+    "causal_graph_edges": "47",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Familial Adenomatous Polyposis",
     "disease_id": "MONDO:0021056",
     "category": "",
@@ -158162,6 +158414,92 @@ window.searchData = [
     "num_treatments": 10,
     "causal_graph_edges": "56",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Glutathione Reductase Deficiency",
+    "disease_id": "MONDO:0019531",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital Nonspherocytic Hemolytic Anemia",
+      "Inherited Glutathione Metabolism Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-10-15T01:36:48Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Glutathione reductase deficiency is a very rare autosomal recessive disorder of erythrocyte antioxidant defense caused by biallelic loss-of-function variants in GSR, which encodes glutathione-disulfide reductase (GR, EC 1.8.1.7). GR is the FAD- and NADPH-dependent flavoenzyme that regenerates reduced glutathione (GSH) from oxidized glutathione disulfide (GSSG). When GR activity is essentially absent, erythrocytes cannot restore GSH after an oxidant load, so hemoglobin and membrane proteins are left unprotected against reactive oxygen species. The clinical picture of hereditary GR deficiency is dominated by oxidant-triggered (including favism) hemolysis and severe neonatal jaundice, with cataract tentatively attributed to the deficiency in the original family; because the enzyme is also deficient in leukocytes, the propositus family showed reduced phagocyte glutathione-dependent defense. The disorder is defined genetically and is exceptionally rare: GSR variants abolishing red-cell GR activity have been characterized in two families, the originally described family and an unrelated patient presenting with severe neonatal jaundice. It must be distinguished from the common acquired low red-cell GR activity caused by dietary riboflavin (vitamin B2) insufficiency, which reduces the FAD saturation of the apoenzyme and is reversible with riboflavin; that non-genetic state is not a subtype of this Mendelian disorder.",
+    "pathophysiology": [
+      "GSR Loss-of-Function and Absent Glutathione Reductase Activity",
+      "Thioredoxin System Compensation",
+      "Failure to Regenerate Reduced Glutathione",
+      "Erythrocyte Oxidative and Membrane Injury",
+      "Oxidant-Triggered Hemolysis",
+      "Lens Oxidative Injury",
+      "Phagocyte Glutathione-Dependent Defense Impairment"
+    ],
+    "cell_types": [
+      "erythrocyte",
+      "macrophage",
+      "lens fiber cell",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000232",
+      "CL:0000235",
+      "CL:0011004",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "glutathione metabolic process",
+      "response to oxidative stress",
+      "erythrocyte clearance"
+    ],
+    "phenotypes": [
+      "Hemolytic anemia",
+      "Fava bean-induced hemolytic anemia",
+      "Cataract",
+      "Neonatal hyperbilirubinemia",
+      "Abnormal neutrophil physiology"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Ophthalmologic",
+      "Immunologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Eye",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0001878",
+      "HP:0004814",
+      "HP:0000518",
+      "HP:0003265",
+      "HP:0011990"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GSR biallelic loss-of-function variants"
+    ],
+    "treatments": [
+      "Avoidance of oxidant triggers",
+      "Phototherapy for neonatal jaundice",
+      "Blood transfusion"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Erythrocyte glutathione reductase activity"
+    ],
+    "source_file": "Glutathione_Reductase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Glutathione_Reductase_Deficiency.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Glutathione Synthetase Deficiency",
@@ -372037,17 +372375,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3448,
+  "total_disorder_pages": 3451,
   "total_subtypes": 4735,
-  "total_disorders_and_subtypes": 8183,
-  "total_unique_evidence_sources": 51903,
-  "total_unique_publications": 48383,
+  "total_disorders_and_subtypes": 8186,
+  "total_unique_evidence_sources": 51963,
+  "total_unique_publications": 48439,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 302,
-  "total_pathographs": 3444,
-  "total_unique_pathological_events": 22755,
+  "total_pathographs": 3447,
+  "total_unique_pathological_events": 22776,
   "total_modules": 192,
-  "total_research_reports": 3569,
+  "total_research_reports": 3572,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
