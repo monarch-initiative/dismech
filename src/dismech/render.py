@@ -118,6 +118,11 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # into the template so the vocabulary and its prose stay in one place, the
     # same rule `module_categories` follows.
     env.globals["quote_role_tooltip"] = quote_role_tooltip
+    # File name of an evidence artifact image, for its caption. Registered here
+    # rather than by the disorder renderer because the evidence partial
+    # (_evidence.html.j2) is compiled into module pages too (#10329), and a
+    # missing filter fails at compile time even when no evidence has images.
+    env.filters["basename"] = lambda p: Path(p).name
     return env
 
 
@@ -2662,7 +2667,6 @@ def render_disorder(
     env.filters["semantic_ref_href"] = lambda ref: (
         semantic_ref_index.get(str(ref), "") if ref is not None else ""
     )
-    env.filters["basename"] = lambda p: Path(p).name
     env.filters["dismech_page_url"] = _build_dismech_page_url_filter(
         yaml_path.parent,
         excluded_term_ids={current_term_id} if current_term_id else None,
