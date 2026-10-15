@@ -22,7 +22,7 @@ The same day, the Rare Disease Congressional Caucus briefing (RARE Foundation, 1
 
 The worked example in the briefing is Fabry disease. Its FDA surrogate endpoint, GL-3 clearance from kidney peritubular capillaries, reads out the renal blood-vessel branch of the mechanism, while heart disease, the leading cause of death, sits on a different branch. The dismech entry (`kb/disorders/Fabry_Disease.yaml`) already records that surrogate link. The approach was presented at the FDA and Triangle CERSI workshop on rare disease surrogate endpoints on 18 May 2026.
 
-How to give feedback: comment on the pull request that adds this file, or on the shared working copy of this draft. The questions in [Ten questions to settle](#ten-questions-to-settle) are the decisions we most need from the group.
+How to give feedback: this file is the working copy. Edit it directly in a pull request, whether that is a changed draft score, a reworded rubric level, or an answer in the questions table, or leave a suggestion on the pull request that changes it. The questions in [Ten questions to settle](#ten-questions-to-settle) are the decisions we most need from the group.
 
 ## Foundations: what the dashboards measure today
 
