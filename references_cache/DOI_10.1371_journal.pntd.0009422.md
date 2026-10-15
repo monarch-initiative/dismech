@@ -1,0 +1,434 @@
+---
+reference_id: DOI:10.1371/journal.pntd.0009422
+title: The role of diagnostic technologies to measure progress toward WHO 2030 targets for soil-transmitted helminth control programs
+authors:
+- Lieven J. Stuyver
+- Bruno Levecke
+journal: PLOS Neglected Tropical Diseases
+year: '2021'
+doi: 10.1371/journal.pntd.0009422
+content_type: full_text_pdf
+is_preprint: false
+full_text_attempted: true
+full_text_provider: openalex
+full_text_url: "https://journals.plos.org/plosntds/article/file?id=10.1371/journal.pntd.0009422&type=printable"
+oa_status: gold
+license: cc-by
+local_pdf_path: files/DOI_10.1371_journal.pntd.0009422.pdf
+---
+
+# The role of diagnostic technologies to measure progress toward WHO 2030 targets for soil-transmitted helminth control programs
+**Authors:** Lieven J. Stuyver, Bruno Levecke
+**Journal:** PLOS Neglected Tropical Diseases (2021)
+**DOI:** [10.1371/journal.pntd.0009422](https://doi.org/10.1371/journal.pntd.0009422)
+
+## Content
+
+VIEWP OINTS
+The role of diagnostic technologies to
+measure progress toward WA U : P l e a s e n o t e t h a t a s p e r P L O S s t y l e; d o n o t u s e t h e w o r d t h ei n f r o n t o f W H O; C I R M ; o r a c r o n y m s t h a t a r e p r o n o u n c e d a s a w o r d :HO 2030 targets
+for soil-transmitted helminth control
+programs
+Lieven J. Stuyver
+ID
+1
+*, Bruno Levecke
+ID
+2
+1 Global Public Health R&D, Janssen Pharma ceutica NV, Beerse , Belgium, 2 Department of Virology,
+Parasit ology and Immunology , Ghent University, Merelbeke, Belgium
+* lstuyve r@its.jnj.com
+BAU : Ple ase conf irm tha tall hea din glev els are rep rese nted cor rec tly:ackground
+Infections with soil-transmitted helminths (STHs) occurs throughout the developing world
+and are caused by 5 main species commonly known as roundworms (Ascaris lumbricoides),
+whipworms (Trichuris trichiura), hookworms (Ancylostoma duodenale and Necator ameri-
+canus), and threadworm (Strongyloides). Recently, the World Health Organization (WHO)
+published its 2030 roadmap for STH preventive chemotherapy (PC) control programs [1]. In
+this roadmap, a total of 6 ambitious targets were identified, each with their corresponding
+milestones. The first 2 targets are to achieve and maintain elimination of STH-attributable
+(excluding Strongyloides) morbidity in pre-school age children (pre-SAC) and school-age chil-
+dren (SAC) by 2030 (Target #1) and to reduce the number of tablets needed in PC (Target
+#2). Target #3 aims increase domestic financial to support PC, whereas Targets #4 and #5 are
+aiming to establish an efficient control program specific for woman of reproductive age and
+strongyloidiasis in SAC, respectively. Finally, Target #6 aims to achieve universal access to
+basic sanitation and hygiene in STH-endemic areas. In the present viewpoint, we will reflect
+on the diagnostic technologies to measure progress toward Target #1 and Target #2 only.
+There, cost-effective diagnostics are a prerequisite to measure progress toward the set mile-
+stones. For Target #1, the milestone is the number of countries that have successfully reduced
+the prevalence of moderate and heavy intensity (M&HI) infections in children to less than 2%
+(2023: 70 countries; 2025: 90 countries; and 2030: 98 countries), whereas for Target #2, the
+milestone is the percentage reduction in number of anthelmintic tablets needed to deworm
+pre-SAC and SAC (2023: 20%; 2025: 30%; and 2030: 50%). For the latter target, a performant
+data reporting system feeds a decision tree to scale down the frequency of PC programs (and
+hence the number of anthelmintic tablets) based on prevalence of any STH infections. For the
+other targets, milestone indicators are in one way or another a coverage metric (Targets #4 to
+#6).
+In the 2030 WHO roadmap, the Kato-Katz (KK) thick stool smear remains the recom-
+mended diagnostic standard to detect and quantify the intensity of STH infections, although
+reference to other yet unspecified quantitative diagnostics is made. The KK method is not con-
+sidered as the method of choice to detect Strongyloides infections; therefore, we will not further
+discuss strongyloidiosis in the context of achieving Targets #1 and #2. A recent diagnostic gap
+and priority assessment concluded that current diagnostic technologies are adequate—provid-
+ing some minor modifications—for mapping STH infections and initiating PC programs, but
+PLOS Neglected Tropical Disease s | https://doi.or g/10.137 1/journal.pn td.00094 22 June 3, 2021 1 / 7
+a1111111111
+a1111111111
+a1111111111
+a1111111111
+a1111111111
+OPEN ACCESS
+Citation: Stuyver LJ, Levecke B (2021) The role of
+diagnostic technologies to measure progress
+toward WA U : P l e a s e n o t e t h a t a s p e r P L O S s t y l e; d o n o t u s e t h e w o r dth ei n f r o n t o f W H O; C I R M ; o r a c r o n y m s t h a t a r e p r o n o u n c e d a s a w o r d:HO 2030 targets for soil-tran smitted
+helminth control programs. PLoS Negl Trop Dis
+15(6): e0009422. https:// doi.org/10.1371 /journal.
+pntd.000 9422
+Editor: Geraldine Marie Foster, Liverpool School of
+Tropical Medicine, UNITED KINGDOM
+Published: June 3, 2021
+Copyright: © 2021 Stuyver, Levecke . This is an
+open access article distributed under the terms of
+the Creative Commons Attributio n License, which
+permits unrestricte d use, distribu tion, and
+reproduction in any medium, provided the original
+author and source are credited.
+Funding: The authors received no specific funding
+for this work.
+Competing interests : I have read the journal’s
+policy and the authors of this manuscript have the
+following competing interests: LJS is employee of
+Janssen Pharmaceu tica NV Belgium and has stock/
+options from JNJ.
+
+not adequate at all when PC programs matures toward stopping decisions and post-PC surveil-
+lance [2]. The latter is especially true when the proposed diagnostic specifications move away
+from stool and are prioritizing non-stool-based technology developments (e.g., for urine and
+serum samples).
+In the present viewpoint, we first identified the key diagnostic attributes for technologies to
+measure progress toward WHO Targets #1 and #2 for 2030. Subsequently, we verified which
+existing technologies can address these attributes and how they compare to the currently rec-
+ommended KK method when applied in a programmatic setting. Finally, we identified some
+opportunities to improve existing diagnostic technologies.
+Key diagnostic attributes needed to measure program progress
+When Target #1 is interpreted from the diagnostic perspective, technologies will need to meet
+the following specifications: (i) provide information on STH-attributable morbidity; (ii) gener-
+ate quantitative readout (iii) for each of the 4 STH species separately (multiplexing); (iv) have a
+clinical sensitivity of at least 95% for M&HI infections but similar to single KK for low inten-
+sity infections; and (v) clinical specificity equal or superior of a single KK in individuals with
+M&HI infections [2]. In case of non-stool-based testing, the clinical sensitivity should be supe-
+rior to microscopy-based tests and clinical specificity equal or superior to quantitative poly-
+merase chain reaction (qPCRAU : Ple ase not eth at qPCR has been defi neda squa nti tat ivep olym era sech ain rea ctio nint hes ente nceIn cas eofn on � stoo l � bas edt esti ng; th ecli nica lsen siti vit y::::Plea sec heck and cor rec tif nece ssar y:)-based measurements [2]. These sensitivity and specificity
+parameters were ill-defined as guidance for new test development, and obviously open for fur-
+ther refinement. Furthermore, additional insights on sensitivity and specificity requirements
+for low prevalence and elimination settings detailed the importance of test specificity over sen-
+sitivity [3]. Concerning the STH morbidity attribute, it is impossible to measure the exact
+number of worms in a host, hence the relationship between the number of worms and morbid-
+ity remains elusive [4]. However, there is a relationship between the number of worms and the
+number of eggs in stool [5], although this relationship has many weaknesses [6]. In absence of
+any better morbidity measurement, quantifying fecal egg counts (FECs) per gram stool (eggs
+per gram stool (EPG)) remains the best proxy, implying stool-based testing.
+For Target #2, the diagnostic technologies should be fully integrated in the program deci-
+sion process, including built-in data analysis and reporting for streamlined communication of
+results and connection to national data servers to follow up progress toward national program
+targets and to estimate the number of anthelmintic tablets needed for the upcoming year. The
+Target #2 values for diagnostic performance parameters are essentially identical to Target #1,
+yet now apply for infections of any intensity.
+In addition, there are a number of general attributes—the so-called Affordable, Sensitive,
+Specific, User-friendly, Rapid and robust, Equipment-free and Deliverable to end-users
+(ASSURED) criteria—that address the poor resource setting in which current STH programs
+traditionally operate [7]. ASSURED criteria are not limited to Targets #1 and 4, but also for
+Target #2 (number of drugs will be dependent on the availability of diagnostic technology that
+is guiding the decision process with high accuracy data).
+Landscape analysis of diagnostic technologies for STH in a programmatic
+setting
+Table 1 provides an overview of the technologies/biomarker s that have been evaluated for the
+detection and quantification of human STH infections. Although some of the stool-based tech-
+nologies have successfully moved toward field testing, the identification and evaluation of bio-
+markers in non-stool samples have been rather sobering [8]. A proof of principle of 2-methyl-
+pentanoyl-carnitine (2-MPC) as metabolite biomarker in urine and serum/plasma was
+PLOS NEGL ECTED TRO PICAL DIS EASES
+PLOS Neglected Tropical Disease s | https://doi.or g/10.137 1/journal.pn td.00094 22 June 3, 2021 2 / 7
+
+evidenced for A. lumbricoides, but despite intense research efforts, not for the other species [9].
+Other research groups are working with success on biomarker discoveries for Schistosoma spp.
+[10], and similar approaches might lead to new candidates for STH as well. The latter study
+also indicates that there is a considerable knowledge gap between STH and Schistosomiasis
+(SCH) when it concerns diagnostic biomarkers, in which SCH is leading the field with years of
+research and development. For STH and considering these biomarker discovery challenges
+and the timelines and costs associated with test development, we argue that the much desired
+non-stool-based transformational technology is out of scope for the 2030 WHO STH road-
+map. The mentioned observations should not impact the high expectation of new biomarker-
+based diagnostics beyond the 2030 roadmap.
+Among the innovative stool-based technologies, copro-antigen detection (presented in a
+multiplex lateral flow assay) is one possible way forward. However, our experience with the A.
+lumbricoides copro-antigen ABA-1 [11] points toward the same complexity as for the non-
+stool-based approaches, namely that (i) stool biomarkers are not yet identified for all STHs;
+(ii) multiplexing is possible only after (iii) sensitivity; and (iv) specificity for each biomarker
+and for each infection is fully optimized. Moreover, (v) the relationship between antigens and
+morbidity is yet to be determined (if possible at all); and (vi) additional processing steps might
+be required (bead beating) which affect the user-friendliness. Therefore, it is unlikely that such
+copro-antigen technologies will become available within the time frame of the 2030 roadmap.
+In Table 2, we verified to which extent the remaining stool-based technologies that have
+moved toward field testing align with the key diagnostic attributes. For Target #1, the current
+standard KK is set as the reference method, meeting the required sensitivity and specificity to
+detect and classify M&HI infections. Comparing to the reference method, other technologies
+do not achieve a reliable classification of infection intensities across the different STH species
+[12]. For Target #2, only qPCR technology achieves the required data accuracy. The biggest
+hurdle for a general adoption of the qPCR technology is the complexity of the assay, the cost of
+materials, the extended time to result (mainly due to the labor-intensive DNA extraction), and
+the lack of standardization [13]. It therefore does not come as a surprise that most STH qPCR
+studies were conducted on stool samples collected in endemic countries but shipped to special-
+ized laboratories. Implementing qPCR methods in endemic countries is theoretically possible,
+Table 1. An overview of the technologies or biomark ers that have been evaluated for human STH.
+Sample type Biomarke r STH Name/te chnology Status References
+Stool Eggs All FLOTAC Field tested [21]
+Mini-FL OTAC Field tested [15,18]
+FECPAK
+G2
+Field tested [15,22]
+Lab-on -disk Proof of principle [17]
+All Imaging: HEAD Proof of principle [23]
+All Imaging: KANKA NET Proof of principle [16]
+DNA of eggs/wo rms All qPCR Field tested [15]
+LAMP Proof of principle [24]
+ABA-1 coproantigen Ascaris ELISA Proof of principle [11]
+Urine 2-MPC Ascaris LC–MS Proof of principle [9]
+Serum/plasma Antibodies against worm hemoglobi n Ascaris ELISA Proof of principle [25]
+Antibodies against third larval lung stage Ascaris ELISA Proof of principle [26]
+2-MPC Ascaris LC–MS Proof of principle [9]
+2AU : Abbrevia tionlistsha vebeencomp iledfortho seusedthrou ghoutTabl es1and2:Ple aseverifyth atallentrie sarecorrec t:-MPC, 2-methyl-pe ntanoyl-ca rnitin; ELISA, enzyme-linke d immunosorbe nt assay; LC–MS, liquid chroma tography–m ass spectromet ry; qPCR, quantitative
+polymerase chain reaction; STH, soil-transmitt ed helminth.
+https://do i.org/10.1371/j ournal.pntd. 0009422.t0 01
+PLOS NEGL ECTED TRO PICAL DIS EASES
+PLOS Neglected Tropical Disease s | https://doi.or g/10.137 1/journal.pn td.00094 22 June 3, 2021 3 / 7
+
+but only after a technology, infrastructure, and financial support upgrade and providing train-
+ing of local staff.
+Based on this landscape analysis, we conclude that the KK reference method is here to stay
+for at least another decade and will likely be the only general instrument to inform WHO STH
+2030 roadmap.
+Low hanging fruit to improve the current reference method
+There is a lot of controversy around the performance of the KK procedure, and often the lack
+of sensitivity, reproducibility, and error-prone manual readout are considered major
+Table 2. Matching current stool-based technol ogies with the diagnostic attributes to measure or make progress toward 2030 targets.
+KK (single) Mini-FLOTA C FECPAK
+G2
+qPCR
+Target-spe cific attributes
+Target 1 [2,12,27]
+Morbidity FECs as a proxy Amount of DNA of eggs or worms as a
+proxy
+Infection intensit y thresholds WHO endorsed Proposed, but not endorsed by WHO
+Quantitat ive readout Eggs per gram of stool No consensu s on a universal unit
+Multiplex All STH, excluding differentiat ion of hookworm spp. and Strongyloides All STH including differentiat ion of
+hookworm spp. and Strongyloides
+Clinical sensitivi ty Referenc e method Ascaris: 94.7% Ascaris: 91.0% Ascaris: 83.5%
+Trichuris: 93.5% Trichuris: 78.6% Trichuris: 87.2%
+Hookwor ms: 87.9% Hookworm s: 87.9% Hookworms: 78.8%
+Clinical specificit y Referenc e method Ascaris: 92.0% Ascaris: 84.1% Ascaris: 87.8%
+Trichuris: 90.6% Trichuris: 79.6% Trichuris: 75.0%
+Hookwor ms: 90.8% Hookworm s: 86.4% Hookworms: 88.5%
+Target 2 [15,28]
+Clinical sensitivi ty: any
+intensity
+Ascaris: 71.9% Ascaris: 63.3% Ascaris: 58.9% Ascaris: 90.0%
+Trichuris: 88.1% Trichuris: 91.5% Trichuris: 59.8% Trichuris: 94.7%
+Hookwor ms: 72.6% Hookwor ms: 73.9% Hookworm s: 52.4% Hookworms: 91.9%
+Clinical sensitivi ty: low
+intensity
+Ascaris: 55.6% Ascaris: 42.1% Ascaris: 36.8% Ascaris: 86.2%
+Trichuris: 79.6% Trichuris: 85.6% Trichuris: 37.5% Trichuris: 91.0%
+Hookwor ms: 69.4% Hookwor ms: 70.8% Hookworm s: 47.5% Hookworms: 91.0%
+Clinical sensitivi ty: M&HI �95.0% for all STH �95.0% for all STH �95.0% for Ascaris only �95.0% for all STH
+Clinical specificit y Assumed to be �95.0% Assumed to be 100%
+General attribut es
+ASSURED
+Time to result 412 s 620 s 758 s Not yet evaluated
+Material cost US$1.38 US$1.52 US$1.96 To be determined
+Supplier Multiple Single Single Multiple
+Hardwar e Microscop e/power
+supply
+Microscop e/power
+supply/KU BIC
+Computer, Micro-I/powe r supply Extraction/a mplification equipmen t; power
+supply
+Reagents accessible in STH-
+endemic countries
+Easily Easily Easily Complicate d, cold chain is needed
+Integration into program decision-making
+Data entry, data analysis, and
+reporting
+Manual Automated , proof of principle in
+veterinary parasitology
+Manual (depend ing on laboratory
+information managem ent system)
+FEC, fecal egg count; KK, Kato-Katz; M&HI, modera te and heavy intensit y; qPCR, quantitativ e polymerase chain reaction; STH, soil-transmit ted helminth; WHO,
+World Health Organizati on.
+https://do i.org/10.1371/j ournal.pntd. 0009422.t0 02
+PLOS NEGL ECTED TRO PICAL DIS EASES
+PLOS Neglected Tropical Disease s | https://doi.or g/10.137 1/journal.pn td.00094 22 June 3, 2021 4 / 7
+
+shortcomings [14]. Surprisingly enough, specificity of KK has not been seen as a drawback,
+while it is exactly that performance requirement that is crucial in low prevalence and elimina-
+tion settings [3]. Contrary to these observations, some reports demonstrate accurate perfor-
+mance [15]. This controversy suggests that the KK procedure is in principle a valid method,
+but improvements in the readout and reporting procedure could alleviate the shortcomings.
+The integration of egg detection and readout technologies have been prototyped in, e.g., the
+FECPAK
+G2
+, KANKANET, spin-disc platforms, and mini-FLOTAC KUBIC [15–18]. However,
+the field experience of these technologies provide lessons around complexity and turnaround
+time as compared to the reference method (Table 2).
+We envision that improvements to the traditional KK method might come from automa-
+tion in data collection, analysis, and reporting, which are known to be the most laborious and
+time-demanding steps. Automation is not aiming to solve the methodological drawback of the
+KK procedure, but only aiming to improve the accuracy of the readout and reducing the oper-
+ational costs both to process samples and to write final reports (which, in turn, could be rein-
+vested in expanding the sampling area, and hence improve the program decision-making).
+Developments into the field of digital pathology linked to artificial intelligence (AI) might
+be applied to KK, provided they can be made cost comparable to the current manual proce-
+dure (“affordable digital pathology”). The principle of an automated KK concept has been
+demonstrated (proof of technical feasibility is available) [16,18], and the development only
+depends on the availability of image databases and the integration of engineering activities to
+mitigate the shortcomings of the error-prone microscopic manual readout and reporting.
+Conclusions
+Strengthening diagnostic capacity is often being put forward as a top priority in the field of
+neglected tropical diseases (NAU : Ple ase not etha t NTD has been defi neda sneg lect edt rop ical dise ase sinth ese nt ence Stre ngt heni ngd iagn osti ccap acit yiso fte n::::Plea sec heck and cor rec tif nece ssar y:TDs), and STH in particular. Yet, overall investments in this area
+has thus far been limited, representing about 5% of R&D investments for NTDs [19]. The rag-
+ing Coronavirus Disease 2019 (COVID-19AU : Ple ase note tha t CO VID � 19has bee ndef ined asCor ona viru sD isea se201 9int hes ente nceTh era gi ngC oro navi rusD isea se2 019ðC OVID � 19Þpan demi cis::::Pl eas eche cka ndco rrec tif nece ss ary:) pandemic is even further limiting or redirecting
+the scarce NTD diagnostics funding [20].
+Prioritizing non-stool-based diagnostic platforms for the STH 2030 targets is extremely
+ambitious, and in the long run, may turn into an “appeal to future discovery fallacy.” The tra-
+ditional KK method is currently fit for purpose. With a proper focus and funding for automa-
+tion and AI-driven readout, the introduction of a KK-based transformational technology that
+can fully support WHO 2030 STH roadmap is expected.
+Acknowledgmen ts
+The authors would like to thank Dr. Ole Lagatie, Benny Baeten (Janssen Global Public Health),
+and Dr. Johnny Vlaminck (Ghent University) for contributions into the viewpoint.
+References
+1. WHO. 2030 targets for soil-transm itted helminthias es control programmes . 2020.
+2. Lim MD, Brooker SJ, Belizario VY Jr, Gay-Andr ieu F, Gilleard J, Leveck e B, et al. Diagnostic tools for
+soil-trans mitted helminths control and elimination program s: A pathway for diagnos tic product develop-
+ment. PLoS Negl Trop Dis. 2018; 12(3):e000 6213. Epub 2018/03 /02. https://doi.or g/10.137 1/journal.
+pntd.000 6213 PMID: 29494581; PubMed Central PMCID: PMC58 32200.
+3. Gass K. Time for a diagnos tic sea-change: Rethinking neglected tropical disease diagnostic s to achieve
+eliminatio n. PLoS Negl Trop Dis. 2020; 14(12):e00 08933. Epub 2021/01/ 01. https://doi.or g/10.137 1/
+journal.pntd .000893 3 PMID: 33382694; PubMed Central PMCID: PMC77 74841.
+4. Campbell SJ, Nery SV, Doi SA, Gray DJ, Soares Magalhães RJ, McCarth y JS, et al. Complexities and
+Perplexities : A Critical Apprais al of the Evidence for Soil-Transmitte d Helmin th Infection-Re lated
+PLOS NEGL ECTED TRO PICAL DIS EASES
+PLOS Neglected Tropical Disease s | https://doi.or g/10.137 1/journal.pn td.00094 22 June 3, 2021 5 / 7
+
+Morbidity. PLoS Negl Trop Dis. 2016; 10(5):e000 4566. Epub 2016/05 /20. https://doi.or g/10.137 1/
+journal.pntd .000456 6 PMID: 27196100; PubMed Central PMCID: PMC48 73196.
+5. Hall A, Holland C. Geograph ical variation in Ascaris lumbricoi des fecundity and its implication s for hel-
+minth control. Parasitology Today. 2000; 16(12):540 –4. Epub 2000/12 /21. https://doi.or g/10.101 6/
+s0169-4758 (00)01779-8 PMID: 11121853.
+6. Krauth SJ, Coulibal y JT, Knopp S, Traore M, N’Goran EK, Utzinger J. An in-depth analysis of a piece of
+shit: distribution of Schistosom a mansoni and hookworm eggs in human stool. PLoS Negl Trop Dis.
+2012; 6(12):e196 9. Epub 2013/01/04. https://d oi.org/10.137 1/journal.pn td.00019 69 PMID: 232853 07;
+PubMed Central PMCID: PMC352736 4.
+7. Kosack CS, Page A-L, Klatser PR. A guide to aid the selection of diagnostic tests. Bull World Health
+Organ. 2017; 95(9):639. https://d oi.org/10.247 1/BLT.16 .187468 PMID: 288678 44
+8. Vlaminck J, Lagatie O, Dana D, Mekonnen Z, Geldhof P, Levecke B, et al. Identificati on of antigen ic lin-
+ear peptides in the soil-transm itted helminth and Schistosoma mansoni proteome . PLoS Negl Trop Dis.
+2021; 15(4): e0009369 . https://doi.or g/10.1371/ journal.pntd .0009369 PMID: 33909616
+9. Lagatie O, Verheyen A, Van Asten S, Odiere MR, Djuardi Y, Leveck e B, et al. 2-Methyl-p entanoyl-carni -
+tine (2-MPC) : a urine biomarker for patent Ascaris lumbricoi des infection. Sci Rep. 2020; 10(1):1578 0.
+Epub 2020/09/ 27. https://doi.or g/10.103 8/s41598-020- 72804-y PMID: 32978457; PubMed Central
+PMCID: PMC751964 3. O.L., A.V., S.V.A., L.D., R.V., F.C. and L.J.S. are current employees of Janssen
+Pharmac eutica NV, and R.L. is current employee of Janssen Pharmac euticals, Inc, both being Johnson
+and Johnson Companies and they may own stock or stock options in that company. The remaining co-
+authors have no conflicts of interest with the content of this article.
+10. Sotillo J, Pearson MS, Becker L, Mekonn en GG, Amoah AS, van Dam G, et al. In-depth proteo mic char-
+acterizatio n of Schistosom a haematob ium: Towards the developme nt of new tools for eliminati on.
+PLoS Negl Trop Dis. 2019; 13(5):e000 7362. Epub 2019/05 /16. https://doi.or g/10.137 1/journal.pn td.
+0007362 PMID: 31091291; PubMed Central PMCID: PMC653818 9.
+11. Lagatie O, Verheye n A, Van Hoof K, Lauwers D, Odiere MR, Vlaminck J, et al. Detection of Ascaris lum-
+bricoides infection by ABA-1 coproan tigen ELISA. PLoS Negl Trop Dis. 2020; 14(10):e00 08807. Epub
+2020/10/ 16. https://doi.or g/10.137 1/journal.pn td.0008807 PMID: 33057357; PubMed Central PMCID:
+PMC759108 6 following competing interests: OL, AV, KVH and LJS are current employees of Jansse n
+Pharmac eutica NV, being a Johnson and Johnson Companies and they may own stock or stock options
+in that company .
+12. Levecke B, Cools P, Albonico M, Ame S, Angeb ault C, Ayana M, et al. Identifying threshol ds for classif y-
+ing moderate -to-heavy soil-trans mitted helminth intensity infections for FECPAK G2, McMaster , Mini-
+FLOTAC and qPCR. PLoS Negl Trop Dis. 2020; 14(7):e000 8296. Epub 2020/07/03. https://d oi.org/10.
+1371/journa l.pntd.00 08296 PMID: 326148 28; PubMed Central PMCID: PMC741355 7 ET is an
+employee and GM is managing director. Both hold stocks in Techion Group Ltd. The Mini-FLO TAC
+device is a commerc ial product distribute d by GC, LR and MPM through the Universit y of Napoli Feder-
+ico II. However, their affiliatio ns did not play any role in the preparatio n and submissio n of this manu-
+script. All other authors declared that they have no competing interests.
+13. Cools P, Vlaminck J, Verweij JJ, Leveck e B. Quantitativ e PCR in soil-transm itted helminth epidemiology
+and control program s: Toward a universal standard. PLoS Negl Trop Dis. 2021; 15(3):e000 9134. Epub
+2021/03/ 05. https://doi.or g/10.137 1/journal.pn td.0009134 PMID: 33661910.
+14. Barda B, Schindler C, Wampfler R, Ame S, Ali SM, Keiser J. Comparison of real-time PCR and the
+Kato-Katz method for the diagno sis of soil-trans mitted helminthias is and assessmen t of cure in a ran-
+domized controlled trial. BMC Microbiol . 2020; 20(1):298. Epub 2020/10 /04. https://doi. org/10.1186/
+s12866-020 -01963-9 PMID: 33008301; PubMed Central PMCID: PMC753112 3.
+15. Cools P, Vlaminck J, Albonico M, Ame S, Ayana M, Jose Antonio BP, et al. Diagnostic performance of a
+single and duplicate Kato-Katz, Mini-FLOTAC , FECPAKG2 and qPCR for the detection and quantifi ca-
+tion of soil-trans mitted helminths in three endemic countrie s. PLoS Negl Trop Dis. 2019; 13(8):
+e0007446. Epub 2019/08 /02. https://do i.org/10.1371 /journal.pntd .000744 6 PMID: 31369558 ; PubMed
+Central PMCID: PMC6 675048 which ET is an employee and GM is managing director . Both hold stocks
+in Techion Group Ltd. The Mini-FLOT AC device is a comme rcial product distribut ed by GC, LR and
+MPM through the University of Napoli Federi co II. However , the affiliatio ns of ET, GM, GC, LR and
+MPM did not play any role in the preparatio n and submission of this manuscript. All other authors
+declared that they have no competing interests.
+16. Yang A, Bakhtari N, Langdon-E mbry L, Redwood E, Grandjea n Lapierre S, Rakotom anga P, et al. Kan-
+kanet: An artificial neural network-b ased object detection smartphon e application and mobile micro-
+scope as a point-of-c are diagno stic aid for soil-tran smitted helminthias es. PLoS Negl Trop Dis. 2019; 13
+(8):e00075 77. Epub 2019/08 /06. https://doi.or g/10.137 1/journal.pn td.00075 77 PMID: 31381573;
+PubMed Central PMCID: PMC669519 8.
+17. Sukas S, Van Dorst B, Kryj A, Lagatie O, De Malsche W, Stuyver LJ. Develop ment of a Lab-on-a- Disk
+Platform with Digital Imaging for Identificati on and Counting of Parasite Eggs in Human and Animal
+PLOS NEGL ECTED TRO PICAL DIS EASES
+PLOS Neglected Tropical Disease s | https://doi.or g/10.137 1/journal.pn td.00094 22 June 3, 2021 6 / 7
+
+Stool. Micromac hines (Basel). 2019; 10(12). Epub 2019/12 /11. https://doi. org/10.3390/m i10120852
+PMID: 318174 58; PubMed Central PMCID: PMC695298 9.
+18. Cringoli G, Amadesi A, Maurelli MP, Celano B, Pianta dosi G, Bosco A, et al. The Kubic FLOTA C micro-
+scope (KFM): a new compact digital microsc ope for helminth egg counts. Parasitology. 2021; 148
+(4):427–34 . Epub 2020/11 /21. https://doi.or g/10.101 7/S00311820 2000219 X PMID: 33213534.
+19. Chapman N. Neglected Disease Research and Developm ent: Uneven Progress. Policy Cures
+Research. 2019.
+20. de Souza DK, Picado A, Bie ´ ler S, Nogaro S. Ndung’u JM. Diagnosis of neglected tropical diseases dur-
+ing and after the COVID -19 pandemi c. PLoS Negl Trop Dis. 2020; 14(8):e000 8587. Epub 2020/08/17.
+https://doi.or g/10.137 1/journal.pn td.00085 87 PMID: 32797111; PubMed Central PMCID: PMC74 28349
+following competing interests: The authors are employed by FIND, which would partially benefit from
+the donation s that are being encoura ged.
+21. Speich B, Knopp S, Moham med KA, Khamis IS, Rinaldi L, Cringoli G, et al. Comparativ e cost assess-
+ment of the Kato-Katz and FLOTAC technique s for soil-tra nsmitted helminth diagnos is in epidemi ologi-
+cal surveys . Parasit Vectors. 2010; 3:71. Epub 2010/08/17. https://d oi.org/10.118 6/1756-3305 -3-71
+PMID: 207079 31; PubMed Central PMCID: PMC293639 1.
+22. Ayana M, Cools P, Mekonnen Z, Biruksew A, Dana D, Rashwan N, et al. Comparison of four DNA
+extraction and three preserva tion protocols for the molecular detection and quantifi cation of soil-trans -
+mitted helminths in stool. PLoS Negl Trop Dis. 2019; 13(10):e00 07778. Epub 2019/10/29. https:// doi.
+org/10.1371/ journal.pntd .0007778 PMID: 31658264; PubMed Central PMCID: PMC683758 2.
+23. Jimenez B, Maya C, Velasquez G, Torner F, Arambula F, Barrios JA, et al. Identificati on and quantifi ca-
+tion of pathoge nic helminth eggs using a digital image system. Exp Parasit ol. 2016; 166:164–72. Epub
+2016/04/ 27. https://doi.or g/10.101 6/j.exppara.201 6.04.016 PMID: 271131 38; PubMed Central PMCID:
+PMC491869 3.
+24. Ngari MG, Mwangi IN, Njoroge MP, Kinyua J, Osuna FA, Kimeu BM, et al. Developm ent and evaluatio n
+of a loop-me diated isotherma l amplificatio n (LAMP) diagnostic test for detection of whipworm , Trichuris
+trichiura, in faecal samples. J Helmin thol. 2020; 94:e142. Epub 2020/04/03. https:// doi.org/10.10 17/
+S0022149X 2000022X PMID: 32238209.
+25. Vlaminck J, Supali T, Geldhof P, Hokke CH, Fischer PU, Weil GJ. Community Rates of IgG4 Antibodies
+to Ascaris Haemoglobi n Reflect Changes in Community Egg Loads Following Mass Drug Administra-
+tion. PLoS Negl Trop Dis. 2016; 10 (3):e00045 32. Epub 2016/03/19. https://d oi.org/10.137 1/journal.
+pntd.000 4532 PMID: 26991326; PubMed Central PMCID: PMC47 98312.
+26. Dana D, Vlaminck J, Ayana M, Tadege B, Mekonnen Z, Geldhof P, et al. Evaluation of copromicros copy
+and serology to measure the exposure to Ascaris infections across age groups and to assess the impact
+of 3 years of biannual mass drug administra tion in Jimma Town, Ethiop ia. PLoS Negl Trop Dis. 2020;
+14(4):e000 8037. Epub 2020/04 /14. https://doi.o rg/10.1371/jo urnal.pntd. 0008037 PMID: 32282815;
+PubMed Central PMCID: PMC717993 0.
+27. Cools P, van Lieshou t L, Koelewi jn R, Addiss D, Ajjampur SSR, Ayana M, et al. First internationa l exter-
+nal quality assessm ent scheme of nucleic acid amplificatio n tests for the detection of Schistos oma and
+soil-trans mitted helminths, includin g Strongyloide s: A pilot study. PLoS Negl Trop Dis. 2020; 14(6):
+e0008231. Epub 2020/06 /17. https://do i.org/10.1371 /journal.pntd .000823 1 PMID: 32544158 ; PubMed
+Central PMCID: PMC7 319349.
+28. Speich B, Ali SM, Ame SM, Albonico M, Utzing er J, Keiser J. Quality control in the diagnos is of Trichuris
+trichiura and Ascaris lumbricoi des using the Kato-Katz technique : experienc e from three random ised
+controlled trials. Parasit Vectors. 2015; 8:82. Epub 2015/02 /06. https://do i.org/10.1186 /s13071- 015-
+0702-z PMID: 25652120; PubMed Central PMCID: PMC432649 2.
+PLOS NEGL ECTED TRO PICAL DIS EASES
+PLOS Neglected Tropical Disease s | https://doi.or g/10.137 1/journal.pn td.00094 22 June 3, 2021 7 / 7

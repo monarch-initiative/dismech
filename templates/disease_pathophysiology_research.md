@@ -88,6 +88,16 @@ For each phenotype, provide:
 
 ### 6. Mechanism / Pathophysiology
 
+**Present this section as an ordered causal chain first, then the detail below.**
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.
+
 - **Molecular Pathways**: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)
   > **Search first:** KEGG, Reactome, WikiPathways, PathBank, BioCyc
 - **Cellular Processes**: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)

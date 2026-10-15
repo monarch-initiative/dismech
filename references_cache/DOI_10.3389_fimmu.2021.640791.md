@@ -1,0 +1,27 @@
+---
+reference_id: DOI:10.3389/fimmu.2021.640791
+title: Prioritizing Molecular Biomarkers in Asthma and Respiratory Allergy Using Systems Biology
+authors:
+- Lucía Cremades-Jimeno
+- María Ángeles de Pedro
+- María López-Ramos
+- Joaquín Sastre
+- Pablo Mínguez
+- Ignacio Mahillo Fernández
+- Selene Baos
+- Blanca Cárdaba
+journal: Frontiers in Immunology
+year: '2021'
+doi: 10.3389/fimmu.2021.640791
+content_type: abstract_only
+is_preprint: false
+---
+
+# Prioritizing Molecular Biomarkers in Asthma and Respiratory Allergy Using Systems Biology
+**Authors:** Lucía Cremades-Jimeno, María Ángeles de Pedro, María López-Ramos, Joaquín Sastre, Pablo Mínguez, Ignacio Mahillo Fernández, Selene Baos, Blanca Cárdaba
+**Journal:** Frontiers in Immunology (2021)
+**DOI:** [10.3389/fimmu.2021.640791](https://doi.org/10.3389/fimmu.2021.640791)
+
+## Content
+
+Highly prevalent respiratory diseases such as asthma and allergy remain a pressing health challenge. Currently, there is an unmet need for precise diagnostic tools capable of predicting the great heterogeneity of these illnesses. In a previous study of 94 asthma/respiratory allergy biomarker candidates, we defined a group of potential biomarkers to distinguish clinical phenotypes (i.e. nonallergic asthma, allergic asthma, respiratory allergy without asthma) and disease severity. Here, we analyze our experimental results using complex algorithmic approaches that establish holistic disease models (systems biology), combining these insights with information available in specialized databases developed worldwide. With this approach, we aim to prioritize the most relevant biomarkers according to their specificity and mechanistic implication with molecular motifs of the diseases. The Therapeutic Performance Mapping System (Anaxomics’ TPMS technology) was used to generate one mathematical model per disease: allergic asthma (AA), non-allergic asthma (NA), and respiratory allergy (RA), defining specific molecular motifs for each. The relationship of our molecular biomarker candidates and each disease was analyzed by artificial neural networks (ANNs) scores. These analyses prioritized molecular biomarkers specific to the diseases and to particular molecular motifs. As a first step, molecular characterization of the pathophysiological processes of AA defined 16 molecular motifs: 2 specific for AA, 2 shared with RA, and 12 shared with NA. Mechanistic analysis showed 17 proteins that were strongly related to AA. Eleven proteins were associated with RA and 16 proteins with NA. Specificity analysis showed that 12 proteins were specific to AA, 7 were specific to RA, and 2 to NA. Finally, a triggering analysis revealed a relevant role for AKT1, STAT1, and MAPK13 in all three conditions and for TLR4 in asthmatic diseases (AA and NA). In conclusion, this study has enabled us to prioritize biomarkers depending on the functionality associated with each disease and with specific molecular motifs, which could improve the definition and usefulness of new molecular biomarkers.

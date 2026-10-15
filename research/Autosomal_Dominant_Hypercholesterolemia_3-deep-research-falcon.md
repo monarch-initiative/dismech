@@ -2,10 +2,11 @@
 provider: falcon
 model: Edison Scientific Literature
 cached: false
-start_time: '2026-08-18T20:58:42.769425'
-end_time: '2026-08-18T21:13:37.170113'
-duration_seconds: 894.4
+start_time: '2026-09-06T14:10:36.567964'
+end_time: '2026-09-06T14:21:50.782779'
+duration_seconds: 674.22
 template_file: templates/disease_pathophysiology_research.md
+template_sha: "1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666"
 template_variables:
   disease_name: Autosomal Dominant Hypercholesterolemia 3
   mondo_id: ''
@@ -17,18 +18,25 @@ provider_config:
     allowed_domains: []
     temperature: 0.1
     max_embedded_images: 8
-citation_count: 48
+citation_count: 34
 reference_validation:
-  total_references: 24
-  verified: 24
+  total_references: 13
+  verified: 13
   not_found: 0
   unverifiable: 0
   confabulation_rate: 0.0
-  quotes_checked: 1
-  quotes_valid: 1
-  relevance_assessed: 24
-  on_topic: 12
+  relevance_assessed: 13
+  on_topic: 6
   validator_version: 0.2.1
+term_validation:
+  total_terms: 13
+  verified: 12
+  not_found: 0
+  obsolete: 0
+  unverifiable: 1
+  confabulation_rate: 0.0
+  adapter: 'ols:'
+  validator_version: 0.4.5
 artifact_count: 1
 artifact_sources:
   edison_answer_artifacts: 1
@@ -132,6 +140,16 @@ For each phenotype, provide:
   > **Search first:** NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON
 
 ### 6. Mechanism / Pathophysiology
+
+**Present this section as an ordered causal chain first, then the detail below.**
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.
 
 - **Molecular Pathways**: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)
   > **Search first:** KEGG, Reactome, WikiPathways, PathBank, BioCyc
@@ -594,6 +612,16 @@ For each phenotype, provide:
 
 ### 6. Mechanism / Pathophysiology
 
+**Present this section as an ordered causal chain first, then the detail below.**
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.
+
 - **Molecular Pathways**: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)
   > **Search first:** KEGG, Reactome, WikiPathways, PathBank, BioCyc
 - **Cellular Processes**: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)
@@ -951,311 +979,257 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-# Autosomal Dominant Hypercholesterolemia 3 (ADH3): Disease Characteristics Report
+# Autosomal Dominant Hypercholesterolemia 3: Disease-Characteristics Report
 
-## Executive summary and evidence boundaries
+## Executive summary and evidence scope
 
-Autosomal dominant hypercholesterolemia 3 (ADH3; FH3) is the rare **PCSK9 gain-of-function (GOF)** subtype of familial hypercholesterolemia (FH). Pathogenic monoallelic PCSK9 variants increase hepatic LDL-receptor (LDLR) degradation, causing lifelong elevation of LDL cholesterol (LDL-C), accelerated atherosclerosis, and premature coronary artery disease (CAD). The defining human discovery was reported by Abifadel et al. in June 2003, *Nature Genetics*, “Mutations in PCSK9 cause autosomal dominant hypercholesterolemia” (PMID **12730697**; DOI: https://doi.org/10.1038/ng1161). Open Targets independently maps ADH3 to **MONDO:0011369** and PCSK9 (ENSG00000169174), with human genetic and approved-therapy evidence. (OpenTargets Search: familial hypercholesterolemia-PCSK9)
+Autosomal dominant hypercholesterolemia 3 (ADH3; FH3/HCHOLA3) is the rare familial-hypercholesterolemia subtype caused by **heterozygous germline gain-of-function (GOF) variants in PCSK9**. Excess PCSK9 activity decreases hepatocyte-surface LDL receptor (LDLR), causing lifelong elevation of LDL cholesterol (LDL-C), cumulative arterial cholesterol exposure, and premature atherosclerotic cardiovascular disease (ASCVD). The phenotype overlaps LDLR- and APOB-associated familial hypercholesterolemia (FH), so ADH3 is defined molecularly rather than by unique clinical findings. Direct ADH3 evidence is dominated by pedigrees and functional studies; most management and outcome estimates necessarily come from broader heterozygous FH cohorts.
 
-A major curation caveat is that most epidemiology, outcomes, diagnostic thresholds, and treatment trials pool all molecular forms of heterozygous FH—predominantly LDLR-related disease. Such findings are identified below as **FH-wide**, not ADH3-specific. Direct ADH3 evidence consists principally of families carrying PCSK9 GOF variants, biochemical studies, and PCSK9-GOF animal models.
-
-The following table provides a compact knowledge-base representation.
-
-| Domain | Summary | Key IDs / ontology suggestions | Evidence qualifier |
-|---|---|---|---|
-| Identity / identifiers | Autosomal Dominant Hypercholesterolemia 3 (ADH3) is the PCSK9-related monogenic form of familial hypercholesterolemia; evidence here is disease-level, aggregated from databases, guidelines, trials, and literature rather than individual EHR records. | MONDO:0011369; MeSH disease family terms in trial metadata include Hypercholesterolemia/Hyperlipoproteinemia Type II; target gene PCSK9 = ENSG00000169174 (OpenTargets Search: familial hypercholesterolemia-PCSK9, NCT05398029 chunk 1) | Authoritative database + clinical literature; ADH3-specific MONDO supported, but other disease codes were not directly retrieved here. |
-| Causal gene and inheritance | Causal gene: **PCSK9**; pathogenic **gain-of-function** alleles cause ADH3/FH3. Inheritance is monoallelic autosomal dominant. | PCSK9; inheritance: autosomal dominant / monoallelic; related FH gene class includes LDLR, APOB, PCSK9 (OpenTargets Search: familial hypercholesterolemia-PCSK9, cesaro2020beyondcholesterolmetabolism pages 1-2, abifadel2023geneticandmolecular pages 1-2) | Strong human genetic evidence; target-disease linkage also supported by drug-approval evidence. |
-| Representative GOF variants | Recurrently cited GOF variants include **S127R, F216L, D374Y**; additional GOF variants in prodomain and C-terminal CM1/CHR regions impair LDL association and/or enhance LDLR binding/degradation. | Variant examples: p.Ser127Arg, p.Phe216Leu, p.Asp374Tyr, p.Arg496Trp (sarkar2022pathogenicgainoffunctionmutations pages 1-2, sarkar2022pathogenicgainoffunctionmutations pages 2-3, rosenson2019cholesterolloweringagents. pages 5-5) | Variant list is representative, not exhaustive; some classic primary papers were referenced indirectly or unobtainable in-tool. |
-| Core mechanism | PCSK9 is a secreted hepatocyte-enriched protein that binds LDLR and diverts it to endo-lysosomal degradation, reducing receptor recycling and hepatic LDL clearance. GOF variants intensify this process by increasing LDLR affinity and/or altering LDL binding regulation, producing lifelong LDL-C elevation and accelerated atherosclerosis. | GO: LDL receptor catabolic process; GO: receptor-mediated endocytosis; GO CC suggestions: extracellular region, lysosome; CL: hepatocyte; UBERON: liver (rosenson2019cholesterolloweringagents. pages 3-5, sarkar2022pathogenicgainoffunctionmutations pages 2-3, sundararaman2021pcsk9amultifaceted pages 2-4, cesaro2020beyondcholesterolmetabolism pages 1-2) | Human, in vitro, and animal evidence converge; LDLR-independent inflammatory roles are plausible but less disease-defining than hepatic LDLR degradation. |
-| Hallmark phenotypes / HPO suggestions | Hallmarks align with heterozygous familial hypercholesterolemia: markedly elevated LDL-C/hypercholesterolemia, tendon/skin xanthomas, corneal arcus, premature coronary artery disease, premature atherosclerosis; stroke risk less consistently increased than CAD. | HPO suggestions: HP:0003124 Hypercholesterolemia; HP:0000991 Xanthoma; HP:0001084 Corneal arcus; HP:0001677 Coronary artery atherosclerosis; HP:0001716 Premature arteriosclerosis (suggestive) (haradashiba2023guidelinesforthe pages 2-4, fularski2024unveilingfamilialhypercholesterolemia—review pages 1-2, fularski2024unveilingfamilialhypercholesterolemia—review pages 7-9) | Phenotype frequencies were mainly available for FH broadly, not ADH3-only cohorts. |
-| Diagnosis | Diagnosis generally follows FH frameworks: family history, LDL-C level, premature CAD, tendon xanthomas/Achilles tendon thickening, and confirmatory molecular testing. Japanese adult guideline updated Achilles tendon thresholds to **≥8.0 mm men / ≥7.5 mm women** to improve sensitivity. | Diagnostic systems: DLCN / Simon Broome / national FH criteria; test target genes include LDLR, APOB, PCSK9; HPO: HP:0003326 Elevated LDL cholesterol concentration (suggestive) (haradashiba2023guidelinesforthe pages 1-2, yip2023geneticspectrumand pages 1-2, fularski2024unveilingfamilialhypercholesterolemia—review pages 1-2) | Clinical diagnosis is usually FH-spectrum; molecular confirmation can specify ADH3. |
-| Treatment algorithm | Stepwise care: lifestyle optimization + **high-intensity statin** first line; add **ezetimibe** if needed; add **PCSK9 inhibitor** (alirocumab/evolocumab) for very-high-risk or insufficient control; **inclisiran** or **bempedoic acid** are additional options; **lipoprotein apheresis** for refractory/severe disease. Typical very-high-risk LDL-C goal: **≥50% reduction and <55 mg/dL (<1.4 mmol/L)**. | NCIT suggestions: Statin therapy, Ezetimibe, Alirocumab, Evolocumab, Inclisiran, Bempedoic Acid, Lipoprotein Apheresis (fularski2024unveilingfamilialhypercholesterolemia—review pages 7-9, damase2024establishedandemerging pages 1-3, katzmann2020pcsk9inhibitioninsights pages 1-2, rajendran2024acomparativeanalysis pages 1-2) | Algorithm is evidence-based for FH broadly; ADH3-specific response data are limited but PCSK9-targeted therapies are mechanistically central. |
-| Epidemiology caveat | No robust prevalence estimate was retrieved for **ADH3 specifically**. Most published epidemiology concerns **all heterozygous FH**, estimated around **1:311 to 1:303** in the general population and **~1:17** among ASCVD patients; prevalence varies by ethnicity and founder effects. | Use disease-level caveat flag: “FH-wide estimate, not ADH3-specific”; MONDO:0011369 only identifies subtype (hu2020prevalenceoffamilial pages 11-11, hu2020prevalenceoffamilial pages 1-2, toftnielsen2022familialhypercholesterolemiaprevalence pages 1-3, taranto2023geneticheterogeneityof pages 1-2) | Important limitation for knowledge-base curation: subtype-specific denominators are not established here. |
-| Major trials / real-world implementation | PCSK9-directed implementation includes approved antibodies and emerging gene/RNA approaches. Trial examples: **VERVE-101** base editing in HeFH + ASCVD (**NCT05398029**, phase 1, n=13); pediatric **evolocumab** extension (**NCT02624869**, n=163); adolescent **inclisiran ORION-16** (**NCT04652726**, n=141); alirocumab plaque study **ARCHITECT** (**NCT05465278**, n=104). | NCT05398029; NCT02624869; NCT04652726; NCT05465278 (NCT05398029 chunk 1, NCT05465278 chunk 1, NCT02624869 chunk 1, NCT04652726 chunk 1) | Demonstrates real-world translation from gene discovery to antibodies, siRNA, and base editing. |
-| Model organisms | Useful disease models include **AAV-hPCSK9 D374Y mice** causing sustained hypercholesterolemia and atherosclerosis, and **Yucatan miniature pigs/minipigs** carrying human **PCSK9 D374Y** with coronary/aortic lesions. A 2024 **PCSK9 nanoparticle vaccine** used AAV-hPCSK9D374Y mouse models. Limitation: pig models may not reproduce plaque rupture/thrombosis fully. | Species: Mus musculus; Sus scrofa; variant/model driver: PCSK9 D374Y; CL/UBERON relevance: hepatocyte, aorta, coronary artery (rochemolina2015inductionofsustained pages 1-2, perleberg2018geneticallyengineeredpigs pages 4-4, fang2024developmentofa pages 1-3, katsuki2024theroleof pages 7-7) | Strong translational utility for mechanism and therapy testing; imperfect recapitulation of late human plaque complications. |
+| Domain | Evidence scope | Core fact |
+|---|---|---|
+| Disease identity | ADH3-specific | Autosomal dominant hypercholesterolemia 3 (ADH3; FH3/HCHOLA3) is the **PCSK9 gain-of-function subtype** of familial hypercholesterolemia. The locus was mapped to chromosome 1p32, and the causal relationship was established in 2003 ([DOI](https://doi.org/10.1038/ng1161)). (seidah2017thepcsk9revolution pages 3-6, abifadel2003mutationsinpcsk9 pages 2-2) |
+| Causal gene and mechanism | ADH3-specific | Germline gain-of-function variants in **PCSK9** enhance loss of hepatic LDL receptors. Secreted PCSK9 binds the LDLR EGF-A domain and directs the complex to late endosomes/lysosomes rather than receptor recycling, reducing hepatic LDL clearance and raising plasma LDL-C. (fularski2024unveilingfamilialhypercholesterolemia—review pages 4-5, mcnutt2010characterizationofthe pages 115-119, weider2017inhibitionofthea pages 152-156) |
+| Inheritance | ADH3-specific | Autosomal dominant; heterozygous variants segregate with hypercholesterolemia, although expressivity and cardiovascular severity vary within and between families. Biallelic PCSK9 gain-of-function disease can produce an exceptionally severe, HoFH-like phenotype but is not the usual ADH3 presentation. (allard2005novelmutationsof pages 3-6, allard2005novelmutationsof pages 1-3, abifadel2003mutationsinpcsk9 pages 2-2) |
+| Hallmark phenotype | ADH3-specific | Lifelong elevation of LDL-C/type IIa hypercholesterolemia, sometimes accompanied by tendon xanthomas, corneal arcus, and premature coronary disease. One p.Arg218Ser proband had untreated LDL-C **293 mg/dL**, tendon xanthoma, and corneal arcus at age 45; an original p.Phe216Leu carrier died from myocardial infarction at age 49. (allard2005novelmutationsof pages 3-6, abifadel2003mutationsinpcsk9 pages 2-2) |
+| Key variants | ADH3-specific | Landmark variants include **p.Ser127Arg** and **p.Phe216Leu**; reported variants also include **p.Asp374Tyr, p.Arg218Ser, p.Arg357His, p.Ala443Thr, and p.Arg469Trp**. p.Asp374Tyr increases PCSK9–LDLR affinity by about **10-fold** and is associated with severe disease. Variant pathogenicity must be assessed individually because not every rare PCSK9 variant is gain-of-function. (allard2005novelmutationsof pages 3-6, allard2005novelmutationsof pages 1-3, weider2017inhibitionofthe pages 152-156, abifadel2003mutationsinpcsk9 pages 2-2) |
+| Epidemiology caveat | Mixed | ADH3-specific prevalence is not well quantified. PCSK9 gain-of-function variants account for approximately **1% of FH cases** in a 2024 review and about **2.3% of LDLR/APOB-negative ADH** in one 130-patient series. These selected-cohort figures should not be treated as population prevalence. General FH prevalence is approximately **1:311**, affecting more than 34 million people worldwide. (allard2005novelmutationsof pages 1-3, fularski2024unveilingfamilialhypercholesterolemia—review pages 4-5, marquina2024costeffectivenessofscreening pages 1-2) |
+| Diagnosis | General FH framework plus ADH3 confirmation | Diagnose the FH phenotype using repeated untreated LDL-C, premature ASCVD and family history, and physical signs; exclude secondary hypercholesterolemia. Confirm ADH3 through an FH panel including **LDLR, APOB, PCSK9**, and other validated genes, with segregation and functional/curated evidence for a pathogenic or likely pathogenic **PCSK9 gain-of-function** variant. A PCSK9 VUS or loss-of-function allele does not establish ADH3. (allard2005novelmutationsof pages 1-3, watts2023internationalatherosclerosissociety pages 7-8, yip2023geneticspectrumand pages 5-6) |
+| Treatment | General FH evidence, mechanistically well matched to ADH3 | Begin early intensive LDL lowering: maximally tolerated high-intensity statin, add ezetimibe, then a PCSK9-directed agent if goals are unmet. Ezetimibe lowers LDL-C about **18%** alone and provides about **20% additional lowering** with statins; alirocumab/evolocumab typically lower LDL-C about **60%**. General FH targets are ≥**50% reduction** and LDL-C below **70 mg/dL** in high-risk disease or below **55 mg/dL** in very-high-risk disease. (fularski2024unveilingfamilialhypercholesterolemia—review pages 10-12, fularski2024unveilingfamilialhypercholesterolemia—review pages 7-9) |
+| Prevention and screening | General FH evidence applicable to ADH3 families | Primary prevention cannot remove an inherited allele, but diet, exercise, avoidance of smoking, and control of other cardiovascular risks reduce downstream risk. Perform cascade lipid and targeted-variant testing in first-degree relatives; combined cascade and young-age universal screening could identify more than **90%** of FH. Cascade screening was cost-effective in **78%** of studies and yielded the greatest health benefit per person tested. (marquina2024costeffectivenessofscreening pages 1-2, watts2023internationalatherosclerosissociety pages 1-2, watts2023internationalatherosclerosissociety pages 7-8) |
+| Evidence limitations | ADH3-specific caveat | ADH3 is rare, so most phenotype, prognosis, quality-of-life, and treatment estimates are extrapolated from broader HeFH cohorts rather than PCSK9-genotyped trials. Published evidence is dominated by pedigrees, variant-functional studies, and engineered models; no reliable subtype-specific incidence, penetrance percentage, sex ratio, survival curve, or spontaneous nonhuman disease series was identified. (allard2005novelmutationsof pages 3-6, rochemolina2015inductionofsustained pages 1-2, rochemolina2015inductionofsustained pages 10-10) |
 
 
-*Table: This compact table summarizes the most actionable knowledge-base fields for Autosomal Dominant Hypercholesterolemia 3, emphasizing what is directly supported for the PCSK9-related subtype versus what is only available for familial hypercholesterolemia more broadly.*
+*Table: This table separates evidence specific to PCSK9 gain-of-function ADH3 from findings extrapolated from familial hypercholesterolemia generally. It summarizes defining genetics, phenotype, diagnosis, management, screening, quantitative findings, and major evidence gaps.*
 
 ## 1. Disease information
 
-### Definition and identifiers
+### Definition, names, and identifiers
 
-ADH3 is a congenital, chronic Mendelian disorder of LDL metabolism caused by monoallelic PCSK9 GOF variants. It is clinically part of heterozygous familial hypercholesterolemia and is characterized by elevated LDL-C from early life, cholesterol deposition in tendons/skin/cornea, and premature atherosclerotic cardiovascular disease (ASCVD).
+**Preferred name:** autosomal dominant hypercholesterolemia 3. Common alternatives are **ADH3**, **familial hypercholesterolemia 3**, **FH3**, **HCHOLA3**, **PCSK9-related familial hypercholesterolemia**, and **PCSK9 gain-of-function hypercholesterolemia**. The original locus was mapped to chromosome 1p32, and the 2003 landmark study identified PCSK9 variants in two linked French families. Its abstract states that the investigators “mapped a third locus associated with ADH, HCHOLA3 at 1p32” and found two causal PCSK9 mutations. DOI: https://doi.org/10.1038/ng1161; publication: June 2003. (seidah2017thepcsk9revolution pages 3-6, abifadel2003mutationsinpcsk9 pages 2-2)
 
-* **MONDO:** MONDO:0011369, hypercholesterolemia, autosomal dominant, 3.
-* **OMIM:** **603776**, Hypercholesterolemia, autosomal dominant, 3; causal gene **PCSK9**, OMIM **607786**. These OMIM numbers are standard database mappings but were not directly returned by the retrieved full-text corpus.
-* **Synonyms:** ADH3; FH3; PCSK9-related familial hypercholesterolemia; PCSK9-associated autosomal dominant hypercholesterolemia; familial hypercholesterolemia due to PCSK9 GOF.
-* **MeSH umbrella terms:** Hypercholesterolemia; Hyperlipoproteinemia Type II; Familial Hypercholesterolemia. Trial metadata maps relevant studies to MeSH Hypercholesterolemia and Hyperlipoproteinemia Type II. (NCT05398029 chunk 1)
-* **ICD:** There is generally no dedicated ADH3 code. ICD-10-CM **E78.01** represents familial hypercholesterolemia; ICD-11 coding is ordinarily at the familial/pure hypercholesterolemia level rather than PCSK9 subtype. Local verification is advisable before database ingestion.
-* **Data provenance:** This report uses aggregated disease-level databases, publications, guidelines, and trial registries—not individual-patient EHR data. Some founding evidence derives from individual pedigrees.
+**Identifier caution:** the retrieved primary literature uses **MIM 607786** for the PCSK9-associated hypercholesterolemia phenotype and **MIM 607786/603776-related notation** in older records; an older article also cites MIM 143890 for the broader ADH phenotype. These historical numbers should be reconciled directly against the current OMIM record before database ingestion. A definitive subtype-specific MONDO identifier was not recovered by the available tools; use the current MONDO familial-hypercholesterolemia parent mapping only after curator verification. Broader coding generally uses familial/pure hypercholesterolemia categories (for example ICD-10-CM E78.01), because ICD and MeSH do not ordinarily distinguish ADH3 by gene. (allard2005novelmutationsof pages 1-3)
+
+**Data provenance:** the disease definition and variant–phenotype relationships derive from aggregated disease resources, pedigrees, lipid-clinic cohorts, and experimental studies—not individual-level EHR data in this report. Recent implementation studies use aggregated clinical records, but their findings concern FH generally rather than PCSK9-genotyped ADH3.
 
 ## 2. Etiology, risk, protection, and gene–environment interaction
 
 ### Primary cause
 
-The necessary upstream cause is a **germline, heterozygous PCSK9 GOF variant**. PCSK9 GOF may increase LDLR affinity, secretion or effective activity, impair inhibitory LDL binding, or otherwise augment LDLR degradation. Representative variants are p.Ser127Arg (S127R), p.Phe216Leu (F216L), p.Asp374Tyr (D374Y), and p.Arg496Trp (R496W). S127R, F216L, and D374Y cosegregate with hypercholesterolemia in reported families. (rosenson2019cholesterolloweringagents. pages 5-5, sarkar2022pathogenicgainoffunctionmutations pages 1-2)
+ADH3 is caused by a **germline PCSK9 GOF allele**. Pathogenicity is mechanism-specific: rare PCSK9 variants can be GOF, loss-of-function (LOF), neutral, or uncertain, so merely finding a rare PCSK9 allele is insufficient. GOF mechanisms include enhanced LDLR binding, altered intracellular trafficking or secretion, resistance to inactivation, increased stability, and reduced inhibitory binding of PCSK9 to LDL particles. A 2024 review estimated that PCSK9 GOF variants cause approximately 1% of FH and listed about 36 pathogenic/probably pathogenic variants, although database totals evolve. (fularski2024unveilingfamilialhypercholesterolemia—review pages 4-5)
 
-### Genetic risk and modifiers
+### Risk factors and modifiers
 
-* The pathogenic PCSK9 allele is the primary risk factor; first-degree relatives have a **50% transmission probability**.
-* Variant-specific function materially affects severity. D374Y increases PCSK9–LDLR affinity by at least tenfold in experimental evidence and is associated with severe disease. (rochemolina2015inductionofsustained pages 1-2)
-* Polygenic LDL-C burden and variants in other lipid genes can modify FH expression. FH-wide modifier candidates include common-variant polygenic risk scores and genes producing overlapping dyslipidemias. (taranto2023geneticheterogeneityof pages 1-2, taranto2023geneticheterogeneityof pages 2-4)
-* Elevated lipoprotein(a), diabetes, hypertension, smoking, and established ASCVD increase clinical risk even though they do not cause ADH3.
+* **Genetic:** one pathogenic PCSK9 GOF allele, a second pathogenic FH allele, high polygenic LDL-C burden, and other ASCVD-risk alleles can increase severity. A PCSK9 p.Arg469Trp carrier with a coexisting LDLR frameshift had especially severe disease, illustrating additive monogenic effects. Expressivity also varied among p.Arg218Ser relatives. (allard2005novelmutationsof pages 3-6, allard2005novelmutationsof pages 1-3)
+* **Clinical/environmental:** smoking, hypertension, diabetes, obesity, inactivity, an atherogenic diet, elevated lipoprotein(a), and delayed or inadequate LDL-lowering do not cause ADH3 but increase downstream ASCVD risk. Lifelong LDL exposure begins at birth; broader FH guidance therefore treats cumulative LDL-C as the dominant causal exposure. (fularski2024unveilingfamilialhypercholesterolemia—review pages 7-9, watts2023internationalatherosclerosissociety pages 1-2, watts2023internationalatherosclerosissociety pages 7-8)
+* **Pregnancy:** physiological lipid increases can magnify hypercholesterolemia; markedly high cholesterol during pregnancy was reported in a p.Arg357His carrier. (allard2005novelmutationsof pages 1-3)
 
 ### Protective factors
 
-* **Genetic:** PCSK9 loss-of-function (LOF) alleles lower LDL-C and lifetime ASCVD risk; biallelic human PCSK9 deficiency has been observed with very low LDL-C and no major syndromic phenotype. A UK Biobank burden analysis in Open Targets reported an odds ratio of **0.228** for a PCSK9-LOF association (P=2.25×10⁻¹⁸), although this is protective population evidence, not an ADH3 modifier study. (OpenTargets Search: familial hypercholesterolemia-PCSK9, rosenson2019cholesterolloweringagents. pages 5-5)
-* **Environmental/clinical:** avoidance of tobacco, a diet low in saturated/trans fats, exercise, healthy weight, and control of blood pressure/diabetes reduce total cardiovascular risk. They do **not** normalize the genetically elevated LDL-C and should not replace pharmacotherapy.
+PCSK9 LOF alleles lower LDL-C and coronary risk but are not a practical within-patient “protective modifier” once a causal GOF allele is present. Environmental protection consists chiefly of early sustained LDL-C lowering, smoking avoidance, exercise, heart-healthy dietary patterns, normal weight, and control of blood pressure and diabetes. These interventions reduce cardiovascular consequences, not inheritance of ADH3. (fularski2024unveilingfamilialhypercholesterolemia—review pages 4-5, mcnutt2010characterizationofthea pages 115-119)
 
-### Gene–environment interaction
-
-The clinically important interaction is cumulative “cholesterol-years.” A PCSK9 GOF allele raises LDL-C from childhood; smoking, diabetes, hypertension, poor diet, and inactivity add vascular risk, whereas early sustained LDL lowering reduces cumulative arterial exposure. FH-wide analysis estimates that a CHD-producing LDL burden is reached at about **12.5 years** in FH versus roughly **55 years** without FH. (fularski2024unveilingfamilialhypercholesterolemia—review pages 7-9, ray2022worldheartfederation pages 1-2)
-
-No infectious, toxic, occupational, or radiation exposure is established as a cause of ADH3.
+A gene–treatment interaction is important: statins activate SREBP2 and increase both LDLR and PCSK9 expression. PCSK9 blockade preserves more of the statin-induced LDLR, explaining their mechanistic synergy. (mcnutt2010characterizationofthe pages 115-119, mcnutt2010characterizationofthea pages 115-119)
 
 ## 3. Phenotypes
 
-| Phenotype | Type and characteristics | Suggested HPO term |
-|---|---|---|
-| Elevated LDL-C | Laboratory abnormality; present from childhood, chronic and untreated progressive in cumulative impact; magnitude is variant- and treatment-dependent | **HP:0003141** Increased LDL cholesterol concentration |
-| Hypercholesterolemia | Laboratory/diagnostic phenotype, generally highly penetrant but variable | **HP:0003124** Hypercholesterolemia |
-| Tendon xanthoma | Physical sign; usually develops after prolonged exposure and may be absent, especially in young or screen-detected people | **HP:0001052** Xanthomatosis / **HP:0000991** Xanthoma |
-| Xanthelasma/skin xanthoma | Physical manifestation; age-dependent and non-obligate | **HP:0000493** Xanthelasma |
-| Corneal arcus | Physical sign, especially significant when premature | **HP:0001084** Corneal arcus |
-| Premature coronary atherosclerosis/CAD | Major progressive complication; adult onset is usual in heterozygous disease but can occur earlier with severe variants | **HP:0001677** Coronary artery atherosclerosis; **HP:0001701** Angina pectoris |
-| Myocardial infarction | Clinical complication of plaque disruption/ischemia | **HP:0001658** Myocardial infarction |
-| Peripheral arterial disease | Less frequent than CAD but FH-wide risk is elevated | **HP:0004950** Peripheral arterial disease |
+ADH3-specific phenotype frequencies cannot be estimated reliably from the small published pedigrees. Suggested ontology annotations are therefore qualitative.
 
-FH-wide guidelines report untreated CAD onset commonly at **30–50 years in men** and **50–70 years in women**, a 10–20-fold CAD risk relative to unaffected populations, and approximately 13-fold excess CAD risk in untreated heterozygous FH. Stroke association is less consistent. (haradashiba2023guidelinesforthe pages 2-4)
+* **Elevated LDL-C / type IIa hyperlipoproteinemia**—laboratory abnormality, present from birth, chronic and usually progressive in cumulative impact; severity ranges from mild to very severe. Suggested HPO: **Hypercholesterolemia (HP:0003124)** and **Elevated circulating LDL cholesterol concentration**. A p.Arg218Ser proband had untreated total cholesterol 402 mg/dL and LDL-C 293 mg/dL at age 45. (allard2005novelmutationsof pages 3-6)
+* **Tendon xanthoma**—physical sign caused by cholesterol deposition, usually appearing after prolonged severe exposure but potentially in childhood in severe FH. Suggested HPO: **Tendon xanthomatosis (HP:0000991)**. The p.Arg218Ser proband had tendinous xanthoma. (allard2005novelmutationsof pages 3-6)
+* **Corneal arcus**—bilateral peripheral corneal lipid deposition, particularly informative when premature. Suggested HPO: **Corneal arcus (HP:0001084)**. It was present in the same p.Arg218Ser proband. (allard2005novelmutationsof pages 3-6)
+* **Premature coronary atherosclerosis, angina, myocardial infarction, and cardiovascular death**—downstream complications, age-dependent and progressive. Suggested HPO: **Premature atherosclerosis (HP:0002621)**, **Coronary artery disease (HP:0001677)**, and **Myocardial infarction (HP:0001658)**. An original p.Phe216Leu carrier died from myocardial infarction at 49 years; p.Asp374Tyr is associated with particularly severe disease and premature cardiovascular death. (weider2017inhibitionofthe pages 152-156, abifadel2003mutationsinpcsk9 pages 2-2)
+* **Aortic/other arterial atherosclerosis**—expected from the FH disease process, but no reliable ADH3-specific frequency was recovered.
 
-Published ADH3-only phenotype frequencies and validated quality-of-life estimates are not available from the retrieved evidence. Quality of life is affected indirectly through anxiety regarding inherited risk, lifelong medication/injections, dietary burden, screening, premature angina/MI, and procedural treatment. Screen-detected relatives may initially be asymptomatic; a 2023 Hong Kong study found cascade-detected adults had milder phenotypes than probands. (yip2023geneticspectrumand pages 1-2)
+Quality of life is usually unaffected by the biochemical phenotype itself until treatment burden, anxiety, xanthomas, angina, or vascular events intervene. No ADH3-specific EQ-5D, SF-36, or PROMIS study was identified. In general FH, childhood treatment is expected to improve quality of life and reduce later mortality. (watts2023internationalatherosclerosissociety pages 1-2)
 
 ## 4. Genetic and molecular information
 
-### Gene and protein
+**Causal gene:** **PCSK9**, chromosome 1p32.3; HGNC:20001 (curator should verify current HGNC/Ensembl cross-references). It encodes proprotein convertase subtilisin/kexin type 9, formerly NARC-1. PCSK9 is synthesized as a zymogen and autocatalytically cleaved in the endoplasmic reticulum; cleavage enables ER exit. (seidah2017thepcsk9revolution pages 3-6, abifadel2003mutationsinpcsk9 pages 2-2)
 
-* **PCSK9**: HGNC **20001**; Ensembl ENSG00000169174; chromosome **1p32.3**.
-* Protein: 692-aa secreted proprotein convertase with signal peptide, prodomain, catalytic domain, hinge, and C-terminal cysteine/histidine-rich domain. After autocleavage, the prodomain remains attached; LDLR degradation does not require further proteolytic activity because PCSK9 functions principally as a trafficking chaperone. (sarkar2022pathogenicgainoffunctionmutations pages 2-3, sundararaman2021pcsk9amultifaceted pages 2-4, cesaro2020beyondcholesterolmetabolism pages 1-2)
+### Representative variants
 
-### Representative pathogenic variants
+* **p.Ser127Arg (S127R)** and **p.Phe216Leu (F216L):** original heterozygous variants establishing causality. S127R affects the prodomain/processing region and can inhibit normal LDL binding; F216L lies near catalytic His226. (seidah2017thepcsk9revolution pages 3-6, abifadel2003mutationsinpcsk9 pages 2-2)
+* **p.Asp374Tyr (D374Y):** strong GOF missense variant with approximately tenfold greater LDLR affinity, severe hypercholesterolemia, and premature cardiovascular disease. (weider2017inhibitionofthe pages 152-156, rochemolina2015inductionofsustained pages 1-2)
+* **p.Arg218Ser (R218S):** heterozygous catalytic-domain variant that cosegregated in four relatives and was absent from 415 diverse controls; functional effect was not demonstrated in the original report, so modern classification should incorporate current ClinVar/ClinGen evidence. (allard2005novelmutationsof pages 3-6)
+* **p.Arg357His, p.Ala443Thr, and p.Arg469Trp:** reported in LDLR/APOB-negative ADH screening; original evidence and segregation strength varied. (allard2005novelmutationsof pages 1-3)
+* **Regulatory variation:** a 2024 study of 409 suspected-FH patients found rare LDLR/PCSK9 3′UTR variants; PCSK9 c.*950C>T increased reporter expression by 41%. This is emerging FH evidence and should not automatically be labeled definitive ADH3 without segregation and clinical functional validation. DOI: https://doi.org/10.1155/2024/9964734; February 2024. (otero2024functionalanalysisof pages 4-5)
 
-* **p.Ser127Arg:** prodomain missense GOF; nearly abolishes LDL binding, removing LDL-mediated inhibition of PCSK9 action. Direct in-vitro evidence showed that “LDL binding was nearly abolished” by S127R. (sarkar2022pathogenicgainoffunctionmutations pages 1-2)
-* **p.Phe216Leu:** missense GOF, cosegregating with FH in a French family; reported mechanisms include enhanced PCSK9 function/secretion.
-* **p.Asp374Tyr:** catalytic-domain missense GOF; markedly increases affinity for the LDLR EGF-A domain and produces a severe phenotype. (sarkar2022pathogenicgainoffunctionmutations pages 2-3, rochemolina2015inductionofsustained pages 1-2)
-* **p.Arg496Trp:** C-terminal CM1-domain missense GOF that inhibits LDL association. (sarkar2022pathogenicgainoffunctionmutations pages 1-2)
+All established disease alleles are **germline**. Somatic origin is not characteristic. Most reported alleles are missense; the functional endpoint is GOF rather than simple haploinsufficiency. Population frequency should be extremely low for highly penetrant pathogenic alleles, but exact gnomAD frequencies must be entered variant by variant. No recurrent chromosomal abnormality, repeat expansion, mitochondrial defect, or disease-defining structural variant is established.
 
-These are **germline**, not somatic, variants. Population allele frequencies are expected to be very rare and should be extracted per genomic build and transcript directly from gnomAD/ClinVar. No single frequency can safely represent all variants. Classification should use current ClinVar/ClinGen assertions and ACMG/AMP criteria; not every PCSK9 missense variant is pathogenic.
+### Modifiers and epigenetics
 
-### Other genomic fields
-
-No recurrent aneuploidy, translocation, repeat expansion, mitochondrial variant, or disease-defining epigenetic lesion is established. Germline mosaicism and anticipation are not recognized characteristic mechanisms. Modifier genes/PRS may alter severity, but no ADH3-specific modifier has sufficient evidence for routine clinical annotation. (taranto2023geneticheterogeneityof pages 1-2)
+No validated ADH3-specific modifier gene or epigenetic lesion is established. A 2024 FH study found differential LDLR, PCSK9, and LDLRAP1 methylation associated with clinical manifestations and cardiovascular events in 131 patients, but this remains a potential biomarker in mixed-genotype FH, not a proven cause or modifier of ADH3.
 
 ## 5. Environmental information
 
-ADH3 is not environmentally caused. Saturated-fat intake, obesity, inactivity, smoking, diabetes, hypertension, and possibly high Lp(a) amplify LDL burden or vascular consequences. Exercise, cardioprotective diet, weight control, and tobacco avoidance are supportive risk-reduction measures. No pathogen, toxin, pollution exposure, or occupational agent is known to initiate the Mendelian disorder.
+No toxin, radiation exposure, occupational agent, or infectious pathogen causes ADH3. Diet, adiposity, inactivity, smoking, diabetes, and hypertension modify LDL-C or vascular consequences. Infectious-agent and zoonotic fields are **not applicable**. Lifestyle intervention is necessary but is rarely sufficient to normalize genetically elevated LDL-C. General FH evidence shows that cumulative pathogenic LDL exposure can be reached by approximately age 12.5 years versus around 55 years without FH, emphasizing that lifestyle advice must not delay pharmacotherapy. (fularski2024unveilingfamilialhypercholesterolemia—review pages 7-9)
 
 ## 6. Mechanism and pathophysiology
 
-### Causal chain
+### Ordered causal chain
 
-1. **Upstream genetic trigger:** monoallelic PCSK9 GOF variant.
-2. **Protein-level effect:** increased PCSK9 activity/LDLR affinity or loss of normal LDL-mediated restraint.
-3. **Cellular effect:** secreted PCSK9 binds LDLR on hepatocytes and directs the PCSK9–LDLR complex to endosomes/lysosomes rather than allowing receptor recycling.
-4. **Metabolic effect:** fewer surface LDLRs reduce hepatic receptor-mediated LDL uptake, increasing plasma LDL-C and apoB-particle residence time.
-5. **Tissue injury:** LDL enters the arterial intima, undergoes modification, and drives macrophage foam-cell formation, inflammation, smooth-muscle responses, necrotic-core formation, and fibrous plaque.
-6. **Clinical expression:** xanthomas/corneal lipid deposition and premature CAD, MI, and peripheral arterial disease. (rosenson2019cholesterolloweringagents. pages 3-5, sarkar2022pathogenicgainoffunctionmutations pages 2-3, cesaro2020beyondcholesterolmetabolism pages 1-2)
+1. A germline **PCSK9 GOF variant leads to** increased effective PCSK9 activity through enhanced LDLR affinity, altered trafficking/secretion, increased stability, impaired inactivation, or loss of normal LDL-mediated inhibition.
+2. Increased active PCSK9 **leads to** greater binding of LDLR’s EGF-A domain at the hepatocyte surface and/or within the secretory pathway.
+3. The PCSK9–LDLR complex **results in** sorting to late endosomes and lysosomes rather than recycling of LDLR to the plasma membrane.
+4. Accelerated LDLR degradation **leads to** reduced cell-surface LDLR on hepatocytes.
+5. Reduced receptor abundance **results in** impaired hepatic uptake of apoB-containing LDL particles and lifelong elevation of plasma LDL-C.
+6. Chronic LDL-C exposure **leads to** arterial-wall LDL retention and modification.
+7. Retained lipoprotein **results in** endothelial dysfunction and macrophage uptake/foam-cell formation; direct LDLR-independent PCSK9 inflammatory effects are plausible but remain less firmly demonstrated in human ADH3.
+8. Lipid accumulation, inflammation, smooth-muscle responses, oxidative stress, calcification, and fibrous-cap remodeling **lead to** progressive atherosclerotic plaque.
+9. Plaque growth or rupture **results in** coronary disease, myocardial infarction, stroke, and premature death; extravascular cholesterol deposition branches to tendon xanthomas and corneal arcus. (fularski2024unveilingfamilialhypercholesterolemia—review pages 4-5, mcnutt2010characterizationofthe pages 115-119, rochemolina2015inductionofsustained pages 1-2, weider2017inhibitionofthea pages 152-156)
 
-PCSK9 may additionally promote macrophage activation through lipid-dependent and LDLR-independent pathways. Proposed downstream pathways include ApoER2 degradation, NF-κB activation, and increased TNF-α, IL-1β, and IL-6. These pleiotropic mechanisms are biologically plausible but less firmly established as necessary causes of ADH3 than hepatic LDLR degradation. A 2024 expert review notes that PCSK9 inhibitors reduce events without clearly reducing systemic hs-CRP, arguing against overinterpreting systemic anti-inflammatory effects. (rosenson2019cholesterolloweringagents. pages 3-5, katsuki2024theroleof pages 1-2)
+The upstream lesion is variant-specific PCSK9 GOF; LDLR depletion and high LDL-C are central demonstrated intermediates. Arterial inflammation and tissue injury are downstream. D374Y increases PCSK9–LDLR affinity by at least tenfold. S127R/D129G can show abnormal secretion or intracellular activity, demonstrating that not all variants act identically. (rochemolina2015inductionofsustained pages 1-2, matiasperez2021pcsk9geneparticipates pages 2-4)
 
-### Suggested ontology annotations
+**Suggested GO terms:** regulation of receptor-mediated endocytosis; low-density lipoprotein particle receptor catabolic process; cholesterol homeostasis; lipoprotein metabolic process; endosomal transport; lysosomal protein catabolic process; receptor recycling; foam-cell differentiation; inflammatory response; response to oxidative stress.
 
-* **GO biological process:** receptor-mediated endocytosis (GO:0006898); cholesterol homeostasis (GO:0042632); regulation of plasma lipoprotein-particle levels (GO:0097006); low-density lipoprotein particle clearance (GO:0034383); lysosomal protein catabolic process (GO:1905146); inflammatory response (GO:0006954); foam-cell differentiation (GO:0050727).
-* **GO cellular component:** extracellular region (GO:0005576); plasma membrane (GO:0005886); endosome (GO:0005768); lysosome (GO:0005764); endoplasmic reticulum (GO:0005783); Golgi apparatus (GO:0005794).
-* **Cell Ontology:** hepatocyte (**CL:0000182**), macrophage (**CL:0000235**), endothelial cell (**CL:0000115**), vascular-associated smooth-muscle cell (**CL:0000359**), dendritic cell (**CL:0000451**), T cell (**CL:0000084**).
+**Suggested Cell Ontology terms:** hepatocyte (**CL:0000182**) as the principal causal cell; enterocyte (**CL:0000584**), macrophage (**CL:0000235**), endothelial cell (**CL:0000115**), vascular smooth-muscle cell, pancreatic beta cell, and adipocyte as secondary/contextual populations.
 
-### Molecular profiling and advanced technology
-
-No validated ADH3-specific diagnostic transcriptomic, proteomic, metabolomic, lipidomic, single-cell, spatial-transcriptomic, or multi-omic signature was identified. The actionable molecular profile remains high LDL-C plus a pathogenic PCSK9 GOF allele. Human iPSC hepatocyte and organoid platforms are increasingly useful for lipoprotein biology, but retrieved patient-specific work primarily modeled LDLR-null FH, not ADH3. Consequently, these technologies should be annotated as emerging research platforms rather than established ADH3 diagnostics.
+Molecular profiling is limited. No ADH3-specific clinical single-cell, spatial-transcriptomic, proteomic, or multi-omic atlas was identified. A genome-wide expression analysis of D374Y-expressing cells and newer methylation/3′UTR studies are exploratory rather than diagnostic. PCSK9 is regulated with LDLR by SREBP2 and is expressed mainly in hepatocytes, with lower expression reported in intestine, kidney, pancreatic islets, and cerebellum. (mcnutt2010characterizationofthe pages 115-119, weider2017inhibitionofthea pages 152-156, weider2017inhibitionofthe pages 64-68)
 
 ## 7. Anatomical structures affected
 
-* **Primary metabolic organ:** liver—hepatocytes synthesize most circulating PCSK9 and clear LDL through LDLR. Suggested UBERON: liver **UBERON:0002107**.
-* **Primary injured system:** arterial tree, especially coronary arteries and aorta; carotid and peripheral arteries may also be involved. Suggested terms: artery **UBERON:0001637**, aorta **UBERON:0000947**, coronary artery **UBERON:0001621**.
-* **Secondary deposits:** Achilles and other tendons, skin, eyelids, and corneal periphery.
-* **Subcellular sites:** ER/Golgi for PCSK9 synthesis and secretion; plasma membrane for LDLR binding; endosome/lysosome for receptor degradation.
-* **Laterality:** systemic and generally bilateral/non-lateralized; coronary lesions are anatomically heterogeneous rather than predictably unilateral.
+* **Primary organ/process:** liver—hepatocytes regulate circulating LDL clearance. Suggested UBERON: **liver (UBERON:0002107)**.
+* **Primary injured system:** cardiovascular system, especially coronary arteries and aorta. Suggested UBERON: **aorta (UBERON:0000947)**, **coronary artery**, arterial wall/intima, and heart.
+* **Secondary deposition sites:** tendons and corneal periphery; usually bilateral/systemic rather than lateralized.
+* **Subcellular compartments:** endoplasmic reticulum, Golgi/trans-Golgi network, plasma membrane, endosome, late endosome, and lysosome. Corresponding GO Cellular Component annotations should include ER lumen, Golgi apparatus, cell surface, endosome, and lysosome. PCSK9’s C-terminal domain supports trafficking of the PCSK9–LDLR complex toward late endocytic compartments. (mcnutt2010characterizationofthe pages 115-119, rochemolina2015inductionofsustained pages 1-2, weider2017inhibitionofthea pages 152-156)
 
 ## 8. Temporal development
 
-The molecular phenotype begins at or before birth because the variant is constitutional, although clinical signs are often absent in childhood. LDL-C elevation is stable/chronic; arterial damage is slowly progressive and proportional to cumulative exposure. Tendon xanthomas and corneal arcus are age-dependent. Untreated clinical CAD generally emerges in adulthood, earlier in men and in severe GOF variants. The disease is lifelong, without spontaneous remission. Treatment can normalize or greatly reduce LDL-C and stabilize/regress plaque but does not remove the inherited allele. The critical intervention period is childhood or as soon after diagnosis as possible. FH guidance recommends statins around ages **8–10 years**, with pediatric targets individualized by risk. (fularski2024unveilingfamilialhypercholesterolemia—review pages 7-9)
+The biochemical phenotype begins **from birth** because the causal allele is constitutional. Clinical onset is chronic and insidious. Early-stage disease consists of isolated LDL-C elevation; intermediate disease may include arcus, tendon xanthomas, and subclinical plaque; advanced disease includes symptomatic coronary or other arterial disease. The course is lifelong and cumulative, not episodic or spontaneously remitting. Treatment can normalize or substantially reduce LDL-C and arrest or delay complications but does not eliminate the genotype. Childhood is the critical preventive window. In broader FH cohorts treated from youth, ASCVD occurred in 1% of treated offspring versus 26% of affected parents, and mortality was 0% versus 7%, supporting early intervention even though these figures are not ADH3-specific. (watts2023internationalatherosclerosissociety pages 9-10)
 
 ## 9. Inheritance and population
 
-ADH3 is autosomal dominant, affecting all sexes. Penetrance is high for LDL-C elevation but age-dependent and incompletely quantified for each variant; clinical ASCVD penetrance is incomplete because it depends on variant effect, treatment, sex, age, Lp(a), and conventional risk factors. Expressivity is variable. Anticipation and a consanguinity requirement are not expected. Homozygosity or compound genetic states can produce much more severe FH, but this is exceptionally rare.
+Inheritance is **autosomal dominant**; each child of a heterozygous affected individual has a 50% transmission probability. Penetrance for elevated LDL-C is considered high but is age-, variant-, treatment-, and threshold-dependent. Expressivity is variable, as demonstrated within the p.Arg218Ser family. Anticipation is not established. Germline mosaicism is theoretically possible but not a recognized recurrent feature; consanguinity is not required. Biallelic GOF variants or dual molecular diagnoses may cause an HoFH-like extreme phenotype. (allard2005novelmutationsof pages 3-6, watts2023internationalatherosclerosissociety pages 1-2)
 
-There is **no robust ADH3-specific prevalence or incidence estimate**. FH-wide meta-analysis of 62 studies and >7.3 million people estimated heterozygous FH prevalence at **1:311** (95% CI 1:250–1:397), about 25 million people globally, and **1:17** among ASCVD populations. (hu2020prevalenceoffamilial pages 11-11, hu2020prevalenceoffamilial pages 1-2) A separate meta-analysis estimated 0.33% (1:303), ranging from 1:192 among Black participants to 1:400 among Asian participants; these are all-gene FH estimates affected by ascertainment and founder effects and must not be assigned directly to ADH3. (toftnielsen2022familialhypercholesterolemiaprevalence pages 1-3)
+Reliable ADH3-specific prevalence, incidence, carrier frequency, sex ratio, and geographic distribution are unavailable. PCSK9 GOF variants account for about 1% of FH in a recent review and 2.3% of LDLR/APOB-negative cases in one selected 130-patient series; these are not population-prevalence estimates. General heterozygous FH prevalence is approximately 1:311, or more than 34 million people worldwide. Males and females inherit ADH3 equally, although sex and conventional risk factors may alter event timing. (allard2005novelmutationsof pages 1-3, fularski2024unveilingfamilialhypercholesterolemia—review pages 4-5, marquina2024costeffectivenessofscreening pages 1-2)
+
+Founder effects may occur for individual alleles, but no single global ADH3 founder variant was established in the retrieved evidence.
 
 ## 10. Diagnostics
 
-### Clinical evaluation
+### Clinical and biochemical assessment
 
-1. Repeat fasting or nonfasting lipid profile: total cholesterol, calculated/direct LDL-C, HDL-C, triglycerides, non-HDL-C, apoB; measure Lp(a) at least once.
-2. Document pretreatment LDL-C, premature CAD, tendon/skin xanthomas, corneal arcus, and three-generation family history.
-3. Exclude secondary hypercholesterolemia: hypothyroidism, nephrotic syndrome, cholestatic liver disease, uncontrolled diabetes, medications, and diet-related dyslipidemia.
-4. Apply a validated FH framework such as Dutch Lipid Clinic Network, Simon Broome, MEDPED, or national criteria.
-5. Assess vascular burden as clinically indicated: ECG/stress testing, coronary CT angiography or calcium assessment, carotid ultrasound, and Achilles-tendon radiography/ultrasound. Japanese 2023 guidance uses Achilles thresholds of **≥8.0 mm in men** and **≥7.5 mm in women**. (haradashiba2023guidelinesforthe pages 1-2)
+Obtain at least two fasting or nonfasting lipid profiles where feasible, documenting untreated or estimated pretreatment LDL-C. Assess family history of markedly elevated LDL-C and premature ASCVD, tendon xanthomas, corneal arcus, blood pressure, diabetes, smoking, renal/liver/thyroid status, and lipoprotein(a). Use a validated FH framework such as Dutch Lipid Clinic Network, Simon Broome, MEDPED, or a national pediatric criterion. General FH guidelines characterize the triad as hyper-LDL-cholesterolemia, premature coronary disease, and tendon/skin xanthomas. (watts2023internationalatherosclerosissociety pages 7-8, yip2023geneticspectrumand pages 5-6)
+
+Exclude secondary hypercholesterolemia: hypothyroidism, nephrotic syndrome, cholestatic liver disease, chronic kidney disease, uncontrolled diabetes, medications, and severe dietary causes. Molecular differential diagnosis includes **LDLR-related FH, APOB-related familial defective apoB, APOE p.Leu167del hypercholesterolemia, LDLRAP1-related recessive hypercholesterolemia, ABCG5/ABCG8 sitosterolemia**, polygenic hypercholesterolemia, and elevated lipoprotein(a).
 
 ### Genetic testing
 
-Preferred testing is an FH panel containing **LDLR, APOB, PCSK9, LDLRAP1**, and often APOE plus phenocopy genes **ABCG5, ABCG8, LIPA, CYP27A1**. Sequence and deletion/duplication analysis should be included. A pathogenic/likely pathogenic PCSK9 GOF variant establishes molecular ADH3 and enables targeted cascade testing. (taranto2023geneticheterogeneityof pages 1-2)
+Use an accredited NGS FH panel including at least **LDLR, APOB, PCSK9, and LDLRAP1**, with deletion/duplication analysis and additional validated genes where appropriate. A pathogenic/likely pathogenic **PCSK9 GOF** allele plus a compatible phenotype confirms ADH3. Report VUS separately and do not use one alone for predictive diagnosis. Functional evidence is unusually important because PCSK9 has both GOF and LOF alleles. Family segregation and targeted testing of relatives strengthen interpretation. (allard2005novelmutationsof pages 1-3, watts2023internationalatherosclerosissociety pages 7-8)
 
-Single-gene PCSK9 testing is appropriate when a familial variant is known. WES/WGS is useful for unresolved severe or atypical cases but is not first-line when a validated panel is available. CMA, karyotyping, FISH, mitochondrial sequencing, and repeat-expansion testing are not routine. RNA-seq may help resolve selected splice variants but is not standard diagnosis.
+Single-gene PCSK9 testing is reasonable when a familial variant is known. WES/WGS may identify deep-intronic, regulatory, or structural variants after a negative panel, but interpretation—not sequencing—is the chief limitation. RNA-seq or reporter assays remain research tools. CMA, karyotype, FISH, mitochondrial sequencing, and repeat-expansion testing are not routine.
 
-Differential diagnoses include LDLR-FH1, APOB-FH2, autosomal-recessive LDLRAP1 disease, polygenic hypercholesterolemia, sitosterolemia, cerebrotendinous xanthomatosis, lysosomal-acid-lipase deficiency, familial combined hyperlipidemia, and secondary hypercholesterolemia.
+Imaging is for complication assessment, not molecular diagnosis: coronary calcium/CT angiography may aid selected adult risk stratification; carotid ultrasound can show plaque. Routine pediatric coronary CT/calcium scoring is discouraged, whereas severe or homozygous-like presentations require specialist cardiovascular imaging. (watts2023internationalatherosclerosissociety pages 9-10)
 
-Cascade screening is a high-value real-world application. In a 2023 Hong Kong series, 31 probands plus 15 relatives were tested; cascade-detected adults had less severe phenotypes and would often have missed local testing criteria. (yip2023geneticspectrumand pages 1-2)
+### Screening implementation
 
-## 11. Outcomes and prognosis
+Cascade lipid and targeted-variant testing should begin with first-degree relatives and extend through the pedigree. Combined cascade testing and young-age universal screening could identify more than 90% of FH. Yet only about 10% of affected people worldwide are diagnosed, and over 80% of treated patients fail recommended LDL-C goals. (watts2023internationalatherosclerosissociety pages 1-2, watts2023internationalatherosclerosissociety pages 7-8)
 
-Untreated prognosis is dominated by premature CAD/MI. FH-wide historical data reported cardiac death in **73% of men and 64% of women**, with mean death age around 63 years before statins; mean age increased to 76 years after statin availability. These figures are historical FH-wide estimates, not ADH3-specific survival rates. (haradashiba2023guidelinesforthe pages 1-2)
+## 11. Outcome and prognosis
 
-Prognostic factors include cumulative untreated LDL-C, PCSK9 variant severity, age at treatment, achieved LDL-C, smoking, male sex at younger ages, diabetes, hypertension, Lp(a), and existing ASCVD. There is no validated ADH3-specific 5- or 10-year survival model. Recovery from the genotype does not occur, but cardiovascular excess risk is substantially modifiable through early sustained LDL reduction.
+Untreated prognosis is governed chiefly by cumulative LDL-C and other cardiovascular risks. General FH carries approximately tenfold higher coronary-heart-disease risk than the general population. ADH3-specific survival curves, five- or ten-year survival, disability rates, and validated prognostic models are unavailable. Severe D374Y disease and the myocardial-infarction death at age 49 in an F216L family illustrate the potential natural history but cannot define average prognosis. (fularski2024unveilingfamilialhypercholesterolemia—review pages 7-9, weider2017inhibitionofthe pages 152-156, abifadel2003mutationsinpcsk9 pages 2-2)
+
+Adverse prognostic factors include higher untreated LDL-C, earlier xanthomas, established ASCVD, smoking, hypertension, diabetes, elevated lipoprotein(a), a second FH allele, and delayed/inadequate treatment. Favorable factors are early diagnosis, sustained LDL-C goal attainment, adherence, and control of all risk factors. Recovery from an established infarction or stroke is incomplete, but plaque progression and future events are preventable.
 
 ## 12. Treatment
 
-### Current algorithm
+ADH3 should be treated as high-risk heterozygous FH, intensified for severe phenotype or established ASCVD.
 
-1. **Lifestyle and adherence support** for every patient.
-2. **High-intensity statin**—atorvastatin or rosuvastatin—as first-line therapy. Atorvastatin 80 mg can reduce LDL-C by about 50%. (damase2024establishedandemerging pages 1-3)
-3. Add **ezetimibe** if the target is not reached.
-4. Add a **PCSK9 monoclonal antibody**, alirocumab or evolocumab, in very-high-risk disease, inadequate control, or statin intolerance. These agents prevent extracellular PCSK9 from binding LDLR and lower LDL-C by up to approximately **60%**; outcome trials totaling about 46,000 high-risk participants showed roughly **15% relative cardiovascular-risk reduction** over 2.2–2.8 years. (katzmann2020pcsk9inhibitioninsights pages 1-2)
-5. Consider **inclisiran**, a hepatocyte-directed siRNA suppressing PCSK9 synthesis, or **bempedoic acid**, particularly where adherence, injection frequency, or statin intolerance is important. A 2024 systematic review reported sustained approximately **50% LDL-C reduction** with inclisiran dosed initially, at 90 days, then every six months. (rajendran2024acomparativeanalysis pages 1-2)
-6. **Lipoprotein apheresis** for severe, refractory disease or progressive ASCVD despite maximal medication.
+1. **Lifestyle and risk-factor control:** heart-healthy diet, physical activity, weight management, no smoking, and treatment of hypertension/diabetes. Lifestyle is adjunctive, not a substitute for medication.
+2. **High-intensity statin:** atorvastatin or rosuvastatin unless contraindicated. Suggested NCIT concept: HMG-CoA reductase inhibitor therapy. Statin-associated muscle symptoms occur in roughly 10–15%; rhabdomyolysis is about 1–3 per 100,000 person-years and new-onset diabetes risk rises approximately 9% in broader populations. (fularski2024unveilingfamilialhypercholesterolemia—review pages 10-12)
+3. **Add ezetimibe:** inhibits NPC1L1 intestinal cholesterol uptake; about 18% LDL-C lowering alone and about 20% additional lowering with a statin. Suggested NCIT: ezetimibe treatment. (fularski2024unveilingfamilialhypercholesterolemia—review pages 10-12)
+4. **Add PCSK9-directed treatment:** alirocumab or evolocumab antibodies typically lower LDL-C about 60%; inclisiran suppresses hepatic PCSK9 synthesis. These are mechanistically well matched to PCSK9 GOF, although no genotype-specific randomized ADH3 trial was recovered. Injection-site reactions and flu-like symptoms are typical antibody adverse effects. (jeswani2024pcsk9inhibitorsthe pages 1-3, fularski2024unveilingfamilialhypercholesterolemia—review pages 10-12)
+5. **Further options:** bempedoic acid, bile-acid sequestrants, or specialist combination therapy. Lipoprotein apheresis is reserved for exceptionally severe or refractory disease, especially biallelic/HoFH-like presentations.
 
-For very-high-risk FH with ASCVD, a commonly recommended goal is **≥50% LDL-C reduction and <55 mg/dL (<1.4 mmol/L)**. (fularski2024unveilingfamilialhypercholesterolemia—review pages 7-9)
+ESC/EAS-derived general FH goals are at least a **50% LDL-C reduction** and LDL-C below **70 mg/dL (1.8 mmol/L)** for high-risk FH without ASCVD/major risk factors, or below **55 mg/dL (1.4 mmol/L)** for very-high-risk disease. Children generally begin statins at 8–10 years; one guideline target after age 10 is below 135–140 mg/dL, adjusted to national guidance and risk. (fularski2024unveilingfamilialhypercholesterolemia—review pages 7-9)
 
-### Adverse effects and pharmacogenomics
+Relevant registered studies found by the trial search include ORION-9 inclisiran in HeFH (**NCT03397121**, phase 3, 482 participants), pediatric evolocumab (**NCT02624869**, phase 3, 163), pediatric inclisiran (**NCT06597019**, recruiting phase 3, planned 60), and alirocumab plaque-burden assessment (**NCT05465278**, phase 4, 104). These enroll phenotypic FH, not specifically ADH3, and should not be presented as genotype-specific trials.
 
-Statins may cause myalgia and rarely myopathy/rhabdomyolysis; ezetimibe is usually well tolerated. PCSK9 antibodies chiefly cause injection-site reactions. Inclisiran also causes injection-site reactions; long-term cardiovascular outcome evidence has historically lagged its LDL-lowering evidence. Bempedoic acid may increase uric acid/gout and cholelithiasis. No validated PCSK9-GOF genotype-specific drug-dose rule exists: therapy is guided by baseline risk and achieved LDL-C.
+Emerging nucleic-acid and gene-editing approaches aim to silence or permanently disrupt hepatic PCSK9. They are conceptually attractive but experimental for inherited PCSK9 GOF and raise irreversibility, off-target, delivery, and long-term safety issues. DOI for a 2024 review: https://doi.org/10.1161/CIRCULATIONAHA.123.067957; August 2024.
 
-### Trials and advanced therapeutics
-
-* **NCT05398029 (VERVE-101):** completed phase 1, open-label, 13 adults with HeFH, ASCVD, and uncontrolled LDL-C; liver-directed base editing was designed to disrupt PCSK9. This edits a therapeutic target rather than correcting the familial GOF allele itself. (NCT05398029 chunk 1)
-* **NCT02624869 (HAUSER-OLE):** 163 participants aged 10–17; evolocumab 420 mg every four weeks for up to 80 weeks. (NCT02624869 chunk 1)
-* **NCT04652726 (ORION-16):** randomized phase 3 inclisiran study in 141 adolescents with HeFH; dosing at days 1, 90, and 270 during year 1. (NCT04652726 chunk 1)
-* **NCT05465278 (ARCHITECT):** phase 4, 104 molecularly diagnosed FH participants; alirocumab 150 mg every two weeks with coronary CT plaque assessment over 18 months. (NCT05465278 chunk 1)
-
-A 2024 *Circulation* review concluded that DNA- and RNA-based therapeutics may transform FH care as formulation stability and liver-specific delivery improve, but permanent editing requires continued assessment of off-target editing, hepatic toxicity, immunogenicity, and durability. DOI: https://doi.org/10.1161/CIRCULATIONAHA.123.067957, published August 2024. (damase2024establishedandemerging pages 1-3)
-
-Suggested NCIt intervention concepts include statin therapy, ezetimibe, alirocumab, evolocumab, inclisiran, bempedoic acid, lipoprotein apheresis, genetic counseling, and therapeutic gene editing; exact NCIt codes should be validated against the current NCIt release.
+Suggested CHEBI entities include cholesterol, LDL cholesterol/esterified cholesterol, atorvastatin, rosuvastatin, ezetimibe, and bempedoic acid. Suggested NCIT intervention classes include statin therapy, cholesterol-absorption inhibitor therapy, monoclonal-antibody therapy, small-interfering-RNA therapy, and therapeutic apheresis.
 
 ## 13. Prevention
 
-* **Primary prevention of genotype:** not possible through lifestyle or vaccination. Genetic counseling, reproductive options, prenatal diagnosis, and preimplantation genetic testing may be discussed after identifying a familial pathogenic variant.
-* **Secondary prevention:** universal or targeted childhood lipid screening, opportunistic adult case finding, and cascade genetic/lipid screening. Each first-degree relative has a 50% prior probability.
-* **Tertiary prevention:** early, intensive, sustained LDL lowering; tobacco avoidance; treatment of hypertension/diabetes; antiplatelet and other secondary-ASCVD measures when otherwise indicated.
-* **Public health:** affordable lipid testing, FH registries, cascade-screening services, and access to statins/combination therapy. The World Heart Federation emphasizes universal screening for inherited dyslipidemias and life-course prevention because apoB/LDL exposure is cumulative. (ray2022worldheartfederation pages 1-2)
-* **Immunization:** no approved vaccine prevents ADH3. A PCSK9 nanoparticle vaccine remains experimental. (fang2024developmentofa pages 1-3)
+**Primary prevention of the genotype** is impossible after conception. Reproductive options following counseling include prenatal diagnosis or preimplantation genetic testing for a known familial variant; decisions must remain nondirective.
+
+**Secondary prevention** is central: childhood lipid screening, molecular confirmation, and cascade testing permit treatment before plaque develops. In a 2024 systematic review of 21 studies and 62 strategies, cascade screening was cost-effective in 78% of studies, opportunistic screening in 85%, systematic screening in 80%, and population-wide screening in 60%; cascade testing produced the greatest health benefit per person tested. DOI: https://doi.org/10.1007/s40273-023-01347-7; January 2024. (marquina2024costeffectivenessofscreening pages 1-2)
+
+**Tertiary prevention** consists of sustained LDL-C reduction, smoking avoidance, blood-pressure and diabetes control, antiplatelet therapy when otherwise indicated, cardiac rehabilitation after events, and surveillance of established ASCVD. Vaccination and antimicrobial prophylaxis are not disease-specific interventions.
 
 ## 14. Other species and natural disease
 
-PCSK9 and LDLR biology is evolutionarily conserved across mammals. No well-established common, naturally occurring veterinary counterpart caused by spontaneous PCSK9 GOF was identified. Most nonhuman evidence is engineered rather than natural disease. Therefore, breed prevalence, zoonotic transmission, and cross-species infectious susceptibility are not applicable. ADH3 is not transmissible.
+No convincing naturally occurring veterinary syndrome caused by orthologous PCSK9 GOF was identified. Therefore, breed, VBO, natural-disease prevalence, zoonotic transmission, and cross-species transmission are **not applicable/not established**. PCSK9 is evolutionarily conserved across mammals, and engineered mouse, hamster, and pig systems reproduce LDLR depletion and hypercholesterolemia. All such examples should be annotated as experimental, not spontaneous disease. (rochemolina2015inductionofsustained pages 1-2, rochemolina2015inductionofsustained pages 10-10, matiasperez2021pcsk9geneparticipates pages 2-4)
 
-Relevant taxa are *Mus musculus* (NCBI Taxonomy **10090**) and *Sus scrofa* (**9823**). Orthologous Pcsk9/PCSK9 regulates LDLR turnover in both species.
+Useful taxa include *Mus musculus* (NCBI Taxon 10090), *Mesocricetus auratus* (10036), and *Sus scrofa* (9823); ortholog identifiers should be drawn directly from current NCBI Gene/Alliance records during database curation.
 
-## 15. Model organisms
+## 15. Model organisms and experimental systems
 
-### Mouse
+* **AAV-PCSK9-D374Y mouse:** one intravenous AAV dose (3.5×10^10 viral particles) induced sustained LDL elevation in C57BL/6J, 129/Sv, and FVB mice. With high-fat diet, animals developed aortic plaques with macrophages and fibrous caps. In Apoe-null mice, D374Y doubled aortic-lesion extent despite unchanged serum cholesterol, suggesting downstream plaque effects or model interaction. DOI: https://doi.org/10.1161/ATVBAHA.114.303617; January 2015. (rochemolina2015inductionofsustained pages 1-2)
+* **Adenoviral PCSK9 models:** murine PCSK9 increased total cholesterol about twofold and non-HDL cholesterol fivefold; human PCSK9 produced approximately ninefold higher LDL-C. Similar profiles in Ldlr-null mice established LDLR dependence. (weider2017inhibitionofthe pages 61-64)
+* **Humanized BAC mice:** lines expressing approximately 95–5,000 ng/mL human PCSK9 showed expression-dependent increases in total cholesterol/apoB and reduced hepatic LDLR. (weider2017inhibitionofthe pages 152-156, weider2017inhibitionofthea pages 152-156)
+* **D374Y transgenic/viral models:** D374Y increases LDLR affinity around tenfold; some engineered mice expressed about 14 μg/mL active PCSK9. (weider2017inhibitionofthe pages 152-156)
+* **Engineered minipigs:** transgenic human PCSK9 GOF minipigs develop FH-like hypercholesterolemia and atherosclerosis, offering more human-like lipoprotein physiology than mice. The model is engineered, not natural disease. (rochemolina2015inductionofsustained pages 10-10, weider2017inhibitionofthe pages 64-68)
+* **Cell systems:** HepG2, HuH7, primary hepatocytes, fibroblasts, and fluorescent PCSK9–LDLR trafficking assays test secretion, EGF-A binding, endocytosis, and lysosomal degradation. They are valuable for ACMG functional evidence but may not reproduce lifelong whole-body disease.
 
-A single liver-targeted AAV dose expressing human **PCSK9-D374Y** in wild-type mice produced sustained LDL elevation, macrophage-rich aortic lesions, and fibrous caps, especially with high-fat feeding. The model used 3.5×10¹⁰ AAV particles and avoided lengthy genetic crosses; ApoE deficiency approximately doubled lesion burden. Published January 2015, DOI: https://doi.org/10.1161/ATVBAHA.114.303617. (rochemolina2015inductionofsustained pages 1-2)
+Major limitations are that mice lack CETP, viral overexpression may exceed physiological concentrations, liver-restricted vectors omit extrahepatic expression, and high-fat diets introduce environmental effects. BAC and large-animal models improve physiological relevance but remain costly and do not fully reproduce human coronary events. (weider2017inhibitionofthe pages 64-68)
 
-Applications include rapid atherosclerosis induction, modifier-gene testing, imaging, and therapeutic evaluation. Limitations include supraphysiologic vector expression, dietary dependence, species-specific lipoprotein metabolism, and incomplete reproduction of decades-long human disease.
+## Recent developments and principal evidence gaps
 
-### Pig/minipig
+Notable 2023–2024 developments include stronger international emphasis on combined universal/cascade screening, implementation science addressing the evidence-to-practice gap, functional study of PCSK9 3′UTR variants, methylation as a possible FH risk biomarker, wider real-world use of inclisiran and PCSK9 antibodies, and preclinical nucleic-acid/gene-editing approaches. Up to 80–90% of FH remains undiagnosed, while most treated patients remain above goal, making implementation—not merely discovery of additional drugs—a major expert priority. (otero2024functionalanalysisof pages 4-5, marquina2024costeffectivenessofscreening pages 1-2, watts2023internationalatherosclerosissociety pages 1-2)
 
-Liver-specific human PCSK9-D374Y transgenic Yucatan minipigs show hepatic LDLR depletion, hypercholesterolemia, and coronary/aortic atherosclerotic lesions. Their anatomy and lipoprotein physiology make them useful for imaging and interventional translation. However, reported models did not reliably reproduce human plaque rupture or thrombosis. (perleberg2018geneticallyengineeredpigs pages 4-4, rochemolina2015inductionofsustained pages 10-10)
+Critical ADH3-specific gaps are: population prevalence and penetrance; standardized functional classification of rare PCSK9 alleles; variant-specific response to antibodies versus inclisiran; prospective natural history; patient-reported quality of life; pregnancy outcomes; ancestry-diverse cohorts; and long-term safety of permanent PCSK9 editing.
 
-### Recent application
+### Evidence-quality note
 
-A June 2024 *Cell Reports Medicine* study used high-fat-diet and AAV-hPCSK9-D374Y mice to test a ferritin nanoparticle PCSK9 vaccine. Vaccination reduced serum lipids, aortic plaque area, and macrophage infiltration through an LDLR- and T-follicular-helper-cell-dependent mechanism. This is preclinical evidence, not an approved preventive treatment. DOI: https://doi.org/10.1016/j.xcrm.2024.101614. (fang2024developmentofa pages 1-3)
-
-## Key direct quotations from retrieved abstracts
-
-* 2023 adult guideline: “Familial hypercholesterolemia (FH) is an autosomal hereditary disorder characterized by hyperLDL cholesterolemia (LDL-C), premature coronary artery disease (CAD), and tendon and skin xanthomas.” Published May 2023; DOI: https://doi.org/10.5551/jat.CR005. (haradashiba2023guidelinesforthe pages 1-2)
-* 2022 mechanistic study: “Gain-of-function (GOF) point mutations in PCSK9 are associated with familial hypercholesterolemia.” Published September 2022; DOI: https://doi.org/10.3389/fphys.2022.960272. (sarkar2022pathogenicgainoffunctionmutations pages 1-2)
-* 2024 nucleic-acid review: “DNA- and RNA-based therapeutics have the potential to transform the care of patients with FH.” Published August 2024; DOI: https://doi.org/10.1161/CIRCULATIONAHA.123.067957. (damase2024establishedandemerging pages 1-3)
-* 2020 prevalence meta-analysis: “With an overall prevalence of 1:311, FH is among the commonest genetic disorders in the GP.” Published June 2020; DOI: https://doi.org/10.1161/CIRCULATIONAHA.119.044795. This quotation concerns all heterozygous FH, not ADH3 alone. (hu2020prevalenceoffamilial pages 1-2)
-
-## Overall assessment
-
-The evidence establishing **PCSK9 GOF as the cause of ADH3 is strong**, supported by cosegregation in human pedigrees, biochemical effects on LDLR trafficking, animal phenocopy, and the clinical success of PCSK9 inhibition. The most important unresolved knowledge-base gaps are ADH3-specific prevalence, penetrance by variant, longitudinal quality-of-life data, validated molecular-omics signatures, and comparative treatment outcomes stratified specifically by PCSK9 GOF genotype.
+The strongest ADH3 evidence comprises the 2003 discovery pedigrees, later segregation studies, and convergent LDLR-trafficking experiments. Treatment targets and most quantitative outcome estimates are extrapolated from general HeFH because ADH3-specific randomized trials are absent. PMID values were not consistently exposed in the retrieved full texts; DOI URLs and publication dates are therefore supplied where verified rather than inventing PMID mappings.
 
 References
 
-1. (OpenTargets Search: familial hypercholesterolemia-PCSK9): Open Targets Query (familial hypercholesterolemia-PCSK9, 11 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.
+1. (seidah2017thepcsk9revolution pages 3-6): Nabil G Seidah. The pcsk9 revolution and the potential of pcsk9-based therapies to reduce ldl-cholesterol. May 2017. URL: https://doi.org/10.21542/gcsp.2017.2, doi:10.21542/gcsp.2017.2. This article has 79 citations.
 
-2. (NCT05398029 chunk 1):  A Study of VERVE-101 in Patients With Familial Hypercholesterolemia and Cardiovascular Disease. Verve Therapeutics, Inc.. 2022. ClinicalTrials.gov Identifier: NCT05398029
+2. (abifadel2003mutationsinpcsk9 pages 2-2): Marianne Abifadel, Mathilde Varret, Jean-Pierre Rabès, Delphine Allard, Khadija Ouguerram, Martine Devillers, Corinne Cruaud, Suzanne Benjannet, Louise Wickham, Danièle Erlich, Aurélie Derré, Ludovic Villéger, Michel Farnier, Isabel Beucler, Eric Bruckert, Jean Chambaz, Bernard Chanu, Jean-Michel Lecerf, Gerald Luc, Philippe Moulin, Jean Weissenbach, Annick Prat, Michel Krempf, Claudine Junien, Nabil G Seidah, and Catherine Boileau. Mutations in pcsk9 cause autosomal dominant hypercholesterolemia. Nature Genetics, 34:154-156, Jun 2003. URL: https://doi.org/10.1038/ng1161, doi:10.1038/ng1161. This article has 4016 citations and is from a highest quality peer-reviewed journal.
 
-3. (cesaro2020beyondcholesterolmetabolism pages 1-2): Arturo Cesaro, Vanessa Bianconi, Felice Gragnano, Elisabetta Moscarella, Fabio Fimiani, Emanuele Monda, Olga Scudiero, Giuseppe Limongelli, Matteo Pirro, and Paolo Calabrò. Beyond cholesterol metabolism: the pleiotropic effects of proprotein convertase subtilisin/kexin type 9 (pcsk9). genetics, mutations, expression, and perspective for long‐term inhibition. BioFactors, 46:367-380, Jan 2020. URL: https://doi.org/10.1002/biof.1619, doi:10.1002/biof.1619. This article has 75 citations and is from a peer-reviewed journal.
+3. (fularski2024unveilingfamilialhypercholesterolemia—review pages 4-5): Piotr Fularski, Joanna Hajdys, Gabriela Majchrowicz, Magdalena Stabrawa, Ewelina Młynarska, Jacek Rysz, and Beata Franczyk. Unveiling familial hypercholesterolemia—review, cardiovascular complications, lipid-lowering treatment and its efficacy. International Journal of Molecular Sciences, 25:1637, Jan 2024. URL: https://doi.org/10.3390/ijms25031637, doi:10.3390/ijms25031637. This article has 30 citations.
 
-4. (abifadel2023geneticandmolecular pages 1-2): Marianne Abifadel and Catherine Boileau. Genetic and molecular architecture of familial hypercholesterolemia. Oct 2023. URL: https://doi.org/10.1111/joim.13577, doi:10.1111/joim.13577. This article has 186 citations and is from a domain leading peer-reviewed journal.
+4. (mcnutt2010characterizationofthe pages 115-119): MC McNutt. Characterization of the non-proteolytic mechanism and cellular site of action of pcsk9-mediated degradation of the low-density lipoprotein receptor. Unknown journal, 2010.
 
-5. (sarkar2022pathogenicgainoffunctionmutations pages 1-2): Samantha K. Sarkar, Angela Matyas, Ikhuosho Asikhia, Zhenkun Hu, Mia Golder, Kaitlyn Beehler, Tanja Kosenko, and Thomas A. Lagace. Pathogenic gain-of-function mutations in the prodomain and c-terminal domain of pcsk9 inhibit ldl binding. Frontiers in Physiology, Sep 2022. URL: https://doi.org/10.3389/fphys.2022.960272, doi:10.3389/fphys.2022.960272. This article has 23 citations.
+5. (weider2017inhibitionofthea pages 152-156): E Weider. Inhibition of the proprotein convertase subtilisin/kexin type 9 (pcsk9) for the treatment of familial hypercholesterolemia. Unknown journal, 2017.
 
-6. (sarkar2022pathogenicgainoffunctionmutations pages 2-3): Samantha K. Sarkar, Angela Matyas, Ikhuosho Asikhia, Zhenkun Hu, Mia Golder, Kaitlyn Beehler, Tanja Kosenko, and Thomas A. Lagace. Pathogenic gain-of-function mutations in the prodomain and c-terminal domain of pcsk9 inhibit ldl binding. Frontiers in Physiology, Sep 2022. URL: https://doi.org/10.3389/fphys.2022.960272, doi:10.3389/fphys.2022.960272. This article has 23 citations.
+6. (allard2005novelmutationsof pages 3-6): Delphine Allard, Sabine Amsellem, Marianne Abifadel, Mélanie Trillard, Martine Devillers, Gérald Luc, Michel Krempf, Yves Reznik, Jean-Philippe Girardet, Alexandre Fredenrich, Claudine Junien, Mathilde Varret, Catherine Boileau, Pascale Benlian, and Jean-Pierre Rabès. Novel mutations of the pcsk9 gene cause variable phenotype of autosomal dominant hypercholesterolemia. Human Mutation, 26:497-497, Nov 2005. URL: https://doi.org/10.1002/humu.9383, doi:10.1002/humu.9383. This article has 269 citations and is from a domain leading peer-reviewed journal.
 
-7. (rosenson2019cholesterolloweringagents. pages 5-5): Robert S. Rosenson, Robert A. Hegele, and Wolfgang Koenig. Cholesterol-lowering agents. Circulation research, 124 3:364-385, Feb 2019. URL: https://doi.org/10.1161/circresaha.118.313238, doi:10.1161/circresaha.118.313238. This article has 67 citations and is from a highest quality peer-reviewed journal.
+7. (allard2005novelmutationsof pages 1-3): Delphine Allard, Sabine Amsellem, Marianne Abifadel, Mélanie Trillard, Martine Devillers, Gérald Luc, Michel Krempf, Yves Reznik, Jean-Philippe Girardet, Alexandre Fredenrich, Claudine Junien, Mathilde Varret, Catherine Boileau, Pascale Benlian, and Jean-Pierre Rabès. Novel mutations of the pcsk9 gene cause variable phenotype of autosomal dominant hypercholesterolemia. Human Mutation, 26:497-497, Nov 2005. URL: https://doi.org/10.1002/humu.9383, doi:10.1002/humu.9383. This article has 269 citations and is from a domain leading peer-reviewed journal.
 
-8. (rosenson2019cholesterolloweringagents. pages 3-5): Robert S. Rosenson, Robert A. Hegele, and Wolfgang Koenig. Cholesterol-lowering agents. Circulation research, 124 3:364-385, Feb 2019. URL: https://doi.org/10.1161/circresaha.118.313238, doi:10.1161/circresaha.118.313238. This article has 67 citations and is from a highest quality peer-reviewed journal.
+8. (weider2017inhibitionofthe pages 152-156): E Weider. Inhibition of the proprotein convertase subtilisin/kexin type 9 (pcsk9) for the treatment of familial hypercholesterolemia. Unknown journal, 2017.
 
-9. (sundararaman2021pcsk9amultifaceted pages 2-4): Sai Sahana Sundararaman, Yvonne Döring, and Emiel P C Van Der Vorst. Pcsk9: a multi-faceted protein that is involved in cardiovascular biology. JournalArticle, Jul 2021. URL: https://doi.org/10.48350/157973, doi:10.48350/157973. This article has 80 citations.
+9. (marquina2024costeffectivenessofscreening pages 1-2): Clara Marquina, Jedidiah I Morton, Melanie Lloyd, Dina Abushanab, Yeji Baek, Tamrat Abebe, Adam Livori, Padam Dahal, Gerald F. Watts, and Zanfina Ademi. Cost-effectiveness of screening strategies for familial hypercholesterolaemia: an updated systematic review. Pharmacoeconomics, 42:373-392, Jan 2024. URL: https://doi.org/10.1007/s40273-023-01347-7, doi:10.1007/s40273-023-01347-7. This article has 24 citations and is from a domain leading peer-reviewed journal.
 
-10. (haradashiba2023guidelinesforthe pages 2-4): Mariko Harada-Shiba, Hidenori Arai, Hirotoshi Ohmura, Hiroaki Okazaki, Daisuke Sugiyama, Hayato Tada, Kazushige Dobashi, Kota Matsuki, Tetsuo Minamino, Shizuya Yamashita, and Koutaro Yokote. Guidelines for the diagnosis and treatment of adult familial hypercholesterolemia 2022. Journal of Atherosclerosis and Thrombosis, 30:558-586, May 2023. URL: https://doi.org/10.5551/jat.cr005, doi:10.5551/jat.cr005. This article has 108 citations and is from a peer-reviewed journal.
+10. (watts2023internationalatherosclerosissociety pages 7-8): Gerald F. Watts, Samuel S. Gidding, Robert A. Hegele, Frederick J. Raal, Amy C. Sturm, Laney K. Jones, Mitchell N. Sarkies, Khalid Al-Rasadi, Dirk J. Blom, Magdalena Daccord, Sarah D. de Ferranti, Emanuela Folco, Peter Libby, Pedro Mata, Hapizah M. Nawawi, Uma Ramaswami, Kausik K. Ray, Claudia Stefanutti, Shizuya Yamashita, Jing Pang, Gilbert R. Thompson, and Raul D. Santos. International atherosclerosis society guidance for implementing best practice in the care of familial hypercholesterolaemia. Nature Reviews Cardiology, 20:845-869, Jun 2023. URL: https://doi.org/10.1038/s41569-023-00892-0, doi:10.1038/s41569-023-00892-0. This article has 300 citations and is from a domain leading peer-reviewed journal.
 
-11. (fularski2024unveilingfamilialhypercholesterolemia—review pages 1-2): Piotr Fularski, Joanna Hajdys, Gabriela Majchrowicz, Magdalena Stabrawa, Ewelina Młynarska, Jacek Rysz, and Beata Franczyk. Unveiling familial hypercholesterolemia—review, cardiovascular complications, lipid-lowering treatment and its efficacy. International Journal of Molecular Sciences, 25:1637, Jan 2024. URL: https://doi.org/10.3390/ijms25031637, doi:10.3390/ijms25031637. This article has 30 citations.
+11. (yip2023geneticspectrumand pages 5-6): Man-Kwan Yip, Elaine Kwan, Jenny Leung, Emmy Lau, and Wing-Tat Poon. Genetic spectrum and cascade screening of familial hypercholesterolemia in routine clinical setting in hong kong. Nov 2023. URL: https://doi.org/10.3390/genes14112071, doi:10.3390/genes14112071. This article has 6 citations.
 
-12. (fularski2024unveilingfamilialhypercholesterolemia—review pages 7-9): Piotr Fularski, Joanna Hajdys, Gabriela Majchrowicz, Magdalena Stabrawa, Ewelina Młynarska, Jacek Rysz, and Beata Franczyk. Unveiling familial hypercholesterolemia—review, cardiovascular complications, lipid-lowering treatment and its efficacy. International Journal of Molecular Sciences, 25:1637, Jan 2024. URL: https://doi.org/10.3390/ijms25031637, doi:10.3390/ijms25031637. This article has 30 citations.
+12. (fularski2024unveilingfamilialhypercholesterolemia—review pages 10-12): Piotr Fularski, Joanna Hajdys, Gabriela Majchrowicz, Magdalena Stabrawa, Ewelina Młynarska, Jacek Rysz, and Beata Franczyk. Unveiling familial hypercholesterolemia—review, cardiovascular complications, lipid-lowering treatment and its efficacy. International Journal of Molecular Sciences, 25:1637, Jan 2024. URL: https://doi.org/10.3390/ijms25031637, doi:10.3390/ijms25031637. This article has 30 citations.
 
-13. (haradashiba2023guidelinesforthe pages 1-2): Mariko Harada-Shiba, Hidenori Arai, Hirotoshi Ohmura, Hiroaki Okazaki, Daisuke Sugiyama, Hayato Tada, Kazushige Dobashi, Kota Matsuki, Tetsuo Minamino, Shizuya Yamashita, and Koutaro Yokote. Guidelines for the diagnosis and treatment of adult familial hypercholesterolemia 2022. Journal of Atherosclerosis and Thrombosis, 30:558-586, May 2023. URL: https://doi.org/10.5551/jat.cr005, doi:10.5551/jat.cr005. This article has 108 citations and is from a peer-reviewed journal.
+13. (fularski2024unveilingfamilialhypercholesterolemia—review pages 7-9): Piotr Fularski, Joanna Hajdys, Gabriela Majchrowicz, Magdalena Stabrawa, Ewelina Młynarska, Jacek Rysz, and Beata Franczyk. Unveiling familial hypercholesterolemia—review, cardiovascular complications, lipid-lowering treatment and its efficacy. International Journal of Molecular Sciences, 25:1637, Jan 2024. URL: https://doi.org/10.3390/ijms25031637, doi:10.3390/ijms25031637. This article has 30 citations.
 
-14. (yip2023geneticspectrumand pages 1-2): Man-Kwan Yip, Elaine Kwan, Jenny Leung, Emmy Lau, and Wing-Tat Poon. Genetic spectrum and cascade screening of familial hypercholesterolemia in routine clinical setting in hong kong. Genes, 14:2071, Nov 2023. URL: https://doi.org/10.3390/genes14112071, doi:10.3390/genes14112071. This article has 6 citations.
+14. (watts2023internationalatherosclerosissociety pages 1-2): Gerald F. Watts, Samuel S. Gidding, Robert A. Hegele, Frederick J. Raal, Amy C. Sturm, Laney K. Jones, Mitchell N. Sarkies, Khalid Al-Rasadi, Dirk J. Blom, Magdalena Daccord, Sarah D. de Ferranti, Emanuela Folco, Peter Libby, Pedro Mata, Hapizah M. Nawawi, Uma Ramaswami, Kausik K. Ray, Claudia Stefanutti, Shizuya Yamashita, Jing Pang, Gilbert R. Thompson, and Raul D. Santos. International atherosclerosis society guidance for implementing best practice in the care of familial hypercholesterolaemia. Nature Reviews Cardiology, 20:845-869, Jun 2023. URL: https://doi.org/10.1038/s41569-023-00892-0, doi:10.1038/s41569-023-00892-0. This article has 300 citations and is from a domain leading peer-reviewed journal.
 
-15. (damase2024establishedandemerging pages 1-3): Tulsi R. Damase, Roman Sukhovershin, Biana Godin, Khurram Nasir, and John P. Cooke. Established and emerging nucleic acid therapies for familial hypercholesterolemia. Circulation, 150:724-735, Aug 2024. URL: https://doi.org/10.1161/circulationaha.123.067957, doi:10.1161/circulationaha.123.067957. This article has 8 citations and is from a highest quality peer-reviewed journal.
+15. (rochemolina2015inductionofsustained pages 1-2): Marta Roche-Molina, David Sanz-Rosa, Francisco M. Cruz, Jaime García-Prieto, Sergio López, Rocío Abia, Francisco J.G. Muriana, Valentín Fuster, Borja Ibáñez, and Juan A. Bernal. Induction of sustained hypercholesterolemia by single adeno-associated virus–mediated gene transfer of mutant hpcsk9. Arteriosclerosis, Thrombosis, and Vascular Biology, 35:50–59, Jan 2015. URL: https://doi.org/10.1161/atvbaha.114.303617, doi:10.1161/atvbaha.114.303617. This article has 234 citations and is from a domain leading peer-reviewed journal.
 
-16. (katzmann2020pcsk9inhibitioninsights pages 1-2): Julius L. Katzmann, Ioanna Gouni-Berthold, and Ulrich Laufs. Pcsk9 inhibition: insights from clinical trials and future prospects. Frontiers in Physiology, Nov 2020. URL: https://doi.org/10.3389/fphys.2020.595819, doi:10.3389/fphys.2020.595819. This article has 103 citations.
+16. (rochemolina2015inductionofsustained pages 10-10): Marta Roche-Molina, David Sanz-Rosa, Francisco M. Cruz, Jaime García-Prieto, Sergio López, Rocío Abia, Francisco J.G. Muriana, Valentín Fuster, Borja Ibáñez, and Juan A. Bernal. Induction of sustained hypercholesterolemia by single adeno-associated virus–mediated gene transfer of mutant hpcsk9. Arteriosclerosis, Thrombosis, and Vascular Biology, 35:50–59, Jan 2015. URL: https://doi.org/10.1161/atvbaha.114.303617, doi:10.1161/atvbaha.114.303617. This article has 234 citations and is from a domain leading peer-reviewed journal.
 
-17. (rajendran2024acomparativeanalysis pages 1-2): Yazhini Rajendran, Madhumita Nandhakumar, Madhavi Eerike, Nikhila Kondampati, Kalpana Mali, Leo F Chalissery, Venu Gopala R Konda, and Uma Maheswari Nagireddy. A comparative analysis of low-density lipoprotein cholesterol (ldl-c)-lowering activities of bempedoic acid, inclisiran, and pcsk9 inhibitors: a systematic review. Cureus, Sep 2024. URL: https://doi.org/10.7759/cureus.69900, doi:10.7759/cureus.69900. This article has 6 citations.
+17. (mcnutt2010characterizationofthea pages 115-119): MC McNutt. Characterization of the non-proteolytic mechanism and cellular site of action of pcsk9-mediated degradation of the low-density lipoprotein receptor. Unknown journal, 2010.
 
-18. (hu2020prevalenceoffamilial pages 11-11): Pengwei Hu, Kanika I. Dharmayat, Christophe A.T. Stevens, Mansour T.A. Sharabiani, Rebecca S. Jones, Gerald F. Watts, Jacques Genest, Kausik K. Ray, and Antonio J. Vallejo-Vaz. Prevalence of familial hypercholesterolemia among the general population and patients with atherosclerotic cardiovascular disease. Circulation, 141:1742-1759, Jun 2020. URL: https://doi.org/10.1161/circulationaha.119.044795, doi:10.1161/circulationaha.119.044795. This article has 669 citations and is from a highest quality peer-reviewed journal.
+18. (otero2024functionalanalysisof pages 4-5): Javier Sanguino Otero, Carmen Rodríguez-Jiménez, Jose Mostaza Prieto, Carlos Rodríguez-Antolín, Ana Carazo Alvarez, Francisco Arrieta Blanco, and Sonia Rodríguez-Nóvoa. Functional analysis of 3′utr variants at the ldlr and pcsk9 genes in patients with familial hypercholesterolemia. Human Mutation, 2024:1-15, Feb 2024. URL: https://doi.org/10.1155/2024/9964734, doi:10.1155/2024/9964734. This article has 3 citations and is from a domain leading peer-reviewed journal.
 
-19. (hu2020prevalenceoffamilial pages 1-2): Pengwei Hu, Kanika I. Dharmayat, Christophe A.T. Stevens, Mansour T.A. Sharabiani, Rebecca S. Jones, Gerald F. Watts, Jacques Genest, Kausik K. Ray, and Antonio J. Vallejo-Vaz. Prevalence of familial hypercholesterolemia among the general population and patients with atherosclerotic cardiovascular disease. Circulation, 141:1742-1759, Jun 2020. URL: https://doi.org/10.1161/circulationaha.119.044795, doi:10.1161/circulationaha.119.044795. This article has 669 citations and is from a highest quality peer-reviewed journal.
+19. (matiasperez2021pcsk9geneparticipates pages 2-4): D. MATÍAS-PÉREZ, A. PÉREZ-SANTIAGO, M. S. Sánchez Medina, JJ Alpuche Osorno, and I. GARCÍA-MONTALVO. Pcsk9 gene participates in the development of primary dyslipidemias. Balkan Journal of Medical Genetics : BJMG, 24:5-14, Jun 2021. URL: https://doi.org/10.2478/bjmg-2021-0009, doi:10.2478/bjmg-2021-0009. This article has 9 citations.
 
-20. (toftnielsen2022familialhypercholesterolemiaprevalence pages 1-3): Frida Toft-Nielsen, Frida Emanuelsson, and Marianne Benn. Familial hypercholesterolemia prevalence among ethnicities—systematic review and meta-analysis. Frontiers in Genetics, Feb 2022. URL: https://doi.org/10.3389/fgene.2022.840797, doi:10.3389/fgene.2022.840797. This article has 65 citations and is from a peer-reviewed journal.
+20. (weider2017inhibitionofthe pages 64-68): E Weider. Inhibition of the proprotein convertase subtilisin/kexin type 9 (pcsk9) for the treatment of familial hypercholesterolemia. Unknown journal, 2017.
 
-21. (taranto2023geneticheterogeneityof pages 1-2): Maria Donata Di Taranto and Giuliana Fortunato. Genetic heterogeneity of familial hypercholesterolemia: repercussions for molecular diagnosis. International Journal of Molecular Sciences, 24:3224, Feb 2023. URL: https://doi.org/10.3390/ijms24043224, doi:10.3390/ijms24043224. This article has 52 citations.
+21. (watts2023internationalatherosclerosissociety pages 9-10): Gerald F. Watts, Samuel S. Gidding, Robert A. Hegele, Frederick J. Raal, Amy C. Sturm, Laney K. Jones, Mitchell N. Sarkies, Khalid Al-Rasadi, Dirk J. Blom, Magdalena Daccord, Sarah D. de Ferranti, Emanuela Folco, Peter Libby, Pedro Mata, Hapizah M. Nawawi, Uma Ramaswami, Kausik K. Ray, Claudia Stefanutti, Shizuya Yamashita, Jing Pang, Gilbert R. Thompson, and Raul D. Santos. International atherosclerosis society guidance for implementing best practice in the care of familial hypercholesterolaemia. Nature Reviews Cardiology, 20:845-869, Jun 2023. URL: https://doi.org/10.1038/s41569-023-00892-0, doi:10.1038/s41569-023-00892-0. This article has 300 citations and is from a domain leading peer-reviewed journal.
 
-22. (NCT05465278 chunk 1):  Alirocumab and Plaque Burden In Familial Hypercholesterolaemia. Fundación Hipercolesterolemia Familiar. 2018. ClinicalTrials.gov Identifier: NCT05465278
+22. (jeswani2024pcsk9inhibitorsthe pages 1-3): Bijay Mukesh Jeswani, Shubhangi Sharma, Sawai Singh Rathore, Abubakar Nazir, Rohit Bhatheja, and Kapil Kapoor. Pcsk9 inhibitors: the evolving future. Health Science Reports, Oct 2024. URL: https://doi.org/10.1002/hsr2.70174, doi:10.1002/hsr2.70174. This article has 44 citations and is from a peer-reviewed journal.
 
-23. (NCT02624869 chunk 1):  Safety, Tolerability and Efficacy of Evolocumab (AMG 145) in Children With Inherited Elevated Low-density Lipoprotein Cholesterol (Familial Hypercholesterolemia). Amgen. 2016. ClinicalTrials.gov Identifier: NCT02624869
-
-24. (NCT04652726 chunk 1):  Study to Evaluate Efficacy and Safety of Inclisiran in Adolescents With Heterozygous Familial Hypercholesterolemia. Novartis Pharmaceuticals. 2021. ClinicalTrials.gov Identifier: NCT04652726
-
-25. (rochemolina2015inductionofsustained pages 1-2): Marta Roche-Molina, David Sanz-Rosa, Francisco M. Cruz, Jaime García-Prieto, Sergio López, Rocío Abia, Francisco J.G. Muriana, Valentín Fuster, Borja Ibáñez, and Juan A. Bernal. Induction of sustained hypercholesterolemia by single adeno-associated virus–mediated gene transfer of mutant hpcsk9. Arteriosclerosis, Thrombosis, and Vascular Biology, 35:50–59, Jan 2015. URL: https://doi.org/10.1161/atvbaha.114.303617, doi:10.1161/atvbaha.114.303617. This article has 233 citations and is from a domain leading peer-reviewed journal.
-
-26. (perleberg2018geneticallyengineeredpigs pages 4-4): Carolin Perleberg, Alexander Kind, and Angelika Schnieke. Genetically engineered pigs as models for human disease. Disease Models & Mechanisms, Jan 2018. URL: https://doi.org/10.1242/dmm.030783, doi:10.1242/dmm.030783. This article has 257 citations and is from a domain leading peer-reviewed journal.
-
-27. (fang2024developmentofa pages 1-3): Qiannan Fang, Xinyu Lu, Yuanqiang Zhu, Xi Lv, Fei Yu, Xiancai Ma, Bingfeng Liu, and Hui Zhang. Development of a pcsk9-targeted nanoparticle vaccine to effectively decrease the hypercholesterolemia. Cell Reports Medicine, 5:101614, Jun 2024. URL: https://doi.org/10.1016/j.xcrm.2024.101614, doi:10.1016/j.xcrm.2024.101614. This article has 32 citations and is from a peer-reviewed journal.
-
-28. (katsuki2024theroleof pages 7-7): Shunsuke Katsuki, Prabhash Kumar Jha, Elena Aikawa, and Masanori Aikawa. The role of proprotein convertase subtilisin/kexin 9 (pcsk9) in macrophage activation: a focus on its ldl receptor-independent mechanisms. Frontiers in Cardiovascular Medicine, Aug 2024. URL: https://doi.org/10.3389/fcvm.2024.1431398, doi:10.3389/fcvm.2024.1431398. This article has 14 citations and is from a peer-reviewed journal.
-
-29. (taranto2023geneticheterogeneityof pages 2-4): Maria Donata Di Taranto and Giuliana Fortunato. Genetic heterogeneity of familial hypercholesterolemia: repercussions for molecular diagnosis. International Journal of Molecular Sciences, 24:3224, Feb 2023. URL: https://doi.org/10.3390/ijms24043224, doi:10.3390/ijms24043224. This article has 52 citations.
-
-30. (ray2022worldheartfederation pages 1-2): Kausik K. Ray, Brian A. Ference, Tania Séverin, Dirk Blom, Stephen J. Nicholls, Mariko H. Shiba, Wael Almahmeed, Rodrigo Alonso, Magdalena Daccord, Marat Ezhov, Rosa Fernández Olmo, Piotr Jankowski, Fernando Lanas, Roopa Mehta, Raman Puri, Nathan D. Wong, David Wood, Dong Zhao, Samuel S. Gidding, Salim S. Virani, Donald Lloyd-Jones, Fausto Pinto, Pablo Perel, and Raul D. Santos. World heart federation cholesterol roadmap 2022. Global Heart, 17:75, Oct 2022. URL: https://doi.org/10.5334/gh.1154, doi:10.5334/gh.1154. This article has 189 citations and is from a peer-reviewed journal.
-
-31. (katsuki2024theroleof pages 1-2): Shunsuke Katsuki, Prabhash Kumar Jha, Elena Aikawa, and Masanori Aikawa. The role of proprotein convertase subtilisin/kexin 9 (pcsk9) in macrophage activation: a focus on its ldl receptor-independent mechanisms. Frontiers in Cardiovascular Medicine, Aug 2024. URL: https://doi.org/10.3389/fcvm.2024.1431398, doi:10.3389/fcvm.2024.1431398. This article has 14 citations and is from a peer-reviewed journal.
-
-32. (rochemolina2015inductionofsustained pages 10-10): Marta Roche-Molina, David Sanz-Rosa, Francisco M. Cruz, Jaime García-Prieto, Sergio López, Rocío Abia, Francisco J.G. Muriana, Valentín Fuster, Borja Ibáñez, and Juan A. Bernal. Induction of sustained hypercholesterolemia by single adeno-associated virus–mediated gene transfer of mutant hpcsk9. Arteriosclerosis, Thrombosis, and Vascular Biology, 35:50–59, Jan 2015. URL: https://doi.org/10.1161/atvbaha.114.303617, doi:10.1161/atvbaha.114.303617. This article has 233 citations and is from a domain leading peer-reviewed journal.
+23. (weider2017inhibitionofthe pages 61-64): E Weider. Inhibition of the proprotein convertase subtilisin/kexin type 9 (pcsk9) for the treatment of familial hypercholesterolemia. Unknown journal, 2017.
 
 ## Artifacts
 
@@ -1267,15 +1241,26 @@ Checked with `linkml-reference-validator` 0.2.1.
 
 | Outcome | Count |
 | --- | --- |
-| References checked | 24 |
-| Resolved | 24 |
+| References checked | 13 |
+| Resolved | 13 |
 | Unresolved (possible confabulation) | 0 |
 | Unverifiable | 0 |
-| Quoted claims checked | 1 |
-| Quoted claims found in source | 1 |
-| Quoted claims **not** found in source | 0 |
-| References weighed for topical relevance | 24 |
-| On topic | 12 |
+| References weighed for topical relevance | 13 |
+| On topic | 6 |
 | Off topic | 0 |
 
 All extracted references resolved successfully.
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 13 |
+| Resolved | 12 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 0 |
+| Unverifiable | 1 |
+
+12 of 13 terms resolved to a current term; the rest could not be looked up either way.

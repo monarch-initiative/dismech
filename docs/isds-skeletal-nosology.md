@@ -184,6 +184,9 @@ trichorhinophalangeal dysplasia types 1/3 and Langer-Giedion, which left the
 acromelic group for *Brachydactylies as part of syndromes*). A full
 re-transcription against the 2023 table — 774 rows, already extracted — is
 outstanding, as is re-verifying the existing per-entry assignments against it.
+**Group 21 is the first group completed**: its description lists the actual 35
+rows of the 2023 table and every dismech assignment to it cites a 2023 row —
+see [Group 21](#group-21--verified-against-the-2023-table).
 
 ## How to assign it
 
@@ -238,6 +241,8 @@ cite a group by *name and revision*, never by a bare number.)
 | Acrodysostosis (PRKAR1A, PDE4D) | 17 acromelic dysplasias | 28 PTH signaling — see below |
 | Albright hereditary osteodystrophy (GNAS) | 17 acromelic dysplasias | 28 PTH signaling; or the brachydactyly group, where the 2019 revision listed it as "Pseudohypoparathyroidism type IA" (2019 group 38, whose 2023 successor is group 19) |
 | Meier-Gorlin syndrome (ORC1, ORC4, ORC6, CDT1, CDC6, GMNN, CDC45, MCM3/5/7, GINS2) | 21 primordial dwarfism and slender bones | 37 patellar dysostoses — the disorder's own name begins "ear-patella" |
+| Seckel syndrome (ATR, RBBP8, CEP152, DNA2, TRAIP, NSMCE2) | 21 primordial dwarfism and slender bones | *not listed at all* — the 2023 table contains no row named "Seckel" |
+| Lowry-Wood syndrome (RNU4ATAC) | 9 pseudoachondroplasia and multiple epiphyseal dysplasias | 21 primordial dwarfism and slender bones, where the 2019 revision listed it |
 
 The Meier-Gorlin row is the strongest *name-based* trap in the set. The 2019
 revision called it ear-patella-short stature syndrome, so the patellar
@@ -247,6 +252,26 @@ syndrome" is the tell. Group 37 holds only ischiopatellar dysplasia (TBX4),
 nail-patella syndrome (LMX1B), and genitopatellar syndrome (KAT6B). Both the
 group 21 and group 37 enum descriptions state the placement explicitly, in
 both directions.
+
+The Seckel row is the strongest *absence-based* trap, and it is a direct
+consequence of dyadic naming. Searching the 2023 table for "Seckel" returns
+nothing — but Seckel syndrome is in the nosology, six times over, rewritten as
+`Microcephalic osteodysplastic primordial dwarfism, <GENE>-related`. The rows
+are identifiable only by gene and OMIM number: ATR (210600, SCKL1), RBBP8
+(606744, SCKL2), CEP152 (613823, SCKL5), DNA2 (615807, SCKL8), TRAIP (616777,
+SCKL9), NSMCE2 (617253, SCKL10). Read a name miss as a naming artefact and
+check the OMIM column before concluding the committee declined to list an
+entity. The same renaming hides the XRCC4 row (616541), which is the entity
+published as *short stature, microcephaly and endocrine dysfunction* (SSMED).
+
+The Lowry-Wood row is a move in the opposite direction from Meier-Gorlin's. The
+2019 revision listed it in the primordial dwarfism and slender bones group; the
+2023 revision moved it to group 9 as `NOS 09-0110 Multiple epiphyseal dysplasia
+with microcephaly and nystagmus (Lowry-Wood syndrome), RNU4ATAC-related` (OMIM
+226960). RNU4ATAC therefore spans two groups — MOPD I/III and Roifman syndrome
+in group 21, Lowry-Wood in group 9 — so for this gene the shared molecular cause
+does not settle placement, and a 2019-derived assignment carried forward
+unchecked lands in the wrong group.
 
 The GNAS row is a rename *and* a move, which makes it easy to miss: OMIM 103580
 appears in the 2019 revision as `Pseudohypoparathyroidism type IA` in group 38
@@ -287,6 +312,77 @@ Blomstrand dysplasia, Eiken dysplasia, PTHLH brachydactyly and osteolysis).
 Reasoning from mechanism to placement is exactly the inference this axis must
 not make: the nosology is a transcription of expert placement, not a derivation
 from pathway.
+
+### Group 21 — verified against the 2023 table
+
+Group 21 (primordial dwarfism and slender bone dysplasias) has been fully
+re-transcribed from the 2023 Table 1: **35 rows, `NOS 21-0010` through
+`NOS 21-0350`**. The enum description now lists that membership rather than the
+2019-derived exemplars, and every dismech assignment to the group cites a 2023
+row.
+
+| Row(s) | dismech entry |
+|---|---|
+| `NOS 21-0080` MOPD, RNU4ATAC-related (210710) | `Microcephalic_Osteodysplastic_Primordial_Dwarfism_Type_I` |
+| `NOS 21-0090` Roifman syndrome, RNU4ATAC-related (616651) | `Roifman-syndrome` |
+| `NOS 21-0100` MOPD, PCNT-related (210720) | `Microcephalic_Osteodysplastic_Primordial_Dwarfism_Type_II` |
+| `NOS 21-0110`/`0120`/`0130`/`0140`/`0150`/`0160` (the six Seckel rows) | `Seckel_Syndrome` |
+| `NOS 21-0190` MOPD, XRCC4-related (616541) | `Short_Stature_Microcephaly_and_Endocrine_Dysfunction` |
+| `NOS 21-0250`–`0350` Meier-Gorlin, eleven pre-RC genes | `Meier-Gorlin_Syndrome` |
+| `NOS 21-0010`/`0020`/`0030` 3-M syndrome, three genes | `3-M_Syndrome` |
+| `NOS 21-0040` Sanjad-Sakati (TBCE, 241410) | `Sanjad-Sakati_Syndrome` |
+| `NOS 21-0050` + `21-0060` dominant Kenny-Caffey and osteocraniostenosis (FAM111A) | `FAM111A-Related_Skeletal_Dysplasia` |
+| `NOS 21-0070` Hallermann-Streiff (234100) | `Hallermann-Streiff_Syndrome` |
+| `NOS 21-0200` DONSON spectrum (251230, 617604) | `DONSON-Related_Microcephalic_Primordial_Dwarfism` |
+| `NOS 21-0210` IMAGe (CDKN1C, 614732) | `IMAGe_Syndrome` |
+| `NOS 21-0220` IMAGe/FILS (POLE, 618336, 615139) | `FILS_Syndrome` |
+| `NOS 21-0230` Saul-Wilson (COG4, 618150) | `Saul-Wilson_Syndrome` |
+| `NOS 21-0240` SCUBE3 syndrome (619184) | `SCUBE3-Related_Short_Stature_Syndrome` |
+
+**34 of the group's 35 rows are now curated.** The nine entries below the
+Meier-Gorlin line were written in this pass; their stubs are deleted.
+
+One row is not stubbed: `NOS 21-0180`, MOPD CRIPT-related (OMIM 615789). Its
+OMIM number *does* resolve in MONDO — to `MONDO:0014347`, labelled **Rothmund-
+Thomson syndrome type 3**, with "short stature with microcephaly and distinctive
+facies" carried as a synonym. That is a disagreement between two sources about
+what OMIM 615789 denotes, not a missing identifier, and seeding a stub against
+that term would import the disagreement silently. Recorded here instead, pending
+someone resolving it.
+
+**Lumping and splitting.** The nosology splits this group by gene, dismech does
+not, and the difference is deliberate on both sides. Three dismech entries are
+*broader* than the rows they cite and say so in their `notes:`:
+
+- `Seckel_Syndrome` is the Seckel umbrella, covering six rows at once, and also
+  curates CENPJ (SCKL4, OMIM 613676) and RTTN, which appear nowhere in the 2023
+  table. Splitting it into six gene-specific dismech entries would track the
+  nosology's naming rather than the clinical entity, and would strand the two
+  unlisted genes.
+- `Meier-Gorlin_Syndrome` covers eleven rows plus DONSON, whose Meier-Gorlin
+  association postdates the table; DONSON is listed separately at `NOS 21-0200`,
+  in the same group, so the single-valued assignment still holds.
+- `Microcephalic_Osteodysplastic_Primordial_Dwarfism_Type_I` covers MOPD I and
+  the historically separate MOPD III, which the committee also lumps into one
+  row.
+
+Only `Roifman-syndrome` and the XRCC4/SSMED entry are 1:1 with a single row.
+That MOPD I, MOPD II and Roifman syndrome are three dismech files rather than
+one RNU4ATAC/PCNT umbrella follows the committee, which lists them as distinct
+entities despite two of them sharing a gene.
+
+**Deliberate non-assignments.** Four dismech entries sit close enough to this
+group to be proposed for it, and each is left unassigned on purpose:
+
+| Entry | Why not group 21 |
+|---|---|
+| `Autosomal_Recessive_Primary_Microcephaly` | MCPH is not in the nosology as an entity. Exactly one of its genes, CENPE, has a row (`NOS 21-0170`, OMIM 616051 = MCPH13), under an MOPD name. A gene-level overlap does not make an umbrella entry "an unambiguous subtype or synonym of a listed disorder", which is the bar rule 2 sets. |
+| `Warsaw_breakage_syndrome` | DDX11 appears nowhere in the 2023 table. |
+| `Silver_Russell_Syndrome` | Shares CDKN1C with the IMAGe row (`NOS 21-0210`), but SRS is a different entity and is not listed. |
+| `Isolated_Growth_Hormone_Deficiency_Type_IA` | Its own entry notes that older literature called it a form of primordial dwarfism. That is a historical label for a GH1 endocrine deficiency, not a nosology placement, and the committee does not list it. |
+
+As with `Pseudopseudohypoparathyroidism` elsewhere in this axis, these are
+recorded rather than silently skipped, so nobody re-proposes them.
 
 ## Relationship to other classification axes
 

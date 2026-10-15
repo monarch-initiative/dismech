@@ -5,6 +5,12 @@ audit sessions. They replace the old pattern of colocating
 `*.history.yaml` files beside KB entries and avoid putting provenance inside the
 KB object itself.
 
+Browse these records in the
+[curation history dashboard](https://monarch-initiative.github.io/dismech-history/).
+It shows activity over time with filters for agent tool, model, event type,
+outcome, and section, and links back to the source records. The dashboard
+refreshes daily from this repository through GitHub Actions.
+
 Store new history files outside `kb/`:
 
 ```text

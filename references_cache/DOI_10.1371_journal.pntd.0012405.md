@@ -85,7 +85,7 @@ AffiliationDepartment of Epidemiology and Biostatistics, Key Laboratory of Zoono
 
 * E-mail:zhenqing@jlu.edu.cn(QZ);67637539@qq.com(TS)
 
-AffiliationsDepartment of Epidemiology and Biostatistics, Key Laboratory of Zoonosis, Ministry of Education, School of Public Health, Jilin University, Changchun, Jilin, PR China, 
+AffiliationsDepartment of Epidemiology and Biostatistics, Key Laboratory of Zoonosis, Ministry of Education, School of Public Health, Jilin University, Changchun, Jilin, PR China,
     State Key Laboratory for Diagnosis and Treatment of Severe Zoonotic Infectious Diseases, Changchun, China
 
 https://orcid.org/0000-0002-2816-4539
@@ -106,7 +106,7 @@ Brucellosis, with nearly 500,000 new cases outbreak in more than 170 countries o
 
 Citation:Huang S, Xu J, Wang H, Li Z, Song R, Zhang Y, et al.  (2024) Updated therapeutic options for human brucellosis: A systematic review and network meta-analysis of randomized controlled trials. PLoS Negl Trop Dis 18(8):
            e0012405.
-        
+
         https://doi.org/10.1371/journal.pntd.0012405
 
 Editor:David Joseph Diemert, George Washington University School of Medicine and Health Sciences, UNITED STATES OF AMERICA

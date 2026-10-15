@@ -14,7 +14,7 @@ Prefix                  Resolver
 ``geo``                 NCBI E-utilities ``gds`` (GSE/GDS/GPL/GSM)
 ``sra``                 NCBI E-utilities ``sra`` (SRP/SRR/SRX/SRS/ERP/ERR/DRP)
 ``bioproject``          NCBI E-utilities ``bioproject`` (PRJNA/PRJEB/PRJDB)
-``dbgap``               NCBI E-utilities ``gap`` (phs######)
+``dbgap``               dbGaP FHIR ``ResearchStudy`` (phs######)
 ``arrayexpress``        EBI BioStudies (E-MTAB-####, E-GEOD-####)
 ``scea``                EBI Single Cell Expression Atlas (E-####-####)
 ``pride``               EBI PRIDE (PXD######)
@@ -23,6 +23,7 @@ Prefix                  Resolver
 ``osdr`` / ``nasa_osdr``NASA OSDR (OSD-###)
 ``massive``             MassIVE (MSV#########)
 ``mgnify``              EBI MGnify (MGYS########)
+``immport``             ImmPort public study search (SDY####)
 ======================  =============================================
 
 Accessions whose prefix is a literature identifier (``PMID``, ``DOI``) or a
@@ -44,13 +45,30 @@ Usage
     # fail the process when anything is NOT_FOUND (for CI / batch gating)
     uv run python scripts/verify_dataset_accessions.py --all --strict
 
-Results are cached in ``cache/dataset_accessions.json`` so repeat runs and CI do
-not re-hit the public APIs. Use ``--refresh`` to bypass the cache.
+Where results are cached
+------------------------
+For a prefix that ``linkml-reference-validator`` can fetch (currently ``geo``),
+verification and caching are the *same* operation: this script asks the
+reference fetcher for the record, which writes ``references_cache/GEO_<ID>.md``
+-- one file per dataset, exactly as a PMID is cached. A cache file present means
+the accession resolved; commit it alongside the ``datasets:`` block. Every later
+run, and CI, then verify offline.
+
+Prefixes with no reference fetcher yet (EGA, MassIVE, dbGaP, ...) still resolve
+against the repository API on every run and are not persisted. Migrating one
+means giving it a fetcher and adding it to ``REFERENCE_CACHED_PREFIXES``.
+
+This deliberately replaces the old shared ``cache/dataset_accessions`` JSON
+blob, which every curation PR rewrote in full and which therefore collided
+between PRs. That file is deleted: nothing reads or writes it any more, and
+``test_no_automation_touches_the_frozen_dataset_cache`` keeps it that way. Do
+not restore it.
 """
 
 from __future__ import annotations
 
 import argparse
+import codecs
 import datetime as dt
 import html
 import json
@@ -68,10 +86,26 @@ from typing import Any
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-CACHE_PATH = REPO_ROOT / "cache" / "dataset_accessions.json"
+REFERENCE_CACHE_DIR = REPO_ROOT / "references_cache"
 KB_GLOBS = ("kb/disorders/*.yaml", "kb/modules/*.yaml", "kb/comorbidities/*.yaml")
 
+# Prefixes whose per-record metadata linkml-reference-validator can fetch and
+# cache one-file-per-record under references_cache/. For these the cache file IS
+# the verification -- the fetcher writes one only after the repository API
+# returned a record -- so a second, separate existence check would be redundant.
+#
+# The value is the cache filename stem, which is the prefix upper-cased (lrv
+# normalizes `geo:` and `GEO:` to the same `GEO` source).
+#
+# Only GEO is migrated so far; it is 919 of the KB's 1,696 distinct accessions.
+# The rest keep the API resolvers below until they get a fetcher too.
+REFERENCE_CACHED_PREFIXES = {"geo": "GEO"}
+
 EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+# dbGaP is NOT reachable through E-utilities: NCBI has withdrawn the `gap` db.
+# See resolve_dbgap.
+DBGAP_FHIR = "https://dbgap-api.ncbi.nlm.nih.gov/fhir/x1"
+IMMPORT_SEARCH = "https://www.immport.org/shared/data/query/api/search/study"
 USER_AGENT = "dismech-dataset-verifier (https://github.com/monarch-initiative/dismech)"
 
 # Status values
@@ -83,10 +117,6 @@ ERROR = "ERROR"
 # The record exists, but it is filed under the wrong repository prefix
 # (e.g. `sra:PRJNA290729`, which is really a BioProject accession).
 PREFIX_MISMATCH = "PREFIX_MISMATCH"
-
-# How long a NOT_FOUND result is trusted before being re-checked. Datasets are
-# often deposited under embargo and become visible only at publication.
-NEGATIVE_CACHE_DAYS = 30
 
 # Prefixes that are literature identifiers or lack a per-record public API.
 UNSUPPORTED_PREFIXES = {
@@ -122,6 +152,7 @@ SHAPE = {
     "osdr": re.compile(r"^OSD-\d+$", re.IGNORECASE),
     "massive": re.compile(r"^MSV\d+$", re.IGNORECASE),
     "mgnify": re.compile(r"^MGYS\d+$", re.IGNORECASE),
+    "immport": re.compile(r"^SDY\d+$", re.IGNORECASE),
     "metabolomics_workbench": re.compile(r"^ST\d+$", re.IGNORECASE),
 }
 
@@ -176,6 +207,23 @@ class Throttle:
         self._last = time.monotonic()
 
 
+# dbGaP's FHIR service declares ``charset=iso-8859-1`` but serves *mixed*
+# content: most text is valid UTF-8 while the odd eponym carries a raw latin-1
+# byte (0xf6 for the "o" of Sjogren). Decoding the whole body as either charset
+# alone is wrong, and ``errors="replace"`` silently plants U+FFFD in text that
+# ends up in a curated ``description:``. Decode as UTF-8 and fall back to
+# latin-1 for exactly the bytes that are not valid UTF-8.
+def _latin1_fallback(err: UnicodeDecodeError):
+    return err.object[err.start : err.end].decode("latin-1"), err.end
+
+
+codecs.register_error("dismech_latin1_fallback", _latin1_fallback)
+
+
+def decode_body(raw: bytes) -> str:
+    return raw.decode("utf-8", errors="dismech_latin1_fallback")
+
+
 def http_json(url: str, throttle: Throttle | None = None, retries: int = 3) -> Any:
     last_err: Exception | None = None
     for attempt in range(retries):
@@ -186,7 +234,7 @@ def http_json(url: str, throttle: Throttle | None = None, retries: int = 3) -> A
         )
         try:
             with urllib.request.urlopen(req, timeout=45) as resp:
-                return json.loads(resp.read().decode("utf-8", "replace"))
+                return json.loads(decode_body(resp.read()))
         except urllib.error.HTTPError as exc:
             if exc.code == 404:
                 return None
@@ -296,8 +344,101 @@ def resolve_bioproject(local_id: str, throttle: Throttle, api_key: str | None):
 
 
 def resolve_dbgap(local_id: str, throttle: Throttle, api_key: str | None):
+    """Resolve a dbGaP study accession against the dbGaP FHIR API.
+
+    This deliberately does *not* use E-utilities. NCBI has withdrawn the ``gap``
+    database -- ``esearch.fcgi?db=gap`` now answers ``Invalid db name specified:
+    gap`` and ``gap`` is absent from the current ``einfo`` dblist -- so the
+    previous implementation reported NOT_FOUND for every real dbGaP accession.
+    NOT_FOUND means "treat as fabricated", so that silently condemned the whole
+    repository.
+
+    ``ResearchStudy?_id=`` wants the *unversioned* study id: ``phs001289``
+    resolves, ``phs001289.v1.p1`` returns nothing. The response carries the
+    canonical versioned accession, which is reported back so a curator can see
+    when the KB is pinned to a superseded version.
+    """
     base = local_id.split(".")[0]
-    return _eutils_lookup("gap", f"{base}[Study Accession]", base, throttle, api_key)
+    if throttle:
+        throttle.wait()
+    data = http_json(f"{DBGAP_FHIR}/ResearchStudy?_id={urllib.parse.quote(base)}&_format=json")
+    entries = (data or {}).get("entry") or []
+    if not entries:
+        return NOT_FOUND, "", f"no dbGaP study {base}", {}
+
+    study = entries[0].get("resource") or {}
+    canonical = ""
+    for ident in study.get("identifier") or []:
+        value = str(ident.get("value") or "")
+        if value.lower().startswith("phs"):
+            canonical = value
+            break
+
+    # Same defence in depth as _eutils_lookup: confirm we got the study we asked
+    # for rather than whatever the server chose to return. A resource carrying
+    # no phs identifier at all cannot be checked, so it is reported rather than
+    # falling through to OK -- "we could not confirm this is the study you asked
+    # for" is a different answer from "it is".
+    if not canonical:
+        return ERROR, "", f"dbGaP returned a study with no phs identifier for {base}", {}
+    if not canonical.lower().startswith(base.lower()):
+        return NOT_FOUND, "", f"dbGaP returned {canonical}, not {base}", {}
+
+    extra: dict[str, Any] = {"canonical_accession": canonical}
+    if "." in local_id and canonical.lower() != local_id.lower():
+        extra["version_note"] = f"KB pins {local_id}; dbGaP current is {canonical}"
+    conditions = [
+        c["text"] for c in (study.get("condition") or []) if c.get("text")
+    ]
+    if conditions:
+        extra["conditions"] = [html.unescape(c) for c in conditions[:8]]
+    # FHIR serves titles HTML-escaped ("Sjogren&#39;s Syndrome"); unescape here so
+    # the entity never reaches a curated `title:` field.
+    return OK, html.unescape(study.get("title") or ""), "", extra
+
+
+def resolve_immport(local_id: str, throttle: Throttle, api_key: str | None):
+    """Resolve an ImmPort study accession (SDY####).
+
+    ``api.immport.org`` requires a bearer token, but the search service backing
+    the public ImmPort data browser does not, and it answers a field-restricted
+    ``studyAccession=`` query with exactly the one matching study.
+
+    No KB file cites an ``immport:`` accession yet, so unlike the dbGaP resolver
+    beside it this one has been exercised against the response shape and not
+    against a corpus. Treat a first wholesale failure here as a question about
+    the resolver, not about the accessions.
+    """
+    if throttle:
+        throttle.wait()
+    data = http_json(f"{IMMPORT_SEARCH}?studyAccession={urllib.parse.quote(local_id)}")
+    hits = ((data or {}).get("hits") or {}).get("hits") or []
+    if not hits:
+        return NOT_FOUND, "", f"no ImmPort study {local_id}", {}
+
+    source = hits[0].get("_source") or {}
+    echoed = str(source.get("study_accession") or "").upper()
+    if echoed and echoed != local_id.upper():
+        return NOT_FOUND, "", f"ImmPort returned {echoed}, not {local_id}", {}
+
+    extra: dict[str, Any] = {}
+    for key, out in (
+        ("condition_or_disease", "conditions"),
+        ("pubmed_id", "pubmed_ids"),
+        ("actual_enrollment", "sample_count"),
+        ("assay_method", "assay_methods"),
+    ):
+        if source.get(key):
+            extra[out] = source[key]
+    # `extra["organism"]` is a scalar in every other resolver; ImmPort returns a
+    # list, so join it rather than making this one key change shape by prefix.
+    species = source.get("species")
+    if species:
+        extra["organism"] = (
+            "; ".join(str(s) for s in species) if isinstance(species, list) else str(species)
+        )
+    title = source.get("brief_title") or source.get("official_title") or ""
+    return OK, title, "", extra
 
 
 def resolve_arrayexpress(local_id: str, throttle: Throttle, api_key: str | None):
@@ -444,6 +585,7 @@ RESOLVERS = {
     "osdr": resolve_osdr,
     "massive": resolve_massive,
     "mgnify": resolve_mgnify,
+    "immport": resolve_immport,
     "metabolomics_workbench": resolve_metabolomics_workbench,
 }
 
@@ -466,6 +608,53 @@ def split_accession(accession: str) -> tuple[str, str]:
     prefix = prefix.strip().lower()
     prefix = PREFIX_ALIASES.get(prefix, prefix)
     return prefix, local.strip()
+
+
+def reference_cache_path(prefix: str, local_id: str) -> Path | None:
+    """Where linkml-reference-validator caches this accession, if it caches it."""
+    stem = REFERENCE_CACHED_PREFIXES.get(prefix)
+    if not stem:
+        return None
+    return REFERENCE_CACHE_DIR / f"{stem}_{local_id.upper()}.md"
+
+
+def read_cached_title(path: Path) -> str:
+    """Read the ``title:`` out of a reference cache file's YAML front matter."""
+    try:
+        text = path.read_text()
+    except OSError:
+        return ""
+    if not text.startswith("---"):
+        return ""
+    _, _, rest = text.partition("---")
+    front, _, _ = rest.partition("\n---")
+    for line in front.splitlines():
+        key, sep, value = line.partition(":")
+        if sep and key.strip() == "title":
+            return value.strip()
+    return ""
+
+
+_FETCHER: Any = None
+
+
+def fetch_reference_record(prefix: str, local_id: str) -> bool:
+    """Fetch one record into references_cache/ via linkml-reference-validator.
+
+    Imported lazily: the offline pytest guard imports this module for ``SHAPE``
+    and ``UNSUPPORTED_PREFIXES`` alone and must not pay for the validator.
+    """
+    try:
+        from linkml_reference_validator.cli.shared import load_validation_config
+        from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
+
+    except ImportError as exc:  # pragma: no cover - depends on the environment
+        raise RuntimeError(f"linkml-reference-validator unavailable: {exc}") from exc
+
+    global _FETCHER
+    if _FETCHER is None:
+        _FETCHER = ReferenceFetcher(load_validation_config(None))
+    return bool(_FETCHER.fetch(f"{prefix}:{local_id}"))
 
 
 def verify_one(
@@ -512,20 +701,48 @@ def verify_one(
         mismatch_from, prefix = prefix, actual
 
     key = f"{prefix}:{local_id.upper()}"
-    cached = cache.get(key) if not refresh else None
-    # A NOT_FOUND is not necessarily permanent -- GEO accessions are routinely
-    # embargoed until publication -- so negative results expire and get retried.
-    if cached and cached.get("status") == NOT_FOUND:
-        checked = cached.get("checked", "")
-        try:
-            age = (
-                dt.datetime.now(dt.UTC).date() - dt.date.fromisoformat(checked[:10])
-            ).days
-        except (TypeError, ValueError):
-            age = 10**6
-        if age > NEGATIVE_CACHE_DAYS:
-            cached = None
 
+    # Prefixes with a reference fetcher verify against references_cache/: a
+    # cache file present means the record resolved, and fetching a missing one
+    # both verifies it and leaves the artifact the PR should commit. Nothing is
+    # written to a shared file, so two PRs adding datasets cannot collide.
+    ref_path = reference_cache_path(prefix, local_id)
+    if ref_path is not None:
+        if ref_path.exists() and not refresh:
+            res.prefix = prefix
+            res.status = PREFIX_MISMATCH if mismatch_from else OK
+            res.title = read_cached_title(ref_path)
+            res.detail = (
+                f"real {prefix} record; prefix should be '{prefix}:' not '{mismatch_from}:'"
+                if mismatch_from
+                else f"cached at {ref_path.relative_to(REPO_ROOT)}"
+            )
+            return res
+        try:
+            fetched = fetch_reference_record(prefix, local_id)
+        except Exception as exc:
+            res.status = ERROR
+            res.detail = str(exc)[:200]
+            return res
+        res.checked = dt.datetime.now(dt.UTC).date().isoformat()
+        res.prefix = prefix
+        if fetched and ref_path.exists():
+            res.status = PREFIX_MISMATCH if mismatch_from else OK
+            res.title = read_cached_title(ref_path)
+            res.detail = (
+                f"real {prefix} record; prefix should be '{prefix}:' not '{mismatch_from}:'"
+                if mismatch_from
+                else f"fetched to {ref_path.relative_to(REPO_ROOT)} -- commit this file"
+            )
+        else:
+            res.status = NOT_FOUND
+            res.detail = "no record returned by the repository"
+        return res
+
+    # Everything else: resolve against the repository API. `cache` is a
+    # per-run memo only -- results are deliberately not persisted (see the
+    # module docstring).
+    cached = cache.get(key) if not refresh else None
     if cached:
         status, title = cached["status"], cached.get("title", "")
         detail, extra = cached.get("detail", ""), cached.get("extra", {})
@@ -547,7 +764,7 @@ def verify_one(
                 "detail": detail,
                 "extra": extra,
                 "checked": res.checked,
-            }
+            }  # per-run memo; not persisted to disk
 
     if mismatch_from and status == OK:
         status = PREFIX_MISMATCH
@@ -603,7 +820,9 @@ def main() -> int:
         help="exit non-zero if any accession is NOT_FOUND/MALFORMED",
     )
     ap.add_argument(
-        "--refresh", action="store_true", help="ignore the cache and re-query the APIs"
+        "--refresh",
+        action="store_true",
+        help="ignore cached records and re-fetch/re-query every accession",
     )
     ap.add_argument("--json", type=Path, help="write full results to a JSON file")
     ap.add_argument(
@@ -631,12 +850,10 @@ def main() -> int:
     api_key = os.environ.get("NCBI_API_KEY")
     throttle = Throttle(9.0 if api_key else 2.5)
 
+    # Per-run memo for prefixes that still resolve against a repository API.
+    # Nothing is persisted: prefixes in REFERENCE_CACHED_PREFIXES cache
+    # per-record under references_cache/ instead.
     cache: dict[str, Any] = {}
-    if CACHE_PATH.exists():
-        try:
-            cache = json.loads(CACHE_PATH.read_text())
-        except json.JSONDecodeError:
-            cache = {}
 
     results: list[Result] = []
     total = len(sources)
@@ -646,9 +863,6 @@ def main() -> int:
         results.append(res)
         if not args.quiet or res.status not in (OK, UNSUPPORTED):
             print(f"[{idx}/{total}] {res.as_row()}", flush=True)
-
-    CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CACHE_PATH.write_text(json.dumps(cache, indent=2, sort_keys=True) + "\n")
 
     if args.json:
         args.json.write_text(

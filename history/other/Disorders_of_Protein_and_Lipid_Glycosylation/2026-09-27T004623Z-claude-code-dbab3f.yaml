@@ -1,0 +1,38 @@
+history_version: 1
+target:
+  kind: other
+  slug: Disorders_of_Protein_and_Lipid_Glycosylation
+  path: kb/groupings/Disorders_of_Protein_and_Lipid_Glycosylation.yaml
+session:
+  id: 2026-09-27T004623Z-claude-code-dbab3f
+  timestamp: '2026-09-27T00:46:23Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/12948
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - notes
+  summary: Contain a DISMECH_KB_CACHE env leak from the new script's test
+  details: |
+    Test-only fix found by running the full offline pytest lane locally against PR #12948. No KB content, criteria or mapping change; this record exists because the grouping tooling added by that PR is what leaked.
+
+    The defect. tests/test_grouping_mondo_consistency.py calls gmc.main() to exercise the --strict exit code. main() calls kb_cache.default_off(), which does os.environ.setdefault("DISMECH_KB_CACHE", "0") - a process-wide mutation. Every test running after it in the same pytest process therefore saw the parsed-KB cache disabled, and five tests in tests/test_kb_cache.py failed: they assert the cache returns the same parsed object for an unchanged file, reparses on changed content of the same size, caches an empty file as None, and keeps the renderer's private copy separate from the shared index walk. All five pass in isolation and fail after my test file runs, in either file order, which is what identified the cause.
+
+    Fix: the test now monkeypatch.setenv("DISMECH_KB_CACHE", "0") before calling main(). Because default_off uses setdefault, an already-set value wins, so the call becomes a no-op and pytest restores the original on teardown. main() is still exercised for real rather than stubbed.
+
+    Worth recording because CLAUDE.md's kb_cache section already warns about this hazard from one side - "Put the call in main(), never at import, because pytest imports these scripts' scan_repo functions directly and runs several of them in one process". The script follows that rule correctly: default_off is in main(), not at import. The leak came from the other side, a test that calls main() itself, which the existing guidance does not cover. Any future test that invokes a CLI main() in-process has the same problem.
+
+    CI had not seen any of this. The test (3.13) job on this PR fails on the curation-scope guard, which runs before pytest and exits 1, so the whole suite never ran and these five failures were latent behind a red check that is red for an unrelated reason.
+
+    Two further failures in the same local run are environment, not code: tests/test_validate_disorder_hook.py::test_recipe_available_detects_a_present_recipe and ::test_recipe_available_detects_a_checkout_predating_the_recipe both shell out to `just`, which is not installed in this container, so subprocess.run raises FileNotFoundError. The validate-pre-edit recipe they look for is present in project.justfile at line 134 on both this branch and origin/main. They pass wherever `just` is installed and were not touched by this PR.
+
+    Verification. tests/test_grouping_mondo_consistency.py with tests/test_kb_cache.py in one process: 32 passed, in both file orders. Full offline lane re-run after the fix.

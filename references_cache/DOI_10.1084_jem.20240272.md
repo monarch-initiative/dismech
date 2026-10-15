@@ -1,0 +1,31 @@
+---
+reference_id: DOI:10.1084/jem.20240272
+title: Dominant interfering CARD11 variants disrupt JNK signaling to promote GATA3 expression in T cells
+authors:
+- Bradly M. Bauman
+- Jeffrey R. Stinson
+- Melissa A. Kallarakal
+- Lei Haley Huang
+- Andrew M. Frank
+- Gauthaman Sukumar
+- Nermina Saucier
+- Clifton L. Dalgard
+- Alice Y. Chan
+- Joshua D. Milner
+- Megan A. Cooper
+- Andrew L. Snow
+journal: Journal of Experimental Medicine
+year: '2025'
+doi: 10.1084/jem.20240272
+content_type: abstract_only
+is_preprint: false
+---
+
+# Dominant interfering CARD11 variants disrupt JNK signaling to promote GATA3 expression in T cells
+**Authors:** Bradly M. Bauman, Jeffrey R. Stinson, Melissa A. Kallarakal, Lei Haley Huang, Andrew M. Frank, Gauthaman Sukumar, Nermina Saucier, Clifton L. Dalgard, Alice Y. Chan, Joshua D. Milner, Megan A. Cooper, Andrew L. Snow
+**Journal:** Journal of Experimental Medicine (2025)
+**DOI:** [10.1084/jem.20240272](https://doi.org/10.1084/jem.20240272)
+
+## Content
+
+Several “primary atopic disorders” are linked to monogenic defects that attenuate TCR signaling, favoring T helper type 2 (TH2) cell differentiation. Patients with CARD11-associated atopy with dominant interference of NF-κB signaling (CADINS) disease suffer from severe atopy, caused by germline loss-of-function/dominant interfering (LOF/DI) CARD11 variants. The CARD11 scaffold enables TCR-induced activation of NF-κB, mTORC1, and JNK signaling, yet the function of CARD11-dependent JNK signaling in T cells remains nebulous. Here we show that CARD11 is critical for TCR-induced activation of JNK1 and JNK2, as well as canonical JUN/FOS AP-1 family members. Patient-derived CARD11 DI variants attenuated WT CARD11 JNK signaling, mirroring effects on NF-κB. Transcriptome profiling revealed JNK inhibition upregulated TCR-induced expression of GATA3 and NFATC1, key transcription factors for TH2 cell development. Further, impaired CARD11-JNK signaling was linked to enhanced GATA3 expression in CADINS patient T cells. Our findings reveal a novel intrinsic mechanism connecting impaired CARD11-dependent JNK signaling to enhanced GATA3/NFAT2 induction and TH2 cell differentiation in CADINS patients.

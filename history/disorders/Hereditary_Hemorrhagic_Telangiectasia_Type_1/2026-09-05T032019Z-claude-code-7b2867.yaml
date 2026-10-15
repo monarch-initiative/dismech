@@ -1,0 +1,38 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Hereditary_Hemorrhagic_Telangiectasia_Type_1
+  path: kb/disorders/Hereditary_Hemorrhagic_Telangiectasia_Type_1.yaml
+session:
+  id: 2026-09-05T032019Z-claude-code-7b2867
+  timestamp: '2026-09-05T03:20:19Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs: []
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - datasets
+  - pathophysiology
+  summary: Fix truncated GEO dataset title that failed merge-queue CI
+  details: |
+    The PR was enqueued twice by the deterministic sweep and dequeued twice with CI_FAILURE. The merge-queue run for pr-10351 (run 33937777992) failed while every sibling PR in the same batch passed, so the failure was this PR's, not a batch-mate's.
+
+    Root cause: the geo:GSE197105 dataset title was truncated. It was copied from the "just discover-datasets" output, which clips titles at display width, so the recorded title ended at "...knock-out mutants" and omitted ", respective wildtypes (WTs), and Angiopoietin-2 inhibition transcriptional changes." The reference validator resolves dataset titles against the live GEO record and rejected the mismatch.
+
+    Why local validation did not catch it: "just validate-disorders" reports "Total checks: 0" in this sandbox but "Total checks: 1" in CI, so the dataset-title check requires network access to GEO and was silently skipped locally. "just verify-datasets" does reach GEO but only confirms the accession resolves, not that the recorded title matches. Anyone copying a title out of discover-datasets output should treat it as clipped.
+
+    Fix: replaced the title with the exact GEO string, then confirmed it independently against the NCBI esummary API (db=gds, uid 200197105) rather than trusting the CI error message alone. The YAML title and the live GEO title now compare equal.
+
+    Also folded in the deferred consistency nit from the approving review, since this commit touches the file anyway: the shunt to Ischemic stroke causal edge now carries directness INDIRECT, matching its sibling shunt to Brain abscess edge. Both quote a preventive measure rather than an incidence, so grading them differently was inconsistent.
+
+    Process note for future sessions: passing prose containing backticks to "just new-history --details" via a shell heredoc lets bash expand them. That happened on the first attempt here and silently produced a record with an empty details field, which was deleted and recreated by reading the text from a file instead.
+
+    Validation: validate-disorders passes over both files with 185/185 snippets verified; verify-datasets resolves the accession; check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values and check-folded-hyphens all pass; pathograph re-checked with no broken targets and no unreached phenotypes. The dataset-title check still cannot run locally, so the real proof is the next merge-queue attempt.

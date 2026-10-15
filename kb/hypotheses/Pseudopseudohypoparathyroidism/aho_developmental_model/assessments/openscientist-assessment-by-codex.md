@@ -1,190 +1,164 @@
-# AHO developmental tissue model report assessment
+# aho developmental model — OpenScientist assessment
 
-- **Provider:** OpenScientist
-- **Assessor:** Codex
-- **Source:** `../openscientist.md`
-- **Overall verdict:** `PARTIALLY_SUPPORTED`
+Provider: openscientist · Assessor: codex · Assessed: 2026-09-04T23:31:35+00:00
 
-## Executive judgment
+Overall verdict: **PARTIALLY_SUPPORTED**
 
-The report identifies a real and important mechanism: reduced Gs-alpha/cAMP
-signaling in biallelic skeletal and mesenchymal tissues contributes to AHO
-growth-plate, bone-remodeling, and ectopic-ossification phenotypes. The best
-evidence comes from heterozygous chimeric growth plates, complete
-tissue-specific deletion models, heterozygous AHO mice, and mechanistic
-ectopic-ossification models.
+The report correctly identifies biallelic skeletal Gs-alpha dosage, PTHrP/Gs-alpha control of chondrocyte maturation, and GNAS-dependent mesenchymal osteogenic programs as credible components of AHO. It overstates how directly complete-knockout mouse models reproduce heterozygous PPHP, misstates the seed description as containing obesity, treats universal leanness as established, and says a mouse lineage-tracing study characterized the responsible cells in human lesions. It also upgrades a hypothetical somatic second hit to a required POH mechanism, omits major Hedgehog/YAP-SHH primary studies, and recommends an obsolete cAMP ontology term. The extended assessment identifies a patient fibroblast microarray in the report own 2025 citation, a protective male-mouse SFRP2 modifier, and registered theophylline trials in related PHP/AHO populations. It also restricts GH efficacy to the actual PHP1A cohort and identifies receptor-dependent mixed function of the cited T55A variant. Proposed experiments are inventoried as unexecuted, with no provider raw data or code.
 
-It overstates how directly those experiments establish heterozygous human PPHP.
-The report ignores a null heterozygous result in its highlighted conditional
-chondrocyte study, upgrades mouse dermal-sheath lineage tracing to a human
-cell-of-origin result, and calls a hypothetical somatic second hit required. It
-also misreads the seed YAML, overgeneralizes universal leanness, omits major
-Hedgehog/YAP-SHH primary studies, and proposes an obsolete ontology term.
+The original provider report is preserved. Literature retrieval and registry checks by the assessor are separate from provider analyses.
 
-## What is supported
+## overall-developmental-model — QUALIFIED
 
-### Biallelic growth-plate dosage is a credible core mechanism
+Reduced Gs-alpha/cAMP signaling is a credible core mechanism for AHO skeletal and soft-tissue abnormalities, but the delivered report overstates direct PPHP-specific validation.
 
-A mouse chimera study measured approximately half-normal Gs-alpha RNA after
-either parental disruption and found modestly premature hypertrophy in
-heterozygous chondrocytes
-([PMID:15459318](https://pubmed.ncbi.nlm.nih.gov/15459318/)). This supports
-biallelic expression and a dosage-sensitive PTHrP/Gs-alpha axis.
+Biallelic growth-plate expression, heterozygous chimeric effects, complete tissue-knockout phenotypes, and GNAS-dependent ectopic-ossification models support the pathway. Direct human PPHP cartilage and lesion-causality evidence is sparse, digit selectivity is unexplained, and several phenotype statements in the report are categorical beyond the data.
 
-It does not explain why fourth and fifth metacarpals are preferentially
-affected, and it is not direct human cartilage evidence.
+Sources: [PMID:15459318](https://pubmed.ncbi.nlm.nih.gov/15459318/), [PMID:15765186](https://pubmed.ncbi.nlm.nih.gov/15765186/), [PMID:21747923](https://pubmed.ncbi.nlm.nih.gov/21747923/), [PMID:29059381](https://pubmed.ncbi.nlm.nih.gov/29059381/).
 
-### Gs-alpha is necessary for normal chondrocyte and osteoblast biology
+## biallelic-growth-plate-dosage — RETAINED
 
-Complete chondrocyte-specific deletion caused severe growth-plate defects and
-established Gs-alpha as a critical PTH/PTHrP-receptor mediator
-([PMID:15765186](https://pubmed.ncbi.nlm.nih.gov/15765186/)). Complete
-osteoblast/osteocyte deletion altered trabecular formation, cortical
-resorption, and osteoblast maturation
-([PMID:15797856](https://pubmed.ncbi.nlm.nih.gov/15797856/)).
+Gs-alpha is biallelically expressed in mouse growth-plate chondrocytes, and heterozygous loss can modestly accelerate hypertrophy.
 
-These are pathway-necessity experiments, not equivalent to heterozygous PPHP.
-A later heterozygous AHO mouse study found parent- and sex-dependent bone
-remodeling
-([PMID:35079678](https://pubmed.ncbi.nlm.nih.gov/35079678/)), reinforcing the
-need to keep genotype and model dose explicit.
+The cited chimera study measured approximately half-normal Gs-alpha RNA after either parental disruption and a modest heterozygous cellular phenotype. "Directly modeling" should be understood at the cellular dosage level, not as direct reproduction of human digit-selective brachydactyly.
 
-### Mesenchymal osteogenic bias and lesion-local mechanisms are plausible
+Sources: [PMID:15459318](https://pubmed.ncbi.nlm.nih.gov/15459318/).
 
-Paternal-mutant mouse adipose stromal cells showed impaired adipogenesis,
-forskolin rescue, and increased osteogenic markers
-([PMID:22511293](https://pubmed.ncbi.nlm.nih.gov/22511293/)).
-Alpha-SMA-positive dermal-sheath cells contributed to subcutaneous
-ossifications in a heterozygous AHO mouse model
-([PMID:40256763](https://pubmed.ncbi.nlm.nih.gov/40256763/)).
+## complete-chondrocyte-knockout — QUALIFIED
 
-This supports a mesenchymal component. It does not establish one universal
-human lesion cell or reduce ectopic ossification to a simple
-adipocyte-to-osteoblast switch.
+Complete chondrocyte Gs-alpha ablation establishes pathway necessity but is not a direct test of heterozygous PPHP dosage.
 
-## Major corrections
+The homozygous conditional knockout died shortly after birth and had severe growth-plate abnormalities. Crucially, heterozygotes in that same study exhibited no phenotype. The experiment establishes that Gs-alpha mediates PTH/PTHrP-receptor signaling in chondrocytes, but the report should not use its severity as direct evidence that approximately 50% dosage is sufficient for human PPHP brachydactyly.
 
-### 1. The conditional chondrocyte experiment is dosage-mismatched
+Sources: [PMID:15765186](https://pubmed.ncbi.nlm.nih.gov/15765186/), [PMID:15459318](https://pubmed.ncbi.nlm.nih.gov/15459318/).
 
-The report calls tissue-specific ablation the gold standard and treats it as
-direct evidence for heterozygous PPHP. The cited study’s severe phenotype was
-in homozygous complete chondrocyte deficiency; its heterozygotes explicitly
-exhibited no phenotype
-([PMID:15765186](https://pubmed.ncbi.nlm.nih.gov/15765186/)).
+## osteoblast-model-translation — QUALIFIED
 
-The separate chimera study is the appropriate heterozygous support. Reporting
-both results is more informative than presenting only the complete-knockout
-phenotype.
+Complete osteoblast/osteocyte Gs-alpha deficiency informs bone biology but does not directly establish the variable bone phenotype of human PPHP.
 
-### 2. Human dermal-sheath cell identity was not established
+The conditional knockout supports roles in osteoblast maturation, trabecular formation, cortical resorption, and osteoblast-osteoclast coupling. It is a complete tissue deletion, whereas PPHP is heterozygous. A later heterozygous AHO mouse study found parent- and sex-dependent bone remodeling, illustrating that the full-deletion result cannot be mapped directly onto a single PPHP bone-density prediction.
 
-The 2025 study lineage-traced alpha-SMA-positive dermal-sheath cells in mice.
-It showed SFRP2 upregulation in human and mouse lesion regions, but it did not
-lineage-trace human cells or prove through single-cell analysis that the same
-human population generated bone
-([PMID:40256763](https://pubmed.ncbi.nlm.nih.gov/40256763/)). The report’s
-statement that the human osteogenic progenitor “has only recently been
-characterized” is therefore false.
+Sources: [PMID:15797856](https://pubmed.ncbi.nlm.nih.gov/15797856/), [PMID:35079678](https://pubmed.ncbi.nlm.nih.gov/35079678/), [PMID:37014531](https://pubmed.ncbi.nlm.nih.gov/37014531/).
 
-### 3. The lineage-switch synthesis omits stronger competing detail
+## human-dermal-sheath-cell-identity — REJECTED
 
-Reduced adipogenesis and increased osteogenic markers support a fate bias, but
-major direct studies show additional mechanisms:
+Alpha-SMA-positive dermal-sheath cells were lineage-traced in an AHO mouse model; their identity as the causal progenitor in human AHO lesions was not demonstrated.
 
-- Gs-alpha loss activates Hedgehog signaling, and its inhibition reduces
-  heterotopic ossification
-  ([PMID:24076664](https://pubmed.ncbi.nlm.nih.gov/24076664/)).
-- Gnas-null cells drive a self-amplifying YAP-SHH loop that recruits surrounding
-  wild-type cells
-  ([PMID:34162750](https://pubmed.ncbi.nlm.nih.gov/34162750/)).
-- A mutant subcutaneous microenvironment alters contributions from mutant and
-  wild-type progenitors
-  ([PMID:33574833](https://pubmed.ncbi.nlm.nih.gov/33574833/)).
+The cited study lineage-traced alpha-SMA-positive dermal-sheath cells in Gnas E1 heterozygous mice. Its human specimens showed SFRP2 upregulation in lesion regions, not prospective lineage tracing or single-cell proof that the same human cells generated bone. The report initially calls this a mouse model, then incorrectly upgrades the cell-of-origin conclusion to human AHO.
 
-Those primary papers are absent from the report’s citation sidecar. The lesion
-mechanism is better represented as cell-intrinsic fate bias plus paracrine and
-microenvironmental propagation.
+Sources: [PMID:40256763](https://pubmed.ncbi.nlm.nih.gov/40256763/).
 
-### 4. The report “corrects” text that is not in the seed description
+## mesenchymal-lineage-switch — QUALIFIED
 
-The seed description says reduced Gs-alpha/cAMP signaling disrupts bone growth,
-digit patterning, and soft-tissue ossification. It does not mention obesity.
-“Early-onset obesity” appears in the supporting consensus snippet about the
-broader family of PHP-related disorders
-([PMID:29959430](https://pubmed.ncbi.nlm.nih.gov/29959430/)).
+Reduced adipogenesis and increased osteogenic markers support a mesenchymal fate-bias model, but they do not alone explain PPHP lesion initiation or progression.
 
-Separating obesity from the skeletal/mesenchymal mechanism is biologically
-useful. Calling it an error in the hypothesis description is a provenance
-mistake.
+Adipose-derived stromal cells from paternal-mutant mice had impaired adipogenesis, forskolin rescue, and increased osteogenic markers. That supports a fate bias but does not prove that those cells initiate human PPHP lesions or that the same mechanism determines whole-body leanness. Major primary studies omitted from the report instead show causal Hedgehog activation, a YAP-SHH feedback loop, and a permissive mutant tissue microenvironment in POH models.
 
-### 5. “Uniformly lean” is too strong
+Sources: [PMID:22511293](https://pubmed.ncbi.nlm.nih.gov/22511293/), [PMID:24076664](https://pubmed.ncbi.nlm.nih.gov/24076664/), [PMID:33574833](https://pubmed.ncbi.nlm.nih.gov/33574833/), [PMID:34162750](https://pubmed.ncbi.nlm.nih.gov/34162750/).
 
-The 2012 paper states that patients with paternal mutations are uniformly lean,
-but its experiment is a mouse and stromal-cell study rather than a quantified
-human PPHP cohort
-([PMID:22511293](https://pubmed.ncbi.nlm.nih.gov/22511293/)). A 67-person AHO
-cohort described PPHP as lacking **marked obesity**
-([PMID:29059381](https://pubmed.ncbi.nlm.nih.gov/29059381/)), and consensus
-guidance emphasizes variable, overlapping phenotypes.
+## seed-obesity-description — REJECTED
 
-The DMH parent-of-origin mouse result strongly explains why severe early-onset
-obesity is typically maternal
-([PMID:27991864](https://pubmed.ncbi.nlm.nih.gov/27991864/)). It does not prove
-that every PPHP patient must be lean.
+The seed hypothesis description did not contain an obesity mechanism; the report confused the supporting consensus snippet with the description.
 
-### 6. The somatic second hit is a hypothesis, not a requirement
+The seed description says reduced Gs-alpha/cAMP disrupts bone growth, digit patterning, and soft-tissue ossification. "Early-onset obesity" appears only inside a consensus-review evidence snippet describing the broader family of PHP-related disorders. The report's biological qualification is useful, but it is not a correction to the stated seed description.
 
-The POH study observed dermomyotomal laterality in 12 people, hypothesized
-somatic loss of heterozygosity, and mimicked strong local GNAS inhibition in
-chick somites
-([PMID:23863715](https://pubmed.ncbi.nlm.nih.gov/23863715/)). It did not find a
-somatic second hit in human lesions. The report correctly calls this unresolved
-in one section, then says POH “requires” it elsewhere. Only the former is
-supported.
+Sources: [PMID:29959430](https://pubmed.ncbi.nlm.nih.gov/29959430/).
 
-### 7. The cAMP ontology lead is obsolete
+## universal-lean-pphp — QUALIFIED
 
-`GO:0019933` is obsolete **cAMP-mediated signaling** in the current Gene
-Ontology release. `GO:0141156` **cAMP/PKA signal transduction** is the current
-specific term matching the proposed pathway.
+Marked early-onset obesity is characteristic of maternal rather than paternal GNAS loss, but universal leanness in PPHP is not established.
 
-## Claim-level disposition
+The cited 2012 study primarily tested mouse adipose-derived stromal cells and did not report a quantified human PPHP cohort supporting the word "uniformly." A 67-person AHO cohort described 18 PPHP participants as lacking marked obesity, and international guidance emphasizes variable and overlapping presentation. The parent-specific DMH mouse experiment explains a typical group difference, not an invariant human phenotype. The 2012 paper also examines birth weight in 42 people with POH; that human component is not a quantified PPHP obesity cohort.
 
-| Claim | Disposition | Reason |
-| --- | --- | --- |
-| AHO developmental model is supported | **Qualified** | Core pathway is credible; direct PPHP-specific validation is overstated. |
-| Biallelic growth-plate expression and modest heterozygous effect | **Retained** | Directly measured in the chimera study. |
-| Complete chondrocyte knockout proves heterozygous PPHP | **Qualified** | Severe phenotype required complete deletion; study heterozygotes had no phenotype. |
-| Osteoblast knockout predicts human PPHP bone phenotype | **Qualified** | Pathway-relevant but dosage- and species-mismatched. |
-| Human dermal-sheath progenitor was characterized | **Rejected** | Lineage tracing was in mice; human evidence was regional SFRP2 expression. |
-| Adipogenic-to-osteogenic switch explains lesions and leanness | **Qualified** | Fate bias is supported; lesion propagation and whole-body phenotype need more mechanisms. |
-| Seed description incorrectly included obesity | **Rejected** | Obesity was in an evidence snippet, not the description. |
-| PPHP patients are uniformly lean | **Qualified** | Marked obesity is typically spared; universality is not established. |
-| POH requires a somatic second hit | **Rejected** | The cited study hypothesized but did not detect human lesion LOH. |
-| Phenocopies validate the GNAS mechanism | **Qualified** | They support pathway convergence and differential diagnosis, not direct causality. |
-| `GO:0019933` is ready for curation | **Rejected** | The term is obsolete. |
-| 62 papers were systematically reviewed | **Needs verification** | Only 29 PMIDs and no reproducible screening record are delivered. |
+Sources: [PMID:22511293](https://pubmed.ncbi.nlm.nih.gov/22511293/), [PMID:27991864](https://pubmed.ncbi.nlm.nih.gov/27991864/), [PMID:29059381](https://pubmed.ncbi.nlm.nih.gov/29059381/), [PMID:29959430](https://pubmed.ncbi.nlm.nih.gov/29959430/).
 
-## Curation implications
+## somatic-second-hit-requirement — REJECTED
 
-- Retain the skeletal/mesenchymal hypothesis as canonical, with model, zygosity,
-  tissue, and species qualifiers.
-- Do not use the complete chondrocyte knockout as if it were a heterozygous
-  human experiment.
-- Keep mouse alpha-SMA lineage evidence distinct from human lesion evidence.
-- Model Hedgehog/YAP-SHH and tissue-microenvironment propagation rather than a
-  single unqualified lineage switch.
-- Treat universal leanness and required somatic loss of heterozygosity as
-  unsupported absolutes.
-- Replace the obsolete cAMP term before ontology promotion.
-- Assessment citations provide review context only; they are not automatically
-  disease-YAML evidence.
+Somatic loss of the remaining GNAS allele is a testable POH hypothesis, not an established requirement distinguishing POH from PPHP.
 
-## Most discriminating next evidence
+The cited study observed dermomyotomal laterality in 12 people, hypothesized somatic loss of heterozygosity, and mimicked strong local GNAS inhibition by introducing dominant-negative GNAS into chick somites. It did not detect a somatic second hit in human lesion tissue. The report correctly labels this unresolved elsewhere, so "requires" is an unsupported upgrade.
 
-The most useful study would combine deep sequencing and single-cell/spatial
-profiling of fresh PPHP and POH lesions with matched normal tissue. It should
-test for somatic second hits, identify human lesion-generating populations,
-measure Gs-alpha dosage, and resolve cell-intrinsic versus paracrine
-Hedgehog/YAP-SHH programs. Parallel patient-derived heterozygous chondrocytes
-could establish the human dose-response and digit-patterning gap.
+Sources: [PMID:23863715](https://pubmed.ncbi.nlm.nih.gov/23863715/).
+
+## pathway-phenocopies — QUALIFIED
+
+PRKAR1A, PDE4D, PTHLH, and TRPS1 disorders are useful differential diagnoses and pathway-context evidence, not direct validation of GNAS-dependent PPHP.
+
+PRKAR1A and PDE4D acrodysostosis support convergence on cAMP/PKA-related skeletal biology. PTHLH and TRPS1 phenocopies are less direct, and TRPS1 is not simply another node in a single linear PTHrP-Gs-alpha-cAMP-PKA cascade. Phenocopy establishes overlap and differential diagnosis, not causal confirmation of the GNAS lesion mechanism.
+
+Sources: [PMID:24363928](https://pubmed.ncbi.nlm.nih.gov/24363928/), [PMID:27589370](https://pubmed.ncbi.nlm.nih.gov/27589370/), [PMID:34897794](https://pubmed.ncbi.nlm.nih.gov/34897794/).
+
+## ontology-camp-term — REJECTED
+
+The proposed cAMP process term is obsolete and should not be promoted.
+
+In the current Gene Ontology release GO:0019933 is obsolete "cAMP-mediated signaling." GO:0141156 "cAMP/PKA signal transduction" is the current specific term matching the proposed mechanism. The other listed CL terms resolve, while no dermal-sheath-cell CURIE was supplied.
+
+## search-provenance — NEEDS_VERIFICATION
+
+The claimed systematic corpus is not reproducible from the delivered report.
+
+The citation sidecar contains 29 PMIDs, with no 62-record bibliography, search strategy, dates, screening log, or study-level inclusion record. The report also omits major direct primary work on GNAS-Hedgehog and YAP-SHH mechanisms. The total is provider metadata, not verified systematic-review coverage. Clinical care must also reflect consensus recommendation 3.2: confirmed paternal GNAS cases are exempt from routine repeated PTH/calcium/phosphate measurements after baseline. Research phenotyping is a separate question.
+
+Sources: [PMID:24076664](https://pubmed.ncbi.nlm.nih.gov/24076664/), [PMID:34162750](https://pubmed.ncbi.nlm.nih.gov/34162750/).
+
+## patient-fibroblast-omics — REJECTED
+
+The report missed patient-cell transcriptomics in its own cited paper.
+
+PMID:40256763 profiles Affymetrix U133 Plus 2.0 dermal fibroblast cultures from five patients: P1, P2 and P5 have PPHP, P3 PHP1A and P4 POH. P2 is reused in two contrasts and is the mother of P3. Twenty-three genes overlap across three pairwise severity contrasts. Age, sex, relatedness, subtype and culture effects confound the comparison; a probability threshold greater than 0.50 is not conventional FDR-controlled patient-level replication. No raw accession was identified in the inspected text. The evidence is small mixed-subtype patient-cell omics, not a pure PPHP tissue atlas or lineage proof.
+
+Sources: [PMID:40256763](https://pubmed.ncbi.nlm.nih.gov/40256763/).
+
+## sfrp2-functional-direction — QUALIFIED
+
+SFRP2 upregulation accompanies a protective modifier response in the mouse experiment.
+
+The report omits key findings of PMID:40256763: Sfrp2 deletion causes earlier and more severe SCOs in male AHO mice, while females show no significant counterpart and Sfrp2-null mice without Gnas deficiency do not form SCOs. Recombinant SFRP2 treatment of explants did not improve matrix deposition, mineralization or osteogenic expression. Upregulation should not be curated as a pathogenic driver or established therapeutic rescue. Alpha-SMA fate mapping shows contribution; without selective ablation it does not prove the labeled cells are uniquely necessary, and it does not establish human lineage identity.
+
+Sources: [PMID:40256763](https://pubmed.ncbi.nlm.nih.gov/40256763/).
+
+## pathway-directed-trials — QUALIFIED
+
+Registered cAMP-pathway trials exist in related PHP/AHO populations.
+
+ClinicalTrials.gov NCT04551170, checked 2026-09-04, is an ACTIVE_NOT_RECRUITING phase II theophylline trial in children aged 2–12 years with broad PHP clinical criteria and obesity required; secondary outcomes include epiphyseal closure. NCT03029429 is the related older-patient phase II study. These predate the report and contradict the broad absence of PDE-targeted AHO studies. They do not establish enrollment of a molecular PPHP subgroup, efficacy for PPHP skeletal disease, or efficacy for ectopic ossification.
+
+Sources: [clinicaltrials:NCT04551170](https://clinicaltrials.gov/study/NCT04551170), [clinicaltrials:NCT03029429](https://clinicaltrials.gov/study/NCT03029429).
+
+## rhgh-population — QUALIFIED
+
+The cited adult-height benefit is PHP1A-specific observational evidence.
+
+PMID:37440712 included 190 maternal iPPSD2/PHP1A patients, 26 treated; adult height was available in only 11 treated and 69 untreated participants. The adjusted 1.9-SDS difference is retrospective, not a randomized PPHP result. Treatment selection, baseline differences and incomplete adult follow-up limit inference. NCT00209235 includes PPHP in natural-history/cognitive arms but restricts its GH substudy to PHP1A. Neither source establishes PPHP-specific GH efficacy.
+
+Sources: [PMID:37440712](https://pubmed.ncbi.nlm.nih.gov/37440712/), [clinicaltrials:NCT00209235](https://clinicaltrials.gov/study/NCT00209235).
+
+## t55a-receptor-context — QUALIFIED
+
+The T55A assay cannot be treated as simple PPHP loss-of-function validation.
+
+PMID:27579188 described a patient with osteolysis, fractures and neonatal SIADH, explicitly without classical AHO, despite reduced beta-adrenergic-stimulated cAMP. PMID:41530545 (2026) characterizes p.Thr55Ala on the paternal allele with basal AVPR2/PTH1R gain of function and agonist-dependent PTH1R loss of function. Receptor and ligand context matters; this is a neighboring mixed-function disorder, not direct validation of pure GNAS-loss PPHP.
+
+Sources: [PMID:27579188](https://pubmed.ncbi.nlm.nih.gov/27579188/), [PMID:41530545](https://pubmed.ncbi.nlm.nih.gov/41530545/).
+
+## single-cell-lineage-design — QUALIFIED
+
+Single-cell trajectories cannot by themselves establish the human cell of origin.
+
+The proposed scRNA/spatial experiment can identify candidate cell states and locations, but transcriptional similarity and pseudotime do not prove lineage ancestry. Sampling established lesions risks missing initiating cells. Pair early and advanced lesions with matched normal tissue, verify somatic allele dosage and imprinting, and seek clonal or perturbational support. A null second-hit result also depends on lesional purity, sequencing depth and mosaic detection limits.
+
+Sources: [PMID:40256763](https://pubmed.ncbi.nlm.nih.gov/40256763/), [PMID:23863715](https://pubmed.ncbi.nlm.nih.gov/23863715/).
+
+## Proposed analyses and auditability
+
+All six provider proposals are recorded as **SKIPPED / UNVERIFIABLE** because no execution artifacts were supplied.
+
+- **chondrocyte-dose-response:** Patient-derived and isogenic chondrocytes with cAMP and GNAS rescue; quantify actual Gs-alpha and cAMP rather than assuming a 50% reduction.
+- **somatic-second-hit:** Deep lesion sequencing, SNP-based LOH and methylation; control lesion purity, mosaic sensitivity and matched germline.
+- **camp-therapy-mouse:** PDE inhibition or PTHrP agonism in heterozygous AHO mice; establish receptor dose response, exposure, sex effects and skeletal safety.
+- **xl-exon-stratification:** Exon-specific clinical comparisons informed by PMID:23884777; isolate residual activity and other transcript effects.
+- **digit-spatial-profiling:** Embryonic mouse or human limb model spatial profiling; determine whether the model reproduces the human digit pattern before testing its cause.
+- **human-lesion-single-cell:** Fresh lesion and matched tissue single-cell/spatial profiling; infer candidate states without equating pseudotime with lineage proof.
+
+No provider data-download manifest, analysis environment, code, figures or statistical result files are committed. The report text and citation sidecar support evaluation of a literature synthesis only.
