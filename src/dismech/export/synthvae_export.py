@@ -4,8 +4,9 @@ This is the bridge between the dismech pathograph and the synthetic-patient VAE
 generator (https://github.com/justaddcoffee/synthetic_vae_generator). It projects
 each MONDO-anchored disorder into a compact, sampleable prior:
 
-    {disease MONDO id, label, genes, phenotypes:[{hpo_id, label, probability,
-     frequency_source, branch}], excluded:[...]}
+    {disease MONDO id, label, dismech_name, subtypes, genes:[{id, label,
+     relationship_type, subtype, case_fraction}], phenotypes:[{hpo_id, label, probability,
+     frequency_source, branch, subtype}], excluded:[...]}
 
 * ``probability`` is the curated phenotype frequency converted to a numeric
   Bernoulli parameter (the curated marginal P(phenotype | disease)). It reuses
@@ -16,7 +17,22 @@ each MONDO-anchored disorder into a compact, sampleable prior:
   pathograph (``pathographs/MONDO_*.json``), i.e. which mechanistic sub-pathway
   the phenotype hangs off. A downstream sampler can use it to induce *curated*
   within-branch co-occurrence (the structure the VAE otherwise has to learn from
-  sparse case data) rather than sampling every phenotype independently.
+  sparse case data) rather than sampling every phenotype independently. It is
+  ``None`` when no causal edge reaches the phenotype.
+* ``subtype`` carries the curated ``phenotypes[].subtype`` /
+  ``genetic[].subtype`` scope, so a sampler can keep one patient within one
+  subtype instead of pooling mutually exclusive presentations.
+* ``genes`` lists the ``relationship_type: CAUSATIVE`` genes from
+  ``genetic[]`` (or, for an entry with none, its untyped rows) -- modifier and
+  susceptibility loci, and genes named on mechanism nodes, are not diagnoses.
+  ``case_fraction`` is the first curated
+  ``case_fractions[].case_fraction_percent`` (as a fraction), when recorded.
+
+Several dismech entries can share one MONDO id (e.g. two gastric-cancer strata).
+``pathograph_export`` then writes ``MONDO_<id>.json`` for the first and
+``MONDO_<id>__<slug>.json`` for the rest, so the pathograph is resolved through
+``pathographs/index.json`` by the entry's ``name`` (see
+:func:`resolve_pathograph`), never by MONDO id alone.
 
 The output is deliberately model-agnostic. It works three ways for the VAE
 project: (a) a standalone knowledge-based sampler for cold-start / rare diseases
@@ -38,8 +54,7 @@ from collections import defaultdict, deque
 from pathlib import Path
 from typing import Any
 
-import yaml
-
+from dismech import kb_cache
 from dismech.export.hpoa_export import normalize_frequency_enum, parse_frequency
 
 # HP Frequency band -> representative (midpoint) probability for sampling.
@@ -89,20 +104,49 @@ def frequency_to_probability(phenotype: dict[str, Any]) -> tuple[float | None, s
     return None, "unknown"
 
 
-def _genes(data: dict[str, Any]) -> list[dict[str, str]]:
-    """Collect HGNC gene descriptors from the genetic + pathophysiology sections."""
-    seen: dict[str, dict[str, str]] = {}
-    for entry in data.get("genetic") or []:
+def _subtype(entry: dict[str, Any]) -> str | None:
+    value = entry.get("subtype")
+    return value if isinstance(value, str) and value else None
+
+
+def _case_fraction(entry: dict[str, Any]) -> float | None:
+    """First curated per-gene case fraction, as a probability, if any."""
+    for cf in entry.get("case_fractions") or []:
+        pct = cf.get("case_fraction_percent")
+        if isinstance(pct, (int, float)) and pct > 0:
+            return min(float(pct) / 100.0, 1.0)
+    return None
+
+
+def _genes(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Collect the causal HGNC genes from ``genetic[]``, one per (gene, subtype).
+
+    ``relationship_type: CAUSATIVE`` rows are used when the entry has any. About
+    half the KB's ``genetic[]`` rows carry no ``relationship_type`` at all, so an
+    entry with no CAUSATIVE row falls back to its untyped rows, recorded with
+    ``relationship_type: None`` so a consumer can tell the two apart. Rows typed
+    as anything else (modifier, susceptibility, risk factor, somatic driver, ...)
+    are never diagnoses, and neither are the genes named on pathophysiology
+    nodes, which are usually downstream pathway members.
+    """
+    rows = data.get("genetic") or []
+    causative = [r for r in rows if r.get("relationship_type") == "CAUSATIVE"]
+    chosen = causative or [r for r in rows if not r.get("relationship_type")]
+    seen: dict[tuple[str, str | None], dict[str, Any]] = {}
+    for entry in chosen:
         term = ((entry.get("gene_term") or {}).get("term") or {})
         gid = term.get("id")
-        if gid and gid not in seen:
-            seen[gid] = {"id": gid, "label": term.get("label") or ""}
-    for node in data.get("pathophysiology") or []:
-        for g in node.get("genes") or []:
-            term = (g.get("term") or {})
-            gid = term.get("id")
-            if gid and gid not in seen:
-                seen[gid] = {"id": gid, "label": term.get("label") or ""}
+        if not gid:
+            continue
+        key = (gid, _subtype(entry))
+        if key not in seen:
+            seen[key] = {
+                "id": gid,
+                "label": term.get("label") or "",
+                "relationship_type": entry.get("relationship_type"),
+                "subtype": key[1],
+                "case_fraction": _case_fraction(entry),
+            }
     return list(seen.values())
 
 
@@ -148,14 +192,43 @@ def _branch_index(pathograph_path: Path) -> dict[str, str]:
     return out
 
 
-def _find_pathograph(disease_id: str, pathograph_dir: Path) -> Path | None:
-    """Locate ``pathographs/MONDO_<id>.json`` for a MONDO disease id."""
+_INDEX_CACHE: dict[Path, dict[str, list[dict[str, str]]] | None] = {}
+
+
+def _pathograph_index(pathograph_dir: Path) -> dict[str, list[dict[str, str]]] | None:
+    """Read ``pathographs/index.json`` once per directory (None when absent)."""
+    key = pathograph_dir.resolve()
+    if key not in _INDEX_CACHE:
+        try:
+            _INDEX_CACHE[key] = json.loads((pathograph_dir / "index.json").read_text())
+        except (OSError, ValueError):
+            _INDEX_CACHE[key] = None
+    return _INDEX_CACHE[key]
+
+
+def resolve_pathograph(
+    disease_id: str, entry_name: str, pathograph_dir: Path
+) -> Path | None:
+    """Locate the pathograph JSON written for this dismech entry.
+
+    ``pathograph_export`` writes ``MONDO_<id>.json`` for the first entry bound
+    to a MONDO id and ``MONDO_<id>__<slug>.json`` for each later one, recording
+    every file with its entry ``name`` in ``index.json``. Resolve through that
+    index by name, so two entries sharing a MONDO id never read each other's
+    graph. Without an index, only an id held by a single file is accepted.
+    """
+    index = _pathograph_index(pathograph_dir)
+    if index is not None:
+        for row in index.get(disease_id) or []:
+            if row.get("name") == entry_name:
+                path = pathograph_dir / row["file"]
+                return path if path.exists() else None
+        return None
     stem = disease_id.replace(":", "_")
     exact = pathograph_dir / f"{stem}.json"
-    if exact.exists():
+    if exact.exists() and not any(pathograph_dir.glob(f"{stem}__*.json")):
         return exact
-    matches = sorted(pathograph_dir.glob(f"{stem}*.json"))  # subtype suffixes
-    return matches[0] if matches else None
+    return None
 
 
 def disease_prior(
@@ -169,13 +242,14 @@ def disease_prior(
     split out into ``excluded`` (asserted-absent constraints) rather than the
     sampleable list.
     """
-    data = yaml.safe_load(yaml_path.read_text()) or {}
+    data = kb_cache.load_document(yaml_path) or {}
     disease = ((data.get("disease_term") or {}).get("term") or {})
     disease_id = disease.get("id") or ""
     if not disease_id.startswith("MONDO:"):
         return None
 
-    pg = _find_pathograph(disease_id, pathograph_dir)
+    entry_name = data.get("name") or yaml_path.stem
+    pg = resolve_pathograph(disease_id, entry_name, pathograph_dir)
     branches = _branch_index(pg) if pg else {}
 
     phenotypes: list[dict[str, Any]] = []
@@ -198,17 +272,24 @@ def disease_prior(
                 "probability": prob,
                 "frequency_source": source,
                 "branch": branches.get(hpo_id),
+                "subtype": _subtype(phen),
             }
         )
 
     if not phenotypes:
         return None
 
+    genes = _genes(data)
+    subtypes = sorted(
+        {p["subtype"] for p in phenotypes if p["subtype"]}
+        | {g["subtype"] for g in genes if g["subtype"]}
+    )
     return {
         "disease_id": disease_id,
-        "disease_name": disease.get("label") or data.get("name") or yaml_path.stem,
-        "dismech_name": data.get("name") or yaml_path.stem,
-        "genes": _genes(data),
+        "disease_name": disease.get("label") or entry_name,
+        "dismech_name": entry_name,
+        "subtypes": subtypes,
+        "genes": genes,
         "pathograph": pg.name if pg else None,
         "phenotypes": phenotypes,
         "excluded": excluded,
@@ -246,6 +327,7 @@ def main() -> int:
         "--out", type=Path, default=Path("output/synthvae/disease_priors.json")
     )
     args = parser.parse_args()
+    kb_cache.default_off()  # one corpus walk: the cache would be pure cost
     n_dis, n_phen = export(args.kb_dir, args.pathograph_dir, args.out)
     print(f"wrote {n_dis} disease priors ({n_phen} phenotypes) -> {args.out}")
     return 0

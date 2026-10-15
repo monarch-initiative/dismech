@@ -45,13 +45,15 @@ from dismech.export import module_map, module_phenotype_anchors, synthvae_export
 MIN_SHARED = 2  # a disease must share >=2 phenotypes with a module to be scored
 
 
-def _disease_vectors(disorders_dir: Path) -> dict[str, dict[str, float]]:
+def _disease_vectors(
+    disorders_dir: Path, pathograph_dir: Path
+) -> dict[str, dict[str, float]]:
     """disease name -> {hpo_id: frequency-probability} over its whole profile."""
     out: dict[str, dict[str, float]] = {}
     for yaml_path in sorted(disorders_dir.glob("*.yaml")):
         if yaml_path.name.endswith(".history.yaml"):
             continue
-        rec = synthvae_export.disease_prior(yaml_path)
+        rec = synthvae_export.disease_prior(yaml_path, pathograph_dir)
         if not rec:
             continue
         vec: dict[str, float] = {}
@@ -128,7 +130,7 @@ def build(
     declared = module_map.build(modules_dir, disorders_dir)["disease_to_modules"]
     sig_counts, sig_diseases = _module_signatures(anchors)
     idf = _idf(sig_counts)
-    disease_vecs = _disease_vectors(disorders_dir)
+    disease_vecs = _disease_vectors(disorders_dir, pathograph_dir)
 
     # idf-weight each disease vector once
     weighted_disease: dict[str, dict[str, float]] = {}

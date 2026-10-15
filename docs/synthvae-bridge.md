@@ -18,11 +18,24 @@ consumes — but grounded in curated biology rather than learned from sparse cas
    off. Reuses the frequency parsing in `hpoa_export` (literal `12%` / `3/20`,
    an HP Frequency term, or the dismech `FrequencyEnum`) and maps HP Frequency
    bands to midpoint probabilities. The branch is the nearest upstream
-   `pathophysiology` node in the disease's `pathographs/MONDO_*.json`.
+   `pathophysiology` node in the entry's pathograph, or `null` when no causal
+   edge reaches the phenotype. The pathograph file is looked up in
+   `pathographs/index.json` by the entry's `name`: when several entries share a
+   MONDO id, `pathograph_export` writes `MONDO_<id>.json` for the first and
+   `MONDO_<id>__<slug>.json` for the rest, so a lookup by MONDO id alone would
+   hand one entry another's graph.
+
+   Only `relationship_type: CAUSATIVE` genes from `genetic[]` are recorded, one
+   per (gene, subtype), with the curated `case_fractions` share where present.
+   About half the KB's `genetic[]` rows set no `relationship_type`, so an entry
+   with no CAUSATIVE row falls back to its untyped rows, which keep
+   `relationship_type: null`. Rows typed as modifier, susceptibility, risk
+   factor, somatic driver and so on, and genes named on mechanism nodes, are
+   never treated as diagnoses. Each phenotype and gene carries its curated `subtype`, if any.
 
    ```bash
    uv run python -m dismech.export.synthvae_export
-   # -> output/synthvae/disease_priors.json   (1,426 diseases, ~15k phenotypes)
+   # -> output/synthvae/disease_priors.json   (3,396 diseases, ~44k phenotypes)
    ```
 
    Each record:
@@ -30,12 +43,15 @@ consumes — but grounded in curated biology rather than learned from sparse cas
    {
      "disease_id": "MONDO:0011581",
      "disease_name": "arrhythmogenic cardiomyopathy with wooly hair and keratoderma",
-     "genes": [{"id": "hgnc:3052", "label": "DSP"}],
+     "dismech_name": "Carvajal Syndrome",
+     "subtypes": [],
+     "genes": [{"id": "hgnc:3052", "label": "DSP", "relationship_type": null,
+                "subtype": null, "case_fraction": null}],
      "pathograph": "MONDO_0011581.json",
      "phenotypes": [
        {"hpo_id": "HP:0001644", "label": "Dilated cardiomyopathy",
         "probability": 0.9, "frequency_source": "band",
-        "branch": "Contractile and Electrical Dysfunction"},
+        "branch": "Contractile and Electrical Dysfunction", "subtype": null},
        ...
      ],
      "excluded": []
@@ -53,19 +69,40 @@ consumes — but grounded in curated biology rather than learned from sparse cas
    # -> output/synthvae/synthetic_patients.jsonl
    ```
 
+   Each patient is first given one causal gene (weighted by `case_fractions`
+   when every candidate gene has one, uniformly otherwise) and, for an entry
+   with subtypes, one subtype: the gene's own subtype when it has one, otherwise
+   a uniform draw, since dismech records no subtype frequencies. Phenotypes
+   scoped to any other subtype are not drawn, so a patient never mixes the
+   features of mutually exclusive subtypes. The gene is written as a single
+   phenopacket v2 `GeneDescriptor` (`valueId: HGNC:<n>`, `symbol`) with
+   `interpretationStatus: CAUSATIVE`; the subtype is recorded in
+   `metaData.externalReferences`.
+
 ## Why the branch matters (curated co-occurrence)
 
 `--mode marginal` draws each phenotype independently. `--mode branch` (default)
 draws one shared `u ~ Uniform(0,1)` **per mechanistic branch**; a phenotype is
-present iff `u < probability`. This **preserves every marginal exactly** while
+present iff `u < probability`. This preserves each phenotype's marginal while
 inducing positive *within-branch* co-occurrence — exactly the structure the VAE
-otherwise has to estimate from data. Measured on Carvajal (N=4000), for two
+otherwise has to estimate from data. Two conditions apply:
+
+* **Subtypes.** A subtype-scoped phenotype keeps its curated marginal *within*
+  its subtype; across the whole cohort it is diluted by the share of patients
+  drawn into other subtypes. Unscoped phenotypes are unaffected.
+* **`--min-features`.** It defaults to 0. Any higher value redraws patients with
+  too few features, which conditions every kept patient and pushes the marginals
+  up, most for diseases whose phenotypes are all low-frequency (the rare and
+  cold-start diseases this sampler is for). The sampler prints a note when it is
+  set.
+
+Measured on Carvajal (N=4000, no subtypes, `--min-features 0`), for two
 same-branch cardiac phenotypes each with P≈0.17:
 
 | mode | P(VT) | P(SCD) | P(both) | independent expectation |
 |------|-------|--------|---------|--------------------------|
-| marginal | 0.170 | 0.172 | 0.035 | 0.029 |
-| branch | 0.162 | 0.162 | **0.162** | 0.026 |
+| marginal | 0.164 | 0.166 | 0.028 | 0.027 |
+| branch | 0.163 | 0.163 | **0.163** | 0.027 |
 
 In branch mode the rarer cardiac signs (ventricular tachycardia, syncope, sudden
 cardiac death) co-segregate when the cardiac branch is "severe", instead of
@@ -86,9 +123,16 @@ score any phenopacket cohort (VAE output, the sampler above, or real
 phenopacket-store cases) against the pathograph **without touching model
 training**. It reports, per patient and per cohort:
 
-* the matched disease pathograph (by MONDO id, else by causal gene);
-* **on-graph** HPO terms (mechanistically explainable for that disease) vs
-  **off-graph** terms (no curated mechanism — the plausibility red flag);
+* the matched disease entry (by MONDO id, else by causal gene). A MONDO id
+  shared by several entries is resolved only through the pathograph file the
+  patient names (as the sampler's output does) and is otherwise reported as
+  `mondo_ambiguous` rather than guessed;
+* each HPO term as **on-graph** (a causal edge in the pathograph reaches it, so
+  a curated mechanism explains it), **listed, unconnected** (curated for the
+  disease but no causal edge reaches it — about half the KB's phenotypes; see
+  `just compliance-connectivity`), or **off-graph** (not curated for the
+  disease at all — the plausibility red flag). `coverage` counts on-graph terms
+  only; `listed_coverage` counts both of the first two;
 * which mechanistic **branches** the on-graph terms activate.
 
 ```bash

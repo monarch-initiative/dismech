@@ -8,7 +8,7 @@ from pathlib import Path
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-import module_denovo_factors as mdf  # noqa: E402
+import module_denovo_factors as mdf
 
 
 def _write(path: Path, obj) -> None:

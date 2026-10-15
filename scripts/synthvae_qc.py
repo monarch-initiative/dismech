@@ -7,12 +7,18 @@ modifying VAE training**. It answers, per patient and per cohort:
 
 * Which disease pathograph does the patient match (by MONDO id, else by causal
   gene)?
-* Which of the patient's HPO terms are *represented* in that pathograph
-  (mechanistically explainable) vs *unrepresented* / off-graph (no curated
-  mechanism for this disease -- the plausibility red flag)?
-* Which mechanistic *branches* (pathophysiology sub-pathways) do the represented
-  terms light up -- i.e. is the patient a coherent sub-pathway or scattered
-  off-graph noise?
+* Which of the patient's HPO terms are, for that disease,
+
+  - **on-graph**: reached by a causal edge from a pathophysiology node, so the
+    curated pathograph offers a mechanism for them;
+  - **listed, unconnected**: curated as a phenotype of the disease, but no
+    causal edge reaches them (about half of the KB's phenotypes are in this
+    state -- see ``just compliance-connectivity``), so they are plausible as
+    features but not mechanistically explained;
+  - **off-graph**: not curated for the disease at all -- the plausibility red
+    flag?
+* Which mechanistic *branches* (pathophysiology sub-pathways) do the on-graph
+  terms light up -- i.e. is the patient a coherent sub-pathway or scattered?
 
 Key distinction from HPO logical checks (issue #4): HPO ontology checks catch
 *impossible term combinations*; this assesses *disease-mechanism plausibility* --
@@ -37,17 +43,24 @@ from typing import Any
 
 
 def _index_priors(priors: list[dict[str, Any]]) -> dict[str, Any]:
-    """Build lookup tables: by MONDO id, by gene id, by gene symbol."""
-    by_mondo: dict[str, dict] = {}
+    """Build lookup tables: by MONDO id, by pathograph file, by gene id/symbol.
+
+    Several dismech entries can share a MONDO id, so ``by_mondo`` holds every
+    prior for an id rather than letting the last one win.
+    """
+    by_mondo: dict[str, list[dict]] = defaultdict(list)
+    by_pathograph: dict[str, dict] = {}
     by_gene: dict[str, list[dict]] = defaultdict(list)
     for p in priors:
-        by_mondo[p["disease_id"]] = p
+        by_mondo[p["disease_id"]].append(p)
+        if p.get("pathograph"):
+            by_pathograph[p["pathograph"]] = p
         for g in p.get("genes") or []:
             if g.get("id"):
                 by_gene[g["id"].lower()].append(p)
             if g.get("label"):
                 by_gene[g["label"].upper()].append(p)
-    return {"by_mondo": by_mondo, "by_gene": by_gene}
+    return {"by_mondo": by_mondo, "by_pathograph": by_pathograph, "by_gene": by_gene}
 
 
 def _patient_disease_ids(pkt: dict[str, Any]) -> list[str]:
@@ -68,8 +81,9 @@ def _patient_genes(pkt: dict[str, Any]) -> list[str]:
     for interp in pkt.get("interpretations") or []:
         for gi in (interp.get("diagnosis") or {}).get("genomicInterpretations") or []:
             gene = gi.get("gene") or {}
-            if gene.get("id"):
-                out.append(gene["id"].lower())
+            gene_id = gene.get("valueId") or gene.get("id")  # v2 GeneDescriptor
+            if gene_id:
+                out.append(gene_id.lower())
             if gene.get("symbol"):
                 out.append(gene["symbol"].upper())
     return out
@@ -83,13 +97,33 @@ def _patient_hpo(pkt: dict[str, Any]) -> list[str]:
     ]
 
 
+def _patient_pathographs(pkt: dict[str, Any]) -> list[str]:
+    refs = (pkt.get("metaData") or {}).get("externalReferences") or []
+    return [r["id"] for r in refs if r.get("description") == "dismech pathograph" and r.get("id")]
+
+
 def _match_prior(pkt: dict[str, Any], idx: dict[str, Any]) -> tuple[dict | None, str]:
-    """Resolve the patient's disease prior. Returns (prior, match_basis)."""
+    """Resolve the patient's disease prior. Returns (prior, match_basis).
+
+    A MONDO id held by more than one entry is only resolved when the patient
+    names its pathograph file (as ``synthvae_sampler`` output does); otherwise
+    it is reported as ``mondo_ambiguous`` rather than guessed.
+    """
+    ambiguous = False
     for did in _patient_disease_ids(pkt):
-        if did in idx["by_mondo"]:
-            return idx["by_mondo"][did], "mondo"
+        candidates_for_id = idx["by_mondo"].get(did) or []
+        if len(candidates_for_id) == 1:
+            return candidates_for_id[0], "mondo"
+        if len(candidates_for_id) > 1:
+            for pg in _patient_pathographs(pkt):
+                prior = idx["by_pathograph"].get(pg)
+                if prior is not None and prior["disease_id"] == did:
+                    return prior, "mondo"
+            ambiguous = True
+    if ambiguous:
+        return None, "mondo_ambiguous"
     candidates = {
-        p["disease_id"]: p
+        (p["disease_id"], p.get("dismech_name")): p
         for key in _patient_genes(pkt)
         for p in idx["by_gene"].get(key, [])
     }
@@ -109,22 +143,32 @@ def qc_patient(pkt: dict[str, Any], idx: dict[str, Any]) -> dict[str, Any]:
         "n_terms": len(terms),
     }
     if prior is None:
-        rec.update(matched_disease=None, on_graph=[], off_graph=terms)
+        rec.update(
+            matched_disease=None, on_graph=[], listed_unconnected=[], off_graph=terms
+        )
         return rec
 
     branch_of = {ph["hpo_id"]: ph.get("branch") for ph in prior["phenotypes"]}
-    graph_terms = set(branch_of)
-    on_graph = [t for t in terms if t in graph_terms]
-    off_graph = [t for t in terms if t not in graph_terms]
-    branches = Counter(branch_of[t] or "(unbranched)" for t in on_graph)
+    on_graph = [t for t in terms if branch_of.get(t)]
+    listed_unconnected = [t for t in terms if t in branch_of and not branch_of[t]]
+    off_graph = [t for t in terms if t not in branch_of]
+    branches = Counter(branch_of[t] for t in on_graph)
     rec.update(
         matched_disease=prior["disease_id"],
-        matched_name=prior["disease_name"],
+        matched_name=prior.get("dismech_name") or prior["disease_name"],
         on_graph=on_graph,
+        listed_unconnected=listed_unconnected,
         off_graph=off_graph,
-        coverage=round(len(on_graph) / len(terms), 3) if terms else 0.0,
+        # None for a patient with no HPO terms: there is nothing to cover, and
+        # scoring it 0.0 would drag the cohort mean down.
+        coverage=round(len(on_graph) / len(terms), 3) if terms else None,
+        listed_coverage=(
+            round((len(on_graph) + len(listed_unconnected)) / len(terms), 3)
+            if terms
+            else None
+        ),
         branches_activated=dict(branches),
-        n_branches=len([b for b in branches if b != "(unbranched)"]),
+        n_branches=len(branches),
     )
     return rec
 
@@ -167,13 +211,18 @@ def run(patients: list[dict], priors: list[dict]) -> dict[str, Any]:
     off_graph_counter: Counter = Counter()
     for r in matched:
         off_graph_counter.update(r["off_graph"])
-    cov = [r["coverage"] for r in matched]
+    cov = [r["coverage"] for r in matched if r["coverage"] is not None]
+    listed_cov = [r["listed_coverage"] for r in matched if r["listed_coverage"] is not None]
 
     summary = {
         "n_patients": n,
         "n_matched": len(matched),
         "match_basis": dict(Counter(r["match_basis"] for r in per_patient)),
         "mean_coverage_matched": round(sum(cov) / len(cov), 3) if cov else None,
+        "mean_listed_coverage_matched": (
+            round(sum(listed_cov) / len(listed_cov), 3) if listed_cov else None
+        ),
+        "n_matched_without_terms": sum(1 for r in matched if r["coverage"] is None),
         "patients_fully_on_graph": sum(1 for r in matched if r["coverage"] == 1.0),
         "top_off_graph_terms": off_graph_counter.most_common(15),
         "corpus_coverage": corpus_coverage(patients, priors, idx),
@@ -189,14 +238,16 @@ def _print_summary(report: dict[str, Any]) -> None:
     print("=" * 64)
     print(f"patients                  : {s['n_patients']}")
     print(f"matched to a pathograph   : {s['n_matched']}  {s['match_basis']}")
-    print(f"mean on-graph coverage    : {s['mean_coverage_matched']}")
+    print(f"mean on-graph coverage    : {s['mean_coverage_matched']}  (causally connected)")
+    print(f"mean listed coverage      : {s['mean_listed_coverage_matched']}  (curated for the disease)")
     print(f"fully on-graph patients   : {s['patients_fully_on_graph']}/{s['n_matched']}")
+    print(f"matched, no HPO terms     : {s['n_matched_without_terms']}  (excluded from the means)")
     print("\ncorpus coverage of this cohort:")
     print(f"  diseases with a pathograph : {c['cohort_diseases_with_pathograph']}/{c['cohort_unique_diseases']}")
     print(f"  causal genes in pathograph : {c['cohort_genes_in_pathograph']}/{c['cohort_unique_genes']}")
     print(f"  HPO terms in pathograph    : {c['cohort_hpo_terms_in_pathograph']}/{c['cohort_unique_hpo_terms']}")
     if s["top_off_graph_terms"]:
-        print("\ntop off-graph (mechanistically unexplained) HPO terms:")
+        print("\ntop off-graph (not curated for the matched disease) HPO terms:")
         for term, cnt in s["top_off_graph_terms"]:
             print(f"  {cnt:4d}  {term}")
     print("=" * 64)

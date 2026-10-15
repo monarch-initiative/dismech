@@ -32,19 +32,8 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-import yaml
-
-try:  # libyaml when available (~10x faster over the whole KB), else pure Python
-    from yaml import CSafeLoader as _SafeLoader
-except ImportError:  # pragma: no cover
-    from yaml import SafeLoader as _SafeLoader
-
-
-def safe_load_path(path: Path) -> Any:
-    """Load a YAML file with the fastest available safe loader."""
-    with open(path) as stream:
-        return yaml.load(stream, Loader=_SafeLoader)
-
+from dismech import kb_cache
+from dismech.yaml_io import safe_load_path
 
 # Ontology prefixes that make up a module's mechanism signature.
 SIGNATURE_PREFIXES = ("HP", "CL", "GO", "UBERON", "hgnc")
@@ -147,7 +136,7 @@ def build(modules_dir: Path, disorders_dir: Path) -> dict[str, Any]:
     for dp in sorted(disorders_dir.glob("*.yaml")):
         if dp.name.endswith(".history.yaml"):
             continue
-        data = safe_load_path(dp) or {}
+        data = kb_cache.load_document(dp) or {}  # shared with later walks
         disease = data.get("name") or dp.stem
         mondo = (((data.get("disease_term") or {}).get("term") or {}).get("id"))
         for ref, dnode in _iter_conforms(data.get("pathophysiology") or []):

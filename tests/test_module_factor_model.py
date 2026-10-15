@@ -1,12 +1,11 @@
 """Tests for the anchored module-factor model (module_factor_model)."""
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 
 import yaml
-
-import importlib.util
 
 _SPEC = importlib.util.spec_from_file_location(
     "module_factor_model",

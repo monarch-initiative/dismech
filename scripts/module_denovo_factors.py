@@ -39,9 +39,9 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from module_factor_model import _module_signatures, _module_vec  # type: ignore
 
 from dismech.export import module_phenotype_anchors, synthvae_export
-from module_factor_model import _module_vec, _module_signatures  # type: ignore
 
 
 def _corpus_idf(disease_vecs: dict[str, dict[str, float]]) -> dict[str, float]:
@@ -62,7 +62,7 @@ def _corpus_idf(disease_vecs: dict[str, dict[str, float]]) -> dict[str, float]:
 
 
 def _disease_vectors_and_labels(
-    disorders_dir: Path,
+    disorders_dir: Path, pathograph_dir: Path
 ) -> tuple[dict[str, dict[str, float]], dict[str, str]]:
     """disease -> {hpo: freq-prob}, plus a global hpo -> label map, in one KB pass."""
     vecs: dict[str, dict[str, float]] = {}
@@ -70,7 +70,7 @@ def _disease_vectors_and_labels(
     for yaml_path in sorted(disorders_dir.glob("*.yaml")):
         if yaml_path.name.endswith(".history.yaml"):
             continue
-        rec = synthvae_export.disease_prior(yaml_path)
+        rec = synthvae_export.disease_prior(yaml_path, pathograph_dir)
         if not rec:
             continue
         vec: dict[str, float] = {}
@@ -126,7 +126,7 @@ def build(
 ) -> dict[str, Any]:
     anchors = module_phenotype_anchors.build(modules_dir, disorders_dir, pathograph_dir)["modules"]
     sig_counts, _ = _module_signatures(anchors)
-    disease_vecs, labels = _disease_vectors_and_labels(disorders_dir)
+    disease_vecs, labels = _disease_vectors_and_labels(disorders_dir, pathograph_dir)
     idf = _corpus_idf(disease_vecs)
 
     modules = [m for m in sig_counts if sig_counts[m]]

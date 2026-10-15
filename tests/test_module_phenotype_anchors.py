@@ -79,3 +79,46 @@ def test_missing_pathograph_is_counted_not_crashed(tmp_path: Path) -> None:
     result = mpa.build(modules, disorders, pathographs)
     assert result["modules"] == {}
     assert result["coverage"]["edges_no_pathograph"] == 1
+
+
+def test_entries_sharing_a_mondo_id_walk_their_own_pathograph(tmp_path: Path) -> None:
+    modules, disorders, pathographs = _make_kb(tmp_path)
+    # A second entry on the same MONDO id, whose graph pathograph_export writes
+    # under a slug suffix and lists in index.json.
+    _write(
+        disorders / "Other_Disease.yaml",
+        {
+            "name": "Other Disease",
+            "disease_term": {"term": {"id": "MONDO:0000001", "label": "good"}},
+            "pathophysiology": [{"name": "Other Node", "conforms_to": "mymod#Node A"}],
+        },
+    )
+    (pathographs / "MONDO_0000001__Other_Disease.json").write_text(
+        json.dumps(
+            {
+                "nodes": [
+                    {"id": "Other Node", "node_type": "pathophysiology"},
+                    {"id": "Other Sign", "node_type": "phenotype",
+                     "meta": {"term_id": "HP:0000365"}},
+                ],
+                "edges": [
+                    {"source": "Other Node", "target": "Other Sign", "predicate": "causes"},
+                ],
+            }
+        )
+    )
+    (pathographs / "index.json").write_text(
+        json.dumps(
+            {
+                "MONDO:0000001": [
+                    {"file": "MONDO_0000001.json", "name": "Good Disease"},
+                    {"file": "MONDO_0000001__Other_Disease.json", "name": "Other Disease"},
+                ]
+            }
+        )
+    )
+    result = mpa.build(modules, disorders, pathographs)
+    by_hp = {r["hpo_id"]: r["diseases"] for r in result["modules"]["mymod"]}
+    assert by_hp["HP:0001250"] == ["Good Disease"]
+    assert by_hp["HP:0000365"] == ["Other Disease"]
+    assert result["coverage"]["edges_node_absent"] == 0

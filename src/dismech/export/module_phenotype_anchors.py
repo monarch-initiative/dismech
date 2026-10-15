@@ -35,30 +35,22 @@ from pathlib import Path
 from typing import Any
 
 from dismech.export import module_map
-
-# Predicates along which disease progression flows downstream to phenotypes.
-PROGRESSION_PREDICATES = frozenset({"causes", "leads_to", "contributes_to"})
+from dismech.export.synthvae_export import PROGRESSION_PREDICATES, resolve_pathograph
 
 
 class _PathographCache:
-    """Load and index pathograph JSONs once each, keyed by MONDO id."""
+    """Load and index pathograph JSONs once each, keyed by (MONDO id, entry name).
+
+    Keying on the entry name as well as the MONDO id matters: several entries
+    can share a MONDO id, each with its own pathograph file.
+    """
 
     def __init__(self, pathograph_dir: Path) -> None:
         self._dir = pathograph_dir
-        self._cache: dict[str, dict | None] = {}
-
-    def _find(self, disease_mondo: str) -> Path | None:
-        stem = disease_mondo.replace(":", "_")
-        exact = self._dir / f"{stem}.json"
-        if exact.exists():
-            return exact
-        matches = sorted(self._dir.glob(f"{stem}.json")) or sorted(
-            self._dir.glob(f"{stem}__*.json")
-        )
-        return matches[0] if matches else None
+        self._cache: dict[tuple[str, str], dict | None] = {}
 
     def downstream_phenotypes(
-        self, disease_mondo: str, start_node: str
+        self, disease_mondo: str, disease_name: str, start_node: str
     ) -> list[tuple[str, str]] | None:
         """HP (id, label) phenotypes reachable downstream of ``start_node``.
 
@@ -66,7 +58,7 @@ class _PathographCache:
         (so the caller can distinguish "no pathograph" from "branch is a dead
         end with no phenotype").
         """
-        graph = self._load(disease_mondo)
+        graph = self._load(disease_mondo, disease_name)
         if graph is None:
             return None
         node_type = graph["node_type"]
@@ -88,10 +80,11 @@ class _PathographCache:
             frontier.extend(adj.get(cur, ()))
         return out
 
-    def _load(self, disease_mondo: str) -> dict | None:
-        if disease_mondo in self._cache:
-            return self._cache[disease_mondo]
-        path = self._find(disease_mondo)
+    def _load(self, disease_mondo: str, disease_name: str) -> dict | None:
+        key = (disease_mondo, disease_name)
+        if key in self._cache:
+            return self._cache[key]
+        path = resolve_pathograph(disease_mondo, disease_name, self._dir)
         graph: dict | None = None
         if path is not None:
             try:
@@ -115,7 +108,7 @@ class _PathographCache:
                     "adjacency": adjacency,
                     "pheno_term": pheno_term,
                 }
-        self._cache[disease_mondo] = graph
+        self._cache[key] = graph
         return graph
 
 
@@ -147,10 +140,10 @@ def build(
         if not mondo or not node:
             cov["edges_no_mondo"] += 1
             continue
-        reached = cache.downstream_phenotypes(mondo, node)
+        reached = cache.downstream_phenotypes(mondo, row["disease"], node)
         if reached is None:
             # distinguish no-pathograph from node-absent for the audit
-            if cache._load(mondo) is None:
+            if cache._load(mondo, row["disease"]) is None:
                 cov["edges_no_pathograph"] += 1
             else:
                 cov["edges_node_absent"] += 1
