@@ -155,11 +155,13 @@ mechanism-level rather than disease-level.
 - [ ] Remaining Workstream A modules
 - [ ] Gs alpha defect module
 
+## Decisions
+
+- **Agonism and antagonism of the same receptor are separate modules** (decided
+  2026-10-15), because their downstream consequence chains differ.
+
 ## Open questions
 
-- Should agonism and antagonism of the same receptor be one module with two
-  arms, or two modules? (Proposal above: two, since the downstream
-  consequence chains differ.)
 - How should biased agonism (G protein vs arrestin, e.g. oliceridine) be
   represented — a node within the agonism module, or a hypothesis group?
 - Is a CGRP-receptor module better placed with migraine neurovascular
