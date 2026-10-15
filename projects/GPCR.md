@@ -34,6 +34,7 @@ modules:
 - cardiac_camp_pka_calcium_handling
 - somatotroph_camp_pka_overactivation
 - spinal_hsp90_opioid_enhancement
+- mu_opioid_receptor_agonism
 - addiction_cycle
 - parkinsonism_dopaminergic_degeneration
 - photoreceptor_degeneration
@@ -164,7 +165,7 @@ mechanism-level rather than disease-level.
       entry (GPCR drug mechanisms)
 
 ### Phase 1 — first modules
-- [ ] mu-opioid receptor agonism (first module; see below)
+- [x] mu-opioid receptor agonism (first module; see below) — `mu_opioid_receptor_agonism`
 - [ ] mu-opioid receptor antagonism
 - [ ] beta-adrenergic receptor blockade
 - [ ] GLP-1 receptor agonism
