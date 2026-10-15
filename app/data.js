@@ -140436,6 +140436,83 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Factor XIII B Subunit Deficiency",
+    "disease_id": "MONDO:0013190",
+    "category": "Mendelian",
+    "parents": [
+      "Bleeding Disorder",
+      "Coagulation Disorder",
+      "Rare Bleeding Disorder"
+    ],
+    "creation_date": "2026-10-15T07:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Congenital deficiency of the non-catalytic B subunit of coagulation factor XIII, caused by biallelic pathogenic variants in F13B. Plasma factor XIII circulates as the heterotetramer FXIII-A2B2: the catalytic A subunit is made by cells of haematopoietic origin and the B subunit by hepatocytes, and the two meet only in plasma. FXIII-B carries and protects FXIII-A, so when the B subunit is missing the A subunit is cleared from the circulation quickly and a secondary FXIII-A deficiency follows even though F13A1 is intact. FXIII-B also binds fibrinogen and speeds thrombin activation of FXIII-A on the clot, so its loss slows fibrin cross-linking by a second route.\nThe clinical picture is a milder version of A-subunit disease. Plasma FXIII activity is low but usually not absent, and bleeding tends to be provoked or late-presenting rather than the umbilical-stump and intracranial haemorrhage of infancy that defines severe A-subunit deficiency. Routine screening tests (prothrombin time, activated partial thromboplastin time, thrombin time) are normal, so diagnosis requires a FXIII activity assay followed by separate A and B subunit antigen measurement and F13B sequencing. The distinction matters for treatment: recombinant FXIII-A2 cannot replace the missing carrier and is not appropriate, whereas plasma-derived concentrate supplies both subunits. Severe B-subunit deficiency is much rarer than A-subunit deficiency; heterozygous F13B variants are commoner and cause mild or no bleeding.",
+    "pathophysiology": [
+      "Biallelic F13B Loss-of-Function Variants",
+      "Impaired FXIII-B Secretion from Hepatocytes",
+      "Absent Circulating FXIII-B Carrier Subunit",
+      "Accelerated Plasma Clearance of FXIII-A",
+      "Impaired Thrombin Activation of FXIII-A on Fibrin",
+      "Reduced Plasma FXIII Transglutaminase Activity",
+      "Impaired Alpha-2-Antiplasmin Ligation to Fibrin",
+      "Accelerated Fibrinolysis of the Formed Clot",
+      "Impaired Fibrin Cross-Linking"
+    ],
+    "cell_types": [
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "protein secretion",
+      "endoplasmic reticulum to Golgi vesicle-mediated transport",
+      "blood coagulation, fibrin clot formation",
+      "negative regulation of fibrinolysis",
+      "fibrinolysis",
+      "fibrin gamma- and alpha-chain isopeptide cross-linking"
+    ],
+    "phenotypes": [
+      "Abnormal bleeding",
+      "Intramuscular hematoma",
+      "Gingival bleeding"
+    ],
+    "phenotype_categories": [
+      "Hematological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Head and Neck",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0001892",
+      "HP:0012233",
+      "HP:0000225"
+    ],
+    "frequencies": [],
+    "genes": [
+      "F13B"
+    ],
+    "treatments": [
+      "Plasma-Derived Factor XIII Concentrate"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma factor XIII activity",
+      "Plasma factor XIII B subunit antigen"
+    ],
+    "source_file": "Factor_XIII_B_Subunit_Deficiency.yaml",
+    "page_url": "../pages/disorders/Factor_XIII_B_Subunit_Deficiency.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Fallopian tube benign neoplasm",
     "disease_id": "MONDO:0000645",
     "category": "Gynecologic Neoplasm",
@@ -372375,17 +372452,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3451,
+  "total_disorder_pages": 3452,
   "total_subtypes": 4735,
-  "total_disorders_and_subtypes": 8186,
-  "total_unique_evidence_sources": 51963,
-  "total_unique_publications": 48439,
+  "total_disorders_and_subtypes": 8187,
+  "total_unique_evidence_sources": 51979,
+  "total_unique_publications": 48455,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 302,
-  "total_pathographs": 3447,
-  "total_unique_pathological_events": 22776,
+  "total_pathographs": 3448,
+  "total_unique_pathological_events": 22785,
   "total_modules": 192,
-  "total_research_reports": 3572,
+  "total_research_reports": 3573,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
