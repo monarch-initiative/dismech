@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PAMI Syndrome · Perplexity · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>PAMI Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>PAMI Syndrome</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-10-13</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-perplexity">Perplexity</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0011174" target="_blank" rel="noopener noreferrer">MONDO:0011174</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: sonar-deep-research</span>
+                    
+                    
+                    <span class="meta-chip">40 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<h3>1.1 Definition and Nosology</h3>
+<p>Hyperzincemia with functional zinc depletion was initially described as a puzzling metabolic disorder in an 11‑year‑old boy presenting with hepatosplenomegaly, rashes, failure to thrive, anemia, and impaired immune function despite markedly elevated plasma zinc levels exceeding 200 µmol/L, leading investigators to propose “a previously unrecognized inborn error of Zn metabolism causing symptomatic zinc deficiency.”[1][20] Subsequent work identified similar patients with extreme hyperzincemia and profoundly increased serum calprotectin (MRP8/14) levels, establishing <strong>hyperzincemia and hypercalprotectinemia (Hz/Hc)</strong> as a distinct disorder of zinc metabolism and innate immunity.[31][31][39]</p>
+<p>Modern disease ontologies now classify this entity as an <strong>autoinflammatory syndrome with cytopenia, hyperzincemia, and hypercalprotectinemia (AICZC)</strong>, reflecting its core triad of excessive zinc and calprotectin, chronic systemic inflammation, and blood cell abnormalities.[3][3] Orphanet defines the condition as “a rare inborn error of zinc metabolism characterized by recurrent infections, hepatosplenomegaly, anemia (unresponsive to iron supplementation) and chronic systemic inflammation in the presence of high plasma concentrations of zinc and calprotectin,” with typical dermal ulcers, arthralgia, and bleeding manifestations such as severe epistaxis and spontaneous hematomas.[16][16] MedGen and disease ontology resources categorize Hz/Hc as a <strong>vitamin/metal metabolic disorder</strong> under disorders of zinc metabolism, anchored to the molecular basis in PSTPIP1.[12][12][3]</p>
+<p>The term <strong>PSTPIP1‑associated myeloid‑related proteinemia inflammatory (PAMI) syndrome</strong> has been adopted to emphasize the genetic cause and the central role of myeloid‑derived alarmins MRP8/14; PAMI is now considered synonymous with Hz/Hc in most contemporary literature.[11][16][11] Holzinger and colleagues demonstrated that a single amino acid charge switch (Glu→Lys) at positions 250 or 257 in PSTPIP1 defines clinically distinct PSTPIP1‑associated diseases, with p.E250K and p.E257K specifically linked to the Hz/Hc/PAMI phenotype rather than classical PAPA (pyogenic arthritis, pyoderma gangrenosum, and acne) syndrome.[27][19]</p>
+<h3>1.2 Key Identifiers and Coding</h3>
+<p>The disorder is represented across major biomedical coding and ontology systems with the following identifiers and labels:</p>
+<p>The <strong>OMIM entry 601979</strong> corresponds to “Autoinflammatory syndrome with cytopenia, hyperzincemia, and hypercalprotectinemia (AICZC).”[3][3][3] Orphanet assigns <strong><a href="https://bioregistry.io/ORPHA:251523" target="_blank" rel="noopener noreferrer">ORPHA:251523</a></strong> to “Hyperzincemia and hypercalprotectinemia,” listing it as a rare disorder of zinc metabolism with childhood onset.[16][16] Disease Ontology (<a href="http://purl.obolibrary.org/obo/DOID_0061185" target="_blank" rel="noopener noreferrer">DOID:0061185</a>) defines an autoinflammatory syndrome characterized by recurrent infection, hepatosplenomegaly, anemia non‑responsive to iron therapy, chronic systemic inflammation, and high plasma zinc and calprotectin levels, with material basis in heterozygous PSTPIP1 mutation at 15q24.[12][12] The MONDO ontology links to this disease concept (<a href="http://purl.obolibrary.org/obo/MONDO_0011174" target="_blank" rel="noopener noreferrer">MONDO:0011174</a>) under “Hyperzincemia with functional zinc depletion” and related labels.[3][33]</p>
+<p>In clinical coding systems, hyperzincemia and hypercalprotectinemia map to <strong>ICD‑10 code E83.2 (Disorders of zinc metabolism)</strong> and <strong>ICD‑11 code 5C64.2Y</strong>, indicating a metabolic disorder of trace element handling.[32][16] SNOMED CT lists “Hyperzincemia and hypercalprotectinemia” and “Recurrent infection, inflammatory syndrome due to zinc metabolism disorder syndrome” under concept ID 771339005, cross‑referencing E83.2.[3][32] MeSH has introduced “Hyperzincemia with Functional Zinc Depletion” as a supplementary concept term, reflecting the evolving understanding of this metabolic–inflammatory overlap.[34][6]</p>
+<h3>1.3 Synonyms and Alternative Names</h3>
+<p>Over time and across resources, the disease has acquired multiple overlapping names capturing various facets of its phenotype and mechanism:</p>
+<p>The earliest descriptors include <strong>“hyperzincemia with functional zinc depletion”</strong> and <strong>“hyperzincaemia and hypercalprotectinaemia: a new disorder of zinc metabolism”</strong>, emphasizing the paradox of elevated serum zinc with clinical zinc deficiency and the association with high calprotectin.[1][31][31] Orphanet and GARD list <strong>“hyperzincemia and hypercalprotectinemia (Hz/Hc)”</strong>, <strong>“recurrent infections–inflammatory syndrome due to zinc metabolism disorder syndrome”</strong>, and <strong>“recurrent infection, inflammatory syndrome due to zinc metabolism disorder syndrome”</strong> as synonyms.[16][9][33] MedGen incorporates <strong>“Autoinflammatory syndrome with cytopenia, hyperzincemia, and hypercalprotectinemia (AICZC)”</strong> and notes <strong>“HZHC syndrome”</strong> and <strong>“hyperzincemia with functional zinc depletion”</strong> as alternate labels.[3][3][3] </p>
+<p>With the elucidation of PSTPIP1 mutations, the term <strong>“PSTPIP1‑associated myeloid‑related proteinemia inflammatory (PAMI) syndrome”</strong> came into use, highlighting both the genetic etiology and the hallmark elevation of MRP8/14.[11][11][15] Orphanet explicitly lists “PAMI syndrome” and “PSTPIP1‑associated myeloid‑related proteinemia inflammatory syndrome” as synonyms under <a href="https://bioregistry.io/ORPHA:251523" target="_blank" rel="noopener noreferrer">ORPHA:251523</a>, further cementing the equivalence of these entities.[16][30] Clinically, PAMI is often distinguished from PAPA syndrome, which shares PSTPIP1 involvement but lacks the extreme hyperzincemia, hypercalprotectinemia, cytopenias, and growth failure seen in Hz/Hc.[27][23][38]</p>
+<h3>1.4 Source and Level of Information</h3>
+<p>Most of the information about hyperzincemia with functional zinc depletion derives from <strong>aggregated disease‑level resources and case series</strong> rather than large population‑based cohorts, reflecting the ultra‑rare nature of the condition. The seminal case reports by Sampson and colleagues in 1997 and 2002 described individual pediatric patients with unexplained hyperzincemia and zinc‑binding proteins, forming the basis for subsequent conceptualization.[1][20][31][31][39] </p>
+<p>Later, Holzinger et al. performed gene sequencing in 14 Hz/Hc patients and compared their clinical phenotype with 11 PAPA patients, integrating clinical data, biochemical measurements, and structural modeling of PSTPIP1 to define genotype–phenotype correlations.[27][19] Additional case reports and small series have enriched the description of clinical variability, treatment responses, and long‑term outcomes.[35][15][17][15][40] Aggregated descriptions in Orphanet, GARD, MedGen, and disease ontology resources synthesize these case‑level observations into standardized definitions, coding, and phenotypic lists for the disease.[16][9][3][12] </p>
+<p>Because of the rarity (prevalence &lt;1/1,000,000), there are no large epidemiologic registries specific to Hz/Hc, and many aspects of natural history, prognosis, and genotype–phenotype modifiers remain inferred from small cohorts and expert review rather than formally quantified studies.[16][11][40] This should be kept in mind when interpreting frequencies and prognostic associations.</p>
+<h2>2. Etiology</h2>
+<h3>2.1 Primary Causal Factors: Genetic, Metabolic, and Immunologic</h3>
+<p>Hyperzincemia with functional zinc depletion is fundamentally a <strong>Mendelian autoinflammatory disorder</strong> caused by <strong>heterozygous missense mutations in PSTPIP1</strong> that alter myeloid cell function and zinc/calprotectin handling.[27][3][29] PSTPIP1 (proline–serine–threonine phosphatase‑interacting protein 1), located on chromosome 15q24.3, encodes a cytoskeletal adaptor protein involved in T‑cell activation, IL‑1β release, and cytoskeletal organization; pathogenic variants p.E250K and p.E257K produce charge reversal in a critical coiled‑coil domain region essential for protein–protein interactions.[27][11][28] </p>
+<p>In the largest genetic study to date, Holzinger et al. sequenced PSTPIP1 in 14 individuals with Hz/Hc and found that 13 were heterozygous for p.E250K and one carried p.E257K; these mutations substantially altered the electrostatic potential surface of the PSTPIP1 dimer and increased interaction with pyrin, thereby driving pyrin inflammasome activation and uncontrolled release of myeloid alarmins, including MRP8/14.[27][19][19] This mechanism distinguishes Hz/Hc from PAPA syndrome, where different PSTPIP1 mutations (e.g., p.A230T, p.E250Q) primarily affect IFN‑γ‑dependent feedback loops in skin lesions rather than systemic zinc and calprotectin metabolism.[23][27]</p>
+<p>At a metabolic level, the disease is characterized by <strong>extreme elevation of serum zinc</strong> and of calprotectin, which is a heterodimer of S100A8 and S100A9 with high‑affinity zinc‑binding sites.[24][25][21] Calprotectin acts as both a <strong>zinc‑binding protein and pro‑inflammatory alarmin</strong>, and its massively increased release from myeloid cells in PAMI leads to formation of large calprotectin complexes that sequester zinc in the circulation and tissues.[35][24][25] MedGen and Orphanet therefore describe Hz/Hc as “a rare inborn error of zinc metabolism,” with abnormal zinc distribution driven by dysregulated calprotectin biology.[3][16][3]</p>
+<p>Thus, the <strong>primary causal factors</strong> are: a specific gain‑of‑function type alteration in PSTPIP1 protein–protein interactions, hyperactivation of the pyrin inflammasome and myeloid alarmin release, and secondary metabolic derangements in zinc compartmentalization due to excess calprotectin. Environmental triggers, infections, or trauma may modulate flare frequency or severity but are not recognized as primary causes.</p>
+<h3>2.2 Genetic Risk Factors: Causal Variants and Susceptibility</h3>
+<p>The principal genetic risk factor is the presence of a <strong>heterozygous germline missense variant in PSTPIP1</strong>, particularly:</p>
+<p>The <strong>p.E250K (c.748G&gt;A)</strong> variant, which replaces a negatively charged glutamic acid with positively charged lysine within the PSTPIP1 coiled‑coil region, is the most commonly reported mutation in Hz/Hc/PAMI patients and has been repeatedly confirmed as pathogenic in this clinical context.[27][11][38] Holzinger et al. reported p.E250K in 13 of 14 Hz/Hc patients, while one patient carried p.E257K; both mutations produced similar changes in the local electrostatic potential of the protein dimer.[27][19] Case reports and systematic reviews continue to identify p.E250K as the canonical variant associated with hyperzincemia and hypercalprotectinemia, often with presentation in childhood.[11][17][11][15]</p>
+<p>The <strong>p.E257K</strong> variant, also a glutamate‑to‑lysine substitution, is less frequent but clearly associated with Hz/Hc; Holzinger et al. described a single patient with this mutation with typical phenotype, supporting its inclusion in the same pathogenic spectrum.[27][19] Additional PSTPIP1 mutations are linked to PAPA or other inflammatory phenotypes but not to the characteristic hyperzincemia/hypercalprotectinemia profile, underscoring a strong genotype–phenotype correlation.[27][23][38]</p>
+<p>These variants are considered <strong>pathogenic</strong> by ACMG/AMP criteria based on segregation with disease in small families, functional modeling of altered protein–protein interactions, and the highly specific clinical phenotype; they are rare or absent in general population databases, consistent with an ultra‑rare, high‑penetrance Mendelian disease.[27][12][28] No susceptibility loci beyond PSTPIP1 have been definitively identified, although variation in other inflammasome components or zinc‑binding proteins could theoretically modulate expressivity.</p>
+<h3>2.3 Environmental and Lifestyle Risk Factors</h3>
+<p>Current evidence does not support a major role for environmental toxins, occupational exposures, diet, or lifestyle as <strong>primary risk factors</strong> for developing Hz/Hc, given its clear monogenic etiology.[16][27] Most reported patients are children or adolescents without notable environmental exposures beyond common infections; cases arise in sporadic or familial fashion depending on inheritance, but not linked to geographic or occupational clusters.[17][15][40] </p>
+<p>Nevertheless, <strong>intercurrent infections</strong> and physical stressors may act as <strong>precipitating triggers</strong> for inflammatory flares, cutaneous ulcers, and arthritis episodes in affected individuals, analogous to other autoinflammatory syndromes.[35][11] In one case report, extensive pyoderma‑gangrenosum–like lesions with systemic inflammation led to the suspicion of Hz/Hc, highlighting the potential role of skin trauma or infection as a trigger for exaggerated inflammatory responses in genetically predisposed patients.[35] Formal epidemiologic studies quantifying such triggers are lacking, and this remains an area of clinical inference rather than systematic evidence.</p>
+<p>Lifestyle factors such as nutrition, smoking, or alcohol consumption have not been systematically studied in PAMI syndrome, and given the pediatric onset and rarity, their contribution is likely minimal compared with the dominant genetic driver. However, <strong>zinc supplementation</strong> or high dietary zinc intake theoretically could modulate circulating zinc levels and might exacerbate or complicate interpretation of laboratory findings in affected patients; clinicians typically avoid exogenous zinc supplementation once the diagnosis is suspected, to prevent further perturbation of zinc homeostasis.[1][31][11] Robust data on such interactions are not yet available.</p>
+<h3>2.4 Protective Factors and Gene–Environment Interactions</h3>
+<p>At present, <strong>no specific genetic protective variants or modifier alleles</strong> have been identified that confer protection against developing hyperzincemia with functional zinc depletion in PSTPIP1 mutation carriers. Intrafamilial variability and incomplete penetrance have been observed, indicating that there must be genetic or environmental modifiers, but their identity remains unknown.[3][3][27] Holzinger and MedGen highlight incomplete penetrance and variable expressivity in families carrying p.E250K, with some relatives showing milder disease or late onset, but systematic genotype–phenotype correlation within families is limited by small sample sizes.[27][3][3]</p>
+<p>Similarly, <strong>environmental protective factors</strong> have not been clearly characterized. Standard pediatric health practices such as infection prevention, adequate nutrition, and avoidance of unnecessary immunosuppression or trauma may reduce flare frequency or complications but are general measures rather than disease‑specific protective factors.[14][11] </p>
+<p>Gene–environment interactions in Hz/Hc are therefore largely inferred: PSTPIP1 mutations provide a necessary genetic substrate for disease, while stochastic environmental events (infections, minor trauma, vaccination) may trigger or amplify inflammatory episodes in genetically primed myeloid cells. The lack of population‑level data precludes quantitative modeling of such interactions.</p>
+<h2>3. Phenotypes</h2>
+<h3>3.1 Core Clinical Features and Symptom Domains</h3>
+<p>Patients with hyperzincemia with functional zinc depletion exhibit a characteristic constellation of <strong>systemic inflammatory, hematologic, cutaneous, musculoskeletal, and metabolic phenotypes</strong>, many of which reflect both autoinflammatory pathology and functional zinc deficiency despite hyperzincemia.</p>
+<p>Systemically, the disease is marked by <strong>chronic systemic inflammation</strong>, manifesting as recurrent fever, elevated acute‑phase reactants (C‑reactive protein, ESR), malaise, and failure to thrive.[16][3][11] Hepatosplenomegaly is common, with enlarged liver and spleen noted from infancy or early childhood; Orphanet, MedGen, and case series consistently list hepatosplenomegaly as a hallmark feature.[16][16][3][17] Lymphadenopathy and polyadenopathy may also occur, reflecting generalized activation of the reticuloendothelial system.[17][18][15]</p>
+<p>Hematologic involvement includes <strong>anemia</strong> that is <strong>unresponsive to iron supplementation</strong>, <strong>neutropenia</strong>, <strong>thrombocytopenia</strong>, and overall <strong>pancytopenia</strong>, often with bone marrow dysgranulopoiesis and dyserythropoiesis.[3][3][3][11] Severe anemia and neutropenia are accompanied by thrombocytopenia in most patients, and bone marrow aspirates show dysplastic granulocytic and erythroid lineages.[3][3] Cytopenias contribute to fatigue, recurrent infections, and bleeding tendencies such as severe epistaxis and spontaneous hematomas.[16][16][16]</p>
+<p>Cutaneous manifestations are particularly prominent: patients typically present <strong>dermal ulcers</strong>, pustular or ulcerative inflammatory lesions resembling pyoderma gangrenosum, severe acne, and other inflammatory rashes.[16][35][15][40] The original Sampson case described rashes, while subsequent series emphasize extensive pyoderma‑gangrenosum–like ulcers and pustular lesions in youth.[1][31][35] These cutaneous findings often dominate initial presentation and can be misinterpreted as isolated dermatologic disease until systemic features and hyperzincemia are recognized.</p>
+<p>Musculoskeletal and osteoarticular involvement includes <strong>arthralgia/arthritis</strong>, recurrent pyogenic arthritis, bone pain, and sometimes osteopenia or osteoporosis.[16][16][11][9] PAMI syndrome is characterized by osteoarticular problems such as joint swelling and erosive arthritis, overlapping partially with PAPA but accompanied by systemic inflammation and cytopenias.[15][18][27] Some patients exhibit growth failure and stunted stature (&lt;3rd centile), reflecting both chronic inflammation and functional zinc depletion during development.[1][16][17]</p>
+<p>Other phenotypes include <strong>recurrent infections</strong> (particularly bacterial infections due to neutropenia and impaired immune function), <strong>nosebleeds (epistaxis)</strong>, bruising, listlessness, and gastrointestinal manifestations such as atypical or refractory colitis in a minority of cases.[16][16][15][15] Renal involvement is not a characteristic feature of Hz/Hc itself, in contrast to SLC30A9‑related cerebro‑renal syndromes, but long‑term immunosuppression may predispose to renal complications.[10][4][8]</p>
+<h3>3.2 Age of Onset, Severity, and Progression</h3>
+<p>Hyperzincemia with functional zinc depletion typically manifests in <strong>childhood</strong>, often in early childhood or even infancy, with symptoms such as recurrent infections, hepatosplenomegaly, anemia, and growth failure appearing within the first years of life.[16][16][17] Orphanet explicitly notes childhood age of onset, and early case descriptions reported symptom onset “since infancy” in the original boy with hyperzincemia and zinc depletion.[1][16] </p>
+<p>Symptom severity is generally <strong>moderate to severe</strong>, with a <strong>severe course and early onset</strong> emphasized as distinguishing features from PAPA syndrome.[27][18][38] Chronic systemic inflammation, cytopenias, and organomegaly can lead to significant morbidity, hospitalizations, and impact on quality of life, particularly when cutaneous ulcers and arthritis cause pain and functional impairment.[11][35][15] However, severity can vary: some patients may have milder cytopenias or less extensive skin disease, reflecting variable expressivity even within the same PSTPIP1 mutation.[3][27][3]</p>
+<p>Disease progression is typically <strong>chronic and relapsing</strong>, with persistent underlying inflammation and flares of cutaneous, articular, or systemic symptoms. PAMI syndrome is described as a chronic multisystem disease with nonspecific symptomatology present since childhood and incomplete resolution over time.[35][11][40] Cytopenias and organomegaly may fluctuate but often persist; growth failure may be irreversible if not addressed early.[15][17] Without effective therapy, patients may experience progressive functional impairment due to joint damage, chronic ulcers, and hematologic complications.</p>
+<h3>3.3 Frequency and Quality of Life Impact</h3>
+<p>Because of the ultra‑rare nature of the disease, quantitative <strong>frequencies of specific phenotypes</strong> are not always reported as percentages, but case series and reviews allow qualitative assessment. In the systematic review of PAMI syndrome, key clinical manifestations included anemia, neutropenia, cutaneous issues, osteoarticular problems, splenomegaly, growth failure, fever, and hepatomegaly, with gastrointestinal manifestations in a minority.[11][15][15] Virtually all described patients have chronic inflammation and at least one cytopenia, and most have skin involvement and hepatosplenomegaly.[11][17][40] </p>
+<p>The <strong>quality of life impact</strong> is substantial. Chronic pain from cutaneous ulcers and arthritis, recurrent hospitalizations for infections or bleeding, fatigue from anemia, and psychosocial burden from disfiguring skin lesions and growth retardation markedly impair daily functioning and wellbeing.[35][15][15] Children may have difficulty attending school, participating in physical activity, or achieving normal developmental milestones. The requirement for long‑term immunosuppressive therapy further increases susceptibility to infections and complicates psychosocial management.[14][11] Formal quality‑of‑life instruments such as SF‑36 or EQ‑5D have not yet been systematically applied to PAMI cohorts, but anecdotal reports underscore high disease burden.</p>
+<h3>3.4 Suggested HPO Terms</h3>
+<p>Based on the described phenotypes, the following <strong>Human Phenotype Ontology (HPO)</strong> terms are appropriate for database annotation:</p>
+<p>Hepatosplenomegaly (<a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" rel="noopener noreferrer">HP:0001433</a>), Recurrent infections (<a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" rel="noopener noreferrer">HP:0002719</a>), Anemia (<a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" rel="noopener noreferrer">HP:0001903</a>), Neutropenia (<a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" rel="noopener noreferrer">HP:0001875</a>), Thrombocytopenia (<a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a>), Pancytopenia (<a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" rel="noopener noreferrer">HP:0001876</a>), Growth failure/Failure to thrive (<a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" rel="noopener noreferrer">HP:0001510</a>), Short stature (<a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a>), Dermal ulcers (<a href="http://purl.obolibrary.org/obo/HP_0001055" target="_blank" rel="noopener noreferrer">HP:0001055</a>), Pustular skin lesions (<a href="http://purl.obolibrary.org/obo/HP_0001773" target="_blank" rel="noopener noreferrer">HP:0001773</a>), Pyoderma gangrenosum‑like ulcers (<a href="http://purl.obolibrary.org/obo/HP_0004414" target="_blank" rel="noopener noreferrer">HP:0004414</a>, approximated), Severe acne (<a href="http://purl.obolibrary.org/obo/HP_0002021" target="_blank" rel="noopener noreferrer">HP:0002021</a>), Arthralgia (<a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" rel="noopener noreferrer">HP:0002829</a>), Arthritis (<a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" rel="noopener noreferrer">HP:0001369</a>), Osteoporosis/Osteopenia (<a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" rel="noopener noreferrer">HP:0000938</a>/<a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" rel="noopener noreferrer">HP:0000939</a>), Epistaxis (<a href="http://purl.obolibrary.org/obo/HP_0000421" target="_blank" rel="noopener noreferrer">HP:0000421</a>), Spontaneous hematomas (<a href="http://purl.obolibrary.org/obo/HP_0001928" target="_blank" rel="noopener noreferrer">HP:0001928</a>), Chronic systemic inflammation (<a href="http://purl.obolibrary.org/obo/HP_0030233" target="_blank" rel="noopener noreferrer">HP:0030233</a>), Hepatomegaly (<a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" rel="noopener noreferrer">HP:0002240</a>), Splenomegaly (<a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" rel="noopener noreferrer">HP:0001744</a>), Lymphadenopathy (<a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a>), Fatigue (<a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a>), Failure to thrive (<a href="http://purl.obolibrary.org/obo/HP_0001505" target="_blank" rel="noopener noreferrer">HP:0001505</a>).</p>
+<p>Laboratory phenotypes should include: Hyperzincemia (<a href="http://purl.obolibrary.org/obo/HP_0003331" target="_blank" rel="noopener noreferrer">HP:0003331</a>; elevated serum zinc), Hypercalprotectinemia (can be coded as increased calprotectin level in blood, <a href="http://purl.obolibrary.org/obo/HP_0032105" target="_blank" rel="noopener noreferrer">HP:0032105</a> or analogous), Elevated C‑reactive protein (<a href="http://purl.obolibrary.org/obo/HP_0006950" target="_blank" rel="noopener noreferrer">HP:0006950</a>), Elevated ESR (<a href="http://purl.obolibrary.org/obo/HP_0003565" target="_blank" rel="noopener noreferrer">HP:0003565</a>), Bone marrow dysgranulopoiesis and dyserythropoiesis (<a href="http://purl.obolibrary.org/obo/HP_0001877" target="_blank" rel="noopener noreferrer">HP:0001877</a>/<a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" rel="noopener noreferrer">HP:0001878</a>).</p>
+<h2>4. Genetic and Molecular Information</h2>
+<h3>4.1 Causal Gene: PSTPIP1</h3>
+<p>The causal gene for hyperzincemia with functional zinc depletion is <strong>PSTPIP1</strong> (HGNC: 19665), also known as CD2 antigen‑binding protein 1 or PEST phosphatase‑interacting protein 1.[28][29] PSTPIP1 is a cytosolic adaptor protein expressed predominantly in hematopoietic cells, including T lymphocytes and macrophages, where it interacts with the actin cytoskeleton and phosphatases, contributing to cytokine secretion and immune synapse formation.[11][23][28] </p>
+<p>PSTPIP1 is located on chromosome <strong>15q24.3</strong> and encodes a protein with an N‑terminal F‑BAR domain and a C‑terminal coiled‑coil region, which mediates dimerization and binding to other proteins such as pyrin, the familial Mediterranean fever protein.[29][23] Disease‑causing germline mutations in PSTPIP1 are associated with:</p>
+<p>Hyperzincemia and hypercalprotectinemia (<a href="https://bioregistry.io/ORPHA:251523" target="_blank" rel="noopener noreferrer">ORPHA:251523</a>, <a href="https://bioregistry.io/OMIM:601979" target="_blank" rel="noopener noreferrer">OMIM:601979</a>), PAMI syndrome.[29][16][30] Pyogenic arthritis, pyoderma gangrenosum, and acne (PAPA) syndrome (<a href="https://bioregistry.io/ORPHA:69126" target="_blank" rel="noopener noreferrer">ORPHA:69126</a>).[30][23]</p>
+<p>The <strong>functional role</strong> of PSTPIP1 in disease involves modulation of inflammasome activation and myeloid cell secretion of alarmins and cytokines, particularly via interaction with pyrin and regulation of IL‑1β and IL‑18 release.[23][27] Mutations altering the charge in critical domains change these interactions in variant‑specific ways, leading to distinct clinical syndromes.</p>
+<h3>4.2 Pathogenic Variants: Type, Classification, and Functional Effects</h3>
+<p>The <strong>p.E250K (c.748G&gt;A)</strong> and <strong>p.E257K (c.769G&gt;A)</strong> PSTPIP1 variants are the primary pathogenic alleles associated with hyperzincemia and hypercalprotectinemia. They are <strong>heterozygous missense mutations</strong> that substitute a negatively charged glutamic acid with a positively charged lysine in the Y‑domain of PSTPIP1’s coiled‑coil region.[27][19][28]</p>
+<p>Structural modeling of PSTPIP1 dimers showed that these mutations <strong>substantially alter the electrostatic potential</strong> in a region critical for protein–protein interaction, particularly with pyrin and possibly with other cytoskeletal regulators.[27][19] Functionally, these charge‑reversal mutations <strong>increase binding of PSTPIP1 to pyrin</strong> through enhanced phosphorylation and alter downstream signaling, leading to <strong>hyperactivation of the pyrin inflammasome</strong> and increased release of IL‑1β, IL‑18, and pro‑inflammatory alarmins MRP8/14 (calprotectin).[27][23][11] </p>
+<p>Holzinger et al. concluded that mutations resulting in <strong>charge reversal (E→K) in the Y‑domain of PSTPIP1</strong> cause a distinct autoinflammatory disorder characterized by extreme MRP8/14 release and hyperzincemia, with clinical and biochemical features not found in PAPA.[27][19] This constitutes a clear <strong>genotype–phenotype correlation</strong>, and the variants are classified as <strong>pathogenic</strong> based on clinical, biochemical, and functional evidence.</p>
+<p>These variants are not somatic; they are <strong>germline mutations</strong>, inherited or arising de novo, and present in all cells. Intrafamilial variability suggests incomplete penetrance and variable expressivity, but there is no evidence of somatic mosaicism as a common mechanism.[3][3][38] Allele frequencies in population databases (e.g., gnomAD) are extremely low or absent, consistent with the ultra‑rare prevalence (&lt;1/1,000,000) reported by Orphanet.[16][16][12]</p>
+<p>The functional consequences are best described as a <strong>gain of abnormal function</strong> in terms of protein–protein interaction and inflammasome activation, rather than simple loss‑of‑function, since PSTPIP1 deficiency per se does not cause this phenotype and PAPA‑associated variants also increase pyrin binding but produce a different cytokine and clinical profile.[27][23] The net effect is <strong>pathologic hyperactivation of the pyrin inflammasome and myeloid alarmin release</strong>, with downstream metabolic perturbations in zinc and calprotectin.</p>
+<h3>4.3 Modifier Genes and Epigenetic Information</h3>
+<p>No specific <strong>modifier genes</strong> have been definitively linked to variation in disease severity among PSTPIP1 mutation carriers, although it is plausible that polymorphisms in genes encoding inflammasome components (MEFV/pyrin, NLRP3), S100A8/A9 (calprotectin), or zinc transporters and metallothioneins could influence phenotype.[27][24][4] The observation of intrafamilial variable expressivity and incomplete penetrance suggests the presence of genetic or epigenetic modifiers, but these remain unidentified in the published literature.[3][3][27]</p>
+<p>Similarly, <strong>epigenetic changes</strong> specific to Hz/Hc have not been systematically investigated. Given the chronic inflammatory state, epigenetic reprogramming of myeloid cells (trained immunity) and changes in methylation in cytokine or alarmin genes are plausible contributors to disease chronicity, but no direct data from methylome or chromatin studies in PAMI patients have been reported. This represents a gap for future research.</p>
+<h3>4.4 Chromosomal Abnormalities and Structural Genomic Features</h3>
+<p>Hyperzincemia and hypercalprotectinemia is not associated with large‑scale chromosomal abnormalities such as aneuploidy, translocations, or inversions; its genetic basis is confined to <strong>point mutations in PSTPIP1</strong>.[27][29] Clinical microarray or karyotyping would be expected to be normal aside from incidental findings. </p>
+<p>Structural features of the PSTPIP1 locus, such as local chromatin accessibility or regulatory elements, have not been characterized in relation to Hz/Hc. There is no evidence of copy‑number variation or structural rearrangements of PSTPIP1 contributing to disease.</p>
+<h2>5. Environmental Information</h2>
+<h3>5.1 Non‑Genetic Contributing Factors</h3>
+<p>As noted above, hyperzincemia with functional zinc depletion is fundamentally a <strong>genetically determined autoinflammatory syndrome</strong>, and <strong>non‑genetic environmental factors</strong> play a secondary, modulatory role. There is no evidence linking specific toxins, radiation exposure, or pollution to the development of the disease.[16][27] </p>
+<p>However, environmental factors can influence <strong>flare frequency and severity</strong>. Infections (especially bacterial infections), minor trauma, or surgical procedures may trigger intensified inflammatory responses in the skin and joints, similar to other autoinflammatory syndromes where neutrophil‑driven inflammation is pathologically amplified.[35][23] Stress, hormonal changes, or vaccination could theoretically modulate immune responses, but these interactions have not been systematically studied in Hz/Hc.</p>
+<h3>5.2 Lifestyle Factors</h3>
+<p>Lifestyle factors such as smoking, diet, and physical activity have not been specifically evaluated in PAMI cohorts, but <strong>dietary zinc intake</strong> may be relevant. Elevated serum zinc is a hallmark of the disease, driven primarily by calprotectin‑bound zinc, and exogenous zinc supplementation may further raise circulating levels without resolving functional deficiency.[1][31][11] In the original case of hyperzincemia with functional zinc depletion, the presence of a plasma zinc‑binding protein and abnormal kinetics of zinc exchange suggested that standard nutritional approaches were inadequate or potentially counterproductive.[1][20] Clinicians generally avoid zinc supplementation when the disease is suspected.</p>
+<p>Physical activity may be limited due to joint pain and systemic symptoms, but no direct evidence exists that exercise modifies disease course. Smoking and alcohol are typically not relevant in pediatric patients but could exacerbate infections or impair immune function in older individuals.</p>
+<h3>5.3 Infectious Agents</h3>
+<p>No specific <strong>pathogen</strong> has been identified as a causal agent in hyperzincemia with functional zinc depletion. However, <strong>recurrent infections</strong> are common manifestations due to neutropenia and impaired immune function, and infections can serve as triggers for flares.[16][3][11] Calprotectin itself has antimicrobial properties and plays a key role in nutritional immunity by chelating zinc and other metals to limit pathogen growth, and dysregulated calprotectin release in Hz/Hc may both contribute to chronic inflammation and alter host–pathogen interactions.[24][21][35]</p>
+<p>There is no evidence of zoonotic transmission or specific viral or bacterial etiologies driving the disease; instead, infections should be viewed as complications and modulators of disease activity.</p>
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>6.1 Ordered Causal Chain from Mutation to Clinical Phenotype</h3>
+<ol>
+<li>Heterozygous p.E250K or p.E257K mutation in PSTPIP1 leads to charge reversal in the coiled‑coil Y‑domain of the protein, altering its electrostatic surface and protein–protein interaction capacity.[27][19]  </li>
+<li>Altered PSTPIP1 leads to increased interaction with pyrin and augmented phosphorylation, which in turn results in hyperactivation of the pyrin inflammasome in myeloid cells.[27][23]  </li>
+<li>Hyperactivation of the pyrin inflammasome leads to excessive release of IL‑1β, IL‑18, and pro‑inflammatory alarmins MRP8/14 (S100A8/S100A9, calprotectin) from neutrophils and monocytes.[27][11]  </li>
+<li>Excessive release of MRP8/14 (calprotectin) leads to extreme elevation of circulating calprotectin levels (500–12,000‑fold normal), which results in high‑affinity chelation and sequestration of zinc and other transition metals via its His(_3)Asp and His(_6) motifs.[35][24][25]  </li>
+<li>Calprotectin‑mediated zinc sequestration leads to dramatically increased serum zinc concentrations (hyperzincemia), but with much of the zinc bound in calprotectin complexes and redistributed to tissues, resulting in functional zinc depletion at the cellular level in critical organs such as skin, bone marrow, and immune cells.[1][35][3]  </li>
+<li>Functional zinc depletion and chronic inflammasome activation together lead to impaired immune function, dysgranulopoiesis and dyserythropoiesis, and cytopenias (anemia, neutropenia, thrombocytopenia), despite hyperzincemia.[3][11]  </li>
+<li>Chronic IL‑1β/IL‑18–driven inflammation, combined with zinc dyshomeostasis and alarmin signaling, leads to hepatosplenomegaly, growth failure, osteoarticular disease, and cutaneous ulcerative lesions through persistent recruitment and activation of neutrophils and macrophages in liver, spleen, joints, and skin.[16][35][18]  </li>
+<li>Persistent systemic inflammation and cytopenias lead to recurrent infections, epistaxis, spontaneous hematomas, and overall failure to thrive, which are the key clinical manifestations of hyperzincemia with functional zinc depletion.[16][16][11]  </li>
+</ol>
+<p>Some steps in this chain, such as the exact distribution of zinc in specific tissues and the detailed mechanisms of growth failure, are inferred from general zinc biology and the clinical presentation rather than directly demonstrated in PAMI patients.</p>
+<h3>6.2 Molecular Pathways: Pyrin Inflammasome and Alarmin Release</h3>
+<p>At the molecular level, hyperzincemia with functional zinc depletion is best understood as a disease of <strong>dysregulated inflammasome signaling and alarmin release</strong>. PSTPIP1 interacts with pyrin, the product of the MEFV gene mutated in familial Mediterranean fever, and PAPA‑associated mutations in PSTPIP1 are known to increase binding affinity to pyrin and promote IL‑1β and IL‑18 release through pyrin inflammasome activation.[23] Holzinger et al. showed that Hz/Hc‑associated PSTPIP1 mutations (p.E250K, p.E257K) further alter PSTPIP1’s electrostatic potential, increasing interaction with pyrin through enhanced phosphorylation and driving a distinct cytokine profile.[27][19]</p>
+<p>The <strong>pyrin inflammasome</strong> pathway involves sensing of Rho GTPase activity and cytoskeletal perturbations, leading to assembly of ASC‑containing inflammasomes, caspase‑1 activation, and maturation of IL‑1β and IL‑18.[23] Mutant PSTPIP1 appears to artificially enhance pyrin activation, leading to chronic, inappropriate inflammasome signaling and IL‑1β/IL‑18 secretion. This triggers downstream <strong>IFN‑γ feedback loops</strong> and further pyrin expression in some contexts, as shown in PAPA syndrome; in PAMI, the feedback may be even more pronounced due to higher levels of MRP8/14 and systemic inflammation.[23][27]</p>
+<p>Calprotectin (MRP8/14, S100A8/S100A9) acts as a <strong>pro‑inflammatory alarmin</strong>, binding to TLR4 and RAGE receptors, activating NF‑κB signaling, and amplifying cytokine production.[24][21] In Hz/Hc, serum calprotectin levels are extremely elevated, with values 20‑fold higher than PAPA and 500–12,000‑fold above normal healthy ranges.[27][35][11] This massive alarmin burden potently stimulates myeloid and endothelial cells, sustaining IL‑1, IL‑6, TNF‑α, and other cytokines, and driving chronic systemic inflammation.</p>
+<p>Thus, key pathways include: the <strong>MEFV/pyrin inflammasome</strong>, <strong>caspase‑1/IL‑1β/IL‑18 axis</strong>, <strong>TLR4/RAGE–NF‑κB signaling via calprotectin</strong>, and possibly <strong>IFN‑γ–mediated feedback loops</strong> that further upregulate pyrin and PSTPIP1 activity.[23][27][24] These pathways underpin the autoinflammatory nature of the disease.</p>
+<p>Suggested GO biological process terms include: “inflammasome complex assembly” (<a href="http://purl.obolibrary.org/obo/GO_0140235" target="_blank" rel="noopener noreferrer">GO:0140235</a>), “interleukin‑1 beta production” (<a href="http://purl.obolibrary.org/obo/GO_0032612" target="_blank" rel="noopener noreferrer">GO:0032612</a>), “interleukin‑18 production” (<a href="http://purl.obolibrary.org/obo/GO_0032611" target="_blank" rel="noopener noreferrer">GO:0032611</a>), “positive regulation of NF‑κB transcription factor activity” (<a href="http://purl.obolibrary.org/obo/GO_0051092" target="_blank" rel="noopener noreferrer">GO:0051092</a>), and “neutrophil activation involved in immune response” (<a href="http://purl.obolibrary.org/obo/GO_0002283" target="_blank" rel="noopener noreferrer">GO:0002283</a>).</p>
+<h3>6.3 Protein Dysfunction: PSTPIP1 Charge Switch and Calprotectin Metal Binding</h3>
+<p>At the protein level, two dysfunctional processes are central: altered PSTPIP1 interaction surfaces and aberrant calprotectin metal binding.</p>
+<p>For <strong>PSTPIP1</strong>, the charge reversal from glutamate to lysine at positions 250 or 257 changes the local electrostatic potential in the coiled‑coil dimer interface.[27][19] Modeling studies suggest that this region is critical for binding to pyrin and other partners, and the introduction of positive charges enhances or destabilizes specific interactions, leading to increased pyrin binding through phosphorylation‑dependent mechanisms.[27] This altered binding is a <strong>gain of abnormal function</strong>, causing unregulated inflammasome activation rather than loss of normal function.</p>
+<p>For <strong>calprotectin</strong>, structural studies reveal two distinct zinc‑binding sites: <strong>Site I</strong>, a His(_3)Asp motif formed by His83 and His87 from S100A8 and His20 and Asp30 from S100A9, capable of binding Zn(^{2+}) and Mn(^{2+}); and <strong>Site II</strong>, a <strong>His(_6)</strong> motif composed of His17 and His27 from S100A8 and His91, His95, His103, and His105 from S100A9, binding Zn(^{2+}), Fe(^{2+}), and Ni(^{2+}) with high affinity.[24][25] High‑resolution crystal structures show tetracoordinate binding in the His(_3)Asp site and hexacoordinate binding in the His(_6) site, with histidine ligands from both subunits coordinating zinc via N(^\varepsilon2) atoms.[22][25] Under the influence of Ca(^{2+}), calprotectin oligomerizes into stable heterotetramers or larger complexes, further enhancing metal binding and functional potency.[24][25]</p>
+<p>In Hz/Hc, <strong>massive overproduction of calprotectin</strong> leads to an excess of high‑affinity zinc‑binding sites in the circulation and tissues, such that a large fraction of extracellular zinc becomes bound to calprotectin complexes. This unique ability to bind a wide range of transition metals with high affinity contributes to hyperzincemia and may simultaneously deprive cells of freely exchangeable zinc, generating a state of functional deficiency despite abundance.[24][25][35] This phenomenon underlies the concept of “functional zinc depletion,” as the plasma zinc pool is expanded but largely sequestered and rapidly trafficked into stable compartments, as shown in kinetic studies with zinc isotopes in the original Sampson case.[1][20]</p>
+<h3>6.4 Metabolic Changes: Zinc Compartmentalization and Metal Homeostasis</h3>
+<p>From a metabolic perspective, hyperzincemia with functional zinc depletion involves profound <strong>dyshomeostasis of zinc and other transition metals</strong>. Zinc is an essential cofactor for hundreds of enzymes and transcription factors, and its homeostasis is tightly regulated by transporters (ZnT/SLC30A and ZIP/SLC39A families), metallothioneins, and binding proteins such as albumin.[4][5][2] </p>
+<p>In the original 11‑year‑old boy with hyperzincemia, kinetic studies using stable zinc isotopes revealed increased exchangeable zinc and rapid flux from plasma to a stable pool, with elevated zinc and copper concentrations in liver and muscle and increased immunoreactive metallothionein in the liver, despite normal liver histology.[1][20] These findings suggested an inborn error of zinc metabolism with abnormal plasma binding and distribution. Later, in Hz/Hc patients, extreme serum zinc levels (e.g., 869 µg/L vs normal 70–120 µg/L) were observed alongside calprotectin levels 500–12,000 times normal, indicating that calprotectin is the major zinc‑binding protein in plasma in this context.[35][11] </p>
+<p>Calprotectin’s high‑affinity His(_3)Asp and His(_6) sites enable chelation of Zn(^{2+}), Mn(^{2+}), Fe(^{2+}), and Ni(^{2+}), contributing to <strong>nutritional immunity</strong> by depriving pathogens of essential metals.[24][25] In PAMI, however, this mechanism is pathologically excessive, resulting in altered metal homeostasis for host cells. Sequestration of zinc into calprotectin complexes may limit zinc availability for enzymes and transcription factors in skin, bone marrow, and immune cells, contributing to impaired proliferation, differentiation, and barrier function typical of zinc deficiency.[2][2][35] Functional zinc depletion therefore coexists with hyperzincemia, a paradox explained by altered binding and compartmentalization rather than total body deficiency.</p>
+<p>Suggested CHEBI terms include: “zinc cation” (<a href="http://purl.obolibrary.org/obo/CHEBI_29105" target="_blank" rel="noopener noreferrer">CHEBI:29105</a>), “manganese(2+) cation” (<a href="http://purl.obolibrary.org/obo/CHEBI_29035" target="_blank" rel="noopener noreferrer">CHEBI:29035</a>), “nickel(2+) cation” (<a href="http://purl.obolibrary.org/obo/CHEBI_25517" target="_blank" rel="noopener noreferrer">CHEBI:25517</a>), and “calcium(2+) cation” (<a href="http://purl.obolibrary.org/obo/CHEBI_29108" target="_blank" rel="noopener noreferrer">CHEBI:29108</a>), which play roles in calprotectin metal binding and oligomerization.</p>
+<h3>6.5 Immune System Involvement and Tissue Damage Mechanisms</h3>
+<p>The immune system involvement in hyperzincemia with functional zinc depletion is profound and multi‑layered. At the cellular level, <strong>neutrophils and monocytes/macrophages</strong> are central, as they are the primary source of calprotectin and key participants in inflammasome activation.[24][21][11] Calprotectin release from activated neutrophils and monocytes acts as a danger‑associated molecular pattern (DAMP), signaling via pattern recognition receptors to further recruit and activate myeloid cells, creating a self‑amplifying loop of inflammation.[24][35]</p>
+<p>The <strong>pyrin inflammasome</strong> in myeloid cells is hyperactivated by mutant PSTPIP1, leading to IL‑1β and IL‑18 production, which promote fever, endothelial activation, and recruitment of neutrophils to sites of inflammation.[23][27] Chronic inflammasome activity contributes to <strong>bone marrow dysplasia</strong>, with dysgranulopoiesis and dyserythropoiesis reflecting disturbed differentiation in an inflammatory niche and altered zinc availability.[3][11] </p>
+<p>Tissue damage mechanisms include <strong>neutrophil‑mediated cytotoxicity</strong> and <strong>oxidative stress</strong>, as calprotectin can modulate the release of reactive oxygen species and nitric oxide.[21] In the skin and joints, persistent neutrophil infiltration and alarmin signaling drive erosive arthritis and pyoderma‑gangrenosum–like ulcers, with destruction of connective tissue and epidermal structures.[35][15][18] In the liver and spleen, chronic inflammatory cell infiltration and increased metallothionein expression may cause organ enlargement and functional changes, though histology may remain relatively preserved in early stages.[1][17]</p>
+<p>Suggested GO terms for biological processes and tissue damage include: “neutrophil degranulation” (<a href="http://purl.obolibrary.org/obo/GO_0043312" target="_blank" rel="noopener noreferrer">GO:0043312</a>), “positive regulation of inflammatory response” (<a href="http://purl.obolibrary.org/obo/GO_0050729" target="_blank" rel="noopener noreferrer">GO:0050729</a>), “response to oxidative stress” (<a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" rel="noopener noreferrer">GO:0006979</a>), and “cellular response to zinc ion” (<a href="http://purl.obolibrary.org/obo/GO_0071294" target="_blank" rel="noopener noreferrer">GO:0071294</a>). Suggested CL (Cell Ontology) terms include: “neutrophil” (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>), “monocyte” (<a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a>), “macrophage” (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), and “hepatocyte” (<a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a>).</p>
+<h3>6.6 Molecular Profiling and Advanced Technologies</h3>
+<p>To date, there is <strong>limited molecular profiling</strong> specifically performed on Hz/Hc patients using transcriptomics, proteomics, or metabolomics. However, Holzinger et al. described a <strong>specific cytokine profile</strong> in Hz/Hc compared with PAPA, reflecting differences in IL‑1, IL‑6, TNF‑α, and other cytokines in serum.[27][19] They also measured MRP8/14 concentrations, finding extremely high levels in Hz/Hc (2045 ± 1300 µg/mL) vs PAPA (116 ± 74 µg/mL), providing proteomic evidence of calprotectin overproduction.[27]</p>
+<p>Large‑scale multi‑omics integration has not yet been applied to PAMI syndrome, but this would be a fruitful avenue for future work to disentangle the contributions of inflammasome activation, alarmin signaling, and zinc homeostasis at the systems level. Single‑cell analysis of bone marrow and peripheral blood myeloid cells could reveal specific inflammatory or dysplastic populations, while spatial transcriptomics of skin lesions might clarify the microenvironment driving pyoderma‑gangrenosum–like ulcers.</p>
+<p>Given the rarity and pediatric nature of the disease, these advanced technologies have not yet been widely deployed in clinical research cohorts, and much of the mechanistic understanding still rests on candidate‑based approaches focused on PSTPIP1, calprotectin, and zinc metabolism.</p>
+<h2>7. Anatomical Structures Affected</h2>
+<h3>7.1 Organ‑Level Involvement</h3>
+<p>Hyperzincemia with functional zinc depletion affects multiple organ systems, consistent with its characterization as a <strong>multisystem autoinflammatory disease</strong>. Primary organs involved include:</p>
+<p>The <strong>liver (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>)</strong> and <strong>spleen (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>)</strong>, which together exhibit hepatosplenomegaly due to chronic inflammatory cell infiltration and altered metallothionein and zinc content.[16][1][17] Orphanet and MedGen both emphasize hepatosplenomegaly as a core feature, and the original kinetic study showed elevated zinc and copper in liver.[16][3][1] </p>
+<p>The <strong>bone marrow (<a href="http://purl.obolibrary.org/obo/UBERON_0002398" target="_blank" rel="noopener noreferrer">UBERON:0002398</a>)</strong>, which shows dysgranulopoiesis and dyserythropoiesis, reflecting disturbed hematopoiesis and zinc‑dependent differentiation under inflammatory conditions.[3][11] Dysplasia contributes directly to cytopenias and anemia.</p>
+<p>The <strong>skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>)</strong>, where pustular and ulcerative cutaneous lesions, dermal ulcers, and pyoderma‑gangrenosum–like lesions occur, often extensive and disfiguring.[16][35][15] Skin involvement is often the presenting symptom and a major contributor to morbidity.</p>
+<p>The <strong>joints (<a href="http://purl.obolibrary.org/obo/UBERON_0001464" target="_blank" rel="noopener noreferrer">UBERON:0001464</a>)</strong> and <strong>synovial tissue</strong>, where arthralgia and arthritis occur, including pyogenic arthritis with neutrophil infiltration and erosive damage.[18][11][15] </p>
+<p>The <strong>hematopoietic and immune system</strong>, including lymph nodes (<a href="http://purl.obolibrary.org/obo/UBERON_0002305" target="_blank" rel="noopener noreferrer">UBERON:0002305</a>), peripheral blood, and reticuloendothelial system, involved through pancytopenia, lymphadenopathy, and systemic inflammation.[3][17][11] </p>
+<p>Secondary involvement may include the <strong>gastrointestinal tract (<a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" rel="noopener noreferrer">UBERON:0001043</a>)</strong> in cases with colitis, as well as the <strong>cardiovascular system</strong> indirectly through anemia and systemic inflammation, though organ‑specific structural cardiac pathology is not a recognized feature.[15][15]</p>
+<h3>7.2 Tissue and Cell‑Level Involvement</h3>
+<p>At the tissue level, hyperzincemia with functional zinc depletion primarily affects:</p>
+<p>Hematopoietic tissue in bone marrow, involving granulocytic and erythroid lineages that show dysplasia and impaired maturation.[3][11] CL terms include “granulocyte” (<a href="http://purl.obolibrary.org/obo/CL_0000094" target="_blank" rel="noopener noreferrer">CL:0000094</a>), “erythroid progenitor cell” (<a href="http://purl.obolibrary.org/obo/CL_0000837" target="_blank" rel="noopener noreferrer">CL:0000837</a>), and “hematopoietic stem cell” (<a href="http://purl.obolibrary.org/obo/CL_0000037" target="_blank" rel="noopener noreferrer">CL:0000037</a>). </p>
+<p>Cutaneous connective tissue and epidermis, where neutrophil infiltration, panniculitis, and ulceration occur, driven by autoinflammatory neutrophil activation.[35][15] CL terms include “keratinocyte” (<a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>), “dermal fibroblast” (<a href="http://purl.obolibrary.org/obo/CL_0002620" target="_blank" rel="noopener noreferrer">CL:0002620</a>), and “endothelial cell” (<a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a>).</p>
+<p>Hepatic parenchyma and splenic white pulp, where chronic inflammatory cell infiltrates and altered metal metabolism may exist, though histology may be subtle.[1][17] CL terms include “hepatocyte” and “splenic macrophage”.</p>
+<p>Myeloid cells (neutrophils, monocytes/macrophages) are central effectors, producing calprotectin and mediating tissue damage.[24][21][11] T lymphocytes are involved through PSTPIP1’s role in T‑cell activation, although the phenotype is predominantly myeloid‑driven.[28][23]</p>
+<h3>7.3 Subcellular Level: Cellular Compartments</h3>
+<p>Subcellular compartments involved include:</p>
+<p>The <strong>inflammasome complex</strong> localized in the cytoplasm of myeloid cells, where pyrin and ASC assemble into oligomeric platforms for caspase‑1 activation, leading to cytokine maturation.[23][27] GO cellular component terms include “inflammasome complex” (<a href="http://purl.obolibrary.org/obo/GO_0061702" target="_blank" rel="noopener noreferrer">GO:0061702</a>).</p>
+<p>The <strong>cytoskeleton</strong>, where PSTPIP1 interacts with actin and regulates membrane dynamics and phagocytosis, with mutant PSTPIP1 potentially altering cytoskeletal organization and cell activation responses.[23][28] GO terms include “actin cytoskeleton” (<a href="http://purl.obolibrary.org/obo/GO_0015629" target="_blank" rel="noopener noreferrer">GO:0015629</a>).</p>
+<p>The <strong>secretory pathway</strong>, particularly vesicular compartments in neutrophils and monocytes that store and release calprotectin and other granule contents.[21][24] GO terms include “secretory granule lumen” (<a href="http://purl.obolibrary.org/obo/GO_0034774" target="_blank" rel="noopener noreferrer">GO:0034774</a>).</p>
+<p>Intracellular <strong>zinc pools</strong> and metallothionein‑rich compartments in liver and muscle, which are altered in distribution and quantity in the original hyperzincemia case, although specific subcellular localization in PAMI patients has not been fully mapped.[1][4] GO terms include “cytoplasm” (<a href="http://purl.obolibrary.org/obo/GO_0005737" target="_blank" rel="noopener noreferrer">GO:0005737</a>) and “metallothionein complex” (<a href="http://purl.obolibrary.org/obo/GO_0046872" target="_blank" rel="noopener noreferrer">GO:0046872</a>).</p>
+<h3>7.4 Localization and Lateralization</h3>
+<p>Anatomical localization of lesions is often <strong>multifocal and bilateral</strong>, especially in skin and joints. Pyoderma‑gangrenosum–like ulcers may appear on lower extremities, trunk, or other areas; arthritis can be symmetrical or asymmetrical, commonly involving large joints.[35][18] Hepatosplenomegaly is generalized rather than unilateral, and pancytopenia is systemic. There is no clear pattern of lateralization such as left‑ vs right‑side prevalence.</p>
+<h2>8. Temporal Development</h2>
+<h3>8.1 Onset Patterns</h3>
+<p>Hyperzincemia with functional zinc depletion typically has a <strong>pediatric onset</strong>, with symptoms appearing in infancy or early childhood.[16][16][17] The original case report described symptoms present since infancy in an 11‑year‑old boy, including hepatosplenomegaly, rashes, anemia, and growth failure.[1][20] Orphanet lists childhood onset as characteristic, and most PAMI case reports describe patients presenting in childhood or adolescence.[16][17][15][40]</p>
+<p>The onset pattern is generally <strong>insidious but early</strong>, with subtle manifestations such as poor growth, recurrent infections, and mild anemia initially, progressing to more overt systemic inflammation, cytopenias, and cutaneous ulcers over time. Some patients present acutely with severe pyoderma‑gangrenosum–like lesions or pancytopenia, but these occur against a background of long‑standing symptoms.[35][15]</p>
+<h3>8.2 Progression, Disease Course, and Duration</h3>
+<p>The disease course is <strong>chronic and lifelong</strong> in the absence of curative interventions such as HSCT.[11][40] Systemic inflammation tends to be persistent, with fluctuations in severity but rarely complete remission. Cytopenias can wax and wane with therapy but often remain at least partially present; hepatosplenomegaly may persist chronically.[11][17]</p>
+<p>Progression can be conceptualized in stages: an early stage with growth failure, recurrent infections, mild organomegaly, and laboratory hyperzincemia; an intermediate stage with overt cytopenias, extensive cutaneous ulcers, arthritis, and marked systemic inflammation; and an advanced stage where complications such as severe anemia, recurrent severe infections, and extensive tissue damage (e.g., scarring from ulcers, joint erosions) dominate.[16][35][15] Disease progression rate varies, influenced by early diagnosis and treatment, but generally the syndrome is <strong>progressive without effective control</strong>.</p>
+<p>The pattern is <strong>relapsing‑remitting</strong> in terms of flares of skin and joint symptoms, superimposed on a background of chronic systemic inflammation and cytopenias. Flares may be triggered by environmental factors or occur spontaneously.[35][15] With successful HSCT, some patients have experienced resolution of symptoms and normalization of inflammatory markers and zinc levels, suggesting that durable remission or cure is possible.[11][40][14]</p>
+<h3>8.3 Remission Patterns and Critical Periods</h3>
+<p>Spontaneous remission is rare; improvements are typically <strong>treatment‑induced</strong> through immunosuppressive therapies or HSCT.[11][14][40] Corticosteroids and biologics may induce partial remission of symptoms and laboratory abnormalities, but relapses are common when therapies are tapered or withdrawn.[11][36]</p>
+<p>Critical periods include <strong>early childhood</strong>, where growth failure, bone development, and immune system maturation are most vulnerable to the combined effects of chronic inflammation and functional zinc depletion. Prompt diagnosis and effective control of inflammation and zinc dyshomeostasis during this period may mitigate long‑term complications such as short stature, osteoporosis, and organ damage.[16][1][9] Another critical period is around <strong>HSCT</strong>, where risk of transplant‑related complications must be balanced against potential cure; careful timing and conditioning are crucial.[11][40][14]</p>
+<h2>9. Inheritance and Population</h2>
+<h3>9.1 Epidemiology: Prevalence and Incidence</h3>
+<p>Hyperzincemia and hypercalprotectinemia is classified as an <strong>ultra‑rare disease</strong>, with Orphanet estimating a prevalence of &lt;1 per 1,000,000.[16][16] Given the small number of reported cases worldwide and the lack of registries, precise incidence figures are unavailable, but incidence is likely to be extremely low, on the order of a handful of new cases per year globally.</p>
+<p>Most published literature consists of individual case reports, small case series, and a few systematic reviews, reflecting the limited number of diagnosed patients.[31][35][11][15][17][15][40] Underdiagnosis is possible, particularly in settings without access to calprotectin measurement or PSTPIP1 genetic testing, so true prevalence may be somewhat higher than recognized.</p>
+<h3>9.2 Inheritance Pattern, Penetrance, and Expressivity</h3>
+<p>Hyperzincemia with functional zinc depletion exhibits a <strong>dominant inheritance pattern</strong> with <strong>heterozygous PSTPIP1 mutations</strong>.[27][3][3] MedGen and Disease Ontology explicitly state that the syndrome has a material basis in <strong>heterozygous mutation in PSTPIP1</strong>.[3][12][3] Some cases are familial, with multiple affected relatives carrying the same mutation, while others are de novo, as illustrated by a case where a child carried p.E250K but his parents and younger brother did not.[38] </p>
+<p>Penetrance appears <strong>incomplete and variable</strong>, as intrafamilial variability has been observed, with some mutation carriers showing milder disease or subclinical laboratory abnormalities.[3][27][3] Expressivity is <strong>variable</strong>, affecting the severity and combination of phenotypes (e.g., some with more prominent cutaneous lesions, others with severe cytopenias or colitis).[15][15][17] There is no evidence of genetic anticipation, as repeat expansion mechanisms are not involved.</p>
+<p>Germline mosaicism has not been reported in PAMI syndrome, but cannot be entirely excluded given de novo mutations in single individuals. Founder effects have not been described; cases occur in diverse geographic and ethnic backgrounds, although small Bedouin kindreds have been noted for related SLC30A9 disorders rather than PSTPIP1.[10][4][8] Consanguinity plays a role in autosomal recessive zinc transporter disorders (e.g., SLC30A9 cerebro‑renal syndrome) but is not characteristic for PSTPIP1‑related Hz/Hc, which is heterozygous and dominant.[4][10]</p>
+<p>Carrier frequency in the general population is extremely low (consistent with ultra‑rare disease), with p.E250K and p.E257K absent or nearly absent in population databases.[27][28][12]</p>
+<h3>9.3 Population Demographics and Geographic Distribution</h3>
+<p>Reported cases of hyperzincemia and hypercalprotectinemia arise from various countries, including European nations, North America, and Asia, suggesting <strong>no strong geographic clustering</strong>.[31][35][11][15][40] Orphanet does not indicate any particular endemic region.[16][16]</p>
+<p>Sex distribution is approximately balanced, with no consistent male or female predominance described.[35][17][11] Age distribution centers on childhood and adolescence, with rare adult‑onset cases possibly representing milder or delayed expressivity.[15][15]</p>
+<p>Because of the rarity and underdiagnosis, demographic patterns must be interpreted cautiously, but overall the disease appears to affect <strong>all ethnicities and both sexes</strong>, with pediatric onset.</p>
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical and Laboratory Tests</h3>
+<p>Diagnostics for hyperzincemia with functional zinc depletion rely on a combination of <strong>clinical suspicion, laboratory measurement of serum zinc and calprotectin, and genetic testing of PSTPIP1</strong>.</p>
+<p>Serum zinc measurement reveals <strong>marked hyperzincemia</strong>, often several times the upper limit of normal. In one case, zinc levels were 869 µg/L (normal 70–120 µg/L), and in another, 4.5 mg/L in a child where normal reference range was 3.7–7.3 mg/L, highlighting elevated but not necessarily extreme values compared with reference ranges.[35][38] The original Sampson case had plasma Zn &gt;200 µmol/L (~13 mg/L), significantly higher than normal.[1][20] Hyperzincemia is thus a key laboratory marker.</p>
+<p>Serum <strong>calprotectin (MRP8/14)</strong> levels are <strong>extraordinarily elevated</strong>, often 500–12,000 times normal.[35][11] Holzinger et al. reported MRP8/14 concentrations of 2045 ± 1300 µg/mL in Hz/Hc vs 116 ± 74 µg/mL in PAPA, underscoring the magnitude of this biomarker difference.[27] Case reports describe calprotectin levels such as 642 µg/L vs normal &lt;1.6 µg/L.[35] Measurement of serum zinc and calprotectin is therefore <strong>strongly indicated in cases of unexplained systemic inflammation with skin ulcers and cytopenias</strong>, and abnormal values are highly suggestive of Hz/Hc.[35][15]</p>
+<p>Routine hematologic tests reveal <strong>anemia, neutropenia, thrombocytopenia</strong>, and <strong>pancytopenia</strong>, often with elevated inflammatory markers (CRP, ESR).[3][11][11] Bone marrow aspirates show <strong>dysgranulopoiesis and dyserythropoiesis</strong> without clear malignant transformation.[3][3] Liver function tests may be normal or mildly abnormal; imaging studies show hepatosplenomegaly.[1][17]</p>
+<p>Histopathology of skin lesions often reveals dense neutrophilic infiltrates, ulceration, and features reminiscent of pyoderma gangrenosum, but no specific diagnostic pattern beyond neutrophilic dermatosis.[35][15] In rat models of experimentally induced hyperzincemia, dental enamel pathology has been observed, but this is not a diagnostic feature in humans.[6][6]</p>
+<h3>10.2 Genetic Testing</h3>
+<p>Genetic testing is crucial to confirm diagnosis and distinguish PAMI from PAPA syndrome and other autoinflammatory disorders. <strong>PSTPIP1 sequencing</strong> (by Sanger or next‑generation methods) targeted at exons including codons 250 and 257 is recommended.[27][29][28] Detection of heterozygous p.E250K or p.E257K supports the diagnosis of PAMI/Hz/Hc, but as noted in one case, genetic testing alone cannot always differentiate PAPA vs Hz/Hc, necessitating correlation with clinical and laboratory features.[38][27]</p>
+<p>Whole exome sequencing (WES) or gene panels for autoinflammatory/periodic fever syndromes often include PSTPIP1, MEFV, NLRP3, and other genes, and can detect PSTPIP1 mutations in undiagnosed patients with systemic inflammation and cutaneous lesions.[7][14] Given the specificity of PSTPIP1 mutations, WES is useful when clinical suspicion is high but targeted testing has not been performed.</p>
+<p>Chromosomal microarray (CMA), karyotyping, FISH, and mitochondrial DNA testing are not typically needed, as the disease is due to point mutations rather than structural changes.</p>
+<h3>10.3 Omics‑Based Diagnostics and Biomarkers</h3>
+<p>Beyond serum zinc and calprotectin, no other omics‑based diagnostics are currently standard. <strong>Serum zinc</strong> serves as a simple, cost‑effective <strong>screening tool</strong> and practical biomarker for monitoring therapy response.[15][11] Calprotectin is a more specific indicator of the underlying mechanism, reflecting alarmin release, and may be used both for diagnosis and follow‑up.</p>
+<p>Omics approaches such as RNA sequencing, proteomics, or metabolomics could reveal specific signatures in PAMI patients (e.g., cytokine profiles, zinc‑dependent metabolic changes), but have not yet been incorporated into routine diagnostics.</p>
+<h3>10.4 Clinical Criteria and Differential Diagnosis</h3>
+<p>There is no formally codified <strong>diagnostic criteria set</strong>, but clinical features commonly used include:</p>
+<p>Chronic systemic inflammation with recurrent fevers, hepatosplenomegaly, cytopenias, and growth failure. Dermatologic involvement with pustular or ulcerative lesions, pyoderma gangrenosum‑like ulcers, and severe acne. Osteoarticular manifestations with arthralgia or arthritis. Laboratory findings of hyperzincemia and hypercalprotectinemia, with extremely high MRP8/14. Presence of heterozygous PSTPIP1 p.E250K or p.E257K mutation.[16][27][35][11]</p>
+<p>Differential diagnosis includes:</p>
+<p><strong>PAPA syndrome</strong>, which shares PSTPIP1 mutations but differs with milder zinc/calprotectin elevations, absence of severe cytopenias and growth failure, and different cytokine profile.[27][23][38] Other <strong>autoinflammatory syndromes</strong> (e.g., FMF, CAPS, TRAPS) that can present with fever, rash, and arthritis, but do not show hyperzincemia/hypercalprotectinemia and PSTPIP1 mutations.[11][14] <strong>Primary immunodeficiencies</strong> and <strong>autoimmune cytopenia syndromes</strong> with childhood cytopenias and organomegaly, absent the specific zinc/calprotectin profile.[14][11] Severe <strong>neutrophilic dermatoses</strong> such as classical pyoderma gangrenosum, without systemic hyperzincemia/calprotectinemia.[35][15]</p>
+<p>Careful consideration of these differential diagnoses is important, as misdiagnosis can delay appropriate therapy and genetic counseling.</p>
+<h3>10.5 Screening</h3>
+<p>There are no population‑based <strong>screening programs</strong> for Hz/Hc given its rarity. However, <strong>targeted screening</strong> is recommended in:</p>
+<p>Children with unexplained chronic systemic inflammation, hepatosplenomegaly, pancytopenia, growth failure, and severe neutrophilic skin lesions, where measurement of serum zinc and calprotectin can be highly informative.[35][15] Relatives of known PSTPIP1 mutation carriers, where genetic testing can detect asymptomatic or mildly affected individuals and guide monitoring.[27][14]</p>
+<p>Newborn screening is not currently implemented, though in theory severe familial cases might benefit from early detection and prophylactic management.</p>
+<h2>11. Outcome and Prognosis</h2>
+<h3>11.1 Survival, Mortality, and Life Expectancy</h3>
+<p>Because of limited patient numbers and follow‑up, <strong>quantitative survival rates and life expectancy</strong> for hyperzincemia with functional zinc depletion are not well defined. Case series and systematic reviews suggest that mortality can occur due to complications such as severe infections, bleeding, or organ failure, but many patients survive into adolescence or adulthood with chronic disease.[11][40][17] </p>
+<p>Allogeneic HSCT has demonstrated <strong>successful outcomes</strong> in at least five patients, resulting in resolution of PAMI symptoms, normalization of inflammatory markers and zinc levels, and discontinuation of specific therapies, suggesting that life expectancy may approximate general population if HSCT is successful.[11][14][40] Without HSCT, long‑term prognosis is more guarded, depending on severity of cytopenias, infection burden, and treatment response.</p>
+<h3>11.2 Morbidity, Disability, and Quality of Life</h3>
+<p>Morbidity is substantial, driven by chronic systemic inflammation, cytopenias, skin ulcers, arthritis, and growth failure. Disability outcomes include:</p>
+<p>Physical disability from joint damage and persistent ulcers, limiting mobility and daily activities.[35][15][15] Developmental and psychosocial Impact from chronic illness, hospitalizations, and cosmetic disfigurement.[40][11] Learning difficulties or school absenteeism due to fatigue, pain, and frequent medical appointments.[15][15]</p>
+<p>Quality of life is markedly reduced, though formal EQ‑5D or SF‑36 data are lacking. Treatment regimens involving corticosteroids and immunosuppressants carry additional burdens, including side effects and increased infection risk.[11][14][40]</p>
+<h3>11.3 Disease Course, Complications, and Recovery Potential</h3>
+<p>Complications of hyperzincemia with functional zinc depletion include:</p>
+<p>Severe <strong>infections</strong> due to neutropenia and immunosuppression, which can be life‑threatening. <strong>Bleeding events</strong> such as severe epistaxis and spontaneous hematomas due to thrombocytopenia.[16][16] Chronic <strong>anemia</strong>, causing fatigue and cardiac strain. <strong>Organomegaly</strong> and potential progressive liver or spleen dysfunction. <strong>Colitis</strong> and gastrointestinal complications in some patients.[15][15] Psychological complications including depression and anxiety.[15][11]</p>
+<p>Recovery potential is limited with conventional medical therapy; partial remission of symptoms and laboratory abnormalities is possible, but complete normalization is rare. HSCT offers a <strong>curative potential</strong>, with reported cases showing full resolution of symptoms and laboratory abnormalities, suggesting that replacement of the hematopoietic compartment corrects PSTPIP1‑driven inflammasome activation and calprotectin release.[11][40][14]</p>
+<h3>11.4 Prognostic Factors and Biomarkers</h3>
+<p>Prognostic factors likely include:</p>
+<p>Age at diagnosis (earlier diagnosis allows more timely intervention and potential HSCT). Severity of cytopenias and organomegaly. Treatment responsiveness (particularly to corticosteroids, biologics, and HSCT).[11][40] Presence of severe colitis or other organ involvement.[15][15]</p>
+<p>Serum zinc and calprotectin levels are useful <strong>prognostic biomarkers</strong>, as higher levels correlate with more severe inflammation and disease burden. Reduction in these markers with treatment correlates with clinical improvement, and they can thus be used to monitor therapy response.[35][11][15]</p>
+<h2>12. Treatment</h2>
+<h3>12.1 Pharmacotherapy: Corticosteroids, Calcineurin Inhibitors, and Biologics</h3>
+<p>Treatment of hyperzincemia with functional zinc depletion is challenging, with <strong>no consistently effective standard therapy</strong> identified to date.[11][36][14] Various pharmacologic approaches have been used, with variable responses:</p>
+<p><strong>Corticosteroids</strong> (e.g., prednisone, methylprednisolone) are commonly used for acute flares and as maintenance therapy, providing rapid anti‑inflammatory effects and symptom relief, particularly for skin and joint manifestations.[11][14][40] However, long‑term steroid use carries significant side effects and may not fully control cytopenias or zinc/calprotectin abnormalities.[11][37]</p>
+<p><strong>Calcineurin inhibitors</strong> such as <strong>cyclosporine A</strong> and <strong>tacrolimus</strong> have been tried, with mixed results. Cyclosporine A has shown benefit for leukopenia and general inflammatory control in some patients, and is listed as a therapeutic option in multiple case reports and systematic reviews.[11][40][36] Conversely, tacrolimus treatment in a 5‑year‑old boy with hyperzincemia and hypercalprotectinemia yielded only transient improvement; zincemia and calprotectinemia progressively worsened with secondary reappearance of symptoms, leading authors to conclude that tacrolimus has only a transient effect.[31][31] </p>
+<p>Biologic agents targeting cytokines have been employed:</p>
+<p><strong>Anti‑IL‑1 therapies</strong> such as <strong>anakinra</strong> and <strong>canakinumab</strong> have been used in several patients (n ≈ 13 for anakinra, n ≈ 6 for canakinumab in one review), with variable efficacy.[11] Some individuals show significant improvement in systemic inflammation and symptoms, while others show minimal response; anakinra may rapidly normalize inflammatory parameters but fail to correct bone marrow involvement or cytopenias.[37][11] Globally, anti‑IL‑1 therapy appears less effective than anti‑TNF, with about 40% of patients experiencing improvement.[11] </p>
+<p><strong>Anti‑TNF therapies</strong> including <strong>adalimumab</strong>, <strong>etanercept</strong>, and <strong>infliximab</strong> have demonstrated more consistent benefits in certain manifestations, notably pyoderma‑gangrenosum–like skin lesions and pyogenic arthritis.[11][40][36] In one case, adalimumab led to significant clinical and endoscopic remission of PAMI‑related colitis, although its efficacy in colitis is not universally established.[15] Overall, 57% of patients treated with anti‑TNF therapy experienced clinical improvement.[11]</p>
+<p>Other biologics such as <strong>tocilizumab</strong> (anti‑IL‑6) have been used in a small number of cases, again with variable response.[11] Methotrexate and colchicine have been adjunctive therapies with limited data.[11][40]</p>
+<p>Pharmacogenomics specific to PAMI have not been studied, but given the central role of IL‑1β, IL‑6, TNF‑α, and calprotectin, targeted biologics against these pathways are logical options even without genotype‑guided dosing.</p>
+<p>Suggested NCIT terms include: “Corticosteroid therapy” (NCIT:C15731), “Tumor Necrosis Factor Inhibitor Therapy” (NCIT:C16033), “Interleukin-1 Inhibitor Therapy” (NCIT:C121938), “Cyclosporine A” (NCIT:C408), “Tacrolimus” (NCIT:C1282), and “Adalimumab” (NCIT:C65202).</p>
+<h3>12.2 Advanced Therapeutics: Hematopoietic Stem Cell Transplantation</h3>
+<p>Allogeneic <strong>hematopoietic stem cell transplantation (HSCT)</strong> has emerged as a promising <strong>curative therapy</strong> for severe, treatment‑refractory PAMI syndrome. In the systematic review, HSCT was reported to be successful in five patients, leading to resolution of PAMI symptoms, normalization of inflammatory markers and zinc levels, and discontinuation of specific therapies.[11] Case reports corroborate that HSCT can correct cytopenias and severe autoinflammation, presumably by replacing mutant PSTPIP1‑bearing hematopoietic cells with donor cells lacking the pathogenic variant.[40][14]</p>
+<p>HSCT carries significant risks, including graft‑versus‑host disease, infections, and transplant‑related mortality, and is thus reserved for <strong>severe cases</strong> where conventional therapy has failed and disease burden is high.[14][11] Conditioning regimens, donor selection, and timing must be carefully considered. Successful HSCT represents the strongest evidence that hyperzincemia with functional zinc depletion is primarily a hematopoietic cell disorder, and that restoring normal PSTPIP1 function in these cells can normalize zinc and calprotectin metabolism.</p>
+<p>Suggested NCIT terms include: “Allogeneic Hematopoietic Stem Cell Transplantation” (NCIT:C15197), “Myeloablative Conditioning Regimen” (NCIT:C80188).</p>
+<h3>12.3 Surgical and Interventional Approaches</h3>
+<p>Surgical interventions are not central to disease control but may be required for complications. Debridement or surgical management of severe pyoderma‑gangrenosum–like ulcers may be necessary, though surgery can also trigger pathologic wound healing and is approached cautiously.[35][15] Central venous access for repeated transfusions or drug delivery may be needed in severe cytopenias.</p>
+<p>No disease‑specific surgery exists, and management remains primarily medical.</p>
+<h3>12.4 Supportive and Rehabilitative Care</h3>
+<p>Supportive care is critical, including:</p>
+<p>Transfusion support for severe anemia or thrombocytopenia. Aggressive infection prevention and treatment, including prophylactic antibiotics or granulocyte colony‑stimulating factor (G‑CSF) in some cases. Nutritional support to address failure to thrive and growth failure. Pain management for ulcers and arthritis, and wound care for skin lesions.[11][14][40]</p>
+<p>Rehabilitative efforts such as physical therapy and psychosocial support can help address functional impairment and quality of life issues.[11][15] Given long‑term immunosuppressive therapy, monitoring for opportunistic infections and medication side effects is essential.</p>
+<h3>12.5 Experimental Treatments and Personalized Strategies</h3>
+<p>No large controlled clinical trials have been conducted specifically in PAMI syndrome, but ongoing experimental approaches in the broader field of autoinflammatory diseases, such as <strong>small‑molecule inflammasome inhibitors</strong>, may eventually be applied to PSTPIP1‑related diseases.[23][27] Gene therapy targeting PSTPIP1 is not currently feasible, given the complexity of systemic hematopoietic involvement and the risk of off‑target effects.</p>
+<p>Personalized medicine approaches focus on <strong>genotype‑guided diagnosis</strong> and management: once PSTPIP1 p.E250K or p.E257K is identified, clinicians can anticipate an Hz/Hc phenotype and prioritize therapies targeting IL‑1, TNF‑α, and calprotectin, while considering HSCT in severe cases.[27][11][14] Precision dosing and drug choice may also be influenced by comorbidities and previous treatment responses.</p>
+<h2>13. Prevention</h2>
+<h3>13.1 Primary, Secondary, and Tertiary Prevention</h3>
+<p>Primary prevention of hyperzincemia with functional zinc depletion is challenging due to its <strong>monogenic, largely sporadic nature</strong>. In families with known PSTPIP1 mutations, <strong>genetic counseling</strong> and options such as preimplantation genetic diagnosis or prenatal testing could theoretically prevent the birth of affected offspring, but such interventions have not been widely reported given the rarity of the disease.[14][9]</p>
+<p>Secondary prevention focuses on <strong>early detection and intervention</strong>. Clinicians should consider measuring serum zinc and calprotectin in children with chronic systemic inflammation, cytopenias, hepatosplenomegaly, and severe neutrophilic dermatoses, to detect Hz/Hc before irreversible complications occur.[35][15] Genetic testing of PSTPIP1 should follow if biochemical markers suggest the diagnosis.</p>
+<p>Tertiary prevention aims to <strong>prevent complications</strong> in diagnosed patients. This includes aggressive management of infections, careful monitoring of cytopenias, avoidance of unnecessary trauma or surgery, and timely consideration of HSCT in severe cases.^[11][14][40] Vaccination schedules should be optimized to protect against common pathogens while balancing immunosuppression.</p>
+<h3>13.2 Immunization and Behavioral Interventions</h3>
+<p>Standard pediatric immunizations are recommended; there are no disease‑specific vaccine strategies beyond routine prevention of infections that could exacerbate disease or complicate cytopenias.[14][11] Behavioral interventions, such as meticulous skin care to avoid trauma and infection, adherence to treatment regimens, and balanced nutrition, may reduce flare frequency and support overall health.</p>
+<h3>13.3 Genetic Counseling and Public Health Considerations</h3>
+<p>Genetic counseling is important for families with PSTPIP1 mutations, providing information on inheritance risk, options for testing relatives, and implications for family planning.[14][29][9] Given incomplete penetrance and variable expressivity, counseling should emphasize uncertainty in predicting severity for carriers.</p>
+<p>At the public health level, hyperzincemia with functional zinc depletion is too rare to warrant specific population‑level interventions, but awareness among pediatricians and dermatologists is important to avoid misdiagnosis and delayed treatment. Resources from Orphanet, GARD, and rare disease networks can support education and guideline development.[16][9][33]</p>
+<h2>14. Other Species / Natural Disease</h2>
+<h3>14.1 Species and Natural Disease in Animals</h3>
+<p>There are no reports of <strong>naturally occurring hyperzincemia and hypercalprotectinemia</strong> in companion animals or livestock corresponding exactly to the human PAMI phenotype. However, calprotectin and zinc biology are conserved across species, and animal studies provide insights into mechanisms.</p>
+<p>In rats, experimental hyperzincemia induced by zinc administration has been used to study <strong>histopathological consequences on teeth</strong>, revealing dental enamel pathology and changes in metal metabolism.[6][6] These models demonstrate that high zinc levels can cause tissue‑specific pathology, but they do not replicate the autoinflammatory and calprotectin‑driven aspects of human Hz/Hc.</p>
+<p>Calprotectin’s antimicrobial and metal‑binding functions have been studied in mouse models, showing that S100A8/A9 heterodimers chelate metals and limit bacterial growth, confirming the role of calprotectin in nutritional immunity across species.[24][21] These comparative studies support the relevance of calprotectin in metal homeostasis and inflammation but do not represent a distinct animal disease entity.</p>
+<h3>14.2 Comparative Biology and Evolutionary Conservation</h3>
+<p>The zinc‑binding motifs in calprotectin (His(_3)Asp, His(_6)) and its antimicrobial functions are evolutionarily conserved among mammals, indicating that the mechanisms underlying hyperzincemia in human PAMI syndrome are rooted in fundamental biology.[24][25][22] PSTPIP1 orthologs exist in other species, and their roles in cytoskeletal regulation and immune signaling are likely similar, but no animal models with PSTPIP1 p.E250K or p.E257K mutations have been reported.</p>
+<p>Comparative pathology suggests that while nutrient metal dyshomeostasis and autoinflammation are common themes, the exact combination of hyperzincemia, hypercalprotectinemia, cytopenias, and neutrophilic dermatoses is unique to human PAMI syndrome.</p>
+<h2>15. Model Organisms</h2>
+<h3>15.1 Existing Models and Their Characteristics</h3>
+<p>Currently, there are no specific <strong>genetic animal models</strong> (e.g., PSTPIP1 p.E250K knock‑in mice) reported that recapitulate the full spectrum of hyperzincemia with functional zinc depletion. However, related models in autoinflammatory disease research provide partial insights:</p>
+<p>Mouse models with <strong>pyrin inflammasome activation</strong> and MEFV mutations have been used to study familial Mediterranean fever, demonstrating the impact of inflammasome hyperactivity on systemic inflammation and IL‑1β production.[23] These models share inflammasome pathology but not zinc dyshomeostasis.</p>
+<p>Models manipulating <strong>calprotectin expression</strong> (S100A8/A9 knockout or overexpression) have been used to study infection and inflammation, confirming calprotectin’s role in metal chelation and DAMP signaling.[24][21] Overexpression models could, in principle, mimic aspects of hyperzincemia if zinc binding is sufficiently enhanced, but such data have not been explicitly reported.</p>
+<p>Rat models of <strong>hyperzincemia</strong> induced by zinc administration show tissue pathology, including dental enamel changes, but lack the genetic autoinflammatory component.[6][6]</p>
+<p>Thus, existing models capture parts of the mechanism (inflammasome activation, calprotectin function, zinc toxicity) but do not fully recapitulate PAMI syndrome. The development of PSTPIP1 E250K/E257K knock‑in mice would be a valuable tool for future research.</p>
+<h3>15.2 Applications and Limitations</h3>
+<p>Available models can be used to study:</p>
+<p>Inflammasome signaling pathways (pyrin, NLRP3) and their modulation by PSTPIP1 and cytokines. Calprotectin’s role in nutritional immunity, metal chelation, and DAMP signaling. Zinc’s impact on tissue pathology in experimental hyperzincemia.[23][24][6]</p>
+<p>However, limitations include:</p>
+<p>Lack of a model combining PSTPIP1 mutation, calprotectin overproduction, and systemic zinc dyshomeostasis. Differences in immune system architecture and zinc metabolism between rodents and humans. Difficulty in modeling the complex bone marrow dysplasia and cytopenias seen in PAMI syndrome.</p>
+<p>Despite these limitations, model organisms remain essential for testing candidate therapies (e.g., inflammasome inhibitors) and exploring mechanistic hypotheses that can then be validated in human patients.</p>
+<h2>Conclusion</h2>
+<p>Hyperzincemia with functional zinc depletion, also known as hyperzincemia and hypercalprotectinemia or PSTPIP1‑associated myeloid‑related proteinemia inflammatory (PAMI) syndrome, is a paradigmatic example of a <strong>Mendelian autoinflammatory disease intersecting trace metal metabolism and alarmin biology</strong>. It is defined by heterozygous charge‑reversal mutations in PSTPIP1 (p.E250K, p.E257K) that alter protein–protein interactions, leading to hyperactivation of the pyrin inflammasome, excessive release of IL‑1β/IL‑18 and the alarmin calprotectin (MRP8/14), and profound dyshomeostasis of zinc and other metals.[27][19][24][25] The resulting phenotype—chronic systemic inflammation, cytopenias, hepatosplenomegaly, growth failure, and severe neutrophilic dermatoses—occurs in the paradoxical context of extreme serum hyperzincemia yet functional zinc depletion at the tissue level, as calprotectin sequesters zinc into high‑affinity complexes and alters its compartmentalization.[1][35][3]</p>
+<p>Clinically, the disease is ultra‑rare but devastating, with onset in childhood, relapsing‑remitting flares, and significant morbidity affecting quality of life. Diagnosis relies on recognizing the combination of systemic inflammation, cytopenias, skin ulcers, and organomegaly, measuring serum zinc and calprotectin, and confirming PSTPIP1 mutations. Differentiation from related syndromes such as PAPA is essential, as PAMI features more severe systemic disease and dramatically higher calprotectin and zinc levels.[27][38] Treatment is currently empirical and multi‑modal: corticosteroids, calcineurin inhibitors, and biologics targeting IL‑1 or TNF‑α offer partial control but variable responses, while HSCT has emerged as a potentially curative option in severe, refractory cases, normalizing zinc and calprotectin levels and resolving inflammation in reported patients.[11][14][40]</p>
+<p>From a mechanistic standpoint, hyperzincemia with functional zinc depletion offers a unique lens into the interplay between inflammasomes, alarmins, and metal metabolism. It illustrates how dysregulated DAMP release and nutritional immunity mechanisms, evolved to protect against pathogens, can become pathogenic when chronically activated, leading not only to inflammation but also to systemic metabolic disturbances. It also underscores the complexity of zinc biology, where total serum levels may mislead clinicians in the absence of understanding of binding proteins and compartmentalization.</p>
+<p>Future research priorities include developing specific animal models carrying PSTPIP1 E→K mutations, performing multi‑omics profiling in patients to capture transcriptomic and metabolomic signatures, and investigating potential inflammasome inhibitors or calprotectin‑targeted therapies. Improved understanding of genetic and environmental modifiers could refine prognostic assessments and suggest personalized intervention strategies. For now, hyperzincemia with functional zinc depletion remains a rare but instructive disease that exemplifies the intertwined nature of immunity and metabolism, with lessons likely applicable to more common inflammatory and metabolic disorders.</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>19</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>DOI:10.1111/j.1651-2227.2008.01092.x</code> (1 mention) - Hyperzincemia and hypercalprotectinemia: unsuccessful treatment with tacrolimus</li>
+<li>shared terms: hyperzincemia</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>zinc</code>, <code>hyperzincemia</code>, <code>disease</code>, <code>pstpip1</code>, <code>calprotectin</code>, <code>functional</code>, <code>depletion</code>, <code>pami</code>, <code>inflammation</code>, <code>patient</code>, <code>systemic</code>, <code>syndrome</code>, <code>infection</code>, <code>inflammatory</code>, <code>mutation</code>, <code>chronic</code>, <code>cytopenias</code>, <code>skin</code>, <code>include</code>, <code>genetic</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>78</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>70</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>11</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>GO:0140235</code> (1 mention) - the report calls it "inflammasome complex assembly"; GO calls it <strong>RNA polyadenylation at postsynapse</strong></li>
+<li><code>CHEBI:25517</code> (1 mention) - the report calls it "nickel(2+) cation"; CHEBI calls it <strong>CHEBI_25517</strong></li>
+<li><code>NCIT:C15731</code> (1 mention) - the report calls it "Corticosteroid therapy"; NCIT calls it <strong>Intrahepatic Infusion Procedure</strong></li>
+<li><code>NCIT:C16033</code> (1 mention) - the report calls it "Tumor Necrosis Factor Inhibitor Therapy"; NCIT calls it <strong>Follow-Up</strong></li>
+<li><code>NCIT:C121938</code> (1 mention) - the report calls it "Interleukin-1 Inhibitor Therapy"; NCIT calls it <strong>Low Reference Range in Numeric Format</strong></li>
+<li><code>NCIT:C1282</code> (1 mention) - the report calls it "Tacrolimus"; NCIT calls it <strong>Carboplatin</strong></li>
+<li><code>NCIT:C65202</code> (1 mention) - the report calls it "Adalimumab"; NCIT calls it <strong>Wedge</strong></li>
+<li><code>NCIT:C15197</code> (1 mention) - the report calls it "Allogeneic Hematopoietic Stem Cell Transplantation"; NCIT calls it <strong>Case-Control Study</strong></li>
+<li><code>NCIT:C80188</code> (1 mention) - the report calls it "Myeloablative Conditioning Regimen"; NCIT calls it <strong>HDL-Cholesterol Subclass 3 Measurement</strong></li>
+</ul>
+<h3>Unresolved terms</h3>
+<p>These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:</p>
+<ul>
+<li><code>HP:0001505</code> (1 mention) - HP does not contain this term</li>
+<li><code>HP:0003331</code> (1 mention) - HP does not contain this term</li>
+<li><code>HP:0006950</code> (1 mention) - HP does not contain this term</li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0051092</code> (obsolete positive regulation of NF-kappaB transcription factor activity) (1 mention)</li>
+<li><code>CHEBI:25517</code> (CHEBI_25517) (1 mention) - replaced by <code>CHEBI:49786</code></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0032612</code> (1 mention) - the report calls it "interleukin‑1 beta production"; GO calls it <strong>interleukin-1 production</strong></li>
+<li><code>GO:0032611</code> (1 mention) - the report calls it "interleukin‑18 production"; GO calls it <strong>interleukin-1 beta production</strong></li>
+<li><code>GO:0051092</code> (1 mention) - the report calls it "positive regulation of NF‑κB transcription factor activity"; GO calls it <strong>obsolete positive regulation of NF-kappaB transcription factor activity</strong></li>
+<li><code>CHEBI:29105</code> (1 mention) - the report calls it "zinc cation"; CHEBI calls it <strong>zinc(2+)</strong>, and lists "zinc cation" among its other names</li>
+<li><code>CHEBI:29035</code> (1 mention) - the report calls it "manganese(2+) cation"; CHEBI calls it <strong>manganese(2+)</strong>, and lists "manganese(II) cation" among its other names</li>
+<li><code>CHEBI:29108</code> (1 mention) - the report calls it "calcium(2+) cation"; CHEBI calls it <strong>calcium(2+)</strong>, and lists "calcium(II) cation" among its other names</li>
+<li><code>CL:0000837</code> (1 mention) - the report calls it "erythroid progenitor cell"; CL calls it <strong>hematopoietic multipotent progenitor cell</strong>, and lists "hemopoietic progenitor cell" among its other names</li>
+<li><code>CL:0002620</code> (1 mention) - the report calls it "dermal fibroblast"; CL calls it <strong>skin fibroblast</strong></li>
+<li><code>GO:0061702</code> (1 mention) - the report calls it "inflammasome complex"; GO calls it <strong>canonical inflammasome complex</strong></li>
+<li><code>GO:0046872</code> (1 mention) - the report calls it "metallothionein complex"; GO calls it <strong>metal ion binding</strong></li>
+<li><code>NCIT:C408</code> (1 mention) - the report calls it "Cyclosporine A"; NCIT calls it <strong>Cytarabine</strong>, and lists "Cytosine Arabinoside" among its other names</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>, <code>OMIM</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Palmoplantar_Keratoderma-Deafness_Syndrome-claude_code.html">← Palmoplantar Keratoderma-Deafness Syndrome (Claude Code)</a>
+                
+                
+                <a href="Pancreatic_Agenesis-falcon.html">Pancreatic Agenesis (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/PAMI_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/PAMI_Syndrome-deep-research-perplexity.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-perplexity" aria-current="page">Perplexity</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

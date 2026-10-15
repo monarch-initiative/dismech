@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Young Syndrome · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Young Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Young Syndrome</h1>
+                
+                <p class="report-subtitle">Young Syndrome: Research Report</p>
+                
+                
+                <div class="report-date">2026-10-14</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0010220" target="_blank" rel="noopener noreferrer">MONDO:0010220</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-5-5</span>
+                    
+                    
+                    <span class="meta-chip">18 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Young Syndrome: Research Report</h1>
+<p><strong>Target:</strong> Young syndrome (<a href="http://purl.obolibrary.org/obo/MONDO_0010220" target="_blank" rel="noopener noreferrer">MONDO:0010220</a>) · <strong>Category:</strong> Complex · <strong>Report date:</strong> 2026-10-14</p>
+<p><strong>How the citations were checked.</strong> 19 PMIDs already have a <code>references_cache/</code> file on this branch. Quotes from those PMIDs were copied from the cached abstract or full text. Sources that are not cached are marked <strong>[not cached]</strong>, so fetch them with <code>just fetch-reference</code> before quoting them in the KB. Ontology CURIEs marked ✓ were read from the repository's <code>cache/&lt;prefix&gt;/terms.csv</code> during this session. Unmarked CURIEs are leads, and each one needs a lookup before it is used.</p>
+<hr />
+<h2>Summary of the evidence (read this first)</h2>
+<p>Whether Young syndrome is a distinct disease is itself disputed. The literature supports three positions:</p>
+<ol>
+<li><strong>A real clinical entity of unknown cause.</strong> Obstructive azoospermia comes from the epididymis being blocked by thick secretions, and occurs alongside chronic sinopulmonary infection. Handelsman 1984 (<a href="https://pubmed.ncbi.nlm.nih.gov/6689737/" target="_blank" rel="noopener noreferrer">PMID:6689737</a>) is the main source.</li>
+<li><strong>A mostly historical condition caused by childhood mercury exposure.</strong> Incidence dropped sharply in men born after mercury (calomel) was removed from UK teething powders in 1955 (Hendry 1993, <a href="https://pubmed.ncbi.nlm.nih.gov/8292944/" target="_blank" rel="noopener noreferrer">PMID:8292944</a> <strong>[not cached]</strong>; Arya 2009, <a href="https://pubmed.ncbi.nlm.nih.gov/19128521/" target="_blank" rel="noopener noreferrer">PMID:19128521</a>; Brown 2025, <a href="https://pubmed.ncbi.nlm.nih.gov/40287162/" target="_blank" rel="noopener noreferrer">PMID:40287162</a>).</li>
+<li><strong>A misdiagnosed form of primary ciliary dyskinesia (PCD).</strong> In particular, PCD caused by defects in the C1d projection of the ciliary central apparatus (for example CFAP221) gives normal electron microscopy (EM), normal nasal NO and normal situs. It is therefore missed by the classical tests that were used to "exclude" PCD when Young syndrome was defined (Ito 2025, <a href="https://pubmed.ncbi.nlm.nih.gov/38960684/" target="_blank" rel="noopener noreferrer">PMID:38960684</a>; Wohlgemuth 2024, <a href="https://pubmed.ncbi.nlm.nih.gov/39362668/" target="_blank" rel="noopener noreferrer">PMID:39362668</a>).</li>
+</ol>
+<p>Two lines of evidence count against Young syndrome being a mild form of cystic fibrosis (CF): normal sweat chloride, and a CFTR mutation rate no higher than the background carrier rate (<a href="https://pubmed.ncbi.nlm.nih.gov/7551394/" target="_blank" rel="noopener noreferrer">PMID:7551394</a>).</p>
+<p><strong>What this means for curation:</strong> the stub's <code>entry_type</code> decision is not obvious, and the <code>notes</code> should record the reasoning. A defensible choice is a <code>DISEASE</code> entry with low-confidence, hypothesis-grouped mechanisms, namely mercury toxicity versus an undiagnosed motile ciliopathy. Each grouping should be marked <code>EMERGING</code> or <code>HYPOTHETICAL</code> rather than <code>ESTABLISHED</code>.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Young syndrome is a triad found mainly in middle-aged men:
+- obstructive azoospermia, with normal spermatogenesis and an enlarged, sperm-filled caput epididymis;
+- chronic or recurrent rhinosinusitis;
+- recurrent bronchitis or bronchiectasis.</p>
+<p>It is diagnosed by exclusion, after CF and PCD have been ruled out.</p>
+<blockquote>
+<p>"We studied 29 men with Young's syndrome, a combination of obstructive azoospermia and chronic sinopulmonary infections. Men with this syndrome have only mildly impaired respiratory function and normal spermatogenesis; the azoospermia is due to obstruction of the epididymis by inspissated secretions." — <a href="https://pubmed.ncbi.nlm.nih.gov/6689737/" target="_blank" rel="noopener noreferrer">PMID:6689737</a> (Handelsman et al., <em>NEJM</em> 1984)</p>
+<p>"The diagnosis is based on the occurrence of chronic sinopulmonary infections, persistent azoospermia, normal spermatogenesis, and characteristic epididymal findings, as well as exclusion of cystic fibrosis and the immotile-cilia syndrome." — <a href="https://pubmed.ncbi.nlm.nih.gov/6689737/" target="_blank" rel="noopener noreferrer">PMID:6689737</a></p>
+</blockquote>
+<p><strong>Identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>ID</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0010220" target="_blank" rel="noopener noreferrer">MONDO:0010220</a></td>
+<td>Not in <code>cache/mondo/terms.csv</code>, so confirm the label via OLS</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>279000</td>
+<td>Per <a href="https://https.ncbi.nlm.nih.gov/medgen/137934">MedGen</a>. omim.org returned 403 to a fetch</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><a href="https://bioregistry.io/ORPHA:3471" target="_blank" rel="noopener noreferrer">ORPHA:3471</a></td>
+<td>Per MedGen. Run <code>just fetch-reference ORPHA:3471</code> to get a quotable record</td>
+</tr>
+<tr>
+<td>MedGen</td>
+<td>C0221040 / 137934</td>
+<td></td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>No specific code</td>
+<td>Usually coded through its components (N46 male infertility, J47 bronchiectasis)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms:</strong> Young's syndrome; sinusitis–infertility syndrome; Barry–Perkins–Young syndrome; azoospermia–sinusitis–bronchiectasis.</p>
+<blockquote>
+<p>"Young´s syndrome also known as Barry-Perkins-Young syndrome or sinusitis-infertility syndrome is a rare, inherited syndrome commonly seen in middle-aged men with chronic rhinosinusitis, nasal polyps, infertility and bronchiectasis." — <a href="https://pubmed.ncbi.nlm.nih.gov/39119117/" target="_blank" rel="noopener noreferrer">PMID:39119117</a></p>
+</blockquote>
+<p><strong>Name collision (a Named Entity Confusion risk).</strong> "Young syndrome" also names an unrelated condition:</p>
+<blockquote>
+<p>"As an incidental finding, we found that the term Young's syndrome refers to two different medical conditions." — <a href="https://pubmed.ncbi.nlm.nih.gov/19128521/" target="_blank" rel="noopener noreferrer">PMID:19128521</a></p>
+</blockquote>
+<p>When searching, filter out the Young–Simpson / Say–Barber–Biesecker–Young–Simpson (KAT6B) syndrome, which is a different disease.</p>
+<p><strong>Source of the information:</strong> case series and aggregated reviews. There are no registries or EHR cohorts.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Causal factors (unresolved)</h3>
+<p><strong>(a) Childhood mercury exposure (environmental hypothesis).</strong> This is the only cause any source documents. Hendry et al. 1993 (<em>BMJ</em> 307:1579; <a href="https://pubmed.ncbi.nlm.nih.gov/8292944/" target="_blank" rel="noopener noreferrer">PMID:8292944</a> <strong>[not cached]</strong>) followed 274 men who had epididymovasostomy for obstructive azoospermia. Young syndrome was diagnosed in 114 of 227 men (50%) born up to 1955, against 8 of 47 men (17%) born afterwards. 1955 is the year calomel (mercurous chloride) was withdrawn from UK teething powders and worm treatments, and the drop parallels the disappearance of pink disease (acrodynia). See also Hendry et al. 1996, <em>BMJ</em>, "Declining sperm count. Increasing evidence that Young's syndrome is associated with mercury" (<a href="https://pubmed.ncbi.nlm.nih.gov/8664779/" target="_blank" rel="noopener noreferrer">PMID:8664779</a>). That PMID is cached, but its content is unavailable, so it cannot be quoted.</p>
+<blockquote>
+<p>"The only documented aetiological factor is mercury exposure in childhood, an event that is seldom currently encountered; this would support our theory of the extinction of the condition." — <a href="https://pubmed.ncbi.nlm.nih.gov/19128521/" target="_blank" rel="noopener noreferrer">PMID:19128521</a></p>
+<p>"This report details a case of a man who suffered from pink disease as a child following his mother applying teething powder containing inorganic mercury to his gums for 12 weeks, from the age of 6 months. … Throughout his lifetime, however, the man (in his 70s) has been diagnosed as infertile, and with bronchiectasis…" — <a href="https://pubmed.ncbi.nlm.nih.gov/40287162/" target="_blank" rel="noopener noreferrer">PMID:40287162</a></p>
+</blockquote>
+<p>The Ito 2025 full text summarises a second Hendry series: "In a prospective study conducted between 1975 and 1993 on 146 subfertile men with epididymal obstruction, 82% were diagnosed with Young's syndrome and mercury exposure was identified in 11 cases" (<a href="https://pubmed.ncbi.nlm.nih.gov/38960684/" target="_blank" rel="noopener noreferrer">PMID:38960684</a>, discussion). This sentence is a <code>BACKGROUND</code> quote: Ito restates another group's result.</p>
+<p><strong>(b) Undiagnosed motile ciliopathy, i.e. PCD with normal EM (genetic hypothesis).</strong></p>
+<blockquote>
+<p>"He had normal electron microscopy findings, normal nasal nitric oxide levels (116 nL/min), and no situs inversus. However, we found compound heterozygous variants considered pathogenic in CFAP221. This led to a diagnosis of primary ciliary dyskinesia (PCD). … Young's syndrome may be a phenotype of PCD." — <a href="https://pubmed.ncbi.nlm.nih.gov/38960684/" target="_blank" rel="noopener noreferrer">PMID:38960684</a></p>
+<p>"C1d-defective primary ciliary dyskinesia is associated with normal situs composition, normal nasal nitric oxide production rates, normal ciliary ultrastructure by transmission electron microscopy and normal ciliary beating by high-speed videomicroscopy analysis." — <a href="https://pubmed.ncbi.nlm.nih.gov/39362668/" target="_blank" rel="noopener noreferrer">PMID:39362668</a></p>
+</blockquote>
+<p>This matters because the original definition excluded PCD by EM, which every C1d-defective form passes. Some historical Young syndrome cases may therefore have been C1d-defective PCD. That conclusion is inferred: no study has re-genotyped a historical Young syndrome cohort.</p>
+<p><strong>(c) CFTR: not supported as a cause.</strong></p>
+<blockquote>
+<p>"Of 26 Young syndrome chromosomes, we identified one with the recognized CF mutation delta F508. The incidence of CFTR mutations (1 in 26) did not differ significantly from the expected carrier frequency in this population. In summary, it is unlikely that the typical Young syndrome patient has a clinical disease associated with CFTR mutation on both alleles." — <a href="https://pubmed.ncbi.nlm.nih.gov/7551394/" target="_blank" rel="noopener noreferrer">PMID:7551394</a> (Friedman et al., <em>AJRCCM</em> 1995)</p>
+</blockquote>
+<p>Related cached letters that cannot be quoted (content unavailable): <a href="https://pubmed.ncbi.nlm.nih.gov/8100886/" target="_blank" rel="noopener noreferrer">PMID:8100886</a> (<em>Lancet</em> 1993, ΔF508) and <a href="https://pubmed.ncbi.nlm.nih.gov/9800754/" target="_blank" rel="noopener noreferrer">PMID:9800754</a> (<em>Lancet</em> 1998, "Cystic fibrosis, Young's syndrome, and normal sweat chloride"). Ito 2025 notes that isolated cases of Young syndrome with CFTR mutations have been reported, so CF should still be excluded.</p>
+<h3>Risk factors</h3>
+<ul>
+<li><strong>Environmental:</strong> mercurous chloride in teething powder or vermifuges during infancy; exposure to mercury, <a href="https://bioregistry.io/ECTO:0001571" target="_blank" rel="noopener noreferrer">ECTO:0001571</a> ✓.</li>
+<li><strong>Sex:</strong> the defining feature, obstructive azoospermia, applies only to men. StatPearls says women may have mildly reduced fertility (<a href="https://pubmed.ncbi.nlm.nih.gov/30969689/" target="_blank" rel="noopener noreferrer">PMID:30969689</a>). That claim is weakly sourced.</li>
+<li><strong>Age and birth cohort:</strong> men born before 1955 in the UK and northern Europe.</li>
+<li><strong>Genetic:</strong> no confirmed locus. Orphanet and MedGen list autosomal recessive inheritance (<a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank" rel="noopener noreferrer">HP:0000007</a> ✓). That listing reflects the older "inherited" framing and has no supporting linkage data.</li>
+</ul>
+<h3>Protective factors and gene–environment interaction</h3>
+<p>There are no data. The mercury hypothesis implies that withdrawing calomel was a primary-prevention event at population level.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Suggested HPO</th>
+<th>Frequency / notes</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Obstructive azoospermia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000027" target="_blank" rel="noopener noreferrer">HP:0000027</a> Azoospermia ✓ (no "obstructive azoospermia" row in the cache, so search HPO for a narrower term)</td>
+<td>Defining, about 100%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/6689737/" target="_blank" rel="noopener noreferrer">PMID:6689737</a></td>
+</tr>
+<tr>
+<td>Enlarged caput epididymis with inspissated material</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009714" target="_blank" rel="noopener noreferrer">HP:0009714</a> Abnormal epididymis morphology ✓</td>
+<td>Characteristic</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/6689737/" target="_blank" rel="noopener noreferrer">PMID:6689737</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38960684/" target="_blank" rel="noopener noreferrer">PMID:38960684</a> discussion</td>
+</tr>
+<tr>
+<td>Normal spermatogenesis</td>
+<td>Not a phenotype; diagnostic qualifier</td>
+<td>—</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/6689737/" target="_blank" rel="noopener noreferrer">PMID:6689737</a></td>
+</tr>
+<tr>
+<td>Male infertility</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003251" target="_blank" rel="noopener noreferrer">HP:0003251</a> ✓</td>
+<td>Defining</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19128521/" target="_blank" rel="noopener noreferrer">PMID:19128521</a></td>
+</tr>
+<tr>
+<td>Chronic rhinosinusitis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011109" target="_blank" rel="noopener noreferrer">HP:0011109</a> Chronic sinusitis ✓ / <a href="http://purl.obolibrary.org/obo/HP_0011108" target="_blank" rel="noopener noreferrer">HP:0011108</a> Recurrent sinusitis ✓</td>
+<td>Common but poorly defined</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19128521/" target="_blank" rel="noopener noreferrer">PMID:19128521</a></td>
+</tr>
+<tr>
+<td>Nasal polyps</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100582" target="_blank" rel="noopener noreferrer">HP:0100582</a> Nasal polyposis ✓</td>
+<td>Reported, frequency unknown</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36196705/" target="_blank" rel="noopener noreferrer">PMID:36196705</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/8922141/" target="_blank" rel="noopener noreferrer">PMID:8922141</a></td>
+</tr>
+<tr>
+<td>Bronchiectasis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" rel="noopener noreferrer">HP:0002110</a> ✓</td>
+<td>Variable, often mild</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39119117/" target="_blank" rel="noopener noreferrer">PMID:39119117</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38960684/" target="_blank" rel="noopener noreferrer">PMID:38960684</a></td>
+</tr>
+<tr>
+<td>Recurrent bronchitis / lower respiratory infection</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004469" target="_blank" rel="noopener noreferrer">HP:0004469</a> ✓ / <a href="http://purl.obolibrary.org/obo/HP_0002783" target="_blank" rel="noopener noreferrer">HP:0002783</a> ✓</td>
+<td>Most patients</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/7551394/" target="_blank" rel="noopener noreferrer">PMID:7551394</a></td>
+</tr>
+<tr>
+<td>Productive cough</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031245" target="_blank" rel="noopener noreferrer">HP:0031245</a> ✓</td>
+<td>Common</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36196705/" target="_blank" rel="noopener noreferrer">PMID:36196705</a></td>
+</tr>
+<tr>
+<td>Impaired lung mucociliary clearance (lab/physiologic)</td>
+<td>No HP row cached; bind <a href="http://purl.obolibrary.org/obo/GO_0120197" target="_blank" rel="noopener noreferrer">GO:0120197</a> mucociliary clearance ✓ with <code>DECREASED</code> on a pathophysiology node</td>
+<td>n=14, significantly reduced</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/7307631/" target="_blank" rel="noopener noreferrer">PMID:7307631</a></td>
+</tr>
+<tr>
+<td>Mildly reduced FEV1</td>
+<td>Look up an HP term</td>
+<td>Mean 74% predicted (range 48–100%)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/7551394/" target="_blank" rel="noopener noreferrer">PMID:7551394</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>On the sinus component, Arya 2009 (<a href="https://pubmed.ncbi.nlm.nih.gov/19128521/" target="_blank" rel="noopener noreferrer">PMID:19128521</a>) found that "the diagnosis of sinusitis in Young's syndrome was crude and poorly defined." Frequencies for the sinus features should be treated as unreliable.</p>
+<p><strong>Onset and course:</strong> onset is adult, usually first recognised during an infertility work-up in the 30s or 40s. In the Friedman cohort the mean age was 43 (range 32–50) (<a href="https://pubmed.ncbi.nlm.nih.gov/7551394/" target="_blank" rel="noopener noreferrer">PMID:7551394</a>). Respiratory disease is chronic, mild and slowly progressive. There was no chronic <em>S. aureus</em> or <em>P. aeruginosa</em> colonisation, which distinguishes it from CF.</p>
+<p><strong>Quality of life:</strong> no instrument-based data exist. One case report states: "An accurate diagnosis of YS is usually made late, which reduces patients' quality of life and leads to chronic respiratory problems" (<a href="https://pubmed.ncbi.nlm.nih.gov/36196705/" target="_blank" rel="noopener noreferrer">PMID:36196705</a>).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<ul>
+<li><strong>No causal gene has been established.</strong> Do not add a <code>CAUSATIVE</code> gene row.</li>
+<li><strong>CFAP221</strong> (hgnc:33720 ✓): one compound-heterozygous case with a Young phenotype that was reclassified as PCD (<a href="https://pubmed.ncbi.nlm.nih.gov/38960684/" target="_blank" rel="noopener noreferrer">PMID:38960684</a>). Should a CFAP221 row be included, the defensible framing is a phenocopy or differential diagnosis, or a <code>SUSCEPTIBILITY</code>-style lead in <code>notes</code>. It should not be causal. On the MalaCards claim that OMIM's CILD55 (CFAP221) entry mentions a Young syndrome presentation (<a href="https://malacards.org/card/ciliary_dyskinesia_primary_55">MalaCards</a>): verify it against OMIM before citing.</li>
+<li>Supporting evidence for CFAP221 in mild PCD: "Subtle abnormalities in the protein composition of the ciliary central apparatus were consistent with the asynchronous, circular motion of cilia and reduced ciliary beat frequency in the proband; importantly, the motility of proband's sperm cells was within the normal range." (<a href="https://pubmed.ncbi.nlm.nih.gov/40250778/" target="_blank" rel="noopener noreferrer">PMID:40250778</a>). Normal sperm motility fits the Young pattern, because the obstruction lies outside the sperm and the sperm themselves are normal.</li>
+<li><strong>Other C1d genes</strong> (CFAP46, CFAP54, CFAP74; <a href="https://pubmed.ncbi.nlm.nih.gov/39362668/" target="_blank" rel="noopener noreferrer">PMID:39362668</a>) are plausible candidates by the same logic. None has been reported in Young syndrome.</li>
+<li><strong>DNAH5</strong> (hgnc:2950 ✓): PCD caused by DNAH5 gives epididymal-head dilation and oligozoospermia with motile sperm, "similar to Young's syndrome" (Ito 2025 discussion; this is background).</li>
+<li><strong>CFTR</strong> (hgnc:1884 ✓): tested and not enriched (<a href="https://pubmed.ncbi.nlm.nih.gov/7551394/" target="_blank" rel="noopener noreferrer">PMID:7551394</a>). This is a negative finding and suits a <code>REFUTE</code> evidence item on any CF-mechanism claim.</li>
+<li>No ClinGen classification, no ClinVar disease assertion, no epigenetic data and no chromosomal abnormality has been reported.</li>
+</ul>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Exposure:</strong> inorganic mercury, as mercurous chloride (calomel), in teething powders and anthelmintics. Exposure to mercury is <a href="https://bioregistry.io/ECTO:0001571" target="_blank" rel="noopener noreferrer">ECTO:0001571</a> ✓. Search ECTO further for an ingestion-route or calomel-specific term and record the queries. The CHEBI CURIEs for mercury and calomel are not cached and need a lookup.</li>
+<li><strong>Linked childhood disease:</strong> pink disease (acrodynia). <a href="https://pubmed.ncbi.nlm.nih.gov/40287162/" target="_blank" rel="noopener noreferrer">PMID:40287162</a> links the two.</li>
+<li><strong>Infectious agents:</strong> none causal. Secondary infections are intermittent and non-specific. In the Friedman cohort "none was chronically colonized with Staphylococcus aureus or Pseudomonas aeruginosa" (<a href="https://pubmed.ncbi.nlm.nih.gov/7551394/" target="_blank" rel="noopener noreferrer">PMID:7551394</a>).</li>
+<li><strong>Lifestyle:</strong> tobacco was matched in the clearance study (<a href="https://pubmed.ncbi.nlm.nih.gov/7307631/" target="_blank" rel="noopener noreferrer">PMID:7307631</a>). No independent role has been shown.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<p><strong>Branch A: mercury hypothesis</strong> (epidemiological; mechanism inferred)
+1. Infant exposure to inorganic mercury (calomel teething powder) → <em>(inferred)</em> lasting injury to secretory or ciliated epithelium in the airway and the excurrent ducts of the male reproductive tract. No histological study shows this.
+2. → Abnormal, thickened (inspissated) mucus in the airways and in the epididymal lumen. Handelsman reports the epididymal secretions directly. For the airway mucus, the evidence is indirect: tip disorientation is "more likely to be a consequence of abnormal mucus", <a href="https://pubmed.ncbi.nlm.nih.gov/1387740/" target="_blank" rel="noopener noreferrer">PMID:1387740</a>.
+3. → Impaired mucociliary clearance, even though cilia are structurally and kinetically normal (shown, <a href="https://pubmed.ncbi.nlm.nih.gov/7307631/" target="_blank" rel="noopener noreferrer">PMID:7307631</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/1387740/" target="_blank" rel="noopener noreferrer">PMID:1387740</a>).
+4a. → Mucus stasis → recurrent sinobronchial infection → chronic rhinosinusitis and bronchiectasis.
+4b. → Obstruction at the caput epididymis → sperm cannot reach the ejaculate → obstructive azoospermia, with spermatogenesis intact (shown, <a href="https://pubmed.ncbi.nlm.nih.gov/6689737/" target="_blank" rel="noopener noreferrer">PMID:6689737</a>).</p>
+<p><strong>Branch B: occult motile-ciliopathy hypothesis</strong> (genetic; one case plus model data)
+1. Biallelic loss-of-function variants in a central-apparatus C1d gene (e.g. CFAP221) → subtle C1d defect (shown in PCD, <a href="https://pubmed.ncbi.nlm.nih.gov/39362668/" target="_blank" rel="noopener noreferrer">PMID:39362668</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40250778/" target="_blank" rel="noopener noreferrer">PMID:40250778</a>).
+2. → Abnormal (circular, asynchronous) ciliary waveform. Beat frequency and EM are normal or near normal, so classical PCD tests are negative.
+3a. → Reduced airway ciliary transport → chronic airway infection and mild bronchiectasis (shown in PCD; inferred for Young syndrome).
+3b. → <em>(inferred from mouse models)</em> Defective motile cilia in the efferent ducts → sperm are not kept in suspension → sperm agglutinate and obstruct the efferent ducts or caput epididymis → obstructive azoospermia with normal sperm motility.
+   - Mouse support: Yuan et al. 2019 <em>PNAS</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/30659149/" target="_blank" rel="noopener noreferrer">PMID:30659149</a> <strong>[not cached]</strong>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6397526">PMC6397526</a>). In miR-34b/c / miR-449 knockout mice, loss of efferent-duct motile cilia causes sperm agglutination, luminal obstruction and sperm granulomas. The efferent-duct cilia beat in changing directions to keep sperm suspended.
+   - Further support: Terré et al. 2019 <em>Development</em> (GEMC1/MCIDAS/CCNO; dev162628; PMID to be resolved) and DNAH5-deficient mice with immotile efferent-duct cilia (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8269963">PMC8269963</a>; PMID to be resolved).
+   - Ito 2025 summarises: "Impaired ciliary motility of the efferent duct may explain the obstructive azoospermia observed in patients with Young's syndrome."</p>
+<p><strong>Branch C: CF-spectrum (refuted for the typical patient).</strong> Sweat chloride is normal, pancreatic function and nasal potential difference are normal, and CFTR mutations are no more frequent than background (<a href="https://pubmed.ncbi.nlm.nih.gov/7551394/" target="_blank" rel="noopener noreferrer">PMID:7551394</a>). Model this as a <code>REFUTE</code> item or a <code>discussions</code> entry, not as a node.</p>
+<h3>Ciliary and mucus findings in detail</h3>
+<blockquote>
+<p>"Ciliary beat frequency and the incidence of microtubular defects and numbers of dynein arms did not differ between patients with Young's syndrome and control subjects. … at the ciliary tip ciliary deviation (21.9 degrees) was greater than in healthy subjects (14.5 degrees)." — <a href="https://pubmed.ncbi.nlm.nih.gov/1387740/" target="_blank" rel="noopener noreferrer">PMID:1387740</a></p>
+<p>"Lung mucociliary transport was significantly reduced in patients with Young's syndrome compared to 14 control subjects…" — <a href="https://pubmed.ncbi.nlm.nih.gov/7307631/" target="_blank" rel="noopener noreferrer">PMID:7307631</a></p>
+<p>"Patients with YS did not have pathognomonic ultrastructural changes, whereas patients with PCD had a large number of ciliary abnormalities…" — <a href="https://pubmed.ncbi.nlm.nih.gov/9213847/" target="_blank" rel="noopener noreferrer">PMID:9213847</a></p>
+</blockquote>
+<h3>Suggested bindings</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GO</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0120197" target="_blank" rel="noopener noreferrer">GO:0120197</a> mucociliary clearance ✓ (DECREASED)</td>
+</tr>
+<tr>
+<td>GO</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0003351" target="_blank" rel="noopener noreferrer">GO:0003351</a> epithelial cilium movement involved in extracellular fluid movement ✓ (Branch B)</td>
+</tr>
+<tr>
+<td>GO</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0003341" target="_blank" rel="noopener noreferrer">GO:0003341</a> cilium movement ✓</td>
+</tr>
+<tr>
+<td>GO</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0070254" target="_blank" rel="noopener noreferrer">GO:0070254</a> mucus secretion ✓ (ALTERED or INCREASED viscosity; the qualitative claim is about secretion character, so justify the modifier)</td>
+</tr>
+<tr>
+<td>CL</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000019" target="_blank" rel="noopener noreferrer">CL:0000019</a> sperm ✓</td>
+</tr>
+<tr>
+<td>CL</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000160" target="_blank" rel="noopener noreferrer">CL:0000160</a> goblet cell ✓</td>
+</tr>
+<tr>
+<td>CL</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0002480" target="_blank" rel="noopener noreferrer">CL:0002480</a> nasal mucosa goblet cell ✓</td>
+</tr>
+<tr>
+<td>CL</td>
+<td>Multiciliated epithelial cell / efferent-duct ciliated cell: <strong>look up</strong> (not cached)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Biological scale tags:</strong> the exposure and variant nodes are MOLECULAR; ciliary waveform and mucus are CELLULAR; epididymal obstruction and bronchiectasis are TISSUE.</p>
+<p><strong>Omics:</strong> none. There are no GEO, proteomic or single-cell datasets specific to Young syndrome; the <code>datasets:</code> section should stay empty.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Structures</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Primary sites</td>
+<td>Epididymis <a href="http://purl.obolibrary.org/obo/UBERON_0001301" target="_blank" rel="noopener noreferrer">UBERON:0001301</a> ✓ (caput; look up "head of epididymis" and "efferent duct"); bronchus <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" rel="noopener noreferrer">UBERON:0002185</a> ✓; respiratory airway <a href="http://purl.obolibrary.org/obo/UBERON_0001005" target="_blank" rel="noopener noreferrer">UBERON:0001005</a> ✓; paranasal sinus <a href="http://purl.obolibrary.org/obo/UBERON_0001825" target="_blank" rel="noopener noreferrer">UBERON:0001825</a> ✓; nasal cavity epithelium <a href="http://purl.obolibrary.org/obo/UBERON_0005384" target="_blank" rel="noopener noreferrer">UBERON:0005384</a> ✓</td>
+</tr>
+<tr>
+<td>Spared</td>
+<td>Testis (spermatogenesis normal), vas deferens (patent, unlike CBAVD in CF), pancreas, sweat gland</td>
+</tr>
+<tr>
+<td>Subcellular</td>
+<td>Motile cilium axoneme and central apparatus (Branch B); extracellular mucus</td>
+</tr>
+<tr>
+<td>Laterality</td>
+<td>Bilateral epididymal involvement; bronchiectasis often bilateral and lower-lobe (<a href="https://pubmed.ncbi.nlm.nih.gov/39119117/" target="_blank" rel="noopener noreferrer">PMID:39119117</a> CT description)</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> adult, presenting at roughly 30–50 years. Respiratory symptoms often date from childhood: in one case report, "cough, sputum, recurrent nasal congestion, and shortness of breath lasting for more than ten years" (<a href="https://pubmed.ncbi.nlm.nih.gov/36196705/" target="_blank" rel="noopener noreferrer">PMID:36196705</a>).</li>
+<li><strong>Course:</strong> chronic, mild and slowly progressive on the airway side, with stable azoospermia.</li>
+<li><strong>Remission:</strong> none spontaneous. Fertility can be restored with surgery or ART.</li>
+<li><strong>Critical period (mercury hypothesis):</strong> infancy, during teething, around 6 months of age (<a href="https://pubmed.ncbi.nlm.nih.gov/40287162/" target="_blank" rel="noopener noreferrer">PMID:40287162</a>).</li>
+<li><strong>Suggested <code>progression:</code> phases:</strong> childhood sinopulmonary symptoms → adult infertility presentation → established bronchiectasis.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Prevalence:</strong> the only estimate is Handelsman's 1984 claim of a "prevalence comparable to that of Klinefelter's syndrome" (<a href="https://pubmed.ncbi.nlm.nih.gov/6689737/" target="_blank" rel="noopener noreferrer">PMID:6689737</a>), roughly 1 in 500–1,000 men. That claim is speculative and predates the post-1955 decline. Model it as <code>measure_type: UNKNOWN</code> with a qualitative class, or <code>CASES_IN_LITERATURE</code>, and record the original phrasing in <code>notes</code>. A more defensible statement is that the condition is now rare or possibly extinct (<a href="https://pubmed.ncbi.nlm.nih.gov/19128521/" target="_blank" rel="noopener noreferrer">PMID:19128521</a>).</li>
+<li><strong>Share of obstructive azoospermia:</strong> 50% in men born up to 1955 versus 17% in men born after (Hendry 1993 <strong>[not cached]</strong>).</li>
+<li><strong>Inheritance:</strong> stated as autosomal recessive by Orphanet and MedGen, but unproven. Familial case reports are lacking.</li>
+<li><strong>Population:</strong> northern European men: "all were of northern European extraction" (<a href="https://pubmed.ncbi.nlm.nih.gov/7551394/" target="_blank" rel="noopener noreferrer">PMID:7551394</a>). A UK-centred literature, with case reports from Turkey, Japan and India.</li>
+<li><strong>Sex ratio:</strong> defined in men.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical criteria (Handelsman 1984):</strong>
+- chronic sinopulmonary infection;
+- persistent azoospermia;
+- normal spermatogenesis on testicular biopsy;
+- characteristic epididymal findings (distended caput, inspissated material);
+- exclusion of CF and of PCD.</p>
+<p><strong>Tests:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Finding in Young syndrome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Semen analysis</td>
+<td>Azoospermia, normal volume and pH (distinguishes it from CBAVD)</td>
+</tr>
+<tr>
+<td>Hormones</td>
+<td>FSH, LH and testosterone normal (<a href="https://pubmed.ncbi.nlm.nih.gov/38960684/" target="_blank" rel="noopener noreferrer">PMID:38960684</a>)</td>
+</tr>
+<tr>
+<td>Testicular biopsy / TESE</td>
+<td>Normal spermatogenesis</td>
+</tr>
+<tr>
+<td>Scrotal or transrectal ultrasound</td>
+<td>Obstructive pattern (<a href="https://pubmed.ncbi.nlm.nih.gov/39119117/" target="_blank" rel="noopener noreferrer">PMID:39119117</a>)</td>
+</tr>
+<tr>
+<td>Sweat chloride</td>
+<td>Normal; mean 29 mEq/L (<a href="https://pubmed.ncbi.nlm.nih.gov/7551394/" target="_blank" rel="noopener noreferrer">PMID:7551394</a>). Use a LOINC code here, via <code>just loinc-seed-cache</code>; never type the label</td>
+</tr>
+<tr>
+<td>Nasal potential difference</td>
+<td>Normal</td>
+</tr>
+<tr>
+<td>Chest HRCT</td>
+<td>Bronchiectasis</td>
+</tr>
+<tr>
+<td>Nasal brushing: TEM / CBF</td>
+<td>Normal (<a href="https://pubmed.ncbi.nlm.nih.gov/1387740/" target="_blank" rel="noopener noreferrer">PMID:1387740</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/9213847/" target="_blank" rel="noopener noreferrer">PMID:9213847</a>)</td>
+</tr>
+<tr>
+<td>Radioaerosol mucociliary clearance</td>
+<td>Reduced (<a href="https://pubmed.ncbi.nlm.nih.gov/7307631/" target="_blank" rel="noopener noreferrer">PMID:7307631</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Genetic testing (the change since 2024):</strong> run a PCD gene panel or exome that includes the C1d genes CFAP221, CFAP46, CFAP54 and CFAP74, plus CFTR. Normal nNO, TEM and HSVM no longer exclude PCD:</p>
+<blockquote>
+<p>"Despite chronic respiratory disease, PICADAR does not reliably detect this primary ciliary dyskinesia type. … To enable diagnosis, genetic testing should be prioritised in future diagnostic guidelines." — <a href="https://pubmed.ncbi.nlm.nih.gov/39362668/" target="_blank" rel="noopener noreferrer">PMID:39362668</a></p>
+</blockquote>
+<p><strong>Differential diagnosis:</strong>
+- CF / CFTR-related disorder (CBAVD, abnormal sweat test);
+- PCD (situs inversus, low nNO, sperm immotility in most genotypes);
+- immunodeficiency (CVID);
+- ADGRG2-related CBAVD;
+- post-infectious epididymal obstruction.</p>
+<p><strong>Screening:</strong> none applicable.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Life expectancy:</strong> no data. Respiratory function is "only mildly impaired" (<a href="https://pubmed.ncbi.nlm.nih.gov/6689737/" target="_blank" rel="noopener noreferrer">PMID:6689737</a>), and the prognosis is considered benign compared with CF.</li>
+<li><strong>Morbidity:</strong> infertility, plus chronic sinopulmonary infection with hospitalisations if the diagnosis is delayed (<a href="https://pubmed.ncbi.nlm.nih.gov/36196705/" target="_blank" rel="noopener noreferrer">PMID:36196705</a>).</li>
+<li><strong>Fertility:</strong> "Pregnancies had occurred in five couples; in three paternity was documented by genotyping. Thus, improved microsurgical and medical therapy might restore fertility." (<a href="https://pubmed.ncbi.nlm.nih.gov/6689737/" target="_blank" rel="noopener noreferrer">PMID:6689737</a>). Surgical results are generally worse than for other causes of obstruction. Hendry's series could support that claim but is not cached.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Treatment</th>
+<th>NCIT ✓</th>
+<th>Modality</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Antibiotics for exacerbations</td>
+<td>NCIT:C15620 Antibiotic Therapy ✓</td>
+<td>SMALL_MOLECULE</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39119117/" target="_blank" rel="noopener noreferrer">PMID:39119117</a> ("treated with intravenous antibiotics")</td>
+</tr>
+<tr>
+<td>Airway clearance / chest physiotherapy</td>
+<td>Look up (no cached row)</td>
+<td>BEHAVIORAL</td>
+<td>Extrapolated from bronchiectasis care</td>
+</tr>
+<tr>
+<td>Endoscopic sinus surgery</td>
+<td>NCIT:C157836 ✓</td>
+<td>SURGERY</td>
+<td>Case-level only</td>
+</tr>
+<tr>
+<td>Vasoepididymostomy (epididymovasostomy)</td>
+<td>Look up; fallback NCIT:C15329 Surgical Procedure</td>
+<td>SURGERY</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39119117/" target="_blank" rel="noopener noreferrer">PMID:39119117</a> ("advised vasoepididymostomy"); Hendry series</td>
+</tr>
+<tr>
+<td>Sperm retrieval (TESE / MESA)</td>
+<td>NCIT:C94427 Sperm Retrieval ✓</td>
+<td>SURGERY</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38960684/" target="_blank" rel="noopener noreferrer">PMID:38960684</a></td>
+</tr>
+<tr>
+<td>ICSI</td>
+<td>NCIT:C185482 Intracytoplasmic Sperm Injection ✓ (or NCIT:C93282 ART ✓)</td>
+<td>OTHER</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38960684/" target="_blank" rel="noopener noreferrer">PMID:38960684</a> ("successfully fathered a baby through intracytoplasmic sperm injection")</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>There are no disease-specific trials and no pharmacogenomic or advanced therapies. NCT05631509 (genetic study of obstructive azoospermia, CFTR/ADGRG2/WES) is observational. It is not specific to Young syndrome, so it should not be added under <code>clinical_trials:</code>.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention (historical):</strong> removing mercury from infant teething powders (UK, 1955). This is the best example of public-health prevention, if the mercury hypothesis holds.</li>
+<li><strong>Secondary prevention:</strong> early recognition in men with bronchiectasis and infertility, and genetic testing for PCD and CF.</li>
+<li><strong>Tertiary prevention:</strong> airway clearance, treating exacerbations, vaccination as for bronchiectasis (extrapolated).</li>
+<li><strong>Counselling:</strong> offer genetic counselling once a PCD or CFTR genotype has been found. Otherwise the recurrence risk is unknown.</li>
+</ul>
+<hr />
+<h2>14. Other Species</h2>
+<p>There is no naturally occurring Young syndrome in animals (no OMIA entry found). Mercury reproductive toxicity in animals is a separate literature and should not be used as disease evidence.</p>
+<h2>15. Model Organisms</h2>
+<p>There are no Young syndrome-specific models. The relevant mechanistic models for Branch B are below.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Relationship</th>
+<th>Fidelity</th>
+<th>Caveat</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>miR-34b/c;miR-449 double-KO mouse (Yuan 2019, <a href="https://pubmed.ncbi.nlm.nih.gov/30659149/" target="_blank" rel="noopener noreferrer">PMID:30659149</a> <strong>[not cached]</strong>)</td>
+<td>PARTIALLY_RECAPITULATES the efferent-duct obstruction node</td>
+<td>LOW–MODERATE</td>
+<td>Global ciliogenesis loss, unlike the subtle C1d defect; also causes airway disease</td>
+</tr>
+<tr>
+<td>GEMC1 / MCIDAS / CCNO mutant mice (Terré 2019, <em>Development</em>)</td>
+<td>PARTIALLY_RECAPITULATES</td>
+<td>LOW</td>
+<td>Multiciliogenesis failure rather than a waveform defect</td>
+</tr>
+<tr>
+<td>DNAH5-deficient mice (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8269963">PMC8269963</a>)</td>
+<td>PARTIALLY_RECAPITULATES</td>
+<td>MODERATE</td>
+<td>ODA loss; human DNAH5-PCD gives oligozoospermia, not strict azoospermia</td>
+</tr>
+<tr>
+<td><em>Schmidtea mediterranea</em> Smed-cfap221 RNAi (<a href="https://pubmed.ncbi.nlm.nih.gov/40250778/" target="_blank" rel="noopener noreferrer">PMID:40250778</a>)</td>
+<td>PERTURBS ciliary motility</td>
+<td>LOW</td>
+<td>Locomotory cilia; no reproductive-tract readout</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>These links would be <code>animal_models:</code> entries with <code>SPECIES_MISMATCH</code> / <code>BOUNDARY_OMISSION</code> divergences. A <code>HUMAN_MODEL_MISMATCH</code> discussion is also appropriate, because the efferent-duct cilia hypothesis has not been tested in human Young syndrome epididymal tissue.</p>
+<hr />
+<h2>Gaps to record as <code>KNOWLEDGE_GAP</code> discussions</h2>
+<ol>
+<li><strong>Re-genotyping:</strong> no historical or new Young syndrome cohort has been tested with a PCD panel that includes the C1d genes.</li>
+<li><strong>Mercury mechanism:</strong> there is no histology or toxicology linking calomel exposure to epididymal or airway secretion changes. The evidence is birth-cohort epidemiology and case reports only.</li>
+<li><strong>Prevalence:</strong> the "Klinefelter-comparable" estimate (1984) has never been revisited.</li>
+<li><strong>Sinus phenotype:</strong> poorly defined (<a href="https://pubmed.ncbi.nlm.nih.gov/19128521/" target="_blank" rel="noopener noreferrer">PMID:19128521</a>).</li>
+<li><strong>Female phenotype:</strong> unsupported beyond StatPearls.</li>
+</ol>
+<hr />
+<h2>Sources</h2>
+<p><strong>Cached and quotable (in <code>references_cache/</code> on this branch):</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/6689737/" target="_blank" rel="noopener noreferrer">PMID:6689737</a>, 7307631, 1387740, 7551394, 9213847, 8922141, 19128521, 30969689 (StatPearls), 36196705, 38960684 (full text), 39362668 (full text), 39119117, 40250778, 40287162.</p>
+<p><strong>Cached but with no content (cite the PMID only; no snippet possible):</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/8100886/" target="_blank" rel="noopener noreferrer">PMID:8100886</a>, 82711, 8664779, 9800754, 16817397.</p>
+<p><strong>Not cached; fetch before use:</strong>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/8292944/" target="_blank" rel="noopener noreferrer">PMID:8292944</a> Hendry 1993
+- <a href="https://pubmed.ncbi.nlm.nih.gov/30659149/" target="_blank" rel="noopener noreferrer">PMID:30659149</a> Yuan 2019
+- Terré 2019 (Development, dev162628)
+- DNAH5 efferent-duct mouse study (PMC8269963)</p>
+<p><strong>Web sources:</strong>
+- <a href="https://https.ncbi.nlm.nih.gov/medgen/137934">MedGen 137934</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/8292944/">PubMed 8292944</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC1697782/?page=3">PMC1697782 (Hendry 1993)</a>
+- <a href="https://en.wikipedia.org/wiki/Young%27s_syndrome">Wikipedia: Young's syndrome</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11308939/">PMC11308939</a>
+- <a href="https://iegext02.helmholtz-munich.de/phenodis/disease/show/5207">PhenoDis</a>
+- <a href="https://malacards.org/card/ciliary_dyskinesia_primary_55">MalaCards CILD55</a>
+- <a href="https://rarediseases.org/?p=262742">NORD</a>
+- <a href="https://conceptlibrary.saildatabank.com/api/v1/ontology/node/MONDO:0010220/">SAIL concept library MONDO:0010220</a>
+- <a href="https://www.statpearls.com/articlelibrary/viewarticle/31456/">StatPearls</a>
+- <a href="https://mayoclinic.elsevierpure.com/en/publications/screening-young-syndrome-patients-for-cftr-mutations">Mayo Clinic: Friedman 1995</a>
+- <a href="https://clinicaltrials.gov/study/NCT05631509">NCT05631509</a>
+- <a href="https://aiimsrishikesh.edu.in/images/upload_documents/Rishi%20Vansh%20Volume%206%20Issue%202%20Feb%202025.pdf">AIIMS Rishikesh pulmogenetics, Feb 2025</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6397526">PMC6397526 (Yuan 2019)</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6397547">PMC6397547</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8269963">PMC8269963</a>
+- <a href="https://cob.silverchair.com/dev/article-pdf/146/8/dev162628/1859213/dev162628.pdf">Development dev162628</a>
+- <a href="https://www.library.sath.nhs.uk/research/2025/06/03/mercury-exposure-pink-disease-and-youngs-syndrome-a-forgotten-public-health-disaster-2025/">SATH library note on Brown 2025</a></p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>24</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:30659149</code> (3 mentions) - Motile cilia of the male reproductive system require miR-34/miR-449 for development and function to generate luminal turbulence.</li>
+<li>shared terms: obstruction, genetic</li>
+<li><code>PMC:PMC8269963</code> (8 mentions) - CEP164 is essential for efferent duct multiciliogenesis and male fertility.</li>
+<li>shared terms: obstruction</li>
+<li><code>PMC:PMC6397547</code> (3 mentions) - Motile cilia of the male reproductive system require miR-34/miR-449 for development and function to generate luminal turbulence.</li>
+<li>shared terms: obstruction, genetic</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>syndrome</code>, <code>young</code>, <code>cached</code>, <code>mercury</code>, <code>azoospermia</code>, <code>bronchiectasis</code>, <code>pcd</code>, <code>normal</code>, <code>disease</code>, <code>obstructive</code>, <code>nasal</code>, <code>ciliary</code>, <code>cftr</code>, <code>epididymal</code>, <code>obstruction</code>, <code>chronic</code>, <code>airway</code>, <code>exposure</code>, <code>genetic</code>, <code>infection</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0010220</code> (5 mentions) - the report calls it "MONDO"; MONDO calls it <strong>Young syndrome</strong></li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="You-Hoover-Fong_Syndrome-falcon.html">← You-Hoover-Fong Syndrome (Falcon)</a>
+                
+                
+                <a href="Yunis-Varon_Syndrome-perplexity.html">Yunis-Varon Syndrome (Perplexity) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Young_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Young_Syndrome-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
