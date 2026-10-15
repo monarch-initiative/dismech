@@ -62,22 +62,58 @@ class ChecksumMismatchError(RuntimeError):
     is fixed by repinning the manifest rather than by investigating a download.
     """
 
-    def __init__(self, *, name: str, url: str, expected: str, actual: str) -> None:
+    def __init__(
+        self,
+        *,
+        name: str,
+        url: str,
+        expected: str,
+        actual: str,
+        also_drifted: tuple[str, ...] = (),
+    ) -> None:
         self.name = name
         self.url = url
         self.expected = expected
         self.actual = actual
+        # Other bulk files of the same source whose pin also went stale. They
+        # are downloaded too (see ``StructuredSource.refresh``), so naming them
+        # here is the whole of what the caller is missing.
+        self.also_drifted = also_drifted
+        also = (
+            "  also drifted: " + ", ".join(also_drifted) + "\n" if also_drifted else ""
+        )
         super().__init__(
             f"checksum mismatch for {name} after download:\n"
             f"  expected (manifest pin): {expected}\n"
             f"  actual   (upstream now): {actual}\n"
             f"  url: {url}\n"
+            f"{also}"
             "\nThis usually means upstream published a new release behind the same\n"
             "URL, not that the download is corrupt. To accept the new release and\n"
             "record it in the manifest (leaving a reviewable diff), re-run with\n"
             "--repin, e.g.:\n"
             "    just refresh-orphadata --repin\n"
             "then rebuild the cache and review the diff before committing."
+        )
+
+
+class MissingBulkDataError(FileNotFoundError):
+    """A source's bulk files are not on disk, so it cannot build its index.
+
+    Raised instead of the bare ``FileNotFoundError`` a parser would throw, so
+    the message names the command that fetches the data (#13941).
+    """
+
+    def __init__(self, *, source: str, data_dir: Path, missing: list[str], remedy: str):
+        self.source = source
+        self.data_dir = data_dir
+        self.missing = missing
+        self.remedy = remedy
+        super().__init__(
+            f"{source} bulk data missing from {data_dir}: {', '.join(missing)}\n"
+            f"Run `{remedy}` to download it. If that fails on a checksum "
+            f"mismatch, upstream has published a new release: `{remedy} --repin` "
+            "accepts it and leaves a manifest diff to review."
         )
 
 
@@ -212,6 +248,11 @@ class StructuredSource(ABC):
         """
         self.data_dir.mkdir(parents=True, exist_ok=True)
         changes: list[ChecksumChange] = []
+        # A refused file is not a reason to stop downloading the rest. Raising
+        # on the first one left a source with several bulk files holding only
+        # that one, and Orphanet then built records with whole sections
+        # missing (#13941). Every file is fetched; the refusal comes at the end.
+        mismatches: list[ChecksumMismatchError] = []
         for bf in self.bulk_files:
             target = self.data_dir / bf.name
             if not force and target.exists():
@@ -230,12 +271,15 @@ class StructuredSource(ABC):
             actual = _sha256_of(target)
             if bf.sha256 and actual != bf.sha256:
                 if not repin:
-                    raise ChecksumMismatchError(
-                        name=bf.name,
-                        url=bf.url,
-                        expected=bf.sha256,
-                        actual=actual,
+                    mismatches.append(
+                        ChecksumMismatchError(
+                            name=bf.name,
+                            url=bf.url,
+                            expected=bf.sha256,
+                            actual=actual,
+                        )
                     )
+                    continue
                 logger.warning(
                     "repinning %s: %s -> %s", bf.name, bf.sha256[:12], actual[:12]
                 )
@@ -247,6 +291,15 @@ class StructuredSource(ABC):
                         size_bytes=target.stat().st_size,
                     )
                 )
+        if mismatches:
+            first = mismatches[0]
+            raise ChecksumMismatchError(
+                name=first.name,
+                url=first.url,
+                expected=first.expected,
+                actual=first.actual,
+                also_drifted=tuple(m.name for m in mismatches[1:]),
+            )
         return changes
 
     @staticmethod
