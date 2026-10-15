@@ -4949,8 +4949,10 @@ had approved three other PRs, and acting on it removed a blocking review.
 Failed review Actions are recovered separately by `pr-shepherd`'s independent
 `retry-reviews` job (`scripts/retry_failed_reviews.py`). It reruns existing failed
 jobs after a 1/6/24-hour backoff, regardless of PR author, assignee or draft
-status. It checks for newer/running reviews and existing current-commit verdicts
-before retrying. The default budget is five retries per sweep; `dry_run`,
+status. It checks for newer/running reviews before retrying, and for an existing
+current-commit verdict on manual- and comment-triggered runs. A verdict does not
+block retrying a failed PR-event check on the current head, because a manual or
+comment review cannot turn that check green. The default budget is five retries per sweep; `dry_run`,
 `pr_number`, `review_retry_delay_hours` and `max_review_retries` are available in
 the manual trigger. See [review recovery](docs/explanation/automation-and-agents.md#recovering-failed-review-actions).
 
