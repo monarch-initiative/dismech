@@ -1554,25 +1554,29 @@ check-enum-values *files:
 check-delivery-system *args:
     uv run python scripts/check_delivery_system.py {{args}}
 
-# Check where non-human gene identifiers sit, and that NCBI Gene ones are real.
-# NCBIGene: and UniProtKB: are admitted only on animal_models[].genes and
-# experimental_models[].genes; an NCBIGene: binding must be cached in
-# cache/ncbigene/terms.csv with NCBI's official symbol as its label. Offline,
-# whole-KB. Model genes on unchecked prefixes (MGI:) are listed with --format list.
+# Check the gene namespace of every model and dataset gene, and that its
+# identifier is real. Non-human genes (Alliance MODs: MGI, RGD, ZFIN, Xenbase,
+# FB, WB, SGD; then NCBIGene, UniProtKB) are admitted only on the genes of
+# animal_models, experimental_models and datasets; a model organism's gene must
+# use its MOD; a MOD or NCBIGene binding must be cached in cache/<prefix>/terms.csv
+# with the official symbol as its label. Offline, whole-KB. `--format list` also
+# prints the advisory rows (hgnc: genes on a MOD-organism record).
 #   just check-gene-namespaces
 #   just check-gene-namespaces kb/disorders/TMEM165-Congenital_Disorder_of_Glycosylation.yaml
-#   Gate where NCBIGene/UniProtKB gene identifiers may appear
+#   Gate model and dataset gene namespaces (MOD first, then NCBIGene/UniProtKB)
 [group('QC')]
 check-gene-namespaces *args:
     uv run python scripts/check_gene_namespaces.py {{args}}
 
-# Like check-gene-namespaces, but first resolves every NCBIGene identifier missing
-# from cache/ncbigene/terms.csv through NCBI E-utilities and writes its row, and
-# rejects retired records and human genes (which are hgnc:). Run it after adding
-# an NCBIGene binding, and commit the cache row with it. The term validator
-# cannot check NCBIGene; this is the only check that does. Set NCBI_API_KEY to
-# lift the 3 requests/second limit.
-#   Resolve new NCBIGene identifiers, then run the gene-namespace gate
+# Like check-gene-namespaces, but first resolves every uncached MOD identifier
+# through the Alliance API and every uncached NCBIGene one through NCBI
+# E-utilities, writing their cache rows, and checks every UniProtKB accession's
+# species with UniProt. Rejects retired records, human genes (which are hgnc:),
+# and NCBIGene/UniProtKB records for a species that has a MOD. Run it after
+# adding a non-human gene binding, and commit the cache rows with it. The term
+# validator cannot check MOD or NCBIGene labels; this is the only check that
+# does. Set NCBI_API_KEY to lift the 3 requests/second limit.
+#   Resolve new MOD/NCBIGene identifiers, then run the gene-namespace gate
 [group('QC')]
 check-gene-namespaces-online *args:
     uv run python scripts/check_gene_namespaces.py --online {{args}}

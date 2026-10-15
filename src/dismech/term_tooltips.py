@@ -62,6 +62,7 @@ ONTOLOGY_NAMES: dict[str, Ontology] = {
     ),
     "ENVO": Ontology("ENVO", "Environment Ontology"),
     "EXO": Ontology("ExO", "Exposure Ontology"),
+    "FB": Ontology("FB", "FlyBase", definite=False),
     "FOODON": Ontology("FOODON", "FoodOn Food Ontology"),
     "GENO": Ontology("GENO", "Genotype Ontology"),
     "GO": Ontology("GO", "Gene Ontology"),
@@ -84,12 +85,17 @@ ONTOLOGY_NAMES: dict[str, Ontology] = {
     "OPL": Ontology("OPL", "Ontology for Parasite Lifecycle"),
     "PATO": Ontology("PATO", "Phenotype And Trait Ontology"),
     "PR": Ontology("PR", "Protein Ontology"),
+    "RGD": Ontology("RGD", "Rat Genome Database"),
     "RO": Ontology("RO", "Relation Ontology"),
+    "SGD": Ontology("SGD", "Saccharomyces Genome Database"),
     "SO": Ontology("SO", "Sequence Ontology"),
     "UBERON": Ontology("UBERON", "Uberon multi-species anatomy ontology"),
     "UPHENO": Ontology("UPHENO", "Unified Phenotype Ontology"),
     "UNIPROTKB": Ontology("UniProtKB", "UniProt Knowledgebase"),
+    "WB": Ontology("WB", "WormBase", definite=False),
     "XCO": Ontology("XCO", "Experimental Conditions Ontology"),
+    "XENBASE": Ontology("Xenbase", "Xenbase", definite=False),
+    "ZFIN": Ontology("ZFIN", "Zebrafish Information Network"),
 }
 
 
