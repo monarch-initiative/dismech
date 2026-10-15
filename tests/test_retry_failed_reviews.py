@@ -96,16 +96,57 @@ def test_closed_pr_and_superseding_reviews():
 
 
 @pytest.mark.parametrize("state", ["APPROVED", "CHANGES_REQUESTED"])
-def test_current_bot_verdict_stops_retry_but_old_verdict_does_not(state):
+def test_current_bot_verdict_stops_manual_retry_but_old_verdict_does_not(state):
     review = {
         "id": 1,
         "user": {"login": "ai4c-reviewer[bot]"},
         "state": state,
         "commit_id": "abc",
     }
-    assert reason(reviews=[review])
-    assert reason(reviews=[review | {"commit_id": "old"}]) is None
-    assert reason(reviews=[review | {"state": "DISMISSED"}]) is None
+    manual = run(event="workflow_dispatch", head_sha="main-sha")
+    assert reason(manual, reviews=[review])
+    assert reason(manual, reviews=[review | {"commit_id": "old"}]) is None
+    assert reason(manual, reviews=[review | {"state": "DISMISSED"}]) is None
+
+
+@pytest.mark.parametrize("state", ["APPROVED", "CHANGES_REQUESTED"])
+def test_verdict_does_not_strand_a_red_head_check(state):
+    # The PR's own pull_request review failed after (or apart from) a verdict
+    # posted by another run. The verdict leaves the head check red, so the
+    # retry must still go ahead or the merge controller waits forever.
+    review = {
+        "id": 1,
+        "user": {"login": "ai4c-reviewer[bot]"},
+        "state": state,
+        "commit_id": "abc",
+    }
+    assert reason(reviews=[review]) is None
+
+
+def test_manual_success_does_not_supersede_a_red_head_check():
+    # A manual or comment-triggered review runs on main and attaches no check
+    # to the PR head, so neither a newer one nor a later success clears it.
+    for event in ("workflow_dispatch", "issue_comment"):
+        manual = run(
+            id=21,
+            event=event,
+            head_sha="main-sha",
+            conclusion="success",
+            created_at=(NOW - timedelta(hours=1)).isoformat(),
+            updated_at=NOW.isoformat(),
+        )
+        assert reason(peers=[manual]) is None
+
+
+def test_manual_review_still_running_defers_head_check_retry():
+    manual = run(
+        id=21,
+        event="workflow_dispatch",
+        head_sha="main-sha",
+        status="in_progress",
+        conclusion=None,
+    )
+    assert reason(peers=[manual]) == "another review is queued or running"
 
 
 def test_manual_run_is_rerunnable_despite_main_sha():
@@ -214,18 +255,6 @@ def test_missing_failure_is_recovered_from_current_pr_check(monkeypatch):
         ({"head_sha": "old"}, [], {"minimum": 0}),
         ({"status": "in_progress", "conclusion": None}, [], {"minimum": 0}),
         ({"created_at": (NOW - timedelta(days=2)).isoformat()}, [], {"lookback": 1}),
-        (
-            {},
-            [
-                {
-                    "id": 1,
-                    "user": {"login": "ai4c-reviewer[bot]"},
-                    "state": "APPROVED",
-                    "commit_id": "abc",
-                }
-            ],
-            {"minimum": 0},
-        ),
     ],
 )
 def test_recovered_runs_still_obey_retry_guards(
@@ -237,6 +266,23 @@ def test_recovered_runs_still_obey_retry_guards(
     )
     retry.sweep("owner/repo", NOW, **kwargs)
     assert not writes
+
+
+def test_recovered_red_head_check_is_retried_despite_current_approval(monkeypatch):
+    # An approval on the current commit used to block this retry, which left
+    # the red check in place and the PR unmergeable (the deadlock above).
+    failure = run(updated_at=(NOW - timedelta(minutes=20)).isoformat())
+    approval = {
+        "id": 1,
+        "user": {"login": "ai4c-reviewer[bot]"},
+        "state": "APPROVED",
+        "commit_id": "abc",
+    }
+    writes = harness(
+        monkeypatch, rows=[], current=failure, checks=[failure], reviews=[approval]
+    )
+    retry.sweep("owner/repo", NOW, minimum=0)
+    assert len(writes) == 1
 
 
 def test_current_check_can_supersede_stale_discovery(monkeypatch):
@@ -452,6 +498,34 @@ def test_newer_manual_review_prevents_write(monkeypatch):
     writes = harness(monkeypatch, rows=[run(), manual])
     retry.sweep("o/r", NOW)
     assert not writes
+
+
+def test_sweep_reruns_red_head_check_despite_manual_approval(monkeypatch):
+    # The deadlock this guards against: the PR's own review check failed, a
+    # separate manual review then approved the same commit, and the failed
+    # check stayed red. The merge controller will not merge a red check, so
+    # this sweep has to rerun it.
+    manual = run(
+        id=30,
+        event="workflow_dispatch",
+        head_sha="main",
+        pull_requests=[],
+        display_title="Review PR #7",
+        conclusion="success",
+        created_at=(NOW - timedelta(hours=4)).isoformat(),
+        updated_at=(NOW - timedelta(hours=3)).isoformat(),
+    )
+    approval = {
+        "id": 1,
+        "user": {"login": "ai4c-reviewer[bot]"},
+        "state": "APPROVED",
+        "commit_id": "abc",
+    }
+    writes = harness(monkeypatch, rows=[run(), manual], reviews=[approval])
+    retry.sweep("o/r", NOW)
+    assert [args for args, _ in writes] == [
+        ("run", "rerun", "20", "--failed", "--repo", "o/r")
+    ]
 
 
 def test_late_success_on_old_commit_does_not_hide_current_failure():
