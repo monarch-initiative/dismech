@@ -14,6 +14,8 @@ diseases:
 - Obesity_Due_to_MC4R_Pathway_Disruption
 - Opioid_Use_Disorder
 - Acute_Opioid_Poisoning
+- Acute_Post-Surgical_Pain
+- Alcohol_Use_Disorder
 - Schizophrenia
 - Parkinsons_Disease
 - Migraine
@@ -120,6 +122,25 @@ their own right: opioid respiratory depression (brainstem MOR), D2-blockade
 extrapyramidal effects and hyperprolactinemia, beta-blocker bronchospasm
 (beta2 off-selectivity), 5-HT2B agonist valvulopathy.
 
+### First pairing: mu-opioid receptor (OPRM1)
+
+Chosen first (2026-10-15): opioid drugs appear in about 18 entries
+(`Opioid_Use_Disorder`, `Acute_Opioid_Poisoning`, `Acute_Post-Surgical_Pain`,
+`Alcohol_Use_Disorder`, ...) and in `addiction_cycle` and
+`spinal_hsp90_opioid_enhancement`, each describing the mechanism on its own.
+
+- **Mu-opioid receptor agonism** (morphine, fentanyl, oxycodone; methadone
+  and buprenorphine for OUD). Branches: analgesia (spinal and supraspinal),
+  respiratory depression (brainstem; the overdose mechanism), constipation
+  (enteric), reward/tolerance/dependence (link to `addiction_cycle`).
+  Buprenorphine, a partial agonist, belongs here with its respiratory
+  ceiling recorded on that branch rather than in a third module.
+- **Mu-opioid receptor antagonism** (naloxone reversal, naltrexone relapse
+  prevention, peripheral antagonists for opioid-induced constipation).
+- Biased agonism (oliceridine) remains the open question below; this module
+  pair is where it will need an answer.
+- Kappa-opioid modules (nalfurafine; mixed agonist-antagonists) come later.
+
 ## Workstream B — Disease modules
 
 | Proposed module | Mechanism | Example conformers |
@@ -143,8 +164,9 @@ mechanism-level rather than disease-level.
       entry (GPCR drug mechanisms)
 
 ### Phase 1 — first modules
+- [ ] mu-opioid receptor agonism (first module; see below)
+- [ ] mu-opioid receptor antagonism
 - [ ] beta-adrenergic receptor blockade
-- [ ] mu-opioid receptor agonism (with respiratory-depression arm)
 - [ ] GLP-1 receptor agonism
 - [ ] GPCR loss-of-function hormone resistance
 - [ ] GPCR constitutive activation
