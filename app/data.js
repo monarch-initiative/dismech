@@ -201433,6 +201433,7 @@ window.searchData = [
     "subtypes": [],
     "description": "Ischemic stroke is an acute symptomatic central nervous system infarction caused by interruption of cerebral blood flow, usually from thrombosis, embolism, or proximal large-vessel occlusion, leading to ischemic tissue injury and focal neurological deficits.",
     "pathophysiology": [
+      "Chronic Low-Grade Systemic Inflammation",
       "Cerebral arterial occlusion",
       "Ischemic penumbra and energy failure",
       "Excitotoxic and oxidative neuronal injury",
@@ -201455,6 +201456,8 @@ window.searchData = [
       "CL:0000129"
     ],
     "biological_processes": [
+      "Inflammatory response",
+      "Cytokine production",
       "blood coagulation",
       "platelet aggregation",
       "response to hypoxia",
@@ -201507,10 +201510,10 @@ window.searchData = [
     "source_file": "Ischemic_Stroke.yaml",
     "page_url": "../pages/disorders/Ischemic_Stroke.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "17",
+    "causal_graph_edges": "19",
     "causal_graph_longest_path": "6"
   },
   {
@@ -254701,6 +254704,113 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Nephrogenic Syndrome of Inappropriate Antidiuresis",
+    "disease_id": "MONDO:0010356",
+    "category": "",
+    "parents": [
+      "inherited renal tubular disease",
+      "X-linked disease"
+    ],
+    "creation_date": "2026-10-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Nephrogenic syndrome of inappropriate antidiuresis (NSIAD) is the gain-of-function mirror of X-linked nephrogenic diabetes insipidus. Constitutively activating missense variants in AVPR2, which encodes the arginine vasopressin V2 receptor of the renal collecting duct, make the receptor signal without its hormone. The principal cell therefore runs its Gs/adenylyl cyclase/cAMP/protein-kinase-A cascade, phosphorylates aquaporin-2 and shuttles it to the apical membrane, and reabsorbs free water even when circulating vasopressin is low or undetectable. The clinical picture reproduces the syndrome of inappropriate antidiuretic hormone secretion (SIADH) - hypotonic hyponatremia with inappropriately concentrated urine - but with suppressed rather than inappropriate hormone secretion, which is the feature that distinguishes it. It was first described by Feldman and colleagues in 2005 in two male infants with undetectable vasopressin who carried missense changes at codon 137 of the receptor, the same codon whose loss-of-function allele (R137H) causes nephrogenic diabetes insipidus. The disorder is X-linked: hemizygous males present in infancy with symptomatic hyponatremia - hypotonia, irritability, vomiting and seizures - while female carriers are variably affected. Because the lesion is a fixed inability to excrete free water rather than hormone excess, hyponatremia appears only with a water load and is managed with fluid restriction and oral urea.",
+    "pathophysiology": [
+      "AVPR2 Gain-of-Function Variant",
+      "Ligand-Independent V2 Receptor Activation",
+      "Constitutive V2 Receptor Internalization",
+      "Constitutive Adenylyl Cyclase cAMP Generation",
+      "PKA-Mediated Aquaporin-2 Phosphorylation",
+      "Apical Aquaporin-2 Membrane Insertion",
+      "Increased Collecting Duct Water Permeability",
+      "Ligand-Independent Free Water Reabsorption",
+      "Free Water Retention",
+      "Physiologic Suppression of Vasopressin Secretion",
+      "Hypotonic Hyponatremia",
+      "Hyponatremic Cerebral Water Shift"
+    ],
+    "cell_types": [
+      "kidney collecting duct principal cell"
+    ],
+    "cell_type_ids": [
+      "CL:1001431"
+    ],
+    "biological_processes": [
+      "constitutive G protein-coupled receptor internalization",
+      "adenylate cyclase-activating G protein-coupled receptor signaling pathway",
+      "cAMP biosynthetic process",
+      "positive regulation of renal water transport",
+      "renal water absorption"
+    ],
+    "phenotypes": [
+      "Hyponatremia",
+      "Low serum osmolality",
+      "Inappropriately concentrated urine",
+      "Decreased circulating antidiuretic hormone concentration",
+      "Seizure",
+      "Irritability",
+      "Hypotonia",
+      "Vomiting",
+      "Malaise",
+      "Vertigo",
+      "Confusion",
+      "Fatigue",
+      "Headache"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Neurological",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002902",
+      "HP:6000680",
+      "HP:0033358",
+      "HP:0034897",
+      "HP:0001250",
+      "HP:0000737",
+      "HP:0001252",
+      "HP:0002013",
+      "HP:0033834",
+      "HP:0002321",
+      "HP:0001289",
+      "HP:0012378",
+      "HP:0002315"
+    ],
+    "frequencies": [],
+    "genes": [
+      "AVPR2 activating variants"
+    ],
+    "treatments": [
+      "Fluid restriction",
+      "Oral urea",
+      "Vasopressin receptor antagonists (vaptans)",
+      "Furosemide with sodium chloride supplementation"
+    ],
+    "environmental": [
+      "Free water load (excess hypotonic fluid intake)"
+    ],
+    "biochemical": [],
+    "source_file": "Nephrogenic_Syndrome_Of_Inappropriate_Antidiuresis.yaml",
+    "page_url": "../pages/disorders/Nephrogenic_Syndrome_of_Inappropriate_Antidiuresis.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 12,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "12"
+  },
+  {
     "name": "Nephronophthisis",
     "disease_id": "MONDO:0019005",
     "category": "Genetic",
@@ -272295,6 +272405,112 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "8",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Overhydrated Hereditary Stomatocytosis",
+    "disease_id": "MONDO:0008493",
+    "category": "Mendelian",
+    "parents": [
+      "familial hemolytic anemia",
+      "hereditary stomatocytosis"
+    ],
+    "creation_date": "2026-10-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Overhydrated hereditary stomatocytosis (OHSt), also called hereditary hydrocytosis, is a rare autosomal dominant congenital hemolytic anemia caused by heterozygous missense substitutions in RHAG, the gene encoding the Rh-associated glycoprotein. It is the most leaky member of the cation-leak hereditary stomatocytosis family, a group of dominantly inherited anemias in which the red cell membrane abnormally conducts the monovalent cations sodium and potassium and so loses control of its own volume. In OHSt the mutant RhAG is converted from an ammonia-transporting channel into a non-selective cation pore: sodium enters faster than potassium leaves, the cell gains cations and water, and the swollen, overhydrated erythrocyte takes the cup-shaped (stomatocyte) morphology that names the disease. The hydrated cells have a high mean corpuscular volume, a low mean corpuscular haemoglobin concentration, increased osmotic fragility and reduced deformability, and are removed prematurely in the spleen, producing chronic extravascular haemolysis with reticulocytosis, unconjugated hyperbilirubinaemia, jaundice, splenomegaly and pigment gallstones. Severity ranges from compensated haemolysis to transfusion-dependent anaemia.\nTwo features dominate management. Iron overload tends to develop even without transfusion, and splenectomy carries a severe, sometimes fatal, risk of thromboembolic disease and should be avoided. The near-absence of the membrane protein stomatin from OHSt red cells, historically the finding that named the protein, is a secondary consequence of the disorder rather than its cause: the primary lesion is the RhAG mutation.",
+    "pathophysiology": [
+      "RHAG Transmembrane Missense Substitution",
+      "RhAG Nonselective Cation Pore Formation",
+      "Loss of RhAG Ammonia Transport",
+      "Erythrocyte Monovalent Cation Leak",
+      "Secondary Erythrocyte Stomatin Deficiency",
+      "Net Erythrocyte Cation Gain",
+      "Compensatory Na/K-ATPase Hyperactivity",
+      "Erythrocyte Glycolytic Exhaustion",
+      "Erythrocyte Overhydration and Swelling",
+      "Stomatocyte Shape Change",
+      "Reduced Erythrocyte Deformability",
+      "Splenic Sequestration",
+      "Extravascular Hemolysis",
+      "Dysregulated Iron Loading",
+      "Prothrombotic Erythrocyte Membrane State"
+    ],
+    "cell_types": [
+      "erythrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000232"
+    ],
+    "biological_processes": [
+      "monovalent cation transmembrane transport",
+      "sodium ion import across plasma membrane",
+      "glycolytic process",
+      "water import into the erythrocyte"
+    ],
+    "phenotypes": [
+      "Hemolytic anemia",
+      "Stomatocytosis",
+      "Increased mean corpuscular volume",
+      "Decreased mean corpuscular hemoglobin concentration",
+      "Increased red cell osmotic fragility",
+      "Reticulocytosis",
+      "Unconjugated hyperbilirubinemia",
+      "Jaundice",
+      "Splenomegaly",
+      "Elevated hepatic iron concentration",
+      "Pulmonary arterial hypertension",
+      "Thromboembolism"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001878",
+      "HP:0004446",
+      "HP:0005518",
+      "HP:0025547",
+      "HP:0005502",
+      "HP:0001923",
+      "HP:0008282",
+      "HP:0000952",
+      "HP:0001744",
+      "HP:0012465",
+      "HP:0002092",
+      "HP:0001907"
+    ],
+    "frequencies": [],
+    "genes": [
+      "RHAG"
+    ],
+    "treatments": [
+      "Supportive care and transfusion",
+      "Splenectomy (contraindicated)",
+      "Iron chelation therapy",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Erythrocyte sodium and potassium content",
+      "Erythrocyte 2,3-diphosphoglycerate"
+    ],
+    "source_file": "Overhydrated_Hereditary_Stomatocytosis.yaml",
+    "page_url": "../pages/disorders/Overhydrated_Hereditary_Stomatocytosis.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 15,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "12"
   },
   {
     "name": "PACS2-Related Developmental and Epileptic Encephalopathy",
@@ -294211,6 +294427,118 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "6",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Primary Familial Polycythemia Due to EPO Receptor Mutation",
+    "disease_id": "MONDO:0007572",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary Erythrocytosis",
+      "Congenital Primary Erythrocytosis"
+    ],
+    "creation_date": "2026-10-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Primary familial and congenital polycythemia (PFCP; familial erythrocytosis type 1, ECYT1) is an autosomal dominant primary erythrocytosis caused by heterozygous germline truncating variants in EPOR, the gene encoding the erythropoietin receptor. Almost all reported variants are nonsense or frameshift changes clustered in the last exon (exon 8) that truncate the cytoplasmic C-terminus of the receptor, removing the negative regulatory region that normally down-modulates signalling. The disease is \"primary\" because the lesion is intrinsic to the erythroid progenitor rather than to oxygen sensing or to erythropoietin production: the truncated receptor is not properly down-regulated after ligand binding, so erythropoietin-triggered JAK2 phosphorylation and STAT5 activation are prolonged and erythroid progenitors (BFU-E) become hypersensitive to erythropoietin, growing with little or no added hormone. The red cell mass rises, and the resulting physiological negative feedback suppresses endogenous erythropoietin, so serum erythropoietin is characteristically low or subnormal - the biochemical feature that distinguishes PFCP from the oxygen-sensing (VHL, EGLN1, EPAS1) and high-oxygen-affinity haemoglobin erythrocytoses, in which erythropoietin is inappropriately normal or elevated. White cell and platelet counts are normal, separating it from polycythemia vera. Patients present from infancy or childhood with isolated erythrocytosis; penetrance of the clinical phenotype is incomplete. Although long regarded as benign, EPOR-related erythrocytosis carries a real risk of arterial and venous vascular events, and management is supportive - phlebotomy for hyperviscosity symptoms together with low-dose aspirin, by analogy with other erythrocytoses, while avoiding cytoreductive therapy.",
+    "pathophysiology": [
+      "EPOR C-Terminal Cytoplasmic Truncation",
+      "Loss of EPOR C-Terminal Negative Regulatory Domain",
+      "Frameshift-Generated Novel C-Terminal Tail",
+      "Impaired EPOR Down-Regulation and Surface Accumulation",
+      "Prolonged JAK2 Phosphorylation",
+      "Prolonged STAT5 Activation",
+      "Erythroid Progenitor Hypersensitivity to Erythropoietin",
+      "Expansion of Erythroid Progenitor Proliferation",
+      "Increased Red Cell Mass",
+      "Suppression of Endogenous Erythropoietin Production",
+      "Blood Hyperviscosity"
+    ],
+    "cell_types": [
+      "erythroid progenitor cell",
+      "EPO-producing kidney interstitial fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000038",
+      "CL:1000692"
+    ],
+    "biological_processes": [
+      "negative regulation of EPOR/JAK-STAT signalling",
+      "receptor internalization",
+      "receptor catabolic process",
+      "peptidyl-tyrosine phosphorylation",
+      "positive regulation of EPOR/JAK-STAT signalling",
+      "erythropoietin-mediated signaling pathway",
+      "positive regulation of erythrocyte differentiation"
+    ],
+    "phenotypes": [
+      "Polycythemia",
+      "Increased red blood cell mass",
+      "Increased circulating hemoglobin concentration",
+      "Increased hematocrit",
+      "Reduced circulating erythropoietin concentration",
+      "Headache",
+      "Vertigo",
+      "Tinnitus",
+      "Visual impairment",
+      "Thromboembolism",
+      "Myocardial infarction",
+      "Stroke",
+      "Plethora",
+      "Hypertension"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Laboratory",
+      "Neurologic",
+      "Vascular",
+      "Cardiovascular",
+      "Mucocutaneous"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001901",
+      "HP:0001898",
+      "HP:0001900",
+      "HP:0001899",
+      "HP:0034443",
+      "HP:0002315",
+      "HP:0002321",
+      "HP:0000360",
+      "HP:0000505",
+      "HP:0001907",
+      "HP:0001658",
+      "HP:0001297",
+      "HP:0001050",
+      "HP:0000822"
+    ],
+    "frequencies": [],
+    "genes": [
+      "EPOR truncating variants"
+    ],
+    "treatments": [
+      "Therapeutic phlebotomy",
+      "Low-dose aspirin and cardiovascular risk management",
+      "Supportive care and avoidance of exacerbating exposures",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Primary_Familial_Polycythemia_Due_To_EPO_Receptor_Mutation.yaml",
+    "page_url": "../pages/disorders/Primary_Familial_Polycythemia_Due_to_EPO_Receptor_Mutation.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "12"
   },
   {
     "name": "Primary Hyperoxaluria Type 1",
@@ -372664,17 +372992,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3454,
+  "total_disorder_pages": 3457,
   "total_subtypes": 4735,
-  "total_disorders_and_subtypes": 8189,
-  "total_unique_evidence_sources": 52010,
-  "total_unique_publications": 48486,
+  "total_disorders_and_subtypes": 8192,
+  "total_unique_evidence_sources": 52048,
+  "total_unique_publications": 48524,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 302,
-  "total_pathographs": 3450,
-  "total_unique_pathological_events": 22796,
-  "total_modules": 192,
-  "total_research_reports": 3575,
+  "total_pathographs": 3453,
+  "total_unique_pathological_events": 22833,
+  "total_modules": 193,
+  "total_research_reports": 3578,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
