@@ -4339,7 +4339,15 @@ just check-block-scalar-comments kb/disorders/COVID-19.yaml
 
 This runs in `just qc` and as an ungated whole-KB CI check. It flags the older
 hook's `  # <digit>` fingerprint inside literal/folded block scalars, including
-explanations and descriptions. Review a finding against its source before
+explanations and descriptions.
+
+**An issue or PR reference in an unquoted one-line value must be quoted.** A
+plain scalar ends at the first ` #`, so `posed_by: dismech curation (issue
+#8889)` loads as `dismech curation (issue` and every validator accepts the
+shorter string (#12094). Write `posed_by: "dismech curation (issue #8889)"`.
+The same check fails on any plain scalar followed by ` #<non-space>`; a real
+comment keeps a space after the `#` (`value  # note`). This class has no
+baseline: the KB was clean when it landed, so every finding fails. Review a finding against its source before
 repairing it; the pattern is suspicious spacing, not proof of its origin.
 The pre-existing review backlog is recorded by file and exact source line in
 `tests/block_scalar_comments_baseline.txt`, with occurrence counts so copying
@@ -4691,6 +4699,16 @@ file (fresh checkout, January export, August pin) or older (a drifted-pin
 routes to this rebuild, as it does for `CGDS:`, `ORPHA:`, `ICEES:` and `NCIT:`
 ids, so the AGENTS.md instruction to regenerate any cache file with
 `fetch-reference` holds for structured prefixes too.
+
+**An Orphanet record needs all five Orphadata products** (#13941). The rebuild
+refuses to run with any of them missing and names `just refresh-orphadata`,
+because a record built without, say, `en_product4.xml` simply has no
+`## Phenotypes` block and nothing says it was dropped. `just fetch-reference
+ORPHA:…` downloads the set when a file is absent. A drifted pin still fails the
+refresh, but every file is downloaded before it fails, so the rebuild runs; its
+`Source` line then carries the release date from `en_product1.xml`, not the
+manifest's `snapshot_date`, and a warning says so. While the files match the
+pin the stamp is the manifest date, as before.
 
 `data/orphadata/*.xml` is gitignored; `data/orphadata/MANIFEST.yaml` is
 committed and pins the snapshot date + sha256 of each bulk file. To verify
