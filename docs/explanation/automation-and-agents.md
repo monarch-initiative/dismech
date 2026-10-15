@@ -260,10 +260,15 @@ and successful workflows that forgot to post a verdict are separate recovery
 cases. Generated PRs whose review was deliberately skipped are not retried.
 
 Before retrying, it checks the latest run attempt, that the PR is open, that a
-PR-event run still matches the current head, that no newer/active review exists,
-and that the reviewer has not already posted an approval or changes-requested
-verdict for that head. An old changes-requested verdict does not block recovery
-of a failed review of a new commit. Manual-triggered workflows retain their PR
+PR-event run still matches the current head, and that no newer/active review
+exists. For a manual- or comment-triggered run it also checks that the reviewer
+has not already posted an approval or changes-requested verdict for that head;
+an old changes-requested verdict does not block recovery of a failed review of a
+new commit. A failed PR-event run on the current head is the PR's own
+`claude-review` check, so an existing verdict does not block retrying it, and
+only a newer PR-event run on that head supersedes it: a manual or comment review
+runs on `main`, attaches no check to the PR head, and cannot turn that check
+green. Manual-triggered workflows retain their PR
 input and use their existing `gh pr checkout` step to review the current branch.
 
 Backoff is measured from the latest attempt's completion: 1 hour after the first

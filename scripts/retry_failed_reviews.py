@@ -310,7 +310,9 @@ def sweep(
         newest = max(group, key=lambda item: item["created_at"])
         heads = [item for item in group if item["event"] == "pull_request"]
         newest_head = max(heads, key=lambda item: item["created_at"], default=None)
-        return [newest] + ([newest_head] if newest_head not in (None, newest) else [])
+        if newest_head is None or newest_head["id"] == newest["id"]:
+            return [newest]
+        return [newest, newest_head]
 
     candidates = sorted(
         [
