@@ -18,6 +18,16 @@ MONDO_ID_PATTERN = re.compile(r"^MONDO:[0-9]{7}$")
 #: curation target under any reading, so a stub for one is an error rather than
 #: a judgement call. Same backstop the prioritizer config carries, for candidate
 #: exports that do not populate `is_obsolete`.
+#:
+#: This is the *fallback* signal, not the primary one. It only fires when the
+#: nominating export captured the label after MONDO prefixed it, which is the
+#: unusual case — a stub is normally seeded from a list that predates the
+#: retirement, so it keeps the clean label forever and this never matches. Zero
+#: of the 1,333 committed stubs match it (dismech#10785). The exact signal is
+#: MONDO's own `owl:deprecated` / `IAO:0100001`, written into the stub as
+#: `mondo_obsolete` / `mondo_replaced_by` by `just enrich-stubs`; see
+#: `dismech.stubs.obsolescence`. The heuristic is kept for stubs enriched before
+#: those fields existed, and for anyone working without the MONDO build.
 OBSOLETE_LABEL_PATTERN = re.compile(r"^\s*obsolete\b", re.IGNORECASE)
 
 #: A label or synonym has to carry some information before a collision with a KB
@@ -160,6 +170,34 @@ class Stub:
     @property
     def priority(self) -> str:
         return str(self.data.get("priority") or "NORMAL")
+
+    @property
+    def mondo_obsolete(self) -> bool:
+        """Whether MONDO has retired this stub's term.
+
+        Written by `just enrich-stubs` from the ontology's own `owl:deprecated`
+        flag, so the check that reads it needs no ontology. Omitted rather than
+        written false on a live term — stating the default on 1,300-odd files
+        would be a line of noise in each — so absence means "not flagged", and
+        `check_stubs` keeps the label heuristic as its backstop.
+        """
+        return bool(self.data.get("mondo_obsolete"))
+
+    @property
+    def mondo_replaced_by(self) -> str:
+        """The live term that absorbed this one (`IAO:0100001`), if any."""
+        return str(self.data.get("mondo_replaced_by") or "")
+
+    @property
+    def mondo_obsoletion_candidate(self) -> str:
+        """MONDO's note about a retirement it has decided on but not yet made.
+
+        Free text, verbatim from MONDO: the scheduled-merge comment plus its
+        tracker issue. This fires months before `mondo_obsolete` does, because
+        the deprecation flag only appears in a release built after the merge
+        lands.
+        """
+        return str(self.data.get("mondo_obsoletion_candidate") or "")
 
     @property
     def sort_key(self) -> tuple[int, str]:
@@ -336,6 +374,75 @@ def load_stubs_reporting_errors(
     return stubs, issues
 
 
+def _obsolescence_issues(stub: Stub) -> list[StubIssue]:
+    """Advisories about MONDO having retired, or decided to retire, the term.
+
+    Three findings, deliberately kept apart because they call for three
+    different actions:
+
+    - `obsolete_term` — the term is gone and nothing replaced it. There is
+      nothing to curate under it, so this is stale and `tidy` deletes it.
+    - `obsolete_term_replaced` — the term was merged into a survivor. The
+      *disease* is still uncurated, so deleting the stub would drop real queue
+      content; the fix is to repoint `mondo_id` at the replacement. This is why
+      the kind is separate rather than a longer `obsolete_term` message: `tidy`
+      keys on the kind, and must not sweep these away.
+    - `obsoletion_candidate` — MONDO has decided to retire the term but has not
+      done so yet. The term is live, so nothing is stale; a curator picking it
+      up should know where it is going before writing an entry against it.
+
+    Read from the committed stub fields (`mondo_obsolete`, `mondo_replaced_by`,
+    `mondo_obsoletion_candidate`), so this is offline and free. Where they say
+    nothing the old label heuristic still runs, as a backstop for a stub the
+    enrichment pass has not reached.
+    """
+    path, mondo_id = stub.path, stub.mondo_id
+    if stub.mondo_obsolete:
+        if stub.mondo_replaced_by:
+            return [
+                StubIssue(
+                    path,
+                    "obsolete_term_replaced",
+                    f"{mondo_id} is obsolete; replaced by {stub.mondo_replaced_by} "
+                    "— repoint `mondo_id`, do not delete",
+                    severity="advisory",
+                )
+            ]
+        return [
+            StubIssue(
+                path,
+                "obsolete_term",
+                f"{mondo_id} is an obsolete MONDO term — stale, tidy up",
+                severity="advisory",
+            )
+        ]
+
+    issues = []
+    if stub.mondo_obsoletion_candidate:
+        issues.append(
+            StubIssue(
+                path,
+                "obsoletion_candidate",
+                f"{mondo_id} is scheduled for obsoletion by MONDO: "
+                f"{' '.join(stub.mondo_obsoletion_candidate.split())}",
+                severity="advisory",
+            )
+        )
+    # Backstop for a stub the enrichment pass has not reached — or reached with
+    # a MONDO release built before the retirement landed. Only consulted when
+    # the ontology-backed fields say nothing, so it can never contradict them.
+    elif OBSOLETE_LABEL_PATTERN.match(stub.label):
+        issues.append(
+            StubIssue(
+                path,
+                "obsolete_term",
+                f"{mondo_id} is an obsolete MONDO term — stale, tidy up",
+                severity="advisory",
+            )
+        )
+    return issues
+
+
 def check_stubs(
     stub_dir: Path | None = None,
     kb_dirs: list[Path] | None = None,
@@ -373,15 +480,7 @@ def check_stubs(
             )
         if not stub.label:
             issues.append(StubIssue(path, "missing_label", "no `label`"))
-        elif OBSOLETE_LABEL_PATTERN.match(stub.label):
-            issues.append(
-                StubIssue(
-                    path,
-                    "obsolete_term",
-                    f"{mondo_id} is an obsolete MONDO term — stale, tidy up",
-                    severity="advisory",
-                )
-            )
+        issues.extend(_obsolescence_issues(stub))
 
         if stub.status not in STATUSES:
             issues.append(

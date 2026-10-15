@@ -1,0 +1,384 @@
+---
+reference_id: DOI:10.21203/rs.3.rs-387687/v1
+title: Exosome-associated mitochondrial DNA from patients with ME/CFS stimulates human cultured microglia to release IL-1β
+authors:
+- Irene Tsilioni
+- Benjamin Natelson
+- Theoharis C. Theoharides
+year: '2021'
+doi: 10.21203/rs.3.rs-387687/v1
+content_type: full_text_pdf
+is_preprint: true
+peer_review_status: preprint
+full_text_attempted: true
+full_text_provider: epmc_preprint
+full_text_url: "https://www.researchsquare.com/article/rs-387687/latest.pdf"
+oa_status: green
+license: cc by
+local_pdf_path: files/DOI_10.21203_rs.3.rs-387687_v1.pdf
+---
+
+# Exosome-associated mitochondrial DNA from patients with ME/CFS stimulates human cultured microglia to release IL-1β
+**Authors:** Irene Tsilioni, Benjamin Natelson, Theoharis C. Theoharides
+**DOI:** [10.21203/rs.3.rs-387687/v1](https://doi.org/10.21203/rs.3.rs-387687/v1)
+
+## Content
+
+Abstract
+Myalgic Encephalomyelitis/Chronic Fatigue Syndrome (ME/CFS) is a debilitating disease that presents with fatigue, sleep disturbances, malaise and cognitive problems. The pathogenesis of ME/CFS is presently unknown and serum levels of potential biomarkers have been inconsistent. Here we show that serum mitochondrial DNA (mtDNA), associated with exosomes, is increased in ME/CFS only after exercise. Moreover, exosomes isolated from patients with ME/CFS stimulate significant release of IL-1β from cultured human microglia. These results provide evidence for a potential novel pathogenetic factor and target for treatment of ME/CFS.
+
+Page 1/13
+Exosome-associated mitochondrial DNA from
+patients with ME/CFS stimulates human cultured
+microglia to release IL-1 β
+Irene Tsilioni 
+Tufts University School of Medicine
+Benjamin Natelson 
+Mount Sinai School of Medicine: Icahn School of Medicine at Mount Sinai
+Theoharis C. Theoharides  (  theoharis.theoharides@tufts.edu )
+Tufts University School of Medicine https://orcid.org/0000-0002-1598-460X
+Research Article
+Keywords: Allergies, chronic fatigue, cytokines, fibromyalgia, inflammation, neuropeptides, stress
+Posted Date: April 23rd, 2021
+DOI: https://doi.org/10.21203/rs.3.rs-387687/v1
+License:   This work is licensed under a Creative Commons Attribution 4.0 International License.  
+Read Full License
+
+Page 2/13
+Abstract
+Myalgic Encephalomyelitis/Chronic Fatigue Syndrome (ME/CFS) is a debilitating disease that presents
+with fatigue, sleep disturbances, malaise and cognitive problems. The pathogenesis of ME/CFS is
+presently unknown and serum levels of potential biomarkers have been inconsistent. Here we show that
+serum mitochondrial DNA (mtDNA), associated with exosomes, is increased in ME/CFS only after
+exercise. Moreover, exosomes isolated from patients with ME/CFS stimulate significant release of IL-1 β
+from cultured human microglia. These results provide evidence for a potential novel pathogenetic factor
+and target for treatment of ME/CFS.
+Introduction
+Myalgic encephalomyelitis/Chronic fatigue syndrome CFS (ME/CFS) is a chronic, debilitating disease
+affecting 1% of the US population 1 with an economic burden of about $20 billion.2 The prevalence of
+ME/CFS is about 0.3% in the USA,3 occurs predominantly in women, and is characterized by disabling
+fatigue. 5-9 However, the core symptoms of fatigue, sleep problems and cognitive difficulties exist across
+other comorbidities, such as fibromyalgia syndrome (FMS).  {Wessely, 1999 27433 /id;Barsky, 1999
+27434 /id;Ciccone, 2003 27432 /id; Natelson, 2019 27418 /id;Natelson, 2019 27420 /id}
+The pathogenesis of ME/CFS is still unknown, but those with only ME/CFS showed more often
+difficulties in cognitive performance 14 and approximately twice as many ME/CFS patients developed
+their illness following a sudden, influenza-like onset compared to those with ME/CFS+FMS .13 ME/CFS
+may be an autoimmune disease 16, 17 involving neuroinflammation. 18-21 Even though serum pro-
+inflammatory cytokine levels have been reported to be increased in ME/CFS patients 22 other studies
+using sedentary controls have not supported such findings either before or after stress induced by
+exercise or sleep deprivation. {27419;Natelson, 2019 27420 /id} As a result, it was suggested that
+ME/CFS may involve some dysfunction in the brain. 23 We proposed that local inflammation in the
+hypothalamus could dysregulate homeostasis. 24
+Extracellular vesicles (EVs) are membrane-bound vesicles ranging from 30-10,000 nm diameter, with
+exosomes considered the subfraction of 30-300 nm in diameter. 25 EVs have been shown to carry
+different types of cargo including microRNAs, proteins and lipids with the potential to alter
+pathophysiological processes. 26 In particular, exosomes have been implicated in brain disorders, 27,28 but
+their potential role in ME/CFS has not been adequately investigated.
+Here we show that serum mitochondrial DNA (mtDNA), associated with exosomes, is increased only in
+ME/CFS patients as compared to both FMS and controls, and stimulates cultured human microglia to
+secrete IL-1b.
+Methods
+
+Page 3/13
+All patients with FMS fulfilled the American College of Rheumatology’s 1990 criteria 4 and did not have
+comorbid ME/CFS. Serum from such patients was already in our possession from a previous study
+(Madrid, Spain). 29
+The normal controls were not related to any of the ME/CFS or FMS patient groups and were purchased
+from BBI Solutions (Cardiff, UK). Serum samples were labeled only with a code number, the age and
+gender of the subjects. All samples were processed immediately, and the serum was stored in –80°C until
+used for analysis.
+Total EVs Isolation: Total EVs were isolated using the exoEasy Maxi Kit (Qiagen, Valencia, CA) from 1 mL
+of serum. Pre-filtered serum (0.8 μ m syringe filter) were mixed with Buffer XBP and were bounded to an
+exoEasy membrane affinity spin column. The bound EVs were washed with Buffer XWP, were eluted with
+400 µl Buffer XE (an aqueous buffer containing primarily inorganic salts) and were then ready to use for
+further analysis. The reason we used this commercialy available EVs purification kit is due to the limited
+amount of biological samples (2 mL serum from each ME/CFS patient and healthy control) available in
+our possession. 
+BCA assay: The concentration of total protein was quantified by the bicinchoninic acid (BCA) assay
+(Thermo Fisher Inc., Rockford, IL) using bovine serum albumin (BSA) as standard.
+Electron microscopy: A drop of isolated serum-derived total EVs suspended in Buffer XE was deposited
+on Formvar-carbon-coated electron microscopy grids, fixed as above, immunolabelled and stained using
+the method as described before. All samples were analyzed at Harvard Medical School’s Electron
+Microscopy (EM) Core Facility by Ms. Maria Ericsson, Manager of the Harvard Medical School EM
+Facility, using the Tecnai G2 Spirit BioTWIN transmission electron microscope (TEM).
+Mitochondrial DNA: Total DNA was extracted from EVs using Qiagen DNA Micro extraction kit (Qiagen,
+CA). Mitochondrial specific DNA for 7S (mt-7S) was quantified by RT-qPCR using Taqman gene
+expression assays (Mt-7S: Hs02596861_s1; GAPDH: Hu, VIC, TAMRA, Applied Biosystems, Carlsbad, CA).
+Samples were run at 45 cycles using Applied Biosystems 7300 Real-Time PCR System. GAPDH DNA was
+used to exclude any genomic “contamination.”
+Cell culture: SV40 immortalized human adult microglia, frozen in the M1 pro-inflammatory state, were
+purchased from Applied Biological Materials Inc., (ABM, Vancouver, Canada). Microglia were cultured in
+Prigrow III medium (ABM) supplemented with 10 % FBS and 100 U/mL penicillin/streptomycin using BD
+PureCoat ECM Mimetic Cultureware Collagen I peptide plates (Thermo Sci.).
+Cell viability assay: Cell viability was measured by Trypan blue (1%) exclusion.     
+Mediator assay: IL-1b was assayed using commercial ELISA kits from R&D Systems (Minneapolis, MN).
+Control cells were treated with equal volume of culture medium only.
+
+Page 4/13
+Power analysis and statistics: Primary objective: Content of serum EV-mtDNA from ME/CFS and FMS
+patients. The required sample size to observe a difference of 30% in EV-associated mtDNA between
+ME/CFS patients and controls at 5% significance level with a power of 80% is at least 25 subjects/group.
+Since the variance between the two subgroups with and without FMS is not known, the number was
+increased to n=30 per group. Correlations between mtDNA and either subgroup were determined using the
+Spearman rank correlation test. Comparisons with control were done using either parametric t-test for
+independent samples or Mann-Whitney non-parametric test depending on normality of distribution to be
+checked with the Shapiro–Wilk’s test. Comparisons between the groups were done with ANOVA and
+Wilcoxon post-hoc paired rank sum test.
+Results
+Serum levels of EV- associated mtDNA in ME/CFS and FMS patients.
+EVs were isolated and characterized by electron microscopy confirming their spherical shape covered by
+a membrane (Fig 1A) and then by Western blot analysis. Total EV-associated protein was significantly
+lower in ME/CFS patients as compared to controls and was even lower after exercise (Fig. 1B).  
+The serum level of mtDNA (7S) was increased only after exercise in ME/CFS, and was not increased in
+FMS patients either before or after treatment with a dietary supplement (Fig. 2). Moreover, the ratio of
+mtDNA to that of EV-protein was significantly increased only in ME/CFS as compared to controls.
+EVs can activate human microglia.
+Total EVs isolated from patients with ME/CFS, but not FMS, stimulate significant release of IL-1 β  from
+cultured human microglia (Fig. 3).  These results were obtained using mtDNA pooled from 5 subjects
+from either control, ME/CFS or FMS and not with mtDNA from each individual patient.
+Discussion
+We isolated total exosomes (30-100 nm �n diameter) from serum samples obtained from ME/CFS
+patients and controls as we reported previously. 30 Interestingly, we reported less total EV-associated
+protein obtained from serum of ME/CFS patients than controls unlike two other studies that reported no
+significant difference in EV yields obtained from plasma of ME/CFS patients and controls. 31, 32 In
+contrast, two other studies reported a significant increase in EV content in the serum of ME/CFS patients
+and controls. 33, 34 These apparent differences may depend on the activity status of the controls, use of
+serum or plasma, as well as method of EV isolation and purification, thus highlighting the need for
+standardization for future studies.
+Exosomes are EVs with a size range of 30-100 nm in diameter and may carry different cargo than larger
+EVs  (100-1000 nm in diameter). 25 EVs have been implicated in brain disorders,27,28 but their role in
+ME/CFS had not been adequately investigated. EVs have been isolated from ME/CFS patients and
+
+Page 5/13
+characterized especially for their content of microRNA. 32 Another study investigated the cytokine profile
+of plasma and MEs isolated from plasma of ME/CFS patients and reported no significant differences. 31
+Hence, the amount of circulating cytokines whether free or EV=-associated may not be important, as
+compared to the ability of EVs to potentially stimulate the release of pro-inflammatory cytokines from
+microglia in the brain.
+The source of exosomes in ME/CFS patients in not presently known. One possibility is that they derive
+from mast cells 35,36 either in the hypothalamus where they are particularly abundant 37, 38 perivascularly
+in close proximity to neurons 38, 39 or from peripheral mast cells and enter the brain by crossing the blood-
+brain barrier (BBB), which is known to be disrupted in neuropsychiatric disorders. 40,41  Mast cells and
+their mediators have been implicated in diseases comorbid with  ME/CFS. 42 Moreover, mast cells are
+increased in the skin of patients with ME/CFS, 43, 44 who also show increased skin hypersensitivity. 45
+Hyper-responsiveness of the bronchi, implying activation of mast cells, has also been noted in ME/CFS
+patients. 46 Activated mast cells could release additional mediators contributing to ME/CFS symptoms.47,
+48 The possible mast cell source of the EVs could be determined in the future by Western blot analysis for
+mast cell-specific surface markers (FceRI, MRGX2 and CD-117). 36
+Here we show that serum mitochondrial DNA (mtDNA), associated with exosomes, is increased only in
+ME/CFS patients as compared to both FMS and controls, and further increased after exercise in patients
+with ME/CFS. Moreover, we report that exosome-associated mtDNA stimulates cultured human microglia
+to secreteIL-1b. We had previously reported that cultured human mast cells stimulated by substance P
+secrete mtDNA. 49 Mitochondrial DNA could act as an “innate pathogen” leading to a localized auto-
+inflammatory response in the hypothalamus.50-53 Analysis of the mitochondrial genome in ME/CFS
+cases indicated that individuals with a certain haplotype were more likely to exhibit certain neurologic
+symptoms, but there was no association with either susceptibility 54 or disease severity. 55 An unusual
+pattern of mtDNA deletions was reported in the skeletal muscle of one patient with ME/CFS. 56 Cellular
+bioenergetics has been reported to be impaired in patients with ME/CFS 57 and salivary mtDNA was
+found to be decreased in subjects with fatigue. 58 Even though mtDNA was shown to be neurotoxic in rat
+brain slices, 59, 60,61 the mtDNA  molecular patterns N-formyl peptides and cardiolipin did not stimulate IL-
+6 or TNF release from HMC-3 microglia 62 implying that the entire mtDNA may be required for
+stimulation.
+There are a number of limitations in this study.  First, the number of subjects analyzed was small.
+Pathogenetic changes in ME/CFS patients may only occur in the brain, especially the hypothalamus, in
+which case we will have to await the availability of brain tissue to carry out analysis of the proposed
+biomarkers, as we recently reported for other CNS conditions. 63
+Conclusion
+
+Page 6/13
+These results provide evidence for a novel pathogenetic factor involving exosome-associated mtDNA
+stimulating microglia release of IL-1b that could lead to the development of new treatments for ME/CFS.
+Declarations
+Ethics approval and consent to participate: Patients signed an informed consent approved by the
+appropriate Institutional Review Board to participate in this research.
+Consent for publication: The authros conset to the publication of this manuscript.
+Availability of data and materials: All data and materials are available for review.
+Conpeting interests: The authors declare no conflict of interest.
+Funding: ME/CFS Initiative Ramsay Award to TCT.
+Authors contributions: ET performed the experiments and analyzed the results; TCT reviewed the
+experiments and the data, searched the literature, and wrote the manuscript; BN provided the serum and
+reviewed the manuscript.
+Acknowledgements: We thank the ME/CFS Initiative for the Ramsay Award.
+Compliance with Ethical Standards
+Disclosure of potential conflicts of interest: N/A
+Research involving Human Participants: HIRB approval obtained.
+Informed consent: Signed.
+References
+1. Cortes RM, Mastronardi C, Silva-Aldana CT, rcos-Burgos M, Lidbury BA. Myalgic
+Encephalomyelitis/Chronic Fatigue Syndrome: A Comprehensive Review. Diagnostics (Basel) 2019;
+9(3).
+2. Jason LA, Benton MC, Valentine L, Johnson A, Torres-Harding S. The economic impact of ME/CFS:
+individual and societal costs. Dyn Med 2008; 7:6.
+3. Jason LA, Richman JA, Rademaker AW et al. A community-based study of chronic fatigue syndrome.
+Arch Intern Med 1999; 159(18):2129-2137.
+4. Wolfe F, Smythe HA, Yunus MB et al. The American College of Rheumatology 1990 Criteria for the
+Classification of Fibromyalgia. Report of the Multicenter Criteria Committee. Arthritis Rheum 1990;
+33(2):160-172.
+
+Page 7/13
+5. Van't LM, Zielhuis GA, van der Meer JW, Verbeek AL, Bleijenberg G. Fatigue and chronic fatigue
+syndrome-like complaints in the general population. Eur J Public Health 2010; 20(3):251-257.
+�. Griffith JP, Zarrouf FA. A systematic review of chronic fatigue syndrome: don't assume it's
+depression. Prim Care Companion J Clin Psychiatry 2008; 10(2):120-128.
+7. Natelson BH. Myalgic Encephalomyelitis/Chronic Fatigue Syndrome and Fibromyalgia: Definitions,
+Similarities, and Differences. Clin Ther 2019; 41(4):612-618.
+�. Jason LA, Corradi K, Torres-Harding S, Taylor RR, King C. Chronic fatigue syndrome: the need for
+subtypes. Neuropsychol Rev 2005; 15(1):29-58.
+9. Anderson VR, Jason LA, Hlavaty LE, Porter N, Cudia J. A review and meta-synthesis of qualitative
+studies on myalgic encephalomyelitis/chronic fatigue syndrome. Patient Educ Couns 2012;
+86(2):147-155.
+10. Natelson BH, Lin JS, Lange G, Khan S, Stegner A, Unger ER. The effect of comorbid medical and
+psychiatric diagnoses on chronic fatigue syndrome. Ann Med 2019; 51(7-8):371-378.
+11. Wessely S, Nimnuan C, Sharpe M. Functional somatic syndromes: one or many? Lancet 1999;
+354(9182):936-939.
+12. Barsky AJ, Borus JF. Functional somatic syndromes. Ann Intern Med 1999; 130(11):910-921.
+13. Ciccone DS, Natelson BH. Comorbid illness in women with chronic fatigue syndrome: a test of the
+single syndrome hypothesis. Psychosom Med 2003; 65(2):268-275.
+14. Cook DB, Nagelkirk PR, Peckerman A, Poluri A, Mores J, Natelson BH. Exercise and cognitive
+performance in chronic fatigue syndrome. Med Sci Sports Exerc 2005; 37(9):1460-1467.
+15. Kishi A, Natelson BH, Togo F, Struzik ZR, Rapoport DM, Yamamoto Y. Sleep-stage dynamics in
+patients with chronic fatigue syndrome with or without fibromyalgia. Sleep 2011; 34(11):1551-1560.
+1�. Theoharides TC, Weinkauf C, Conti P. Brain cytokines and neuropsychiatric disorders. J Clin
+Psychopharmacol 2004; 24(6):577-581.
+17. Sotzny F, Blanco J, Capelli E et al. Myalgic Encephalomyelitis/Chronic Fatigue Syndrome - Evidence
+for an autoimmune disease. Autoimmun Rev 2018; 17(6):601-609.
+1�. Bansal AS, Bradley AS, Bishop KN, Kiani-Alikhan S, Ford B. Chronic fatigue syndrome, the immune
+system and viral infection. Brain Behav Immun 2012; 26(1):24-31.
+19. Dietert RR, Dietert JM. Possible role for early-life immune insult including developmental
+immunotoxicity in chronic fatigue syndrome (CFS) or myalgic encephalomyelitis (ME). Toxicology
+2008; 247(1):61-72.
+20. Bower JE. Fatigue, brain, behavior, and immunity: summary of the 2012 Named Series on fatigue.
+Brain Behav Immun 2012; 26(8):1220-1223.
+21. Nakatomi Y, Mizuno K, Ishii A et al. Neuroinflammation in Patients with Chronic Fatigue
+Syndrome/Myalgic Encephalomyelitis: An 11C-(R)-PK11195 PET Study. J Nucl Med 2014; 55(6):945-
+950.
+
+Page 8/13
+22. Maes M, Twisk FN, Ringel K. Inflammatory and cell-mediated immune biomarkers in myalgic
+encephalomyelitis/chronic fatigue syndrome and depression: inflammatory markers are higher in
+myalgic encephalomyelitis/chronic fatigue syndrome than in depression. Psychother Psychosom
+2012; 81(5):286-295.
+23. Natelson BH. Brain dysfunction as one cause of CFS symptoms including difficulty with attention
+and concentration. Front Physiol 2013; 4:109.
+24. Hatziagelaki E, Adamaki M, Tsilioni I, Dimitriadis G, Theoharides TC. Myalgic
+Encephalomyelitis/Chronic Fatigue Syndrome-Metabolic Disease or Disturbed Homeostasis due to
+Focal Inflammation in the Hypothalamus? J Pharmacol Exp Ther 2018; 367(1):155-167.
+25. Raposo G, Stoorvogel W. Extracellular vesicles: exosomes, microvesicles, and friends. J Cell Biol
+2013; 200(4):373-383.
+2�. Yang B, Chen Y, Shi J. Exosome Biochemistry and Advanced Nanotechnology for Next-Generation
+Theranostic Platforms. Adv Mater 2019; 31(2):e1802896.
+27. Tsilioni I, Panagiotidou S, Theoharides TC. Exosomes in neurologic and psychiatric disorders. Clin
+Ther 2014; 36(6):882-888.
+2�. Kawikova I, Askenase PW. Diagnostic and therapeutic potentials of exosomes in CNS diseases. Brain
+Res 2014; 1617:63-71.
+29. Tsilioni I, Pipis H, Freitag MSC, Izquierdo MDC, Freitag K, Theoharides TC. Effects of an Extract of
+Salmon Milt on Symptoms and Serum TNF and Substance P in Patients With Fibromyalgia
+Syndrome. Clin Ther 2019; 41(8):1564-1574.
+30. Tsilioni I, Theoharides TC. Extracellular vesicles are increased in the serum of children with autism
+spectrum disorder, contain mitochondrial DNA, and stimulate human microglia to secrete IL-1beta. J
+Neuroinflammation 2018; 15(1):239.
+31. Giloteaux L, O'Neal A, Castro-Marrero J, LeVine SM, Hanson MR. Cytokine profiling of extracellular
+vesicles isolated from plasma in myalgic encephalomyelitis/chronic fatigue syndrome: a pilot study.
+J Transl Med 2020; 18(1):387.
+32. menar-Perez E, Sarria L, Nathanson L, Oltra E. Assessing diagnostic value of microRNAs from
+peripheral blood mononuclear cells and extracellular vesicles in Myalgic Encephalomyelitis/Chronic
+Fatigue Syndrome. Sci Rep 2020; 10(1):2064.
+33. Eguchi A, Fukuda S, Kuratsune H et al. Identification of actin network proteins, talin-1 and filamin-A,
+in circulating extracellular vesicles as blood biomarkers for human myalgic
+encephalomyelitis/chronic fatigue syndrome. Brain Behav Immun 2020; 84:106-114.
+34. Castro-Marrero J, Serrano-Pertierra E, Oliveira-Rodriguez M et al. Circulating extracellular vesicles as
+potential biomarkers in chronic fatigue syndrome/myalgic encephalomyelitis: an exploratory pilot
+study. J Extracell Vesicles 2018; 7(1):1453730.
+35. Theoharides TC, Valent P, Akin C. Mast Cells, Mastocytosis, and Related Disorders. N Engl J Med
+2015; 373(2):163-172.
+
+Page 9/13
+3�. Kim DK, Cho YE, Komarow HD et al. Mastocytosis-derived extracellular vesicles exhibit a mast cell
+signature, transfer KIT to stellate cells, and promote their activation. Proc Natl Acad Sci U S A 2018;
+115(45):E10692-E10701.
+37. Theoharides TC, Konstantinidou A. Corticotropin-releasing hormone and the blood-brain-barrier. Front
+Biosci 2007; 12:1615-1628.
+3�. Rozniecki JJ, Dimitriadou V, Lambracht-Hall M, Pang X, Theoharides TC. Morphological and
+functional demonstration of rat dura mast cell-neuron interactions in vitro and in vivo. Brain Res
+1999; 849:1-15.
+39. Dimitriadou V, Rouleau A, Trung Tuong MD et al. Functional relationships between sensory nerve
+fibers and mast cells of dura mater in normal and inflammatory conditions. Neuroscience 1997;
+77:829-839.
+40. Kealy J, Greene C, Campbell M. Blood-brain barrier regulation in psychiatric disorders. Neurosci Lett
+2018;133664.
+41. Fiorentino M, Sapone A, Senger S et al. Blood-brain barrier and intestinal epithelial barrier alterations
+in autism spectrum disorders. Mol Autism 2016; 7:49.
+42. Theoharides TC. Atopic conditions in search of pathogenesis and therapy. Clin Ther 2013; 35(5):544-
+547.
+43. Blanco I, Beritze N, Arguelles M et al. Abnormal overexpression of mastocytes in skin biopsies of
+fibromyalgia patients. Clin Rheumatol 2010; 29(12):1403-1412.
+44. Enestrom S, Bengtsson A, Frodin T. Dermal IgG deposits and increase of mast cells in patients with
+fibromyalgia-relevant findings or epiphenomena? Scand J Rheumatol 1997; 26(4):308-313.
+45. Steinberg P, Pheley A, Peterson PK. Influence of immediate hypersensitivity skin reactions on delayed
+reactions in patients with chronic fatigue syndrome. J Allergy Clin Immunol 1996; 98(6 Pt 1):1126-
+1128.
+4�. Nijs J, De BP, De MK et al. Associations between bronchial hyperresponsiveness and immune cell
+parameters in patients with chronic fatigue syndrome. Chest 2003; 123(4):998-1007.
+47. Theoharides TC, Papaliodis D, Tagen M, Konstantinidou A, Kempuraj D, Clemons A. Chronic fatigue
+syndrome, mast cells, and tricyclic antidepressants. J Clin Psychopharmacol 2005; 25(6):515-520.
+4�. Theoharides TC, Donelan JM, Papadopoulou N, Cao J, Kempuraj D, Conti P. Mast cells as targets of
+corticotropin-releasing factor and related peptides. Trends Pharmacol Sci 2004; 25(11):563-568.
+49. Zhang B, Asadi S, Weng Z, Sismanopoulos N, Theoharides TC. Stimulated human mast cells secrete
+mitochondrial components that have autocrine and paracrine inflammatory actions. PloS One 2012;
+7(12):e49767.
+50. Theoharides TC, Asadi S, Panagiotidou S, Weng Z. The "missing link" in autoimmunity and autism:
+Extracellular mitochondrial components secreted from activated live mast cells. Autoimmun Rev
+2013; 12(12):1136-1142.
+
+Page 10/13
+51. Collins LV, Hajizadeh S, Holme E, Jonsson IM, Tarkowski A. Endogenously oxidized mitochondrial
+DNA induces in vivo and in vitro inflammatory responses. J Leukoc Biol 2004; 75(6):995-1000.
+52. Marques PE, Amaral SS, Pires DA et al. Chemokines and mitochondrial products activate neutrophils
+to amplify organ injury during mouse acute liver failure. Hepatology 2012; 56(5):1971-1982.
+53. Sun S, Sursal T, Adibnia Y et al. Mitochondrial DAMPs increase endothelial permeability through
+neutrophil dependent and independent pathways. PloS One 2013; 8(3):e59989.
+54. Billing-Ross P, Germain A, Ye K, Keinan A, Gu Z, Hanson MR. Mitochondrial DNA variants correlate
+with symptoms in myalgic encephalomyelitis/chronic fatigue syndrome. J Transl Med 2016; 14:19.
+55. Hanson MR, Gu Z, Keinan A, Ye K, Germain A, Billing-Ross P. Association of mitochondrial DNA
+variants with myalgic encephalomyelitis/chronic fatigue syndrome (ME/CFS) symptoms. J Transl
+Med 2016; 14(1):342.
+5�. Zhang C, Baumer A, Mackay IR, Linnane AW, Nagley P. Unusual pattern of mitochondrial DNA
+deletions in skeletal muscle of an adult human with chronic fatigue syndrome. Hum Mol Genet 1995;
+4(4):751-754.
+57. Tomas C, Brown A, Strassheim V, Elson JL, Newton J, Manning P. Cellular bioenergetics is impaired in
+patients with chronic fatigue syndrome. PLoS ONE 2017; 12(10):e0186802.
+5�. Shin J, Kim KC, Lee DC, Lee HR, Shim JY. Association between Salivary Mitochondrial DNA Copy
+Number and Chronic Fatigue according to Combined Symptoms in Korean Adults. Korean J Fam
+Med 2017; 38(4):206-212.
+59. Martin S, Dicou E, Vincent JP, Mazella J. Neurotensin and the neurotensin receptor-3 in microglial
+cells. J Neurosci Res 2005; 81(3):322-326.
+�0. Patel AB, Tsilioni I, Leeman SE, Theoharides TC. Neurotensin stimulates sortilin and mTOR in human
+microglia inhibitable by methoxyluteolin, a potential therapeutic target for autism. Proc Natl Acad Sci
+U S A 2016; 113:E7049-E7058.
+�1. Lauritzen KH, Moldestad O, Eide L et al. Mitochondrial DNA toxicity in forebrain neurons causes
+apoptosis, neurodegeneration, and impaired behavior. Mol Cell Biol 2010; 30(6):1357-1367.
+�2. Nasi M, De GA, Bianchini E et al. Mitochondrial damage-associated molecular patterns stimulate
+reactive oxygen species production in human microglia. Mol Cell Neurosci 2020; 108:103538.
+�3. Tsilioni I, Patel A.B., Pantazopoulos H et al. IL-37 is increased in brains of children with Autism
+Spectrum Disorder and inhibits human microglia stimulated by neurotensin. Proc Natl Acad Sci U S A
+2019; 116(43):21659-21665.
+Figures
+
+Page 11/13
+Figure 1
+(A) Electron photomicrograph of EVs. (B) Total serum EV-associated protein in healthy controls (HC),
+ME/CFS patients without exercise (N) or past exercise (P), and FMS patients. Each dot represents
+individual subjects.
+
+Page 12/13
+Figure 2
+Gene expression of mtDNA(7S) in healthy controls (HC), ME/CFS patients without exercise (N) or past
+exercise (P), and FMS patients. Each dot represents individual subjects. mtDNA(7S) was normalized to
+the mean of all control samples. GAPDH was undetectable.
+
+Page 13/13
+Figure 3
+Effect of EVs on human microglia. Immortalized HM-SV40 microglia (1.0 x 105 cells) were stimulated
+with EVs (1 or 5 µg/mL as indicated) obtained and pooled from five subjects from each category
+(ctrl=control, ME/CFS or FMS). Secretion of IL-1 β  was measured in the supernatant fluid by ELISA (n=3,
+*p<0.05 and ****p<0.0001).

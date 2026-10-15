@@ -1,0 +1,12 @@
+---
+reference_id: clinicaltrials:NCT04054778
+title: A Randomized Controlled Trial Comparing Avatar Therapy to Cognitive Behavioral Therapy in Schizophrenia With Treatment Refractory Hallucinations
+content_type: summary
+full_text_attempted: true
+---
+
+# A Randomized Controlled Trial Comparing Avatar Therapy to Cognitive Behavioral Therapy in Schizophrenia With Treatment Refractory Hallucinations
+
+## Content
+
+Schizophrenia is associated with long-lasting health, social and financial burden for patients, families, caregivers and society. According to the World Health Organization, this burdensome illness is one of the top 10 causes of disability in developed countries. The costs associated with hospitalization, lifelong treatment and loss of productivity lead to a great economic burden. In Canada, the total annual costs associated with schizophrenia are over $10 billion. The main reason for this heavy burden is that 25-30% of schizophrenia patients respond very poorly to antipsychotic medication. Moreover, psychotherapeutic treatment alternatives are very limited for this suffering population. This unmet clinical need requires innovation and action. Psychotherapeutic treatment alternatives such as Cognitive Behavior Therapy (CBT) are very limited and provide at best moderate results. Virtual reality (VR) opens new exciting avenues to treat this illness. With immersive VR, our team recently tested a novel psychotherapeutic intervention, Avatar Therapy (AT), where the therapist engages in a dialogue with the patient through a virtual representation of their distressing voice. This relational and experiential approach offers a unique opportunity to help patients gain control over their voice. The preliminary results of our randomized-controlled trial (RCT) pilot showed a large effect on auditory verbal hallucination for AT and a moderate effect for CBT. The main goal of the currently proposed RCT study will be to examine if AT is superior to CBT for the treatment of chronic auditory hallucinations in schizophrenia. As evidence-based therapeutic options are limited for this burdensome illness and provide only modest symptomatic relief, the current trial will contribute to the validation of a novel approach answering a fundamental clinical need. The demonstration of the superior efficacy of AT would be a great breakthrough and will open new avenues to clinical treatment.

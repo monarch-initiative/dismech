@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41467-024-54938-z
+extractor_version: 1
 title: Neurotransmitter-bound bestrophin channel structures reveal small molecule drug targeting sites for disease treatment
 authors:
 - Aaron P. Owji
@@ -12,12 +13,14 @@ journal: Nature Communications
 year: '2024'
 doi: 10.1038/s41467-024-54938-z
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41467-024-54938-z.pdf"
 oa_status: gold
 license: cc-by-nc-nd
 local_pdf_path: files/DOI_10.1038_s41467-024-54938-z.pdf
+full_text_access_type: open
 ---
 
 # Neurotransmitter-bound bestrophin channel structures reveal small molecule drug targeting sites for disease treatment
@@ -284,16 +287,16 @@ E: Glu
 0
 130
 260
- 
- 
+
+
 -100 -50 0 50 100
 -280
 -140
 0
 140
 280
- 
- 
+
+
 + 100 /g80M GABA
 *
 a
@@ -318,19 +321,19 @@ F80
 0.0
 0.5
 1.0
-1.5 
- 
+1.5
+
 0
 2
 4
 6
- 
- 
+
+
 0
 2
 4
- 
- 
+
+
 Isteady-state (pA/pF)
 Voltage (mV)
 *
@@ -364,23 +367,23 @@ H267
 0
 160
 320
- 
- 
+
+
 -100 -50 0 50 100
 -200
 0
 200
 400
- 
- 
+
+
 -100 -50 0 50 100
 -320
 -160
 0
 160
 320
- 
- 
+
+
 Fig. 2 | Inﬂuence of GABA on Best2 structure and function. aSide view of GABA-
 bound Best2 with GABA molecule shown as blue sticks. PM, plasma membrane.
 Black box indicates region of focus in panel (b). b Close-up of the GABA binding site
@@ -613,14 +616,14 @@ Voltage (mV)
 Isteady-state (nA)
 + 100 /g80M GABA
 I:  Cl
-E: Glu 
+E: Glu
 b
 Voltage (mV)
 Isteady-state (pA/pF)
 d
 *
 I:  Cl
-E: Glu 
+E: Glu
 + 100 /g80M GABA
 Best2 + GS in HEKa
 Voltage (mV)
@@ -640,8 +643,8 @@ E: Cl
 0.0
 1.5
 3.0
- 
- 
+
+
 *
 -100 -50 0 50 100
 -260
@@ -649,24 +652,24 @@ E: Cl
 0
 130
 260
- 
- 
+
+
 -100 -50 0 50 100
 -260
 -130
 0
 130
 260
- 
- 
+
+
 -100 -50 0 50 100
 -3.0
 -1.5
 0.0
 1.5
 3.0
- 
- 
+
+
 Fig. 3 | Inﬂuence of GABA on Best2 function in the presence of GS. a , b The I-V
 relationships of Best2 co-expressed with GS in HEK293 cells at 1 μM[ C a2+]i in the
 absence (black) or presence (red) of 100 μM external GABA, when Cl− is the prin-
@@ -715,16 +718,16 @@ PABA
 0
 160
 320
- 
- 
+
+
 -100 -50 0 50 100
 -360
 -180
 0
 180
 360
- 
- 
+
+
 Isteady-state (pA/pF)
 Isteady-state (pA/pF)
 Voltage (mV)
@@ -736,16 +739,16 @@ Voltage (mV)
 0
 140
 280
- 
- 
+
+
 -100 -50 0 50 100
 -300
 -150
 0
 150
 300
- 
- 
+
+
 Isteady-state (pA/pF)
 h *
 Isteady-state (pA/pF)
@@ -766,28 +769,28 @@ PABA
 0
 35
 70
- 
- 
+
+
 -100 -50 0 50 100
 -70
 0
 70
-140 
- 
+140
+
 Best2
 Best1
 -100 -50 0 50 100
 -80
 0
 80
-160 
- 
+160
+
 -100 -50 0 50 100
 -80
 0
 80
-160 
- 
+160
+
 *
 Fig. 4 | Functional inﬂuences of small compounds on bestrophin channels.
 a– d The I-V relationships of Best2 in transiently transfected HEK293 cells at 1 μM
@@ -952,8 +955,8 @@ def
 0
 15
 30
- 
- 
+
+
 1 /g80M
 10 /g80M
 -100 -50 0 50 100
@@ -962,32 +965,32 @@ def
 0
 15
 30
- 
- 
+
+
 -100 -50 0 50 100
 -30
 -15
 0
 15
 30
- 
- 
+
+
 -100 -50 0 50 100
 -40
 -20
 0
 20
 40
- 
- 
+
+
 -100 -50 0 50 100
 -30
 -15
 0
 15
 30
- 
- 
+
+
 WT
 Mut:WT = 4:1
 Mut:WT = 4:1 + PABA
@@ -997,8 +1000,8 @@ Mut:WT = 4:1 + PABA
 0
 15
 30
- 
- 
+
+
 Fig. 6 | Functional rescue of Best1 patient-derived mutations by PABA. a– f The
 I-V relationships at 1 μM[ C a2+]i in HEK293 cells transiently expressing WT Best1
 alone (black, untreated), or co-expressing WT Best1 and patient-derived A10T (a),

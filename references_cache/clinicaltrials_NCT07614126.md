@@ -1,5 +1,6 @@
 ---
-reference_id: "clinicaltrials:NCT07614126"
+reference_id: clinicaltrials:NCT07614126
+extractor_version: 1
 title: Prospective Pilot Study of L-dopa Treatment in Patients With a Neurodevelopmental Disorder Related to a Pathogenic Variant of the CTNNB1 Gene
 content_type: summary
 full_text_attempted: true

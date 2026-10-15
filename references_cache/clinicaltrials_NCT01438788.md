@@ -1,5 +1,6 @@
 ---
-reference_id: "clinicaltrials:NCT01438788"
+reference_id: clinicaltrials:NCT01438788
+extractor_version: 1
 title: Low Protein Diet to Correct Defective Autophagy in Patients With Collagen VI Related Myopathies
 content_type: summary
 full_text_attempted: true

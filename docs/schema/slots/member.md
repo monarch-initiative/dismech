@@ -3,7 +3,7 @@
 # Slot: member 
 
 
-_Foreign key to the grouped entity. For member_type DISEASE this is the Disease entry's `name`; for MODULE it is the module filename stem; for GROUPING it is another grouping's `name`._
+_Foreign key to the grouped entity. For member_type DISEASE this is the Disease entry's `name`; for GROUPING it is another grouping's `name`._
 
 
 
@@ -83,8 +83,7 @@ Alias: member
 ```yaml
 name: member
 description: Foreign key to the grouped entity. For member_type DISEASE this is the
-  Disease entry's `name`; for MODULE it is the module filename stem; for GROUPING
-  it is another grouping's `name`.
+  Disease entry's `name`; for GROUPING it is another grouping's `name`.
 from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: member

@@ -25,7 +25,7 @@ not support the claim" -- by construction there may be no quotable sentence to
 attach, and this is already an established (if unstated) convention in
 ``kb/``: a repo-wide scan at the time this check was written found 25 empty
 snippets, and every single one carried ``supports: NO_EVIDENCE``. A positive
-item (``SUPPORT``/``PARTIAL``/``REFUTE``) asserts something the reference must
+item (``SUPPORT``/``REFUTE``) asserts something the reference must
 actually say, so an empty snippet there is always a defect, never a
 legitimate annotation -- that is the actual failure mode #8550 describes (a
 ``SUPPORT`` item produced by a slicing bug that ran backwards).
@@ -58,8 +58,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "src") not in sys.path:  # pragma: no cover - import bootstrap
     sys.path.insert(0, str(ROOT / "src"))
 
+from dismech import kb_cache
+from dismech.kb_cache import load_document
 from dismech.reference_snippet_audit import DEFAULT_SCHEMA, discover_field_names
-from dismech.yaml_io import safe_load
 
 # Scans all of kb/, not just kb/disorders/ -- kb/modules/ and
 # kb/comorbidities/ validate against the same classes and can carry evidence
@@ -143,7 +144,7 @@ def scan_repo(
     findings = []
     for path in sorted(scan_dir.rglob("*.yaml")):
         try:
-            data = safe_load(path.read_text(encoding="utf-8"))
+            data = load_document(path)
         except Exception as exc:
             # Not this check's job to gate on malformed YAML (`validate-all`
             # does that), but skipping silently would make the file invisible
@@ -165,6 +166,10 @@ def scan_repo(
 
 
 def main(argv: list[str] | None = None) -> int:
+    # One walk over kb/ per run, so the shared-parse cache would cost a hash
+    # per file and 500 MB of retention for no hits. Under pytest, which
+    # imports scan_repo directly alongside the other scans, it stays on.
+    kb_cache.default_off()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--all",
@@ -195,7 +200,7 @@ def main(argv: list[str] | None = None) -> int:
     if findings:
         print(
             "Empty (non-NO_EVIDENCE) evidence snippet(s) detected. An evidence "
-            "item that SUPPORTs/PARTIALly supports/REFUTEs a claim must quote "
+            "item that SUPPORTs or REFUTEs a claim must quote "
             "real text from the reference -- an empty snippet asserts nothing "
             "while still lending the citation's authority. Quote the real "
             "sentence, change `supports` to NO_EVIDENCE if that is genuinely "

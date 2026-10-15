@@ -1,0 +1,71 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Autoimmune_Pancreatitis
+  path: kb/disorders/Autoimmune_Pancreatitis.yaml
+session:
+  id: 2026-09-06T133647Z-claude-code-4d7b6c
+  timestamp: '2026-09-06T13:36:47Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues:
+  - https://github.com/monarch-initiative/dismech/issues/11219
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/11233
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - animal_models
+  - has_subtypes
+  summary: 'Round 2: fix animal-model link target drift from the round-1 node split'
+  details: |-
+    Round-2 review found a hard KB gate red, check_model_readout_targets_match_link, and it is a
+    defect I introduced in round 1 while claiming the opposite.
+
+    What happened. Splitting the bundled node into IgG4-Positive Lymphoplasmacytic Infiltration ->
+    Storiform Fibrosis was done with two ordered string replacements. The first was unconditional and
+    consumed every occurrence, including the one the second was written to catch. So the animal-model
+    LINK was retargeted to the infiltration node while its readouts were separately retargeted to
+    Storiform Fibrosis, leaving link and readouts disagreeing. Worse than a mismatch: the link ended up
+    pointing at the one node the model provably cannot reproduce, since mice have no IgG4 subclass -
+    the exact opposite of the argument I made for the split in the round-1 PR comment, where I wrote
+    that the split gives "a clean RECAPITULATES here and a clean structural impossibility there".
+
+    The fix is the structure I claimed to have built. Two links now:
+    - Storiform Fibrosis, PARTIALLY_RECAPITULATES, fidelity MODERATE, carrying both readouts and a
+      PROXY_QUANTITY divergence recording that the model reports fibrosis and architectural destruction
+      while the node is about the storiform pattern specifically.
+    - IgG4-Positive Lymphoplasmacytic Infiltration, FAILS_TO_RECAPITULATE, fidelity LOW, with the
+      SPECIES_MISMATCH divergence and cited evidence. The model's own describing paper states the
+      limitation in the sentence that introduces the model: "Although mice lack the IgG4 Ab subtype..."
+      Graded REFUTE, since that is what a FAILS_TO_RECAPITULATE link asserts. This is a first-class
+      negative claim rather than a caveat, which is what the schema provides FAILS_TO_RECAPITULATE for.
+    The pre-split link-level evidence was re-homed onto the fibrosis link, where the half of the claim
+    it supported now lives.
+
+    Two process failures worth recording, because the second was invisible.
+    1. I did not run pytest tests/test_data.py before the round-1 push. just validate-disorders does
+       not run it, and CI selects pytest by changed path, so a kb/-only diff matches neither the python
+       nor the schema filter. The whole ungated gate set I did run cannot see this class of defect. The
+       reviewer named the gap precisely. It is now part of the routine for these entries.
+    2. Fixing it by moving a line range created a duplicate evidence: key on the same link. PyYAML
+       silently keeps the last value, so yaml.safe_load and every renderer showed one evidence block
+       and looked correct; check-duplicate-keys caught it. That is the exact failure mode CLAUDE.md
+       documents, reached by hand-editing rather than by merge.
+
+    Also recorded: Type 3 carries no subtype_term because MONDO has no term for the
+    checkpoint-inhibitor-induced form. Checked against ols:mondo, which returns only MONDO:0015175,
+    MONDO:0017227 and MONDO:0017228. The gap is stated in review_notes rather than filled with the
+    parent term, which would assert this subtype is the disease as a whole - wrong twice over for the
+    subtype the entry argues is mechanistically a third disease.
+
+    Validated on the fixed tree: just validate-disorders 94/94, just validate-terms,
+    pytest tests/test_data.py -k Autoimmune_Pancreatitis (2 passed), model-scale-audit --strict, and
+    the full ungated set: snippet length, title snippets, snippet grading, folded hyphens,
+    environmental evidence, enum values, duplicate keys, entity refs, causal targets, qualifier terms.

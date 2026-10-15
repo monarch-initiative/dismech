@@ -267,7 +267,7 @@ to 748 which was distributed into the two sub counties based on the formula belo
 n ¼
 z
 2
-pð1   P Þ
+pð1 � P Þ
 d
 2
 ∗DE
