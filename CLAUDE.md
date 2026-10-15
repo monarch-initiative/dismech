@@ -712,6 +712,53 @@ See [`docs/dataset-curation.md`](docs/dataset-curation.md).
   entry's `association_signals`
 - See "Structured-Database Reference Sources" below
 
+### Phenotype Profiles (`kb/phenotype_distributions/`)
+
+EHR-derived phenotype profiles: what co-occurs in a disease cohort, exported
+from a model fitted to structured records. Schema
+`src/dismech/schema/phenotype_distribution.yaml` — `ProfileSet` → `Profile` →
+`CodeDistribution` → `WeightedCode`. Why it is shaped this way, and worked
+examples, are in [`docs/phenotype-distributions.md`](docs/phenotype-distributions.md);
+what follows is only what you need in order to touch one.
+
+**You do not curate these from literature.** A profile set is a transcription of
+a model export, not a synthesis. If no export exists, there is no entry to
+write — do not assemble one from papers, from a disease's known comorbidities,
+or from what looks clinically plausible. Ask for the export.
+
+**Never originate a number.** `code`, `code_label`, `code_weight` and
+`profile_weight` come from the export verbatim. Do not round them, do not
+estimate one to fill a gap, and do not write a code you have not read in the
+source. `--check-terms` resolves every `code`/`code_label` pair against COHD
+and caches it in `cache/omop/terms.csv`: a code whose label disagrees is an
+ERROR, and one the authority does not know is a WARNING to chase rather than
+ignore. This check exists because a wrong OMOP id with a confident label is
+indistinguishable from a right one by eye, and it caught exactly that on its
+first run.
+
+**What is yours to write** is `profile_label` and `description` — reading an
+unsupervised component as a named clinical pattern. That is interpretation, not
+data. Keep it modest, and never let it claim more than the codes below it
+support.
+
+**Set `provenance_tier` honestly; it gates citability.** `CURATED` (reviewed,
+citable) / `TOOL_EXPORTED` (real numbers, unreviewed reading — not citable yet)
+/ `ILLUSTRATIVE` (invented; the renderer refuses to write it into
+`references_cache/`, and a test stops any kb entry citing it).
+
+**A weight is not a frequency.** `code_weight` is a code's mass within its own
+distribution and `profile_weight` is the profile's share of the fit; neither is
+the proportion of patients with the finding. `profile_source.weight_basis` must
+state the denominator — the lint requires it wherever a `profile_weight`
+appears. Do not write `prevalence` for either.
+
+**Citation runs one way.** `just phenodist-rebuild` writes
+`references_cache/PHENODIST_<profile_id>.md`; a disease entry then cites
+`PHENODIST:<id>` and quotes a row, as it would `ORPHA:` or `ICEES:`. A profile
+set never names a kb entry, and never hand-write the cache file.
+
+Validate with `just validate-phenotype-distributions` (part of `just qc`).
+
 ### Validation Stack
 - **linkml-validate**: Schema conformance checking
 - **linkml-term-validator**: Validates ontology term references against authoritative sources (critical for catching AI hallucinations)
@@ -3562,6 +3609,27 @@ two obligations this repository meets mechanically:
   in `external_copyright_notices.csv`. Bind the code and cite published
   thresholds; never reproduce an instrument's items.
 
+### Regulatory Surrogate Endpoints (`endpoint_context: REGULATORY_SURROGATE`)
+
+A `BiomarkerReadout` whose biomarker was the basis of a drug approval links the
+FDA row in `kb/surrogate_endpoints/fda_surrogate_endpoints.yaml` through
+`regulatory_endpoint_refs`, and sets `endpoint_context: REGULATORY_SURROGATE`.
+The two go together in both directions, and
+`test_regulatory_surrogate_context_matches_regulatory_refs` enforces it: the
+value without refs is an unsourced regulatory claim, and refs under another
+context hide the claim from anyone filtering on the enum.
+
+- **Do not restate the validation level.** Whether the endpoint is validated
+  (traditional approval) or only reasonably likely to predict benefit
+  (accelerated approval) lives on the referenced row's
+  `endpoint_validation_level`. Put any further caveat in `interpretation`.
+- **`CANDIDATE_SURROGATE` is for biomarkers no regulator has accepted.** Most
+  aging and early-mechanism markers belong there.
+- **Link the node the endpoint actually measures.** Fabry's peritubular
+  capillary GL-3 endpoint reads out renal microvascular endothelium, not the
+  podocyte injury that drives proteinuria; a second readout without refs can
+  carry the other node.
+
 ### Prevalence (disease occurrence)
 
 Model disease occurrence with the **structured** `Prevalence` slots, not the
@@ -3968,9 +4036,9 @@ baseline file grandfathering a pre-existing backlog -- `check-snippet-length`,
 `check-title-snippets`, `check-snippet-grading`, `check-retired-support-prose`
 and `check-causal-targets`. Three further gates that are in `just qc` but not
 in the list above do too: `check-reference-titles`, `check-coarse-phenotypes`
-and `check-gene-activity-grounding`. Those eight are the whole set, and it is
-checkable rather than remembered -- `tests/*_baseline.txt` and the
-`just update-*-baseline` recipes are one-to-one with it. Do not update a baseline
+and `check-gene-activity-grounding`. The formatter-spacing gate adds a ninth backlog (see YAML Formatter Safety),
+with its shrink-only updater on `check-block-scalar-comments --update-baseline`.
+Inspect `tests/*_baseline.txt` for the current set. Do not update a baseline
 to admit a defect introduced by the current change.
 
 Two of these gates used to have a baseline and no longer do, by the same route:
@@ -4246,6 +4314,45 @@ Two consequences worth keeping straight:
 - **A grouping's exact-match roots survive the outage.** They come from the
   grouping's own YAML, not from MONDO, so the unavailable branch keeps them in
   scope and the coverage figure stays computable; only the descendant rows go.
+
+## YAML Formatter Safety (dismech#12101, dismech#9613)
+
+The yamlfix hook formats in memory and refuses to write a result that changes
+parsed YAML data. Its comment-spacing regexes are disabled in `.yamlfix.toml`;
+version 1.19.1 has no setting to disable its boolean regex or exempt block
+scalars. A prose line ending in `: no` or `- no` can still trigger that regex,
+so the hook rejects the result and leaves the file untouched.
+
+Prefer a **double-quoted scalar** for prose containing a literal ` #<digit>`
+(issue/PR references, `CACHE #3`, etc.) rather than `>-`. Quoting also works
+around the boolean rewrite. Preserve the loaded string when converting: use
+`\n` for literal newlines, escape embedded quotes/backslashes, and compare
+parsed values before and after. Do not accept a formatter's changed quote or
+bypass the hook to get a commit through.
+
+```bash
+just check-block-scalar-comments                         # gate new findings, all kb/
+just check-block-scalar-comments --strict                # list/fail on all findings
+just check-block-scalar-comments --update-baseline       # only remove repaired findings
+just check-block-scalar-comments kb/disorders/COVID-19.yaml
+```
+
+This runs in `just qc` and as an ungated whole-KB CI check. It flags the older
+hook's `  # <digit>` fingerprint inside literal/folded block scalars, including
+explanations and descriptions.
+
+**An issue or PR reference in an unquoted one-line value must be quoted.** A
+plain scalar ends at the first ` #`, so `posed_by: dismech curation (issue
+#8889)` loads as `dismech curation (issue` and every validator accepts the
+shorter string (#12094). Write `posed_by: "dismech curation (issue #8889)"`.
+The same check fails on any plain scalar followed by ` #<non-space>`; a real
+comment keeps a space after the `#` (`value  # note`). This class has no
+baseline: the KB was clean when it landed, so every finding fails. Review a finding against its source before
+repairing it; the pattern is suspicious spacing, not proof of its origin.
+The pre-existing review backlog is recorded by file and exact source line in
+`tests/block_scalar_comments_baseline.txt`, with occurrence counts so copying
+an old finding still fails. The baseline updater only shrinks that backlog;
+never add an exemption to admit new corruption.
 
 ## Duplicate YAML Keys (dismech#8623)
 
@@ -4592,6 +4699,16 @@ file (fresh checkout, January export, August pin) or older (a drifted-pin
 routes to this rebuild, as it does for `CGDS:`, `ORPHA:`, `ICEES:` and `NCIT:`
 ids, so the AGENTS.md instruction to regenerate any cache file with
 `fetch-reference` holds for structured prefixes too.
+
+**An Orphanet record needs all five Orphadata products** (#13941). The rebuild
+refuses to run with any of them missing and names `just refresh-orphadata`,
+because a record built without, say, `en_product4.xml` simply has no
+`## Phenotypes` block and nothing says it was dropped. `just fetch-reference
+ORPHA:…` downloads the set when a file is absent. A drifted pin still fails the
+refresh, but every file is downloaded before it fails, so the rebuild runs; its
+`Source` line then carries the release date from `en_product1.xml`, not the
+manifest's `snapshot_date`, and a warning says so. While the files match the
+pin the stamp is the manifest date, as before.
 
 `data/orphadata/*.xml` is gitignored; `data/orphadata/MANIFEST.yaml` is
 committed and pins the snapshot date + sha256 of each bulk file. To verify
