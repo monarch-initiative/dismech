@@ -1911,6 +1911,152 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "3-Methylglutaconic Aciduria Type VIIB",
+    "disease_id": "MONDO:0014561",
+    "category": "Mendelian",
+    "parents": [
+      "3-Methylglutaconic Aciduria",
+      "Mitochondrial Disease",
+      "Congenital Neutropenia"
+    ],
+    "creation_date": "2026-10-15T17:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "3-methylglutaconic aciduria type VIIB (MGCA7B) is the autosomal recessive form of CLPB deficiency, caused by biallelic pathogenic variants in CLPB. CLPB (also called Skd3, the human ClpB homolog) is an ATP-dependent AAA+ protein disaggregase of the mitochondrial intermembrane space that resolubilizes aggregated proteins, among them the anti-apoptotic protein HAX1. Loss of its disaggregase activity leads to protein aggregation in the intermembrane space, impaired granulocytic differentiation with congenital neutropenia, and a neurological disorder whose severity ranges from absent neurological involvement through intellectual disability with a progressive movement disorder and epilepsy to a neonatal encephalopathy with absent voluntary movements, hyperexcitability, respiratory insufficiency, progressive brain atrophy and death in the first months of life. Cataracts, renal cysts and nephrocalcinosis, and premature ovarian insufficiency in surviving females also occur. Urinary 3-methylglutaconic acid is raised, by a mechanism that is not known. Residual disaggregase activity of the patient variants tracks disease severity. Treatment is supportive, with granulocyte colony-stimulating factor for neutropenia and hematopoietic stem cell transplantation considered in patients without severe neurological disease.",
+    "pathophysiology": [
+      "CLPB Disaggregase Loss of Function",
+      "Intermembrane Space Protein Aggregation",
+      "HAX1 Insolubility",
+      "Granulocytic Precursor Apoptosis and Impaired Neutrophil Differentiation",
+      "SPY Complex Dysfunction",
+      "Impaired Mitochondrial Calcium Uptake and Fusion",
+      "Secondary Complex I Instability",
+      "Secondary 3-Methylglutaconic Acid Accumulation",
+      "Spinal Inhibitory Interneuron Deficit and Motor Hyperexcitability",
+      "Progressive Encephalopathy with Brain Atrophy"
+    ],
+    "cell_types": [
+      "myeloblast",
+      "neutrophil",
+      "fibroblast",
+      "glycinergic interneuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000835",
+      "CL:0000775",
+      "CL:0000057",
+      "CL:1001509"
+    ],
+    "biological_processes": [
+      "protein refolding",
+      "neutrophil differentiation",
+      "apoptosis of granulocytic precursors",
+      "calcium import into the mitochondrion",
+      "mitochondrial fusion"
+    ],
+    "phenotypes": [
+      "3-Methylglutaconic aciduria",
+      "Congenital neutropenia",
+      "Recurrent infections",
+      "Leukemia",
+      "Cataract",
+      "Intellectual disability",
+      "Movement disorder",
+      "Dystonia",
+      "Spasticity",
+      "Seizures",
+      "Psychomotor regression during febrile episodes",
+      "Hypotonia",
+      "Hypertonia",
+      "Exaggerated startle response",
+      "Akinesia and absent voluntary movements",
+      "Respiratory insufficiency",
+      "Feeding difficulties",
+      "Brain atrophy",
+      "Microcephaly",
+      "Nephrocalcinosis",
+      "Renal medullary cysts",
+      "Premature ovarian insufficiency",
+      "Small for gestational age",
+      "Death in infancy"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Hematologic",
+      "Infectious",
+      "Neoplasm",
+      "Ophthalmologic",
+      "Neurological",
+      "Respiratory",
+      "Gastrointestinal",
+      "Renal",
+      "Endocrine",
+      "Growth",
+      "Mortality"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003535",
+      "HP:0001875",
+      "HP:0002719",
+      "HP:0001909",
+      "HP:0000518",
+      "HP:0001249",
+      "HP:0100022",
+      "HP:0001332",
+      "HP:0001257",
+      "HP:0001250",
+      "HP:0002376",
+      "HP:0001252",
+      "HP:0001276",
+      "HP:0002267",
+      "HP:0002304",
+      "HP:0002093",
+      "HP:0011968",
+      "HP:0012444",
+      "HP:0000252",
+      "HP:0000121",
+      "HP:0000107",
+      "HP:0008209",
+      "HP:0001518"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CLPB"
+    ],
+    "treatments": [
+      "Granulocyte Colony-Stimulating Factor",
+      "Hematopoietic Stem Cell Transplantation",
+      "Multidisciplinary Supportive Care",
+      "Hormone Replacement Therapy for Premature Ovarian Insufficiency"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Urinary 3-methylglutaconic acid"
+    ],
+    "source_file": "3-methylglutaconic_Aciduria_Type_VIIB.yaml",
+    "page_url": "../pages/disorders/3-Methylglutaconic_Aciduria_Type_VIIB.html",
+    "num_phenotypes": 24,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "3-methylglutaconic_Aciduria_With_Deafness_Encephalopathy_And_Leigh-like_Syndrome",
     "disease_id": "MONDO:0013875",
     "category": "Mendelian",
@@ -165545,6 +165691,144 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Hackmann-Di Donato Syndrome",
+    "disease_id": "MONDO:0026733",
+    "category": "Mendelian",
+    "parents": [
+      "X-linked syndromic intellectual disability"
+    ],
+    "creation_date": "2026-10-15T18:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hackmann-Di Donato syndrome (MRXSHD) is an X-linked syndromic intellectual developmental disorder caused by hemizygous missense variants in NKAP, which encodes NF-kappa-B activating protein, a ubiquitously expressed nucleoplasmic transcriptional regulator that acts in an HDAC3-containing corepressor complex and associates with the post-catalytic spliceosome. The reported variants cluster in the C-terminal region that mediates those interactions. Affected males show a highly conserved picture of developmental delay and intellectual disability, hypotonia, a Marfanoid habitus with tall stature, arachnodactyly and joint hypermobility, scoliosis, joint contractures, behavioural abnormalities, a recognisable facial gestalt (long face, high palate, large protruding ears, epicanthus, short philtrum) and, in a majority, congenital cardiovascular anomalies. Fewer than twenty affected individuals have been reported, including two fetuses ascertained through severe congenital heart defects. Patient-derived cells carry a transcriptome signature of downregulated long, exon-rich genes, which is the mechanistic basis currently proposed.",
+    "pathophysiology": [
+      "NKAP C-terminal Missense Variant",
+      "Loss of NKAP-HDAC3 Corepressor Complex Function",
+      "Perturbed Spliceosomal Exon-Ligation Association",
+      "Transcriptional Dysregulation of Long Exon-rich Genes",
+      "Dysregulated Cardiac Morphogenesis Gene Expression",
+      "Impaired Neurodevelopment",
+      "Abnormal Skeletal and Connective Tissue Development",
+      "Reduced Cellular Proliferation and Senescence",
+      "Skewed X-Inactivation in Heterozygous Females"
+    ],
+    "cell_types": [
+      "neural progenitor cell",
+      "embryonic fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0011020",
+      "CL:2000042"
+    ],
+    "biological_processes": [
+      "negative regulation of Notch signaling pathway",
+      "mRNA splicing, via spliceosome",
+      "regulation of DNA-templated transcription",
+      "heart morphogenesis",
+      "neurogenesis",
+      "cell population proliferation",
+      "cellular senescence"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Hypotonia",
+      "Aggressive behavior",
+      "Marfanoid habitus",
+      "Tall stature",
+      "Arachnodactyly",
+      "Joint hypermobility",
+      "Scoliosis",
+      "Pectus deformity",
+      "Joint contractures",
+      "Congenital heart defect",
+      "Mitral valve prolapse",
+      "Ventricular septal defect",
+      "Increased nuchal translucency",
+      "Cryptorchidism",
+      "Hypospadias",
+      "Long face",
+      "High palate",
+      "Protruding ear",
+      "Epicanthus",
+      "Midface retrusion",
+      "Short philtrum",
+      "Abnormal cerebral white matter",
+      "Absence seizures"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Musculoskeletal",
+      "Cardiovascular",
+      "Prenatal",
+      "Genitourinary",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001252",
+      "HP:0000718",
+      "HP:0001519",
+      "HP:0000098",
+      "HP:0001166",
+      "HP:0001382",
+      "HP:0002650",
+      "HP:0000766",
+      "HP:0034392",
+      "HP:0001627",
+      "HP:0001634",
+      "HP:0001629",
+      "HP:0010880",
+      "HP:0000028",
+      "HP:0000047",
+      "HP:0000276",
+      "HP:0000218",
+      "HP:0000411",
+      "HP:0000286",
+      "HP:0011800",
+      "HP:0000322",
+      "HP:0002500",
+      "HP:0002121"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "NKAP"
+    ],
+    "treatments": [
+      "Genetic counselling",
+      "Multidisciplinary supportive care",
+      "Ethosuximide for absence epilepsy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hackmann-Di_Donato_Syndrome.yaml",
+    "page_url": "../pages/disorders/Hackmann-Di_Donato_Syndrome.html",
+    "num_phenotypes": 25,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Hailey-Hailey Disease",
     "disease_id": "MONDO:0008218",
     "category": "Genetic",
@@ -251883,6 +252167,112 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Myopathy Due To Calsequestrin And SERCA1 Protein Overload",
+    "disease_id": "MONDO:0014546",
+    "category": "Mendelian",
+    "parents": [
+      "Protein aggregate myopathy",
+      "Hereditary skeletal muscle disorder"
+    ],
+    "creation_date": "2026-10-15T17:45:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Vacuolar aggregate type",
+      "Tubular aggregate type"
+    ],
+    "description": "An autosomal dominant skeletal-muscle disorder caused by heterozygous CASQ1 variants that disturb the calcium-dependent polymerisation of calsequestrin-1, the main calcium buffer of the sarcoplasmic reticulum in fast-twitch fibres. Most patients carry the Italian founder allele p.Asp244Gly and show optically empty vacuoles in type II fibres that contain aggregated calsequestrin, SERCA1 and other sarcoplasmic reticulum proteins. A smaller group of alleles instead produces tubular aggregates. Presentation is usually in adulthood with exercise intolerance, myalgia, cramps, fatigue and raised creatine kinase, sometimes with no symptoms beyond hyperCKaemia, followed in some patients by slowly progressive proximal weakness with quadriceps atrophy and scapular winging.",
+    "pathophysiology": [
+      "Heterozygous CASQ1 Variant",
+      "Impaired Calcium-Dependent CASQ1 Polymerisation",
+      "Aberrant CASQ1 Aggregation with SERCA1 and RyR1",
+      "Sarcoplasmic Reticulum Vacuole Formation",
+      "Reduced Junctional CASQ1 Localisation",
+      "Reduced Sarcoplasmic Reticulum Calcium Storage",
+      "Loss of CASQ1 Inhibition of Store-Operated Calcium Entry",
+      "Tubular Aggregate Formation",
+      "Endoplasmic Reticulum Stress and Unfolded Protein Response",
+      "Impaired Clearance of Aggregated Proteins",
+      "Reduced Sarcoplasmic Reticulum Calcium Release",
+      "Fast-Twitch Muscle Fibre Dysfunction"
+    ],
+    "cell_types": [
+      "type II (fast-twitch) muscle fibre",
+      "skeletal muscle fibre",
+      "fast-twitch muscle fibre"
+    ],
+    "cell_type_ids": [
+      "CL:0000190",
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "calcium-dependent calsequestrin polymerisation",
+      "inclusion body assembly",
+      "sarcoplasmic reticulum calcium ion homeostasis",
+      "negative regulation of store-operated calcium entry",
+      "endoplasmic reticulum unfolded protein response",
+      "TORC1 signaling",
+      "autophagy",
+      "release of sequestered calcium ion into cytosol by sarcoplasmic reticulum"
+    ],
+    "phenotypes": [
+      "Elevated serum creatine kinase",
+      "Exercise intolerance",
+      "Myalgia",
+      "Muscle cramps",
+      "Fatigue",
+      "Proximal muscle weakness",
+      "Quadriceps atrophy",
+      "Scapular winging",
+      "Distal upper limb weakness",
+      "Fibrofatty replacement of muscle on MRI",
+      "Nonrimmed vacuoles in type II fibres",
+      "Sarcoplasmic reticulum protein inclusions in vacuoles",
+      "Tubular aggregates in muscle fibres"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cellular",
+      "Constitutional",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003236",
+      "HP:0003546",
+      "HP:0003326",
+      "HP:0003394",
+      "HP:0012378",
+      "HP:0003701",
+      "HP:0009050",
+      "HP:0003691",
+      "HP:0008959",
+      "HP:0012548",
+      "HP:6000978",
+      "HP:0100303",
+      "HP:0100301"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "CASQ1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Myopathy_Due_To_Calsequestrin_And_SERCA1_Protein_Overload.yaml",
+    "page_url": "../pages/disorders/Myopathy_Due_To_Calsequestrin_And_SERCA1_Protein_Overload.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 12,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Myopathy, Lactic Acidosis, and Sideroblastic Anemia",
     "disease_id": "MONDO:0000863",
     "category": "Mendelian",
@@ -257208,6 +257598,155 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "27",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Neurodevelopmental Disorder with Seizures, Microcephaly, and Brain Abnormalities",
+    "disease_id": "MONDO:0859283",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian neurodevelopmental disorder",
+      "Developmental and epileptic encephalopathy",
+      "Synaptopathy"
+    ],
+    "creation_date": "2026-10-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Neurodevelopmental disorder with seizures, microcephaly, and brain abnormalities (OMIM 620024) is an ultra-rare autosomal recessive disorder caused by biallelic loss-of-function variants in PPFIBP1, which encodes liprin-beta1, a SAM-domain scaffold protein that heterodimerizes with the liprin-alpha proteins of the presynaptic active zone. The founding cohort comprised 16 individuals from 12 mostly consanguineous families, all homozygous for protein-truncating or canonical splice-site variants, plus a fetus homozygous for a SAM-domain missense variant. The core phenotype is severe to profound global developmental delay with absent speech, early-onset and usually drug-resistant epilepsy (median onset at 2 months, often with epileptic spasms and West syndrome), and primary and/or progressive microcephaly. Neuroimaging shows periventricular leukoencephalopathy, ventriculomegaly, hypoplasia of the corpus callosum, cortical malformations (pachygyria, increased cortical thickness, polymicrogyria) and, most distinctively, bilateral periventricular and basal-ganglia calcifications that mimic congenital infection. Spasticity or hypotonia, nystagmus and optic atrophy, hearing impairment, congenital heart defects, intrauterine and postnatal growth restriction and feeding difficulties are frequent, and a quarter of the founding cohort died in childhood. Loss of the C. elegans ortholog hlb-1 produces aldicarb resistance indicating a presynaptic transmission defect, and loss of Drosophila Liprin-beta disrupts axon targeting and neuromuscular synapse growth, pointing to a synaptic pathomechanism; how loss of liprin-beta1 produces the calcifications and white-matter disease is unknown. No disease-modifying therapy exists.",
+    "pathophysiology": [
+      "Biallelic PPFIBP1 Loss of Function",
+      "Loss of Liprin-beta1 Scaffold Complexes",
+      "Impaired Synapse Formation",
+      "Presynaptic Transmission Defect",
+      "Periventricular Calcification and White Matter Injury"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "synapse assembly",
+      "chemical synaptic transmission"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Absent speech",
+      "Seizure",
+      "Focal-onset seizure",
+      "Generalized-onset seizure",
+      "Myoclonic seizure",
+      "Tonic seizure",
+      "Epileptic spasm",
+      "Hypsarrhythmia",
+      "Microcephaly",
+      "Progressive microcephaly",
+      "Periventricular calcification",
+      "Basal ganglia calcification",
+      "Cerebellar vermis hypoplasia",
+      "Polymicrogyria",
+      "Cerebral cortical atrophy",
+      "Leukoencephalopathy",
+      "Ventriculomegaly",
+      "Hypoplasia of the corpus callosum",
+      "Pachygyria",
+      "Spastic tetraplegia",
+      "Hypertonia",
+      "Hypotonia",
+      "Dystonia",
+      "Nystagmus",
+      "Abnormality of the eye",
+      "Hearing impairment",
+      "Patent ductus arteriosus",
+      "Atrial septal defect",
+      "Ventricular septal defect",
+      "Cryptorchidism",
+      "Small for gestational age",
+      "Failure to thrive",
+      "Short stature",
+      "Feeding difficulties"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Ophthalmologic",
+      "Otolaryngologic",
+      "Cardiovascular",
+      "Genitourinary",
+      "Growth",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001344",
+      "HP:0001250",
+      "HP:0007359",
+      "HP:0002197",
+      "HP:0032794",
+      "HP:0032792",
+      "HP:0011097",
+      "HP:0002521",
+      "HP:0000252",
+      "HP:0000253",
+      "HP:0007229",
+      "HP:0002135",
+      "HP:0001320",
+      "HP:0002126",
+      "HP:0002120",
+      "HP:0002352",
+      "HP:0002119",
+      "HP:0002079",
+      "HP:0001302",
+      "HP:0002510",
+      "HP:0001276",
+      "HP:0001252",
+      "HP:0001332",
+      "HP:0000639",
+      "HP:0000478",
+      "HP:0000365",
+      "HP:0001643",
+      "HP:0001631",
+      "HP:0001629",
+      "HP:0000028",
+      "HP:0001518",
+      "HP:0001508",
+      "HP:0004322",
+      "HP:0011968"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "PPFIBP1"
+    ],
+    "treatments": [
+      "Antiseizure pharmacotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Seizures_Microcephaly_And_Brain_Abnormalities.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_with_Seizures,_Microcephaly,_and_Brain_Abnormalities.html",
+    "num_phenotypes": 36,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Neurodevelopmental Disorder With or Without Autism or Seizures",
@@ -373976,17 +374515,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3467,
-  "total_subtypes": 4737,
-  "total_disorders_and_subtypes": 8204,
-  "total_unique_evidence_sources": 52160,
-  "total_unique_publications": 48636,
+  "total_disorder_pages": 3471,
+  "total_subtypes": 4739,
+  "total_disorders_and_subtypes": 8210,
+  "total_unique_evidence_sources": 52225,
+  "total_unique_publications": 48700,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 302,
-  "total_pathographs": 3463,
-  "total_unique_pathological_events": 22886,
+  "total_pathographs": 3467,
+  "total_unique_pathological_events": 22919,
   "total_modules": 193,
-  "total_research_reports": 3589,
+  "total_research_reports": 3593,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
