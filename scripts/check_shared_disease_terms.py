@@ -71,7 +71,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from dismech.yaml_io import safe_load
+from dismech import kb_cache
+from dismech.kb_cache import load_document
 
 BASELINE_PATH = ROOT / "tests" / "shared_disease_term_baseline.txt"
 DISORDERS_DIR = ROOT / "kb" / "disorders"
@@ -207,7 +208,8 @@ def load_disorders(directory: Path = DISORDERS_DIR) -> dict[str, dict[str, Any]]
     docs: dict[str, dict[str, Any]] = {}
     for path in sorted(directory.glob("*.yaml")):
         try:
-            data = safe_load(path.read_text(encoding="utf-8"))
+            # Shared, read-only parse (#11003): this script never mutates it.
+            data = load_document(path)
         except yaml.YAMLError:
             # `check-duplicate-keys` and `linkml-validate` report parse failures.
             continue
@@ -274,6 +276,9 @@ def main(argv: list[str] | None = None) -> int:
         help="rewrite the baseline from the current tree (only ever to shrink it)",
     )
     args = parser.parse_args(argv)
+    # One corpus walk, so the parsed-KB cache would only cost memory here.
+    # In main(), not at import, so an in-process caller keeps the cache.
+    kb_cache.default_off()
 
     groups, findings = assess_all(load_disorders())
 
