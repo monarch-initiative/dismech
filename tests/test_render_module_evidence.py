@@ -73,7 +73,10 @@ def test_hypothesis_tally_styles_are_scoped(tmp_path: Path) -> None:
     html = _render(tmp_path)
 
     assert ".hypothesis-evidence-balance .evidence-support {" in html
-    assert re.search(r"^\s*\.support-SUPPORT \{ background: #d1fae5", html, re.M) is None
+    assert (
+        re.search(r"^\s*\.support-SUPPORT \{ background: #d1fae5", html, re.MULTILINE)
+        is None
+    )
 
 
 def test_model_link_evidence_stays_a_count(tmp_path: Path) -> None:
@@ -97,3 +100,13 @@ def test_model_link_evidence_stays_a_count(tmp_path: Path) -> None:
 
     assert html.count('<details class="evidence-details">') == 1
     assert ">PMID:999</a>" not in html
+
+
+def test_evidence_images_resolve_against_research(tmp_path: Path) -> None:
+    """An artifact image src is relative to research/, as on disorder pages,
+    not root-relative."""
+    (tmp_path / "research").mkdir()
+    image = {**_EVIDENCE, "images": ["Example_artifacts/fig1.png"]}
+    html = _render(tmp_path, pathophysiology=[{"name": NODE, "evidence": [image]}])
+
+    assert 'src="../../research/Example_artifacts/fig1.png"' in html
