@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MEHMO Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>MEHMO Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>MEHMO Syndrome</h1>
+                
+                <p class="report-subtitle">MEHMO Syndrome: A Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-10-15</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0010258" target="_blank" rel="noopener noreferrer">MONDO:0010258</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">16 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>MEHMO Syndrome: A Comprehensive Disease Characterization Report</h1>
+<p><strong>Disease:</strong> MEHMO Syndrome · <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0010258" target="_blank" rel="noopener noreferrer">MONDO:0010258</a> · <strong>OMIM:</strong> #300148 · <strong>Category:</strong> Mendelian (X-linked)</p>
+<hr />
+<h2>Summary</h2>
+<p>MEHMO syndrome is a rare, X-linked recessive, multisystem neuroendocrine disorder caused by hemizygous loss-of-function or hypomorphic variants in <strong>EIF2S3</strong> (Xp22.11), the gene encoding the <strong>γ subunit of eukaryotic translation initiation factor 2 (eIF2γ)</strong>. The acronym MEHMO denotes its five cardinal features: <strong>M</strong>ental retardation (intellectual disability), <strong>E</strong>pileptic seizures, <strong>H</strong>ypogonadism/<strong>H</strong>ypogenitalism, <strong>M</strong>icrocephaly, and <strong>O</strong>besity. Because eIF2γ is the core GTPase scaffold of the eIF2 heterotrimer that delivers initiator methionyl-tRNA (Met-tRNAi) to the ribosome, MEHMO is now best understood as a prototypical <strong>eIF2-related neuroendocrinopathy</strong> — a disorder of translation initiation and the integrated stress response (ISR).</p>
+<p>The mechanistic core is well established. Pathogenic EIF2S3 variants reduce the abundance or function of the <strong>eIF2·GTP·Met-tRNAi ternary complex</strong>, either by impairing Met-tRNAi binding directly (e.g., p.Ile259Met) or by disrupting CDC123-promoted assembly of the eIF2 heterotrimer (e.g., the recurrent C-terminal frameshift p.Ile465Serfs<em>4). The resulting deficit in translation initiation chronically derepresses the ISR (elevated ATF4/GCN4 and DDIT3/CHOP), injuring translation-dependent, secretory, and rapidly dividing tissues — most prominently the developing brain and the endocrine pancreas/pituitary. This produces the characteristic endocrine trajectory of </em><em>neonatal hypoglycemia → early-onset insulin-dependent diabetes → hypopituitarism</em>*, alongside the neurodevelopmental and growth phenotypes. Severity tracks tightly with residual eIF2γ function: truncating variants cause severe, full MEHMO, while hypomorphic missense variants produce milder, clinically variable partial phenotypes.</p>
+<p>Management is currently supportive (anticonvulsants, hormone replacement, nutritional support, immunoglobulin for recurrent infections), but the molecular understanding has generated rational experimental therapeutics. <strong>ISRIB</strong>, a small-molecule activator of eIF2B, restored eIF2 function in patient-derived iPSCs, and initiator tRNA augmentation rescued the defect in yeast — though ISR modulation carries context-dependent risks that temper enthusiasm. This report synthesizes 7 confirmed findings across 22 reviewed papers into a full characterization spanning disease definition, etiology, phenotype, genetics, mechanism, anatomy, temporal course, epidemiology, diagnostics, prognosis, treatment, prevention, cross-species biology, and model organisms.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> MEHMO syndrome is a rare X-linked recessive syndromic intellectual disability disorder with a distinctive endocrine and metabolic component. It is defined clinically by its acronymic cardinal features and molecularly by variants in <em>EIF2S3</em>. Recent reviews propose reclassifying MEHMO, together with related conditions, under the umbrella of <strong>eIF2-related neuroendocrinopathies</strong>, reflecting the shared translation-initiation pathology (<a href="https://pubmed.ncbi.nlm.nih.gov/41207135/">PMID: 41207135</a>): <em>"reports of additional cases suggest a consideration for a re-definition of the acronym and a re-classification of the condition along with others as eIF2-related neuroendocrinopathies."</em></p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OMIM</td>
+<td>#300148 (MEHMO syndrome)</td>
+</tr>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0010258" target="_blank" rel="noopener noreferrer">MONDO:0010258</a></td>
+</tr>
+<tr>
+<td>Gene (OMIM)</td>
+<td><em>EIF2S3</em>, 300161</td>
+</tr>
+<tr>
+<td>Cytogenetic locus</td>
+<td>Xp22.11</td>
+</tr>
+<tr>
+<td>Inheritance</td>
+<td>X-linked recessive</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names.</strong> Mental retardation–epileptic seizures–hypogonadism/hypogenitalism–microcephaly–obesity syndrome; MEHMO syndrome; EIF2S3-related X-linked intellectual disability; proposed broader term "eIF2-related neuroendocrinopathy."</p>
+<p><strong>Information source type.</strong> The knowledge base here is derived from <strong>aggregated disease-level resources</strong> (OMIM, review articles) combined with <strong>individual-patient case reports and small family series</strong>, which dominate the literature given the rarity of the condition.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause — genetic.</strong> MEHMO is a monogenic Mendelian disorder caused by hemizygous pathogenic variants in <em>EIF2S3</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28055140/">PMID: 28055140</a>): <em>"We have identified a C-terminal frameshift mutation (Ile465Serfs) in the EIF2S3 gene in three families with MEHMO syndrome and a novel maternally inherited missense EIF2S3 variant (c.324T&gt;A; p.Ser108Arg) in another male patient with less severe clinical symptoms."</em> There is no environmental or infectious cause; the disease is fully explained by the genetic lesion.</p>
+<p><strong>Genetic risk factors.</strong> The causal variants are the risk factors. There is a clear <strong>genotype–severity correlation</strong>: the recurrent truncating p.Ile465Serfs*4 produces the severe, complete MEHMO phenotype, whereas hypomorphic missense variants (p.Ser108Arg, p.Thr144Ile, p.Met145Val, p.Ile159Leu, p.Ile259Met) produce milder and more variable phenotypes.</p>
+<p><strong>Modifier genes.</strong> No distinct modifier genes have been formally identified. However, functionally related genes in the same pathway (<em>CDC123</em>, which promotes eIF2 assembly; <em>EIF2B</em> subunits; and initiator tRNA abundance) are mechanistic modulators — tRNAiMet overexpression rescues the defect experimentally.</p>
+<p><strong>Environmental risk / protective factors.</strong> Not applicable as causes. One important <strong>iatrogenic/environmental interaction</strong> is documented: a <strong>ketogenic diet</strong>, used for refractory epilepsy, preceded fatal acute necrotizing pancreatitis in a MEHMO patient (<a href="https://pubmed.ncbi.nlm.nih.gov/33714664/">PMID: 33714664</a>) — an acquired dietary exposure interacting with the underlying metabolic vulnerability.</p>
+<p><strong>Gene–environment interactions.</strong> The ketogenic-diet/pancreatitis event is the principal documented gene–environment interaction: the EIF2S3-driven pancreatic vulnerability appears to sensitize patients to high-fat dietary stress.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>The cardinal (acronym) features plus the broader clinical spectrum, with suggested HPO terms and typical characteristics:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO term</th>
+<th>Type</th>
+<th>Onset</th>
+<th>Frequency / Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Intellectual disability</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+<td>Clinical/behavioral</td>
+<td>Infancy</td>
+<td>Core; often profound in severe cases</td>
+</tr>
+<tr>
+<td>Epileptic seizures</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></td>
+<td>Clinical sign</td>
+<td>Infancy/childhood</td>
+<td>Core; may be refractory</td>
+</tr>
+<tr>
+<td>Hypogonadism / micropenis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000055" target="_blank" rel="noopener noreferrer">HP:0000055</a></td>
+<td>Physical</td>
+<td>Congenital</td>
+<td>Core</td>
+</tr>
+<tr>
+<td>Hypogenitalism / cryptorchidism</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" rel="noopener noreferrer">HP:0000028</a></td>
+<td>Physical</td>
+<td>Congenital</td>
+<td>Core</td>
+</tr>
+<tr>
+<td>Microcephaly</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" rel="noopener noreferrer">HP:0000252</a></td>
+<td>Physical</td>
+<td>Congenital/postnatal</td>
+<td>Core; can be severe</td>
+</tr>
+<tr>
+<td>Obesity</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" rel="noopener noreferrer">HP:0001513</a></td>
+<td>Physical</td>
+<td>Childhood</td>
+<td>Core (variable)</td>
+</tr>
+<tr>
+<td>Neonatal hypoglycemia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001998" target="_blank" rel="noopener noreferrer">HP:0001998</a></td>
+<td>Lab abnormality</td>
+<td>Neonatal</td>
+<td>Early endocrine sign</td>
+</tr>
+<tr>
+<td>Insulin-dependent diabetes</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100651" target="_blank" rel="noopener noreferrer">HP:0100651</a></td>
+<td>Lab/clinical</td>
+<td>Infancy/childhood</td>
+<td>Follows hypoglycemia</td>
+</tr>
+<tr>
+<td>Hypopituitarism</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0040075" target="_blank" rel="noopener noreferrer">HP:0040075</a></td>
+<td>Lab/clinical</td>
+<td>Childhood</td>
+<td>Progressive hormone decline</td>
+</tr>
+<tr>
+<td>Central hypothyroidism</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011787" target="_blank" rel="noopener noreferrer">HP:0011787</a></td>
+<td>Lab abnormality</td>
+<td>Childhood</td>
+<td>Part of pituitary involvement</td>
+</tr>
+<tr>
+<td>Hypertrichosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000998" target="_blank" rel="noopener noreferrer">HP:0000998</a></td>
+<td>Physical</td>
+<td>Childhood</td>
+<td>Reported in multiple cases</td>
+</tr>
+<tr>
+<td>Developmental/motor delay</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" rel="noopener noreferrer">HP:0001270</a></td>
+<td>Clinical</td>
+<td>Infancy</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Recurrent infections</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" rel="noopener noreferrer">HP:0002719</a></td>
+<td>Clinical</td>
+<td>Variable</td>
+<td>Immunologic component documented</td>
+</tr>
+<tr>
+<td>Facial dysmorphism</td>
+<td>—</td>
+<td>Physical</td>
+<td>Congenital</td>
+<td>Reported</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Severity and progression.</strong> Phenotype severity is <strong>variable and genotype-dependent</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/32799315/">PMID: 32799315</a>): <em>"underscoring clinically variable expressivity of MEHMO."</em> The endocrine phenotype is <strong>progressive/evolving</strong> (hypoglycemia evolving into diabetes and hypopituitarism), whereas structural features (microcephaly, hypogenitalism) are congenital and stable. Seizures may be episodic and refractory.</p>
+<p><strong>Quality of life.</strong> Profound intellectual disability, epilepsy, and multi-hormone deficiency impose severe impairment on daily functioning and lifelong dependence on caregiving; no disease-specific QOL instrument has been applied, so this is a qualitative assessment.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <em>EIF2S3</em> (HGNC-approved symbol EIF2S3; OMIM 300161) at <strong>Xp22.11</strong>, encoding <strong>eIF2γ</strong> (UniProt <strong>P41091</strong>), the largest and core GTPase subunit of the heterotrimeric eIF2 complex.</p>
+<p><strong>Pathogenic variants (representative).</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant (protein)</th>
+<th>cDNA</th>
+<th>Type</th>
+<th>Phenotype</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>p.Ile465Serfs*4</td>
+<td>—</td>
+<td>C-terminal frameshift (truncating)</td>
+<td>Severe, full MEHMO</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28055140/">PMID: 28055140</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/35765291/">PMID: 35765291</a></td>
+</tr>
+<tr>
+<td>p.Ser108Arg</td>
+<td>c.324T&gt;A</td>
+<td>Missense</td>
+<td>Milder</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28055140/">PMID: 28055140</a></td>
+</tr>
+<tr>
+<td>p.Ile259Met</td>
+<td>—</td>
+<td>Missense</td>
+<td>Milder; impairs Met-tRNAi binding</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30517694/">PMID: 30517694</a></td>
+</tr>
+<tr>
+<td>p.Thr144Ile, p.Met145Val, p.Ile159Leu</td>
+<td>—</td>
+<td>Missense</td>
+<td>Clinically variable</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32799315/">PMID: 32799315</a></td>
+</tr>
+<tr>
+<td>(c.820C&gt;G)</td>
+<td>c.820C&gt;G</td>
+<td>Missense (novel)</td>
+<td>Profound ID, microcephaly, hypoglycemia</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34999262/">PMID: 34999262</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Variant classification.</strong> Reported variants are classified <strong>pathogenic/likely pathogenic</strong> under ACMG/AMP criteria, supported by segregation, functional assays (yeast, patient fibroblasts/iPSCs), and absence/rarity in population databases (gnomAD). As an X-linked gene intolerant to loss-of-function, these variants are extremely rare in the general population.</p>
+<p><strong>Functional consequences.</strong> Variants act as <strong>partial loss-of-function / hypomorphic</strong> alleles — reducing eIF2γ function rather than abolishing it (complete loss would be embryonic-lethal, consistent with eIF2γ's essentiality). Truncating variants disrupt the C-terminal CDC123-interacting region; missense variants perturb the GTP-binding/switch and tRNA-binding surfaces.</p>
+<p><strong>Origin.</strong> <strong>Germline</strong>, X-linked. Variants are typically <strong>maternally inherited</strong> (carrier mothers) or arise de novo.</p>
+<p><strong>Epigenetic modifier — X-inactivation.</strong> Skewed X-chromosome inactivation modulates carrier-female expression (usually asymptomatic/mild). No disease-specific DNA-methylation signature has been described.</p>
+<p><strong>Chromosomal abnormalities.</strong> None; MEHMO is a single-gene disorder without large-scale cytogenetic rearrangements.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>MEHMO is a Mendelian disorder with <strong>no environmental, lifestyle, or infectious cause</strong>. The only environmentally relevant factor is iatrogenic: a <strong>ketogenic diet</strong> used to control refractory seizures was temporally associated with fatal acute necrotizing pancreatitis (<a href="https://pubmed.ncbi.nlm.nih.gov/33714664/">PMID: 33714664</a>), indicating a dietary exposure that interacts dangerously with the disease's intrinsic pancreatic vulnerability. Recurrent infections reflect an intrinsic immunologic phenotype rather than a primary infectious etiology.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Hemizygous <em>EIF2S3</em> variant</strong> (truncating or hypomorphic missense) → <strong>leads to</strong> structurally/functionally impaired eIF2γ protein.</li>
+<li>Impaired eIF2γ → <strong>results in</strong> reduced Met-tRNAi binding (e.g., p.Ile259Met) <strong>and/or</strong> defective CDC123-promoted assembly of the eIF2 heterotrimer (e.g., p.Ile465Serfs<em>4). </em>(These are the two demonstrated biochemical branches.)*</li>
+<li>Either branch → <strong>decreases</strong> the active <strong>eIF2·GTP·Met-tRNAi ternary complex</strong> available for 43S preinitiation complex formation.</li>
+<li>Reduced ternary complex → <strong>lowers</strong> cap-dependent translation initiation <strong>and</strong> permits aberrant initiation at near-cognate (non-AUG) start codons.</li>
+<li>The same deficit → <strong>derepresses/activates</strong> the <strong>integrated stress response (ISR)</strong> — upregulating ATF4 (yeast GCN4) and downstream <strong>DDIT3/CHOP</strong> (<em>demonstrated: elevated DDIT3 transcript in patient cells</em>).</li>
+<li>Chronic ISR activation + reduced translational capacity → <strong>injures</strong> translation-dependent, secretory, and proliferative tissues, branching to:</li>
+<li><strong>6a. Developing brain</strong> → increased neuronal cell death → <strong>microcephaly, intellectual disability, epilepsy</strong> (<em>zebrafish: increased neuronal cell death</em>).</li>
+<li><strong>6b. Endocrine pancreas</strong> → β-cell / pancreatic-progenitor deficiency → <strong>neonatal hypoglycemia then insulin-dependent diabetes</strong> (<em>zebrafish: hyperglycemia from β-cell/progenitor deficiency, not apoptosis</em>).</li>
+<li><strong>6c. Pituitary</strong> → impaired peptide-hormone secretion / gradual decline → <strong>hypopituitarism, central hypothyroidism, hypogonadism</strong>.</li>
+<li>These tissue failures → <strong>produce</strong> the integrated clinical MEHMO phenotype; severity scales with residual eIF2γ function.</li>
+</ol>
+<h3>Detail by category</h3>
+<p><strong>Molecular pathway.</strong> The eIF2 ternary-complex / ISR axis is the central pathway. eIF2 is the GTPase that delivers Met-tRNAi to the 40S ribosome; its activity is recycled by the GEF <strong>eIF2B</strong>. ISR signaling phosphorylates eIF2α, converting eIF2 from substrate to inhibitor of eIF2B. In MEHMO, the lesion is in eIF2γ itself, lowering functional ternary complex and mimicking a chronically "stressed" translational state.</p>
+<p><strong>Biochemical defect.</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/30517694/">PMID: 30517694</a>): <em>"we propose that the I259M mutation impairs Met-tRNAiMet binding, causing altered control of protein synthesis that underlies MEHMO syndrome"</em> — and tRNAiMet overexpression rescues the yeast defect. For the C-terminal variant (<a href="https://pubmed.ncbi.nlm.nih.gov/31836389/">PMID: 31836389</a>): <em>"a mutation at the C terminus of eIF2γ impairs CDC123 promotion of eIF2 complex formation and decreases the level of eIF2-GTP-Met-tRNA."</em></p>
+<p><strong>Protein dysfunction / structure.</strong> eIF2γ (P41091) contains a G-domain with <strong>switch 1/switch 2</strong> regions and domains II/III that form the Met-tRNAi binding site; conformational changes couple GTP/GDP state to tRNA affinity and start-codon fidelity (<a href="https://pubmed.ncbi.nlm.nih.gov/18000047/">PMID: 18000047</a>): <em>"how the two-switch regions involved in formation of the tRNA-binding site on subunit gamma exchange conformational information with alpha and beta."</em> MEHMO missense variants localize to the <em>"highly conserved guanine nucleotide binding domain"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32799315/">PMID: 32799315</a>), while the C-terminal truncation disrupts the Cdc123-interacting domain 3 (<a href="https://pubmed.ncbi.nlm.nih.gov/37507029/">PMID: 37507029</a>).</p>
+<p><strong>Cellular processes.</strong> Dysregulated translation initiation, ISR/CHOP-mediated stress, and increased neuronal cell death (<a href="http://purl.obolibrary.org/obo/GO_0006417" target="_blank" rel="noopener noreferrer">GO:0006417</a> regulation of translation; <a href="http://purl.obolibrary.org/obo/GO_0140467" target="_blank" rel="noopener noreferrer">GO:0140467</a> integrated stress response signaling; <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> apoptotic process — though zebrafish β-cell loss was <em>not</em> apoptotic).</p>
+<p><strong>Metabolic changes.</strong> Glucose homeostasis is centrally disrupted (hypoglycemia → hyperglycemia/diabetes), reflecting pancreatic endocrine failure rather than a primary enzymopathy.</p>
+<p><strong>Immune involvement.</strong> An intrinsic immunologic phenotype produces recurrent infections responsive to immunoglobulin, despite grossly normal baseline immunoglobulin levels.</p>
+<p><strong>Suggested ontology terms.</strong> <a href="http://purl.obolibrary.org/obo/GO_0006413" target="_blank" rel="noopener noreferrer">GO:0006413</a> (translational initiation), <a href="http://purl.obolibrary.org/obo/GO_0140467" target="_blank" rel="noopener noreferrer">GO:0140467</a> (integrated stress response signaling), <a href="http://purl.obolibrary.org/obo/GO_0043022" target="_blank" rel="noopener noreferrer">GO:0043022</a> (ribosome binding); <a href="http://purl.obolibrary.org/obo/CL_0000169" target="_blank" rel="noopener noreferrer">CL:0000169</a> (type B pancreatic/β cell), <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a> (neuron), <a href="http://purl.obolibrary.org/obo/CL_0000659" target="_blank" rel="noopener noreferrer">CL:0000659</a> (pituitary hormone-secreting cell); <a href="http://purl.obolibrary.org/obo/CHEBI_15996" target="_blank" rel="noopener noreferrer">CHEBI:15996</a> (GTP), <a href="http://purl.obolibrary.org/obo/CHEBI_17659" target="_blank" rel="noopener noreferrer">CHEBI:17659</a> (GDP).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organs:</strong> Brain (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>), pancreas — endocrine islets (<a href="http://purl.obolibrary.org/obo/UBERON_0000006" target="_blank" rel="noopener noreferrer">UBERON:0000006</a>), pituitary gland (<a href="http://purl.obolibrary.org/obo/UBERON_0000007" target="_blank" rel="noopener noreferrer">UBERON:0000007</a>).</li>
+<li><strong>Secondary / systems:</strong> Endocrine system (thyroid axis, gonadal axis), reproductive organs (external genitalia — micropenis, cryptorchid testes), immune system.</li>
+<li><strong>Body systems:</strong> Nervous, endocrine, reproductive, metabolic, and immune.</li>
+<li><strong>Tissue / cell level:</strong> Nervous tissue (neurons, <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a>), pancreatic β cells and progenitors (<a href="http://purl.obolibrary.org/obo/CL_0000169" target="_blank" rel="noopener noreferrer">CL:0000169</a>), pituitary hormone-secreting cells (<a href="http://purl.obolibrary.org/obo/CL_0000659" target="_blank" rel="noopener noreferrer">CL:0000659</a>).</li>
+<li><strong>Subcellular level:</strong> Cytoplasmic translation machinery — the eIF2 ternary complex and 43S preinitiation complex (<a href="http://purl.obolibrary.org/obo/GO_0005850" target="_blank" rel="noopener noreferrer">GO:0005850</a> eukaryotic translation initiation factor 2 complex; <a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" rel="noopener noreferrer">GO:0005829</a> cytosol).</li>
+<li><strong>Localization / lateralization:</strong> Bilateral, symmetric central nervous system and systemic involvement; no lateralization.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Congenital/neonatal. Structural features (microcephaly, hypogenitalism) present at birth; neonatal hypoglycemia is an early sign.</li>
+<li><strong>Onset pattern:</strong> Chronic with an evolving endocrine course.</li>
+<li><strong>Progression:</strong> The endocrine phenotype is <strong>progressive</strong> — neonatal hypoglycemia evolves into early-onset insulin-dependent diabetes, with gradual decline of pituitary peptide-hormone secretion producing hypopituitarism (<a href="https://pubmed.ncbi.nlm.nih.gov/29303605/">PMID: 29303605</a>): <em>"neonatal hypoglycemia followed by early-onset diabetes and hypopituitarism may be a consistent part of the MEHMO phenotype."</em></li>
+<li><strong>Course:</strong> Chronic, lifelong; severe cases carry high early-childhood mortality.</li>
+<li><strong>Critical period / window:</strong> The perinatal/early-childhood window — when the brain and endocrine pancreas are developing — is the period of greatest vulnerability and the plausible window for mechanism-based intervention.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> <strong>X-linked recessive</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33714664/">PMID: 33714664</a>): <em>"caused by a hemizygous variant in the EIF2S3 gene on chromosome Xp22."</em> Affected individuals are males; carrier females are usually asymptomatic or mildly affected depending on X-inactivation skewing.</li>
+<li><strong>Penetrance / expressivity:</strong> High penetrance in hemizygous males but <strong>variable expressivity</strong>, strongly governed by the specific variant (genotype–phenotype correlation).</li>
+<li><strong>Epidemiology:</strong> Ultra-rare; prevalence not formally established (fewer than ~a few dozen families reported worldwide). Exact incidence/prevalence per 100,000 is <strong>not available</strong>.</li>
+<li><strong>Sex ratio:</strong> Strongly male-predominant due to X-linked recessive inheritance.</li>
+<li><strong>Founder effects / consanguinity:</strong> No established founder mutation; the p.Ile465Serfs*4 is recurrent across unrelated families, suggesting a mutational hotspot rather than a founder haplotype.</li>
+<li><strong>Carrier frequency / geographic distribution:</strong> Not defined given rarity; cases reported across multiple populations.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Genetic testing (definitive).</strong> Diagnosis rests on identifying a pathogenic <em>EIF2S3</em> variant. <strong>Exome sequencing</strong> is the usual route (<a href="https://pubmed.ncbi.nlm.nih.gov/34999262/">PMID: 34999262</a>): <em>"In most cases, DNA diagnostics of MEHMO syndrome is performed using exome sequencing."</em> <strong>mRNA/RNA analysis</strong> of <em>EIF2S3</em> is a cost-effective complement that detects coding variants, splicing defects, and allelic imbalance, and in one study revealed the novel c.820C&gt;G variant. Targeted single-gene testing and X-linked intellectual disability gene panels including <em>EIF2S3</em> are also appropriate; WGS is useful when exome is negative.</p>
+<p><strong>Functional confirmation.</strong> Pathogenicity is supported by functional assays — yeast complementation, patient-fibroblast/iPSC ternary-complex and ISR readouts, and a molecular biomarker: <strong>elevated DDIT3/CHOP transcript</strong> in patient cells (<a href="https://pubmed.ncbi.nlm.nih.gov/34999262/">PMID: 34999262</a>).</p>
+<p><strong>Laboratory / clinical workup.</strong> Glucose monitoring (neonatal hypoglycemia; later hyperglycemia/diabetes), pituitary hormone panel (TSH/free T4 for central hypothyroidism, gonadotropins, growth hormone axis), and immunologic evaluation. Brain imaging documents microcephaly; EEG characterizes seizures.</p>
+<p><strong>Differential diagnosis.</strong> Other X-linked intellectual disability syndromes, syndromic congenital hypopituitarism, neonatal/infancy-onset diabetes syndromes, and other eIF2-pathway neuroendocrinopathies. The combination of the acronymic features plus the hypoglycemia→diabetes→hypopituitarism trajectory and an <em>EIF2S3</em> variant is distinguishing.</p>
+<p><strong>Screening.</strong> Cascade carrier testing of at-risk female relatives once a familial variant is identified; prenatal/preimplantation testing is feasible in known families. No population newborn screen exists.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Prognosis is guarded</strong>, particularly for the severe truncating genotype. Reported complications include refractory epilepsy, insulin-dependent diabetes, multi-hormone pituitary failure, recurrent infections, and — in one case on a ketogenic diet — <strong>fatal acute necrotizing pancreatitis</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33714664/">PMID: 33714664</a>). Severe cases carry substantial early-childhood mortality; milder missense genotypes survive longer with variable disability. Formal survival rates, life expectancy, and mortality statistics are <strong>not available</strong> given the rarity and heterogeneity of cases.</p>
+<p><strong>Morbidity</strong> is dominated by profound intellectual disability, epilepsy, and endocrine failure, producing lifelong functional dependence. <strong>Prognostic factor:</strong> residual eIF2γ function (and hence variant type) is the strongest predictor of severity — truncating p.Ile465Serfs*4 predicts the full severe phenotype, missense variants predict milder courses.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p>There is <strong>no disease-modifying therapy</strong>; management is supportive and multidisciplinary.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Intervention</th>
+<th>Evidence / Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Epilepsy</td>
+<td>Anticonvulsants; ketogenic diet with <strong>caution</strong></td>
+<td>Ketogenic diet controlled seizures/diabetes but preceded fatal pancreatitis (<a href="https://pubmed.ncbi.nlm.nih.gov/33714664/">PMID: 33714664</a>)</td>
+</tr>
+<tr>
+<td>Diabetes</td>
+<td>Insulin</td>
+<td>Standard for insulin-dependent diabetes</td>
+</tr>
+<tr>
+<td>Hypopituitarism</td>
+<td>Hormone replacement (thyroid, GH, sex steroids as indicated)</td>
+<td>Supportive</td>
+</tr>
+<tr>
+<td>Recurrent infections</td>
+<td>Subcutaneous immunoglobulin</td>
+<td>Reduced infection frequency <strong>54.5%</strong> (CI 33.2–89.7, p=0.017, Poisson) (<a href="https://pubmed.ncbi.nlm.nih.gov/32901502/">PMID: 32901502</a>)</td>
+</tr>
+<tr>
+<td>Nutrition / growth</td>
+<td>Supportive feeding, metabolic monitoring</td>
+<td>Hypoglycemia management</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Quantitative immunoglobulin evidence</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/32901502/">PMID: 32901502</a>): <em>"On subcutaneous immunoglobulin therapy achieving supra-physiological IgG levels the frequency of infections significantly decreased in Poisson regression by 54.5 % (CI 33.2-89.7, p=0.017)."</em></p>
+<p><strong>Experimental / mechanism-based therapeutics.</strong>
+- <strong>ISRIB</strong> (small-molecule eIF2B activator) restored eIF2 function and ternary complex in patient-derived iPSCs carrying the C-terminal variant (<a href="https://pubmed.ncbi.nlm.nih.gov/31836389/">PMID: 31836389</a>). Its mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/25875391/">PMID: 25875391</a>): <em>"ISRIB, a potent drug-like small molecule, renders cells insensitive to eIF2α phosphorylation and enhances cognitive function in rodents."</em> Structurally, it <em>"acts as a molecular staple, pinning together tetrameric subcomplexes of eIF2B"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31550413/">PMID: 31550413</a>).
+- <strong>Initiator tRNAiMet augmentation</strong> rescued the yeast growth defect (<a href="https://pubmed.ncbi.nlm.nih.gov/30517694/">PMID: 30517694</a>), a conceptual therapeutic avenue.
+- <strong>Caveat:</strong> ISR modulation is context-dependent and potentially harmful — in an SOD1 ALS mouse model, pharmacological ISR inhibition accelerated motor-neuron loss (<a href="https://pubmed.ncbi.nlm.nih.gov/37823684/">PMID: 37823684</a>): <em>"ISR stimulation and inhibition prevented ALS neurodegeneration; however, which mode of ISR regulation would work in patients is still debated."</em> This mandates caution before clinical translation to MEHMO.</p>
+<p><strong>Suggested NCIT terms:</strong> Insulin therapy, Immunoglobulin therapy, Anticonvulsant agent, Hormone replacement therapy.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p>Primary prevention of the underlying genetic disorder is not possible, but reproductive and secondary measures apply:
+- <strong>Genetic counseling</strong> for families with an identified <em>EIF2S3</em> variant (X-linked recessive recurrence risks).
+- <strong>Carrier / cascade testing</strong> of at-risk female relatives.
+- <strong>Prenatal diagnosis and preimplantation genetic testing</strong> for known familial variants.
+- <strong>Tertiary prevention</strong> of complications: vigilant glucose monitoring to prevent hypoglycemic brain injury, hormone replacement to prevent sequelae of pituitary failure, immunoglobulin to reduce infection burden, and <strong>avoidance/careful use of ketogenic diet</strong> given pancreatitis risk.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>No naturally occurring MEHMO-equivalent disease has been described in companion animals or wildlife. The gene is deeply conserved: <em>EIF2S3</em> orthologs exist across eukaryotes (human <strong>EIF2S3</strong>; mouse <em>Eif2s3x/Eif2s3y</em>; zebrafish <em>eif2s3</em>; yeast ortholog <strong>GCD11</strong>), and archaeal aIF2γ structures have informed the human mechanism. The eIF2 translation-initiation machinery is among the most evolutionarily conserved cellular systems, so disease mechanisms are experimentally transferable across species (yeast complementation, zebrafish models). No zoonotic or cross-species transmission applies (non-infectious genetic disease). <strong>NCBI Taxonomy:</strong> <em>Homo sapiens</em> (9606); models include <em>Danio rerio</em> (7955) and <em>Saccharomyces cerevisiae</em> (4932).</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Key findings</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Yeast</strong> (<em>S. cerevisiae</em>, GCD11)</td>
+<td>Cellular/genetic</td>
+<td>eIF2γ-I318M (human I259M) impairs Met-tRNAi binding, derepresses GCN4, increases non-AUG initiation; tRNAiMet overexpression rescues growth</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30517694/">PMID: 30517694</a></td>
+</tr>
+<tr>
+<td><strong>Zebrafish</strong> (<em>eif2s3</em> CRISPR KO)</td>
+<td>Vertebrate in vivo</td>
+<td>Recapitulates microcephaly with increased neuronal cell death; hyperglycemia from β-cell/pancreatic-progenitor deficiency (not apoptosis)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33942450/">PMID: 33942450</a></td>
+</tr>
+<tr>
+<td><strong>Patient fibroblasts / iPSCs</strong></td>
+<td>In vitro human</td>
+<td>Demonstrate impaired eIF2 function, reduced ternary complex, elevated DDIT3/CHOP; ISRIB rescues</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31836389/">PMID: 31836389</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/34999262/">PMID: 34999262</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Phenotype recapitulation.</strong> The zebrafish model captures two core MEHMO features — <strong>microcephaly (via neuronal cell death)</strong> and <strong>glucose dysregulation (via β-cell/progenitor deficiency)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33942450/">PMID: 33942450</a>): <em>"Abnormal high glucose levels were identified in mutant embryos, caused by beta cell and pancreatic progenitor deficiency, not related to apoptosis."</em> <strong>Limitations:</strong> no single model reproduces the full multisystem syndrome (hypogonadism, obesity, hypopituitarism, intellectual disability are not all captured), and the essentiality of eIF2γ constrains complete-knockout modeling. <strong>Resources:</strong> ZFIN (zebrafish), SGD (yeast), Cellosaurus (patient iPSC/fibroblast lines).</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>   EIF2S3 variant (Xp22.11)
+   |-- truncating p.Ile465Serfs*4 --&gt; disrupts CDC123-binding (domain 3)
+   |                                   `-&gt; defective eIF2 heterotrimer ASSEMBLY
+   `-- missense (e.g., p.Ile259Met) --&gt; perturbs G-domain switch / tRNA site
+                        `-&gt; impaired Met-tRNAi BINDING
+        |
+        v
+      v  eIF2.GTP.Met-tRNAi  TERNARY COMPLEX
+        |
+  +-------------+-------------+
+  v                           v
+  v cap-dependent initiation   chronic ISR activation
+  + aberrant non-AUG start     (^ ATF4/GCN4, ^ DDIT3/CHOP)
+  |                           |
+  +-------------+-------------+
+        v
+Injury to translation-dependent tissues
+  |-&gt; BRAIN: neuronal death -&gt; microcephaly, ID, epilepsy
+  |-&gt; PANCREAS: beta-cell/progenitor loss -&gt; hypoglycemia -&gt; diabetes
+  `-&gt; PITUITARY: v hormone secretion -&gt; hypopituitarism
+        |
+        v
+  Integrated MEHMO phenotype
+   (severity proportional to residual eIF2-gamma function)
+</code></pre>
+<p>The model is internally coherent and bridges biochemistry (yeast, iPSC), structure (eIF2γ switch/tRNA surfaces, Cdc123 crystal structure), and in-vivo phenotype (zebrafish). The two upstream biochemical branches (assembly defect vs. tRNA-binding defect) converge on a single downstream node — reduced ternary complex / heightened ISR — which then fans out to the affected tissues. This convergence explains why phenotypically similar disease arises from mechanistically distinct variant classes, and why severity tracks with residual function rather than variant location alone.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Role</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28055140/">28055140</a></td>
+<td>Supports</td>
+<td>Establishes <em>EIF2S3</em> as causal gene; p.Ile465Serfs*4 + p.Ser108Arg; genotype–severity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41207135/">41207135</a></td>
+<td>Supports</td>
+<td>Reclassification as eIF2-related neuroendocrinopathy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30517694/">30517694</a></td>
+<td>Supports</td>
+<td>Core defect: I259M impairs Met-tRNAi binding; tRNAiMet rescue</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31836389/">31836389</a></td>
+<td>Supports</td>
+<td>C-terminal variant impairs CDC123 assembly; ISRIB rescue in iPSCs</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37507029/">37507029</a></td>
+<td>Supports</td>
+<td>Crystal structure of human Cdc123–eIF2γ; MEHMO mutations affect assembly</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29303605/">29303605</a></td>
+<td>Supports</td>
+<td>Endocrine trajectory: hypoglycemia → diabetes → hypopituitarism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33942450/">33942450</a></td>
+<td>Supports</td>
+<td>Zebrafish model: microcephaly + β-cell deficiency hyperglycemia</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33714664/">33714664</a></td>
+<td>Supports/Caveat</td>
+<td>Confirms acronym &amp; X-linkage; ketogenic diet → fatal pancreatitis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32799315/">32799315</a></td>
+<td>Supports</td>
+<td>Novel missense variants; variable expressivity; conserved G-domain</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34999262/">34999262</a></td>
+<td>Supports</td>
+<td>mRNA diagnostics; novel c.820C&gt;G; elevated DDIT3 biomarker</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32901502/">32901502</a></td>
+<td>Supports</td>
+<td>Quantitative immunoglobulin benefit (54.5% infection reduction)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35765291/">35765291</a></td>
+<td>Supports</td>
+<td>Recurrent p.Ile465Serfs*4 in two brothers; phenotype expansion</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18000047/">18000047</a></td>
+<td>Supports</td>
+<td>eIF2γ switch regions form tRNA-binding site (structural basis)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25875391/">25875391</a></td>
+<td>Supports</td>
+<td>ISRIB mechanism: eIF2B activation restores translation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31550413/">31550413</a></td>
+<td>Supports</td>
+<td>ISRIB "molecular staple" structure on eIF2B</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29489452/">29489452</a></td>
+<td>Supports</td>
+<td>ISRIB rescues eIF2B mutant complexes (VWMD) — proof of concept</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37823684/">37823684</a></td>
+<td>Challenges/Caveat</td>
+<td>ISR inhibition harmful in ALS model — context-dependence caveat</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23291527/">23291527</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/30988256/">30988256</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/17825838/">17825838</a></td>
+<td>Supports</td>
+<td>Archaeal aIF2γ structures: tRNA binding, switch 3, GTP/GDP states</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21854064/">21854064</a></td>
+<td>Context</td>
+<td>eIF2γ phosphosites in switch/nucleotide-binding domains</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30954456/">30954456</a></td>
+<td>Context</td>
+<td>Brain–pituitary–pancreas link in MEHMO</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ul>
+<li><strong>Epidemiology undefined.</strong> No reliable prevalence, incidence, survival, or life-expectancy figures exist; the evidence base is small case reports/series, limiting generalizability.</li>
+<li><strong>Genotype–phenotype resolution.</strong> While truncating-vs-missense severity correlation is clear, the quantitative relationship between specific residual eIF2γ activity and individual phenotype features (e.g., which patients develop obesity vs. diabetes) is not fully mapped.</li>
+<li><strong>Modifier genes and X-inactivation.</strong> The contribution of X-inactivation skewing and genetic modifiers to variable expressivity is inferred but not systematically studied.</li>
+<li><strong>No complete animal model.</strong> No single model recapitulates the full multisystem syndrome; eIF2γ essentiality complicates knockout approaches.</li>
+<li><strong>Therapeutics unproven in patients.</strong> ISRIB and tRNAiMet augmentation are in-vitro/model-stage only; the ALS data show ISR modulation can be harmful, so human efficacy and safety are unknown.</li>
+<li><strong>Mechanistic inference.</strong> The brain/pituitary/pancreas tissue-injury steps are partly inferred from a single zebrafish model and clinical correlation rather than directly demonstrated human tissue mechanism.</li>
+</ul>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Establish an international MEHMO patient registry</strong> to generate prevalence, natural-history, mortality, and genotype–phenotype data with adequate power.</li>
+<li><strong>Systematic variant functional calibration:</strong> quantify residual ternary-complex formation / ISR activation for each reported <em>EIF2S3</em> variant in a uniform iPSC or cell-free assay and correlate with clinical severity scores.</li>
+<li><strong>Patient-iPSC–derived organoids</strong> (brain, pancreatic islet, pituitary) to directly test the inferred tissue-injury branches of the causal chain and the ISR/CHOP axis in human cells.</li>
+<li><strong>Preclinical ISRIB (and tRNAiMet augmentation) efficacy/safety studies</strong> in the zebrafish <em>eif2s3</em> model and patient-derived systems, explicitly testing for the context-dependent harms flagged by the ALS data before any clinical consideration.</li>
+<li><strong>Biomarker validation:</strong> assess DDIT3/CHOP and ISR-target transcripts as diagnostic/therapeutic-response biomarkers across a patient cohort.</li>
+<li><strong>Dietary-risk study:</strong> characterize pancreatic vulnerability mechanistically to define whether ketogenic diet is contraindicated in MEHMO and identify safer anticonvulsant strategies.</li>
+<li><strong>X-inactivation and carrier-female phenotyping</strong> to clarify modifier effects and improve genetic counseling.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 7 confirmed findings across 22 reviewed papers over 5 investigation iterations. Evidence types span human clinical case reports, yeast and zebrafish model organisms, patient-derived in-vitro systems, and structural/computational studies.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/MEHMO_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/MEHMO_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>22</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>8</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0000055</code> (1 mention) - the report calls it "Hypogonadism / micropenis"; HP calls it <strong>Abnormal female external genitalia morphology</strong></li>
+<li><code>UBERON:0000955</code> (1 mention) - the report calls it "Primary organs:<strong> Brain"; UBERON calls it </strong>brain**</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>MONDO:0010258</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>MEHMO syndrome</strong></li>
+<li><code>HP:0001250</code> (1 mention) - the report calls it "Epileptic seizures"; HP calls it <strong>Seizure</strong>, and lists "Epileptic seizure" among its other names</li>
+<li><code>HP:0000028</code> (1 mention) - the report calls it "Hypogenitalism / cryptorchidism"; HP calls it <strong>Cryptorchidism</strong></li>
+<li><code>HP:0100651</code> (1 mention) - the report calls it "Insulin-dependent diabetes"; HP calls it <strong>Type I diabetes mellitus</strong>, and lists "Insulin-dependent diabetes mellitus" among its other names</li>
+<li><code>HP:0001270</code> (1 mention) - the report calls it "Developmental/motor delay"; HP calls it <strong>Motor delay</strong>, and lists "Motor developmental delay" among its other names</li>
+<li><code>CL:0000169</code> (2 mentions) - the report calls it "type B pancreatic/β cell"; CL calls it <strong>type B pancreatic cell</strong></li>
+<li><code>CL:0000659</code> (2 mentions) - the report calls it "pituitary hormone-secreting cell"; CL calls it <strong>eggshell secreting cell</strong></li>
+<li><code>CHEBI:17659</code> (1 mention) - the report calls it "GDP"; CHEBI calls it <strong>UDP</strong></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="MEGF8-Related_Carpenter_Syndrome-perplexity.html">← MEGF8-related Carpenter Syndrome (Perplexity)</a>
+                
+                
+                <a href="Meier-Gorlin_Syndrome-falcon.html">Meier-Gorlin syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/MEHMO_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/MEHMO_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
