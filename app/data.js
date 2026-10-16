@@ -12599,6 +12599,90 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "Acrokeratosis Verruciformis",
+    "disease_id": "MONDO:0007048",
+    "category": "Mendelian",
+    "parents": [
+      "Genodermatosis",
+      "keratinizing disorder"
+    ],
+    "creation_date": "2026-10-15T23:02:32Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Acrokeratosis verruciformis of Hopf (AKV) is a rare autosomal dominant genodermatosis of keratinization in which flat, skin-coloured, wart-like keratotic papules develop on the dorsa of the hands and feet, usually from early childhood, and persist without spontaneous regression. Familial AKV is caused by a recurrent heterozygous ATP2A2 missense variant, p.(Pro602Leu), in the ATP-binding domain of SERCA2, the sarco/endoplasmic reticulum calcium pump that is also mutated in Darier disease; the mutant pump has lost calcium transport activity. AKV is therefore allelic with Darier disease, but the two differ in phenotype: AKV spares the seborrheic areas, and its histology is a well-circumscribed verrucous epidermal hyperplasia with orthokeratotic hyperkeratosis, hypergranulosis, acanthosis and church-spire papillomatosis, without the suprabasal acantholysis and dyskeratosis that define Darier disease. Whether AKV is a distinct entity or a limited acral expression of Darier disease remains debated: AKV-like acral papules are common in Darier patients, the two conditions coexist in some individuals, and focal acantholysis has been found on step sectioning of AKV lesions, whereas some AKV families show no ATP2A2 variant and no linkage to its locus. The course is chronic and benign, with rare squamous cell carcinoma in longstanding lesions, and treatment is cosmetic and of modest benefit.",
+    "pathophysiology": [
+      "ATP2A2 Pro602Leu Loss of SERCA2 Calcium Transport",
+      "Disturbed Endoplasmic Reticulum Calcium Homeostasis in Acral Keratinocytes",
+      "Abnormal Keratinocyte Differentiation with Verrucous Epidermal Hyperplasia",
+      "Focal Suprabasal Acantholysis with Mild Dyskeratosis"
+    ],
+    "cell_types": [
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "endoplasmic reticulum calcium ion homeostasis",
+      "keratinocyte differentiation",
+      "keratinization",
+      "cell-cell adhesion"
+    ],
+    "phenotypes": [
+      "Acral Verrucous Papules",
+      "Punctate Palmoplantar Keratoses",
+      "Nail Dystrophy",
+      "Leukonychia",
+      "Hyperkeratosis",
+      "Hypergranulosis",
+      "Epidermal Acanthosis",
+      "Squamous Cell Carcinoma in Longstanding Lesions"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Histopathologic",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Integument",
+      "Limbs",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0200016",
+      "HP:0007530",
+      "HP:0008404",
+      "HP:0001820",
+      "HP:0000962",
+      "HP:0025114",
+      "HP:0025092",
+      "HP:0006739"
+    ],
+    "frequencies": [
+      "VERY_RARE"
+    ],
+    "genes": [
+      "ATP2A2"
+    ],
+    "treatments": [
+      "Superficial ablation",
+      "Cryotherapy",
+      "Systemic retinoids",
+      "Topical keratolytics and retinoids",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Acrokeratosis_Verruciformis.yaml",
+    "page_url": "../pages/disorders/Acrokeratosis_Verruciformis.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Acromesomelic Dysplasia Demirhan Type",
     "disease_id": "MONDO:0012274",
     "category": "Mendelian",
@@ -57798,6 +57882,80 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "36",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Brachydactyly-Syndactyly Syndrome",
+    "disease_id": "MONDO:0012544",
+    "category": "Mendelian",
+    "parents": [
+      "Limb Development Disorders"
+    ],
+    "creation_date": "2026-10-15T23:02:53Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Brachydactyly-syndactyly syndrome (BDSD; OMIM 610713) is an autosomal dominant limb malformation of hands and feet in which brachydactyly type A4 (short middle phalanges of the second and fifth fingers, absent middle phalanges of the second to fifth toes) is combined with mild cutaneous syndactyly of the second and third toes, and with frequent shortening of the fifth metacarpals and metatarsals. The hand features overlap brachydactyly types A4, D and E. It was defined in a single large Han Chinese family in which the phenotype co-segregated with a 21 bp in-frame deletion in the imperfect GCN repeat of HOXD13 exon 1, contracting the N-terminal polyalanine tract by seven residues. HOXD13 is the most 5' gene of the HOXD cluster and a homeodomain transcription factor that patterns the autopod, and BDSD is one of the HOXD13 limb morphopathies: polyalanine expansions of the same tract cause synpolydactyly, homeodomain missense substitutions are associated with brachydactyly types D and E and with syndactyly type V. How a contraction, rather than an expansion, alters digit patterning has not been established.",
+    "pathophysiology": [
+      "HOXD13 Polyalanine Tract Contraction",
+      "Disturbed HOXD13-Directed Autopod Patterning",
+      "Serially Homologous Short Digits with Toe Syndactyly"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "Embryonic Digit Morphogenesis",
+      "Limb Morphogenesis"
+    ],
+    "phenotypes": [
+      "Type A4 Brachydactyly",
+      "Short Middle Phalanx of the Second Finger",
+      "Short Middle Phalanx of the Fifth Finger",
+      "Absent Middle Phalanges of the Toes",
+      "2-3 Toe Syndactyly",
+      "Short Fifth Metacarpal",
+      "Short Fifth Metatarsal",
+      "Hallux Valgus",
+      "Finger Symphalangism",
+      "Type D Brachydactyly Features",
+      "Type E Brachydactyly Features"
+    ],
+    "phenotype_categories": [
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0031043",
+      "HP:0009577",
+      "HP:0004220",
+      "HP:0100387",
+      "HP:0004691",
+      "HP:0010047",
+      "HP:0004704",
+      "HP:0001822",
+      "HP:0009700",
+      "HP:0005627",
+      "HP:0005863"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "HOXD13"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Brachydactyly-Syndactyly_Syndrome.yaml",
+    "page_url": "../pages/disorders/Brachydactyly-Syndactyly_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Brachydactyly Type A1",
@@ -136968,6 +137126,78 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Familial Erythrocytosis 5",
+    "disease_id": "MONDO:0033483",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary Erythrocytosis",
+      "Congenital Secondary Erythrocytosis"
+    ],
+    "creation_date": "2026-10-15T17:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Familial erythrocytosis 5 (ECYT5) is an autosomal dominant erythrocytosis caused by germline variants in EPO, the gene encoding erythropoietin itself. It is the form of hereditary erythrocytosis in which the lesion sits in the hormone rather than in its receptor (ECYT1, EPOR) or in the oxygen-sensing machinery that controls EPO transcription (VHL, EGLN1 and EPAS1). Two classes of EPO variant have been reported and they reach the same endpoint by different molecular routes. A single-nucleotide deletion in exon 2 (c.32delG) interrupts translation of the canonical EPO transcript but shifts the reading frame of a normally noncoding transcript initiated from an alternative promoter in intron 1, so that this second transcript starts to produce biologically active erythropoietin; a neighboring exon 2 deletion, c.19delC, behaves the same way when tested in transfected cells. Separately, noncoding variants in the EPO promoter and in intron 1 act on regulatory elements that are strongly hypoxia responsive, raising EPO transcription and yielding circulating erythropoietin with a hepatic rather than renal glycosylation pattern and with increased erythropoietin receptor signaling activity in vitro. In both routes the shared downstream path is excess or hyperactive erythropoietin acting on EPOR on erythroid progenitors, increased erythroid output and a raised red cell mass, presenting as a longstanding isolated erythrocytosis with high hematocrit and hemoglobin and, in the kindred where this was looked for, without leukocytosis, thrombocytosis or splenomegaly. Serum erythropoietin is not a reliable discriminator here: in the reported noncoding-variant families it is low to normal, or only moderately raised for the degree of erythrocytosis, so a concentration that is inappropriately normal rather than frankly elevated is what points to the diagnosis. Reported management is repeated phlebotomy; current guidance for JAK2-unmutated erythrocytosis in general is phlebotomy for symptom control with cytoreductive therapy avoided, alongside low-dose aspirin and cardiovascular risk reduction.",
+    "pathophysiology": [
+      "EPO Exon 2 Frameshift Deletion",
+      "EPO Noncoding Regulatory Variant",
+      "Translation of Erythropoietin from the Intron 1 P2 Transcript",
+      "Increased EPO Transcription from Hypoxia-Responsive Regulatory Elements",
+      "Hepatic-Type Erythropoietin Glycosylation",
+      "Excess Bioactive Circulating Erythropoietin",
+      "Increased Erythropoietin Receptor Signaling in Erythroid Progenitors",
+      "Increased Erythroid Output",
+      "Increased Red Cell Mass"
+    ],
+    "cell_types": [
+      "hepatocyte-like erythropoietin-producing cell",
+      "erythroid progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000038"
+    ],
+    "biological_processes": [
+      "translation of erythropoietin from the alternative P2 transcript",
+      "EPO transcription from a variant cis-regulatory element",
+      "erythropoietin-mediated signaling pathway",
+      "erythrocyte differentiation"
+    ],
+    "phenotypes": [
+      "Polycythemia",
+      "Increased Hematocrit",
+      "Increased Circulating Hemoglobin Concentration"
+    ],
+    "phenotype_categories": [
+      "Hematological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood"
+    ],
+    "phenotype_ids": [
+      "HP:0001901",
+      "HP:0001899",
+      "HP:0001900"
+    ],
+    "frequencies": [],
+    "genes": [
+      "EPO variants"
+    ],
+    "treatments": [
+      "Therapeutic phlebotomy",
+      "Low-dose aspirin and cardiovascular risk reduction"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Erythrocytosis_Familial_5.yaml",
+    "page_url": "../pages/disorders/Familial_Erythrocytosis_5.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Erythrokeratodermia Variabilis",
     "disease_id": "MONDO:0017851",
     "category": "Mendelian",
@@ -147586,6 +147816,114 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "65",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Fetomaternal Alloimmune Thrombocytopenia 1",
+    "disease_id": "MONDO:0980723",
+    "category": "Complex",
+    "parents": [
+      "Fetal and neonatal alloimmune thrombocytopenia",
+      "Alloimmune disease of pregnancy",
+      "Fetal and neonatal disease"
+    ],
+    "creation_date": "2026-10-15T23:00:53Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Fetomaternal alloimmune thrombocytopenia 1 (FNAIT, type 1) is the HPA-1a arm of fetal and neonatal alloimmune thrombocytopenia, the platelet counterpart of hemolytic disease of the fetus and newborn. As in that disease, the causal lesion is not in the affected individual. A pregnant person who is HPA-1b/1b (platelet-antigen HPA-1a negative) is sensitized by fetal platelets carrying the paternally inherited HPA-1a antigen and makes IgG anti-HPA-1a, which crosses the placenta and destroys antigen-positive fetal and neonatal platelets while also suppressing their production. The result is fetal and neonatal thrombocytopenia whose most feared complication is intracranial hemorrhage.\nHPA-1a and HPA-1b are the two alleles of the HPA-1 system, defined by a single Leu33Pro substitution on the PSI domain of the integrin beta-3 subunit (ITGB3, platelet glycoprotein IIIa). Leu33 is HPA-1a. Because beta-3 pairs with alphaIIb on platelets and with alphaV on endothelial cells and trophoblast, the alloantibody repertoire is heterogeneous, and the fraction reactive with endothelial alphaV-beta3 is implicated in a second arm of injury to endothelium and angiogenesis that tracks with intracranial bleeding largely independently of the platelet count.\nImmunization is tightly restricted by the maternal class II allele HLA-DRB3*01:01, which presents the HPA-1a peptide to CD4+ T cells; women lacking it rarely immunize. This entry is the type-1 (anti-HPA-1a) member of the grouping concept fetal and neonatal alloimmune thrombocytopenia (MONDO:0019415). Alloimmunization against other human platelet antigens causes clinically related disease and is curated separately (the sibling FNAIT type 2, MONDO:0980724, and others); those HPA specificities are out of scope here.\n",
+    "pathophysiology": [
+      "Paternally Inherited HPA-1a Antigen on Fetal Platelet Integrin Beta-3",
+      "HLA-DRB3*01:01-Restricted Maternal Alloimmunization",
+      "Maternal Anti-HPA-1a IgG Alloantibody Production",
+      "Reduced Fc Core Fucosylation of Anti-HPA-1a IgG1",
+      "Transplacental Transfer of Maternal Anti-HPA-1a IgG",
+      "Opsonization and Accelerated Clearance of Fetal Platelets",
+      "Suppression of Fetal Megakaryopoiesis",
+      "Antiendothelial Injury and Impaired Angiogenesis",
+      "Chronic Placental Inflammation"
+    ],
+    "cell_types": [
+      "platelet",
+      "CD4-positive helper T cell",
+      "plasma cell",
+      "syncytiotrophoblast cell",
+      "macrophage",
+      "megakaryocyte",
+      "endothelial cell",
+      "trophoblast cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000233",
+      "CL:0000492",
+      "CL:0000786",
+      "CL:0000525",
+      "CL:0000235",
+      "CL:0000556",
+      "CL:0000115",
+      "CL:0000351"
+    ],
+    "biological_processes": [
+      "antigen processing and presentation of peptide antigen via MHC class II",
+      "humoral immune response mediated by circulating immunoglobulin",
+      "FcRn-mediated IgG transcytosis",
+      "opsonization",
+      "phagocytosis",
+      "negative regulation of megakaryocyte differentiation",
+      "apoptotic process",
+      "angiogenesis"
+    ],
+    "phenotypes": [
+      "Thrombocytopenia",
+      "Intracranial Hemorrhage",
+      "Non-Intracranial Bleeding",
+      "Petechiae",
+      "Fetal Growth Restriction",
+      "Neurodevelopmental Sequelae"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Neurologic",
+      "Dermatologic",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Growth",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001873",
+      "HP:0002170",
+      "HP:0001892",
+      "HP:0000967",
+      "HP:0001511",
+      "HP:0012759"
+    ],
+    "frequencies": [
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "ITGB3 (HPA-1 antigen locus)"
+    ],
+    "treatments": [
+      "Maternal Intravenous Immunoglobulin",
+      "Corticosteroids as adjunct to maternal IVIG",
+      "Neonatal Platelet Transfusion",
+      "Nipocalimab (FcRn blockade, investigational)",
+      "Anti-HPA-1a prophylaxis (RLYB212, investigational)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Fetomaternal_Alloimmune_Thrombocytopenia_1.yaml",
+    "page_url": "../pages/disorders/Fetomaternal_Alloimmune_Thrombocytopenia_1.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Fibrocartilaginous Embolism",
@@ -184473,6 +184811,92 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "13",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Hypomagnesemia, Seizures, and Intellectual Disability 2",
+    "disease_id": "MONDO:0020788",
+    "category": "Mendelian",
+    "parents": [
+      "Hypomagnesemia, Seizures, and Intellectual Disability"
+    ],
+    "creation_date": "2026-10-15T23:00:58Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypomagnesemia, seizures, and intellectual disability 2 (HOMGSMR2) is an autosomal dominant disorder caused by de novo heterozygous missense variants in ATP1A1, the gene for the catalytic alpha-1 subunit of the ubiquitous Na+,K+-ATPase. Affected infants present between the first week and the sixth month of life with generalized seizures, severe hypomagnesemia and renal magnesium wasting. The seizures persist after serum magnesium is corrected and resist antiseizure drugs, with repeated status epilepticus, and the children have global developmental delay and significant intellectual disability. The known disease variants (p.Leu302Arg, p.Gly303Arg, p.Met859Arg, p.Trp931Arg) each place an arginine in a membrane-spanning segment of the pump. In expression systems they reduce pump function and, in addition, carry a passive leak current that depolarizes the cell membrane. Depolarization of neurons is thought to lower the seizure threshold, and impaired pump function in the distal convoluted tubule is thought to reduce transcellular magnesium reabsorption.",
+    "pathophysiology": [
+      "ATP1A1 Transmembrane Arginine Substitution",
+      "Reduced Na+,K+-ATPase Pump Activity",
+      "Aberrant Passive Leak Current",
+      "Neuronal Membrane Depolarization",
+      "Neuronal Hyperexcitability and Hypersynchrony",
+      "Impaired Distal Convoluted Tubule Magnesium Reabsorption"
+    ],
+    "cell_types": [
+      "neuron",
+      "kidney distal convoluted tubule epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:1000849"
+    ],
+    "biological_processes": [
+      "membrane depolarization",
+      "action potential",
+      "magnesium ion transmembrane transport"
+    ],
+    "phenotypes": [
+      "Generalized-onset seizure",
+      "Status epilepticus",
+      "Epileptic encephalopathy",
+      "Hypomagnesemia",
+      "Renal magnesium wasting",
+      "Intellectual disability",
+      "Global developmental delay",
+      "Autistic behavior",
+      "Cerebral atrophy",
+      "Ventriculomegaly"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Metabolic",
+      "Renal",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002197",
+      "HP:0002133",
+      "HP:0200134",
+      "HP:0002917",
+      "HP:0005567",
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0000729",
+      "HP:0002059",
+      "HP:0002119"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ATP1A1"
+    ],
+    "treatments": [
+      "Magnesium supplementation",
+      "Antiseizure medication"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypomagnesemia_Seizures_And_Intellectual_Disability_2.yaml",
+    "page_url": "../pages/disorders/Hypomagnesemia,_Seizures,_and_Intellectual_Disability_2.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Hypomyelinating Leukodystrophy 10",
@@ -301282,6 +301706,139 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Pseudohypoaldosteronism Type IB2 Autosomal Recessive",
+    "disease_id": "MONDO:0859317",
+    "category": "Mendelian",
+    "parents": [
+      "Pseudohypoaldosteronism type 1",
+      "Autosomal recessive disease"
+    ],
+    "creation_date": "2026-10-15T23:00:53Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Pseudohypoaldosteronism type IB2 (PHA1B2) is the SCNN1B-related form of autosomal recessive, systemic (multi-organ) pseudohypoaldosteronism type 1. Biallelic loss-of-function variants in SCNN1B, which encodes the beta subunit of the amiloride-sensitive epithelial sodium channel (ENaC), abolish or severely reduce channel activity in every aldosterone-responsive epithelium. Failure of ENaC-mediated sodium reabsorption in the distal nephron causes renal salt wasting with hyponatremia, hypovolemia, and impaired potassium and hydrogen ion secretion, so affected infants present in the first weeks of life with vomiting, poor feeding, weight loss, dehydration, life-threatening hyperkalemia and metabolic acidosis despite markedly elevated renin and aldosterone and no response to mineralocorticoid therapy. Extra-renal ENaC loss adds salt loss through sweat, salivary glands and colon (elevated sweat electrolytes, miliaria-like rash) and, in the systemic PHA1 literature, excess airway surface liquid with recurrent chest symptoms. Unlike renal PHA1A, the systemic form does not remit and needs lifelong high-dose sodium chloride and bicarbonate with potassium-binding resins; dialysis may be needed for refractory hyperkalemia. The SCNN1A (PHA1B1) and SCNN1G (PHA1B3) forms share this mechanism and are separate MONDO concepts.",
+    "pathophysiology": [
+      "Biallelic SCNN1B loss of function",
+      "Distal nephron ENaC sodium reabsorption failure",
+      "Impaired distal potassium and hydrogen ion secretion",
+      "Extracellular volume depletion",
+      "Compensatory renin-angiotensin-aldosterone activation",
+      "Sweat duct sodium reabsorption failure",
+      "Colonic and salivary sodium absorption failure",
+      "Airway epithelial sodium absorption failure"
+    ],
+    "cell_types": [
+      "kidney collecting duct principal cell",
+      "epithelial cell of sweat gland",
+      "colon epithelial cell",
+      "bronchial epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:1001431",
+      "CL:1000448",
+      "CL:0011108",
+      "CL:0002328"
+    ],
+    "biological_processes": [
+      "renal sodium ion absorption",
+      "renal potassium excretion",
+      "sodium ion homeostasis",
+      "regulation of blood volume by renin-angiotensin",
+      "sodium ion transmembrane transport"
+    ],
+    "phenotypes": [
+      "Hyponatremia",
+      "Hyperkalemia",
+      "Metabolic acidosis",
+      "Renal salt wasting",
+      "Increased circulating renin concentration",
+      "Increased circulating aldosterone concentration",
+      "Dehydration",
+      "Hypotension",
+      "Vomiting",
+      "Feeding difficulties in infancy",
+      "Weight loss",
+      "Failure to thrive in infancy",
+      "Lethargy",
+      "Arrhythmia",
+      "Elevated sweat chloride",
+      "Miliaria-like skin rash",
+      "Wheezing",
+      "Cough",
+      "Recurrent upper and lower respiratory tract infections"
+    ],
+    "phenotype_categories": [
+      "Metabolic/Laboratory",
+      "Renal",
+      "Systemic",
+      "Cardiovascular",
+      "Gastrointestinal",
+      "Growth",
+      "Neurological",
+      "Integument",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002902",
+      "HP:0002153",
+      "HP:0001942",
+      "HP:0000127",
+      "HP:0000848",
+      "HP:0000859",
+      "HP:0001944",
+      "HP:0002615",
+      "HP:0002013",
+      "HP:0008872",
+      "HP:0001824",
+      "HP:0001531",
+      "HP:0001254",
+      "HP:0011675",
+      "HP:0012236",
+      "HP:0000988",
+      "HP:0030828",
+      "HP:0012735",
+      "HP:0200117"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "SCNN1B"
+    ],
+    "treatments": [
+      "High-dose sodium chloride supplementation",
+      "Sodium bicarbonate",
+      "Potassium-binding resin",
+      "Dialysis for refractory hyperkalemia",
+      "Mineralocorticoid and glucocorticoid replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Pseudohypoaldosteronism_Type_IB2_Autosomal_Recessive.yaml",
+    "page_url": "../pages/disorders/Pseudohypoaldosteronism_Type_IB2_Autosomal_Recessive.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Pseudohypoparathyroidism",
     "disease_id": "MONDO:0019992",
     "category": "Genetic",
@@ -376803,17 +377360,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3494,
+  "total_disorder_pages": 3500,
   "total_subtypes": 4750,
-  "total_disorders_and_subtypes": 8244,
-  "total_unique_evidence_sources": 52482,
-  "total_unique_publications": 48946,
+  "total_disorders_and_subtypes": 8250,
+  "total_unique_evidence_sources": 52574,
+  "total_unique_publications": 49035,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 302,
-  "total_pathographs": 3490,
-  "total_unique_pathological_events": 23055,
+  "total_pathographs": 3496,
+  "total_unique_pathological_events": 23092,
   "total_modules": 193,
-  "total_research_reports": 3616,
+  "total_research_reports": 3622,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
