@@ -892,6 +892,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#shared-disease_term-just-check-shared-disease-terms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared disease_term: just check-shared-disease-terms
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#adding-a-new-computed-metric" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -25841,6 +25852,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#shared-disease_term-just-check-shared-disease-terms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared disease_term: just check-shared-disease-terms
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#adding-a-new-computed-metric" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -26374,6 +26396,39 @@ the mechanical half of #10113 and #10116 as much as of this ladder; <code>--scop
 all</code> runs them KB-wide, where the umbrella-entry pattern (<code>Epilepsy</code> listing
 <code>Juvenile Myoclonic Epilepsy</code>, which has its own entry) makes them a backlog in
 the hundreds.</p>
+<h2 id="shared-disease_term-just-check-shared-disease-terms">Shared <code>disease_term</code>: <code>just check-shared-disease-terms</code></h2>
+<p>Two disorder entries can carry the same <code>disease_term</code> and pass every other
+gate. Sometimes that is deliberate: design decisions §3a lets a promoted cancer
+stratum (EGFR-mutant NSCLC) anchor to its parent's MONDO term when MONDO has no
+class for the stratum. Sometimes it is two curators who curated the same disease
+under different filenames, which is how #9618 nearly merged three duplicates.
+This check tells the two apart by requiring the deliberate case to say so
+(#10113):</p>
+<ul>
+<li>every entry sharing a <code>disease_term</code> has a <code>mappings.mondo_mappings</code> row for
+  that CURIE with <code>mapping_predicate</code> <code>skos:exactMatch</code> or <code>skos:narrowMatch</code>;</li>
+<li>at most one entry in the group says <code>skos:exactMatch</code>.</li>
+</ul>
+<p>A group where every entry says <code>skos:narrowMatch</code> is legal. It means the parent
+disease has no entry of its own yet, as with the five lung adenocarcinoma
+strata. An entry with no row is reported and is never treated as the exact
+match. <code>skos:closeMatch</code> or a misspelled predicate is reported too, since
+<code>mapping_predicate</code> has no enum to catch it. <code>Cutaneous_Melanoma</code> and its
+<code>BRAF_V600_Mutant_Melanoma</code> and <code>NRAS_Mutant_Melanoma</code> strata are the worked
+example.</p>
+<div class="highlight"><pre><span></span><code>just<span class="w"> </span>check-shared-disease-terms<span class="w">            </span><span class="c1"># gate (in `just qc`, ungated in CI)</span>
+just<span class="w"> </span>list-shared-disease-terms<span class="w">             </span><span class="c1"># every shared group, with each member&#39;s predicate</span>
+just<span class="w"> </span>update-shared-disease-term-baseline<span class="w">   </span><span class="c1"># only ever to shrink the baseline</span>
+</code></pre></div>
+<p>Groups that predate the check are listed in
+<code>tests/shared_disease_term_baseline.txt</code>, one row per entry, so a new entry
+that joins a listed group still fails. Repairing a listed group is curation, not
+a mechanical fix: some need a <code>skos:narrowMatch</code> row, some need a parent entry
+created, and some are two entries that should be one. The issue thread sorts
+the current groups into those cases.</p>
+<p><code>just check-granularity</code> reports a weaker form of this as <code>DUPLICATE_ANCHOR</code>.
+That class is report-only and limited to infectious entries unless run with
+<code>--scope all</code>.</p>
 <h2 id="adding-a-new-computed-metric">Adding a new computed metric</h2>
 <ol>
 <li>Implement a class with an <code>evaluate(self, data, config) -&gt; list[AggregatedPathScore]</code>
