@@ -299,6 +299,35 @@ error and a deferral. Dry runs explicitly say that no requests were issued.
 just review-retry-preview
 ```
 
+### Failed issue-opened workflows
+
+The same job then reruns failed issue-opened workflows: issue triage
+(`claude-issue-triage.yml`), issue summarize (`claude-issue-summarize.yml`) and
+dedupe (`claude-dedupe-issues.yml`). These are the ones with no other recovery:
+the `issues: opened` event cannot fire again for an issue that already exists, so
+an issue opened while the shared agent account is rate-limited, or while a
+credential is failing, otherwise gets no triage at all, and nothing records that
+it is missing (#13150).
+
+Each of the three workflows names its runs `Triage issue #N`, `Summarize issue
+#N` or `Dedupe issue #N`, and the sweep reads the issue number from that name
+only, never from an issue title. Runs from before the run name was added are
+listed as diagnostics and not retried. For each workflow and issue, only the
+latest run is considered. It is rerun with `gh run rerun RUN_ID --failed` when it
+failed or timed out, the issue is still open, no newer or active run of that
+workflow exists for the issue, and the backoff above has elapsed. The budget is
+`max_review_retries`, counted separately from review retries and per run rather
+than per issue, and `dry_run` applies. A `pr_number` request skips this pass.
+
+The triage and summarize workflows also accept a manual `issue_number`
+dispatch, like dedupe, so an issue can be re-triaged without finding its
+original run:
+
+```bash
+gh workflow run claude-issue-triage.yml -f issue_number=13101
+gh workflow run claude-issue-summarize.yml -f issue_number=13101
+```
+
 ## Review states and merge state
 
 The vocabulary GitHub uses here is genuinely confusing, and it is the vocabulary
