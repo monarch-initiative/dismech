@@ -132,6 +132,6 @@ Skip when:
 - **`/claim-disease N`** — files **new** curation issues for the top-N priority uncurated diseases. Use first if you have no open assignments.
 - **`/curate <name>`** — curates a single disease end-to-end. This skill dispatches it in parallel.
 - **`/curate-next N`** — this skill. Reads your assigned-but-unstarted curation issues and runs the `/curate` workflow on the first N.
-- **`next-issues`** — sorts and searches every kind of open issue, not only claims, and opens one named issue as an interactive session. Its selector (`just select-issues`) is the one step 3 runs.
+- **`browse-issues`** — lets the user browse, search and choose among every kind of open issue, not only claims, and opens one issue they name as an interactive session. Its selector (`just select-issues`) is the one step 3 runs.
 
 A typical batch session is `/claim-disease 5` (file 5 issues) → `/curate-next 5` (curate them in parallel).

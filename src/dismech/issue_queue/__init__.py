@@ -17,6 +17,6 @@ anyone already started?
 - :mod:`.launch` -- `just launch-issue-session`: one named issue as its own
   interactive Claude Code session in a worktree and a tmux window.
 
-Used by the `next-issues` skill; `issue-prs` is also what `curate-next` uses
-for its PR check.
+Used by the `browse-issues` skill; `curate-next` shortlists with the same
+selector (`just select-issues N --mine --lane new-entry`).
 """

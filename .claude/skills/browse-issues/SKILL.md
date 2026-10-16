@@ -1,12 +1,13 @@
 ---
-name: next-issues
-description: Use when asked what to work on next among the open dismech issues that already exist, of any kind (claims, lit/kgap/preprint scans, genetics passes, evidence reviews, curation follow-ups, schema, tooling, bugs, docs, unlabelled), to sort, filter, search or shortlist them (by author, lane, effort, PR state, or text in the title, body or comments), to find issues ready for cleanup, or to open one named issue as its own interactive Claude Code session in a tmux window. Selection is deterministic, from one snapshot with fixed rules and a reason code for every exclusion.
+name: browse-issues
+description: Use when the user wants to browse the open dismech issues that already exist, of any kind (claims, lit/kgap/preprint scans, genetics passes, evidence reviews, curation follow-ups, schema, tooling, bugs, docs, unlabelled), and choose for themselves what to work on - filtering, searching or shortlisting them by author, assignee, lane, effort, PR state, or text in the title, body or comments, finding issues ready for cleanup, and then opening one issue they name as its own interactive Claude Code session in a tmux window. The listing is deterministic, from one snapshot with fixed rules and a reason code for every exclusion; the user does the choosing.
 ---
 
-# next-issues
+# browse-issues
 
-This session is the **sorting session**. It shortlists open issues and, when
-the user names one, opens that issue as a **separate, interactive Claude Code
+This session is the **sorting session**: the user browses the open issues
+here and decides what to work on. It lists and filters; it does not choose.
+When the user names an issue, it opens that issue as a **separate, interactive Claude Code
 session** in its own worktree and tmux window. The sorting session never does
 the issue's work itself and never launches a session the user did not ask for.
 

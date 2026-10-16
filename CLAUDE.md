@@ -47,7 +47,7 @@ Claude Code skills are available in `.claude/skills/`:
   `coarse_binding_basis` on a phenotype bound to a coarse HPO term.
 - **entry-naming**: Use when choosing, reviewing, or changing an entry's `name`,
   including when creating an entry from a stub.
-- **[next-issues](.claude/skills/next-issues/SKILL.md)**: Use when sorting,
+- **[browse-issues](.claude/skills/browse-issues/SKILL.md)**: Use when browsing,
   searching or cleaning up the open issues that already exist, of any kind, or
   opening one named issue as its own interactive session. Its selector
   (`just select-issues`) is also what `curate-next` shortlists with.
