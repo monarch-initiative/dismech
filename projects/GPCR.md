@@ -20,6 +20,7 @@ diseases:
 - Parkinsons_Disease
 - Migraine
 - Asthma
+- Chronic_Obstructive_Pulmonary_Disease
 - Urticaria
 - Gastroesophageal_Reflux_Disease
 - Multiple_Sclerosis
@@ -83,7 +84,7 @@ The receptor reviewed there is the molecular anchor for the module here.
 | `somatotroph_camp_pka_overactivation` | GPR101 / GNAS / AIP convergence on cAMP in somatotrophs |
 | `spinal_hsp90_opioid_enhancement` | mu-opioid receptor signaling amplification |
 | `addiction_cycle` | dopamine and opioid receptor circuitry |
-| `parkinsonism_dopaminergic_degeneration` | dopamine receptor-side of parkinsonism |
+| `parkinsonism_dopaminergic_degeneration` | nigrostriatal dopaminergic degeneration → striatal dopamine deficiency (presynaptic; no receptor content, so not a target for D2-blockade parkinsonism, which involves no neuron loss) |
 | `photoreceptor_degeneration` | rhodopsin-related retinopathy |
 
 Read each before creating a neighbour, and extend rather than duplicate where
@@ -104,7 +105,7 @@ conform:
 | GLP-1 / GIP receptor agonism | GLP1R, GIPR | incretin mimetics | Type_2_Diabetes_Mellitus, Obesity |
 | 5-HT1B/1D agonism and CGRP receptor antagonism | HTR1B, HTR1D, CALCRL/RAMP1 | triptans, gepants | Migraine, Migraine_with_Aura |
 | H1 / H2 receptor antagonism | HRH1, HRH2 | antihistamines, H2 blockers | Urticaria, allergic rhinitis, Gastroesophageal_Reflux_Disease |
-| beta2 agonism / muscarinic antagonism (airway) | ADRB2, CHRM3 | SABA/LABA, LAMA | Asthma, COPD |
+| beta2 agonism / muscarinic antagonism (airway) | ADRB2, CHRM3 | SABA/LABA, LAMA | Asthma, Chronic_Obstructive_Pulmonary_Disease |
 | CaSR positive allosteric modulation | CASR | calcimimetics | secondary hyperparathyroidism in CKD |
 | S1P receptor modulation | S1PR1 | fingolimod, siponimod | Multiple_Sclerosis |
 | P2Y12 receptor antagonism | P2RY12 | clopidogrel, ticagrelor | Coronary_Artery_Disease |
@@ -147,7 +148,7 @@ Chosen first (2026-10-15): opioid drugs appear in about 18 entries
 |---|---|---|
 | GPCR loss-of-function hormone resistance | receptor misfolding / ER retention or loss of coupling → end-organ resistance despite high ligand | X-Linked_Nephrogenic_Diabetes_Insipidus (AVPR2), Familial_Hypocalciuric_Hypercalcemia_1 (CASR), Familial_Glucocorticoid_Deficiency (MC2R/MRAP), Obesity_Due_to_MC4R_Pathway_Disruption, Kallmann_Syndrome / GNRHR / KISS1R hypogonadism |
 | GPCR constitutive activation | ligand-independent receptor signaling → hormone excess or tissue overgrowth | Autosomal_Dominant_Hypocalcemia_1 (CASR gain), Jansen metaphyseal chondrodysplasia (PTH1R), familial male-limited precocious puberty (LHCGR), non-autoimmune hyperthyroidism (TSHR) |
-| Gs alpha defect | GNAS loss (with imprinting) → multi-hormone resistance; GNAS gain → cAMP excess | Pseudohypoparathyroidism, McCune-Albright syndrome; relate to `somatotroph_camp_pka_overactivation` |
+| Gs alpha defect | GNAS loss (with imprinting) → multi-hormone resistance; GNAS gain → cAMP excess | Pseudohypoparathyroidism, McCune-Albright syndrome (no dismech entry yet; a curation target); relate to `somatotroph_camp_pka_overactivation` |
 
 The loss/gain pair is deliberately symmetric: the same receptor (CASR, TSHR,
 LHCGR) appears on both sides, which is the test that the modules are
@@ -164,7 +165,7 @@ mechanism-level rather than disease-level.
       entry (GPCR drug mechanisms)
 
 ### Phase 1 — first modules
-- [ ] mu-opioid receptor agonism (first module; see below) — `mu_opioid_receptor_agonism`, in review in #14453
+- [ ] mu-opioid receptor agonism (first module; see above) — `mu_opioid_receptor_agonism`, in review in #14453
 - [ ] mu-opioid receptor antagonism — `mu_opioid_receptor_antagonism`, in review in #14456
 - [ ] beta-adrenergic receptor blockade
 - [ ] GLP-1 receptor agonism
