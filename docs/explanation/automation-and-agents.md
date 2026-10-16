@@ -312,12 +312,18 @@ it is missing (#13150).
 Each of the three workflows names its runs `Triage issue #N`, `Summarize issue
 #N` or `Dedupe issue #N`, and the sweep reads the issue number from that name
 only, never from an issue title. Runs from before the run name was added are
-listed as diagnostics and not retried. For each workflow and issue, only the
+not retried; the summary gives one count per workflow rather than listing them. For each workflow and issue, only the
 latest run is considered. It is rerun with `gh run rerun RUN_ID --failed` when it
 failed or timed out, the issue is still open, no newer or active run of that
 workflow exists for the issue, and the backoff above has elapsed. The budget is
 `max_review_retries`, counted separately from review retries and per run rather
 than per issue, and `dry_run` applies. A `pr_number` request skips this pass.
+
+A rerun repeats the whole failed job, including anything it did before it
+failed. For triage this is harmless, because applying the same labels again
+changes nothing. A summarize run that posted its comment and then failed would
+post a second one, so the summarize prompt first reads the issue's comments and
+stops if `github-actions[bot]` has already summarized the issue.
 
 The triage and summarize workflows also accept a manual `issue_number`
 dispatch, like dedupe, so an issue can be re-triaged without finding its

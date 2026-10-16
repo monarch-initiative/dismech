@@ -18,7 +18,6 @@ WORKFLOW = "claude-code-review.yml"
 RETRYABLE = {"failure", "timed_out"}
 REVIEWERS = {"ai4c-reviewer[bot]", "github-actions[bot]"}
 RERUN_WINDOW_DAYS = 30
-ACTIVE = ("queued", "in_progress", "waiting", "pending", "requested")
 # Issue-opened workflows, keyed to the run-name prefix each one sets. The
 # `issues` event cannot fire again for an open issue, so a run that failed
 # (typically a shared-account usage limit) is otherwise lost for good (#13150).
@@ -479,15 +478,20 @@ def sweep_issues(
             if r.get("conclusion") != "skipped"
         ]
         rows.append(f"Actions discovery returned {len(runs)} {workflow} runs.")
+        legacy = 0
         for run in runs:
             number = run_issue(run, workflow)
             if number:
                 groups.setdefault((workflow, number), []).append(run)
             elif run.get("conclusion") in RETRYABLE:
-                rows.append(
-                    f"Run {run['id']}: deferred; {workflow} run predates its "
-                    "issue-number run name."
-                )
+                legacy += 1
+        # One line, not one per run: these recur on every sweep until they age
+        # out of the rerun window, and none of them can be acted on.
+        if legacy:
+            rows.append(
+                f"{workflow}: {legacy} failed runs predate the issue-number run "
+                "name and are not retried."
+            )
     candidates = sorted(
         (
             (max(group, key=lambda r: r["created_at"]), key)

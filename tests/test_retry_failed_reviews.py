@@ -750,11 +750,16 @@ def test_issue_sweep_leaves_closed_issue_and_new_dispatch_alone(monkeypatch):
     assert not writes
 
 
-def test_issue_sweep_reports_unkeyed_legacy_failure(monkeypatch):
-    writes = issue_harness(monkeypatch, [issue_run(display_title="Some issue title")])
+def test_issue_sweep_counts_unkeyed_legacy_failures_on_one_line(monkeypatch):
+    legacy = [
+        issue_run(id=n, display_title=f"Some issue title {n}") for n in (20, 21, 22)
+    ]
+    writes = issue_harness(monkeypatch, legacy)
     rows, errors = retry.sweep_issues("owner/repo", NOW)
     assert not writes and errors == 0
-    assert any("predates its issue-number run name" in row for row in rows)
+    assert [row for row in rows if "predate" in row] == [
+        f"{TRIAGE}: 3 failed runs predate the issue-number run name and are not retried."
+    ]
 
 
 def test_issue_workflows_carry_run_name_and_manual_dispatch():
