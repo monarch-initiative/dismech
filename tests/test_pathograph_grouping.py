@@ -172,6 +172,20 @@ def test_group_reports_phenotypes_without_a_causal_inlink() -> None:
 
 
 @needs_node
+def test_a_self_loop_does_not_count_as_a_causal_inlink() -> None:
+    # Matches qc_plugins.causal_inlink_coverage, so the group box agrees with
+    # `just list-disconnected-phenotypes`.
+    data = phenotype_fixture()
+    data["edges"] = [
+        e
+        for e in data["edges"]
+        if not (e["target"] == "Ataxia" and e["predicate"] == "causes")
+    ]
+    data["edges"].append(edge("Ataxia", "Ataxia"))
+    assert view(data, "phenotype_system")["groups"][0]["unexplained"] == ["Ataxia"]
+
+
+@needs_node
 def test_expanded_group_is_drawn_as_its_members() -> None:
     data = phenotype_fixture()
     group_id = view(data, "phenotype_system")["groups"][0]["id"]
@@ -284,32 +298,109 @@ def test_grouping_never_leaves_fewer_than_the_floor() -> None:
 
 
 @needs_node
-def test_default_mode_is_off_for_small_graphs_and_the_biggest_win_otherwise() -> None:
+def test_default_modes_are_off_for_small_graphs() -> None:
     data = phenotype_fixture()
     chosen = run_node(
-        "[G.chooseDefaultMode(input, input.edges.length), G.chooseDefaultMode(input, 2), G.chooseDefaultMode(input, null)]",
+        "[G.chooseDefaultModes(input, input.edges.length), G.chooseDefaultModes(input, 2),"
+        " G.chooseDefaultModes(input, null)]",
         data,
     )
     # At or below the mean: off. Above it: the only mode with a group here.
     # With no mean known (an empty corpus): off.
-    assert chosen == ["none", "phenotype_system", "none"]
+    assert chosen == [[], ["phenotype_system"], []]
+
+
+def stacked_fixture() -> dict:
+    """Two antiseizure drugs aimed at different phenotypes of one system."""
+    return {
+        "nodes": [
+            node("Mech A"),
+            node("Mech B"),
+            node("Mech C"),
+            phenotype("Seizures", "Nervous System"),
+            phenotype("Ataxia", "Nervous System"),
+            phenotype("Cataract", "Eye"),
+            node("Valproate", "treatment"),
+            node("Clonazepam", "treatment"),
+        ],
+        "edges": [
+            edge("Mech A", "Mech B"),
+            edge("Mech B", "Mech C"),
+            edge("Mech C", "Seizures"),
+            edge("Mech C", "Ataxia"),
+            edge("Mech C", "Cataract"),
+            edge("Valproate", "Seizures", "treats"),
+            edge("Clonazepam", "Ataxia", "treats"),
+        ],
+    }
 
 
 @needs_node
-def test_default_mode_picks_the_mode_drawing_fewest_edges() -> None:
-    data = phenotype_fixture()
-    # Add four treatments sharing one target: grouping them saves three edges,
-    # while the phenotype grouping saves one (two hypothesis edges merge).
-    for name in ("T1", "T2", "T3", "T4"):
+def test_treatments_share_a_target_once_its_phenotypes_are_grouped() -> None:
+    data = stacked_fixture()
+    assert view(data, "treatment_target")["groups"] == []
+    v = view(
+        data, ["treatment_target", "phenotype_system"]
+    )  # order given does not matter
+    pheno_id = "__group__:phenotype_system:Nervous System"
+    assert [(g["label"], g["members"]) for g in v["groups"]] == [
+        ("Nervous System phenotypes", ["Seizures", "Ataxia"]),
+        ("Treatments → Nervous System phenotypes", ["Valproate", "Clonazepam"]),
+    ]
+    # Each drug's edge was redirected in the phenotype pass and merged in the
+    # treatment pass; the merged edge still counts both of graph.py's edges.
+    treat = [e for e in v["edges"] if e["predicate"] == "treats"]
+    assert treat == [
+        {
+            "source": v["groups"][1]["id"],
+            "target": pheno_id,
+            "predicate": "treats",
+            "multiplicity": 2,
+            "hypothesis_groups": [],
+        }
+    ]
+    assert run_node("G.availableModes(input).treatment_target === true", data) is True
+
+
+@needs_node
+def test_combined_modes_share_one_floor() -> None:
+    # One mechanism, five phenotypes of one system, five drugs treating the
+    # mechanism. Either mode alone leaves 7 nodes; both would leave 3, under
+    # the floor of ceil(11 / 3) = 4, so the second pass is held back.
+    phenos = [f"P{i}" for i in range(5)]
+    drugs = [f"T{i}" for i in range(5)]
+    data = {
+        "nodes": [node("M")]
+        + [phenotype(p, "Eye") for p in phenos]
+        + [node(t, "treatment") for t in drugs],
+        "edges": [edge("M", p) for p in phenos]
+        + [edge(t, "M", "treats") for t in drugs],
+    }
+    assert len(view(data, "phenotype_system")["nodes"]) == 7
+    assert len(view(data, "treatment_target")["nodes"]) == 7
+    both = view(data, ["phenotype_system", "treatment_target"])
+    assert [g["label"] for g in both["groups"]] == ["Eye phenotypes"]
+    assert len(both["skipped"]) == 1
+    assert len(both["nodes"]) == 7
+
+
+@needs_node
+def test_default_is_the_combination_drawing_fewest_edges() -> None:
+    data = stacked_fixture()
+    for name in ("T1", "T2", "T3"):
         data["nodes"].append(node(name, "treatment"))
         data["edges"].append(edge(name, "Cataract", "treats"))
-    edges = run_node(
-        "Object.fromEntries(G.MODES.map(m => [m.key, G.applyGrouping(input, m.key, {}).edges.length]))",
+    scores = run_node(
+        "(() => { const keys = G.MODES.map(m => m.key).filter(k => k !== 'none'); const out = [];"
+        " for (let mask = 1; mask < (1 << keys.length); mask++) {"
+        " const combo = keys.filter((k, i) => mask & (1 << i)); const v = G.applyGrouping(input, combo, {});"
+        " out.push([combo, v.edges.length, v.nodes.length]); } return out; })()",
         data,
     )
-    expected = min((k for k in edges if k != "none"), key=lambda k: edges[k])
-    assert run_node("G.chooseDefaultMode(input, 1)", data) == expected
-    assert expected == "treatment_target"
+    best = min(scores, key=lambda s: (s[1], s[2], len(s[0])))
+    chosen = run_node("G.chooseDefaultModes(input, 1)", data)
+    assert chosen == best[0]
+    assert chosen == ["phenotype_system", "treatment_target"]
 
 
 def test_grouping_script_has_no_jinja_syntax() -> None:

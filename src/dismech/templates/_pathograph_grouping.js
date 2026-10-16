@@ -7,11 +7,15 @@
    This file is plain JavaScript with no Jinja syntax, so the page inlines it
    with an include and tests/test_pathograph_grouping.py loads it under node. */
 var PathographGrouping = (function() {
+    /* Modes can be combined. They run in this order, each on the graph the
+       previous one left, so the treatment pass sees grouped phenotypes and
+       modules as single targets, and chains are found last among whatever
+       nodes no other mode took. */
     var MODES = [
         {key: "none", label: "None"},
         {key: "phenotype_system", label: "Phenotype system"},
-        {key: "treatment_target", label: "Treatment target"},
         {key: "module", label: "Mechanism module"},
+        {key: "treatment_target", label: "Treatment target"},
         {key: "chain", label: "Linear chains"}
     ];
 
@@ -35,9 +39,10 @@ var PathographGrouping = (function() {
         return mode;
     }
 
-    /* Orphan targets signal a curation error, so they are never swallowed. */
+    /* Orphan targets signal a curation error, so they are never swallowed.
+       A box from an earlier pass is not regrouped either. */
     function isGroupable(node) {
-        return !!node && !node.is_orphan && node.node_type !== "orphan" && node.node_type !== "unknown";
+        return !!node && !node.is_group && !node.is_orphan && node.node_type !== "orphan" && node.node_type !== "unknown";
     }
 
     function groupKeys(node) {
@@ -62,7 +67,8 @@ var PathographGrouping = (function() {
     function explainedPhenotypes(data) {
         var explained = {};
         data.edges.forEach(function(e) {
-            if (CAUSAL_PREDICATES[e.predicate]) explained[e.target] = true;
+            /* A self-loop explains nothing, as in qc_plugins.causal_inlink_coverage. */
+            if (CAUSAL_PREDICATES[e.predicate] && e.source !== e.target) explained[e.target] = true;
         });
         return explained;
     }
@@ -90,6 +96,8 @@ var PathographGrouping = (function() {
 
     function treatmentTargetGroups(data) {
         var nb = neighbourSets(data);
+        var byId = {};
+        data.nodes.forEach(function(n) { byId[n.id] = n; });
         var treatments = data.nodes.filter(function(n) {
             return n.node_type === "treatment" && isGroupable(n);
         });
@@ -97,7 +105,10 @@ var PathographGrouping = (function() {
             var targets = Object.keys(nb.succs[n.id] || {}).sort();
             return targets.length ? JSON.stringify(targets) : null;
         }).map(function(g) {
-            var targets = JSON.parse(g.key);
+            /* A target may be a box from an earlier pass; name it by its label. */
+            var targets = JSON.parse(g.key).map(function(id) {
+                return byId[id] && byId[id].is_group ? byId[id].label : id;
+            });
             var shown = targets.length > 2 ? targets.slice(0, 2).join(", ") + ", …" : targets.join(", ");
             return {key: g.key, label: "Treatments → " + shown, members: g.members};
         });
@@ -186,35 +197,42 @@ var PathographGrouping = (function() {
         ].join("|");
     }
 
-    /* Build the drawn graph for a mode. `expanded` holds the ids of groups the
-       reader has opened. Returns {nodes, edges, groups, skipped, ...}. */
-    function applyGrouping(data, mode, expanded) {
-        expanded = expanded || {};
-        var byId = {};
-        data.nodes.forEach(function(n) { byId[n.id] = n; });
-        var candidates = candidateGroups(data, mode);
-        var total = data.nodes.length;
-        var floor = Math.max(MIN_VISIBLE_NODES, Math.ceil(total * MIN_KEPT_FRACTION));
-        var mechanismTotal = data.nodes.filter(function(n) { return n.node_type === "pathophysiology"; }).length;
-        var mechanismFloor = Math.min(mechanismTotal, Math.max(MIN_VISIBLE_NODES, Math.ceil(mechanismTotal * MIN_KEPT_FRACTION)));
+    /* Selected modes in the fixed order they run in (MODES order). "none" and
+       unknown keys are dropped, so [] means grouping is off. */
+    function normalizeModes(modes) {
+        if (!modes) return [];
+        if (!Array.isArray(modes)) modes = [modes];
+        var wanted = {};
+        modes.forEach(function(m) { wanted[m] = true; });
+        return MODES.map(function(m) { return m.key; }).filter(function(k) {
+            return k !== "none" && wanted[k];
+        });
+    }
 
-        var visible = total, visibleMechanisms = mechanismTotal;
-        var applied = [], skipped = [], expandedGroups = [];
-        candidates.forEach(function(g) {
-            if (expanded[g.id]) { expandedGroups.push(g); return; }
+    /* One pass: collapse `mode`'s groups in `graph`, the output of the
+       previous pass. A pass only groups original nodes, never an earlier
+       pass's box, but it sees the earlier boxes as neighbours, so treatments
+       aimed at different phenotypes of one system share a target once the
+       phenotypes are grouped. */
+    function groupingPass(graph, mode, ctx) {
+        var byId = {};
+        graph.nodes.forEach(function(n) { byId[n.id] = n; });
+        var applied = [];
+        candidateGroups(graph, mode).forEach(function(g) {
+            if (ctx.expanded[g.id]) { ctx.expandedGroups.push(g); return; }
             var saved = g.members.length - 1;
             var mechanismMembers = g.members.filter(function(id) { return byId[id].node_type === "pathophysiology"; }).length;
             var mechanismSaved = mechanismMembers ? mechanismMembers - 1 : 0;
-            if (visible - saved < floor || visibleMechanisms - mechanismSaved < mechanismFloor) {
-                skipped.push(g);
+            if (ctx.visible - saved < ctx.floor || ctx.visibleMechanisms - mechanismSaved < ctx.mechanismFloor) {
+                ctx.skipped.push(g);
                 return;
             }
-            visible -= saved;
-            visibleMechanisms -= mechanismSaved;
+            ctx.visible -= saved;
+            ctx.visibleMechanisms -= mechanismSaved;
             applied.push(g);
         });
+        if (!applied.length) return graph;
 
-        var explained = explainedPhenotypes(data);
         var repOf = {};
         var groupNodes = applied.map(function(g) {
             var members = g.members.map(function(id) { return byId[id]; });
@@ -222,7 +240,7 @@ var PathographGrouping = (function() {
             members.forEach(function(m) { types[m.node_type] = true; repOf[m.id] = g.id; });
             var first = members[0];
             var unexplained = members.filter(function(m) {
-                return m.node_type === "phenotype" && !explained[m.id];
+                return m.node_type === "phenotype" && !ctx.explained[m.id];
             }).map(function(m) { return m.id; });
             return {
                 id: g.id,
@@ -240,12 +258,12 @@ var PathographGrouping = (function() {
         var groupById = {};
         groupNodes.forEach(function(g) { groupById[g.id] = g; });
 
-        var nodes = data.nodes.filter(function(n) { return !repOf[n.id]; }).concat(groupNodes);
-
+        var nodes = graph.nodes.filter(function(n) { return !repOf[n.id]; }).concat(groupNodes);
         var edges = [], merged = {};
-        data.edges.forEach(function(e) {
+        graph.edges.forEach(function(e) {
             var s = repOf[e.source] || e.source, t = repOf[e.target] || e.target;
-            if (s === t && (groupById[s])) { groupById[s].internal_edges += 1; return; }
+            var count = e.multiplicity || 1;
+            if (s === t && groupById[s]) { groupById[s].internal_edges += count; return; }
             if (s === e.source && t === e.target) { edges.push(e); return; }
             var key = s + "\u0000" + t + "\u0000" + edgeStyleKey(e);
             var m = merged[key];
@@ -259,18 +277,42 @@ var PathographGrouping = (function() {
                 merged[key] = m;
                 edges.push(m);
             }
-            m.multiplicity += 1;
-            m.merged.push(e);
+            /* An edge merged in an earlier pass carries its originals along, so
+               the count and hover list always refer to graph.py's edges. */
+            m.multiplicity += count;
+            m.merged = m.merged.concat(e.merged || [e]);
         });
+        ctx.groups = ctx.groups.concat(groupNodes);
+        return {nodes: nodes, edges: edges};
+    }
 
+    /* Build the drawn graph for a set of modes. `expanded` holds the ids of
+       groups the reader has opened. The floor below is shared by every pass,
+       so stacking modes can never fold a graph further than one mode could. */
+    function applyGrouping(data, modes, expanded) {
+        modes = normalizeModes(modes);
+        var total = data.nodes.length;
+        var mechanismTotal = data.nodes.filter(function(n) { return n.node_type === "pathophysiology"; }).length;
+        var ctx = {
+            expanded: expanded || {},
+            explained: explainedPhenotypes(data),
+            floor: Math.max(MIN_VISIBLE_NODES, Math.ceil(total * MIN_KEPT_FRACTION)),
+            mechanismFloor: Math.min(mechanismTotal, Math.max(MIN_VISIBLE_NODES, Math.ceil(mechanismTotal * MIN_KEPT_FRACTION))),
+            visible: total,
+            visibleMechanisms: mechanismTotal,
+            groups: [],
+            skipped: [],
+            expandedGroups: []
+        };
+        var graph = {nodes: data.nodes, edges: data.edges};
+        modes.forEach(function(mode) { graph = groupingPass(graph, mode, ctx); });
         return {
-            mode: mode,
-            nodes: nodes,
-            edges: edges,
-            groups: groupNodes,
-            skipped: skipped,
-            expanded: expandedGroups,
-            candidate_count: candidates.length
+            modes: modes,
+            nodes: graph.nodes,
+            edges: graph.edges,
+            groups: ctx.groups,
+            skipped: ctx.skipped,
+            expanded: ctx.expandedGroups
         };
     }
 
@@ -279,20 +321,44 @@ var PathographGrouping = (function() {
         return view.edges.length * 10000 + view.nodes.length;
     }
 
-    /* Which mode to show first. Off unless the graph has more edges than the
-       knowledge-base mean; then the mode that removes the most drawn edges. */
-    function chooseDefaultMode(data, meanEdgeCount) {
-        if (meanEdgeCount == null || !(data.edges.length > meanEdgeCount)) return "none";
-        var base = complexity({nodes: data.nodes, edges: data.edges});
-        var best = "none", bestScore = base;
-        MODES.forEach(function(m) {
-            if (m.key === "none") return;
-            var view = applyGrouping(data, m.key, {});
+    /* Every non-empty combination of the grouping modes, fewest modes first. */
+    function modeCombinations() {
+        var keys = MODES.map(function(m) { return m.key; }).filter(function(k) { return k !== "none"; });
+        var combos = [];
+        for (var mask = 1; mask < (1 << keys.length); mask++) {
+            combos.push(keys.filter(function(k, i) { return mask & (1 << i); }));
+        }
+        combos.sort(function(a, b) { return a.length - b.length; });
+        return combos;
+    }
+
+    /* Which modes to show first. Off unless the graph has more edges than the
+       knowledge-base mean; then the combination that draws the fewest edges.
+       A mode that changes nothing is never added, because combinations are
+       tried smallest first and only a strictly better score replaces the best. */
+    function chooseDefaultModes(data, meanEdgeCount) {
+        if (meanEdgeCount == null || !(data.edges.length > meanEdgeCount)) return [];
+        var best = [], bestScore = complexity(data);
+        modeCombinations().forEach(function(combo) {
+            var view = applyGrouping(data, combo, {});
             if (!view.groups.length) return;
             var score = complexity(view);
-            if (score < bestScore) { best = m.key; bestScore = score; }
+            if (score < bestScore) { best = combo; bestScore = score; }
         });
         return best;
+    }
+
+    /* A mode is worth offering if it groups something on its own, or as part
+       of the full combination (treatments that only share a target once their
+       phenotypes are grouped). */
+    function availableModes(data) {
+        var all = applyGrouping(data, modeCombinations().pop(), {});
+        var available = {};
+        all.groups.forEach(function(g) { available[g.group_mode] = true; });
+        MODES.forEach(function(m) {
+            if (m.key !== "none" && candidateGroups(data, m.key).length) available[m.key] = true;
+        });
+        return available;
     }
 
     return {
@@ -300,9 +366,11 @@ var PathographGrouping = (function() {
         CAUSAL_PREDICATES: CAUSAL_PREDICATES,
         MIN_VISIBLE_NODES: MIN_VISIBLE_NODES,
         modeLabel: modeLabel,
+        normalizeModes: normalizeModes,
         candidateGroups: candidateGroups,
         applyGrouping: applyGrouping,
-        chooseDefaultMode: chooseDefaultMode
+        chooseDefaultModes: chooseDefaultModes,
+        availableModes: availableModes
     };
 })();
 

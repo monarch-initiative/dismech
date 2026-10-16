@@ -2474,10 +2474,10 @@
         /* -- Group by (#14539) --
            Collapsing is done client-side by PathographGrouping on a copy of the
            payload. A graph with more edges than the knowledge-base mean opens
-           in whichever mode draws the fewest edges. */
+           in whichever combination of modes draws the fewest edges. */
         var grouping = data.grouping || {};
-        var defaultGroupMode = PathographGrouping.chooseDefaultMode(data, grouping.mean_edge_count);
-        var groupMode = defaultGroupMode;
+        var defaultGroupModes = PathographGrouping.chooseDefaultModes(data, grouping.mean_edge_count);
+        var groupModes = defaultGroupModes.slice();
         var expandedGroups = {};
         var view = null;
 
@@ -2641,7 +2641,7 @@
 
         /* -- Layout and draw the current view; re-run on every grouping change -- */
         function layoutAndDraw() {
-            view = PathographGrouping.applyGrouping(data, groupMode, expandedGroups);
+            view = PathographGrouping.applyGrouping(data, groupModes, expandedGroups);
             view.groups.forEach(function(gn) { nodeMap[gn.id] = gn; });
 
             var g = new dagre.graphlib.Graph({ multigraph: true });
@@ -2834,72 +2834,95 @@
             layoutAndDraw();
         }
 
-        function setGroupMode(mode) {
-            groupMode = mode;
+        function setGroupModes(modes) {
+            groupModes = PathographGrouping.normalizeModes(modes);
             expandedGroups = {};
             unpinTooltip();
             hideTooltip();
             layoutAndDraw();
         }
 
-        /* -- Group-by control: mode buttons plus a status line naming the
+        function sameModes(a, b) {
+            return a.join("|") === b.join("|");
+        }
+
+        function modesText(modes) {
+            return modes.map(PathographGrouping.modeLabel).join(" + ");
+        }
+
+        /* -- Group-by control: mode toggles plus a status line naming the
            grouping currently applied, so a collapsed graph never passes for
-           the whole graph. -- */
-        var candidateCounts = {};
-        PathographGrouping.MODES.forEach(function(m) {
-            candidateCounts[m.key] = m.key === "none" ? 1 : PathographGrouping.candidateGroups(data, m.key).length;
-        });
+           the whole graph. Modes combine; None clears them all. -- */
+        var availableModes = PathographGrouping.availableModes(data);
 
         function renderGroupbar() {
             if (!groupbarEl) return;
             groupbarEl.innerHTML = "";
-            groupbarEl.classList.toggle("is-active", groupMode !== "none");
+            groupbarEl.classList.toggle("is-active", groupModes.length > 0);
 
             var controls = document.createElement("div");
             controls.className = "pg-groupbar-controls";
-            controls.setAttribute("role", "radiogroup");
+            controls.setAttribute("role", "group");
             controls.setAttribute("aria-label", "Group pathograph nodes by");
             var title = document.createElement("span");
             title.className = "pg-groupbar-title";
             title.textContent = "Group by";
             controls.appendChild(title);
             PathographGrouping.MODES.forEach(function(m) {
+                var isNone = m.key === "none";
+                var selected = isNone ? groupModes.length === 0 : groupModes.indexOf(m.key) !== -1;
                 var btn = document.createElement("button");
                 btn.type = "button";
-                btn.className = "pg-group-mode" + (m.key === groupMode ? " is-selected" : "");
-                btn.setAttribute("role", "radio");
-                btn.setAttribute("aria-checked", m.key === groupMode ? "true" : "false");
-                btn.textContent = m.label + (m.key === defaultGroupMode && m.key !== "none" ? " (default)" : "");
-                if (!candidateCounts[m.key]) {
+                btn.className = "pg-group-mode" + (selected ? " is-selected" : "");
+                btn.setAttribute("aria-pressed", selected ? "true" : "false");
+                btn.textContent = (isNone || !selected ? "" : "✓ ") + m.label;
+                if (!isNone && !availableModes[m.key]) {
                     btn.disabled = true;
                     btn.title = "Nothing in this graph groups this way";
                 }
                 btn.addEventListener("click", function() {
-                    if (m.key !== groupMode) setGroupMode(m.key);
+                    if (isNone) {
+                        if (groupModes.length) setGroupModes([]);
+                    } else if (selected) {
+                        setGroupModes(groupModes.filter(function(k) { return k !== m.key; }));
+                    } else {
+                        setGroupModes(groupModes.concat([m.key]));
+                    }
                 });
                 controls.appendChild(btn);
             });
+            if (defaultGroupModes.length && !sameModes(groupModes, defaultGroupModes)) {
+                var reset = document.createElement("button");
+                reset.type = "button";
+                reset.className = "pg-group-collapse";
+                reset.textContent = "Back to default";
+                reset.title = "Default for this graph: " + modesText(defaultGroupModes);
+                reset.addEventListener("click", function() { setGroupModes(defaultGroupModes); });
+                controls.appendChild(reset);
+            }
             groupbarEl.appendChild(controls);
 
             var status = document.createElement("div");
             status.className = "pg-groupbar-status";
             status.setAttribute("aria-live", "polite");
             var text;
-            if (groupMode === "none") {
+            if (!groupModes.length) {
                 text = "Grouping: off. Showing all " + data.nodes.length + " nodes and " + data.edges.length + " edges.";
             } else {
                 var grouped = 0;
                 view.groups.forEach(function(gn) { grouped += gn.members.length; });
-                text = "Grouping: " + PathographGrouping.modeLabel(groupMode) + ". ";
+                text = "Grouping: " + modesText(groupModes) + ". ";
                 if (view.groups.length) {
                     text += view.groups.length + (view.groups.length === 1 ? " group holds " : " groups hold ") + grouped +
                         " of " + data.nodes.length + " nodes; " + data.edges.length + " edges are drawn as " + view.edges.length + ".";
-                } else {
+                } else if (view.expanded.length) {
                     text += "Every group is expanded, so all " + data.nodes.length + " nodes are shown.";
+                } else {
+                    text += "Nothing in this graph groups this way, so all " + data.nodes.length + " nodes are shown.";
                 }
-                if (groupMode === defaultGroupMode) {
-                    text += " On by default because this graph has more edges than the knowledge-base average (" +
-                        grouping.mean_edge_count + ").";
+                if (sameModes(groupModes, defaultGroupModes)) {
+                    text += " On by default: this graph has more edges than the knowledge-base average (" +
+                        grouping.mean_edge_count + "), and this combination draws the fewest.";
                 }
                 if (view.skipped.length) {
                     text += " " + view.skipped.length + (view.skipped.length === 1 ? " group was" : " groups were") +
@@ -2913,7 +2936,7 @@
                 collapseAll.type = "button";
                 collapseAll.className = "pg-group-collapse";
                 collapseAll.textContent = "Collapse " + view.expanded.length + " expanded";
-                collapseAll.addEventListener("click", function() { setGroupMode(groupMode); });
+                collapseAll.addEventListener("click", function() { setGroupModes(groupModes); });
                 status.appendChild(document.createTextNode(" "));
                 status.appendChild(collapseAll);
             }
