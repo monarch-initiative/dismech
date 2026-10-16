@@ -41,7 +41,6 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "src"))
 
 from dismech import kb_cache
-from dismech.yaml_io import safe_load_path
 
 ROOTS = ("kb/disorders", "kb/modules")
 
@@ -73,8 +72,11 @@ TERM_SLOTS = (
 # Bare "metabolism" is deliberately absent from the phase patterns: it matches
 # endogenous intermediary metabolism (folate one-carbon, fatty-acid oxidation)
 # far more often than xenobiotic biotransformation. The qualified forms are
-# kept. The census under-counts rather than over-counts -- read every figure as
-# a floor, and `--format list` to see the judgement calls.
+# kept. Both filters drop real ADME nodes they cannot tell from a physiological
+# one, so each headline figure is a floor rather than a count -- and
+# `--format list` shows the judgement calls. Nothing is counted on a word match
+# alone: a node reaches a headline figure only once the structural test in (2)
+# has placed the substance among the entry's own recorded exposures.
 
 # Physiological senses of the ADME vocabulary. Checked before the phase
 # patterns, so a hit here disqualifies the node outright.
@@ -106,7 +108,10 @@ ENDOGENOUS = re.compile(
 # sharing a content word with one of the entry's own `environmental[]` exposure
 # names is reported as XENOBIOTIC; everything else is UNCLEAR and listed
 # separately for a reader. Only the XENOBIOTIC tier carries the headline
-# figures.
+# figures, and that applies to the exposure-landing table as much as to the
+# bindings one: without it the landing count picks up endogenous handling
+# (methylglyoxal detoxification, hepatic iron overload, free-water intake)
+# whose nodes happen to use the ADME vocabulary.
 STOPWORDS = {
     "acute",
     "chronic",
@@ -224,7 +229,13 @@ MOLECULAR_SCALES = {"MOLECULAR", "CELLULAR"}
 
 
 def phase_of(name: str) -> str | None:
-    """The ADME phase a node name expresses, or None. First match wins."""
+    """The ADME phase a node name expresses, or None. First match wins.
+
+    First match in PHASES order, so a node naming two phases is filed under the
+    earlier one: "Cadmium Absorption and Systemic Distribution" and "Uptake and
+    Metabolism" both read as ABSORPTION. The per-phase counts are therefore not
+    a partition of the phases a node describes.
+    """
     if not name or ENDOGENOUS.search(name):
         return None
     for phase, pattern in PHASES:
@@ -259,16 +270,23 @@ def entry_files() -> list[pathlib.Path]:
 
 
 def scan() -> tuple[list[dict], list[dict]]:
-    """Return (adme_nodes, exposure_landings)."""
+    """Return (adme_nodes, exposure_landings).
+
+    Reads each document through `kb_cache.load_document`, which returns a
+    shared read-only parse. Nothing here mutates a document.
+    """
     adme_nodes: list[dict] = []
     landings: list[dict] = []
+    skipped: list[pathlib.Path] = []
 
     for path in entry_files():
         try:
-            doc = safe_load_path(path)
+            doc = kb_cache.load_document(path)
         except Exception:
+            skipped.append(path)
             continue
         if not isinstance(doc, dict):
+            skipped.append(path)
             continue
         slug = path.stem
         # An entry naming an infectious agent is modelling pathogen entry, not
@@ -331,15 +349,34 @@ def scan() -> tuple[list[dict], list[dict]]:
         ]
         if not targets:
             continue
+        # Same substance test as the bindings census: a landing target counts
+        # only when it names something the entry records an exposure to.
         adme_targets = sorted({t for t, _ in targets if phase_of(t)})
+        xenobiotic_targets = [
+            t for t in adme_targets if content_words(t) & exposure_words
+        ]
+        unclear_targets = [
+            t for t in adme_targets if not (content_words(t) & exposure_words)
+        ]
         landings.append(
             {
                 "entry": slug,
                 "exposures": len(doc.get("environmental") or []),
                 "links": len(targets),
-                "adme_targets": adme_targets,
+                "adme_targets": xenobiotic_targets,
+                "unclear_targets": unclear_targets,
                 "infection_entry": is_infection,
             }
+        )
+
+    # "Run it rather than trusting the figures" only holds if a file the
+    # census could not read is visible rather than silently absent.
+    if skipped:
+        print(
+            f"warning: skipped {len(skipped)} unreadable entry file(s): "
+            + ", ".join(str(p) for p in skipped[:5])
+            + (" ..." if len(skipped) > 5 else ""),
+            file=sys.stderr,
         )
 
     return adme_nodes, landings
@@ -376,6 +413,22 @@ def report_exposures(landings: list[dict], out) -> None:
         )
         for target in row["adme_targets"]:
             print(f"        -> {target}   [{phase_of(target)}]", file=out)
+
+    unclear = [r for r in linked if r["unclear_targets"] and not r["adme_targets"]]
+    chemical_unclear = [r for r in unclear if not r["infection_entry"]]
+    print(
+        f"\n  Not counted above: {len(chemical_unclear)} entries whose exposure lands"
+        f"\n  on a node using the ADME vocabulary for a substance the entry records no"
+        f"\n  exposure to -- endogenous handling (methylglyoxal detoxification, hepatic"
+        f"\n  iron overload, free-water intake) rather than xenobiotic disposition:",
+        file=out,
+    )
+    for row in sorted(chemical_unclear, key=lambda r: r["entry"]):
+        for target in row["unclear_targets"]:
+            print(
+                f"    [{phase_of(target)}] {row['entry']}: {target}",
+                file=out,
+            )
 
 
 def report_bindings(nodes: list[dict], out) -> None:
