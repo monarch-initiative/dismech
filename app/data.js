@@ -225515,7 +225515,8 @@ window.searchData = [
       "Macroglossia, short stature and macrocephaly",
       "Hypertrophic cardiomyopathy with mitochondrial dysfunction",
       "Infantile spasms",
-      "Severe developmental language disorder"
+      "Severe developmental language disorder",
+      "Unilateral renal agenesis"
     ],
     "phenotype_categories": [
       "Clinical"
@@ -225525,6 +225526,7 @@ window.searchData = [
       "Digestive",
       "Ear",
       "Eye",
+      "Genitourinary",
       "Growth",
       "Head and Neck",
       "Musculoskeletal",
@@ -225558,7 +225560,8 @@ window.searchData = [
       "HP:0000256",
       "HP:0001639",
       "HP:0012469",
-      "HP:0002463"
+      "HP:0002463",
+      "HP:0000122"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -225579,11 +225582,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "MED13_Syndrome.yaml",
     "page_url": "../pages/disorders/MED13_Syndrome.html",
-    "num_phenotypes": 28,
+    "num_phenotypes": 29,
     "num_pathophysiology": 11,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "49",
+    "causal_graph_edges": "52",
     "causal_graph_longest_path": "6"
   },
   {
@@ -375828,8 +375831,8 @@ window.searchMetrics = {
   "total_disorder_pages": 3484,
   "total_subtypes": 4745,
   "total_disorders_and_subtypes": 8229,
-  "total_unique_evidence_sources": 52347,
-  "total_unique_publications": 48816,
+  "total_unique_evidence_sources": 52357,
+  "total_unique_publications": 48826,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 302,
   "total_pathographs": 3480,
