@@ -1085,3 +1085,34 @@ def test_omim_key_rewrites_self_citation(tmp_path):
 def test_omim_key_needs_sssom(tmp_path):
     with pytest.raises(ValueError, match="sssom"):
         export(tmp_path, tmp_path / "out", key="omim")
+
+
+def test_mixed_subtype_evidence_is_not_inherited_by_its_children(tmp_path):
+    immunodeficiency = {"term": {"id": "HP:0002721", "label": "Immunodeficiency"}}
+    path = _write(
+        tmp_path / "d.yaml",
+        _subtyped_entry(
+            [
+                {
+                    "name": "Immunodeficiency in A",
+                    "subtype": "A",
+                    "phenotype_term": immunodeficiency,
+                    "evidence": _ev("PMID:1") + _ev("PMID:2", "REFUTE"),
+                },
+                {
+                    "name": "Clean absence in A",
+                    "subtype": "A",
+                    "phenotype_term": {"term": {"id": "HP:0000002", "label": "B"}},
+                    "evidence": _ev("PMID:3", "REFUTE"),
+                },
+            ],
+            _chain_subtypes(),
+        ),
+    )
+    rows, _ = hpoa_rows_for_disorder(path)
+    # A states both rows itself, so it keeps both.
+    a = sorted((r["hpo_id"], r["qualifier"]) for r in rows if r["database_id"] == "MONDO:0000002")
+    assert a == [("HP:0000002", "NOT"), ("HP:0002721", ""), ("HP:0002721", "NOT")]
+    # A1 inherits only the clean absence, not A's mixed evidence.
+    a1 = [(r["hpo_id"], r["qualifier"]) for r in rows if r["database_id"] == "MONDO:0000003"]
+    assert a1 == [("HP:0000002", "NOT")]

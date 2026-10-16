@@ -31,6 +31,7 @@ STATIC_PAGES = [
     "app/embeddings/index.html",
     "app/embeddings/mechanisms.html",
     "details/index.html",
+    "contributing/index.html",
 ]
 
 #: Reader-facing pages built from a template string embedded in a script rather
