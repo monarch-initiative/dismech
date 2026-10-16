@@ -152690,6 +152690,131 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Fumaric Aciduria",
+    "disease_id": "MONDO:0011730",
+    "category": "Metabolic Disorder",
+    "parents": [
+      "hereditary disease",
+      "metabolic disorder"
+    ],
+    "creation_date": "2026-10-16T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Fumaric aciduria (fumarate hydratase deficiency, fumarase deficiency) is a rare autosomal recessive mitochondrial neurometabolic disorder caused by biallelic loss-of-function variants in FH. Deficient fumarate hydratase (fumarase) activity interrupts the tricarboxylic acid cycle at the hydration of fumarate to L-malate, so fumarate accumulates and is excreted in urine. The dominant clinical picture is a severe neonatal and early-infantile encephalopathy with poor feeding, poor weight gain, hypotonia, lethargy, seizures, profound developmental impairment, dysmorphic facial features, and frequent cerebral malformations including polymicrogyria. It is distinct from the autosomal dominant FH tumor-predisposition syndrome (hereditary leiomyomatosis and renal cell cancer), which is caused by heterozygous FH variants.",
+    "pathophysiology": [
+      "Biallelic FH Loss-of-Function",
+      "Fumarase Enzyme Deficiency",
+      "Tricarboxylic Acid Cycle Interruption",
+      "Fumarate Accumulation",
+      "Iron-Sulfur Cluster Biogenesis Impairment",
+      "Complex II Product Inhibition",
+      "Respiratory Chain Complex I Deficiency",
+      "Impaired Mitochondrial Respiration",
+      "Cerebral Energy Deficit",
+      "Impaired Cortical Development",
+      "Systemic Energy Deficit"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "tricarboxylic acid cycle",
+      "fumarate metabolic process",
+      "iron-sulfur cluster assembly",
+      "mitochondrial electron transport, NADH to ubiquinone",
+      "aerobic respiration",
+      "ATP biosynthetic process"
+    ],
+    "phenotypes": [
+      "Encephalopathy",
+      "Seizures",
+      "Hypotonia",
+      "Global developmental delay",
+      "Failure to thrive",
+      "Feeding difficulties",
+      "Lethargy",
+      "Microcephaly",
+      "Polymicrogyria",
+      "Cerebral atrophy",
+      "Ventriculomegaly",
+      "Abnormal corpus callosum morphology",
+      "Delayed myelination",
+      "Hypoplasia of the brainstem",
+      "Fumaric aciduria",
+      "Frontal bossing",
+      "Depressed nasal bridge",
+      "Hypertelorism",
+      "Polycythemia",
+      "Scoliosis",
+      "Joint contracture"
+    ],
+    "phenotype_categories": [
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001298",
+      "HP:0001250",
+      "HP:0001252",
+      "HP:0001263",
+      "HP:0001508",
+      "HP:0011968",
+      "HP:0001254",
+      "HP:0000252",
+      "HP:0002126",
+      "HP:0002059",
+      "HP:0002119",
+      "HP:0001273",
+      "HP:0012448",
+      "HP:0002365",
+      "HP:0034648",
+      "HP:0002007",
+      "HP:0005280",
+      "HP:0000316",
+      "HP:0001901",
+      "HP:0002650",
+      "HP:0034392"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "FH"
+    ],
+    "treatments": [
+      "Antiseizure therapy",
+      "Nutritional and feeding support",
+      "Physical therapy",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Urinary fumaric acid",
+      "Urinary alpha-ketoglutarate",
+      "Urinary succinyladenosine",
+      "Fumarase enzyme activity"
+    ],
+    "source_file": "Fumaric_Aciduria.yaml",
+    "page_url": "../pages/disorders/Fumaric_Aciduria.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "11"
+  },
+  {
     "name": "Furunculosis",
     "disease_id": "MONDO:0100595",
     "category": "Infectious Disease",
@@ -160292,6 +160417,72 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 1,
     "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Glutaric Acidemia Type 3",
+    "disease_id": "MONDO:0009283",
+    "category": "Mendelian",
+    "parents": [
+      "Glutaric Aciduria",
+      "Organic Aciduria",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-10-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Glutaric acidemia (aciduria) type 3 is an autosomal recessive biochemical disorder caused by biallelic variants in SUGCT (formerly C7orf10), which encodes the mitochondrial succinyl-CoA:glutarate-CoA transferase. The enzyme re-esterifies free glutarate, a side product of lysine and tryptophan catabolism, to glutaryl-CoA so that it can re-enter the pathway at glutaryl-CoA dehydrogenase. Without it, free glutaric acid is lost in the urine, giving a persistent isolated glutaric aciduria in which the glutaryl-CoA-derived metabolites (3-hydroxyglutarate, glutarylcarnitine, glutarylglycine) are low relative to glutarate. That ratio is what separates it from glutaric aciduria type 1.\nThe biochemical defect is established. Its clinical significance is not: the original series found no consistent clinical phenotype, many affected people (including all of the Old Order Amish probands and newborn-screening cases) are asymptomatic, and most symptomatic reports are confounded by a second diagnosis. GA3 is therefore widely regarded as a probable non-disease. A minority of reports describe gastrointestinal symptoms, including one child with cyclic vomiting who improved after an antibiotic trial intended to cut bacterial glutarate production; whether such symptoms are caused by GA3 is unresolved, and this entry keeps them on an explicitly provisional branch.",
+    "pathophysiology": [
+      "SUGCT Loss of Function",
+      "Lysine and Tryptophan Catabolic Flux",
+      "Impaired Glutarate Re-esterification to Glutaryl-CoA",
+      "Gut Bacterial Glutarate Production",
+      "Free Glutarate Accumulation and Urinary Loss"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "lysine catabolism",
+      "tryptophan catabolism"
+    ],
+    "phenotypes": [
+      "Glutaric aciduria",
+      "Episodic vomiting"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Digestive"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0003150",
+      "HP:0002572"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "SUGCT"
+    ],
+    "treatments": [
+      "Antibiotic trial to reduce bacterial glutarate production",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Urinary glutaric acid"
+    ],
+    "source_file": "Glutaric_Acidemia_Type_3.yaml",
+    "page_url": "../pages/disorders/Glutaric_Acidemia_Type_3.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "4"
   },
   {
@@ -182915,6 +183106,75 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Hypertrophic Cardiomyopathy 16",
+    "disease_id": "MONDO:0013455",
+    "category": "Genetic",
+    "parents": [
+      "Hypertrophic Cardiomyopathy",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-10-13T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypertrophic cardiomyopathy 16 (CMH16) is the MYOZ2-attributed node of the hypertrophic cardiomyopathy gene series. MYOZ2 encodes myozenin-2, also called calsarcin-1, a small sarcomeric Z-disc protein of adult heart and slow-twitch skeletal muscle that tethers the phosphatase calcineurin to alpha-actinin and restrains calcineurin signalling.\nThe entity rests on one linkage family and must be read with an explicit validity caveat. In 2007 a heterozygous p.Ser48Pro allele was found to cosegregate with HCM in a family with six affected members (early-onset symptoms, pronounced hypertrophy and arrhythmias), and a second missense allele (p.Ile246Met) was found in one of 516 further HCM probands. Replication failed: no disease-causing MYOZ2 variant was found among 438 European familial HCM patients, and a burden analysis of 632 HCM cases sequenced for MYOZ2 against ExAC found no significant excess of rare MYOZ2 variation. ClinGen's Hereditary Cardiovascular Disease Gene Curation Expert Panel downgraded the MYOZ2-hypertrophic cardiomyopathy relationship from Limited to **Disputed** in October 2022, noting that the mechanism for disease is unknown, and its published reappraisal states that genes with disputed evidence are not appropriate for diagnostic reporting.\nThe mechanistic picture is itself split. Loss of calsarcin-1 in mice disinhibits calcineurin and sensitises the heart to pressure-overload hypertrophy, which originally suggested a calcineurin model for the human alleles. But transgenic mice expressing the two human HCM alleles develop a mild HCM-like phenotype (myocyte hypertrophy, interstitial fibrosis, preserved systolic function, Z-disc disruption) with calcineurin activity unchanged, pointing instead to a structural Z-disc mechanism. Dismech curates CMH16 as a real MONDO entity whose pathophysiology is a disputed hypothesis; management is that of hypertrophic cardiomyopathy generally.",
+    "pathophysiology": [
+      "MYOZ2 Missense Variant in Calsarcin-1",
+      "Z-Disc Structural Disruption",
+      "Cardiomyocyte Hypertrophy",
+      "Calcineurin-NFAT Disinhibition",
+      "Interstitial Myocardial Fibrosis"
+    ],
+    "cell_types": [
+      "ventricular cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002131"
+    ],
+    "biological_processes": [
+      "sarcomere organization",
+      "cardiac muscle hypertrophy",
+      "calcineurin-NFAT signaling"
+    ],
+    "phenotypes": [
+      "Left Ventricular Hypertrophy",
+      "Hypertrophic Cardiomyopathy",
+      "Arrhythmia"
+    ],
+    "phenotype_categories": [
+      "Cardiac"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_ids": [
+      "HP:0001712",
+      "HP:0001639",
+      "HP:0011675"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "MYOZ2"
+    ],
+    "treatments": [
+      "Negative Inotropic Pharmacotherapy",
+      "Cardiac Myosin Inhibition",
+      "Implantable Cardioverter-Defibrillator",
+      "Genetic Counseling and Family Screening"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypertrophic_Cardiomyopathy_16.yaml",
+    "page_url": "../pages/disorders/Hypertrophic_Cardiomyopathy_16.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Hypertrophic Cardiomyopathy 17",
     "disease_id": "MONDO:0013474",
     "category": "Mendelian",
@@ -184811,6 +185071,125 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "13",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Hypomagnesemia 7 Renal With Or Without Dilated Cardiomyopathy",
+    "disease_id": "MONDO:0859328",
+    "category": "Mendelian",
+    "parents": [
+      "Familial primary hypomagnesemia"
+    ],
+    "creation_date": "2026-10-15T12:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant kidney-heart disorder caused by heterozygous germline missense variants in RRAGD, which encodes the small Rag GTPase RagD. Variants are often de novo and cluster in the nucleotide-binding G domains; they auto-activate RagD independently of its GTPase-activating protein folliculin, so mTORC1 keeps phosphorylating TFEB and TFE3 during amino acid starvation and the MiT/TFE factors are retained in the cytoplasm. The kidney phenotype is an electrolyte-losing tubulopathy of the thick ascending limb and distal convoluted tubule, with renal magnesium wasting and hypomagnesemia, hypokalemia, salt wasting, hypercalciuria, metabolic alkalosis, polyuria and nephrocalcinosis, and usually preserved glomerular function. About half of reported carriers also have cardiomyopathy, mostly dilated cardiomyopathy presenting in childhood and progressing to heart transplantation in several cases, with ventricular arrhythmia, excessive trabeculation and myocardial fibrosis also described. Kidney and heart involvement occur independently, and expression of the cardiac phenotype varies by variant. Management is symptomatic (magnesium and potassium supplementation, standard heart failure therapy, transplantation); SGLT2 inhibition and mTOR inhibition are under investigation.",
+    "pathophysiology": [
+      "RRAGD Auto-Activating Missense Variant",
+      "Nutrient-Insensitive mTORC1 Signaling",
+      "TFEB and TFE3 Cytoplasmic Retention",
+      "Impaired MiT/TFE Response to Lysosomal and Mitochondrial Injury",
+      "Distal Nephron Magnesium and Calcium Reabsorption Defect",
+      "Cardiomyocyte Dedifferentiation and Impaired Calcium Clearance",
+      "Dilated Cardiomyopathy with Ventricular Remodeling"
+    ],
+    "cell_types": [
+      "thick ascending limb epithelial cell",
+      "distal convoluted tubule epithelial cell",
+      "cardiac muscle cell",
+      "fibroblast of dermis"
+    ],
+    "cell_type_ids": [
+      "CL:1001106",
+      "CL:1000849",
+      "CL:0000746",
+      "CL:0002551"
+    ],
+    "biological_processes": [
+      "TORC1 signaling",
+      "cellular response to amino acid starvation",
+      "TFEB/TFE3 nuclear localization",
+      "lysosome organization",
+      "mitophagy",
+      "renal magnesium and calcium reabsorption",
+      "magnesium ion homeostasis",
+      "cardiac muscle contraction"
+    ],
+    "phenotypes": [
+      "Renal magnesium wasting",
+      "Hypomagnesemia",
+      "Hypokalemia",
+      "Renal salt wasting",
+      "Hypercalciuria",
+      "Nephrocalcinosis",
+      "Nephrolithiasis",
+      "Polyuria",
+      "Metabolic alkalosis",
+      "Tetany",
+      "Paresthesia",
+      "Muscle spasm",
+      "Dilated cardiomyopathy",
+      "Ventricular arrhythmia",
+      "Myocardial infarction",
+      "Myocardial fibrosis",
+      "Excessive left ventricular trabeculation"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Metabolic",
+      "Neuromuscular",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0005567",
+      "HP:0002917",
+      "HP:0002900",
+      "HP:0000127",
+      "HP:0002150",
+      "HP:0000121",
+      "HP:0000787",
+      "HP:0000103",
+      "HP:0200114",
+      "HP:0001281",
+      "HP:0003401",
+      "HP:0003394",
+      "HP:0001644",
+      "HP:0004308",
+      "HP:0001658",
+      "HP:0001685",
+      "HP:0031194"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "RRAGD"
+    ],
+    "treatments": [
+      "Magnesium supplementation",
+      "Potassium supplementation",
+      "Heart transplantation",
+      "SGLT2 inhibition (dapagliflozin)",
+      "mTOR inhibition (experimental)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypomagnesemia_7_Renal_With_Or_Without_Dilated_Cardiomyopathy.yaml",
+    "page_url": "../pages/disorders/Hypomagnesemia_7_Renal_With_Or_Without_Dilated_Cardiomyopathy.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "41",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Hypomagnesemia, Seizures, and Intellectual Disability 2",
@@ -343741,8 +344120,8 @@ window.searchData = [
     "num_pathophysiology": 12,
     "num_genes": 3,
     "num_treatments": 7,
-    "causal_graph_edges": "27",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Stickler Syndrome Type 1",
@@ -357466,6 +357845,10 @@ window.searchData = [
       "Blood-Brain Barrier Disruption",
       "Excitotoxic Glutamate Release",
       "PSD-95-nNOS Coupling",
+      "Neuronal Nitric Oxide Overproduction",
+      "Preso-Dependent CDK5 Activation",
+      "NR2B Ser1284 Phosphorylation",
+      "Neuronal Calcium Overload",
       "Spreading Depolarisations",
       "Secondary Systemic Insults (Hypotension and Hypoxia)",
       "Cytotoxic Brain Swelling and Raised Intracranial Pressure",
@@ -357484,6 +357867,9 @@ window.searchData = [
     "biological_processes": [
       "response to axon injury",
       "glutamate secretion",
+      "nitric oxide biosynthetic process",
+      "protein phosphorylation",
+      "calcium ion homeostasis",
       "microglial cell activation",
       "neuroinflammatory response"
     ],
@@ -357544,11 +357930,11 @@ window.searchData = [
     "source_file": "Traumatic_Brain_Injury.yaml",
     "page_url": "../pages/disorders/Traumatic_Brain_Injury.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 12,
+    "num_pathophysiology": 16,
     "num_genes": 0,
     "num_treatments": 9,
-    "causal_graph_edges": "36",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "46",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Traveler's Diarrhea",
@@ -377446,19 +377832,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3501,
+  "total_disorder_pages": 3505,
   "total_subtypes": 4750,
-  "total_disorders_and_subtypes": 8251,
-  "total_unique_evidence_sources": 52579,
-  "total_unique_publications": 49040,
+  "total_disorders_and_subtypes": 8255,
+  "total_unique_evidence_sources": 52616,
+  "total_unique_publications": 49074,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 302,
-  "total_pathographs": 3497,
-  "total_unique_pathological_events": 23096,
-  "total_modules": 193,
-  "total_research_reports": 3623,
+  "total_pathographs": 3501,
+  "total_unique_pathological_events": 23124,
+  "total_modules": 194,
+  "total_research_reports": 3627,
   "total_classifications": 21,
   "total_comorbidities": 51,
-  "total_groupings": 114
+  "total_groupings": 115
 };
 window.dispatchEvent(new Event('searchDataReady'));
