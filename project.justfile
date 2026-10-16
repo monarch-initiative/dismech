@@ -1063,7 +1063,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1480,6 +1480,15 @@ node-classes *args:
 check-skill-files:
     uv run python scripts/check_skill_files.py
 
+# Rewrite the shared site header into the hand-written pages (index.html,
+# app/, details/) from src/dismech/templates/_site_nav.html.j2, which every
+# Jinja template includes. Run after editing the partial; --check reports only.
+# tests/test_site_nav.py fails while any copy is stale (issue #14022).
+# Copy the shared site header into the hand-written site pages.
+[group('QC')]
+sync-site-nav *args:
+    uv run python scripts/sync_site_nav.py {{args}}
+
 # Census of every skill and its description length, exit 0.
 [group('QC')]
 list-skill-files:
@@ -1610,6 +1619,33 @@ aop-chain-census *args:
 [group('QC')]
 update-causal-target-baseline:
     uv run python scripts/check_causal_targets.py --update-baseline
+
+# Two disorder entries sharing one disease_term must each record it in
+# mappings.mondo_mappings as skos:exactMatch (at most one entry) or
+# skos:narrowMatch (design decisions section 3a). Nothing else notices two
+# curators claiming one MONDO class under different filenames (#10113, #9618).
+# Ungated and whole-KB because the PR that creates a collision touches only kb/,
+# and the other entry in the pair is one it never opened. The backlog is
+# grandfathered per member in tests/shared_disease_term_baseline.txt, so a new
+# entry joining a grandfathered group still fails. ~30s, offline.
+# Gate: entries sharing a disease_term must record exactMatch/narrowMatch to it.
+[group('QC')]
+check-shared-disease-terms:
+    uv run python scripts/check_shared_disease_terms.py
+
+# Every disease_term shared by two or more disorder entries, with each member's
+# recorded predicate and finding. Exit 0.
+# Worklist: every shared disease_term group with each member's predicate (#10113).
+[group('QC')]
+list-shared-disease-terms:
+    uv run python scripts/check_shared_disease_terms.py --report
+
+# Only ever to REMOVE rows as the backlog is repaired -- never to admit a new
+# collision.
+# Regenerate the shared disease_term baseline (shrink only).
+[group('QC')]
+update-shared-disease-term-baseline:
+    uv run python scripts/check_shared_disease_terms.py --update-baseline
 
 # The complement of check-causal-targets: phenotypes that NO causal edge
 # explains. That check finds edges whose target resolves to nothing; this finds
@@ -3004,6 +3040,52 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	    --var "disease_name=$disease_name" \
 	    --var "surrogate={{surrogate}}" \
 	    --var "clinical_outcome={{clinical_outcome}}" \
+	    $provider_arg \
+	    --output "$staged_file" \
+	    --separate-citations "$staged_file.citations.md" \
+	    {{dr_validation}} \
+	    {{dr_term_validation}} \
+	    {{dr_fallback}} \
+	    {{args}} || dr_status=$?
+	if [ -f "$staged_file" ]; then
+	    {{dr_stamp}} "$staged_file"
+	    {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
+	fi
+	rmdir "$staging_dir" 2>/dev/null || true
+	exit ${dr_status:-0}
+
+# Deep research on whether a drug's therapeutic mechanism in a disease is established.
+# Used by projects/DRUGS_UNKNOWN_MECHANISM.md to decide whether a treatment's
+# target_mechanisms edge is settled, one of several candidates, or a knowledge gap.
+# <disease> may be a disorder stem or a module stem. The prompt receives the
+# entry's `name:`, so for a module it reads e.g. "Deregulated Nutrient Sensing Module".
+# Examples:
+#   just research-drug-mechanism openscientist Major_Depressive_Disorder ketamine "Excitation-Inhibition Imbalance"
+[group('Research')]
+research-drug-mechanism provider disease drug asserted_mechanism *args="":
+	#!/usr/bin/env bash
+	set -e
+	mkdir -p {{research_dir}}/drug_mechanism
+	yaml_file="{{kb_dir}}/{{disease}}.yaml"
+	[ -f "$yaml_file" ] || yaml_file="{{modules_dir}}/{{disease}}.yaml"
+	if [ ! -f "$yaml_file" ]; then
+	    echo "Error: no disorder or module file for {{disease}}"
+	    for f in {{kb_dir}}/*.yaml {{modules_dir}}/*.yaml; do basename "$f" .yaml; done | grep -i -- "$(echo '{{disease}}' | cut -c1-6)" | head -10
+	    exit 1
+	fi
+	disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
+	drug_slug=$(echo "{{drug}}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+|_+$//g' | cut -c1-40)
+	output_file="{{research_dir}}/drug_mechanism/{{disease}}-drug-mechanism-${drug_slug}-deep-research-{{provider}}.md"
+	requested_provider="{{provider}}"
+	staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+	staged_file="$staging_dir/$(basename "$output_file")"
+	echo "Researching drug mechanism: $disease_name | {{drug}} -> {{asserted_mechanism}} ({{provider}}) -> $output_file"
+	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
+	{{dr_client}} research \
+	    --template {{templates_dir}}/drug_mechanism_research.md \
+	    --var "disease_name=$disease_name" \
+	    --var "drug={{drug}}" \
+	    --var "asserted_mechanism={{asserted_mechanism}}" \
 	    $provider_arg \
 	    --output "$staged_file" \
 	    --separate-citations "$staged_file.citations.md" \
