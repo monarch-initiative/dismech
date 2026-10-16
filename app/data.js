@@ -201174,6 +201174,92 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Intellectual Developmental Disorder, X-Linked, Syndromic, With Pigmentary Mosaicism And Coarse Facies",
+    "disease_id": "MONDO:0859080",
+    "category": "Mendelian",
+    "parents": [
+      "X-linked syndromic intellectual disability"
+    ],
+    "creation_date": "2026-10-13T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An X-linked syndromic intellectual developmental disorder caused by de novo variants in TFE3, which encodes a bHLH-leucine zipper transcription factor of the MiT/TFE family that regulates lysosomal, melanocytic and autophagy genes. Affected females and males have severe intellectual disability, epilepsy, pigmentation anomalies along Blaschko's lines, coarse facial features that suggest a storage disorder, and growth retardation; affected individuals are reported to be non-verbal. Brain MRI was normal in the first five reported patients, and enzyme screening for lysosomal storage disease was negative in two patients whose coarse facies first prompted it. Almost all variants are missense changes clustered in exons 3 and 4, in a conserved helix that docks onto the RagA GTPase. Normally, amino-acid-activated Rag GTPases recruit TFE3 to the lysosomal surface, where it is held in the cytoplasm and degraded; the disease variants abolish Rag binding, so TFE3 is constitutively stable and ectopically nuclear, a gain of function. In mouse embryonic stem cells, nuclear Tfe3 represses developmental and metabolic programmes needed for exit from pluripotency. A single neonatal male with a hemizygous de novo variant had giant cell hepatitis with severe cholestasis. No disease-specific treatment has been reported.",
+    "pathophysiology": [
+      "De Novo TFE3 Missense Variants at the RagA Interface",
+      "Escape from Rag GTPase-Mediated Cytoplasmic Retention and Degradation",
+      "Constitutive Nuclear TFE3 Transcriptional Activity",
+      "Repression of Developmental Programs Required for Exit from Pluripotency"
+    ],
+    "cell_types": [
+      "embryonic stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002322"
+    ],
+    "biological_processes": [
+      "proteasome-mediated ubiquitin-dependent protein catabolic process",
+      "protein localization to nucleus",
+      "stem cell differentiation"
+    ],
+    "phenotypes": [
+      "Severe intellectual disability",
+      "Absent speech",
+      "Epilepsy",
+      "Pigmentation anomalies along Blaschko's lines",
+      "Coarse facial features",
+      "Growth retardation",
+      "Neonatal giant cell hepatitis with cholestasis",
+      "Conjugated hyperbilirubinemia",
+      "Hepatomegaly"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Dermatologic",
+      "Craniofacial",
+      "Growth",
+      "Hepatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0010864",
+      "HP:0001344",
+      "HP:0001250",
+      "HP:6001387",
+      "HP:0000280",
+      "HP:0001510",
+      "HP:0200084",
+      "HP:0002908",
+      "HP:0002240"
+    ],
+    "frequencies": [
+      "5/5",
+      "4/5",
+      "1 case"
+    ],
+    "genes": [
+      "TFE3"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Developmental_Disorder_X-linked_Syndromic_With_Pigmentary_Mosaicism_And_Coarse_Facies.yaml",
+    "page_url": "../pages/disorders/Intellectual_Developmental_Disorder,_X-Linked,_Syndromic,_With_Pigmentary_Mosaicism_And_Coarse_Facies.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Intellectual Disability, Anterior Maxillary Protrusion, and Strabismus",
     "disease_id": "MONDO:0013353",
     "category": "Mendelian",
@@ -377360,17 +377446,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3500,
+  "total_disorder_pages": 3501,
   "total_subtypes": 4750,
-  "total_disorders_and_subtypes": 8250,
-  "total_unique_evidence_sources": 52574,
-  "total_unique_publications": 49035,
+  "total_disorders_and_subtypes": 8251,
+  "total_unique_evidence_sources": 52579,
+  "total_unique_publications": 49040,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 302,
-  "total_pathographs": 3496,
-  "total_unique_pathological_events": 23092,
+  "total_pathographs": 3497,
+  "total_unique_pathological_events": 23096,
   "total_modules": 193,
-  "total_research_reports": 3622,
+  "total_research_reports": 3623,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
