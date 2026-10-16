@@ -2370,6 +2370,15 @@ For MONDO coverage and epic-checklist synchronization, an entry's primary
 `relatedMatch` are cross-references and must not retire the mapped concept from
 the curation queue.
 
+**Two disorder entries may share a `disease_term` only if both say how.** Each
+records that CURIE in `mappings.mondo_mappings` as `skos:exactMatch` (at most
+one entry: the one that is the class) or `skos:narrowMatch` (a narrower entry,
+such as a promoted cancer stratum under design decisions §3a). If your new entry
+lands on a term another entry already holds and is not narrower than it, it is
+probably a duplicate. `just check-shared-disease-terms` gates this (in `just qc`,
+ungated in CI) and `just list-shared-disease-terms` is the worklist for the
+grandfathered groups (#10113). See `docs/quality-control.md`.
+
 ### Coarse Phenotype Bindings Must Say Why
 
 A phenotype bound to a **coarse HPO term** — `HP:0000478` *Abnormality of the
