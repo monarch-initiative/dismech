@@ -218,12 +218,22 @@ def skip_reason(run, pr, peers, reviews, now, minimum):
         return "PR is closed"
     if run["event"] == "pull_request" and run["head_sha"] != pr["head"]["sha"]:
         return "superseded by a new PR commit"
+    # A failed pull_request run on the current head is the PR's own
+    # `claude-review` check. Manual and comment-triggered reviews run on main,
+    # attach no check to the PR head, and so cannot turn that check green; a
+    # verdict they post leaves it red too. For such a run, only a newer
+    # pull_request run on the same head supersedes it. Without this, the
+    # merge controller waits on the red check while this sweep waits on the
+    # verdict, and the PR is stuck for good.
+    head_check = run["event"] == "pull_request"
     for peer in peers:
         if peer["id"] == run["id"] or peer.get("conclusion") == "skipped":
             continue
         if peer["status"] != "completed":
             return "another review is queued or running"
         if peer["event"] == "pull_request" and peer["head_sha"] != pr["head"]["sha"]:
+            continue
+        if head_check and peer["event"] != "pull_request":
             continue
         if timestamp(peer["created_at"]) > timestamp(run["created_at"]):
             return "a newer review run exists"
@@ -236,7 +246,7 @@ def skip_reason(run, pr, peers, reviews, now, minimum):
         login = (review.get("user") or {}).get("login")
         if login in REVIEWERS and review["state"] != "COMMENTED":
             latest[login] = review
-    if any(
+    if not head_check and any(
         r["commit_id"] == pr["head"]["sha"]
         and r["state"] in {"APPROVED", "CHANGES_REQUESTED"}
         for r in latest.values()
@@ -293,11 +303,22 @@ def sweep(
             "Retries deferred: an active legacy review cannot yet be associated with a PR.",
         ], errors
 
+    def latest_runs(group):
+        # The newest run overall, plus the newest pull_request run: a later
+        # manual review that never touches the PR head must not hide a failed
+        # head check from the sweep. skip_reason decides between them.
+        newest = max(group, key=lambda item: item["created_at"])
+        heads = [item for item in group if item["event"] == "pull_request"]
+        newest_head = max(heads, key=lambda item: item["created_at"], default=None)
+        if newest_head is None or newest_head["id"] == newest["id"]:
+            return [newest]
+        return [newest, newest_head]
+
     candidates = sorted(
         [
             (r, n)
             for n, group in indexed.items()
-            for r in [max(group, key=lambda item: item["created_at"])]
+            for r in latest_runs(group)
             if r.get("conclusion") in RETRYABLE
             and timestamp(r["created_at"]) >= now - timedelta(days=lookback)
             and (specific_pr is None or n == specific_pr)
