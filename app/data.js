@@ -29975,6 +29975,90 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Arthrogryposis, Cleft Palate, Craniosynostosis, and Impaired Intellectual Development",
+    "disease_id": "MONDO:0032642",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Arthrogryposis, cleft palate, craniosynostosis, and impaired intellectual development (ACCIID; OMIM 618265) is an ultra-rare autosomal dominant multiple congenital anomaly syndrome caused by de novo heterozygous missense variants in the auto-inhibitory (AI) domain of PPP3CA, the alpha isoform of the catalytic subunit of the calcium/calmodulin-dependent phosphatase calcineurin. Affected individuals have developmental delay and moderate to severe intellectual disability together with craniosynostosis, micro-/retrognathia, cleft palate, brachydactyly, arthrogryposis and short stature; gracile bones with perinatal fractures, seizures, ventriculomegaly and periventricular white matter changes have also been described. The AI-domain variants increase calcineurin signaling, which is the opposite functional effect to the loss-of-function catalytic-domain variants that cause the allelic, nonsyndromic developmental and epileptic encephalopathy 91 (DEE91, curated separately as CN-Related Developmental and Epileptic Encephalopathy).",
+    "pathophysiology": [
+      "PPP3CA Auto-inhibitory Domain Gain of Function",
+      "Increased Calcineurin Signaling"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "calcineurin-mediated signaling"
+    ],
+    "phenotypes": [
+      "Arthrogryposis",
+      "Cleft Palate",
+      "Craniosynostosis",
+      "Craniofacial Dysmorphism",
+      "Micro-/Retrognathia",
+      "Brachydactyly",
+      "Short Stature",
+      "Gracile Bones",
+      "Perinatal Fractures",
+      "Intellectual Disability",
+      "Global Developmental Delay",
+      "Seizures",
+      "Ventriculomegaly",
+      "Periventricular White Matter Changes",
+      "Renal Abnormalities"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Craniofacial",
+      "Skeletal",
+      "Growth",
+      "Neurological",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002804",
+      "HP:0000175",
+      "HP:0001363",
+      "HP:0001999",
+      "HP:0000347",
+      "HP:0001156",
+      "HP:0004322",
+      "HP:0003100",
+      "HP:0002756",
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0001250",
+      "HP:0002119",
+      "HP:0002518",
+      "HP:0000077"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PPP3CA"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Arthrogryposis_Cleft_Palate_Craniosynostosis_And_Impaired_Intellectual_Development.yaml",
+    "page_url": "../pages/disorders/Arthrogryposis,_Cleft_Palate,_Craniosynostosis,_and_Impaired_Intellectual_Development.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Arthrogryposis Multiplex Congenita",
     "disease_id": "MONDO:0015168",
     "category": "Complex",
@@ -64513,6 +64597,71 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "CDC20-related Oocyte Maturation Defect",
+    "disease_id": "MONDO:0859521",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "female reproductive system disease"
+    ],
+    "creation_date": "2026-10-15T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "CDC20-related oocyte maturation defect (oocyte maturation defect 14) is an autosomal-recessive form of primary female infertility caused by biallelic variants in CDC20, the co-activator that switches on the anaphase-promoting complex/cyclosome (APC/C) at the metaphase-to-anaphase transition. Affected women have normal menstrual cycles and no reported somatic abnormality, but their IVF/ICSI cycles fail in one of several ways: oocytes arrest at metaphase I (or at a mixture of germinal-vesicle and metaphase-I stages), mature oocytes fail to fertilize, or fertilized embryos arrest early. These are alternative presentations of reduced CDC20 dosage rather than a fixed sequence. Patient variants reduce CDC20 mRNA or protein, truncating alleles fail to localize to kinetochores, and the variants impair CDC20-driven cyclin B1 degradation and the ability of CDC20 to rescue first-polar-body extrusion in Cdc20-depleted mouse oocytes. Hypomorphic Cdc20 mice show that female meiosis I has a higher CDC20 threshold than mitosis, which explains why the phenotype is restricted to the oocyte. Injection of wild-type CDC20 cRNA into patient oocytes restored fertilization and blastocyst formation in a small experimental series, but has no established clinical safety or efficacy.",
+    "pathophysiology": [
+      "Biallelic CDC20 Variants Reducing APC/C Co-activator Function",
+      "Impaired APC/C-CDC20-Mediated Cyclin B1 Degradation",
+      "Failed Metaphase I to Anaphase I Transition in Oocytes",
+      "Meiosis I Chromosome Missegregation in Hypomorphic Oocytes"
+    ],
+    "cell_types": [
+      "oocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000023"
+    ],
+    "biological_processes": [
+      "APC/C-dependent cyclin B1 degradation",
+      "metaphase/anaphase transition of meiosis I",
+      "female meiosis chromosome segregation"
+    ],
+    "phenotypes": [
+      "Female Infertility",
+      "Metaphase I Oocyte Maturation Arrest",
+      "Mixed Oocyte Maturation Arrest",
+      "Fertilization Failure",
+      "Embryo Developmental Arrest"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0008222",
+      "HP:0031516",
+      "HP:6001356",
+      "HP:0020003"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CDC20"
+    ],
+    "treatments": [
+      "CDC20 cRNA injection into patient oocytes (experimental)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CDC20-related_Oocyte_Maturation_Defect.yaml",
+    "page_url": "../pages/disorders/CDC20-related_Oocyte_Maturation_Defect.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "CDH1-Related Hereditary Diffuse Gastric Cancer",
     "disease_id": "MONDO:0100488",
     "category": "Mendelian",
@@ -78355,6 +78504,86 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "7",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Cataract 4, Multiple Types",
+    "disease_id": "MONDO:0007281",
+    "category": "Mendelian",
+    "parents": [
+      "Early-onset non-syndromic cataract"
+    ],
+    "creation_date": "2026-10-15T17:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant, non-syndromic early-onset cataract caused by heterozygous variants in CRYGD, which encodes gamma-D crystallin, one of the most abundant monomeric structural proteins of the lens fiber cell cytoplasm. Most families have a congenital, bilateral cataract that is present at birth, but the first reported allele (R14C) causes a progressive cataract that appears in the first years of life and evolves slowly through childhood. The disease is named for its morphological diversity: coralliform, aculeiform, cerulean, crystalline, nuclear, lamellar and fasciculiform cataracts have all been reported, and the recurrent P23T allele alone has produced most of these morphologies, sometimes within one family. Biophysical work on recombinant mutant proteins established an unusual mechanism for several alleles: the mutant protein keeps a native fold and normal stability but has a sharply reduced solubility, so it aggregates (R14C through disulfide-linked oligomers, P23T through a condensed phase with inverted temperature dependence, E107A as light-scattering particles) or crystallizes in the lens (R36S and R58H). Other alleles, such as W43R and C-terminal truncations, instead destabilize the fold and expose hydrophobic surfaces that drive aggregation. Both routes converge on light scattering and lens opacity, causing visual impairment that, when the cataract is dense, is complicated by nystagmus and amblyopia. Management is surgical lens extraction; there is no disease-specific therapy.",
+    "pathophysiology": [
+      "CRYGD Pathogenic Variant",
+      "Reduced Gamma-D Crystallin Solubility With Preserved Native Fold",
+      "Gamma-D Crystallin Destabilization and Hydrophobic Exposure",
+      "Gamma-D Crystallin Crystallization in the Lens",
+      "Gamma-D Crystallin Aggregation in Lens Fiber Cells",
+      "Lens Light Scattering and Loss of Transparency"
+    ],
+    "cell_types": [
+      "lens fiber cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011004"
+    ],
+    "biological_processes": [
+      "protein folding",
+      "maintenance of lens transparency"
+    ],
+    "phenotypes": [
+      "Developmental cataract",
+      "Progressive juvenile-onset cataract",
+      "Coralliform cataract",
+      "Aculeiform cataract",
+      "Cerulean cataract",
+      "Crystalline cataract",
+      "Nuclear cataract",
+      "Lamellar cataract",
+      "Visual impairment",
+      "Nystagmus",
+      "Amblyopia",
+      "Microcornea"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000519",
+      "HP:0001118",
+      "HP:0010921",
+      "HP:0010926",
+      "HP:0007976",
+      "HP:0100018",
+      "HP:0007971",
+      "HP:0000505",
+      "HP:0000639",
+      "HP:0000646",
+      "HP:0000482"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CRYGD"
+    ],
+    "treatments": [
+      "Cataract Surgery"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cataract_4_Multiple_Types.yaml",
+    "page_url": "../pages/disorders/Cataract_4,_Multiple_Types.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Cataract 5 Multiple Types",
@@ -92860,7 +93089,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 6,
     "num_treatments": 5,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "2"
   },
   {
@@ -95509,6 +95738,124 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "45",
     "causal_graph_longest_path": "9"
+  },
+  {
+    "name": "Combined Immunodeficiency Due To Dimerization Defective IKAROS Mutation",
+    "disease_id": "MONDO:0979288",
+    "category": "Mendelian",
+    "parents": [
+      "Combined immunodeficiency",
+      "IKAROS-associated disease"
+    ],
+    "creation_date": "2026-10-15T17:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal dominant inborn error of immunity caused by heterozygous germline IKZF1 variants in the two C-terminal zinc fingers (ZF5 and ZF6) that mediate IKAROS homo- and heterodimerization. The mutant protein cannot dimerize, or dimerizes only partially, with wild-type IKAROS or with its family members HELIOS, AIOLOS and EOS. It is also less stable, poorly SUMOylated, and fails to reach pericentromeric heterochromatin and to repress target genes. The mutant does not interfere with the wild-type allele, so the disease is a dimerization haploinsufficiency rather than a dominant-negative disorder.\n\nPresentation is variable and penetrance is incomplete. The founding cohort presented mainly with hematologic disease: thrombocytopenia, anemia and neutropenia, including Evans syndrome, and lymphoid malignancy (T-cell acute lymphoblastic leukemia, Burkitt lymphoma). Later families carrying ZF6 truncating variants presented with recurrent infections, B-cell lymphopenia, low switched memory B cells, poor vaccine responses, ANCA-negative vasculitis and B-cell acute lymphoblastic leukemia, while other carriers remained asymptomatic. Peripheral T cells show a loss of naive and gain of central memory CD4+ cells, the same pattern as DNA-binding haploinsufficiency and the opposite of the dominant-negative class.\n\nThe entry is scoped to the dimerization-defective allele class. MONDO and Orphanet split germline IKZF1 disease by mechanism of action. The haploinsufficient DNA-binding variants that cause CVID with progressive B-cell loss are the IKAROS subtype of Common_Variable_Immunodeficiency, and the dominant-negative DNA-binding variants that cause early-onset combined immunodeficiency are a separate uncurated stub (MONDO:0979316).",
+    "pathophysiology": [
+      "IKZF1 Dimerization Domain Variant Disrupts IKAROS Dimerization",
+      "Reduced IKAROS Protein Stability and SUMOylation",
+      "IKAROS Dimerization Haploinsufficiency",
+      "Impaired B Cell Development and Antibody Production",
+      "Loss of IKAROS Repression of HNRNPLL",
+      "Shift From Naive to Memory CD4+ T Cells",
+      "Loss of IKAROS Lymphoid Tumor Suppression"
+    ],
+    "cell_types": [
+      "B cell",
+      "naive T cell",
+      "memory T cell",
+      "lymphocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000236",
+      "CL:0000898",
+      "CL:0000813",
+      "CL:0000542"
+    ],
+    "biological_processes": [
+      "IKAROS protein stabilization",
+      "IKAROS SUMOylation",
+      "IKAROS-mediated transcriptional repression",
+      "B cell differentiation",
+      "negative regulation of lymphocyte proliferation by IKAROS"
+    ],
+    "phenotypes": [
+      "Thrombocytopenia",
+      "Anemia",
+      "Neutropenia",
+      "T-cell acute lymphoblastic leukemia",
+      "Burkitt lymphoma",
+      "B-cell acute lymphoblastic leukemia",
+      "Recurrent infections",
+      "B-cell lymphopenia",
+      "Hypogammaglobulinemia",
+      "Impaired specific antibody response",
+      "Decreased class-switched memory B cells",
+      "Decreased naive CD4+ T cells",
+      "Increased memory T cells",
+      "Vasculitis",
+      "Bronchiolitis obliterans",
+      "Lymphocytic interstitial pneumonia",
+      "Splenomegaly",
+      "Recurrent aphthous stomatitis"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Neoplastic",
+      "Infectious",
+      "Immunologic",
+      "Respiratory",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Neoplasm",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001873",
+      "HP:0001903",
+      "HP:0001875",
+      "HP:0006727",
+      "HP:0030080",
+      "HP:0004812",
+      "HP:0002719",
+      "HP:0010976",
+      "HP:0004313",
+      "HP:0012475",
+      "HP:0030388",
+      "HP:0410378",
+      "HP:0032184",
+      "HP:0002633",
+      "HP:0011946",
+      "HP:0006527",
+      "HP:0001744",
+      "HP:0011107"
+    ],
+    "frequencies": [],
+    "genes": [
+      "IKZF1"
+    ],
+    "treatments": [
+      "Immunoglobulin Replacement Therapy",
+      "Immunosuppressive Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Combined_Immunodeficiency_Due_To_Dimerization_Defective_IKAROS_Mutation.yaml",
+    "page_url": "../pages/disorders/Combined_Immunodeficiency_Due_To_Dimerization_Defective_IKAROS_Mutation.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Combined Immunodeficiency Due To GINS1 Deficiency",
@@ -187886,6 +188233,130 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "IKZF2-related Combined Immunodeficiency",
+    "disease_id": "MONDO:1010177",
+    "category": "Mendelian",
+    "parents": [
+      "combined immunodeficiency",
+      "inborn error of immunity"
+    ],
+    "creation_date": "2026-10-15T14:36:39Z",
+    "updated_date": null,
+    "subtypes": [
+      "HELIOS deficiency",
+      "ICHAD"
+    ],
+    "description": "IKZF2-related combined immunodeficiency is an inborn error of immunity caused by germline variants in IKZF2, which encodes HELIOS, an Ikaros-family zinc-finger transcription factor expressed mainly in regulatory T cells, activated effector T cells and MAIT cells. The best-characterized form, HELIOS deficiency, is caused by heterozygous truncating or missense variants (autosomal dominant, with incomplete penetrance) or, in one consanguineous family, a homozygous missense variant (p.Ile325Val). Most of the characterized variants leave DNA binding intact but disrupt dimerization with Ikaros and Aiolos and/or recruitment of the Mi-2/NuRD chromatin-remodeling complex, which deregulates HELIOS-dependent transcription, including the IL2 locus. The cellular consequence is chronic activation and terminal differentiation of effector T cells, proinflammatory cytokine production by regulatory T cells, dysregulated germinal center reactions, loss of MAIT and NK cells, and variable B cell and antibody defects. Patients present with a mix of immunodeficiency (recurrent upper and lower respiratory infections, thrush and mucosal ulcers, hypogammaglobulinemia) and immune dysregulation (chronic lymphadenopathy, systemic lupus erythematosus, immune thrombocytopenia, EBV-associated hemophagocytic lymphohistiocytosis, and occasionally lymphoma). A syndromic allelic disorder caused by de novo dominant negative variants in the DNA-binding zinc fingers (ICHAD syndrome) is curated in its own entry. Treatment is supportive: antimicrobial prophylaxis and immunoglobulin replacement for infection, standard immunosuppression for autoimmunity, and hematopoietic cell transplantation for refractory EBV-driven disease.",
+    "pathophysiology": [
+      "IKZF2 Loss-of-Function Variant",
+      "Impaired HELIOS Dimerization and NuRD Complex Recruitment",
+      "Dysregulated HELIOS-Dependent Chromatin Accessibility and IL2 Transcription",
+      "Chronic Effector T Cell Activation and Terminal Differentiation",
+      "Proinflammatory Regulatory T Cell Dysfunction",
+      "Impaired Conventional T Cell Proliferation",
+      "Dysregulated Germinal Center Reaction",
+      "B Cell Abnormalities"
+    ],
+    "cell_types": [
+      "CD8-positive, alpha-beta T cell",
+      "regulatory T cell",
+      "CD4-positive, alpha-beta T cell",
+      "T follicular helper cell",
+      "B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000625",
+      "CL:0000815",
+      "CL:0000624",
+      "CL:0002038",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "chromatin remodeling",
+      "interleukin-2 production",
+      "T cell activation",
+      "inflammatory response",
+      "T cell proliferation",
+      "regulation of germinal center formation",
+      "B cell differentiation"
+    ],
+    "phenotypes": [
+      "Recurrent Respiratory Infections",
+      "Recurrent Upper Respiratory Tract Infections",
+      "Recurrent Pneumonia",
+      "Recurrent Candida Infections",
+      "Mucosal Ulcers",
+      "Lymphadenopathy",
+      "Splenomegaly",
+      "Systemic Lupus Erythematosus",
+      "Immune Thrombocytopenia",
+      "EBV-Associated Hemophagocytic Lymphohistiocytosis",
+      "Hodgkin Lymphoma",
+      "Hypogammaglobulinemia",
+      "Decreased Class-Switched Memory B Cells",
+      "Decreased B Cell Count",
+      "Reduced NK Cells",
+      "Decreased MAIT Cells"
+    ],
+    "phenotype_categories": [
+      "Infection",
+      "Mucosal",
+      "Immune",
+      "Autoimmune",
+      "Neoplasm",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Neoplasm",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002205",
+      "HP:0002788",
+      "HP:0006532",
+      "HP:0005401",
+      "HP:0000155",
+      "HP:0002716",
+      "HP:0001744",
+      "HP:0002725",
+      "HP:0001973",
+      "HP:5210288",
+      "HP:0012189",
+      "HP:0004313",
+      "HP:0030388",
+      "HP:0010976",
+      "HP:0040218",
+      "HP:4000039"
+    ],
+    "frequencies": [],
+    "genes": [
+      "IKZF2"
+    ],
+    "treatments": [
+      "Immunoglobulin Replacement Therapy",
+      "Antibiotic Prophylaxis",
+      "Hydroxychloroquine and Systemic Immunosuppression",
+      "Hematopoietic Cell Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "IKZF2-related_Combined_Immunodeficiency.yaml",
+    "page_url": "../pages/disorders/IKZF2-related_Combined_Immunodeficiency.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "IL21R Deficiency",
     "disease_id": "MONDO:0014082",
     "category": "Mendelian",
@@ -202280,6 +202751,104 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Interstitial Lung Disease 1",
+    "disease_id": "MONDO:0030608",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited Interstitial Lung Disease"
+    ],
+    "creation_date": "2026-10-15T14:36:39Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Interstitial lung disease 1 (ILD1) is a rare, gene-defined fibrosing lung disease caused by germline missense variants in SFTPA1, which encodes surfactant protein A1 (SP-A1), a collectin secreted by alveolar type II cells. The reported variants cluster in the carbohydrate-recognition domain of SP-A1; cell studies show that the mutant protein is made but not secreted, and patient lung tissue shows an abnormal SP-A staining pattern. Disease ranges from severe respiratory insufficiency in infancy to adult idiopathic interstitial pneumonia or idiopathic pulmonary fibrosis, and is frequently accompanied by lung adenocarcinoma in carriers and their relatives. Inheritance is usually autosomal dominant with incomplete, age-dependent penetrance; a single consanguineous family with a homozygous variant has also been reported. Lung transplantation is the established treatment for end-stage disease. ClinGen classifies SFTPA1 as Moderate for autosomal dominant ILD1.",
+    "pathophysiology": [
+      "SFTPA1 Carbohydrate-Recognition Domain Missense Variant",
+      "Defective SP-A1 Secretion From Alveolar Type II Cells",
+      "Alveolar Type II Cell Endoplasmic Reticulum Stress",
+      "JNK-Mediated RIPK3 Upregulation",
+      "Alveolar Type II Cell Necroptosis",
+      "Progressive Fibrotic Remodeling of the Distal Lung"
+    ],
+    "cell_types": [
+      "alveolar type II cell",
+      "lung fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0002063",
+      "CL:0002553"
+    ],
+    "biological_processes": [
+      "protein secretion",
+      "IRE1-mediated unfolded protein response",
+      "JNK cascade",
+      "necroptotic process",
+      "collagen metabolic process"
+    ],
+    "phenotypes": [
+      "Pulmonary fibrosis",
+      "Interstitial pneumonitis",
+      "Usual interstitial pneumonia",
+      "Nonspecific interstitial pneumonia",
+      "Ground-glass opacification",
+      "Interlobular septal thickening",
+      "Traction bronchiectasis",
+      "Restrictive ventilatory defect",
+      "Decreased DLCO",
+      "Dyspnea",
+      "Cough",
+      "Clubbing",
+      "Respiratory insufficiency",
+      "Lung adenocarcinoma"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Musculoskeletal",
+      "Neoplasm"
+    ],
+    "phenotype_hpo_categories": [
+      "Limbs",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002206",
+      "HP:0006515",
+      "HP:0031950",
+      "HP:0033584",
+      "HP:0025179",
+      "HP:0030879",
+      "HP:0032969",
+      "HP:0002091",
+      "HP:0045051",
+      "HP:0002094",
+      "HP:0031246",
+      "HP:0001217",
+      "HP:0002093",
+      "HP:0030078"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SFTPA1"
+    ],
+    "treatments": [
+      "Lung Transplantation"
+    ],
+    "environmental": [
+      "Influenza A virus infection",
+      "Tobacco smoking"
+    ],
+    "biochemical": [],
+    "source_file": "Interstitial_Lung_Disease_1.yaml",
+    "page_url": "../pages/disorders/Interstitial_Lung_Disease_1.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Intracranial berry aneurysm",
@@ -258543,6 +259112,92 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Neurodevelopmental Disorder With Seizures And Brain Atrophy",
+    "disease_id": "MONDO:0033658",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Microcephaly"
+    ],
+    "creation_date": "2026-10-15T15:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Neurodevelopmental disorder with seizures and brain atrophy (NEDSEBA) is an autosomal recessive disorder of cerebral cortical development caused by biallelic partial loss-of-function variants in EXOC7, which encodes the Exo70 subunit of the octameric exocyst complex that tethers post-Golgi secretory vesicles to the plasma membrane. It was defined in 2020 in four families carrying four EXOC7 alleles (a canonical splice-acceptor variant, two in-frame deletions and a missense variant). All affected individuals have central nervous system disease with cerebral cortical atrophy, together with developmental delay and seizures; intellectual disability is reported in the mildest family. The severe end, seen with the splice-acceptor allele, adds congenital microcephaly with an extremely simplified gyral pattern, ventriculomegaly, reduced white matter, a very small cerebellum and brainstem, myoclonic seizures from birth, arthrogryposis multiplex and death within the first months of life. Severity tracks the predicted damage to the protein.\nThe mechanism is only partly characterised. Exo70 anchors the exocyst to the plasma membrane through direct binding to phosphatidylinositol 4,5-bisphosphate, and its N-terminal region, which contains the deleted Ser48 residue, binds EXOC8. The splice-acceptor allele disrupts splicing and halves EXOC7 protein in an edited cell line. A zebrafish exoc7 null model shows microcephaly with increased apoptosis and loss of Sox2-positive neural progenitors in the telencephalon, without a detectable cytokinesis defect, which the discoverers take to mean that the human atrophy and microcephaly reflect loss of progenitors and postmitotic neurons. Which exocyst-dependent process fails in the developing brain is not known, and the entry records that step as an unknown intermediate. No disease-specific treatment exists.\n",
+    "pathophysiology": [
+      "Biallelic EXOC7 Partial Loss of Function",
+      "Impaired Exocyst Plasma Membrane Targeting and Exocytosis",
+      "Depletion of Telencephalic Neural Progenitors",
+      "Increased Apoptosis in the Developing Forebrain",
+      "Cortical Neuronal Loss and Brain Atrophy"
+    ],
+    "cell_types": [
+      "neural progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011020"
+    ],
+    "biological_processes": [
+      "exocytosis",
+      "neural precursor cell proliferation",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Cerebral cortical atrophy",
+      "Seizure",
+      "Myoclonic seizure",
+      "Global developmental delay",
+      "Intellectual disability",
+      "Microcephaly",
+      "Simplified gyral pattern",
+      "Ventriculomegaly",
+      "Reduced cerebral white matter volume",
+      "Cerebellar hypoplasia",
+      "Hypoplasia of the brainstem",
+      "Arthrogryposis multiplex congenita"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002120",
+      "HP:0001250",
+      "HP:0032794",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000252",
+      "HP:0009879",
+      "HP:0002119",
+      "HP:0034295",
+      "HP:0001321",
+      "HP:0002365",
+      "HP:0002804"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "EXOC7"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Seizures_And_Brain_Atrophy.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Seizures_And_Brain_Atrophy.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Neurodevelopmental Disorder with Seizures, Microcephaly, and Brain Abnormalities",
     "disease_id": "MONDO:0859283",
     "category": "Mendelian",
@@ -303992,6 +304647,122 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "RD3-Related Retinopathy",
+    "disease_id": "MONDO:0700235",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited Retinal Dystrophy",
+      "Leber Congenital Amaurosis"
+    ],
+    "creation_date": "2026-10-15T16:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "LCA12"
+    ],
+    "description": "RD3-related retinopathy is an autosomal recessive, congenital-onset inherited retinal dystrophy caused by biallelic loss-of-function variants in RD3, which encodes a small photoreceptor protein that binds the retinal membrane guanylyl cyclases (RetGC1/GUCY2D and RetGC2/GUCY2F). It presents as Leber congenital amaurosis type 12 (LCA12): congenital nystagmus, vision reduced to counting fingers or light perception, sluggish pupils, eye poking and hyperopia, with an atrophic macula and early loss of the photoreceptor layer. RD3 has two separable jobs in the photoreceptor inner segment. It escorts newly made guanylyl cyclase out of the endoplasmic reticulum to the outer segment, and it holds the cyclase inactive until it gets there. Losing the first leaves the outer segment unable to make cGMP, so rods and cones cannot generate or recover a light response. In the rd3 mouse, losing the second lets calcium-sensor proteins (GCAPs) activate the cyclase in the wrong compartment, which drives endoplasmic reticulum stress and unusually rapid photoreceptor death; this branch has not been examined in human retina. The disease is very rare, mostly reported in consanguineous families, with one recurrent truncating founder allele (p.Arg38Ter) around the Mediterranean, and has no extraocular features. Gene augmentation restores cyclase trafficking, function and photoreceptor survival in the rd3 mouse, but no human treatment exists.",
+    "pathophysiology": [
+      "RD3 Biallelic Loss of Function",
+      "Failure of Guanylate Cyclase Export to the Outer Segment",
+      "Deficient Outer Segment cGMP Synthesis",
+      "Failure of Rod and Cone Phototransduction",
+      "Loss of RD3 Inhibition of Guanylate Cyclase in the Inner Segment",
+      "Chronically Low Photoreceptor Intracellular Calcium",
+      "Aberrant GCAP-Stimulated Guanylate Cyclase Activity in the Inner Segment",
+      "Photoreceptor Endoplasmic Reticulum Stress and Mitochondrial Swelling",
+      "Rapid Rod and Cone Photoreceptor Degeneration"
+    ],
+    "cell_types": [
+      "retinal rod cell",
+      "retinal cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000604",
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "protein localization to photoreceptor outer segment",
+      "cGMP biosynthetic process",
+      "phototransduction",
+      "negative regulation of guanylate cyclase activity",
+      "response to endoplasmic reticulum stress",
+      "retinal rod cell apoptotic process",
+      "retinal cone cell apoptotic process",
+      "photoreceptor cell maintenance"
+    ],
+    "phenotypes": [
+      "Ultra-low vision",
+      "Congenital nystagmus",
+      "Slow pupillary light response",
+      "Absent smooth pursuit",
+      "Eye poking",
+      "Photophobia",
+      "Hypermetropia",
+      "Retinal pigment epithelial mottling",
+      "Attenuation of retinal blood vessels",
+      "Abnormal macular morphology",
+      "Macular atrophy",
+      "Photoreceptor layer loss on macular OCT",
+      "Hypoplasia of the fovea",
+      "Abnormal fundus autofluorescence",
+      "Perifoveal ring of hyperautofluorescence",
+      "Spicular pigmentation of the retina",
+      "Cone-rod dystrophy",
+      "Keratoconus",
+      "Optic disc pallor"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0032123",
+      "HP:0006934",
+      "HP:0030211",
+      "HP:0007179",
+      "HP:0001483",
+      "HP:0000613",
+      "HP:0000540",
+      "HP:0007814",
+      "HP:0007843",
+      "HP:0001103",
+      "HP:0007401",
+      "HP:0030609",
+      "HP:0007750",
+      "HP:0030602",
+      "HP:0030629",
+      "HP:0007737",
+      "HP:0000548",
+      "HP:0000563",
+      "HP:0000543"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "RD3"
+    ],
+    "treatments": [
+      "RD3 Gene Augmentation (preclinical)",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "RD3-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/RD3-Related_Retinopathy.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "RDH5-Related Retinopathy",
     "disease_id": "MONDO:0100443",
     "category": "Mendelian",
@@ -318271,6 +319042,97 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "19",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "SPATA22-related gametogenic failure",
+    "disease_id": "MONDO:0975843",
+    "category": "Mendelian",
+    "parents": [
+      "Primary ovarian insufficiency",
+      "Male infertility",
+      "Infertility disorder"
+    ],
+    "creation_date": "2026-10-15T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "POF25",
+      "SPGF96"
+    ],
+    "description": "SPATA22-related gametogenic failure is an autosomal recessive meiotic recombination disorder caused by biallelic loss-of-function variants in SPATA22. SPATA22 is a germ-cell-specific protein that forms an obligate heterodimer with MEIOB; the complex binds single-stranded DNA and associates with RPA at resected meiotic double-strand breaks. Without it, germ cells start meiotic recombination but cannot complete double-strand break repair or homolog synapsis, arrest in early meiotic prophase I and are lost. The same lesion presents as premature ovarian insufficiency in 46,XX individuals and as non-obstructive azoospermia with zygotene-like spermatogenic arrest in 46,XY individuals; the founding consanguineous family had affected members of both sexes.",
+    "pathophysiology": [
+      "Loss of MEIOB-SPATA22 single-stranded DNA binding",
+      "Failed meiotic recombination and homolog synapsis",
+      "Early meiotic prophase I arrest and germ cell loss",
+      "Ovarian germ cell depletion",
+      "Spermatogenic arrest"
+    ],
+    "cell_types": [
+      "germ cell",
+      "oocyte",
+      "spermatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000586",
+      "CL:0000023",
+      "CL:0000017"
+    ],
+    "biological_processes": [
+      "reciprocal meiotic recombination",
+      "homologous chromosome pairing at meiosis",
+      "meiotic cell cycle",
+      "apoptotic process",
+      "female gamete generation",
+      "male gamete generation"
+    ],
+    "phenotypes": [
+      "Premature ovarian insufficiency",
+      "Non-obstructive azoospermia",
+      "Spermatogenesis maturation arrest",
+      "Irregular menstruation",
+      "Oligomenorrhea",
+      "Secondary amenorrhea",
+      "Elevated follicle-stimulating hormone",
+      "Decreased anti-Mullerian hormone",
+      "Infertility"
+    ],
+    "phenotype_categories": [
+      "Reproductive",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0008209",
+      "HP:0011961",
+      "HP:0031038",
+      "HP:0000858",
+      "HP:0000876",
+      "HP:0000869",
+      "HP:0008232",
+      "HP:0031103",
+      "HP:0000789"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SPATA22"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [
+      "Serum follicle-stimulating hormone",
+      "Serum anti-Mullerian hormone"
+    ],
+    "source_file": "SPATA22-related_gametogenic_failure.yaml",
+    "page_url": "../pages/disorders/SPATA22-related_gametogenic_failure.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "SPOP-Related Neurodevelopmental Disorder",
@@ -364471,6 +365333,119 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Visceral Heterotaxy 7",
+    "disease_id": "MONDO:0014762",
+    "category": "Mendelian",
+    "parents": [
+      "Visceral heterotaxy",
+      "Congenital Disorder"
+    ],
+    "creation_date": "2026-10-15T15:30:56Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Visceral heterotaxy 7 (HTX7) is an autosomal recessive laterality disorder caused by biallelic loss-of-function variants in MMP21, which encodes matrix metallopeptidase 21, a secreted zinc-dependent metalloprotease with a prodomain, a catalytic domain and four C-terminal hemopexin repeats. MMP21 is expressed in the ciliated embryonic left-right organizer, and acts there downstream of cilia-driven leftward flow: mutant mouse nodes have normally motile cilia, yet left-sided laterality signaling in the lateral plate mesoderm is randomized. Affected individuals present with heterotaxy (situs ambiguus) or situs inversus and, in nearly all cases, complex congenital heart disease, typically with conotruncal and atrioventricular canal defects such as transposition of the great arteries, double-outlet right ventricle and pulmonary atresia or stenosis, together with variable splenic, hepatic and intestinal laterality anomalies. Unlike the primary ciliary dyskinesia forms of heterotaxy there is no airway or sperm motility disease, because the ciliary axoneme itself is intact. Penetrance can be incomplete within a family.",
+    "pathophysiology": [
+      "MMP21 Metallopeptidase Loss of Function",
+      "Left-Right Organizer Signaling Failure Downstream of Cilia Motility",
+      "Notch Signaling Dysregulation",
+      "Lateral Plate Mesoderm Laterality Signaling Disruption",
+      "Abnormal Cardiac Looping"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "determination of left/right symmetry",
+      "Notch signaling pathway",
+      "nodal signaling pathway",
+      "left/right pattern formation",
+      "heart looping"
+    ],
+    "phenotypes": [
+      "Heterotaxy",
+      "Situs inversus totalis",
+      "Dextrocardia",
+      "Transposition of the great arteries",
+      "Double outlet right ventricle",
+      "Atrioventricular canal defect",
+      "Common atrium",
+      "Pulmonary atresia",
+      "Pulmonic stenosis",
+      "Right aortic arch",
+      "Bilateral superior vena cava",
+      "Persistent left superior vena cava",
+      "Asplenia",
+      "Polysplenia",
+      "Intestinal malrotation",
+      "Midline liver",
+      "Ventricular septal defect",
+      "Interrupted inferior vena cava with azygos continuation",
+      "Right atrial isomerism",
+      "Left atrial isomerism",
+      "Partial anomalous pulmonary venous return",
+      "Total anomalous pulmonary venous return",
+      "Single ventricle",
+      "Right-sided stomach"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Hematologic",
+      "Digestive"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0030853",
+      "HP:0001696",
+      "HP:0001651",
+      "HP:0001669",
+      "HP:0001719",
+      "HP:0006695",
+      "HP:0011565",
+      "HP:0004935",
+      "HP:0001642",
+      "HP:0012020",
+      "HP:0033379",
+      "HP:0005301",
+      "HP:0001746",
+      "HP:0001748",
+      "HP:0002566",
+      "HP:0034188",
+      "HP:0001629",
+      "HP:0011671",
+      "HP:0011536",
+      "HP:0011537",
+      "HP:0010773",
+      "HP:0005160",
+      "HP:0001750",
+      "HP:0100802"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "MMP21"
+    ],
+    "treatments": [
+      "Staged cardiac surgery",
+      "Antibiotic prophylaxis for asplenia"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Visceral_Heterotaxy_7.yaml",
+    "page_url": "../pages/disorders/Visceral_Heterotaxy_7.html",
+    "num_phenotypes": 24,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Visceral Heterotaxy 9",
     "disease_id": "MONDO:0030070",
     "category": "Mendelian",
@@ -375828,17 +376803,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3484,
-  "total_subtypes": 4745,
-  "total_disorders_and_subtypes": 8229,
-  "total_unique_evidence_sources": 52376,
-  "total_unique_publications": 48845,
+  "total_disorder_pages": 3494,
+  "total_subtypes": 4750,
+  "total_disorders_and_subtypes": 8244,
+  "total_unique_evidence_sources": 52481,
+  "total_unique_publications": 48945,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 302,
-  "total_pathographs": 3480,
-  "total_unique_pathological_events": 22999,
+  "total_pathographs": 3490,
+  "total_unique_pathological_events": 23055,
   "total_modules": 193,
-  "total_research_reports": 3606,
+  "total_research_reports": 3616,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 114
