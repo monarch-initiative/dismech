@@ -2400,6 +2400,15 @@ For MONDO coverage and epic-checklist synchronization, an entry's primary
 `relatedMatch` are cross-references and must not retire the mapped concept from
 the curation queue.
 
+**Two disorder entries may share a `disease_term` only if both say how.** Each
+records that CURIE in `mappings.mondo_mappings` as `skos:exactMatch` (at most
+one entry: the one that is the class) or `skos:narrowMatch` (a narrower entry,
+such as a promoted cancer stratum under design decisions §3a). If your new entry
+lands on a term another entry already holds and is not narrower than it, it is
+probably a duplicate. `just check-shared-disease-terms` gates this (in `just qc`,
+ungated in CI) and `just list-shared-disease-terms` is the worklist for the
+grandfathered groups (#10113). See `docs/quality-control.md`.
+
 ### Coarse Phenotype Bindings Must Say Why
 
 A phenotype bound to a **coarse HPO term** — `HP:0000478` *Abnormality of the
@@ -4369,7 +4378,15 @@ just check-block-scalar-comments kb/disorders/COVID-19.yaml
 
 This runs in `just qc` and as an ungated whole-KB CI check. It flags the older
 hook's `  # <digit>` fingerprint inside literal/folded block scalars, including
-explanations and descriptions. Review a finding against its source before
+explanations and descriptions.
+
+**An issue or PR reference in an unquoted one-line value must be quoted.** A
+plain scalar ends at the first ` #`, so `posed_by: dismech curation (issue
+#8889)` loads as `dismech curation (issue` and every validator accepts the
+shorter string (#12094). Write `posed_by: "dismech curation (issue #8889)"`.
+The same check fails on any plain scalar followed by ` #<non-space>`; a real
+comment keeps a space after the `#` (`value  # note`). This class has no
+baseline: the KB was clean when it landed, so every finding fails. Review a finding against its source before
 repairing it; the pattern is suspicious spacing, not proof of its origin.
 The pre-existing review backlog is recorded by file and exact source line in
 `tests/block_scalar_comments_baseline.txt`, with occurrence counts so copying
@@ -4722,6 +4739,16 @@ routes to this rebuild, as it does for `CGDS:`, `ORPHA:`, `ICEES:` and `NCIT:`
 ids, so the AGENTS.md instruction to regenerate any cache file with
 `fetch-reference` holds for structured prefixes too.
 
+**An Orphanet record needs all five Orphadata products** (#13941). The rebuild
+refuses to run with any of them missing and names `just refresh-orphadata`,
+because a record built without, say, `en_product4.xml` simply has no
+`## Phenotypes` block and nothing says it was dropped. `just fetch-reference
+ORPHA:…` downloads the set when a file is absent. A drifted pin still fails the
+refresh, but every file is downloaded before it fails, so the rebuild runs; its
+`Source` line then carries the release date from `en_product1.xml`, not the
+manifest's `snapshot_date`, and a warning says so. While the files match the
+pin the stamp is the manifest date, as before.
+
 `data/orphadata/*.xml` is gitignored; `data/orphadata/MANIFEST.yaml` is
 committed and pins the snapshot date + sha256 of each bulk file. To verify
 no drift has occurred, run `just structured-rebuild-orphanet` locally and
@@ -4961,8 +4988,10 @@ had approved three other PRs, and acting on it removed a blocking review.
 Failed review Actions are recovered separately by `pr-shepherd`'s independent
 `retry-reviews` job (`scripts/retry_failed_reviews.py`). It reruns existing failed
 jobs after a 1/6/24-hour backoff, regardless of PR author, assignee or draft
-status. It checks for newer/running reviews and existing current-commit verdicts
-before retrying. The default budget is five retries per sweep; `dry_run`,
+status. It checks for newer/running reviews before retrying, and for an existing
+current-commit verdict on manual- and comment-triggered runs. A verdict does not
+block retrying a failed PR-event check on the current head, because a manual or
+comment review cannot turn that check green. The default budget is five retries per sweep; `dry_run`,
 `pr_number`, `review_retry_delay_hours` and `max_review_retries` are available in
 the manual trigger. See [review recovery](docs/explanation/automation-and-agents.md#recovering-failed-review-actions).
 

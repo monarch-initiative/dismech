@@ -1063,7 +1063,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1480,6 +1480,15 @@ node-classes *args:
 check-skill-files:
     uv run python scripts/check_skill_files.py
 
+# Rewrite the shared site header into the hand-written pages (index.html,
+# app/, details/) from src/dismech/templates/_site_nav.html.j2, which every
+# Jinja template includes. Run after editing the partial; --check reports only.
+# tests/test_site_nav.py fails while any copy is stale (issue #14022).
+# Copy the shared site header into the hand-written site pages.
+[group('QC')]
+sync-site-nav *args:
+    uv run python scripts/sync_site_nav.py {{args}}
+
 # Census of every skill and its description length, exit 0.
 [group('QC')]
 list-skill-files:
@@ -1496,6 +1505,7 @@ check-duplicate-keys *files:
     uv run python scripts/check_duplicate_yaml_keys.py "$@"
 
 # Detect the fingerprint left by older yamlfix hooks inside block scalars (#12101).
+# Also fails on a plain scalar cut short by an unquoted ' #' (#12094).
 [group('QC')]
 check-block-scalar-comments *files:
     uv run python scripts/check_block_scalar_comments.py "$@"
@@ -1628,6 +1638,33 @@ aop-chain-census *args:
 [group('QC')]
 update-causal-target-baseline:
     uv run python scripts/check_causal_targets.py --update-baseline
+
+# Two disorder entries sharing one disease_term must each record it in
+# mappings.mondo_mappings as skos:exactMatch (at most one entry) or
+# skos:narrowMatch (design decisions section 3a). Nothing else notices two
+# curators claiming one MONDO class under different filenames (#10113, #9618).
+# Ungated and whole-KB because the PR that creates a collision touches only kb/,
+# and the other entry in the pair is one it never opened. The backlog is
+# grandfathered per member in tests/shared_disease_term_baseline.txt, so a new
+# entry joining a grandfathered group still fails. ~30s, offline.
+# Gate: entries sharing a disease_term must record exactMatch/narrowMatch to it.
+[group('QC')]
+check-shared-disease-terms:
+    uv run python scripts/check_shared_disease_terms.py
+
+# Every disease_term shared by two or more disorder entries, with each member's
+# recorded predicate and finding. Exit 0.
+# Worklist: every shared disease_term group with each member's predicate (#10113).
+[group('QC')]
+list-shared-disease-terms:
+    uv run python scripts/check_shared_disease_terms.py --report
+
+# Only ever to REMOVE rows as the backlog is repaired -- never to admit a new
+# collision.
+# Regenerate the shared disease_term baseline (shrink only).
+[group('QC')]
+update-shared-disease-term-baseline:
+    uv run python scripts/check_shared_disease_terms.py --update-baseline
 
 # The complement of check-causal-targets: phenotypes that NO causal edge
 # explains. That check finds edges whose target resolves to nothing; this finds
@@ -3318,6 +3355,17 @@ fetch-reference +identifiers:
                 uv run python -m dismech.structured_sources.cli rebuild clingen-dosage --id "$identifier"
                 ;;
             ORPHA:*|Orphanet:*)
+                # Every record merges five Orphadata products, so all five must
+                # be present (#13941). A drifted pin fails the refresh but
+                # still downloads every file, so `|| true` lets the rebuild
+                # run; it stamps the files' own release date and warns. If the
+                # download itself failed, the rebuild names the remedy.
+                for orpha_file in en_product1.xml en_product4.xml en_product6.xml en_product9_prev.xml en_product9_ages.xml; do
+                    if [ ! -f "data/orphadata/$orpha_file" ]; then
+                        uv run python -m dismech.structured_sources.cli refresh orphanet || true
+                        break
+                    fi
+                done
                 uv run python -m dismech.structured_sources.cli rebuild orphanet --id "$identifier"
                 ;;
             ICEES:*)

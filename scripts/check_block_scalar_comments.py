@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
-"""Reject yamlfix's suspicious '  # <digit>' spacing inside KB block scalars.
+"""Reject yamlfix's suspicious '  # <digit>' spacing inside KB block scalars,
+and plain scalars that a ' #' silently truncates.
 
-The default whole-KB gate grandfathers the recorded backlog and rejects new
-findings. --strict fails on every finding; --update-baseline only removes
-repaired findings. Review against the source; never auto-repair quotes (#12101).
+The default whole-KB gate grandfathers the recorded block-scalar backlog and
+rejects new findings. --strict fails on every finding; --update-baseline only
+removes repaired findings. Review against the source; never auto-repair quotes
+(#12101).
+
+A plain (unquoted) scalar ends at the first ' #': `posed_by: curation (issue
+#8889)` loads as `curation (issue`, and every validator accepts the shorter
+string (#12094). Those findings have no baseline -- the KB had none when this
+check landed -- so every one fails. Quote the value to keep the reference.
 """
 
 from __future__ import annotations
@@ -24,6 +31,9 @@ sys.path.insert(0, str(ROOT / "src"))
 from dismech.yaml_io import SafeLoader
 
 FINGERPRINT = re.compile(r"  # [0-9]")
+# A comment opened right after a plain scalar with no space after the '#': an
+# issue/PR reference the author meant as text. '  # note' stays a real comment.
+TRUNCATING_COMMENT = re.compile(r"[ \t]+#\S")
 BASELINE = ROOT / "tests" / "block_scalar_comments_baseline.txt"
 
 
@@ -53,22 +63,41 @@ def write_baseline(path: Path, counts: Counter) -> None:
     path.write_text("\n".join(rows) + "\n", encoding="utf-8")
 
 
-def find_corruption(text: str) -> list[int]:
-    """Return 1-based source lines matching the fingerprint in | or > content.
+def scan(text: str) -> tuple[list[int], list[int]]:
+    """Return 1-based source lines for (block-scalar fingerprints, truncations).
 
     Parse YAML events rather than guessing block boundaries from indentation:
     quoted strings, actual comments, explicit indent/chomping indicators and
-    nested sequences must all be distinguished correctly.
+    nested sequences must all be distinguished correctly. One pass serves both
+    checks, since parsing is nearly all of the cost.
     """
-    findings = []
+    lines = text.splitlines()
+    corrupted, truncated = [], []
     for token in yaml.parse(text, Loader=SafeLoader):
-        if not isinstance(token, ScalarEvent) or token.style not in ("|", ">"):
+        if not isinstance(token, ScalarEvent):
             continue
-        raw = text[token.start_mark.index : token.end_mark.index]
-        for offset, line in enumerate(raw.splitlines()[1:], start=1):
-            if FINGERPRINT.search(line):
-                findings.append(token.start_mark.line + offset + 1)
-    return findings
+        if token.style in ("|", ">"):
+            raw = text[token.start_mark.index : token.end_mark.index]
+            for offset, line in enumerate(raw.splitlines()[1:], start=1):
+                if FINGERPRINT.search(line):
+                    corrupted.append(token.start_mark.line + offset + 1)
+        elif token.style in (None, ""):  # plain; libyaml reports "" for None
+            end = token.end_mark
+            if end.line < len(lines) and TRUNCATING_COMMENT.match(
+                lines[end.line], end.column
+            ):
+                truncated.append(end.line + 1)
+    return corrupted, truncated
+
+
+def find_corruption(text: str) -> list[int]:
+    """Return 1-based source lines matching the fingerprint in | or > content."""
+    return scan(text)[0]
+
+
+def find_truncation(text: str) -> list[int]:
+    """Return 1-based source lines where a ' #<non-space>' cuts a plain scalar short."""
+    return scan(text)[1]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -103,10 +132,11 @@ def main(argv: list[str] | None = None) -> int:
     failed = False
     current = Counter()
     new = 0
+    truncations = 0
     for path in files:
         try:
             text = path.read_text(encoding="utf-8")
-            lines = find_corruption(text)
+            lines, truncated = scan(text)
         except (OSError, UnicodeError, yaml.YAMLError) as exc:
             print(f"{path}: could not check ({exc})", file=sys.stderr)
             failed = True
@@ -118,6 +148,11 @@ def main(argv: list[str] | None = None) -> int:
         except ValueError:
             display = str(path)
         source_lines = text.splitlines()
+        for line in truncated:
+            print(
+                f"{display}:{line}: unquoted ' #' truncates this plain scalar; quote the value"
+            )
+        truncations += len(truncated)
         for line in lines:
             key = (display, source_lines[line - 1].lstrip())
             current[key] += 1
@@ -133,7 +168,8 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"{new} new; {count - new} in the existing review backlog (--strict to list all)."
     )
-    return int(failed or bool(count if args.strict else new))
+    print(f"{truncations} plain scalar(s) truncated by an unquoted ' #'.")
+    return int(failed or bool(truncations) or bool(count if args.strict else new))
 
 
 if __name__ == "__main__":
