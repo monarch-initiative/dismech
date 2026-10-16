@@ -466,7 +466,9 @@ just update-shared-disease-term-baseline   # only ever to shrink the baseline
 
 Groups that predate the check are listed in
 `tests/shared_disease_term_baseline.txt`, one row per entry, so a new entry
-that joins a listed group still fails. Repairing a listed group is curation, not
+that joins a listed group still fails. Rows are keyed on the file path, so
+renaming or merging a listed entry makes its finding read as new: add the
+mapping in the renaming PR rather than re-adding the row. Repairing a listed group is curation, not
 a mechanical fix: some need a `skos:narrowMatch` row, some need a parent entry
 created, and some are two entries that should be one. The issue thread sorts
 the current groups into those cases.
