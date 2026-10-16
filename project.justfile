@@ -1041,6 +1041,34 @@ check-claims claims=claims_file *args="":
 next-unclaimed count="5" claims=claims_file *args="":
     uv run dismech-stubs next {{count}} --claims {{ if claims =~ '^--' { claims_file + " " + claims } else { claims } }} {{args}}
 
+# Writes one snapshot to tmp/issues.json; --from tmp/issues.json re-sorts it.
+# Every excluded issue is counted under a reason code. Read-only.
+# Shortlist existing open issues of any kind (N picks, or --list)
+[group('Curation')]
+select-issues *args="":
+    uv run python -m dismech.issue_queue.cli select {{args}}
+
+# From GitHub's link and cross-reference records, never the `#N` text search,
+# which also matches `ORPHA:N`. Prints state/relation for each PR.
+# Show the PRs attached to one or more issues
+[group('Curation')]
+issue-prs +issues:
+    uv run python -m dismech.issue_queue.cli prs {{issues}}
+
+# A label listed here never routes an issue, so issues carrying only such
+# labels land in the GENERAL lane. Report-only.
+# List repository labels that no issue-lane rule reads
+[group('Curation')]
+check-issue-lanes:
+    uv run python -m dismech.issue_queue.cli lanes
+
+# Assigns the issue, creates a worktree, and opens a tmux window running
+# `claude`. Run only for an issue the user named; --dry-run changes nothing.
+# Open one named issue as its own interactive Claude Code session
+[group('Curation')]
+launch-issue-session issue *args="":
+    uv run python -m dismech.issue_queue.launch {{issue}} {{args}}
+
 # Never overwrites an existing stub. Default source format is the Monarch
 # rare-disease-identification prioritised list.
 # Add stubs for nominated diseases that are neither curated nor already stubbed
