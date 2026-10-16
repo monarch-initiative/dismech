@@ -117,7 +117,8 @@ The 113 linked records fall into three groups. Only the third needs review.
      These may all be true, but read together they show that no single
      mechanism has been established. Also check `Type_2_Diabetes_Mellitus`
      (hepatic glucose output, where the molecular route is contested),
-     `Lafora_Disease`, `Maple_Syrup_Urine_Disease`, `Li-Fraumeni_Syndrome`,
+     `Lafora_Disease`, `Maple_Syrup_Urine_Disease`, `Li-Fraumeni_Syndrome`
+     (already covered by a gap, see below),
      `Classic_Familial_Adenomatous_Polyposis`,
      `Oral_Cavity_Squamous_Cell_Carcinoma`.
    - **Lithium in `Bipolar_Disorder`.** Four parallel targets (GSK-3β,
@@ -125,7 +126,8 @@ The 113 linked records fall into three groups. Only the third needs review.
      hypotheses, not an established mechanism. They are a candidate for
      `mechanistic_hypotheses` groups.
    - **Valproate as an HDAC inhibitor** (`BRPF1-Related_Intellectual_Disability`,
-     `Li-Ghorbani-Weisz-Hubshman_Syndrome`) and on mitochondrial nodes
+     and `Li-Ghorbani-Weisz-Hubshman_Syndrome`, which is already covered by a
+     gap) and on mitochondrial nodes
      (`Autosomal_Recessive_Spinocerebellar_Ataxia_20`). HDAC inhibition is a
      real property of valproate, so check that the evidence shows it acting
      through that route *in this disease*.
@@ -133,7 +135,8 @@ The 113 linked records fall into three groups. Only the third needs review.
      `Post-Traumatic_Stress_Disorder` (the antidepressant mechanism beyond NMDA
      block is disputed), **modafinil** in `Idiopathic_Hypersomnia`,
      **topiramate** in `pseudotumor_cerebri` (CSF hypersecretion),
-     **lenalidomide** in `Immunodeficiency_64`, **paracetamol** in
+     **lenalidomide** in `Immunodeficiency_64` (already covered by a gap),
+     **paracetamol** in
      `Patent_Ductus_Arteriosus`, **riluzole** in `Friedreich_Ataxia` and
      `Spinocerebellar_Ataxia_Type_1`, **edaravone** in
      `Amyotrophic_Lateral_Sclerosis`.
@@ -161,22 +164,28 @@ exactly this: the drug works, and how it works here is not established. The
 the evidence cannot tell apart, and `proposed_experiments` can say how they
 could be.
 
-Four entries already do this and are the pattern to copy:
+Three entries already do this and are the pattern to copy:
 
 | Entry | Discussion | Drug |
 |---|---|---|
 | `Li-Fraumeni_Syndrome` | `lfs_metformin_mechanism_unresolved` | Metformin. The MILI trial protocol itself calls the mechanism unclear. |
 | `Li-Ghorbani-Weisz-Hubshman_Syndrome` | `kat8_valproate_mechanism_untested` | Valproate. HDAC inhibition vs. generic anticonvulsant effect; histone acetylation has not been measured in a treated patient. |
 | `Immunodeficiency_64` | `rasgrp1_lenalidomide_translational_gap` | Lenalidomide |
-| `HNRNPU-Related_Developmental_and_Epileptic_Encephalopathy` | `gap_valproate_efficacy_mechanism` | Valproate |
+
+`HNRNPU-Related_Developmental_and_Epileptic_Encephalopathy` asks a similar
+question about valproate (`gap_valproate_efficacy_mechanism`) but is not the
+pattern: it is an `OPEN_QUESTION` attached only to
+`pathophysiology#Recurrent Seizures`, not to a treatment.
 
 ### Coverage
 
 Of the 113 linked records, 47 have some discussion attached to the treatment
 or to a node it targets. Almost all of those discussions are about the node,
 for example whether a biomarker tracks aging. They are not about the drug.
-**None of the group 3 records listed above has a gap about the drug's own
-mechanism.** That includes the six metformin module edges, lithium in
+**Apart from the three pattern entries above (`Li-Fraumeni_Syndrome`,
+`Li-Ghorbani-Weisz-Hubshman_Syndrome`, `Immunodeficiency_64`), none of the
+group 3 records had a gap about the drug's own mechanism** when this page was
+written. That included the metformin module edges, lithium in
 `Bipolar_Disorder` and both ketamine psychiatric entries. Adding one per
 record, attached to the treatment and its target, is the main deliverable of
 this project.
@@ -199,6 +208,9 @@ Rules for writing them:
   nobody has tested it.
 
 ### Progress
+
+**Everything listed as done below is in PR #14110 and is not on `main` until
+that PR merges.**
 
 Done (one `KNOWLEDGE_GAP` each, attached to the treatment and its targets):
 `deregulated_nutrient_sensing`, `disabled_macroautophagy`, `gut_dysbiosis`,

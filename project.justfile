@@ -3057,6 +3057,8 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 # Deep research on whether a drug's therapeutic mechanism in a disease is established.
 # Used by projects/DRUGS_UNKNOWN_MECHANISM.md to decide whether a treatment's
 # target_mechanisms edge is settled, one of several candidates, or a knowledge gap.
+# <disease> may be a disorder stem or a module stem. The prompt receives the
+# entry's `name:`, so for a module it reads e.g. "Deregulated Nutrient Sensing Module".
 # Examples:
 #   just research-drug-mechanism openscientist Major_Depressive_Disorder ketamine "Excitation-Inhibition Imbalance"
 [group('Research')]
@@ -3068,6 +3070,7 @@ research-drug-mechanism provider disease drug asserted_mechanism *args="":
 	[ -f "$yaml_file" ] || yaml_file="{{modules_dir}}/{{disease}}.yaml"
 	if [ ! -f "$yaml_file" ]; then
 	    echo "Error: no disorder or module file for {{disease}}"
+	    for f in {{kb_dir}}/*.yaml {{modules_dir}}/*.yaml; do basename "$f" .yaml; done | grep -i -- "$(echo '{{disease}}' | cut -c1-6)" | head -10
 	    exit 1
 	fi
 	disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
