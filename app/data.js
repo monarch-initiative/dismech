@@ -313720,6 +313720,7 @@ window.searchData = [
     "description": "Renpenning syndrome is an X-linked recessive neurodevelopmental disorder caused by pathogenic PQBP1 variants and characterized by intellectual disability, microcephaly, short stature, and facial dysmorphism.",
     "pathophysiology": [
       "PQBP1 spliceopathy",
+      "Altered mRNA 3'-end processing and alternative polyadenylation",
       "Impaired neural progenitor proliferation and differentiation"
     ],
     "cell_types": [
@@ -313731,6 +313732,7 @@ window.searchData = [
     "biological_processes": [
       "RNA splicing",
       "mRNA processing",
+      "mRNA 3'-end processing",
       "cell population proliferation",
       "neurogenesis"
     ],
@@ -313771,7 +313773,7 @@ window.searchData = [
       "HP:0001249",
       "HP:0000252",
       "HP:0000568",
-      "HP:0000035",
+      "HP:0008734",
       "HP:0002282",
       "HP:0001631",
       "HP:0001263",
@@ -313780,20 +313782,29 @@ window.searchData = [
       "HP:0002023",
       "HP:0000717"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "VERY_RARE"
+    ],
     "genes": [
       "PQBP1"
     ],
-    "treatments": [],
+    "treatments": [
+      "Supportive care",
+      "Genetic counseling"
+    ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Non-canonical UPF3B short isoform (UPF3B_S) mRNA expression",
+      "Peripheral blood DNA methylation episignature"
+    ],
     "source_file": "Renpenning_syndrome.yaml",
     "page_url": "../pages/disorders/Renpenning_syndrome.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 2,
+    "num_pathophysiology": 3,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "6",
+    "num_treatments": 2,
+    "causal_graph_edges": "19",
     "causal_graph_longest_path": "3"
   },
   {
@@ -314797,12 +314808,15 @@ window.searchData = [
       "Gastrointestinal Disorder"
     ],
     "creation_date": "2026-01-10T00:29:46Z",
-    "updated_date": null,
+    "updated_date": "2026-10-16T23:20:00Z",
     "subtypes": [],
-    "description": "A syndrome characterized by the inability to belch due to failure of the upper esophageal sphincter (cricopharyngeus muscle) to relax in response to retrograde esophageal gaseous distension. The associated symptom complex includes abdominal bloating, chest pain, gurgling noises in the chest, nausea, and excessive flatulence.",
+    "description": "An upper esophageal sphincter motility disorder characterized by the inability to belch due to reflex-specific failure of the cricopharyngeus muscle to relax in response to retrograde esophageal gaseous distension, while antegrade swallowing relaxation remains intact. Unvented intraesophageal gas triggers secondary peristalsis and passes distally, producing the cardinal symptom complex of inability to belch (abelchia), socially awkward gurgling noises in the chest and neck, abdominal bloating and distension, retrosternal chest pain, excessive flatulence, nausea, and painful hiccups.",
     "pathophysiology": [
       "Failure of Upper Esophageal Sphincter Relaxation",
-      "Elevated Upper Esophageal Sphincter Basal Pressure"
+      "Elevated Upper Esophageal Sphincter Basal Pressure",
+      "Intraesophageal Gas Trapping",
+      "Secondary Peristalsis",
+      "Ineffective Esophageal Motility"
     ],
     "cell_types": [
       "muscle cell",
@@ -314815,14 +314829,17 @@ window.searchData = [
     "biological_processes": [
       "regulation of muscle contraction",
       "skeletal muscle contraction",
-      "muscle contraction"
+      "muscle contraction",
+      "peristalsis"
     ],
     "phenotypes": [
       "Inability to Belch",
       "Abdominal Distention",
       "Chest Pain",
       "Nausea",
-      "Gurgling Sounds"
+      "Gurgling Sounds",
+      "Excessive Flatulence",
+      "Hiccups"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
@@ -314833,26 +314850,29 @@ window.searchData = [
       "HP:0025031",
       "HP:0003270",
       "HP:0100749",
-      "HP:0002018"
+      "HP:0002018",
+      "HP:0033589",
+      "HP:0100247"
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "FREQUENT"
+      "OCCASIONAL"
     ],
     "genes": [],
     "treatments": [
-      "Botulinum Toxin Injection"
+      "Botulinum Toxin Injection",
+      "Endoscopic Cricopharyngeal Myotomy"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Retrograde_Cricopharyngeus_Dysfunction.yaml",
     "page_url": "../pages/disorders/Retrograde_Cricopharyngeus_Dysfunction.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
     "num_genes": 0,
-    "num_treatments": 1,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 2,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Rett Syndrome",
@@ -328077,7 +328097,8 @@ window.searchData = [
       "Short Stature",
       "Skeletal Abnormalities",
       "Uveitis",
-      "Abdominal Pain"
+      "Abdominal Pain",
+      "Trismus"
     ],
     "phenotype_categories": [
       "Musculoskeletal",
@@ -328094,6 +328115,7 @@ window.searchData = [
       "Eye",
       "Genitourinary",
       "Growth",
+      "Head and Neck",
       "Immune",
       "Integument",
       "Musculoskeletal"
@@ -328108,7 +328130,8 @@ window.searchData = [
       "HP:0004322",
       "HP:0000924",
       "HP:0000554",
-      "HP:0002027"
+      "HP:0002027",
+      "HP:0000211"
     ],
     "frequencies": [
       "OBLIGATE",
@@ -328129,16 +328152,17 @@ window.searchData = [
     "environmental": [],
     "biochemical": [
       "Antinuclear Antibodies (ANA)",
-      "Anti-Brain and GI Tissue Antibodies"
+      "Anti-Brain and GI Tissue Antibodies",
+      "Secondary Organ-Specific and Systemic Autoantibodies"
     ],
     "source_file": "Satoyoshi_Syndrome.yaml",
     "page_url": "../pages/disorders/Satoyoshi_Syndrome.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 11,
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Saul-Wilson Syndrome",
@@ -381996,12 +382020,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3544,
   "total_subtypes": 4784,
   "total_disorders_and_subtypes": 8328,
-  "total_unique_evidence_sources": 53079,
-  "total_unique_publications": 49522,
+  "total_unique_evidence_sources": 53080,
+  "total_unique_publications": 49523,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 306,
   "total_pathographs": 3540,
-  "total_unique_pathological_events": 23350,
+  "total_unique_pathological_events": 23354,
   "total_modules": 195,
   "total_research_reports": 3667,
   "total_classifications": 21,
