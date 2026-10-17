@@ -115,6 +115,11 @@ ROOT_TERMS: dict[str, str] = {
 # does not trigger it.
 LUMP_WAIVER_SENTINEL = "Deliberately lumped."
 LUMP_WAIVER_MIN_WORDS = 20
+# The sentinel must open a line: the start of the string, or just after a
+# newline. Leading spaces are tolerated because a folded scalar indents its
+# continuation lines. See lump_waiver_recorded for why a line and not a
+# paragraph.
+_LUMP_WAIVER_RE = re.compile(r"(?:\A|\n)[ \t]*" + re.escape(LUMP_WAIVER_SENTINEL))
 
 # --- scope -------------------------------------------------------------------
 
@@ -397,18 +402,33 @@ def is_infectious(doc: dict) -> bool:
 def lump_waiver_recorded(review_notes: object) -> bool:
     """Whether ``review_notes`` records a deliberate lump the way rule R9 asks.
 
-    A paragraph must *begin* with :data:`LUMP_WAIVER_SENTINEL` and carry at
-    least :data:`LUMP_WAIVER_MIN_WORDS` words of reasoning after it -- which
-    strata were kept together, what was searched, and why it came up empty.
-    The sentinel alone does not waive.
+    The sentinel :data:`LUMP_WAIVER_SENTINEL` must *start a line* -- the whole
+    string, or anything following a newline -- and be followed by at least
+    :data:`LUMP_WAIVER_MIN_WORDS` words recording which strata were kept
+    together, what was searched, and why it came up empty. The sentinel alone
+    does not waive, and prose that merely mentions the phrase mid-sentence
+    does not trigger it.
+
+    **A line, not a paragraph, because YAML scalar style decides how many
+    newlines a paragraph break survives as.** A folded scalar (``>-``) renders
+    a blank line as a single newline; a literal scalar (``|-``) keeps it as
+    two. The first implementation split on a blank line, so a waiver written
+    in the folded style -- the dominant style for prose in ``kb/`` -- was
+    silently ignored, while the identical text in a literal scalar waived and
+    the curator saw ``TAXON_LUMP`` keep firing with nothing to explain it.
+    Matching at a line start treats both styles alike.
+
+    The word floor counts to the end of the string rather than to the end of
+    the sentinel's own paragraph, for the same reason: in a literal scalar a
+    hard-wrapped line break is also a single newline, so scoping to one line
+    would truncate the reasoning at the first wrap and reject an honest
+    waiver. Everything after the sentinel in this field is the curator's
+    recorded reasoning, so counting all of it is simpler and no weaker.
     """
     if not isinstance(review_notes, str):
         return False
-    for paragraph in re.split(r"\n\s*\n", review_notes):
-        stripped = paragraph.strip()
-        if not stripped.startswith(LUMP_WAIVER_SENTINEL):
-            continue
-        rest = stripped[len(LUMP_WAIVER_SENTINEL) :]
+    for match in _LUMP_WAIVER_RE.finditer(review_notes):
+        rest = review_notes[match.end() :]
         if len(rest.split()) >= LUMP_WAIVER_MIN_WORDS:
             return True
     return False

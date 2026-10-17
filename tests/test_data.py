@@ -31,6 +31,7 @@ from dismech.entity_refs import (
     iter_entity_refs,
     parse_entity_ref,
 )
+from dismech.model_links import iter_model_links
 from dismech.yaml_io import safe_load
 
 # Paths
@@ -73,8 +74,6 @@ MODEL_BEARING_FILES = DISORDER_FILES + MODULE_FILES
 # `would_refute`, perturbation/readout `target`) are resolved as foreign keys.
 # Same three trees as `conforms_to`: groupings use a different grammar.
 ENTITY_REF_FILES = DISORDER_FILES + MODULE_FILES + COMORBIDITY_FILES
-# Model sections whose entries may carry `modeled_mechanisms` links.
-MODEL_SECTIONS = ("experimental_models", "animal_models", "computational_models")
 SYNTHESIS_FILES = glob.glob(str(RESEARCH_DIR / "*-research-synthesis.yaml"))
 HYPOTHESIS_ASSESSMENT_FILES = glob.glob(
     str(HYPOTHESES_DIR / "*" / "*" / "assessments" / "*-assessment-by-*.yaml")
@@ -316,9 +315,9 @@ def check_valid_module_files(filepath, validator, data=None):
     A schema tightening invalidates a module exactly as it invalidates a
     disorder entry, but the whole-KB conformance sweep covered disorders,
     comorbidities and groupings and left ``kb/modules/`` out (dismech#8320).
-    ``just validate-modules`` catches this locally and is in ``just qc``, but
-    CI only ever runs it over *changed* files — which is the blind spot #8320
-    was filed about.
+    ``just validate-modules`` catches this locally and is in ``just qc``, and
+    CI runs ``just validate-module-batch`` over the module files a PR changes;
+    this sweep covers the modules a schema change touches without editing them.
     """
     data = _document(filepath, data)
 
@@ -389,6 +388,47 @@ def check_evidence_items_have_references(filepath, data=None):
         all_errors.extend(check_evidence(evidence_list, path))
 
     assert not all_errors, f"Evidence errors in {Path(filepath).name}: {all_errors}"
+
+
+def check_orpha_evidence_is_graded_other(filepath, data=None):
+    """An ORPHA-referenced evidence item may only be graded ``OTHER``.
+
+    ``evidence_source`` classifies the study the cited publication reports. An
+    Orphanet record is not a study: it is a curated database entry, the same
+    shape as the ``ICTRP:`` registration documents and ``NCIT:`` predicate rows
+    that CLAUDE.md already grades ``OTHER``. Grading one ``HUMAN_CLINICAL`` (or
+    ``IN_VITRO``, or ``MODEL_ORGANISM``) asserts that Orphanet ran the study it
+    is summarising.
+
+    This is a *conditional* invariant: ``evidence_source`` is optional, and
+    1,154 ORPHA items across the KB carry none. Absent means nobody has graded
+    the item, which is a different state from grading it wrongly, so only items
+    that carry the slot are checked.
+
+    Nothing else in the stack catches this. ``OTHER`` is a valid enum value and
+    no validator cross-checks ``evidence_source`` against the reference prefix,
+    which is how a regex-based sweep in dismech#7050 silently relabelled 1,099
+    PMID- and 23 DOI-referenced primary-literature items to ``OTHER`` without a
+    single gate going red.
+    """
+    data = _document(filepath, data)
+
+    errors = []
+    for path, evidence_list in _iter_evidence_lists(data):
+        for i, item in enumerate(evidence_list):
+            if not isinstance(item, dict):
+                continue
+            reference = item.get("reference")
+            if not isinstance(reference, str) or not reference.startswith("ORPHA:"):
+                continue
+            source = item.get("evidence_source")
+            if source is not None and source != "OTHER":
+                errors.append(
+                    f"{path}[{i}]: {reference} is graded {source}; an Orphanet "
+                    f"record is a database entry, not a study, so it takes OTHER"
+                )
+
+    assert not errors, f"ORPHA evidence_source errors in {Path(filepath).name}: {errors}"
 
 
 def test_schema_validity(validator):
@@ -1318,14 +1358,27 @@ def check_linked_animal_model_labels_are_unique(filepath, data=None):
 
 
 def _iter_mechanism_links(data):
-    """Yield (section, model_index, link_index, model, link) across model sections."""
-    for section in MODEL_SECTIONS:
-        for i, model in enumerate(data.get(section, []) or []):
-            if not isinstance(model, dict):
-                continue
-            for j, link in enumerate(model.get("modeled_mechanisms", []) or []):
-                if isinstance(link, dict):
-                    yield section, i, j, model, link
+    """Yield (path_prefix, model_index, link_index, model, link) for every model link.
+
+    Delegates to `dismech.model_links.iter_model_links`, which also reaches the
+    `model_systems` of a proposed experiment. Those were skipped while this
+    walked only `MODEL_SECTIONS`, so every check below -- divergence typing,
+    scale agreement, readout targets, caveat requirements -- had no opinion on a
+    link declared inside a `KNOWLEDGE_GAP` proposal (dismech#13375).
+
+    The first element was the bare section name and is now the dotted path to
+    the list holding the model, so the callers' existing
+    `f"{section}[{i}].modeled_mechanisms[{j}]"` formatting yields a correct deep
+    location without changing.
+    """
+    for site in iter_model_links(data):
+        yield (
+            site.path_prefix,
+            site.model_index,
+            site.link_index,
+            site.model,
+            site.link,
+        )
 
 
 def check_model_readout_targets_match_link(filepath, data=None):
@@ -2405,6 +2458,7 @@ DISORDER_CHECKS = (
     check_environmental_mechanism_targets,
     check_subtypes_have_disease_term,
     check_dataset_accession_prefix_and_shape,
+    check_orpha_evidence_is_graded_other,
 )
 # Modules use the Disease class and carry the same model sections, so these
 # span kb/disorders/ and kb/modules/.
@@ -2499,12 +2553,22 @@ def test_disorder_file(filepath, validator):
 @pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", MODULE_FILES, ids=_file_id)
 def test_module_file(filepath, validator):
-    """Schema conformance plus model-link and conforms_to checks for one module."""
+    """Schema conformance plus every structural check a disorder entry gets.
+
+    A module is a ``Disease`` document, so nothing in ``DISORDER_CHECKS`` is
+    specific to disorders: required fields, reference prefixes, subtype and
+    mechanism-target foreign keys, and dataset accession shape all apply.
+    """
     data = _document(filepath)
     failures = _failures(
         filepath,
         data,
-        (check_valid_module_files, *MODEL_BEARING_CHECKS, *CONFORMS_TO_CHECKS),
+        (
+            check_valid_module_files,
+            *DISORDER_CHECKS,
+            *MODEL_BEARING_CHECKS,
+            *CONFORMS_TO_CHECKS,
+        ),
         validator=validator,
     )
     _assert_all_passed(filepath, failures)

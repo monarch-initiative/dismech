@@ -1,5 +1,6 @@
 ---
 reference_id: url:https://socgastro.org.br/novo/wp-content/uploads/2025/01/PIIS0168827822003476.pdf
+extractor_version: 1
 title: "https://socgastro.org.br/novo/wp-content/uploads/2025/01/PIIS0168827822003476.pdf"
 content_type: full_text_pdf
 full_text_url: "https://socgastro.org.br/novo/wp-content/uploads/2025/01/PIIS0168827822003476.pdf"

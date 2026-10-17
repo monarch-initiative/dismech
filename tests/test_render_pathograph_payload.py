@@ -790,11 +790,18 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
             "MYO6_Hearing_Loss.yaml",
             {
                 (
-                    "MYO6 pathogenic variants",
+                    "MYO6 heterozygous variants (DFNA22)",
                     "Stereocilia Dysfunction in Cochlear Hair Cells",
-                )
+                ),
+                (
+                    "MYO6 biallelic variants (DFNB37)",
+                    "Stereocilia Dysfunction in Cochlear Hair Cells",
+                ),
             },
-            {"MYO6 pathogenic variants": "genetic"},
+            {
+                "MYO6 heterozygous variants (DFNA22)": "genetic",
+                "MYO6 biallelic variants (DFNB37)": "genetic",
+            },
             {
                 "Stereocilia Dysfunction in Cochlear Hair Cells": [
                     "microfilament motor activity"
