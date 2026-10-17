@@ -230,9 +230,13 @@ from the test's, an arithmetic or anatomical near-relation is a reason to declin
 not a reason to approximate.
 
 **The band convention is two-sided, and the two halves fail differently.**
-Recorded in design decisions §12: no exclusive lower bound, so a source's `> x`
-cannot be stated, and no inclusive upper bound, so a source's `≤ x` cannot be
-stated either. Worked cases across the tranche: `Renal_Hypomagnesemia_4` FEMg
+The convention itself is recorded on the schema's `ReferenceRangeBand` — its
+`comments` state the half-open `[lower_bound, upper_bound)` partition, and the
+`slot_usage` descriptions mark `lower_bound` inclusive and `upper_bound`
+exclusive — and restated in CLAUDE.md under *Reference Ranges and
+Interpretation Bands*. What follows from it is that no exclusive lower bound is
+available, so a source's `> x` cannot be stated, and no inclusive upper bound
+is available either, so a source's `≤ x` cannot be stated. Worked cases across the tranche: `Renal_Hypomagnesemia_4` FEMg
 "above 2%", `Cushing_Disease` nadir cortisol "at or below 3 mcg/dL". A `< x`
 criterion *is* expressed exactly, so the response to an unrepresentable threshold
 is to decline the band and record the inequality, never to move the boundary.
@@ -241,11 +245,14 @@ Distinguish that from having no code to attach a representable threshold to:
 `loinc_term`, because LOINC has no nasal nitric oxide measurement — the clearest
 case in this project for a LOINC term request.
 
-**Which slot takes a Part and which takes an observation code**, as applied here
-and now written up in design decisions §17: `diagnosis[].measurements` is test
-identity and prefers a Part or panel; `biochemical[].loinc_term` is the
-measurement that quantifies a marker and needs an observation code, a Part being
-a component with no scale, specimen or method. `Trehalase_Deficiency` is the
+**Which slot takes a Part and which takes an observation code.** Design
+decisions §17 records only the first half, as its *Identity convention*:
+`diagnosis[].measurements` is test identity and prefers a Part or panel, with
+method- and specimen-specific codes reserved for a `definitions[]` phenotype
+algorithm. The complement is not recorded there, and this is its record:
+`biochemical[].loinc_term` is the measurement that quantifies a marker and
+needs an observation code, a Part being a component with no scale, specimen or
+method. `Trehalase_Deficiency` is the
 worked pair — the Part binds in `measurements`, nothing binds in the marker's
 `loinc_term`. One limit found in batch 28: a Part is only worth binding when it
 carries most of the available specificity. `LOINC:LP15910-0` *Trehalase* sat above
