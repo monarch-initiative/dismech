@@ -178,6 +178,90 @@ that. `Hexosaminidase`, `QTc` and `HLA-B*57:01` also returned nothing and
 look like search-index misses rather than gaps; resolve them by direct entity
 lookup before any tranche depends on them.
 
+### Tranche B closing ledger
+
+Tranche B (pathogen-specific assays on infectious-disease entries) is complete.
+Of the 211 entries in `kb/disorders/` carrying an `infectious_agent` or
+`transmission` block, 119 held no LOINC code and 81 of those carried a
+`diagnosis`, `biochemical` or `definitions` section. The remaining free pool is
+45 populated entries, and every one has now been assessed: 19 are neoplasms and
+belong to tranche F, one is a mycotoxicosis the infectious-disease granularity
+ladder puts out of scope, seven are polymicrobial or clinical-diagnosis entries
+where no single pathogen assay is the standard, and the rest are declines with
+recorded reasons. There is no sixth candidate left to batch, which is why the
+tranche closes here rather than at a round number.
+
+**Three sources, answering three different questions.** This was learned the
+hard way, by adopting a two-way split and finding it insufficient twice in one
+day:
+
+| Question | Source |
+|---|---|
+| does a code **not** exist | the pinned complete export (`data/loinc/MANIFEST.yaml`, Tuva LOINC 2.83, sha256-verified, 112,405 rows) — no ranking, no cap, version stamped |
+| does a code exist **and is it usable** | the live Monarch KG, because the term validator resolves against it |
+| is there a **Part** (`LP`/`LG`) code | the KG only — the export contains zero Part rows |
+
+Presence in the export is **necessary but not sufficient**. `LOINC:106041-7`
+(*Fungus identified in Ear fluid by Culture*) and `LOINC:107527-4` (*Clue cells
+in Vaginal fluid*) are both ACTIVE and non-deprecated in 2.83 and both resolve
+in the KG with no name, so neither can be labelled or cached and neither is
+bindable today. That is release lag, not a fabricated code: record it and bind
+the usable alternative rather than treating the code as absent.
+
+**Enumerate a criteria set by specimen, not by item name.** A four-item bedside
+criteria set needs four separate lucky guesses if searched per item, and the
+specimen is the one thing the items share. Searching the Amsel criteria by name
+returned nothing for vaginal pH or the whiff test, and a draft recorded both as
+absent; enumerating all 182 ACTIVE vaginal-system codes found both at once,
+each method-less, and the Amsel row went from one measurement to three. The
+same move settled Otomycosis (80 ear-specimen codes, exactly one fungal, no KOH
+code) and Endophthalmitis (121 vitreous-system codes, none for culture or Gram
+stain).
+
+**A row naming several methods wants the method-less code.** Nocardiosis was
+declined in an early batch because its molecular row names 16S sequencing,
+MLSA, MALDI-TOF, whole-genome and metagenomic sequencing while the only
+Nocardia molecular code is a nucleic acid amplification assay — so no code
+matched the *method*. That reasoning missed `LOINC:55096-2` *Nocardia sp
+identified in Isolate*, which is method-less and is correct **because** the row
+names five techniques: binding any one would narrow the row to a single
+technique. The decline was reversed in a later batch. Prefer the method-less
+code first, as the identity convention above already says, rather than hunting
+for whichever method happens to be coded.
+
+The converse holds where the method *is* the instrument's identity. Bacterial
+Vaginosis binds the Nugent-qualified score code rather than the generic
+bacterial-vaginosis score code, because a score of 7 means nothing without
+saying it is Nugent's, while the same entry's Amsel row binds method-less codes
+for pH and the whiff test because neither criterion turns on technique. Both
+notes say so explicitly, so the opposite choices do not read as inconsistency.
+
+**A site-qualified code can smuggle in a claim the entry does not make.**
+Staphylococcal Scalded Skin Syndrome turns on periorificial swabs outperforming
+blister fluid, so the site *is* the claim — and LOINC's only plain *S. aureus*
+culture code carries no site, while **every** site-qualified *S. aureus* culture
+code in 2.83 is methicillin-resistant *S. aureus*, asserting a resistance
+phenotype the entry never claims. No code can express that row, so its culture
+arm is deliberately unbound. Check what a specimen qualifier brings with it
+before preferring it for being more specific.
+
+**`definitions:` has no `measurements` slot.** Six entries in this pool carry
+their diagnostic content only there. Where the test is genuinely described and
+citable, the remedy is a minimal `diagnosis:` row that reuses an evidence
+snippet already verified in the same file, adding no new citation and leaving
+the criteria in `definitions:` — Bacterial Vaginosis (two rows) and Otomycosis
+(one) are the worked examples. Run `check-title-snippets` and
+`check-snippet-grading` when doing this: `evidence_source` cannot change because
+a quote moved. Where the entry itself says no laboratory test applies
+(Seborrheic Dermatitis, STARI), there is nothing to add.
+
+**Two pool-construction defects worth inheriting.** A section header can be
+present and empty — `Polycystic_Echinococcosis` carries `biochemical: []`, which
+a header-matching scan counts as populated. And an in-flight set built with
+`gh pr list --limit N` truncates silently in a repository with more open PRs
+than `N`; enumerate with `gh api --paginate` instead, which is what kept these
+batches off three live collisions.
+
 ### External loinc→condition artifacts
 
 Several bodies maintain the mapping for their slice. These are candidate
