@@ -162,6 +162,80 @@ def _load_hpo_category_cache() -> dict[str, list[str]]:
     return {}
 
 
+def _phenotype_primary_category(hp_id: str | None) -> str | None:
+    """Return the HPO broad category a phenotype card is filed under, if any."""
+    if not hp_id:
+        return None
+    categories = _load_hpo_category_cache().get(hp_id) or []
+    return categories[0] if categories else None
+
+
+@lru_cache(maxsize=8)
+def _pathograph_mean_edge_count(disorders_dir: Path) -> int | None:
+    """Mean pathograph edge count over the entries in ``disorders_dir``.
+
+    Only entries that draw a pathograph count. The page compares its own edge
+    count against this to decide whether to open grouped (#14539). It is
+    rounded so the value embedded in every page changes rarely, rather than on
+    every curation PR.
+    """
+    counts = []
+    for path in sorted(disorders_dir.glob("*.yaml")):
+        try:
+            document = kb_cache.load_document(path)
+        except Exception:  # an unparsable sibling must not break this page
+            continue
+        if not isinstance(document, dict):
+            continue
+        edge_count = len(build_causal_graph(document).edges)
+        if edge_count:
+            counts.append(edge_count)
+    if not counts:
+        return None
+    return round(sum(counts) / len(counts))
+
+
+def _add_pathograph_grouping_context(
+    pathograph_data: str, disorder: dict, mean_edge_count: int | None
+) -> str:
+    """Attach the keys the client-side "Group by" control groups on.
+
+    Each node gains ``group_keys`` (a phenotype's HPO broad category, the
+    module stems a pathophysiology node conforms to), and the payload gains
+    ``grouping.mean_edge_count``. Nothing is collapsed here: grouping happens
+    in the page script, so the node and edge lists stay as graph.py built them.
+    """
+    if not pathograph_data:
+        return pathograph_data
+    data = json.loads(pathograph_data)
+    modules_by_name: dict[str, list[str]] = {}
+    for item in disorder.get("pathophysiology") or []:
+        if not isinstance(item, dict) or not item.get("name"):
+            continue
+        refs = item.get("conforms_to") or []
+        if isinstance(refs, str):
+            refs = [refs]
+        stems = [str(ref).split("#", 1)[0] for ref in refs if ref]
+        if stems:
+            modules_by_name[item["name"]] = list(dict.fromkeys(stems))
+    for node in data.get("nodes", []):
+        keys: dict[str, object] = {}
+        if node.get("node_type") == "phenotype":
+            category = _phenotype_primary_category(
+                (node.get("meta") or {}).get("term_id")
+            )
+            if category:
+                keys["phenotype_system"] = category
+        elif (
+            node.get("node_type") == "pathophysiology" and node["id"] in modules_by_name
+        ):
+            keys["modules"] = modules_by_name[node["id"]]
+        if keys:
+            node["group_keys"] = keys
+    data["grouping"] = {"mean_edge_count": mean_edge_count}
+    return json.dumps(data)
+
+
 def _group_phenotypes_by_category(
     phenotypes: list[dict],
 ) -> list[tuple[str, list[dict]]]:
@@ -2685,7 +2759,11 @@ def render_disorder(
     # Build causal graph and generate Mermaid code + pathograph JSON
     graph = build_causal_graph(disorder)
     mermaid_code = generate_mermaid(graph)
-    pathograph_data = graph_to_json(graph, disorder)
+    pathograph_data = _add_pathograph_grouping_context(
+        graph_to_json(graph, disorder),
+        disorder,
+        _pathograph_mean_edge_count(yaml_path.parent.resolve()),
+    )
     pathograph_node_count = len(
         {node_name for edge in graph.edges for node_name in (edge.source, edge.target)}
     )
