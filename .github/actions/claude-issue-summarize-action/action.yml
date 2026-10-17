@@ -18,6 +18,9 @@ inputs:
   github_token:
     description: "GitHub token with repo and issues permissions"
     required: true
+  issue_number:
+    description: "Issue to work on (the opened issue, or a manual dispatch's input)"
+    required: true
 
 runs:
   using: "composite"
@@ -26,6 +29,17 @@ runs:
       uses: actions/checkout@v4
       with:
         ref: ${{ github.ref }}
+
+    - name: Validate issue number
+      shell: bash
+      env:
+        ISSUE_NUMBER: ${{ inputs.issue_number }}
+      run: |
+        # A dispatch input is free text and is interpolated into the prompt below.
+        if [[ ! "$ISSUE_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+          echo "::error::issue_number must be a positive integer, got '$ISSUE_NUMBER'"
+          exit 1
+        fi
 
     - name: Create prompt file
       shell: bash
@@ -38,9 +52,11 @@ runs:
 
         IMPORTANT: Don't make any PRs. You should ONLY post a response, IN THE SAME ISSUE.
 
+        IMPORTANT: This workflow can be rerun after a failure, and an earlier attempt may already have posted its summary. Before posting, read the issue comments with mcp__github__get_issue_comments. If github-actions[bot] has already posted a summary of this issue, do not post another one; stop without commenting.
+
         Issue Information:
         - REPO: ${{ github.repository }}
-        - ISSUE_NUMBER: ${{ github.event.issue.number }}
+        - ISSUE_NUMBER: ${{ inputs.issue_number }}
 
         TASK OVERVIEW:
 
