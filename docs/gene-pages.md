@@ -56,8 +56,17 @@ The build refuses an input that does not match its pin: a downloaded file
 whose checksum differs, or an ai-gene-review checkout at another commit. A
 refresh that fails its checksum leaves the previous pinned file in place.
 
-Only genes some KB entry names are written, so the tables follow the KB rather
-than all 45,000 HGNC genes. To pick up a new upstream release:
+Only genes some KB entry names, plus any gene carrying a curated summary, are
+written — so the tables follow the KB rather than all 45,000 HGNC genes. That
+is the same rule the renderer publishes pages under, and the two read it
+through one function (`dismech.genes.curated.curated_ids`) so they cannot
+drift apart. The summary clause is what makes a gene page possible for a gene
+no entry names, which is the normal state of a gene curated *because* it causes
+no disease: without its HGNC row the page would be titled with the bare CURIE
+and the claims API would report the gene as having no name. The build reports
+such genes on their own line (`curated-only genes (no KB entry)`).
+
+To pick up a new upstream release:
 
 ```bash
 just genes-ingest-refresh --repin   # rewrites the manifests' pins
@@ -115,8 +124,8 @@ recipe lists every tier with its classification so the rest can be read too.
 Each row is a lead, not a defect. A Definitive tier on an untyped record
 usually means the record can be typed `CAUSATIVE` from evidence ClinGen has
 already assessed, but a Disputed or Refuted tier on a gene an entry does not
-name is a reason *not* to add one. Only genes some KB entry already names are
-in scope, because the ingest tables are limited to those.
+name is a reason *not* to add one. The scope is whatever the ingest tables
+cover: genes some KB entry already names, plus any gene with a curated summary.
 
 ### Curated summary: prose that is checked
 

@@ -26,6 +26,7 @@ from dismech.export.utils import slugify
 from dismech.genes.curated import (
     CURATED_DIR,
     SummaryResult,
+    curated_ids,
     summary_body_html,
     verify_summary,
 )
@@ -76,14 +77,6 @@ def _has_page(gene: GeneSlice, curated: set[str], min_disorders: int) -> bool:
     return len(gene.entries("disorder")) >= min_disorders or gene.hgnc_id in curated
 
 
-def _curated_ids(curated_dir: Path) -> set[str]:
-    return {
-        hgnc_id
-        for p in Path(curated_dir).glob("hgnc_*.md")
-        if (hgnc_id := normalize_hgnc_id(p.stem.replace("_", ":", 1)))
-    }
-
-
 @lru_cache(maxsize=4)
 def gene_page_ids(
     kb_root: str, min_disorders: int = MIN_DISORDERS_FOR_PAGE
@@ -94,7 +87,7 @@ def gene_page_ids(
     a page build that has already read the disorders it costs about a second.
     """
     root = Path(kb_root)
-    curated = _curated_ids(root / "genes" / "curated")
+    curated = curated_ids(root / "genes" / "curated")
     return frozenset(
         hgnc_id
         for hgnc_id, gene in build_gene_index(root).items()
