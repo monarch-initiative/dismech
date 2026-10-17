@@ -63,8 +63,14 @@ lands, rather than trusting this snapshot indefinitely.
 
 ## Structural finding 1: most L4 strata examined have no `diagnosis:` section — but six of the 27 entries do, and five of the 27 are not L4 strata
 
-Six of the 27 entries examined already carry a `diagnosis:` section on
-`main`, contradicting an earlier draft of this ledger that claimed none did:
+Two counts are both correct here, because they describe different
+populations: zero of the 21 entries in batches 2-4 carry a `diagnosis:`
+section; six of the full 27-entry examined set do, and all six are in batch
+1. The difference between "0" and "6" is exactly batch 1's six entries —
+none of which fall inside the narrower 21-entry population the "0" figure
+is scoped to. Read either number only against its own stated population; the
+two are not in tension. The six, with each row's `presence` value where the
+row sets one:
 
 | Entry | First `diagnosis:` row | `presence` |
 |---|---|---|
@@ -82,10 +88,9 @@ entries' new LOINC codes landed on the `diagnosis[].measurements` slot
 CLAUDE.md's *LOINC Codes* section names as the natural home for exactly this
 case — confirmed by reading each batch-1 diff against `main` directly
 (`git diff origin/main origin/loinc-f-batch1 -- kb/disorders/<name>.yaml`) —
-**not** on `biochemical[].loinc_term`. So the "should the binding be moved
-onto `measurements`" question an earlier draft of this section raised does
-not apply: wherever a `diagnosis:` row already existed to attach to, the
-batches used it correctly. `biochemical[].loinc_term` was only ever the
+**not** on `biochemical[].loinc_term`. So wherever a `diagnosis:` row already
+existed to attach to, the batches used it correctly; there is no binding here
+that needs to be moved onto `measurements`. `biochemical[].loinc_term` was only ever the
 fallback for an entry with no `diagnosis:` row to attach to (see
 `EGFR_Mutant_NSCLC`, confirmed the same way), which is the actual shape of
 the gap this finding is about.
