@@ -2,12 +2,22 @@
 
 **Date:** 2026-10-16
 **Scope:** `projects/LOINC_DIAGNOSTICS.md` Phase 3, Tranche F, biomarker-stratum
-subset — the design-decisions §3a L4 promoted strata (EGFR-mutant NSCLC,
-HER2-positive breast cancer, MSI-H colorectal cancer, and similar), whose
-promotion into a separate entry is justified by a distinct diagnostic pathway.
-This ledger covers the four batches that worked through that subset.
+subset — entries whose own somatic biomarker is central to how the entry is
+diagnosed. Most of the 27 are the design-decisions §3a L4 promoted strata
+(EGFR-mutant NSCLC, HER2-positive breast cancer, MSI-H colorectal cancer, and
+similar), whose promotion into a separate entry is justified by a distinct
+diagnostic pathway. Five are not: `APL_PML_RARA`, `NPM1_Mutant_AML`,
+`Glioblastoma_IDH_Wildtype`, `Anaplastic_Large_Cell_Lymphoma` and
+`Alveolar_Rhabdomyosarcoma` are WHO/ICC-defined molecular or histologic
+entities, which §3a treats as the *default* entry level rather than a
+promoted stratum — no promotion-justification question applies to them, and
+Finding 1 below is scoped accordingly. This ledger covers the four batches
+that worked through the subset.
 **PRs:** #14622 (batch 1), #14629 (batch 2), #14632 (batch 3), #14642
-(batch 4) — all open, none merged as of this writing.
+(batch 4), as of each batch PR's head commit on 2026-10-16 — all four were
+still open and unmerged at that time, so a reader checking this after any of
+them merges should treat the table below as a snapshot of that date, not of
+current `main`.
 
 ## Durable: entries examined and their outcome
 
@@ -45,27 +55,69 @@ one binding, and one (`BRCA_Mutant_Prostate_Cancer`) carries none.
 | Triple_Negative_Breast_Cancer | Bound (five rows) | `LOINC:85337-4`, `LOINC:85339-0`, `LOINC:85319-2`, `LOINC:49683-6`, `LOINC:105302-4`, `LOINC:50995-0` |
 
 Every code above was read directly from the branch that carries it
-(`origin/loinc-f-batch1` through `loinc-f-batch4`) in the same step this
-table was written.
+(`origin/loinc-f-batch1` through `loinc-f-batch4`), each at the head commit
+it carried on 2026-10-16. All four batch PRs were still open as of that
+date (see Scope above), so a code listed here can drift from what actually
+merges; re-check the table against each batch's merged content once it
+lands, rather than trusting this snapshot indefinitely.
 
-## Structural finding 1: no stratum entry has a `diagnosis:` section
+## Structural finding 1: most L4 strata examined have no `diagnosis:` section — but six of the 27 entries do, and five of the 27 are not L4 strata
 
-Every one of the 27 entries examined lacks a `diagnosis:` section entirely.
-All bindings in this subset landed on an existing `biochemical[].loinc_term`
-row (route 1 of the three routes this subset's briefs offered — route 2, a
-new cited `diagnosis:` row, was never needed; route 3, decline, was used
-only once). That is a real gap: these are exactly the design-decisions §3a
-L4 entries whose promotion into a *separate* entry (rather than a
+Six of the 27 entries examined already carry a `diagnosis:` section on
+`main`, contradicting an earlier draft of this ledger that claimed none did:
+
+| Entry | First `diagnosis:` row | `presence` |
+|---|---|---|
+| `ALK_Rearranged_NSCLC` | Tumor ALK fusion testing | `REQUIRED_FOR_SUBTYPE_ASSIGNMENT` |
+| `BRAF_V600E_Mutant_NSCLC` | Histologic NSCLC diagnosis with BRAF V600E confirmation | `REQUIRED_FOR_SUBTYPE_ASSIGNMENT` |
+| `BRAF_V600_Mutant_Melanoma` | Clinicopathologic cutaneous melanoma diagnosis | `REQUIRED` |
+| `APL_PML_RARA` | Morphologic Suspicion of APL | not set on this row |
+| `Anaplastic_Large_Cell_Lymphoma` | Tissue Morphology and Immunohistochemistry | not set on this row |
+| `Alveolar_Rhabdomyosarcoma` | Histologic and immunohistochemical classification | not set on this row |
+
+Two of these (`ALK_Rearranged_NSCLC`, `BRAF_V600E_Mutant_NSCLC`) mark the
+stratum-defining test `REQUIRED_FOR_SUBTYPE_ASSIGNMENT` — the entry already
+records, structurally, that this test is how the stratum is assigned. All six
+entries' new LOINC codes landed on the `diagnosis[].measurements` slot
+CLAUDE.md's *LOINC Codes* section names as the natural home for exactly this
+case — confirmed by reading each batch-1 diff against `main` directly
+(`git diff origin/main origin/loinc-f-batch1 -- kb/disorders/<name>.yaml`) —
+**not** on `biochemical[].loinc_term`. So the "should the binding be moved
+onto `measurements`" question an earlier draft of this section raised does
+not apply: wherever a `diagnosis:` row already existed to attach to, the
+batches used it correctly. `biochemical[].loinc_term` was only ever the
+fallback for an entry with no `diagnosis:` row to attach to (see
+`EGFR_Mutant_NSCLC`, confirmed the same way), which is the actual shape of
+the gap this finding is about.
+
+The remaining three of the six (`APL_PML_RARA`, `Anaplastic_Large_Cell_Lymphoma`,
+`Alveolar_Rhabdomyosarcoma`) are not design-decisions §3a L4 promoted strata at
+all — see the Scope note above — so no promotion-justification question
+applies to them; their `diagnosis:` sections exist simply because WHO/ICC
+molecular/histologic entities normally carry one, independent of this
+tranche's work. Their new LOINC codes also landed on `diagnosis[].measurements`,
+for the same reason as the other three.
+
+That leaves **21** of the 27 entries (27 minus the six above) with no
+`diagnosis:` section at all. Two of those 21 — `NPM1_Mutant_AML` and
+`Glioblastoma_IDH_Wildtype` — are themselves non-L4 WHO/ICC default-level
+entities (the same set named in the Scope note above), so no
+promotion-justification question applies to them either; their lacking a
+`diagnosis:` section is simply a gap in the entry, unrelated to this
+tranche's work.
+
+That leaves the remaining **19** of the 27 entries — L4 promoted strata with
+no `diagnosis:` section — where the finding as originally intended does hold:
+these are the entries whose promotion into a *separate* entry (rather than a
 `has_subtypes` row on the parent) is justified by having "a distinct
-first-line therapy or diagnostic pathway." The pathway that justifies the
-promotion is not recorded anywhere structurally in the entry that was
-promoted on its strength — it survives only as free-text `biochemical[]`
-notes, with no `diagnosis_term`, no `measurements`, and no reference_ranges
-cut-off anywhere in the subset.
+first-line therapy or diagnostic pathway," and the pathway that justifies the
+promotion is not recorded anywhere structurally in the promoted entry — it
+survives only as free-text `biochemical[]` notes, with no `diagnosis_term`,
+no `measurements`, and no reference_ranges cut-off.
 
-`BRCA_Mutant_Prostate_Cancer` is the sharpest instance: its only
-biochemical row is PSA, the prostate-cancer-wide monitoring marker, not a
-test for the BRCA mutation that defines its own stratum. A working,
+`BRCA_Mutant_Prostate_Cancer` is the sharpest instance among those 19: its
+only biochemical row is PSA, the prostate-cancer-wide monitoring marker, not
+a test for the BRCA mutation that defines its own stratum. A working,
 Monarch-KG-resolvable LOINC code for combined BRCA1/2 testing exists
 (`LOINC:50995-0`, bound without difficulty on `Triple_Negative_Breast_Cancer`
 in the same batch), so this is not a LOINC coverage gap — the entry simply
@@ -77,9 +129,12 @@ biology without ever stating how it is tested for.
 
 ## Structural finding 2: LOINC has no Part-level identity code for any gene rearrangement
 
-A `gene rearrangements` search against LOINC returns 91 codes and zero Part
-codes among them, across every gene family this subset touched (ALK, RET,
-ROS1, NTRK1/2/3, FOXO1, PML::RARA, ERBB2). Unlike an enzyme-activity assay,
+The Monarch KG search API (`q=gene rearrangements`,
+`category=biolink:ClinicalMeasurement`) returns 98 results as of 2026-10-16,
+fully enumerated (`limit=100` against a reported `total` of 98); zero carry
+a `LP`/`LG` Part or panel prefix. This covers every gene family this subset
+touched (ALK, RET, ROS1, NTRK1/2/3, FOXO1, PML::RARA, ERBB2). Unlike an
+enzyme-activity assay,
 where the method is incidental and a Part-level code is the correct
 identity, a fusion/rearrangement biomarker has **no method-free identity
 available at all** — FISH-specific and molecular-genetics-specific codes
@@ -131,9 +186,7 @@ its own NLM Clinical Table index carries dozens of high-risk HPV DNA and
 E6/E7 mRNA codes — but because none of them resolve against the Monarch KG,
 the authority this repository validates LOINC codes against. This is a
 coverage gap in the KG's current LOINC ingestion rather than an absence from
-LOINC itself, and is worth re-checking once the KG catches up; it is not
-specific to HPV and may recur for other code families that are
-cervical-screening-panel-heavy in LOINC's own indexing.
+LOINC itself, and is worth re-checking once the KG catches up.
 
 ## What remains unexamined
 
