@@ -5,10 +5,11 @@
 and inborn-error-of-metabolism groupings, bounded by `kb/disorders/` entries
 already carrying an enzyme-deficiency or metabolite-storage mechanism.
 **PRs:** #14481, #14491, #14494, #14561, #14617 (all open, none merged as of
-this writing — every "already bound on the sibling entry" fact below is
-cross-branch, not cross-`main`, until one lands).
+2026-10-16 — every "already bound on the sibling entry" fact below is
+cross-branch, not cross-`main`, as of that date, and should be re-checked
+against `origin/main` once any of these PRs lands).
 
-## Durable: entries examined and their outcome
+## Census: entries examined and their outcome
 
 | Entry | Outcome | Code / reason |
 |---|---|---|
@@ -63,28 +64,34 @@ assay, a method that exists but carries no LOINC identity code, an enzyme
 that must not be used diagnostically) rather than by a clean clinical test
 with an obvious code.
 
-## Worth re-running: the candidate-filter false-positive rate
+## Finding 1: the candidate filter's false-positive rate
 
 The candidate pool for this tranche was built by matching lysosomal/IEM enzyme
 names against `kb/` text. Two successive filters were tried, and both
 over-matched in a tranche-specific way:
 
 - **Whole-file matching** (tranche D batch 5): every one of five candidates
-  was a false positive, and each failed for a different reason — biotinidase
-  sitting in a differential or a normal-exclusion panel (three entries),
-  an enzyme name in a `MODEL_ORGANISM` mouse-histochemistry finding
-  (Christianson_Syndrome), and an enzyme named only in another disease's
-  differential-diagnosis block (Combined_Saposin_Deficiency). None was the
+  was a false positive, and each failed for a different reason. Biotinidase
+  sat in a differential or a normal-exclusion panel on three entries —
+  `Carbonic_Anhydrase_VA_Deficiency`, `DTYMK-Related_Neurodegeneration`, and
+  `Autosomal_Recessive_Non-Syndromic_Intellectual_Disability` — plus an
+  enzyme name inside a `MODEL_ORGANISM` mouse-histochemistry finding
+  (`Christianson_Syndrome`) and an enzyme named only in another disease's
+  differential-diagnosis block (`Combined_Saposin_Deficiency`). None was the
   entry's own test.
 - **Section-scoped matching** (`diagnosis:`/`biochemical:` only, tranche D
-  batch 6 onward): better, but still not clean. Two of nine batch-7
-  candidates (`Autosomal_Recessive_Non-Syndromic_Intellectual_Disability`,
-  `DTYMK-Related_Neurodegeneration`) kept reappearing because their
-  biotinidase mention genuinely sits *inside* a `diagnosis:` section — as a
-  normal exclusion panel, not as the entry's own positive finding. Section
-  membership does not distinguish "this section names the test that
-  diagnoses this disease" from "this section names a test that was run and
-  came back normal, ruling out something else."
+  batch 6 onward): better, but still not clean. Two of the batch-5 entries
+  already declined above — `Autosomal_Recessive_Non-Syndromic_Intellectual_Disability`
+  and `DTYMK-Related_Neurodegeneration` — kept resurfacing as candidates even
+  under the improved filter, because their biotinidase mention genuinely sits
+  *inside* a `diagnosis:` section — as a normal exclusion panel, not as the
+  entry's own positive finding. Section membership does not distinguish
+  "this section names the test that diagnoses this disease" from "this
+  section names a test that was run and came back normal, ruling out
+  something else." (Both batch-7 declines — `Kufor-Rakeb_syndrome` and the
+  eight other entries in that batch — are a separate set; neither
+  `Autosomal_Recessive_Non-Syndromic_Intellectual_Disability` nor
+  `DTYMK-Related_Neurodegeneration` is among them.)
 
 **The recommendation for whoever extends this tranche:** filter the
 candidate pool on the enzyme appearing as a *measured analyte* — a
@@ -95,32 +102,38 @@ needed the row read in context (whose test is this, and does the row's own
 evidence describe a result for *this* disease or for the thing it is being
 distinguished from).
 
-A second, independent lesson from this tranche surfaced on review, not from
-the candidate filter: a notes field must describe only its own entry and the
-test it names, never what a sibling entry or an unmerged branch contains.
-Three findings on PR #14561 traced to exactly that — "matching classic
-Tay-Sachs", "the same code as the sibling Niemann-Pick A/B entries" — each
-written from a dispatch note rather than a direct check of what the named
-entry actually bound on `main`. Checking `origin/main` directly, every time,
-rather than trusting an assertion that a code is "already bound elsewhere,"
-is the one habit that prevented this from recurring in later batches.
-
-## Worth re-running: enzyme-family name collisions
+## Finding 2: enzyme-family name collisions that validate perfectly while being wrong
 
 Two gene/enzyme families in this tranche share a name stem across genuinely
 different molecular entities, and binding the wrong family member's code
 validates perfectly while being wrong.
 
-- **ARSA / ARSB / ARSE (ARSL) / ARSK.** Four distinct arylsulfatases.
-  Part-level identity exists for ARSA (`LOINC:LP14023-3`, Metachromatic
-  Leukodystrophy); only specimen-specific codes exist for ARSB
-  (Maroteaux-Lamy, declined on that basis); searched and confirmed **no**
-  code exists at any granularity for ARSE/ARSL (X-linked Chondrodysplasia
-  Punctata 1) or ARSK (Mucopolysaccharidosis type X). A search for
-  "arylsulfatase" without the letter suffix returns only ARSA and ARSB/ARSC
-  hits — it will not surface the absence of ARSE/ARSK coverage, so a future
-  search needs to check each letter explicitly rather than trusting a
-  generic "arylsulfatase" query.
+- **ARSA / ARSB / ARSE (ARSL) / ARSK.** Four distinct arylsulfatases, and the
+  four entries that depend on them took four different paths. ARSA has a
+  Part-level identity code (`LOINC:LP14023-3`, bound on
+  `Metachromatic_Leukodystrophy`). ARSB (Maroteaux-Lamy syndrome) has **no**
+  Part-level code at all — only specimen-specific result codes exist, and
+  `Maroteaux-Lamy_syndrome` was declined on that basis, with no `diagnosis:`
+  section to attach even a specimen-specific code to. Searched and confirmed
+  **no** code exists at any granularity for ARSE/ARSL
+  (`X-linked_Chondrodysplasia_Punctata_1`) or ARSK
+  (`Mucopolysaccharidosis_type_X`). A search for "arylsulfatase" without the
+  letter suffix returns only ARSA and ARSB/ARSC hits — it will not surface
+  the absence of ARSE/ARSK coverage, so a future search needs to check each
+  letter explicitly rather than trusting a generic "arylsulfatase" query.
+
+  `Krabbe_Disease_Due_To_Saposin_A_Deficiency` (galactosylceramidase, not an
+  arylsulfatase, but the same specimen-granularity question) is the
+  instructive contrast to Maroteaux-Lamy's decline: it also declined the
+  Part-level code, but for the opposite reason — not because no code exists,
+  but because the entry's own diagnostic claim is specifically the
+  leukocyte-versus-fibroblast activity *discordance* that distinguishes this
+  activator-deficiency variant from classic GALC-deficient Krabbe disease. A
+  single Part-level code would have erased exactly the fact the row exists to
+  state, so two specimen-specific codes were bound instead. Maroteaux-Lamy
+  has no code of any granularity to choose between; Krabbe has one and
+  deliberately did not use it. Both are specimen-level decisions, reached for
+  opposite reasons.
 - **GBA1 / GBA2.** Two distinct glucosylceramidases (lysosomal vs.
   non-lysosomal), sharing enough vocabulary ("glucocerebrosidase",
   "glucosylceramidase", "beta-glucosidase") that a GBA2 diagnostic row reads,
@@ -133,10 +146,14 @@ validates perfectly while being wrong.
   methodological case in the tranche where the *candidate* was right (a real
   test exists) and the *binding* would still have been wrong.
 
-## What landed, in one line
+## Closing summary
 
-20 of 39 examined entries carry a new LOINC binding across PRs #14481,
-#14491, #14494, #14561 and #14617 (all open). The other 19 are recorded here
-with their reason so the next pass over this tranche — or the next tranche
-that touches a lysosomal-storage or IEM entry — does not re-derive the same
-conclusions from scratch.
+39 stratum entries were examined in this tranche: 20 carry a new LOINC
+binding, and 19 were declined with a stated reason, across PRs #14481,
+#14491, #14494, #14561 and #14617 (all open as of 2026-10-16). Both counts
+are denominators worth stating explicitly rather than quoting a bare total
+later — 20 bound, 19 declined, 39 examined, and all three numbers should
+still add up for anyone re-deriving them from the table above. The declines
+are recorded here with their reason so the next pass over this tranche — or
+the next tranche that touches a lysosomal-storage or IEM entry — does not
+re-derive the same conclusions from scratch.
