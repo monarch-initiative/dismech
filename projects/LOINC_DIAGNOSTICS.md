@@ -168,6 +168,32 @@ system, nearly every condition already curated), then **G**, **B** and **P**,
 with **E** as a background worklist and **N**/**O** as the mechanical passes
 once the slot exists.
 
+**Tranche J notes.**
+
+- **A tranche J candidate pool must scan `definitions:`, not just `diagnosis:`
+  and `biochemical:`.** The tranche's own scope above names "criteria in
+  `definitions[]`" for exactly this reason (McDonald, NIA-AA and similar
+  documents live there). A pool built from only the first two sections
+  undercounts by roughly a third.
+- **Open question, not settled: bind a method-specific LOINC code when no
+  Part-level identity exists, or decline the binding.** This campaign binds
+  it (e.g. neurofilament light chain, where LOINC has no Part code and every
+  candidate is qualified by specimen and/or assay method); a declined
+  alternative exists elsewhere in the KB. Both readings rest on the same
+  facts — the enumerable search confirms no NfL Part code exists — so this is
+  a convention choice to make once, not a fact to re-derive per entry.
+- **An absence claim about a LOINC code needs a date or release, not just a
+  search.** A code can exist in the current release that an earlier,
+  correctly-performed search found absent — this happened with a serum
+  neurofilament light chain code, a case of release drift rather than either
+  search being wrong. State the LOINC release (or a retrieval date) alongside
+  any "no code exists" finding.
+- **The same analyte can carry different units across specimens.** Human
+  chorionic gonadotropin is Mass/volume in serum but only available as
+  Units/volume in cerebrospinal fluid (no matching-unit CSF code exists); a
+  specimen pair is not necessarily a unit pair, and binding the
+  specimen-identity match is correct even when the units differ.
+
 Instruments LOINC does not carry — searches for HAM-D, HAM-A, ADOS, PANSS,
 Y-BOCS, EDSS, Hoehn and Yahr, Epworth, ADAS-Cog, QIDS and YMRS returned
 nothing in the KG at scoping; LOINC includes a copyrighted scale only with
