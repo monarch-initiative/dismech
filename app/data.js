@@ -215803,6 +215803,95 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "LEF1 Ectodermal Dysplasia with Limb Malformations",
+    "disease_id": "MONDO:0979228",
+    "category": "Mendelian",
+    "parents": [
+      "Ectodermal Dysplasia",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-10-16T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Monoallelic",
+      "Biallelic"
+    ],
+    "description": "Ectodermal dysplasia 17 with or without limb malformations is a rare WNT-pathway ectodermal dysplasia caused by germline variants in LEF1, the TCF/LEF transcription factor that partners with nuclear beta-catenin to activate canonical WNT target genes. Affected individuals have hypohidrotic ectodermal dysplasia (severe oligodontia, taurodontism, sparse hair, reduced sweating) with or without limb malformations such as radial ray defects, polydactyly and split hand/foot. Inheritance is autosomal dominant or autosomal recessive depending on the variant: heterozygous haploinsufficiency or loss of DNA binding gives a mild to moderate phenotype, while a biallelic variant abolishing beta-catenin binding gives a severe one.",
+    "pathophysiology": [
+      "LEF1 Haploinsufficiency or Loss of DNA Binding",
+      "Loss of LEF1-beta-catenin Binding",
+      "Reduced TCF/LEF-Dependent WNT Target Gene Transcription",
+      "Failed Epithelial-Mesenchymal Induction of Ectodermal Appendages",
+      "Abnormal Limb Patterning"
+    ],
+    "cell_types": [
+      "ectodermal cell",
+      "dental and dermal papilla mesenchymal cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000221",
+      "CL:0008019"
+    ],
+    "biological_processes": [
+      "canonical Wnt signaling pathway",
+      "odontogenesis",
+      "hair follicle development",
+      "ectodermal placode formation",
+      "embryonic limb morphogenesis"
+    ],
+    "phenotypes": [
+      "Oligodontia",
+      "Taurodontism",
+      "Alveolar Bone Defect",
+      "Sparse Hair",
+      "Hypohidrosis",
+      "Radial Ray Defects",
+      "Polydactyly",
+      "Split Hand",
+      "Split Foot"
+    ],
+    "phenotype_categories": [
+      "Dental",
+      "Integumentary",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0000677",
+      "HP:0000679",
+      "HP:0006477",
+      "HP:0008070",
+      "HP:0000966",
+      "HP:0006433",
+      "HP:0010442",
+      "HP:0001171",
+      "HP:0001839"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "LEF1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "LEF1_Ectodermal_Dysplasia_with_Limb_Malformations.yaml",
+    "page_url": "../pages/disorders/LEF1_Ectodermal_Dysplasia_with_Limb_Malformations.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "LETM1-Related Childhood-Onset Neurodegeneration",
     "disease_id": "MONDO:0859304",
     "category": "Genetic",
@@ -379568,17 +379657,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3522,
-  "total_subtypes": 4756,
-  "total_disorders_and_subtypes": 8278,
-  "total_unique_evidence_sources": 52850,
-  "total_unique_publications": 49300,
+  "total_disorder_pages": 3523,
+  "total_subtypes": 4758,
+  "total_disorders_and_subtypes": 8281,
+  "total_unique_evidence_sources": 52854,
+  "total_unique_publications": 49304,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 302,
-  "total_pathographs": 3518,
-  "total_unique_pathological_events": 23212,
+  "total_pathographs": 3519,
+  "total_unique_pathological_events": 23217,
   "total_modules": 194,
-  "total_research_reports": 3646,
+  "total_research_reports": 3647,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 115
