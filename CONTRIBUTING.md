@@ -7,8 +7,8 @@ A browsable version of this guide, with the same setup steps and screenshots, is
 
 > [!TIP]
 > **Brand new?** Start with the [Onboarding guide](docs/onboarding.md)
-> — a short overview of how the system fits together, a step-by-step first curation
-> (Claude Code on the web *and* the local CLI), and what to try once the flow is familiar.
+> — a step-by-step first curation (Claude Code on the web *and* the local CLI),
+> what to try once the flow is familiar, and where to read about how the system works.
 > This document is the detailed reference behind it.
 
 > [!WARNING]

@@ -69,7 +69,7 @@ just count-verified-snippets kb/disorders/Your_Disease.yaml   # snippets vs cach
 
 and once before opening the PR, `just validate-disorders <your files>` — the
 batched pass CI runs. Two surprises: the first `validate-terms` run downloads
-ontology databases and some are multi-GB, and `just validate-references` on a
+ontology databases and some are multi-GB, and `just validate-kb-references` on a
 single file takes about an hour, so leave that one to CI. Push to a branch on
 `origin`, never a fork — fork PRs don't get the automated review.
 
