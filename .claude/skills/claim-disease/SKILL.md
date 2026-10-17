@@ -387,6 +387,62 @@ a review to clear a gate, and do not keep polishing an approved PR. Approved is
 the finish line. Only tear the worktrees down once every PR in the run is
 approved (or closed).
 
+## When two PRs curate the same disease anyway
+
+The claim-issue dedupe bot flags a same-title duplicate issue within seconds
+of filing and schedules it for auto-close after three days — but that grace
+window does not stop a curation session from working an issue that is *going*
+to close. Two sessions can each run the curation workflow against their own
+issue, each produce a fully validated, reviewer-approved PR, and only collide
+once one of them merges.
+
+This happened on #13799/#13800 → #13811/#13815: the two claim issues were
+filed six seconds apart for the same disease (Goldberg-Shprintzen syndrome),
+the bot flagged #13800 as a duplicate of #13799 immediately, and both issues
+were still independently curated into complete PRs before #13800's grace
+period ran out. #13811 merged first; #13815 was closed as a duplicate.
+
+**Do not try to resolve this with git.** The two entries were curated
+independently, so they disagree on pathophysiology and phenotype node names,
+on which evidence they cite for the same claim, and sometimes on the
+mechanism skeleton itself. Merging or rebasing the losing branch against the
+winning entry conflicts on nearly every hunk, and resolving those conflicts
+textually produces one file with two authors' naming conventions tangled
+together — worse than either entry alone. **Manually redoing the losing PR's
+genuinely additive content as a fresh, small follow-up PR is the reliable
+path, and it is usually the simplest one too.**
+
+1. **Let the first PR to merge stand.** Close the other as superseded — do
+   not force it through, and do not try to retroactively make it the "real"
+   merge.
+2. **Before closing it, use the comparison.** Two sessions independently
+   reaching the same mechanism from the same literature is itself a finding
+   worth recording — it is a free second opinion dismech does not otherwise
+   get. Diff the two entries and say, in the PR or issue thread, where they
+   agree (same causal gene, same core mechanism, same major phenotypes) and
+   where they diverge. Agreement is useful on its own, independent of whether
+   any content gets ported.
+3. **Identify the genuine diff**: what does the losing entry carry that the
+   merged one does not — a differential diagnosis, an experimental model, a
+   discussion, a treatment, a phenotype? Read both files side by side rather
+   than trusting either PR's own description of what it added, since each
+   description was written against a starting point (`main` without its
+   sibling) that no longer matches what actually landed.
+4. **Port the diff in a fresh follow-up PR, not a merge of the losing
+   branch.** Retarget every `downstream` / `attaches_to` / `modeled_mechanisms`
+   target to the *surviving* entry's actual node and phenotype names — they
+   will not match the losing entry's names verbatim. Re-fetch any reference
+   the surviving entry does not already cache, and re-verify every
+   carried-over snippet as an exact substring of the refetched text; do not
+   assume the closed PR's cache file is still trustworthy copy-paste.
+5. **Close the losing PR** linking to the follow-up, and close or comment on
+   its originating claim issue so the same duplicate is not rediscovered
+   later.
+
+This is the same judgment a merge conflict always deserves — resolve
+carefully, never take one side wholesale — just applied at the scale of a
+whole disease entry instead of one hunk.
+
 ## Finishing a curation
 
 The curation PR **should delete the stub** alongside adding the KB entry, and
