@@ -65,9 +65,25 @@ follow-up duration. Flattening them into one class means every experiment carrie
 mostly-empty slots and every curator falls back to prose — which is what the table
 in §1 shows happening.
 
-LinkML expresses this with an abstract base plus `is_a` subclasses, surfaced as an
-`any_of` on `Discussion.proposed_experiments`. Both idioms are already in use here
-(53 `is_a` declarations, 5 `any_of`), so this is not a new pattern for the schema.
+LinkML expresses this with `is_a` subclasses off the existing `Experiment`, which
+is already the schema's commonest idiom (53 class-level `is_a` declarations, 29 of
+them `Descriptor` subclasses).
+
+**No `any_of` is needed on `Discussion.proposed_experiments`, and an earlier draft
+of this note was wrong to propose one.** Tested against LinkML 1.10.0: a plain
+`range: <Base>` on an `inlined_as_list` slot already accepts any subclass, and
+already rejects an instance that mixes slots from two sibling subclasses. Adding
+`any_of` over the same classes changes nothing — the two schemas produce
+byte-identical validator behaviour on good data, bad data, and chimeric data. The
+5 existing `any_of` uses in this schema are all *scalar* unions (`float|int|string`,
+`FrequencyEnum|FrequencyQuantity`), and that is the only thing `any_of` should be
+used for here; see the warning in the next section.
+
+The one real cost of subclassing is the error message. A rejected instance reports
+only `is not valid under any of the given schemas`, naming neither the family it
+failed nor the offending slot. That is a genuine curator-usability regression, and
+it is the main argument for pairing subclasses with an explicit `experiment_design`
+discriminator rather than leaving the family implicit in which slots are present.
 
 The shared base keeps what is genuinely type-agnostic — `experiment_id`, `name`,
 `description`, `would_support` / `would_refute`, `supporting_outcome` /
@@ -97,9 +113,34 @@ OTHER | Multi-region postmortem human MDD brain cohort         <- human cohort
 model here via `experimental_model_type: OTHER`") — but for a *proposed* experiment
 there is no alternative route. The fix that closed this for realized models
 (#8199, giving `AnimalModel` its own `modeled_mechanisms`) was never applied to
-`Experiment.model_systems`. Widening it to `any_of: [ExperimentalModel,
-AnimalModel, ComputationalModel]` is worth doing independently of everything else
-in this note.
+`Experiment.model_systems`.
+
+**Do not fix this with `any_of`.** Widening the slot to
+`any_of: [ExperimentalModel, AnimalModel, ComputationalModel]` was tried and
+reverted; on LinkML 1.10.0 it does not work, in two different ways:
+
+- Keeping `range: ExperimentalModel` alongside the `any_of` generates a broken
+  union — two of the three branches collapse to `{"type": "string"}`, and the
+  surviving `$ref` is **and**ed with the `anyOf`, so every already-valid
+  `ExperimentalModel` in `kb/` starts failing with *"Additional properties are not
+  allowed ('experimental_model_type', 'organism' were unexpected)"*.
+- Switching to the scalar-union idiom (`range: Any` + `any_of`, as `percentage`
+  uses) generates three correct `$ref` branches but is **worse**: JSON Schema
+  ignores keywords sibling to `$ref`, so only `$ref: Any` applies — and `Any` is
+  `additionalProperties: true`. The slot then accepts arbitrary garbage. A
+  fixture carrying `totally_bogus_slot` validated clean.
+
+That second failure is the dangerous one, and it is the same shape as the
+`qualifiers` blind spot (#10197): validation appears to pass because it has
+silently stopped happening. `range: Any` + `any_of` is safe for the scalar unions
+it is used for today and must not be extended to inlined object ranges.
+
+**The fix is the three-way split the KB already uses.** `Disease` separates
+`experimental_models:` / `animal_models:` / `computational_models:`, and the
+latter two slots already exist with exactly the right ranges and
+`inlined_as_list: true`. Adding them to the `Experiment` class reuses those slots
+verbatim, needs no union, validates properly in both directions, and gives
+curators the same three section names at both levels.
 
 This also answers "are some proposed experiments computational?" — yes, but only
 about 3–5 of 2,378 unambiguously so, and they have nowhere to go. A keyword sweep
@@ -224,13 +265,25 @@ one concept, which is the shape of the `PARTIAL` / `directness` conflation that
 
 | Stage | Work | Value absent any automation |
 |---|---|---|
-| 1 | Subclass by design family; add `executability`; widen `model_systems` to `any_of: [ExperimentalModel, AnimalModel, ComputationalModel]` | High. Makes 2,378 experiments classifiable and stops the `OTHER` leak. The 330 free-text strings cluster into ~8 families and can be backfilled semi-mechanically. |
+| 1a | **ENACTED.** `ExperimentDesignEnum` (8 values) + `ExperimentExecutabilityEnum` (4) as optional `experiment_design` / `executability` slots on `Experiment`; `animal_models` and `computational_models` added to the `Experiment` class | High. Makes 2,378 experiments classifiable and closes the `OTHER` leak. The 330 free-text strings cluster into the 8 families and can be backfilled semi-mechanically. |
+| 1b | Backfill `experiment_design` from the 330 free-text `experiment_type` strings; migrate the `OTHER` model systems into the two new slots | High. Turns the enum from available into populated. |
+| 1c | Per-family detail blocks (`screen_details`, `cohort_details`, …), either as `is_a` subclasses or as the discriminator-plus-detail-block idiom `therapeutic_modality` / `aso_details` already uses | Medium. Deferred until 1b shows which families actually carry weight. |
 | 2 | Structure `decision_criterion` as a `DecisionRule`, unified with the §12 experiment-grounded evidence design; add the return path from `EvidenceItem` | High. This is the pre-registration and the round-trip — the part that is dismech's own. |
 | 3 | `protocol_binding` + `protocol_format`, applied to the Ewing demonstrator only | Low breadth, high signal. One worked exemplar, not a KB-wide push. |
 
 Stages 1 and 2 pay for themselves whether or not a robot ever runs anything.
 Stage 3 should stay a single exemplar until someone has actual automation-core
 access.
+
+**Why 1a landed the discriminator rather than the subclasses the staging table
+originally called for.** Both are wanted, but the enum is the part that can be
+populated on all 2,378 experiments today, and it is what makes the backfill in 1b
+possible at all: a subclass cannot be chosen for an instance until the
+family-specific slots exist to justify the choice, so subclassing first would have
+produced four empty classes and no classified experiments. The enum also supplies
+the diagnosable error that bare subclassing lacks (see §2), and it is gated for
+free — `check_enum_values.py` is an ungated, whole-KB CI step, so a bad
+`experiment_design` fails on any PR, including a `kb/`-only one.
 
 ## 9. Explicitly rejected
 
