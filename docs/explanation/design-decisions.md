@@ -2153,6 +2153,33 @@ the same test on different codes in different entries. The label is the Long
 Common Name. An instrument's panel and its total score are different codes
 (MoCA `72133-2` / `72172-0`): a numeric cut-off goes on the score.
 
+**Amendment (2026-10-17): the identity convention governs `measurements`, and
+not `biochemical[].loinc_term`.** The two homes make different claims, and the
+slots' own descriptions settle which code each takes.
+`diagnosis[].measurements` names a test's **identity**, so the paragraph above
+applies in full: prefer the Part or the panel / total-score code.
+`biochemical[].loinc_term` names, in its own words, *the measurement that
+quantifies the marker*, so an observation code carrying a scale, a specimen and
+units is correct there — and a bare Part is not a candidate at all, being a
+component with no scale, specimen or method, which cannot quantify anything.
+The consequence is worth stating because it reads as an omission: where a
+component Part exists for a marker it is **recorded in that record's `notes`
+and deliberately not bound**. `LOINC:LP207800-6` (fractional excretion of
+magnesium) in `Renal_Hypomagnesemia_4`, and `LOINC:LP15669-2` (IGF-1) and
+`LOINC:LP15668-4` (IGFBP-3) in `Isolated_Growth_Hormone_Deficiency`, are the
+worked cases. The mirror case is `X-Linked_Nephrogenic_Diabetes_Insipidus`'s
+basal copeptin, a `measurements` slot, where the Part `LOINC:LP200145-3` is
+bound in preference to the single immunoassay observation code.
+
+Two practical consequences for picking a code. Part codes are readable through
+the Monarch KG but are **absent from the LOINC release table** a curator
+enumerates for observation and panel codes, so "is there a Part for this"
+and "which observation codes exist" are two searches against two sources, and
+a finding should say which source answered it. And a KG search must be
+**paginated to its stated `total`** before any absence is claimed: the default
+page of 100 silently truncates `Testosterone` (104 records) and `Somatotropin`
+(371), which is exactly where a Part claim is decided.
+
 **Validation, and why the enum has no hierarchy.** `LoincTerm` is a
 label-match enum with no `reachable_from`, the `GeneTerm` pattern. The
 authority is the Monarch KG, which carries the full LOINC table (~108k
