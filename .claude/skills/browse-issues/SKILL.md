@@ -244,8 +244,25 @@ only because the user asked for three.
 Tell the user how to reach it:
 
 ```
-tmux attach -t dismech-issues     # Ctrl-b w lists windows, Ctrl-b d detaches
+tmux attach -t dismech-issues:issue-<N>   # straight to that issue's window
 ```
+
+Attaching puts the user straight into a window where Claude fills the screen,
+so there is no prompt to type tmux commands at. The keys work anyway, because
+tmux reads `Ctrl-b` before Claude sees it. Press `Ctrl-b`, let go of both keys,
+then press one key on its own:
+
+| Then | Does |
+|---|---|
+| `w` | list the windows; arrow keys and Enter to switch |
+| `n` / `p` | next / previous window |
+| `0`, `1`, … | jump to that window number |
+| `d` | detach, leaving every session running |
+
+Holding Ctrl down through the second key does nothing. Claude Code's own
+`Ctrl-b` (send a running command to the background) needs `Ctrl-b` pressed
+twice inside tmux. `tmux list-windows -t dismech-issues` lists the windows
+without attaching.
 
 The new session is the user's to drive. The sorting session does not monitor
 it, send it instructions, or report on its PR unless asked.

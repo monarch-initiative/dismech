@@ -188,8 +188,8 @@ def main(argv: list[str] | None = None) -> None:
     window = f"issue-{a.issue}"
     if path.exists():
         sys.exit(
-            f"{path} already exists. If its session is still open: tmux attach -t {a.tmux_session}, "
-            f"then Ctrl-b w and pick {window}. Otherwise remove the worktree first."
+            f"{path} already exists. If its session is still open: "
+            f"tmux attach -t {a.tmux_session}:{window}. Otherwise remove the worktree first."
         )
 
     prompt = build_prompt(a.issue, issue["title"], lane, branch, a.note)
@@ -255,8 +255,10 @@ def main(argv: list[str] | None = None) -> None:
         f"\n{'would open' if a.dry_run else 'opened'}: tmux window {window} in session {a.tmux_session}"
     )
     print(f"  worktree {path}  branch {branch}")
+    print(f"  watch it:   tmux attach -t {a.tmux_session}:{window}")
     print(
-        f"  watch it:   tmux attach -t {a.tmux_session}    (Ctrl-b w lists windows, Ctrl-b d detaches)"
+        "  once inside, tmux reads Ctrl-b before Claude does: press Ctrl-b, let go, then"
+        " w (pick a window), n / p (next / previous) or d (detach, leaving it running)"
     )
     if a.dry_run:
         print(f"\nfirst prompt:\n  {prompt}")
