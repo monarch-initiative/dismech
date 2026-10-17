@@ -7,13 +7,13 @@ cfDNA/NIPT, maternal-serum, nuchal-translucency, or karyotype diagnostic row.
 **PRs:** #14630 (batch 1, 6 entries), #14633 (batch 2, 8 entries) — both open,
 neither merged as of this writing.
 
-## Durable: entries examined and their outcome
+## Entries examined and their outcome
 
 | Entry | Outcome | Code / reason |
 |---|---|---|
 | Down_syndrome | Bound | `LOINC:77011-5` Fetal Chromosome 21 trisomy [Presence] based on Plasma cell-free DNA by Sequencing |
 | Trisomy_18 | Bound (split into two rows) | `LOINC:29770-5` Karyotype; `LOINC:50580-0` generic multi-condition maternal screen panel (no triple/quad/penta specificity stated by the source) |
-| Anencephaly | Bound (split into two rows) | `LOINC:48802-3` serum AFP panel; `LOINC:58735-2` amniotic AFP panel; `LOINC:76478-7` amniotic acetylcholinesterase panel |
+| Anencephaly | Bound (split into two rows) | Maternal Serum AFP Screening row: `LOINC:48802-3` serum AFP panel. Amniotic Fluid AFP and Acetylcholinesterase row: `LOINC:58735-2` amniotic AFP panel, `LOINC:76478-7` amniotic acetylcholinesterase panel |
 | Spina_Bifida_Cystica | Bound | `LOINC:48802-3`, `LOINC:58735-2` (same two codes as Anencephaly, added to the entry's existing single combined row) |
 | Hemolytic_Disease_of_the_Fetus_and_Newborn | Bound | `LOINC:100670-9` RHD gene allele [Identifier] in Plasma cell-free DNA Nominal--fetus |
 | 47_XYY_Syndrome | Bound (karyotype only) + citable absence (screening) | `LOINC:29770-5` (blood), `LOINC:33773-3` (amniotic fluid) for the two confirmatory karyotype rows; no cfDNA screening code exists for the aneuploidy itself |
@@ -27,13 +27,6 @@ neither merged as of this writing.
 | Congenital_Isolated_ACTH_Deficiency | Bound | `LOINC:LP15559-5` Estriol.unconjugated, the Part code — the entry's claim is qualitative ("isolated low" estriol), with no number or Multiple-of-the-median value cited, so the MoM family does not apply |
 | Aflatoxin_Related_HCC | **Declined — collision** | "cell-free DNA" matched on a liquid-biopsy ctDNA assay (droplet digital PCR for somatic TP53 R249S in hepatocellular carcinoma), not prenatal cfDNA |
 | Brain_Arteriovenous_Malformation | **Declined — collision** | "cell-free DNA" matched on somatic lesion genotyping from peripheral blood (a liquid-biopsy route to the lesion's own somatic driver mutation), not prenatal cfDNA |
-
-Every code above was read directly from the branch that carries it
-(`origin/loinc-k-batch1`, `origin/loinc-k-batch2`) in the same step this
-table was written, not from an earlier summary. The two collision declines
-were independently re-confirmed by grepping both entries for "cell-free DNA"
-before this ledger was written, rather than taken on the strength of the
-batch-2 dispatch note that first flagged them.
 
 Across 16 entries examined, 9 carry at least one new LOINC binding, 4 are
 recorded as citable absences (3 full entries plus the screening half of
@@ -69,7 +62,7 @@ widely published), the MoM-family code is the correct rebind and the cutoff
 would support a genuinely sourced `interpretation_bands` entry — something
 this tranche never had the citation to add.
 
-## Finding 2: three citable LOINC absences, dated
+## Finding 2: four citable LOINC absences, dated
 
 Each of the following was confirmed by a fully-enumerated search (every
 result read, not a truncated page) against the Monarch KG search API
@@ -95,8 +88,7 @@ affected row rather than left as a silent gap.
 - **47_XYY_Syndrome** (the screening half of the entry; the confirmatory
   karyotype rows are bound) — "XYY cell-free DNA", "XXY cell-free DNA",
   "XXX cell-free DNA", and "fetal sex chromosome aneuploidy" each return
-  zero results (total=0 for all four). This was independently re-run a
-  second time, after review, on the same date, with the same result.
+  zero results (total=0 for all four).
 
 A pattern across three of these four: LOINC's cfDNA aneuploidy family covers
 the autosomal trisomies (21, 18, 13) and simple Monosomy X. It does not cover
