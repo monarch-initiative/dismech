@@ -67,41 +67,33 @@ Two counts are both correct here, because they describe different
 populations: zero of the 21 entries in batches 2-4 carry a `diagnosis:`
 section; six of the full 27-entry examined set do, and all six are in batch
 1. Read either number only against its own stated population; the two are
-not in tension.
+not in tension. (Batch membership is not a cause of either count: every
+`diagnosis:` section in this subset predates this tranche's curation and was
+already on `main` before any batch touched its entry, so which batch an
+entry landed in says nothing about why it does or does not carry one.)
 
-**The split tracks which batch curated the entry, not whether the entry is a
-WHO/ICC entity or a promoted stratum.** A tidy story suggests itself — batch 1
-is mostly WHO/ICC-defined entities (APL, ALCL, ARMS), batches 2-4 are the §3a
-L4 promoted strata, and entities record a diagnostic pathway where strata do
-not — but checked against this ledger's own classification (see Scope above),
-it does not hold cleanly in either direction:
+Checking the six against this ledger's own classification (see Scope above)
+rules out a tidier story: three of the six — `ALK_Rearranged_NSCLC`,
+`BRAF_V600E_Mutant_NSCLC`, `BRAF_V600_Mutant_Melanoma` — are themselves §3a
+L4 promoted biomarker strata, not WHO/ICC default-level entities; and two
+entries without a `diagnosis:` section — `NPM1_Mutant_AML`,
+`Glioblastoma_IDH_Wildtype` — are themselves non-L4 WHO/ICC entities. So
+"WHO/ICC entity versus promoted stratum" does not cleanly separate the
+diagnosis-bearing entries from the rest either; it predicts correctly for 22
+of the 27, with these five as counter-examples in both directions.
 
-- Three of batch 1's six diagnosis-bearing entries — `ALK_Rearranged_NSCLC`,
-  `BRAF_V600E_Mutant_NSCLC`, `BRAF_V600_Mutant_Melanoma` — are themselves §3a
-  L4 promoted biomarker strata, the same kind as the batch 2-4 entries
-  (`HER2_Positive_Breast_Cancer`, `EGFR_Mutant_NSCLC`, and the rest) that lack
-  a `diagnosis:` section.
-- Two entries in batches 2-4 — `NPM1_Mutant_AML` (batch 2) and
-  `Glioblastoma_IDH_Wildtype` (batch 3) — are non-L4 WHO/ICC entities, the
-  same kind as the batch-1 entries that do carry one, yet they lack a
-  `diagnosis:` section regardless.
-
-So "batch" predicts diagnosis-section presence without exception across all
-27 entries; "WHO/ICC entity versus promoted stratum" does not — it predicts
-correctly for 22 of 27, with these five as counter-examples in both
-directions. Whether the clean batch split reflects something about how batch
-1 happened to be curated, or whether it is coincidence riding on which
-entries a candidate-selection pass happened to group together, this ledger
-does not have enough information to say, and does not attempt to. What is
-worth carrying forward is narrower and still real: among the 22 entries that
-are genuinely §3a L4 promoted strata — whose promotion is justified by "a
-distinct first-line therapy or diagnostic pathway" — three record that
-pathway structurally and nineteen do not, with no clean line separating the
-two groups by anything this ledger classified. Whether that split reflects
-under-curation of the nineteen, or a promotion criterion applied on clinical
-judgement that was never meant to require structural backing, is a §3a
-question for whoever revisits the ladder — not a LOINC one, and not one this
-ledger answers.
+What is worth carrying forward is narrower and still real, because it does
+not depend on any classification this ledger could get wrong: among the 22
+entries that are genuinely §3a L4 promoted strata — whose promotion is
+justified by "a distinct first-line therapy or diagnostic pathway" — three
+record that pathway structurally and nineteen do not, with no clean line
+separating the two groups by anything this ledger classified. If this ledger
+needs a sentence on why no clean line emerges, the honest one is that this
+ledger's own classification does not explain the variation — not that some
+other variable does. Whether the split reflects under-curation of the
+nineteen, or a promotion criterion applied on clinical judgement that was
+never meant to require structural backing, is a §3a question for whoever
+revisits the ladder — not a LOINC one, and not one this ledger answers.
 
 The six, with each row's `presence` value where the row sets one:
 
