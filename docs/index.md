@@ -16,6 +16,7 @@ itself, head to the main site.
 
 ## Start here
 
+- **Brand new?** Read [Onboarding](onboarding.md) — how the system fits together, a step-by-step first curation (web and CLI), and what to try next.
 - **New to the data model?** Read the [Data Model overview](data-model.md) — a curated map of the key schema classes.
 - **Curating an entry?** Start with the [Curation Primers](#curation-primers) and the [How-to Guides](quality-control.md).
 - **Need exact schema details?** See the full [Schema Reference](schema/schemas/dismech.md).
