@@ -33,7 +33,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from dismech.logical_rules import (  # noqa: E402
+from dismech.logical_rules import (
     DEFAULT_CLOSURE_DIR,
     DEFAULT_RULES_PATH,
     WAIVER_PREFIX,
@@ -44,7 +44,7 @@ from dismech.logical_rules import (  # noqa: E402
     load_rules,
     unusable_rules,
 )
-from dismech.yaml_io import safe_load  # noqa: E402
+from dismech.yaml_io import safe_load
 
 #: Whole-KB by default, for the reason ``check_entity_refs`` is: the rules are
 #: per-node, but a curation PR that edits one file is exactly the PR that never

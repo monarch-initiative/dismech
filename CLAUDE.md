@@ -544,7 +544,7 @@ not transfer. This is deliberately not a baseline file: a baseline records that 
 finding was seen, `review_notes` records why a curator decided it was fine, where
 the next curator reads it.
 
-Closures (`cache/closure/*.csv`) are committed and regenerated through
+Closures (`cache/rule_closure/*.csv`) are committed and regenerated through
 `conf/oak_config.yaml` adapters, so the check is offline and deterministic; do
 not hand-edit them, and re-run the refresher after changing a rule's roots. See
 [`docs/logical-rules.md`](docs/logical-rules.md) before adding a rule.
@@ -1936,9 +1936,11 @@ Treat committed CSVs under `cache/` as derived, authority-backed artifacts:
 - `cache/<prefix>/terms.csv` caches CURIE existence and canonical labels.
 - `cache/enums/*.csv` caches membership in schema dynamic enums. Presence in
   the label cache does not establish enum membership.
-- `cache/closure/*.csv` caches the `is_a` closure of the roots named in
+- `cache/rule_closure/*.csv` caches the `is_a` closure of the roots named in
   `conf/logical_rules.yaml`, so `just check-logical-rules` runs offline.
-  Regenerate with `just refresh-logical-rule-closures`, never by hand.
+  Regenerate with `just refresh-logical-rule-closures`, never by hand. This is
+  **not** `cache/closure/`, the grouping closure cache above: different schema,
+  different builder, deliberately a different directory.
 - Never hand-write, append, or reorder cache rows. Populate term caches through
   `just validate-terms` or `just validate`, then use `just normalize-cache` for
   canonical CURIE ordering.

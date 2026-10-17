@@ -995,7 +995,7 @@ check-entity-refs *files:
 check-logical-rules *files:
     uv run python scripts/check_logical_rules.py "$@"
 
-# Regenerate cache/closure/*.csv, the committed is_a closures the rules read.
+# Regenerate cache/rule_closure/*.csv, the committed is_a closures the rules read.
 # Network-bound (OLS, via conf/oak_config.yaml) and slow; run it only after
 # editing conf/logical_rules.yaml, and commit the diff.
 [group('QC')]

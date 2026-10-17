@@ -4,7 +4,7 @@
 ``check_logical_rules.py`` has to answer "is ``CL:0000186 myofibroblast`` a
 connective tissue cell?" for every cell type in the KB, on every CI run, on a
 runner with no ontology build and no reason to hit the network. So the answers
-are precomputed here and committed under ``cache/closure/``, the same bargain
+are precomputed here and committed under ``cache/rule_closure/``, the same bargain
 ``cache/enums/*.csv`` strikes for dynamic-enum membership.
 
 One file per closure root, named for the root (``CL_0002320.csv``) and sorted
@@ -26,7 +26,7 @@ import csv
 import io
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
@@ -36,7 +36,7 @@ from oaklib.datamodels.vocabulary import IS_A
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from dismech.logical_rules import (  # noqa: E402
+from dismech.logical_rules import (
     DEFAULT_CLOSURE_DIR,
     DEFAULT_RULES_PATH,
     closure_filename,
@@ -135,7 +135,7 @@ def main() -> int:
             continue
         # Keep the previous timestamp when the membership is unchanged, so a
         # no-op refresh does not churn every row's `retrieved_at`.
-        stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        stamp = datetime.now(UTC).isoformat(timespec="seconds")
         if rows == existing_rows(path) and path.is_file():
             print(f"unchanged {path.relative_to(ROOT)} ({len(rows)} descendants)")
             continue

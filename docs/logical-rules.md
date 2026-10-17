@@ -98,8 +98,14 @@ specific term is the fix, and it is an improvement in its own right.
 The rules need to know that `CL:0000186 myofibroblast` is a connective tissue
 cell, on every CI run, on a runner with no ontology build and no reason to reach
 the network. So the `is_a` closure of each root is precomputed and committed
-under `cache/closure/`, one file per root, sorted by CURIE — the same bargain
+under `cache/rule_closure/`, one file per root, sorted by CURIE — the same bargain
 `cache/enums/*.csv` strikes for dynamic-enum membership.
+
+**Not `cache/closure/`**, which is the grouping closure cache — `hp.csv` and
+`go.csv`, a `term,descendant` row per pair, built by
+`just build-grouping-closure-cache` for grouping membership criteria. The two
+answer different questions with different schemas, and `groupings.py` validates
+its header on read, so they stay in separate directories.
 
 `just refresh-logical-rule-closures` regenerates them through the adapters
 `conf/oak_config.yaml` names, so the rules stay on the same ontology sources as
@@ -160,7 +166,7 @@ the next curator will read it.
 
 1. Add it to `conf/logical_rules.yaml` with a `summary` and a `remediation` that
    tells a curator what to actually do.
-2. `just refresh-logical-rule-closures` and commit `cache/closure/`.
+2. `just refresh-logical-rule-closures` and commit `cache/rule_closure/`.
 3. `just check-logical-rules` and read every finding. If the rule reports
    correct curation, the rule is wrong — reformulate it before proposing it.
 4. If the ontology cannot support the rule at all, say so in the config comment

@@ -220,7 +220,7 @@ class TestConfig:
     def test_closure_files_are_not_named_terms_csv(self):
         """`term_cache_integrity` scans `cache/*/terms.csv` and would choke."""
         assert closure_filename("CL:0002320") == "CL_0002320.csv"
-        assert not (ROOT / "cache" / "closure" / "terms.csv").exists()
+        assert not (ROOT / "cache" / "rule_closure" / "terms.csv").exists()
 
     @pytest.mark.parametrize(
         "raw, expected",
