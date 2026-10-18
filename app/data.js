@@ -10616,6 +10616,7 @@ window.searchData = [
       "Serum alanine and aspartate aminotransferases",
       "International normalized ratio",
       "Serum acetaminophen-protein adducts",
+      "MELD score",
       "Circulating CXCL14"
     ],
     "source_file": "Acetaminophen_Hepatotoxicity.yaml",
@@ -115729,15 +115730,26 @@ window.searchData = [
       "Motor stereotypy",
       "Anxiety",
       "Cardiac anomalies",
-      "Foot anomalies"
+      "Foot anomalies",
+      "Attention deficit hyperactivity disorder",
+      "Depression",
+      "Pectus excavatum",
+      "Kyphosis",
+      "Scoliosis",
+      "Renal agenesis",
+      "Renal cyst"
     ],
     "phenotype_categories": [
-      "Phenotype"
+      "Phenotype",
+      "Behavioral",
+      "Musculoskeletal",
+      "Renal"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Digestive",
       "Eye",
+      "Genitourinary",
       "Growth",
       "Head and Neck",
       "Limbs",
@@ -115766,7 +115778,14 @@ window.searchData = [
       "HP:0000733",
       "HP:0000739",
       "HP:0001627",
-      "HP:0001760"
+      "HP:0001760",
+      "HP:0007018",
+      "HP:0000716",
+      "HP:0000767",
+      "HP:0002808",
+      "HP:0002650",
+      "HP:0000104",
+      "HP:0000107"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -115786,12 +115805,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "DYRK1A_Syndrome.yaml",
     "page_url": "../pages/disorders/DYRK1A-related_intellectual_disability_syndrome.html",
-    "num_phenotypes": 22,
+    "num_phenotypes": 29,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "24",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Dacryocystitis-Osteopoikilosis Syndrome",
@@ -145584,103 +145603,144 @@ window.searchData = [
     "disease_id": "MONDO:0010188",
     "category": "Mendelian",
     "parents": [
-      "autosomal recessive metabolic cerebellar ataxia",
-      "inborn vitamin metabolic disorder"
+      "Hereditary Ataxia",
+      "Vitamin Deficiency Disorder"
     ],
-    "creation_date": "2026-06-03T00:00:00Z",
-    "updated_date": null,
+    "creation_date": "2026-01-26T02:55:13Z",
+    "updated_date": "2026-10-16T06:05:00Z",
     "subtypes": [],
-    "description": "Ataxia with vitamin E deficiency (AVED), also called familial isolated vitamin E deficiency, is a rare autosomal recessive neurodegenerative disease caused by biallelic loss-of-function variants in TTPA, encoding the hepatic alpha-tocopherol transfer protein (alpha-TTP). Loss of alpha-TTP activity prevents incorporation of alpha-tocopherol (vitamin E) into nascent very-low-density lipoproteins secreted by the liver, producing severe systemic vitamin E deficiency despite normal dietary intake and intestinal absorption. The resulting failure of lipid-soluble antioxidant protection causes oxidative damage to large myelinated sensory neurons, dorsal columns, and cerebellar pathways, producing a progressive spinocerebellar ataxia that closely resembles Friedreich ataxia. Lifelong high-dose oral vitamin E supplementation is disease-modifying and, when started presymptomatically, prevents clinical manifestations.\n",
+    "description": "An autosomal recessive neurodegenerative disease caused by biallelic pathogenic variants in TTPA (alpha-tocopherol transfer protein), resulting in impaired hepatic incorporation of alpha-tocopherol into nascent VLDL particles and severe systemic vitamin E deficiency despite normal intestinal fat absorption. It manifests primarily between ages 5 and 15 years with a Friedreich ataxia-like syndrome of progressive spinocerebellar ataxia, loss of proprioception, areflexia, dysarthria, head titubation, and variable pigmentary retinopathy or cardiomyopathy. Early lifelong high-dose oral vitamin E supplementation halts disease progression and can prevent neurological manifestations when initiated presymptomatically.",
     "pathophysiology": [
       "Alpha-Tocopherol Transfer Protein Deficiency",
+      "Impaired Hepatic VLDL Alpha-Tocopherol Secretion",
       "Systemic Vitamin E Deficiency",
-      "Oxidative Neuronal Damage"
+      "Oxidative Neuronal Damage",
+      "Dorsal Root Ganglion and Posterior Column Degeneration",
+      "Cerebellar Purkinje Cell Degeneration",
+      "Corticospinal Tract Degeneration",
+      "Retinal Photoreceptor Oxidative Damage"
     ],
     "cell_types": [
-      "dorsal root ganglion sensory neuron",
-      "cerebellar Purkinje cell"
+      "hepatocyte",
+      "neuron",
+      "sensory neuron",
+      "Purkinje cell",
+      "photoreceptor cell"
     ],
     "cell_type_ids": [
-      "CL:1001451",
-      "CL:0000121"
+      "CL:0000182",
+      "CL:0000540",
+      "CL:0000101",
+      "CL:0000121",
+      "CL:0000210"
     ],
     "biological_processes": [
-      "vitamin transport",
-      "VLDL alpha-tocopherol incorporation",
       "vitamin E metabolic process",
+      "vitamin transport",
+      "lipid transport",
       "response to oxidative stress",
-      "lipid peroxidation"
+      "neuron apoptotic process"
     ],
     "phenotypes": [
+      "Low levels of vitamin E",
       "Progressive ataxia",
+      "Gait disturbance",
+      "Clumsiness",
+      "Peripheral neuropathy",
+      "Sensory neuropathy",
       "Loss of proprioception",
-      "Impaired vibratory sensation",
       "Areflexia",
+      "Cerebellar atrophy",
       "Dysarthria",
       "Dysdiadochokinesis",
+      "Dysmetria",
       "Positive Romberg sign",
       "Head titubation",
       "Dystonia",
       "Babinski sign",
-      "Decreased visual acuity",
-      "Retinitis pigmentosa",
-      "Cardiomyopathy",
-      "Low levels of vitamin E",
-      "Peripheral neuropathy",
+      "Abnormal pyramidal sign",
+      "Mental deterioration",
       "Nystagmus",
+      "Muscle weakness",
+      "Pes cavus",
+      "Scoliosis",
+      "Retinitis pigmentosa",
+      "Macular degeneration",
+      "Decreased visual acuity",
       "Nyctalopia",
-      "Pes cavus"
+      "Hypertrophic cardiomyopathy"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Endocrine",
+      "Nervous System",
+      "Ophthalmologic",
+      "Musculoskeletal",
+      "Cardiovascular"
+    ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Eye",
       "Limbs",
       "Metabolism",
+      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0002073",
+      "HP:0100513",
+      "HP:0001251",
+      "HP:0001288",
+      "HP:0002312",
+      "HP:0009830",
+      "HP:0000763",
       "HP:0010831",
-      "HP:0002495",
       "HP:0001284",
+      "HP:0001272",
       "HP:0001260",
       "HP:0002075",
+      "HP:0001310",
       "HP:0002403",
       "HP:0002599",
       "HP:0001332",
       "HP:0003487",
-      "HP:0007663",
-      "HP:0000510",
-      "HP:0001638",
-      "HP:0100513",
-      "HP:0009830",
+      "HP:0007256",
+      "HP:0001268",
       "HP:0000639",
+      "HP:0001324",
+      "HP:0001761",
+      "HP:0002650",
+      "HP:0000580",
+      "HP:0000608",
+      "HP:0007663",
       "HP:0000662",
-      "HP:0001761"
+      "HP:0001639"
     ],
     "frequencies": [
-      "OCCASIONAL",
       "VERY_FREQUENT",
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
     ],
     "genes": [
-      "TTPA pathogenic variants"
+      "TTPA"
     ],
     "treatments": [
-      "High-dose oral vitamin E supplementation",
-      "Multidisciplinary supportive care for ataxia"
+      "High-Dose Oral Vitamin E (Alpha-Tocopherol) Supplementation",
+      "Plasma Vitamin E Therapeutic Monitoring",
+      "Genetic Counseling and Presymptomatic Sibling Screening",
+      "Multidisciplinary Supportive Care for Ataxia"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Plasma alpha-tocopherol (vitamin E) concentration"
+    ],
     "source_file": "Familial_Isolated_Vitamin_E_Deficiency.yaml",
     "page_url": "../pages/disorders/Familial_Isolated_Vitamin_E_Deficiency.html",
-    "num_phenotypes": 18,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 27,
+    "num_pathophysiology": 8,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 4,
+    "causal_graph_edges": "48",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Familial Male-limited Precocious Puberty",
@@ -147847,7 +147907,14 @@ window.searchData = [
       "Regional Lymphadenopathy",
       "Elevated Circulating Hepatic Transaminase Concentration",
       "Hepatomegaly",
-      "Thrombocytopenia"
+      "Thrombocytopenia",
+      "Chills",
+      "Anorexia",
+      "Malaise",
+      "Dizziness",
+      "Sleep Disturbance",
+      "Leukocytosis",
+      "Splenomegaly"
     ],
     "phenotype_categories": [
       "Constitutional",
@@ -147857,13 +147924,15 @@ window.searchData = [
       "Immune",
       "Laboratory",
       "Hepatic",
-      "Hematologic"
+      "Hematologic",
+      "Gastrointestinal"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Cardiovascular",
       "Constitutional",
       "Digestive",
+      "Ear",
       "Immune",
       "Integument",
       "Metabolism",
@@ -147878,7 +147947,14 @@ window.searchData = [
       "HP:0002716",
       "HP:0002910",
       "HP:0002240",
-      "HP:0001873"
+      "HP:0001873",
+      "HP:0025143",
+      "HP:0002039",
+      "HP:0033834",
+      "HP:0002321",
+      "HP:0002360",
+      "HP:0001974",
+      "HP:0001744"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -147891,14 +147967,18 @@ window.searchData = [
       "Personal protection against tick bites"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Alanine Aminotransferase (ALT)",
+      "Aspartate Aminotransferase (AST)",
+      "Erythrocyte Sedimentation Rate (ESR)"
+    ],
     "source_file": "Far_Eastern_Spotted_Fever.yaml",
     "page_url": "../pages/disorders/Far_Eastern_Spotted_Fever.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 16,
     "num_pathophysiology": 7,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "5"
   },
   {
@@ -163117,11 +163197,17 @@ window.searchData = [
     ],
     "creation_date": "2026-05-11T13:32:18Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Classic myopathic",
+      "Late-onset myopathic",
+      "Isolated hemolytic",
+      "Fatal infantile"
+    ],
     "description": "Glycogen storage disease type VII is an autosomal recessive glycogen storage disease caused by pathogenic variants in PFKM, encoding muscle phosphofructokinase. The enzymatic block impairs skeletal-muscle glycolysis and is classically associated with exertional fatigue, exercise intolerance, myotonia, muscle weakness, hemolytic anemia, hyperuricemia, and increased muscle glycogen content.",
     "pathophysiology": [
       "PFKM Molecular Function Deficiency",
       "Skeletal Muscle Glycolytic Block",
+      "Polyglucosan Storage in Skeletal Muscle",
       "Pentose phosphate rerouting and exercise nitrogen catabolism",
       "Erythrocyte Phosphofructokinase Partial Deficiency"
     ],
@@ -163135,6 +163221,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "glycolytic process",
+      "glycogen biosynthetic process",
       "pentose-phosphate shunt",
       "purine ribonucleotide catabolic process"
     ],
@@ -163151,9 +163238,12 @@ window.searchData = [
       "Myoglobinuria",
       "Rhabdomyolysis",
       "Reduced muscle 6-phosphofructokinase activity",
-      "Reduced erythrocyte 2,3-diphosphoglycerate concentration"
+      "Reduced erythrocyte 2,3-diphosphoglycerate concentration",
+      "Gout"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Musculoskeletal"
+    ],
     "phenotype_hpo_categories": [
       "Blood",
       "Constitutional",
@@ -163174,17 +163264,22 @@ window.searchData = [
       "HP:0002913",
       "HP:0003201",
       "HP:6000359",
-      "HP:0030271"
+      "HP:0030271",
+      "HP:0001997"
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [
       "PFKM pathogenic variants"
     ],
     "treatments": [
-      "Ketogenic diet"
+      "Ketogenic diet",
+      "Avoidance of pre-exercise carbohydrate (\"out-of-wind\" phenomenon)",
+      "Lifestyle adaptation, titrated exercise, and rhabdomyolysis prevention",
+      "Adequate dietary protein intake"
     ],
     "environmental": [],
     "biochemical": [
@@ -163195,11 +163290,11 @@ window.searchData = [
     ],
     "source_file": "Glycogen_Storage_Disease_Type_VII.yaml",
     "page_url": "../pages/disorders/Glycogen_Storage_Disease_Type_VII.html",
-    "num_phenotypes": 13,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 14,
+    "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "30",
+    "num_treatments": 4,
+    "causal_graph_edges": "43",
     "causal_graph_longest_path": "4"
   },
   {
@@ -382018,14 +382113,14 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 3544,
-  "total_subtypes": 4784,
-  "total_disorders_and_subtypes": 8328,
+  "total_subtypes": 4788,
+  "total_disorders_and_subtypes": 8332,
   "total_unique_evidence_sources": 53080,
   "total_unique_publications": 49523,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 306,
   "total_pathographs": 3540,
-  "total_unique_pathological_events": 23354,
+  "total_unique_pathological_events": 23358,
   "total_modules": 195,
   "total_research_reports": 3667,
   "total_classifications": 21,
