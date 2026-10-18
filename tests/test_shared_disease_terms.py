@@ -100,7 +100,14 @@ def test_wrong_case_gets_the_canonical_spelling_as_its_hint():
     assert "write skos:narrowMatch" in findings[0].detail
 
 
-def test_two_rows_with_different_predicates_conflict():
+def test_conflicting_member_is_not_counted_as_an_exact_claimant():
+    """Two rows for one CURIE with different predicates is ``conflicting``.
+
+    Its exactMatch row is not counted toward ``extra_exact``, so ``a`` (the one
+    valid exact claim) is clean and the group fails only on ``b``. That is
+    enough: ``b`` must be repaired to one predicate either way, and if it keeps
+    exactMatch the next run reports both as ``extra_exact``.
+    """
     docs = {
         "a.yaml": _entry("skos:exactMatch"),
         "b.yaml": _entry("skos:narrowMatch", "skos:exactMatch"),
