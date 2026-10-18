@@ -62,29 +62,75 @@ member that fails a necessary criterion is a contradiction to resolve by
 correcting the member annotation, criterion, or membership.
 
 HP and GO leaves are evaluated over `is_a`/`part_of` ontology closure;
-`HAS_GENE` remains exact. If ontology access fails, evaluation falls back to
-exact matching and can under-report satisfaction. State the criterion at the
-intended conceptual level rather than compensating for a missing annotation.
+`HAS_GENE` remains exact. The closure is read from the committed
+`cache/closure/<prefix>.csv` files, so the audit is offline and deterministic.
+A criterion term with no cached closure evaluates to `UNKNOWN` (never a
+downgraded exact match, which would report false contradictions) and fails
+`--strict`. After adding or changing an HP or GO criterion term, run
+`just build-grouping-closure-cache` and commit `cache/closure/`; never
+hand-edit those files. The cache is a snapshot: if a member's term was added
+to the ontology after the last build it reads `NOT_SATISFIED`, so run
+`just build-grouping-closure-cache --refresh` after an ontology release before
+calling such a finding a contradiction. State the criterion at the intended
+conceptual level rather than compensating for a missing annotation.
 
 ## Add members and differentiators
 
-- `members[].member` must resolve to a real `Disease.name`, module stem, or
-  grouping name according to `member_type`.
+Grouping members are diseases, named disease subtypes, or nested disease
+groupings. Do not add a mechanism module as a member. Use a `module` reference
+inside membership criteria or a differentiating mechanism when the module helps
+define or distinguish diseases; use a `ModuleCollection` in
+`kb/module_collections/` when the task is to organize modules themselves.
+
+- `members[].member` must resolve to a real `Disease.name` or grouping name
+  according to `member_type`; `SUBTYPE` members name their parent disease.
 - Every referenced module and optional `#Node Name` must exist.
 - Use `differentiating_mechanisms` for what distinguishes a member from its
   siblings; bind genes, phenotypes, processes, or modules when appropriate.
 - Keep grouping names unique.
+
+## Nest a grouping inside another
+
+A grouping can list another grouping as a member with `member_type: GROUPING`.
+That declaration is the *only* source of hierarchy: the index page's tree, a
+grouping page's "Where this grouping sits" strip, and the evaluator all read it
+and nothing else (no MONDO inference).
+
+- Nest only when every disease member of the child belongs to the parent under
+  the parent's own criteria, and both rationales agree on the relation. Run
+  `just grouping-nesting-audit` first: it prints the declared tree and the
+  undeclared containments (child member set ⊆ parent member set). A
+  containment is a lead, not a ruling — orthogonal cross-cuts such as
+  `Centrosomopathies` vs `Primary_Microcephaly_Spectrum` contain each other's
+  members by design and must stay separate.
+- A nested grouping **replaces** the direct rows it covers; do not list a disease
+  both directly and through a nested grouping. Keep the differentiating text by
+  folding it into the GROUPING row's `differentiating_mechanisms` (one entry per
+  covered disease, gene bindings included), as `Motor_Neuron_Disorders` does for
+  `Bulbospinal_Muscular_Atrophies`.
+- Diseases reached through a nested grouping are still members: `just
+  check-groupings` evaluates them against the parent's criteria and prints them
+  as `(via <child>)`, and the parent page shows them as `nested via` rows that
+  count toward coverage.
+- Record the change in the parent's `notes` and in a history record under
+  `history/other/<Parent_slug>/`.
 
 ## Validate and inspect
 
 ```bash
 just validate-grouping kb/groupings/<Grouping>.yaml
 just check-groupings kb/groupings/<Grouping>.yaml
-just check-groupings --strict kb/groupings/<Grouping>.yaml
+just check-groupings --strict --offline kb/groupings/<Grouping>.yaml
+just build-grouping-closure-cache            # after adding an HP/GO criterion term
+just validate-grouping-batch kb/groupings/<Grouping>.yaml   # what CI runs
 just gen-grouping-page kb/groupings/<Grouping>.yaml
 ```
 
-Use `just validate-groupings` for the full set. Treat the evaluator's
-`UNKNOWN` as missing information, not failure; investigate every
-`NOT_SATISFIED` listed member. Generated `pages/groupings/*.html` files are
-derived and must not be committed with hand-authored changes.
+Use `just validate-groupings` for the full set. CI runs
+`validate-grouping-batch` on every changed grouping file: schema, terms,
+references, then the strict offline audit, which fails on a malformed
+criteria tree, a dangling member or module reference, an uncached criterion
+term, or a listed member that does not satisfy a `NECESSARY` criterion. Treat
+the evaluator's `UNKNOWN` as missing information, not failure; investigate
+every `NOT_SATISFIED` listed member. Generated `pages/groupings/*.html` files
+are derived and must not be committed with hand-authored changes.

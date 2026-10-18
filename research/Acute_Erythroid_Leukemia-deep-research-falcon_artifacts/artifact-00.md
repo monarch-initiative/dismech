@@ -1,0 +1,50 @@
+| Domain | Recommended term/identifier | AEL evidence/meaning | Confidence or caveat |
+|---|---|---|---|
+| Disease ontology | Acute erythroid leukemia — MONDO:00017858 / MONDO_0017858 | Current disease-level identifier for AEL; useful anchor because classification has shifted between WHO and ICC systems (pqac-00000001, pqac-00000004) | High confidence for MONDO mapping; formatting may vary by source |
+| Disease terminology | Acute erythroid leukemia (AEL) | Rare, aggressive AML subtype centered on marrow erythroid precursor predominance (pqac-00000001, pqac-00000010) | High confidence |
+| Historical synonym | AML-M6 | Historical FAB terminology for acute erythroleukemia/erythroid leukemia (pqac-00000001) | High confidence; historical, not preferred current label |
+| Historical synonym | Pure erythroid leukemia (PEL) | Historic subtype term; in current frameworks often absorbed differently, especially under TP53-mutated AML concepts in ICC (pqac-00000001, pqac-00000003) | High confidence; classification caveat important |
+| Classification note | WHO 2022 AEL definition | WHO 2022 uses marrow morphology with ≥30% proerythroblasts and ≥80% erythroid precursors/cellularity (pqac-00000000, pqac-00000001) | High confidence |
+| Classification note | ICC 2022: AML with mutated TP53 | ICC framework places many former PEL/AEL cases under AML with mutated TP53 when criteria are met (pqac-00000000, pqac-00000003) | High confidence; not identical to WHO morphology-based entity |
+| HPO phenotype | Anemia — HP:0001903 | Common presentation; severe anemia is a hallmark laboratory/clinical abnormality in AEL (pqac-00000000, pqac-00000018) | High confidence |
+| HPO phenotype | Thrombocytopenia — HP:0001873 | Common cytopenia in AEL and in experimental models recapitulating disease (pqac-00000007) | High confidence |
+| HPO phenotype | Fever — HP:0001945 | Reported presenting symptom in clinical cohorts (pqac-00000018) | High confidence |
+| HPO phenotype | Pallor — HP:0000980 | Reported clinical sign, usually secondary to profound anemia (pqac-00000018) | Moderate confidence; ID should be verified in implementation |
+| HPO phenotype | Hepatosplenomegaly — term only, ID verification required | Reported in clinical cohorts and several mouse/transplant models (pqac-00000018, pqac-00000007, pqac-00000008) | Concept confident; exact HPO ID not asserted here |
+| HPO phenotype | Pancytopenia — HP:0001876 | Can be present at diagnosis; reflects marrow failure from leukemic erythroid replacement | Moderate confidence; exact AEL citation indirect, ID should be verified locally |
+| HPO phenotype | Hemolysis — term only, ID verification required | Evidence of hemolysis described in clinical presentation summaries (pqac-00000018) | Concept confident; exact HPO ID not asserted here |
+| Cell ontology | Proerythroblast / erythroid progenitor — CL term, ID verification required | Central malignant population in WHO-defined AEL; CD71-high immature erythroid precursors dominate marrow (pqac-00000000, pqac-00000018) | Cell concept high confidence; precise CL mapping requires verification |
+| Cell ontology | Hematopoietic stem/progenitor cell — CL term, ID verification required | Likely disease-propagating compartment in experimental systems; TP53-mutant HSPCs plus cooperating lesions can generate erythroleukemia (pqac-00000005, pqac-00000008) | Concept high confidence; exact CL ID verify |
+| Anatomy | Bone marrow — UBERON:0002371 | Primary disease site; biopsy-based diagnosis and dominant erythroid hypercellularity (pqac-00000000, pqac-00000002) | High confidence |
+| Anatomy | Blood — UBERON:0000178 | Peripheral blasts/cytopenias can support diagnosis and monitoring (pqac-00000000) | High confidence |
+| Anatomy | Spleen — UBERON:0002106 | Splenomegaly/erythroid infiltration reported in patients and mouse models (pqac-00000018, pqac-00000008) | High confidence |
+| Anatomy | Liver — UBERON:0002107 | Hepatomegaly or liver involvement may occur in aggressive erythroid disease/model systems (pqac-00000018, pqac-00000007) | High confidence |
+| GO biological process | Erythrocyte differentiation — GO:0030218 | Core disrupted process; leukemic cells show erythroid lineage commitment with terminal maturation block (pqac-00000006, pqac-00000012) | High confidence |
+| GO biological process | Cell proliferation — GO:0008283 | Unchecked expansion of immature erythroid progenitors is central to pathogenesis (pqac-00000010, pqac-00000012) | High confidence |
+| GO biological process | Apoptotic signaling pathway — GO:0097190 | TP53 dysfunction alters apoptosis control and contributes to treatment resistance (pqac-00000005, pqac-00000010) | Moderate confidence; broad process mapping |
+| GO biological process | JAK-STAT cascade / signaling — GO:0007259 | EPOR/JAK2/STAT signaling is recurrently implicated, especially in EPOR/JAK2-gain cases (pqac-00000006, pqac-00000009) | High confidence |
+| GO biological process | Chromatin organization — GO:0006325 | BCOR/PRC1.1 and epigenetic regulator mutations support chromatin dysregulation in AEL biology (pqac-00000005, pqac-00000009) | High confidence |
+| GO cellular component | Nucleus — GO:0005634 | Many driver lesions affect nuclear transcription/chromatin regulators (TP53, GATA factors, BCOR, DNMT3A, TET2) (pqac-00000005, pqac-00000009) | High confidence |
+| GO cellular component | Chromatin — GO:0000785 | Relevant compartment for PRC1.1/BCOR and transcription factor dysregulation (pqac-00000005, pqac-00000009) | High confidence |
+| Gene | TP53 | Dominant molecular hallmark; often biallelically inactivated and linked to complex karyotype, poor prognosis (pqac-00000005, pqac-00000010) | High confidence |
+| Gene | EPOR | Upregulated/amplified in subset; supports erythroid growth signaling (pqac-00000006, pqac-00000009) | Moderate-high confidence |
+| Gene | JAK2 | Recurrent signaling lesion; JAK2V617F and EPOR/JAK2 pathway activation implicated; preclinical ruxolitinib sensitivity reported (pqac-00000006, pqac-00000008, pqac-00000009) | High confidence |
+| Gene | GATA1 | Master erythroid regulator; dysregulation contributes to failed maturation (pqac-00000006, pqac-00000010) | High confidence |
+| Gene | CEBPA | Recurrent/cooperating transcription-factor alteration; with GATA2 can drive erythroid leukemia phenotypes in models (pqac-00000005, pqac-00000008) | Moderate-high confidence |
+| Gene | GATA2 | Recurrent in exome studies and cooperating lesion in erythroid leukemogenesis (pqac-00000005, pqac-00000008) | Moderate-high confidence |
+| Gene | BCOR | Epigenetic/chromatin regulator; cooperating driver in models and part of PRC1.1 dysfunction axis (pqac-00000009) | High confidence |
+| Gene | DNMT3A | Recurrent epigenetic regulator mutation; cooperates with BCOR in mouse AEL models (pqac-00000005, pqac-00000009) | High confidence |
+| Gene | TET2 | Recurrent epigenetic regulator mutation in clinical cohorts (pqac-00000005, pqac-00000017) | High confidence |
+| Gene | ERG | Gain/upregulation cooperates with TP53-mutant HSPCs to induce erythroleukemia in mice (pqac-00000005, pqac-00000006) | Moderate-high confidence |
+| Gene family | RAS pathway (KRAS, NRAS) | Recurrent cooperating signaling lesions; can combine with TP53 loss and impair erythroid differentiation (pqac-00000005, pqac-00000006) | High confidence for pathway-level mapping |
+| NCIT intervention | Intensive AML chemotherapy — NCIT concept, ID verification required | Real-world AEL treatment backbone; retrospective cohorts show ORR/CR but short median OS (pqac-00000013, pqac-00000014) | Concept confident; exact NCIT code verify |
+| NCIT intervention | Azacitidine — NCIT concept, ID verification required | Used as HMA frontline/low-intensity therapy; some cohorts suggest longer OS/PFS than expected historical controls (pqac-00000014, pqac-00000017) | Concept confident; AEL-specific evidence retrospective |
+| NCIT intervention | Decitabine — NCIT concept, ID verification required | Used in AML/MDS-style therapy and in experimental combinations such as with talazoparib (pqac-00000009, pqac-00000016) | Concept confident; direct AEL-specific efficacy limited |
+| NCIT intervention | Venetoclax — NCIT concept, ID verification required | Used by AML extrapolation; efficacy may be limited in erythroid/megakaryocytic states with BCL-XL dependence (pqac-00000013, pqac-00000011) | Moderate confidence; disease-specific resistance caveat important |
+| NCIT intervention | Allogeneic hematopoietic stem cell transplantation — NCIT concept, ID verification required | Only potentially curative modality; major survival advantage in retrospective AEL cohorts (pqac-00000013, pqac-00000014) | High confidence for concept; selection bias caveat |
+| NCIT intervention | Ruxolitinib — NCIT concept, ID verification required | Preclinical sensitivity in EPOR/JAK2-driven AEL models/xenografts (pqac-00000006, pqac-00000009) | Moderate confidence; investigational for AEL |
+| NCIT intervention | Talazoparib — NCIT concept, ID verification required | PARP inhibitor with preclinical rationale in TP53-mutant AEL; early AML trial data not AEL-specific (pqac-00000007, pqac-00000009, pqac-00000016) | Moderate confidence; not established standard |
+| NCIT intervention | Transfusion/supportive care — NCIT concept, ID verification required | Important because severe cytopenias, infection risk, and frailty are common; usually implemented as AML supportive management | High confidence for standard supportive role; direct AEL-specific trial data sparse |
+
+
+*Table: This table maps acute erythroid leukemia to practical ontology, anatomy, cell-type, pathway, gene, phenotype, and intervention concepts for knowledge-base use. It highlights where current evidence is strong and where identifier verification is still needed because AEL classification and reporting remain heterogeneous.*

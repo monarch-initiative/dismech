@@ -101,7 +101,7 @@ Phenotype thresholds live directly on the HP term mappings — when a variable's
 
 If two models use different internal names for the same biological quantity, each `ComputationalModel` entry has its own `variables` list with its own `dataset_identifier`.
 
-### 3. Model Configuration Sidecar (`models/*.config.yaml`)
+### 3. Model Configuration Sidecar (`models/<model_id>/config.yaml`)
 
 Contains simulation-specific plumbing: gene-to-parameter mappings, scenarios, and coupling config:
 
@@ -320,7 +320,7 @@ just perturb kb/disorders/Type_2_Diabetes_Mellitus.yaml --all                   
 The third wired disorder is **Congenital Hypothyroidism**, and it demonstrates
 the **Antimony** authoring path (the framework accepts an SBML base exported from
 Antimony, exactly as the CKD-MBD extension is hand-authored). The model
-(`models/hpt_feedback_axis.ant` → `.xml`) is a minimal two-state
+(`models/hpt_feedback_axis/model.ant` → `model.xml`) is a minimal two-state
 (TSH, free T4) representation of the hypothalamic-pituitary-thyroid negative-
 feedback loop — not a BioModels deposit — calibrated to a euthyroid steady state
 (TSH ≈ 1.5 mU/L, free T4 ≈ 15 pmol/L):
@@ -352,7 +352,7 @@ the same config sidecar.
 
 The fourth wired disorder is **Gout**, and it is the richest **multi-treatment**
 example — three urate-lowering drug classes act on three *distinct* model nodes.
-The model (`models/urate_homeostasis.ant` → `.xml`) is a single-compartment
+The model (`models/urate_homeostasis/model.ant` → `model.xml`) is a single-compartment
 serum-urate balance (normal ≈ 5 mg/dL; hyperuricemia threshold at the ~6.8 mg/dL
 monosodium-urate solubility limit):
 
@@ -397,7 +397,7 @@ The framework is generic. No Python code changes are needed to add a new disorde
 `dismech-perturb` prints its scenario table to a terminal and keeps nothing, so
 the numbers a model actually produces never reached the disorder page.
 `just gen-model-results` closes that: it runs every scenario in every
-`models/*.config.yaml`, evaluates the curated phenotype thresholds against each
+`models/<model_id>/config.yaml`, evaluates the curated phenotype thresholds against each
 result, and writes `exports/model_runs/<model_id>.json`.
 
 ```bash
@@ -452,7 +452,7 @@ tellurium, which is an optional dependency, and takes a few minutes.
 
 ## Exporting Scenarios as SED-ML / COMBINE Archives
 
-A `models/*.config.yaml` is, in substance, a private encoding of a SED-ML
+A `models/<model_id>/config.yaml` is, in substance, a private encoding of a SED-ML
 simulation experiment: each `scenarios` entry is a set of pre-simulation model
 changes, `coupling` is a uniform time course plus integrator settings, and the
 disorder YAML's `computational_models[].variables` are the observables to

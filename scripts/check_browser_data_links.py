@@ -23,6 +23,7 @@ Usage::
     uv run python scripts/check_browser_data_links.py
     uv run python scripts/check_browser_data_links.py --data app/data.js --limit 25
     uv run python scripts/check_browser_data_links.py --data app/discussions/data.js
+    uv run python scripts/check_browser_data_links.py --data app/models/data.js
 
 Design invariant: **never silently pass.** A ``data.js`` whose structure this
 script cannot parse is an error, not a clean run — the same fail-safe stance

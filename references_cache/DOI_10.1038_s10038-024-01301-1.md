@@ -1,0 +1,29 @@
+---
+reference_id: DOI:10.1038/s10038-024-01301-1
+title: Homozygous synonymous FAM111A variant underlies an autosomal recessive form of Kenny-Caffey syndrome
+authors:
+- Loisa Dana Bonde
+- Ibrahim M. Abdelrazek
+- Lara Seif
+- Malik Alawi
+- Khaled Matrawy
+- Karim Nabil
+- Ebtesam Abdalla
+- Kerstin Kutsche
+- Frederike Leonie Harms
+journal: Journal of Human Genetics
+year: '2025'
+doi: 10.1038/s10038-024-01301-1
+content_type: abstract_only
+is_preprint: false
+---
+
+# Homozygous synonymous FAM111A variant underlies an autosomal recessive form of Kenny-Caffey syndrome
+**Authors:** Loisa Dana Bonde, Ibrahim M. Abdelrazek, Lara Seif, Malik Alawi, Khaled Matrawy, Karim Nabil, Ebtesam Abdalla, Kerstin Kutsche, Frederike Leonie Harms
+**Journal:** Journal of Human Genetics (2025)
+**DOI:** [10.1038/s10038-024-01301-1](https://doi.org/10.1038/s10038-024-01301-1)
+
+## Content
+
+Abstract
+FAM111A (family with sequence similarity 111 member A) is a serine protease and removes covalent DNA-protein cross-links during DNA replication. Heterozygous gain-of-function variants in FAM111A cause skeletal dysplasias, such as the perinatal lethal osteocraniostenosis and the milder Kenny-Caffey syndrome (KCS). We report two siblings born to consanguineous parents with dysmorphic craniofacial features, postnatal growth retardation, ophthalmologic manifestations, hair and nail anomalies, and skeletal abnormalities such as thickened cortex and stenosis of the medullary cavity of the long bones suggestive of KCS. Using exome sequencing, a homozygous synonymous FAM111A variant, NM_001312909.2:c.81 G > A; p.Pro27=, that affects the last base of the exon and is predicted to alter FAM111A pre-mRNA splicing, was identified in both siblings. We identified aberrantly spliced FAM111A transcripts, reduced FAM111A mRNA levels, and near-complete absence of FAM111A protein in fibroblasts of both patients. After treatment of patient and control fibroblasts with different concentrations of camptothecin that induces covalent DNA-protein cross-links, we observed a tendency towards a reduced proportion of metabolically active cells in patient compared to control fibroblasts. However, under these culture conditions, we did not find consistent and statistically significant differences in cell cycle progression and apoptotic cell death between patient and control cells. Our findings show that FAM111A deficiency underlies an autosomal recessive form of FAM111A-related KCS. Based on our results and published data, we hypothesize that loss of FAM111A and FAM111A protease hyperactivity, as observed for gain-of-function patient-variant proteins, may converge on a similar pathomechanism underlying skeletal dysplasias.

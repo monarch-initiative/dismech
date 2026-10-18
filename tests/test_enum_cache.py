@@ -374,6 +374,50 @@ def test_normalize_cache_uses_repo_local_temp_files() -> None:
     assert "LC_ALL=C sort -u" in justfile
 
 
+def test_single_file_recipes_use_the_cached_json_schema_config() -> None:
+    """Single-file schema validation goes through the cached JSON Schema (#11005).
+
+    The batched recipes keep the plain ``linkml-validate --schema`` form (pinned
+    above); the per-call generation cost only matters when one file is validated.
+    """
+    justfile = (Path(__file__).parent.parent / "project.justfile").read_text()
+    for recipe in ("validate file", "validate-pre-edit file", "validate-schema file"):
+        body = _recipe_body(justfile, recipe)
+        assert "lv_config=$(just _linkml-validate-config Disease)" in body, recipe
+        assert 'linkml-validate --config "$lv_config"' in body, recipe
+
+
+def test_linkml_validate_config_template_cannot_swallow_file_arguments() -> None:
+    """The generated ``--config`` must never carry ``data_sources``.
+
+    ``linkml-validate`` lets the config file override the command line, so a
+    ``data_sources`` key would make it ignore its file arguments and print
+    "No issues found" for every entry -- a silent pass in the pre-edit hook.
+    The document is written through a private ``mktemp`` name so concurrent
+    hook runs cannot publish a half-written schema.
+    """
+    justfile = (Path(__file__).parent.parent / "project.justfile").read_text()
+    body = _recipe_body(justfile, '_linkml-validate-config target_class="Disease"')
+    assert "json_schema_path" in body
+    assert "data_sources" not in body
+    assert 'mktemp "$dir/{{target_class}}.closed.json.XXXXXX"' in body
+    assert "--include-range-class-descendants" in body, (
+        "gen-json-schema defaults this to False while the plugin defaults to True"
+    )
+
+
+def test_normalize_cache_if_changed_fails_safe_without_a_stamp() -> None:
+    """A missing stamp normalizes rather than silently skipping (#11005)."""
+    justfile = (Path(__file__).parent.parent / "project.justfile").read_text()
+    body = _recipe_body(justfile, "_normalize-cache-if-changed stamp")
+    assert '[ ! -f "{{stamp}}" ]' in body
+    assert body.count("just normalize-cache") == 2
+    for recipe in ("validate file", "validate-disorders *files", "validate-all"):
+        assert '_normalize-cache-if-changed "$cache_stamp"' in _recipe_body(
+            justfile, recipe
+        ), recipe
+
+
 def test_shell_and_python_enum_cache_sorting_agree() -> None:
     """The shell normalizer must match Python codepoint ordering exactly."""
 

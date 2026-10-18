@@ -1,9 +1,18 @@
 name: Claude Issue summarize
-description: "Automatically summarize GitHub issues using Claude Code"
+# Automatically summarize GitHub issues using Claude Code.
+# The issue number in the run name is what lets the PR Shepherd's retry sweep
+# (scripts/retry_failed_reviews.py) find a failed run's issue again (#13150).
+run-name: 'Summarize issue #${{ github.event.issue.number || inputs.issue_number }}'
 
 on:
   issues:
     types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Issue number to summarize
+        required: true
+        type: string
 
 jobs:
   summarize-issue:
@@ -20,8 +29,16 @@ jobs:
 
       - name: Run Claude Issue summarize
         uses: ./.github/actions/claude-issue-summarize-action
+        env:
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+          CC_LANGFUSE_TRACE_TAGS: >-
+            ["repo:${{ github.repository }}", "workflow:claude-issue-summarize",
+            "run:${{ github.run_id }}", "attempt:${{ github.run_attempt }}", "job:${{ github.job }}"]
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           cborg_api_key: ${{ secrets.CBORG_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_number: ${{ github.event.issue.number || inputs.issue_number }}

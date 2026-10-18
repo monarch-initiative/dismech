@@ -1,0 +1,38 @@
+history_version: 1
+target:
+  kind: schema
+  slug: infectious_agent_subtype_binding
+  path: src/dismech/schema/dismech.yaml
+session:
+  id: 2026-09-01T075346Z-claude-code-092658
+  timestamp: '2026-09-01T07:53:46Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs: []
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - InfectiousAgent
+  - AgentSubtype
+  - AgentSubtypeDescriptor
+  summary: Add AgentSubtype/AgentSubtypeDescriptor so infectious-agent strata can
+    bind NCBITaxon
+  details: |
+    InfectiousAgent.has_subtypes reused the disease-level Subtype class, whose subtype_term binds DiseaseOrSubtypeTerm - a dynamic enum rooted at MONDO:0000001, NCIT:C2991, NCIT:C4741 and NCIT:C7062. A serovar, serotype, subspecies or biotype nested under an infectious agent is an organism, not a disease, so that binding offered no honest term for it.
+
+    The consequence was visible in the KB rather than theoretical. All three entries using the slot carried name-only free text: Cholera (O1 with 'Classical and El Tor biotypes' demoted into the description, O139), Shigellosis (four Shigella species labelled as serogroups), and Paratyphoid_Fever (three Paratyphi serovars, whose parent agent has no infectious_agent_term at all - the serovar granularity defeated the 0..1 species binding and grounding was dropped entirely). Every one of those strata has a real NCBITaxon node.
+
+    Change. AgentSubtypeDescriptor is_a OrganismDescriptor, inheriting the NCBITaxon OrganismTerm binding unchanged. AgentSubtype is_a Subtype with slot_usage narrowing subtype_term to AgentSubtypeDescriptor. InfectiousAgent gains a slot_usage narrowing has_subtypes to AgentSubtype. Inheriting from Subtype rather than defining a fresh class keeps the three existing entries valid; the class comments record that the inherited inheritance and genes slots describe human genetics and do not apply to an agent stratum.
+
+    The binding was confirmed to be enforced rather than merely declared, which matters because Qualifier.predicate/value are a known blind spot where a fabricated label passes validate-terms outright (issue #10197). Three fixtures were run through linkml-term-validator: a serovar bound to NCBITaxon:54388 passes; the same stratum bound to MONDO:0018626 fails with 'Value MONDO:0018626 not in dynamic enum OrganismTerm'; and NCBITaxon:54388 carrying a fabricated label fails on label mismatch. All three report the path infectious_agent[0].has_subtypes[0].subtype_term.term, so the validator does reach into the nested class.
+
+    Scope deliberately not taken. No KB entry was rebound in this change. Populating the Cholera, Shigellosis and Paratyphoid_Fever strata is issue #10115's backfill work item, which that issue has already dispatched, and doing it here would collide with it. Pathotypes (ETEC, MRSA, toxigenic C. difficile) are out of scope by construction - they are defined by virulence gene content rather than phylogeny and have no NCBITaxon node at their own rank; the class comments say so and say to omit the term rather than bind the parent species.
+
+    Tests: tests/test_infectious_agent_schema.py, seven cases covering the induced ranges, the binding contents, that a bound stratum validates, that an unbound stratum still validates (subtype_term stays optional), and a regression guard that the disease-level Subtype binding is unchanged. The pre-existing schema, export and render suites were re-run: 4565 passed, 1 skipped.

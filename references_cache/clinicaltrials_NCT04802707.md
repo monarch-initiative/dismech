@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04802707"
+reference_id: clinicaltrials:NCT04802707
 title: "A Phase II, Monocenter, Single Arm Study To Assess The Safety and Efficacy Of Combination Deoxycytidine and Deoxythymidine For Mitochondrial Depletion Disorders"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase II, Monocenter, Single Arm Study To Assess The Safety and Efficacy Of Combination Deoxycytidine and Deoxythymidine For Mitochondrial Depletion Disorders

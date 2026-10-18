@@ -1,0 +1,21 @@
+---
+reference_id: DOI:10.3390/toxins15020100
+title: Medical Countermeasures against Ricin Intoxication
+authors:
+- Christine Rasetti-Escargueil
+- Arnaud Avril
+journal: Toxins
+year: '2023'
+doi: 10.3390/toxins15020100
+content_type: abstract_only
+is_preprint: false
+---
+
+# Medical Countermeasures against Ricin Intoxication
+**Authors:** Christine Rasetti-Escargueil, Arnaud Avril
+**Journal:** Toxins (2023)
+**DOI:** [10.3390/toxins15020100](https://doi.org/10.3390/toxins15020100)
+
+## Content
+
+Ricin toxin is a disulfide-linked glycoprotein (AB toxin) comprising one enzymatic A chain (RTA) and one cell-binding B chain (RTB) contained in the castor bean, a Ricinus species. Ricin inhibits peptide chain elongation via disruption of the binding between elongation factors and ribosomes, resulting in apoptosis, inflammation, oxidative stress, and DNA damage, in addition to the classically known rRNA damage. Ricin has been used in traditional medicine throughout the world since prehistoric times. Because ricin toxin is highly toxic and can be readily extracted from beans, it could be used as a bioweapon (CDC B-list). Due to its extreme lethality and potential use as a biological weapon, ricin toxin remains a global public health concern requiring specific countermeasures. Currently, no specific treatment for ricin intoxication is available. This review focuses on the drugs under development. In particular, some examples are reviewed to demonstrate the proof of concept of antibody-based therapy. Chemical inhibitors, small proteins, and vaccines can serve as alternatives to antibodies or may be used in combination with antibodies.

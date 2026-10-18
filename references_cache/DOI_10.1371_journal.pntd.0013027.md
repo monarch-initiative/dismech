@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1371/journal.pntd.0013027
+extractor_version: 1
 title: Dermal trypanosomes in seropositive suspects of gambiense human African trypanosomiasis in Côte d’Ivoire
 authors:
 - Martial Kassi N’Djetchi
@@ -31,12 +32,14 @@ journal: PLOS Neglected Tropical Diseases
 year: '2025'
 doi: 10.1371/journal.pntd.0013027
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://journals.plos.org/plosntds/article/file?id=10.1371/journal.pntd.0013027&type=printable"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1371_journal.pntd.0013027.pdf
+full_text_access_type: open
 ---
 
 # Dermal trypanosomes in seropositive suspects of gambiense human African trypanosomiasis in Côte d’Ivoire

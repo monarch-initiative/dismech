@@ -1,0 +1,346 @@
+"""Tests for deterministic PR-shepherd ingress policy."""
+
+import importlib.util
+import sys
+from pathlib import Path
+
+import pytest
+
+_SPEC = importlib.util.spec_from_file_location(
+    "pr_shepherd_policy",
+    Path(__file__).resolve().parents[1] / "scripts" / "pr_shepherd_policy.py",
+)
+policy = importlib.util.module_from_spec(_SPEC)
+sys.modules[_SPEC.name] = policy
+_SPEC.loader.exec_module(policy)
+
+
+AUTHORS = [
+    {"login": "cmungall", "is_bot": False},
+    {"login": "claude", "is_bot": False},
+    {"login": "dragon-ai-agent", "is_bot": False},
+    {"login": "app/ai4c-agent", "is_bot": True},
+    {"login": "unknown-bot[bot]", "is_bot": True},
+    None,
+]
+
+
+def make_pr(**overrides):
+    pr = {
+        "number": 7,
+        "author": {"login": "app/ai4c-agent", "is_bot": True},
+        "headRefName": "curation/example",
+        "headRefOid": "head-7",
+        "baseRefName": "main",
+        "isCrossRepository": False,
+        "assignees": [],
+        "isDraft": False,
+        "state": "OPEN",
+        "title": "🤖 Weekly Compliance Fixes: Example",
+        "reviewDecision": "CHANGES_REQUESTED",
+        "updatedAt": "2026-08-20T00:00:00Z",
+        "baseRefOid": "old-base",
+        "mergeable": "MERGEABLE",
+    }
+    pr.update(overrides)
+    return pr
+
+
+def test_agent_candidates_include_drafts():
+    assert policy.agent_candidate_decision(make_pr(isDraft=True)).eligible
+
+
+@pytest.mark.parametrize("author", AUTHORS)
+@pytest.mark.parametrize("branch", ["claude/fix", "codex/fix", "fix-tests"])
+def test_unassigned_prs_are_eligible_regardless_of_author_or_branch_prefix(
+    author, branch
+):
+    assert policy.agent_candidate_decision(
+        make_pr(author=author, headRefName=branch)
+    ).eligible
+
+
+def test_missing_author_does_not_prevent_recovery():
+    pr = make_pr()
+    del pr["author"]
+    assert policy.agent_candidate_decision(pr).eligible
+
+
+@pytest.mark.parametrize("overrides", [{"state": "CLOSED"}, {"state": None}])
+def test_agent_candidates_fail_closed_unless_open(overrides):
+    assert not policy.agent_candidate_decision(make_pr(**overrides)).eligible
+
+
+@pytest.mark.parametrize("base", ["feature", None])
+def test_agent_candidates_require_main_base(base):
+    assert not policy.agent_candidate_decision(make_pr(baseRefName=base)).eligible
+
+
+@pytest.mark.parametrize("cross_repository", [True, None, "false", 0])
+def test_fork_or_unknown_repository_is_ineligible(cross_repository):
+    decision = policy.agent_candidate_decision(
+        make_pr(isCrossRepository=cross_repository)
+    )
+    assert not decision.eligible
+    assert "head does not belong to this repository" in decision.reason
+
+
+def test_missing_repository_metadata_is_ineligible():
+    pr = make_pr()
+    del pr["isCrossRepository"]
+    assert not policy.agent_candidate_decision(pr).eligible
+
+
+@pytest.mark.parametrize("specific_pr", [None, 7])
+@pytest.mark.parametrize(
+    "metadata",
+    [{"isCrossRepository": value} for value in (True, None, "false", 0)] + [{}],
+)
+def test_forks_and_unknown_repositories_never_enter_shortlist(
+    monkeypatch, specific_pr, metadata
+):
+    pr = make_pr()
+    del pr["isCrossRepository"]
+    pr.update(metadata)
+    same_repo = make_pr(number=8)  # Identical branch names do not establish ownership.
+
+    def fake_gh_json(args):
+        assert args[:2] == ["pr", "view" if specific_pr else "list"]
+        fields = args[args.index("--json") + 1].split(",")
+        assert "isCrossRepository" in fields
+        return pr if specific_pr else [pr, same_repo]
+
+    monkeypatch.setattr(policy, "_gh_json", fake_gh_json)
+    selected = policy.list_agent_candidates("o/r", specific_pr=specific_pr)
+    assert selected == ([] if specific_pr else [same_repo])
+
+
+@pytest.mark.parametrize("author", AUTHORS)
+def test_assigned_pr_is_a_hold_for_every_author(author):
+    decision = policy.agent_candidate_decision(
+        make_pr(author=author, assignees=[{"login": "cmungall"}])
+    )
+    assert not decision.eligible
+    assert "assigned to cmungall" in decision.reason
+
+
+@pytest.mark.parametrize("assignees", [None, {}, "", False])
+def test_unknown_assignment_is_not_treated_as_unassigned(assignees):
+    assert not policy.agent_candidate_decision(make_pr(assignees=assignees)).eligible
+
+
+def test_missing_assignment_is_not_treated_as_unassigned():
+    pr = make_pr()
+    del pr["assignees"]
+    assert not policy.agent_candidate_decision(pr).eligible
+
+
+@pytest.mark.parametrize("author", AUTHORS)
+def test_generated_lane_is_excluded_for_every_author(author):
+    decision = policy.agent_candidate_decision(
+        make_pr(author=author, headRefName="auto/generate-pages")
+    )
+    assert not decision.eligible
+
+
+def test_other_automated_lanes_are_also_excluded():
+    decision = policy.agent_candidate_decision(
+        make_pr(headRefName="auto/warm-reference-cache")
+    )
+    assert not decision.eligible
+
+
+@pytest.mark.parametrize("author", AUTHORS)
+def test_scan_candidates_are_ranked_bounded_and_leave_ready_work_to_controller(
+    monkeypatch,
+    author,
+):
+    prs = [
+        make_pr(
+            number=1,
+            headRefOid="head-1",
+            reviewDecision="APPROVED",
+            baseRefOid="old-base",
+            mergeable="MERGEABLE",
+            updatedAt="2026-08-05T00:00:00Z",
+        ),
+        make_pr(
+            number=2,
+            headRefOid="head-2",
+            reviewDecision="APPROVED",
+            baseRefOid="old-base",
+            mergeable="CONFLICTING",
+            updatedAt="2026-08-01T00:00:00Z",
+        ),
+        make_pr(number=3, headRefOid="head-3", updatedAt="2026-07-01T00:00:00Z"),
+        make_pr(number=4, headRefOid="head-4", reviewDecision="REVIEW_REQUIRED"),
+        make_pr(
+            number=5,
+            headRefOid="head-5",
+            reviewDecision="APPROVED",
+            baseRefOid="current-base",
+            mergeable="MERGEABLE",
+        ),
+    ]
+    for pr in prs:
+        pr["author"] = author
+    calls = []
+
+    def fake_gh_json(args):
+        calls.append(args)
+        if args[0:2] == ["pr", "list"]:
+            return prs
+        assert args[:2] == ["pr", "view"]
+        number = int(args[2])
+        return {
+            "headRefOid": f"head-{number}",
+            "reviewDecision": "APPROVED",
+            "isDraft": False,
+            "mergeStateStatus": "CLEAN",
+            "statusCheckRollup": [{"status": "COMPLETED", "conclusion": "SUCCESS"}],
+        }
+
+    monkeypatch.setattr(policy, "_gh_json", fake_gh_json)
+    selected = policy.list_agent_candidates("o/r", limit=3)
+    # The old review request gets attention before conflicts; approved clean
+    # branches 1 and 5 belong to the closer even with an old baseRefOid.
+    assert [pr["number"] for pr in selected] == [3, 2, 4]
+    assert not any(args[0] == "api" for args in calls)
+    assert [int(args[2]) for args in calls if args[:2] == ["pr", "view"]] == [1, 5]
+    list_fields = calls[0][calls[0].index("--json") + 1]
+    assert "baseRefOid" in list_fields
+    assert "headRefOid" in list_fields
+    assert "reviewDecision" in list_fields
+    assert "isCrossRepository" in list_fields
+
+
+def test_aligned_approved_red_pr_stays_in_agent_lane(monkeypatch):
+    red = make_pr(
+        number=8,
+        headRefOid="head-8",
+        reviewDecision="APPROVED",
+        mergeable="MERGEABLE",
+    )
+
+    def fake_gh_json(args):
+        if args[0:2] == ["pr", "list"]:
+            return [red]
+        return {
+            "headRefOid": red["headRefOid"],
+            "reviewDecision": "APPROVED",
+            "isDraft": False,
+            "mergeStateStatus": "UNSTABLE",
+            "statusCheckRollup": [{"status": "COMPLETED", "conclusion": "FAILURE"}],
+        }
+
+    monkeypatch.setattr(policy, "_gh_json", fake_gh_json)
+    assert [pr["number"] for pr in policy.list_agent_candidates("o/r")] == [8]
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"headRefOid": "new-head"},
+        {"reviewDecision": "CHANGES_REQUESTED"},
+        {"mergeable": "UNKNOWN"},
+    ],
+)
+def test_changed_or_unknown_approved_state_is_not_silently_omitted(
+    monkeypatch, overrides
+):
+    pr = make_pr(reviewDecision="APPROVED")
+
+    def fake_gh_json(args):
+        if args[:2] == ["pr", "list"]:
+            return [pr]
+        return {
+            **pr,
+            "mergeStateStatus": "CLEAN",
+            "statusCheckRollup": [{"status": "COMPLETED", "conclusion": "SUCCESS"}],
+            **overrides,
+        }
+
+    monkeypatch.setattr(policy, "_gh_json", fake_gh_json)
+    assert [item["number"] for item in policy.list_agent_candidates("o/r")] == [7]
+
+
+def test_python_review_work_is_not_starved_by_approved_branch_maintenance(monkeypatch):
+    prs = [
+        make_pr(number=number, reviewDecision="APPROVED", mergeable="CONFLICTING")
+        for number in range(1, 10)
+    ]
+    prs.append(
+        make_pr(
+            number=9144,
+            headRefName="fix/8320-validator-fixture-inert",
+            updatedAt="2026-08-21T00:00:00Z",
+            files=[{"path": "tests/test_data.py"}, {"path": "tests/test_stubs.py"}],
+        )
+    )
+
+    def fake_gh_json(args):
+        assert args[:2] == ["pr", "list"], "known conflicts need no detail lookup"
+        return prs
+
+    monkeypatch.setattr(policy, "_gh_json", fake_gh_json)
+    assert [pr["number"] for pr in policy.list_agent_candidates("o/r", limit=1)] == [
+        9144
+    ]
+
+
+def test_unapproved_conflict_gets_repair_priority_over_missing_review():
+    conflict = make_pr(
+        number=1, reviewDecision="REVIEW_REQUIRED", mergeable="CONFLICTING"
+    )
+    review_gap = make_pr(
+        number=2, reviewDecision="REVIEW_REQUIRED", mergeable="MERGEABLE"
+    )
+    assert policy._agent_action_rank(conflict, False) < policy._agent_action_rank(
+        review_gap, False
+    )
+
+
+def test_changes_requested_order_is_oldest_first():
+    older = make_pr(number=1, updatedAt="2026-08-01T00:00:00Z")
+    newer = make_pr(number=2, updatedAt="2026-09-01T00:00:00Z")
+    assert policy._agent_action_rank(older, False) < policy._agent_action_rank(
+        newer, False
+    )
+
+
+def test_specific_candidate_uses_same_state_and_base_guards(monkeypatch):
+    calls = []
+
+    def fake_gh_json(args):
+        calls.append(args)
+        return make_pr(state="CLOSED")
+
+    monkeypatch.setattr(policy, "_gh_json", fake_gh_json)
+    assert policy.list_agent_candidates("o/r", specific_pr=7) == []
+    fields = calls[0][calls[0].index("--json") + 1]
+    assert "state" in fields
+    assert "baseRefName" in fields
+
+
+@pytest.mark.parametrize("specific_pr", [None, 9263])
+def test_abandoned_human_pr_is_selected_after_assignment_is_released(
+    monkeypatch, specific_pr
+):
+    pr = make_pr(
+        number=9263,
+        author={"login": "cmungall", "is_bot": False},
+        headRefName="codex/alzheimer-dadd-digital-twin",
+        updatedAt="2026-08-23T22:12:42Z",
+        reviewDecision="APPROVED",
+        mergeable="CONFLICTING",
+        assignees=[{"login": "cmungall"}],
+    )
+
+    def fake_gh_json(args):
+        assert args[:2] == ["pr", "view" if specific_pr else "list"]
+        return pr if specific_pr else [pr]
+
+    monkeypatch.setattr(policy, "_gh_json", fake_gh_json)
+    assert policy.list_agent_candidates("o/r", specific_pr=specific_pr) == []
+    pr["assignees"] = []
+    assert policy.list_agent_candidates("o/r", specific_pr=specific_pr) == [pr]

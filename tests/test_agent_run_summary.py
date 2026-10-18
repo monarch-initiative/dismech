@@ -58,6 +58,25 @@ def test_reports_errors_from_a_failed_run():
     assert "ERRORED" in out
 
 
+def test_reports_actual_models_including_subagent_or_fallback_usage():
+    out = extract_result(
+        [
+            {"type": "system", "subtype": "init", "model": "opus"},
+            {
+                "type": "result",
+                "result": "done",
+                "modelUsage": {"claude-opus-5-5": {}, "claude-haiku-4-5-20251001": {}},
+            },
+        ]
+    )
+    assert "Models used: claude-haiku-4-5-20251001, claude-opus-5-5" in out
+
+
+def test_absent_model_usage_does_not_claim_a_resolved_model():
+    out = extract_result([{"type": "result", "result": "done"}])
+    assert "Models used:" not in out
+
+
 def test_reports_singular_error_with_a_failed_result():
     events = [
         {

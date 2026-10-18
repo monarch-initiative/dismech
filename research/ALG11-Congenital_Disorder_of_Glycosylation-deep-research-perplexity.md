@@ -21,13 +21,11 @@ provider_config:
     temperature: 0.0
 citation_count: 18
 reference_validation:
-  total_references: 3
-  verified: 3
+  total_references: 0
+  verified: 0
   not_found: 0
   unverifiable: 0
   confabulation_rate: 0.0
-  relevance_assessed: 3
-  on_topic: 3
   validator_version: 0.2.1
 ---
 
@@ -770,16 +768,69 @@ For now, ALG11-CDG exemplifies the importance of integrating clinical observatio
 
 ## Reference Validation
 
-Checked with `linkml-reference-validator` 0.2.1.
+No PMID or DOI references were found in this report.
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
 
 | Outcome | Count |
 | --- | --- |
-| References checked | 3 |
-| Resolved | 3 |
+| Terms checked | 68 |
+| Resolved | 66 |
 | Unresolved (possible confabulation) | 0 |
+| Obsolete | 2 |
 | Unverifiable | 0 |
-| References weighed for topical relevance | 3 |
-| On topic | 3 |
-| Off topic | 0 |
+| Terms whose name was checked | 60 |
+| Terms named correctly | 34 |
+| Terms named as a **different** term | 17 |
+| Terms whose name is worth a second look | 9 |
 
-All extracted references resolved successfully.
+### Terms the report names something else
+
+These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:
+
+- `HP:0010818` (2 mentions) - the report calls it "Burst-suppression pattern on EEG", "Burst suppression pattern on EEG"; HP calls it **Generalized tonic seizure**
+- `HP:0000301` (1 mention) - the report calls it "Long philtrum"; HP calls it **Abnormality of facial musculature**
+- `HP:0000951` (1 mention) - the report calls it "Abnormal subcutaneous fat distribution"; HP calls it **Abnormality of the skin**
+- `HP:0006706` (1 mention) - the report calls it "Inverted nipples"; HP calls it **Cystic liver disease**
+- `HP:0012348` (1 mention) - the report calls it "Abnormal glycosylation"; HP calls it **Decreased galactosylation of N-linked protein glycosylation**
+- `UBERON:0002315` (1 mention) - the report calls it "corpus callosum"; UBERON calls it **gray matter of spinal cord**
+- `UBERON:0002185` (1 mention) - the report calls it "subcutaneous adipose tissue"; UBERON calls it **bronchus**
+- `NCIT:C1565` (1 mention) - the report calls it "antiepileptic therapy"; NCIT calls it **Aloe Vera Gel**
+- `NCIT:C806` (1 mention) - the report calls it "topiramate"; NCIT calls it **Rhodamine**
+- `NCIT:C16043` (1 mention) - the report calls it "supportive care"; NCIT calls it **Electron Microscopy Facility**
+- `NCIT:C20343` (1 mention) - the report calls it "physical therapy"; NCIT calls it **Human Glandular Kallikrein**
+- `NCIT:C15219` (1 mention) - the report calls it "occupational therapy"; NCIT calls it **Health Care Delivery**
+- `NCIT:C15397` (1 mention) - the report calls it "speech therapy"; NCIT calls it **Bladder Irrigation**
+- `NCIT:C61493` (1 mention) - the report calls it "nutritional support"; NCIT calls it **Gebasaxturev**
+- `NCIT:C15273` (1 mention) - the report calls it "primary prevention"; NCIT calls it **Longitudinal Study**
+- `NCIT:C15274` (1 mention) - the report calls it "secondary prevention"; NCIT calls it **Lung Transplantation**
+- `NCIT:C15275` (1 mention) - the report calls it "tertiary prevention"; NCIT calls it **Lymphadenectomy**
+
+### Obsolete terms
+
+These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:
+
+- `CL:0000627` (obsolete transporting cell) (1 mention)
+- `NCIT:C20343` (Human Glandular Kallikrein) (1 mention)
+
+### Terms whose name is worth a second look
+
+The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a *related* synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:
+
+- `HP:0002123` (1 mention) - the report calls it "Myoclonic seizures"; HP calls it **Generalized myoclonic seizure**, and lists "Myoclonus seizures" among its other names
+- `HP:0001263` (1 mention) - the report calls it "Developmental delay"; HP calls it **Global developmental delay**, and lists "Developmental delay" among its other names
+- `HP:0011344` (1 mention) - the report calls it "Severe neurodevelopmental delay"; HP calls it **Severe global developmental delay**
+- `HP:0002353` (1 mention) - the report calls it "Abnormal electroencephalogram"; HP calls it **EEG abnormality**, and lists "Abnormal electroencephalogram" among its other names
+- `HP:0005968` (1 mention) - the report calls it "Body temperature instability"; HP calls it **Temperature instability**, and lists "Body temperature instability" among its other names
+- `HP:0003160` (1 mention) - the report calls it "Abnormal transferrin isoform profile"; HP calls it **Abnormal isoelectric focusing of serum transferrin**, and lists "Abnormal transferrin isoelectric focusing" among its other names
+- `HP:0003429` (1 mention) - the report calls it "Hypomyelination"; HP calls it **CNS hypomyelination**
+- `HP:0002079` (1 mention) - the report calls it "Corpus callosum hypoplasia"; HP calls it **Hypoplasia of the corpus callosum**, and lists "Corpus callosum hypoplasia" among its other names
+- `GO:0007259` (1 mention) - the report calls it "JAK-STAT cascade"; GO calls it **cell surface receptor signaling pathway via JAK-STAT**, and lists "JAK-STAT cascade" among its other names
+
+### Terms named inconsistently
+
+The report gives these identifiers more than one name of its own:
+
+- `HP:0010818` - called "Burst-suppression pattern on EEG", "Burst suppression pattern on EEG"

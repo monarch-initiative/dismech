@@ -1,5 +1,6 @@
 ---
 reference_id: clinicaltrials:NCT02098252
+extractor_version: 1
 title: "Treatment of Brain AVMs (TOBAS) Study: A Randomized Controlled Trial and Registry"
 content_type: summary
 full_text_attempted: true

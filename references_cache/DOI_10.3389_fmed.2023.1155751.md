@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.3389/fmed.2023.1155751
+extractor_version: 1
 title: "Vibrio cholerae, classification, pathogenesis, immune response, and trends in vaccine development"
 authors:
 - David A. Montero
@@ -15,12 +16,14 @@ journal: Frontiers in Medicine
 year: '2023'
 doi: 10.3389/fmed.2023.1155751
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.frontiersin.org/articles/10.3389/fmed.2023.1155751/pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.3389_fmed.2023.1155751.pdf
+full_text_access_type: open
 ---
 
 # Vibrio cholerae, classification, pathogenesis, immune response, and trends in vaccine development
@@ -30,7 +33,16 @@ local_pdf_path: files/DOI_10.3389_fmed.2023.1155751.pdf
 
 ## Content
 
-Vibrio cholerae is the causative agent of cholera, a highly contagious diarrheal disease affecting millions worldwide each year. Cholera is a major public health problem, primarily in countries with poor sanitary conditions and regions affected by natural disasters, where access to safe drinking water is limited. In this narrative review, we aim to summarize the current understanding of the evolution of virulence and pathogenesis of V. cholerae as well as provide an overview of the immune response against this pathogen. We highlight that V. cholerae has a remarkable ability to adapt and evolve, which is a global concern because it increases the risk of cholera outbreaks and the spread of the disease to new regions, making its control even more challenging. Furthermore, we show that this pathogen expresses several virulence factors enabling it to efficiently colonize the human intestine and cause cholera. A cumulative body of work also shows that V. cholerae infection triggers an inflammatory response that influences the development of immune memory against cholera. Lastly, we reviewed the status of licensed cholera vaccines, those undergoing clinical evaluation, and recent progress in developing next-generation vaccines. This review offers a comprehensive view of V. cholerae and identifies knowledge gaps that must be addressed to develop more effective cholera vaccines.
+Vibrio cholerae
+                    is the causative agent of cholera, a highly contagious diarrheal disease affecting millions worldwide each year. Cholera is a major public health problem, primarily in countries with poor sanitary conditions and regions affected by natural disasters, where access to safe drinking water is limited. In this narrative review, we aim to summarize the current understanding of the evolution of virulence and pathogenesis of
+                    V. cholerae
+                    as well as provide an overview of the immune response against this pathogen. We highlight that
+                    V. cholerae
+                    has a remarkable ability to adapt and evolve, which is a global concern because it increases the risk of cholera outbreaks and the spread of the disease to new regions, making its control even more challenging. Furthermore, we show that this pathogen expresses several virulence factors enabling it to efficiently colonize the human intestine and cause cholera. A cumulative body of work also shows that
+                    V. cholerae
+                    infection triggers an inflammatory response that influences the development of immune memory against cholera. Lastly, we reviewed the status of licensed cholera vaccines, those undergoing clinical evaluation, and recent progress in developing next-generation vaccines. This review offers a comprehensive view of
+                    V. cholerae
+                    and identifies knowledge gaps that must be addressed to develop more effective cholera vaccines.
 
 Frontiers in Medicine 01 frontiersin.org
 Vibrio cholerae, classification, 

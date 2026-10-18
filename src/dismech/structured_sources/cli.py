@@ -17,7 +17,12 @@ from pathlib import Path
 
 import typer
 
-from dismech.structured_sources.base import StructuredSource
+from dismech.structured_sources.base import (
+    ChecksumMismatchError,
+    MissingBulkDataError,
+    StructuredSource,
+    repin_manifest,
+)
 from dismech.structured_sources.civic import CivicSource
 from dismech.structured_sources.clingen import ClinGenSource
 from dismech.structured_sources.clingen_dosage import ClinGenDosageSource
@@ -38,6 +43,40 @@ app = typer.Typer(help="dismech structured-database source utilities.")
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _DEFAULT_DATA_DIR = _REPO_ROOT / "data"
 _DEFAULT_CACHE_DIR = _REPO_ROOT / "references_cache"
+
+
+_MANIFEST_DIRS: dict[str, str] = {
+    "orphanet": "orphadata",
+    "orpha": "orphadata",
+    "clingen": "clingen",
+    "cggv": "clingen",
+    "clingen-dosage": "clingen-dosage",
+    "clingen_dosage": "clingen-dosage",
+    "cgds": "clingen-dosage",
+    "civic": "civic",
+    "civicdb": "civic",
+    "mygeneset": "genesets",
+    "genesets": "genesets",
+    "geneset": "genesets",
+    "icees": "icees-kg",
+    "icees-kg": "icees-kg",
+    "icees_kg": "icees-kg",
+    "strchive": "strchive",
+    "str": "strchive",
+    "strchive-loci": "strchive",
+    "ncit": "ncit-edges",
+    "ncit-edges": "ncit-edges",
+    "ncit_edges": "ncit-edges",
+}
+
+
+def _manifest_path(name: str) -> Path | None:
+    """The MANIFEST.yaml pinning ``name``'s bulk files, if it has one."""
+    subdir = _MANIFEST_DIRS.get(name.lower())
+    if subdir is None:
+        return None
+    path = _DEFAULT_DATA_DIR / subdir / "MANIFEST.yaml"
+    return path if path.exists() else None
 
 
 def _get_source(name: str) -> StructuredSource:
@@ -94,12 +133,84 @@ def _get_source(name: str) -> StructuredSource:
 def refresh_cmd(
     source: str = typer.Argument(..., help="Source name (e.g. 'orphanet')"),
     force: bool = typer.Option(False, "--force", help="Re-download even if cached"),
+    repin: bool = typer.Option(
+        False,
+        "--repin",
+        help=(
+            "Accept a new upstream release: record the downloaded files' "
+            "checksums in the manifest instead of failing. Leaves a diff to review."
+        ),
+    ),
 ) -> None:
-    """Download bulk-data files for a source and verify checksums."""
+    """Download bulk-data files for a source and verify checksums.
+
+    Most of these manifests pin a checksum against an unversioned upstream URL,
+    so the pin goes stale every time upstream publishes. `--repin` is the
+    supported way through that: it writes the new checksums (and snapshot date)
+    into the manifest so the fix is one command and one reviewable diff, rather
+    than a manual download-and-hand-edit.
+    """
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     src = _get_source(source)
-    src.refresh(force=force)
+    try:
+        changes = src.refresh(force=force, repin=repin)
+    except ChecksumMismatchError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+
+    if repin and not changes:
+        # `refresh` skips the download entirely when a local file already matches
+        # the pin, so `--repin` on an up-to-date checkout has nothing to record.
+        # Say so: a silent no-op reads like the repin failed.
+        typer.echo(
+            "--repin: nothing to repin. Every bulk file either matches the pinned "
+            "checksum already or was re-downloaded and still matches, so the "
+            "manifest is current.\n"
+            "If you expected a change, the local copy may predate the upstream "
+            "release; re-run with --force to download regardless."
+        )
+
+    if changes:
+        manifest = _manifest_path(source)
+        if manifest is None:
+            raise typer.BadParameter(
+                f"--repin: no manifest found for source {source!r}; "
+                "nothing to write the new checksums into."
+            )
+        notes = repin_manifest(manifest, changes)
+        typer.echo(f"repinned {manifest}:")
+        for note in notes:
+            typer.echo(f"  {note}")
+        typer.echo(
+            "\nReview the manifest diff, then rebuild the cache "
+            "(e.g. `just structured-rebuild-orphanet`) and review that diff too."
+        )
     typer.echo(f"refreshed {source}")
+
+
+def _rebuild(
+    src: StructuredSource,
+    id_: list[str] | None,
+    source: str,
+    cache_dir: Path,
+    progress_every: int,
+) -> tuple[int, list[str], list[str]]:
+    """Write cache files; return (written, skipped ids, targets)."""
+    targets = list(id_) if id_ else list(src.identifiers())
+    typer.echo(f"rebuilding {len(targets)} {source} entries → {cache_dir}")
+    written = 0
+    skipped: list[str] = []
+    for ident in targets:
+        try:
+            src.write_cache_file(ident, cache_dir)
+        except KeyError as exc:
+            typer.echo(f"  skipped {ident}: {exc}", err=True)
+            skipped.append(ident)
+            continue
+        written += 1
+        if written % progress_every == 0:
+            typer.echo(f"  ... {written}/{len(targets)}")
+    return written, skipped, targets
 
 
 @app.command("rebuild")
@@ -119,6 +230,15 @@ def rebuild_cmd(
     progress_every: int = typer.Option(
         500, "--progress-every", help="Log every N entries"
     ),
+    csv: Path | None = typer.Option(
+        None,
+        "--csv",
+        help=(
+            "ClinGen gene validity only: read this export instead of "
+            "data/clingen/gene_validity.csv (or the committed fallback). The "
+            "cache file is stamped with this file's own date and sha256."
+        ),
+    ),
 ) -> None:
     """Regenerate cache files for a source from current bulk data."""
     logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -126,23 +246,31 @@ def rebuild_cmd(
     src = _get_source(source)
     if isinstance(src, (ClinGenSource, ClinGenDosageSource)):
         src.include_report_text = include_report_text
+    if csv is not None:
+        if not isinstance(src, ClinGenSource):
+            raise typer.BadParameter("--csv is only supported for the clingen source")
+        src.csv_path = csv
     cache_dir.mkdir(parents=True, exist_ok=True)
-    if id_:
-        targets = list(id_)
-    else:
-        targets = list(src.identifiers())
-    typer.echo(f"rebuilding {len(targets)} {source} entries → {cache_dir}")
-    written = 0
-    for ident in targets:
-        try:
-            src.write_cache_file(ident, cache_dir)
-        except KeyError as exc:
-            typer.echo(f"  skipped {ident}: {exc}", err=True)
-            continue
-        written += 1
-        if written % progress_every == 0:
-            typer.echo(f"  ... {written}/{len(targets)}")
+    try:
+        written, skipped, targets = _rebuild(
+            src, id_, source, cache_dir, progress_every
+        )
+    except MissingBulkDataError as exc:
+        # The message names the refresh command; a traceback buries it (#13941).
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
     typer.echo(f"wrote {written} cache files")
+    if id_ and skipped:
+        # An explicitly requested id that is not in the export is a failure,
+        # not a quiet skip: `just fetch-reference` routes here, agents read its
+        # exit code, and a typo or a withdrawn assertion must not look like
+        # success (review on #13766). The ids that did resolve are written.
+        typer.echo(
+            f"{len(skipped)} of {len(targets)} requested id(s) not found in the "
+            f"{source} export: " + ", ".join(skipped),
+            err=True,
+        )
+        raise typer.Exit(code=1)
 
 
 @app.command("list")
@@ -152,7 +280,11 @@ def list_cmd(
 ) -> None:
     """List the first N identifiers a source can serialize."""
     src = _get_source(source)
-    ids = list(src.identifiers())
+    try:
+        ids = list(src.identifiers())
+    except MissingBulkDataError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
     typer.echo(f"{len(ids)} identifiers in {source}")
     for ident in ids[:limit]:
         typer.echo(f"  {ident}")
@@ -161,7 +293,9 @@ def list_cmd(
 @app.command("align")
 def align_cmd(
     disease: str = typer.Argument(..., help="Disorder name or path to its YAML"),
-    gene_set: str = typer.Argument(..., help="Gene set id, e.g. KEGG_ASTHMA or MYGENESET:KEGG_ASTHMA"),
+    gene_set: str = typer.Argument(
+        ..., help="Gene set id, e.g. KEGG_ASTHMA or MYGENESET:KEGG_ASTHMA"
+    ),
     kb_dir: Path = typer.Option(
         _REPO_ROOT / "kb" / "disorders", "--kb-dir", help="Disorder YAML directory"
     ),
