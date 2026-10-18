@@ -12,6 +12,9 @@ diseases:
   - Lead_Poisoning
   - Liver_Cirrhosis
   - Idiopathic_Pulmonary_Fibrosis
+  - Skeletal_Fluorosis
+  - 5-Fluorouracil_Poisoning
+  - Dihydropyrimidine_Dehydrogenase_Deficiency
 modules:
   - cardiac_ion_channel_repolarization
   - cardiomyopathy_maladaptive_remodeling
@@ -286,7 +289,7 @@ not land on a mechanism node.
 |---|---|
 | No population level | AOP's levels of biological organization include Population; `BiologicalScaleEnum` has `MOLECULAR`, `CELLULAR`, `TISSUE`, `ORGANISM` and stops at the individual |
 | No taxonomic applicability | AOPs qualify Events, KERs, and whole pathways by species; dismech records species only at model level, never on a mechanism |
-| Toxicokinetics inside the causal chain | ADME sits outside an AOP by design — it determines dose at the MIE, and folding it in is what makes an AOP chemical-specific. dismech chains ADME steps and key events together with nothing marking which is which |
+| Toxicokinetics inside the causal chain | ADME sits outside an AOP by design — it determines dose at the MIE, and folding it in is what makes an AOP chemical-specific. dismech chains ADME steps and key events together with nothing marking which is which. 31 entries route an exposure into an ADME node; separately, of the 43 ADME nodes naming a substance their own entry records an exposure to, 26% carry no ontology term at all — measured at [question 6](#6-should-a-node-be-markable-as-toxicokinetic-rather-than-as-a-mechanism-step) |
 | Stressor-agnostic vs disease-anchored | An AOP deliberately excludes the stressor so one pathway serves many chemicals; a dismech graph is anchored to a single disease and pulls the exposure in as a node |
 | AOP identity is provenance, not structure | A dismech module is a mechanism boundary; an AOP is a publication unit. One relationship, KER 2124, is listed in 10 AOPs — the same causal step asserted ten times over. Mapping between modules and AOPs is therefore many-to-many, and a count of AOPs is not a count of mechanisms |
 | Method and test system unreachable from the evidence | EMOD reifies the observation: `Evidence` on the KER links an upstream and a downstream `Observation`, each pointing at an `Assay` carrying `detection_technology`, with taxon, sex and life stage on `Evidence` itself and organ and cell on the `Event`. dismech's `EvidenceItem` is a reference, a quote and a polarity attached directly to the claim, with no path to any of that. The node-level counterpart does exist — `Pathophysiology.assays` mirrors `Event.assays` — but is unused: 0 of the 564 assay entries in `kb/` bind an OBI term, and 2 sit on a pathophysiology node. See [How each model records the way a claim was measured](#how-each-model-records-the-way-a-claim-was-measured) |
@@ -905,6 +908,104 @@ steps and marks neither, so the two cannot be told apart by a reader or by tooli
 ADME, while `Inhibition of delta-aminolevulinic acid dehydratase` is the initiating-event-shaped
 node, and the entry draws them the same way.
 
+#### It is a corpus-wide convention, not two cases
+
+`just tk-node-census` measures it. Of the 479 entries with at least one
+`influences_mechanisms` link, **31 route an exposure into an ADME node** — the shape
+`Lead_Poisoning` and `Skeletal_Fluorosis` showed. A further 4 do the same with an
+inhalation or ingestion node for a pathogen, which is entry rather than disposition and is
+counted separately.
+
+Both figures count only landings where the target node names a substance the entry's own
+`environmental[]` block records an exposure to, which is the same structural test the
+bindings census below uses. It is a word-overlap test, so it errs in both directions, and
+the larger error is to drop a real case. It drops three genuine toxicokinetic landings
+whose node names the chemical class while the exposure names the product —
+`Organophosphate_Poisoning` (*Organophosphate exposure and absorption*, against exposures
+named for insecticides, pesticides and nerve agents), `Byssinosis` and
+`Green_Tobacco_Sickness`. And it keeps two landings that are not disposition at all,
+because the words happen to overlap: `Hypersensitivity_Pneumonitis` (*Repetitive inhaled
+antigen exposure and sensitization* — immune sensitization) and
+`Microcytic_Anemia_With_Liver_Iron_Overload` (endogenous iron handling, against an
+iatrogenic iron-loading exposure). Read 31 as a floor, and
+`just tk-node-census --section exposures` for the entries it declines.
+
+So the question is not whether the convention exists. It is whether a reader or a query can
+tell these nodes from the mechanism steps they sit next to, and today neither can.
+
+#### Marking is half of it; there is also no vocabulary
+
+43 ADME nodes name a substance their own entry records an exposure to. **11 of them (26%)
+carry no ontology term at all.** Six of the eleven, including
+`Systemic 5-Fluorouracil Overexposure`, which is its entry's root node — the thing the
+disease is:
+
+| Entry | Node | Scale |
+|---|---|---|
+| `5-Fluorouracil_Poisoning` | Systemic 5-Fluorouracil Overexposure | ORGANISM |
+| `Methotrexate_Toxicity` | Impaired Renal Methotrexate Elimination | ORGANISM |
+| `Allopurinol_Induced_SJS_TEN` | Reduced renal oxypurinol clearance | ORGANISM |
+| `Ethylene_Glycol_Poisoning` | Ethylene Glycol Ingestion and Absorption | ORGANISM |
+| `Isoniazid_Toxicity` | Hepatic Bioactivation of Isoniazid | MOLECULAR |
+| `Skeletal_Fluorosis` | Chronic Excess Fluoride Intake | ORGANISM |
+
+Where one *is* bound, the term names something adjacent to the disposition rather than the
+disposition itself, because the constrained ontology set has nothing closer. Only the
+process term is shown; several of these nodes also carry a CHEBI substance or a CL cell
+type, which say what moved and where but not that moving is what the node claims:
+
+| Node | Bound to | What that states instead |
+|---|---|---|
+| `Lead_Poisoning` → Lead absorption | `GO:0055085` transmembrane transport / ABNORMAL | transport, unqualified by substance or direction |
+| `Dihydropyrimidine_Dehydrogenase_Deficiency` → Impaired Fluoropyrimidine Clearance | `GO:0006208` pyrimidine nucleobase catabolic process / DECREASED | the identical term the same entry's *molecular* `Reduced DPD Catalytic Activity` node carries — organism-level clearance and enzyme activity are indistinguishable |
+| `Cadmium_Poisoning` → Cadmium Absorption and Systemic Distribution | `GO:0071276` cellular response to cadmium ion | a cellular response standing in for whole-body ADME |
+| `Cesium_Poisoning` → Gastrointestinal absorption of ingested cesium salts | `GO:0071805` potassium ion transmembrane transport / ABNORMAL | the channel the cation moves through, not the absorption |
+| `Manganism` → Impaired Hepatobiliary Manganese Excretion | `GO:0055071` manganese ion homeostasis / ABNORMAL | the homeostatic set point, not the excretory route |
+
+Three of these sit at `biological_scale: ORGANISM` with nothing on them but a GO term — the
+upward extrapolation `just model-scale-audit` reports on a model link, here in the node
+binding, where nothing looks for it.
+
+#### A candidate vocabulary exists
+
+[PBPKO](http://obofoundry.org/ontology/pbpko), the Physiologically-Based Pharmacokinetic
+Ontology, is an active OBO Foundry member (CC BY 4.0, release 2026-07-15, 858 native
+classes) built on BFO/COB/IAO/OBI and importing `GO:0007588` excretion rather than
+competing with it. Its relevance here is its **process** branch, not the parameter
+dictionary it reads as at first glance:
+
+| Phase | Nodes (unbound) | PBPKO process class |
+|---|---|---|
+| Absorption | 25 (7) | `PBPKO:00140` absorption |
+| Distribution | 7 (1) | `PBPKO:00146` distribution process; `PBPKO:00148` protein binding mediated distributiion process [sic] |
+| Metabolism | 5 (1) | `PBPKO:00191` phase I metabolism; `PBPKO:00210` first pass metabolism; `PBPKO:00215` gut metabolism |
+| Excretion | 6 (2) | `PBPKO:00322` elimination; `PBPKO:00223` renal excretion; `PBPKO:00224` hepatic excretion; `PBPKO:00225` fecal excretion; `PBPKO:00144` enterohepatic recirculation |
+
+That answers the marking question and the vocabulary question with one binding, which is
+the argument for preferring it to a new enum. Three things weigh against doing it yet, and
+none is about the ontology's content:
+
+- **A term binding and an enum value are different answers.** `biological_scale` is the
+  precedent for an optional closed enum on `Pathophysiology`, and a four-value marker over
+  the ADME phases — `ABSORPTION`, `DISTRIBUTION`, `METABOLISM`, `EXCRETION` — would be
+  cheaper than a new prefix. It would say *which kind of step* without saying *which
+  process*, which may be all an AOP boundary needs.
+- **PBPKO cannot be validated offline today.** The pinned `prefixmaps` 0.2.6 snapshot
+  predates PBPKO's Bioregistry registration, so OAK resolves every `PBPKO:` CURIE to the
+  label `entity` through `ols:pbpko` and returns `None` CURIEs from a search. The released
+  `pbpko.obo` does not parse (452 `[Term]` stanzas carry a bare `has_synonym_type:` clause,
+  which is not valid OBO 1.4) and `pbpko.json` 404s despite being an advertised product.
+  Only the OWL product via a local `pronto:` adapter resolves labels correctly, and that is
+  not one of the two adapter forms `conf/oak_config.yaml` uses.
+- **The physiological senses are not separable by name.** "Impaired clearance" is LDL,
+  glymphatic and alveolar fluid as often as it is methotrexate. The census reports a
+  further 42 nodes using the same vocabulary for a substance the entry records no exposure
+  to, and leaves them unclassified rather than guessing; a schema marker would push that
+  judgement onto curators, which is the right place for it but is not free.
+
+Tracked against PBPKO's own evaluation in
+[#8641](https://github.com/monarch-initiative/dismech/issues/8641).
+
 ---
 
 ## Next Steps
@@ -940,7 +1041,9 @@ Two files take that second direction from the abstract to a worked case:
 They sharpen the first divergence listed above rather than resolving it. `Skeletal_Fluorosis`
 reproduces the `Lead_Poisoning` toxicokinetic result exactly — all five exposures land on an
 intake node two hops upstream of the first molecular event — so that is now a pattern across
-two independently curated entries, not an observation about one file.
+two independently curated entries, not an observation about one file. `just tk-node-census`
+has since put the figure at 31 entries, which makes it a curation convention rather than a
+pattern; see [question 6](#6-should-a-node-be-markable-as-toxicokinetic-rather-than-as-a-mechanism-step).
 
 <!--
 ## Not yet included
