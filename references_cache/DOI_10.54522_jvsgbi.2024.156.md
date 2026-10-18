@@ -42,10 +42,10 @@ Conclusion: The 2009 recommendations have standardised key practices in grading 
 www.jvsgbi.com
 J.Vasc.Soc.G.B.Irel. 2024;4(1):41-47
 http://doi.org/10.54522/jvsgbi.2024.156
-ORIGINAL RESEARCH  
+ORIGINAL RESEARCH
 
 Current practice in ultrasound grading of carotid
-artery stenosis in the UK and Ireland  
+artery stenosis in the UK and Ireland
 Trochowski S,1 Akhtar A,1 Bond K,1 Corby A,1 Hiscocks C,1 Howard D,2 Potter R,1 Rothwell P ,2 Waldegrave E,1
 Webb A,2,3 Llwyd O1,2
 GREAT BRITAIN & IRELAND
@@ -65,12 +65,12 @@ Imperial College London,
 London, UK
 
 Corresponding author:
-Osian Llwyd  
+Osian Llwyd
 Clinical Vascular Scientist,
 Jackie Walton Vascular Studies
 Unit, John Radcliffe Hospital,
-Oxford University Hospitals,  
-Oxford, UK.  
+Oxford University Hospitals,
+Oxford, UK.
 Email: osian.llwyd@ouh.nhs.uk
 
 
@@ -78,7 +78,7 @@ Received: 9th August 2024
 Accepted: 19th November 2024
 Online: 25th November 2024
 
-Abstract  
+Abstract
 Introduction: Ultrasound is usually the ﬁrst-line imaging modality in the UK and Ireland for
 evaluating the severity of carotid artery disease. The last UK and Ireland audit on grading of
 internal carotid artery (ICA) stenosis with ultrasound was reported in 2006 whilst UK
@@ -88,7 +88,7 @@ were identiﬁed. One vascular unit from each trust (n=80) was invited to comple
 questionnaire based on their current carotid ultrasound assessments including velocity
 thresholds (peak systolic velocity (PSV); end diastolic velocity (EDV)) and PSV ratios (PSV in
 the ICA:PSV in the common carotid artery (CCA)) used to grade a stenosis, the use of St
-Mary’s ratio (PSV in the ICA:EDV in the CCA) and the criteria prioritised to grade a stenosis.  
+Mary’s ratio (PSV in the ICA:EDV in the CCA) and the criteria prioritised to grade a stenosis.
 Results: The questionnaire was answered by 58% (46/80) of vascular units. 70% of
 respondents reported using the 2009 UK recommendations, with 22% reported using a
 subset. To grade moderate disease (>50% stenosis), 81% use a PSV of >125 cm.s-1, only
@@ -104,11 +104,11 @@ of the blood within a diseased vessel can help classify and determine the amount
 blood vessel. Twenty years ago (early 2000s) it was reported that vascular centres used different ultrasound
 practices to classify disease within blood vessels. Guidance on how to classify disease within blood vessels
 of the neck were then published in the UK and Ireland in 2009 to help standardise practice between
-vascular centres in different hospitals.  
+vascular centres in different hospitals.
 What we did: This audit determined whether vascular centres now follow the guidance that was set out 15 years
 ago or whether variation still exists. An online questionnaire form was sent out to all the hospital trusts in the UK
 and Ireland that perform surgery on blood vessels in the neck. The form asked how they use ultrasound to
-classify the amount of disease in blood vessels in the neck.  
+classify the amount of disease in blood vessels in the neck.
 What we found: The form was answered by 46/80 (58%) vascular centres in the UK and Ireland. 70% of
 respondents reported using the 2009 UK recommendations, while 22% reported using some. To classify
 moderate and severe disease many centres now use the same speed of blood flow, with some practices being
@@ -142,7 +142,7 @@ parameters that are used to estimate the narrowing can still vary
 considerably between vascular units. A recent study in the USA
 reported that, due to the differences that exist between vascular
 units, twice as many patients would be diagnosed with a moderate
-(>50%) stenosis if they had been assessed at a different unit.8  
+(>50%) stenosis if they had been assessed at a different unit.8
 The vascular units in the UK and Ireland that were audited in
 19999 and in 200610 also demonstrated differences in the duplex
 parameters and velocity thresholds that were used to grade a
@@ -160,7 +160,7 @@ European Society for Vascular Surgery guidelines.2,13 Thus, the
 objectives of this audit were to describe the current clinical
 practices for grading carotid artery disease within the UK and
 Ireland and to determine whether vascular units follow the UK
-working group’s recommendations6 that were set out 15 years ago.  
+working group’s recommendations6 that were set out 15 years ago.
 
 Methods
 To evaluate the current ultrasound criteria that are used to grade
@@ -199,7 +199,7 @@ question with many speciﬁc response options with the possibility to
 expand was a better approach than to limit the number of response
 options. The Online Surveys (Jisc, UK) platform added a
 professional visual layout, consistency and clarity to each of the
-questions.  
+questions.
 The short questionnaire included 14 questions that were based
 on current clinical practices when performing carotid ultrasound
 assessment (see Appendix online at www.jvsgbi.com) and previous
@@ -209,11 +209,11 @@ end diastolic velocity (EDV)) and PSV ratios that are used to grade
 stenosis. There was a combined total of 13 distinct (PSV, EDV and ratios) thresholds being
 used to grade >80% stenosis. The criteria prioritised to grade a stenosis and how near
 occlusion was deﬁned on duplex imaging was variable, and there were inconsistent practices
-on internal audits and quality assurance.  
+on internal audits and quality assurance.
 Conclusion: The 2009 recommendations have standardised key practices in grading moderate
 and severe disease with PSV, velocity ratios and in the use of the St Mary’s ratio to grade in
 deciles. However, vascular units vary in the application of these recommendations and the use
-of indices not included in the guidelines.  
+of indices not included in the guidelines.
 Key words: audit, diagnostic, imaging, velocity, criteria
 42 VOLUME 4 ISSUE 1 NOVEMBER 2024
 124 Llwyd.qxp_Layout 1  25/11/2024  21:29  Page 2
@@ -252,7 +252,7 @@ Results
 Population
 Forty-six vascular units, each from separate healthcare trusts,
 answered the survey, corresponding to 58% of the trusts that
-perform carotid surgery within the UK and Ireland (n=35, 4, 4 and  
+perform carotid surgery within the UK and Ireland (n=35, 4, 4 and
 3 for England, Scotland, Wales and Ireland, respectively), with only
 one duplicate response that was excluded. Most of the
 questionnaires were answered by responders afﬁliated with the
@@ -279,7 +279,7 @@ Table 2 shows each distinct threshold used for grading a carotid
 stenosis and the number (%) of units using each threshold. The
 majority of units use the PSV and PSV ratios recommended in the
 UK guidelines (highlighted in bold in Table 2). For grading moderate
-disease (>50% stenosis), a PSV of >125 cm.s-1 and PSV ratio of  
+disease (>50% stenosis), a PSV of >125 cm.s-1 and PSV ratio of
 2–4 is used by 81% and 71% units, respectively. For grading severe
 disease (>70% stenosis), a PSV of >230 cm.s-1 and PSV ratio of >4
 is used by 90% and 86% of units, respectively, but fewer units use
@@ -309,7 +309,7 @@ thresholds being used to categorise carotid stenosis, and
 number of vascular units (% of available data) using each
 stenosis category.
 
-Stenosis         PSV          EDV            PSV ratio      Total number of  
+Stenosis         PSV          EDV            PSV ratio      Total number of
 category          n (%)        n (%)          n (%)            separate thresholds
 
 0–29%              2 (26)         1 (17)           3 (26)             6
@@ -344,7 +344,7 @@ string sign, the appearance of a narrow channel of flow
 characterised using colour Doppler (89%) and velocity
 measurement (76%) was the most common answer. 70% of units
 highlighted the importance of using low velocities, but only a small
-proportion of units mentioned a speciﬁc velocity criterion of  
+proportion of units mentioned a speciﬁc velocity criterion of
 <20 cm.s-1 (4%) and >400 cm.s-1 (2%). The use of B-mode (30%)
 and waveform characteristics (22%) was also reported, as was the
 collapse of the distal vessel (7%), power Doppler (9%), EDV (4%)
@@ -372,7 +372,7 @@ Table 2 List of the velocity thresholds and ratios reported to be
 used to categorise each ICA stenosis category and the number
 of vascular units (% of available data) using each category.
 
-Stenosis       PSV                          EDV                       PSV  
+Stenosis       PSV                          EDV                       PSV
 category       (cm.s-1)    n (%)         (cm.s-1)   n (%)       ratio       n (%)
 
 0–29%           <100          3 (7)           <40           7 (17)        <1.8        1 (2)
@@ -399,12 +399,12 @@ category       (cm.s-1)    n (%)         (cm.s-1)   n (%)       ratio       n (%
 >80%             >125          1 (2)           40–100     1 (2)          >3.7        1 (2)
                      >210          3 (7)           >100         7 (17)        >4           14 (33)
                      >230          17 (40)        >125         2 (5)          >5           3 (7)
-                     >300          2 (5)           >140         6 (14)  
-                                                        >180         1 (2)  
+                     >300          2 (5)           >140         6 (14)
+                                                        >180         1 (2)
 >90%             >125          1 (2)           >100         7 (17)        >4           1 (2)
                      >210          2 (5)           >125         2 (5)          >5          28 (67)
                      >380          1 (2)           >140         1 (2)          >10         1 (2)
-                     >400          32 (76)       >200         2 (5)  
+                     >400          32 (76)       >200         2 (5)
 PSV, peak systolic velocity; EDV, end diastolic velocity.
 UK 2009 recommendations are highlighted in bold type.6
 Velocity (cm.s-1)
@@ -468,7 +468,7 @@ these published guidelines and recommendations have reduced the
 variability between vascular units but, speciﬁcally, only in the PSV
 and PSV ratio criteria being used to grade a >50% stenosis (81%
 use >125 cm.s-1 and 71% use a ratio of 2–4) and a >70% stenosis
-(90% use >230 cm.s-1 and 86% use a ratio of >4).  
+(90% use >230 cm.s-1 and 86% use a ratio of >4).
 However, there remains considerable variability in the practices
 and criteria not reported within current UK recommendations.
 Although the UK recommendations report that the EDV within the
@@ -495,7 +495,7 @@ described a total of 29 and 37 different PSV, EDV and PSV ratio
 thresholds for grading >50% and >70% stenosis, respectively.
 There is a similar amount of variability present in the UK and
 Ireland, with a total of 10 and 13 different separate cut-off values
-used among just 42 centres.  
+used among just 42 centres.
 Although 65% of vascular units said they prioritised a speciﬁc
 criterion to grade a stenosis, which criteria they used varied,
 indicating there is uncertainty as to which are the best criteria to
@@ -511,7 +511,7 @@ limitations and complexity of the circulation) and the beneﬁt of using
 a multi-parametric approach. Although uptake of some of this
 guidance was apparent with half of the vascular units using PSV in
 combination with other parameters, there was no consensus on
-which group of parameters is best to grade a stenosis.  
+which group of parameters is best to grade a stenosis.
 The St Mary’s ratio (comparing PSV in the ICA to the EDV in the
 CCA) is recommended in the UK to grade in deciles >50% and is
 currently being used by 78% of vascular units. However, the
@@ -555,7 +555,7 @@ to the recommendation of it being an additional measurement in the
 presence of a large carotid bulb. Although Walker and Naylor10
 reported that 43% of respondents indicated that they did not know
 which criteria they were using, in those that did report using the
-ECST method, velocity cut-offs were generally around a PSV of  
+ECST method, velocity cut-offs were generally around a PSV of
 180 cm.s-1 or lower. These velocities were reported by one vascular
 unit in this audit (Figure 1) who did not expand on whether this was
 due to ECST-based criteria. However, Figure 1 also conﬁrms the
@@ -654,7 +654,7 @@ carotid ultrasound.
 Conflict of Interest: The authors declare that there are no conflicts of interest.
 
 Funding: OL is supported by Stroke Association Fellowship (grant no SA PDF
-21\100029). This research was funded in whole, or in part, by the Wellcome Trust.  
+21\100029). This research was funded in whole, or in part, by the Wellcome Trust.
 
 Acknowledgements: The authors would like to thank all vascular centres that
 contributed to this study and the CSVS for distributing the questionnaire.
@@ -663,7 +663,7 @@ Reviewer acknowledgement: JVSGBI thanks Steven Rogers, School of Medical
 Sciences, Faculty of Biology, Medicine and Health, University of Manchester,
 Manchester Academic Health Science Centre, Manchester University NHS
 Foundation Trust, Manchester, UK and the Editorial team, for their contribution to
-the peer review of this work.  
+the peer review of this work.
 
 References
 1. Rothwell P , Eliasziw M, Gutnikov S, et al. Endarterectomy for symptomatic
@@ -671,7 +671,7 @@ carotid stenosis in relation to clinical subgroups and timing of surgery. Lancet
 2004;363(9413):915–24. https://doi.org/10.1016/S0140-6736(04)15785-1
 2. Naylor R, Rantner B, Ancetti S, et al. Editor’s Choice – European Society for
 Vascular Surgery (ESVS) 2023 Clinical Practice Guidelines on the
-Management of Atherosclerotic Carotid and Vertebral Artery Disease.  
+Management of Atherosclerotic Carotid and Vertebral Artery Disease.
 Eur J Vasc Endovasc Surg 2023;65(1):7–111.
 https://doi.org/10.1016/j.ejvs.2022.04.011
 3. AbuRahma AF , Avgerinos ED, Chang RW, et al. The Society for Vascular
@@ -696,10 +696,10 @@ https://doi.org/10.1161/STROKEAHA.111.636084
 thresholds for carotid stenosis in the United States. Circulation 2020;141(12):
 946–53. https://doi.org/10.1161/circulationaha.119.043963
 9. Perkins JM, Galland RB, Simmons MJ, et al. Carotid duplex imaging: variation
-and validation. Br J Surg 2000;87(3):320–2.  
+and validation. Br J Surg 2000;87(3):320–2.
 https://doi.org/10.1046/j.1365-2168.2000.01389.x
 10. Walker J, Naylor AR. Ultrasound based measurement of ‘carotid stenosis
->70%’: an audit of UK practice. Eur J Vasc Endovasc Surg 2006;31(5):  
+>70%’: an audit of UK practice. Eur J Vasc Endovasc Surg 2006;31(5):
 487–90. https://doi.org/10.1016/j.ejvs.2005.11.029
 11. Nicolaides AN, Shifrin EG, Bradbury A, et al. Angiographic and duplex grading
 of internal carotid stenosis: can we overcome the confusion? J Endovasc Surg
@@ -786,26 +786,26 @@ ratios, please complete the following chart. Please only 昀ll in the values and
 your centre. If a category is missing, please expand in the comments box below.
 
 Category Value
-4.1 0–29%  
-4.1.a ICA PSV cm/s  
-4.1.b ICA EDV cm/s  
-4.1.c PSV ratio (ICA PSV/CCA PSV)  
-4.2 30–49%  
-4.2.a ICA PSV cm/s  
-4.2.b ICA EDV cm/s  
-4.2.c PSV ratio (ICA PSV/CCA PSV)  
-4.3 <50%  
-4.3.a ICA PSV cm/s  
-4.3.b ICA EDV cm/s  
-4.3.c PSV ratio (ICA PSV/CCA PSV)  
-4.4 50–59%  
-4.4.a ICA PSV cm/s  
-4.4.b ICA EDV cm/s  
-4.4.c PSV ratio (ICA PSV/CCA PSV)  
-4.5 ≥60%  
-4.5.a ICA PSV cm/s  
-4.5.b ICA EDV cm/s  
-4.5.c PSV ratio (ICA PSV/CCA PSV)  
+4.1 0–29%
+4.1.a ICA PSV cm/s
+4.1.b ICA EDV cm/s
+4.1.c PSV ratio (ICA PSV/CCA PSV)
+4.2 30–49%
+4.2.a ICA PSV cm/s
+4.2.b ICA EDV cm/s
+4.2.c PSV ratio (ICA PSV/CCA PSV)
+4.3 <50%
+4.3.a ICA PSV cm/s
+4.3.b ICA EDV cm/s
+4.3.c PSV ratio (ICA PSV/CCA PSV)
+4.4 50–59%
+4.4.a ICA PSV cm/s
+4.4.b ICA EDV cm/s
+4.4.c PSV ratio (ICA PSV/CCA PSV)
+4.5 ≥60%
+4.5.a ICA PSV cm/s
+4.5.b ICA EDV cm/s
+4.5.c PSV ratio (ICA PSV/CCA PSV)
 VOLUME 4 ISSUE 1 NOVEMBER 2024
 124 Llwyd.qxp_Layout 1  25/11/2024  21:29  Page 8
 
@@ -814,31 +814,31 @@ Appendix 1 UK and Ireland Carotid Audit Questionnaire (2)
 
 2
 
-4.6 60–69%  
-4.6.a ICA PSV cm/s  
-4.6.b ICA EDV cm/s  
-4.6.c PSV ratio (ICA PSV/CCA PSV)  
-4.7 ≥70%  
-4.7.a ICA PSV cm/s  
-4.7.b ICA EDV cm/s  
-4.7.c PSV ratio (ICA PSV/CCA PSV)  
-4.8 70–79%  
-4.8.a ICA PSV cm/s  
-4.8.b ICA EDV cm/s  
-4.8.c PSV ratio (ICA PSV/CCA PSV)  
-4.9 ≥80%  
-4.9.a ICA PSV cm/s  
-4.9.b ICA EDV cm/s  
-4.9.c PSV ratio (ICA PSV/CCA PSV)  
-4.10 80–89%  
-4.10.a ICA PSV cm/s  
-4.10.b ICA EDV cm/s  
-4.10.c PSV ratio (ICA PSV/CCA PSV)  
-4.11 ≥90%  
-4.11.a ICA PSV cm/s  
-4.11.b ICA EDV cm/s  
-4.11.c PSV ratio (ICA PSV/CCA PSV)  
-4.a Comments:  
+4.6 60–69%
+4.6.a ICA PSV cm/s
+4.6.b ICA EDV cm/s
+4.6.c PSV ratio (ICA PSV/CCA PSV)
+4.7 ≥70%
+4.7.a ICA PSV cm/s
+4.7.b ICA EDV cm/s
+4.7.c PSV ratio (ICA PSV/CCA PSV)
+4.8 70–79%
+4.8.a ICA PSV cm/s
+4.8.b ICA EDV cm/s
+4.8.c PSV ratio (ICA PSV/CCA PSV)
+4.9 ≥80%
+4.9.a ICA PSV cm/s
+4.9.b ICA EDV cm/s
+4.9.c PSV ratio (ICA PSV/CCA PSV)
+4.10 80–89%
+4.10.a ICA PSV cm/s
+4.10.b ICA EDV cm/s
+4.10.c PSV ratio (ICA PSV/CCA PSV)
+4.11 ≥90%
+4.11.a ICA PSV cm/s
+4.11.b ICA EDV cm/s
+4.11.c PSV ratio (ICA PSV/CCA PSV)
+4.a Comments:
 
 
 5. How do you de昀ne 'near occlusion/string sign' based on duplex imaging in your practice?

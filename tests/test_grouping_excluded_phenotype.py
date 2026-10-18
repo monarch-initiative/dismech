@@ -42,13 +42,19 @@ def _leaf() -> dict:
 
 
 @pytest.fixture(autouse=True)
-def exact_matching():
-    """Closure is irrelevant here; evaluate on exact ids to stay offline."""
-    G.term_closure.cache_clear()
-    G.set_closure_enabled(False)
+def exact_matching(monkeypatch, tmp_path):
+    """Closure is irrelevant here; a reflexive cache row keeps it offline.
+
+    The term is cached with no descendants, so the leaf evaluates on the exact
+    id without any ontology lookup (an uncached term would be UNKNOWN).
+    """
+    monkeypatch.setattr(G, "CLOSURE_CACHE_DIR", tmp_path)
+    G.write_closure_cache(G.closure_cache_path("HP", tmp_path), {"HP:0000943": set()})
+    G.reset_closure_caches()
+    G.set_live_lookup_enabled(False)
     yield
-    G.term_closure.cache_clear()
-    G.set_closure_enabled(True)
+    G.reset_closure_caches()
+    G.set_live_lookup_enabled(True)
 
 
 def test_present_phenotype_is_a_fact():

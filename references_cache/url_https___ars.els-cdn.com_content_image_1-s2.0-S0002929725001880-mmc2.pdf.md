@@ -1,0 +1,1295 @@
+---
+reference_id: url:https://ars.els-cdn.com/content/image/1-s2.0-S0002929725001880-mmc2.pdf
+extractor_version: 1
+title: "https://ars.els-cdn.com/content/image/1-s2.0-S0002929725001880-mmc2.pdf"
+content_type: full_text_pdf
+full_text_url: "https://ars.els-cdn.com/content/image/1-s2.0-S0002929725001880-mmc2.pdf"
+---
+
+# https://ars.els-cdn.com/content/image/1-s2.0-S0002929725001880-mmc2.pdf
+
+## Content
+
+ARTICLE
+Bi-allelic mutations in FASTKD5 are associated with cytochrome c
+oxidase deficiency and early- to late-onset Leigh syndrome
+Authors
+Hana Antonicka, Woranontee Weraarpachai,
+Katherine M. Szigety, ...,
+Michelangelo Mancuso, Holger Prokisch,
+Eric A. Shoubridge
+Correspondence
+eric.shoubridge@mcgill.ca
+Mutations in FASTKD5, which codes for a
+protein essential for processing the primary
+mitochondrial transcript, were identified in
+subjects who presented with Leigh syndrome
+and cytochrome c oxidase deficiency. Leigh
+syndrome is a genetically heterogeneous,
+progressive neurodegenerative disorder, and
+these cases add to the growing list of causal
+genetic defects.
+Antonicka et al., 2025, The American Journal of Human Genetics 112,
+1699–1710
+July 3, 2025 © 2025 American Society of Human Genetics. Published by
+Elsevier Inc. All rights are reserved, including those for text and data
+mining, AI training, and similar technologies.
+https://doi.org/10.1016/j.ajhg.2025.05.007
+ll
+
+
+AR TICLE
+Bi-allelic mutations in FASTKD5 are associated
+with cytochrome c oxidase deficiency
+and early- to late-onset Leigh syndrome
+Hana Antonicka,
+1,2
+Woranontee Weraarpachai,
+3
+Katherine M. Szigety,
+4
+Robert Kopajtich,
+5,6
+James B. Gibson,
+7,8
+Johan L.K. Van Hove,
+9,10
+Marisa W. Friederich,
+9,10
+Piervito Lopriore,
+11
+Christiane Neuhofer,
+5,6,12
+Roxanne A. Van Hove,
+9
+Michel A. Cole,
+13
+Richard Reisdorph,
+13
+James T. Peterson,
+14
+Katherine J. Dempsey,
+15
+Rebecca D. Ganetzky,
+4,16
+Michelangelo Mancuso,
+11
+Holger Prokisch,
+5,6,17
+and Eric A. Shoubridge
+1,2,
+*
+Summary
+Using exome sequencing, we identified compound heterozygous variants of unknown significance in FASTKD5, a gene that codes for a
+mitochondrial protein essential for processing mRNAs at non-canonical cleavage sites in the primary mitochondrial transcript, in
+three subjects with Leigh syndrome, a progressive neurodegenerative disease characterized by lesions in the brainstem and basal
+ganglia. Among the three subjects, we identified three missense variants and two frameshift variants leading to a premature stop
+codon. Analysis of fibroblasts from two subjects showed reduced steady-state levels of FASTKD5 protein by immunoblot, reduced
+translation of the cytochrome c oxidase subunit 1, impaired assembly of complex IV, and a consequent decrease in cytochrome c ox-
+idase enzymatic activity. The extent of these deficiencies appeared to correlate with the severity of the clinical phenotype. Expression
+of a wild-type FASTKD5 cDNA, but not cDNAs expressing the missense mutations, rescued all the molecular defects in the subjects’
+fibroblasts, demonstrating that the alleles are pathogenic. Two of the three identified missense mutations resulted in near complete
+loss of function, while one was hypomorphic, resulting from impaired protein stability. These cases of mitochondrial disease associ-
+ated with bi-allelic variants in FASTKD5 add to a growing list of primary genetic mutations causing Leigh syndrome associated with
+complex IV deficiency.
+Introduction
+The mitochondrial genome (mtDNA) is transcribed as two
+polycistronic transcripts that must be processed to release
+the 13 mRNAs, 2 rRNAs, and 22 tRNAs in its coding
+sequence (Figure 1A). Most open reading frames are
+flanked by tRNAs,
+1
+and their maturation is accomplished
+by two enzymes: RNase P, which cleaves the 5
+′
+ends of
+tRNAs,
+2,3
+and RNase Z (ELAC2, MIM: 605367), which
+cleaves the 3
+′
+tRNA ends.
+4–6
+However, a few mRNAs are
+not flanked by tRNAs, and their maturation requires the
+activity of FASTKD5
+7,8
+(MIM: 614272), a member of the
+FASTK family of proteins, all of which play a role in
+mitochondrial RNA metabolism.
+9,10
+While mutations in
+RNase P have been associated with multisystem mito-
+chondrial disease (MIM: 616974, MIM: 300438, and
+MIM: 619737)
+11–13
+and mutations in ELAC2 with hyper-
+trophic cardiomyopathy (MIM: 615440),
+14,15
+mutations
+in FASTKD5 have not yet been reported. Here, we report
+disease-causing bi-allelic variants in FASTKD5 in three
+subjects: one with severe, early-onset, fatal Leigh syn-
+drome, another with milder, childhood-onset Leigh syn-
+drome, and the third with adult-onset Leigh syndrome
+(Figure 1B).
+Subjects and methods
+Subjects
+Subject 1 (a male patient) presented at 14.5 months with
+failure to thrive with a weight of 5.1 kg (Z score = � 4.5) and
+microcephaly with a fronto-occipital circumference of 41 cm
+(Z score = � 4.7). Neurodevelopmental features included hypoto-
+nia, gross motor skills under the 4-months-of-age skill level, and
+fine motor skills at the 6-months-of-age level, with no expressive
+1
+Department of Human Genetics, McGill University, Montreal, QC H3A 2B4, Canada;
+2
+The Neuro, Montreal Neurological Institute, Montreal, QC H3A
+2B4, Canada;
+3
+Department of Biochemistry, Faculty of Medicine, Chiang Mai University, Chiang Mai 50200, Thailand;
+4
+Division of Human Genetics,
+Department of Pediatrics, Children’s Hospital of Philadelphia, Philadelphia, PA, USA;
+5
+Institute of Neurogenomics, Computational Health Center, Helm-
+holtz Zentrum Munich, Neuherberg, Germany;
+6
+School of Medicine, Institute of Human Genetics, School of Medicine, Technical University of Munich,
+Munich, Germany;
+7
+Section of Metabolic Genetics, Dell Children’s Medical Center of Central Texas, Austin, TX, USA;
+8
+Department of Pediatrics, Dell
+Medical School at University of Texas at Austin, Austin, TX, USA;
+9
+Section of Clinical Genetics and Metabolism, Department of Pediatrics, University
+of Colorado, Aurora, CO 80045, USA;
+10
+Mitochondrial Laboratory, Department of Pathology and Laboratory Medicine, Children’s Hospital Colorado,
+Aurora, CO 80045, USA;
+11
+Neurological Institute, Department of Clinical and Experimental Medicine, University of Pisa, Pisa, Italy;
+12
+Institute of Clinical
+Human Genetics, University Hospital Regensburg, Regensburg, Germany;
+13
+Department of Pharmaceutical Sciences, Skaggs School of Pharmacy and
+Pharmaceutical Sciences, University of Colorado Anschutz Medical Campus, Aurora, CO 80045, USA;
+14
+Mitochondrial Medicine Frontier Program, Divi-
+sion of Human Genetics, Department of Pediatrics, Children’s Hospital of Philadelphia, Philadelphia, PA, USA;
+15
+Division of Genetics, Department of
+Pediatrics, Atrium Health Levine Children’s Hospital, Charlotte, NC, USA;
+16
+Department of Pediatrics, University of Pennsylvania Perelman School of
+Medicine, Philadelphia, PA, USA;
+17
+German Center for Child and Adolescent Health (DZKJ), Partner Site Munich, Munich, Germany
+*Correspondence: eric.shoubridge@mcgill.ca
+https://doi.org/10.1016/j.ajhg.2025.05.007.
+The American Journal of Human Genetics 112, 1699–1710, July 3, 2025 1699
+© 2025 American Society of Human Genetics. Published by Elsevier Inc. All rights are reserved, including those for text and data mining, AI training, and
+similar technologies.
+
+Figure 1. Mutations in FASTKD5 cause Leigh-like syndrome in three unrelated subjects
+(A) Schematic representation of the early steps of the expression of mtDNA encoded genes. mtDNA is transcribed into two polycis-
+tronic transcripts from the heavy- and light-strand promoters (HSP and LSP, respectively). The majority of mitochondrial transcripts
+are adjacent to a tRNA, and the endonucleolytic cleavage at the 5
+′
+and 3
+′
+ends of each tRNA releases the rRNAs, mRNAs, and tRNAs
+(based on the tRNA punctuation model
+1
+). Three non-canonical cleavage sites, the 5
+′
+end MT-CO1, between MT-ATP8/6 and MT-
+CO3, and between MT-ND5 and MT-CYB, which are not separated by a tRNA, are processed by FASTKD5 (the processing sites are indi-
+cated by a red arrow). Created in BioRender.
+(B) FASTKD5 transcript and protein structure with suggested protein domains. Localization and conservation of amino acid residues
+affected by the FASTKD5 variants in the three identified subjects are shown. MTS, mitochondrial targeting sequence.
+(C) Axial T2-weighted brain MRI images (i–iii) of subject 1 (at 1 year of age) show abnormal hyperintense signal at the level of the entire
+brainstem, extending from the medulla to the midbrain and at the level of the putamina bilaterally. (iv and v) Axial T1-weighted im-
+ages show an abnormal hypointense signal at the level of the entire brainstem, extending from the medulla to the midbrain.
+(legend continued on next page)
+1700 The American Journal of Human Genetics 112, 1699–1710, July 3, 2025
+
+language skills but attendance to voices. Ophthalmologic assess-
+ment showed nystagmus and esotropia but no retinal pathology.
+At the age of 14.5 months, the subject received a percutaneous
+endoscopic gastrostomy tube due to dysphagia. MRI of the brain
+showed subtly abnormal T2 signals in the putamen and accum-
+bens nuclei (Figure 1C) and decreased diffusivity and edema in
+the bilateral subthalamic nuclei, dorsal pons, and midbrain,
+including the periaqueductal gray matter and tectum. Lateral
+ventricles were mildly enlarged for age. Blood lactate concentra-
+tions ranged from 3.3 to over 10 mmol/L (reference < 2.2 for
+venous samples). Supplemental alkali from acetate administered
+intravenously (i.v.) or enteral sodium citrate/citric acid did not
+shift the lactate concentration or correct the acidosis. His last
+outpatient clinic visit was at 27 months of age. He had lost gross
+motor skills and his single non-specific word. His final hospital
+admission followed a rhinovirus infection leading to acute respi-
+ratory failure that required mechanical ventilation. This was
+accompanied by severe lactic acidosis (pH 6, lactate: 28 mmol/
+L). He developed irreversible multisystem organ failure, and sup-
+port was withdrawn. Exome sequencing demonstrated
+c.1716dup (GenBank: NM_021826.5) (p.Pro573Alafs*17) and
+c.1901T>C (GenBank: NM_021826.5) (p.Leu634Pro) in
+FASTKD5 of maternal and paternal origin, respectively
+(Figure 1B). The former variant has a gnomAD (v.4.1.0) entry
+with an allele frequency of approximately 68/1,613,784 alleles,
+always heterozygous.
+Subject 2, a 27-year-old female patient, was admitted to the
+neurology unit 1 week after experiencing a fever of unknown
+origin. She presented with a sub-acute onset of cognitive-motor
+slowing, lethargy, hyperphagia, difficulty in ambulation, and oc-
+ulomotor alterations (mild convergent strabismus in the left eye
+with mild abduction deficit, vertical nystagmus in the primary
+position and horizontal nystagmus in bilateral gaze settings,
+and complete deficit of ocular pursuit movements in the vertical
+plane). Brain MRI (Figure 1D) revealed intra-axial lesions in the
+midbrain, tegmentum, and tectal plate, with extension along
+the medial longitudinal fasciculus, with modest mass effect,
+linear enhancement, increased perfusion indices, and a lactic
+acid peak on spectroscopy. Cerebrospinal fluid analysis was unre-
+markable except for a moderate elevation in lactate concentra-
+tion (4 mmol/L) and the presence of HHV-6 DNA. Blood lactate
+concentrations ranged from 2.6 to 3 mmol/L. Echocardiography
+and cardiac MRI showed interventricular septum hypertrophy.
+At this point, i.v. immunoglobulin, i.v. steroids, and a mitochon-
+drial cocktail (100 mg/day riboflavin and 600 mg/day CoQ10)
+were administered. Muscle biopsy revealed modest myopathic
+changes, including diffuse cytochrome c oxidase (COX) defi-
+ciency, hypo-atrophic fibers, rare sandwich-type fibers, rare
+chronic inflammatory lymphomonocytes, and a slight increase
+in endomysial and perimysial connective tissue, along with mul-
+tiple deletions in mtDNA. Two months after discharge, the sub-
+ject had rigid-akinetic parkinsonism with severe axial rigidity,
+right foot dystonia, slight ideo-motor slowing, left eye stra-
+bismus, limitation of slow horizontal eye movements, a mild
+deficit of ocular pursuit movements in the vertical plane, binoc-
+ular reduced visual acuity, and mild eyelid ptosis. Ophthalmolog-
+ical examination showed no signs of retinopathy but profoundly
+reduced visual acuity with increased latency of visual evoked po-
+tentials. She was treated with a dopamine agonist and idebenone.
+After 1 month, she was readmitted due to gastroparesis with aspi-
+ration pneumonia, which temporarily required orotracheal intu-
+bation. Prokinetic therapy was started. The subject was evaluated
+every 6 months for the next 3 years. At the most recent assess-
+ment, the subject was breathing spontaneously and had no com-
+plaints of dysphagia, and parkinsonism had resolved. However,
+she exhibited profound exercise intolerance, visual acuity loss,
+and executive dysfunction with reduced autonomy. The pheno-
+type was compatible with adult-onset Leigh syndrome. Exome
+sequencing revealed the presence of c.1210C>T (GenBank:
+NM_021826.5) (p.Arg404Cys) (gnomAD allele frequency: 109/
+1,614,226 alleles, always heterozygous) and c.374A>G (GenBank:
+NM_021826.5) (p.Tyr125Cys) (gnomAD allele frequency:
+7/1,614,184 alleles, always heterozygous) in FASTKD5 of paternal
+and maternal origin, respectively (Figure 1B). Moreover, exome
+sequencing revealed the presence of a maternally inherited mi-
+crodeletion (chr1:146631144–147415657) associated with
+1q21.1 microdeletion syndrome.
+16
+Except for some dysmorphic
+features (broad face, midface retrusion, and broad and short
+neck), the subject did not present with manifestations commonly
+associated with this syndrome. Several genes of interest (PRKAB2,
+FMO5, CHD1L, BCL9, ACP6, GJA5, and GJA8) are located within
+this deletion; however, no single gene has been identified as caus-
+ative for the overall phenotype. There are no known genes in this
+region associated with mitochondrial disease.
+Subject 3 (a male patient) was born small for gestational age
+after a full-term pregnancy complicated by preeclampsia. He
+required admission to the intensive care nursery for poor feeding
+for 3 weeks. Following intensive care nursery discharge, he was
+able to eat orally; however, he developed a failure to thrive and
+had gastrostomy tube placement at 11 months of age. Additional
+features include global developmental delay without regression,
+most notably in gross motor skills, first walking at age 2, and
+expressive speech, first babbling at 16 months and able to sign
+20–30 words at 21 months; exercise intolerance; dysmorphic
+facial features, including midfacial hypoplasia, prominent
+cheeks, micro/retrognathia, epicanthus, down-slanting palpebral
+fissures, smooth philtrum, and thin upper lip; and intermittent
+mild lactatemia as high as 4.2 mmol/L. Exome sequencing at
+14 months of age demonstrated c.2028_2029del (GenBank:
+NM_021826.5) (p.Ala678Hisfs*79) (gnomAD allele frequency:
+8/1,614,088 alleles, always heterozygous) and c.374 A>G (Gen-
+Bank: NM_021826.5) (p.Tyr125Cys) (gnomAD allele frequency:
+7/1,614,184 alleles, always heterozygous) in FASTKD5 in trans
+(Figure 1B). A muscle biopsy was performed at 23 months of
+(D) Axial T2-weighted brain MRI images of subject 2 reveal intra-axial hyperintensities of the midbrain (tegmentum and tectal plate) (i
+and ii). The lesion extends along the medial longitudinal fasciculus and corresponds to the oculomotor nuclei while sparing the pig-
+mented midbrain nuclei. There is a modest mass effect, notably affecting the Sylvian aqueduct, which appears narrowed with initial
+dilation of the temporal horn tips (i and ii). Hyperintensities ascend to the subthalamic nuclei (iii), whereas the descending spread
+affects the pontine and medullary tegmentum (iv). Axial D-weighted images indicate restricted diffusivity within the midbrain lesion
+focus (vi). Sagittal and coronal FLAIR sequences demonstrate the longitudinal extension of the lesion (vii and viii). Spectroscopic sam-
+pling shows lactate accumulation within the midbrain lesion focus (ix).
+(E) Axial T2-weighted brain MRI images (i and ii) of subject 3 at 31 months of age show symmetric areas of abnormal hyperintensity
+involving the bilateral basal ganglia, thalami, and dorsal medulla.
+The American Journal of Human Genetics 112, 1699–1710, July 3, 2025 1701
+
+age and showed no significant pathologic abnormalities with
+normal mitochondrial DNA content and sequencing. Brain MRI
+(Figure 1E) at 31 months of age showed symmetric areas of
+abnormal T2 hyperintensity involving the bilateral basal ganglia,
+thalami, and dorsal medulla, consistent with Leigh syndrome.
+Methods
+Cell culture
+Primary human skin fibroblasts were immortalized with a retro-
+virus expressing the E7 gene of type 16 human papillomavirus
+and a retroviral vector expressing the protein component (htert)
+of human telomerase.
+17
+The Phoenix cell line, fibroblast cell lines
+from control individuals and subjects, and derived cell lines ex-
+pressing FASTKD5 constructs were grown in high-glucose Dulbec-
+co’s modified Eagle medium (DMEM) supplemented with 10%
+fetal bovine serum at 37
+◦
+C in an atmosphere of 5% CO
+2
+. All
+cell lines were regularly tested for mycoplasma contamination.
+Generation of over-expression cell lines
+Control and subject fibroblasts were transduced with FASTKD5
+pBABE-3xFLAG-Puro constructs using retroviral infection with a
+virus produced in Phoenix cells transfected with indicated plas-
+mids, as described previously.
+18
+Briefly, plasmids were transiently
+transfected into the Phoenix cell line using the HBS/Ca
+3
+(PO
+4
+)
+2
+method. Fibroblast cells were then infected 48 h later by exposure
+to a virus-containing medium in the presence of 4 μg/mL of poly-
+brene. The cloning of the FASTKD5 wild-type (WT) construct, as
+well as constructs with individual FASTKD5 variants, was
+described previously.
+7
+SDS- and blue native PAGE and immunoblot analysis
+For SDS-PAGE, whole-cell extracts were prepared by solubiliza-
+tion of fibroblasts in 1.5% n-dodecyl β-D-maltoside/PBS for
+40 min on ice, followed by centrifugation at 20,000g for 20 min
+at 4
+◦
+C. The protein concentration in supernatants was deter-
+mined by Bradford assay. 2× Laemmli sample buffer was added
+to supernatants, and samples were denatured at room tempera-
+ture overnight or at 50
+◦
+C for 10 min. 20–50 μg of protein was
+run on either 10% or 12.5% Tris/glycine polyacrylamide gels.
+For blue native PAGE (BN-PAGE), mitoplasts were prepared as
+described previously.
+19
+Briefly, pelleted fibroblasts were resus-
+pended in PBS at a final concentration of 5 mg/mL. Digitonin was
+added to the cells at a ratio of 0.8 mg digitonin/mg of protein, and
+the samples were incubated on ice for 5 min, diluted to 1.5 mL
+with PBS, and centrifuged for 10 min at 10,000g at 4
+◦
+C. The pellet
+was resuspended in a buffer containing 75 mM Bis-Tris (pH 7.0),
+1.75 M aminocaproic acid, and 2 mM EDTA at a final protein con-
+centration of 2 mg/mL. 1/10 volume of 10% n-dodecyl β-D-malto-
+side was added to the samples, and the samples were incubated on
+ice for 20 min, followed by centrifugation at 20,000g for 20 min at
+4
+◦
+C. The protein concentration in supernatants was determined
+by Bradford assay. 20 μg of mitoplasts were run on native 6%–
+15% polyacrylamide gradient gels as previously described.
+20
+BN-
+PAGE separation of subject and control fibroblasts was used for
+immunoblotting. Separated proteins from either SDS- or BN-PAGE
+were transferred to a nitrocellulose membrane, and immunoblot
+analysis was performed with indicated antibodies (Table S3).
+Enzyme activity measurements
+Spectrophotometric assays of whole-cell extracts were used to mea-
+sure enzyme activities as described previously.
+21,22
+Briefly, cells
+were grown on 10 cm plates to about 90% confluency, washed
+twice with PBS, and scraped in 1 mL ice-cold PBS. Cells were
+collected by centrifugation at 10,000g for 1 min at 4
+◦
+C. Cell pellets
+were resuspended in 50 mM triethanolamine (pH 7.4) and 1 mM
+EDTA and homogenized with a motorized pestle for 15 s. Citrate
+synthase (CS) activity was measured as an increase in absorbance
+at 412 nm at 30
+◦
+C in 100 mM Tris-HCl (pH 7.4), 25 μM acetyl-co-
+enzyme A, 200 μM Ellman’s reagent (DTNB), and 0.1% Triton
+X-100 with or without 70 μM oxaloacetic acid (pH 7.4) as a sub-
+strate. COX activity was measured as a decrease in absorbance at
+550 nm at 30
+◦
+C in 50 mM potassium phosphate buffer (pH 7.0),
+0.1% n-dodecyl β-D-maltoside, and 50 μM reduced cytochrome c
+as a substrate. COX activity was normalized to CS activity.
+For clinical analysis, fibroblasts were cultured in minimal essen-
+tial medium (MEM)-alpha with 10% fetal bovine serum, 10%
+non-essential amino acids, antibiotics, and antimycotics until
+80% confluency. The respiratory chain enzyme activities for com-
+plexes I, II, II+III, III, and IV and CS were assayed in supernatants,
+after a 600 g spin, spectrophotometrically on a Cary 300 spectro-
+photometer at 30
+◦
+C in cultured skin fibroblasts or muscle homog-
+enate as described.
+23
+All activities were normalized to the total
+protein content in each sample and expressed as ratios over the
+activity of CS and complex II. The natural log of the activities
+and ratios in control samples was normally distributed, and the
+results were thus expressed as Z scores. The normal ranges were
+derived from 33 control fibroblasts and validated in another 50
+controls. A solubilized inner mitochondrial membrane was pre-
+pared for separation of the mitochondrial complexes on BN-
+PAGE with in-gel activity staining as described.
+21
+Quantitative proteomics (TMT labeling)
+Fibroblasts were processed and analyzed through an established
+proteomics pipeline to quantify the protein levels of respiratory
+chain complex IV subunits. Liquid chromatography-mass spec-
+trometry (LC-MS) data were acquired at the BayBioMS core facility
+of the Technical University of Munich (Freising, Germany) on a
+Fusion Lumos Tribrid mass spectrometer (Thermo Scientific). Out-
+puts were analyzed using the MaxQuant platform. Two parameters
+of the protocol previously described
+24
+have been modified: peptide
+fractionation was carried out using a high-pH reverse phase instead
+of trimodal mixed-mode chromatography and TMT labeling was
+carried out using TMT11-plex instead of TMT10-plex reagent.
+Data from one TMT11-plex have been used, including subject 1,
+subject 1 + WT-FASTKD5 (rescue), subject 2, and 8 unrelated con-
+trol cell lines. Over-representation analysis (ORA) was conducted
+on two individual samples, with each analyzed separately for
+upregulated and downregulated proteins based on differential
+expression, with p < 0.1 and Z score (<� 1.5 [down] or >1.5 [up]
+to maintain directionality) thresholds applied for gene selection.
+Following these criteria, in subject 1, 124 (down) and 84 (up) pro-
+teins were prioritized, and in subject 2, 126 (down) and 108 (up)
+proteins were prioritized and used in the subsequent analysis. A
+combined ORA was performed using the union of significant genes
+from both samples (up and down separately), enabling the identi-
+fication of shared and sample-specific Gene Ontology (GO) terms.
+Significantly enriched GO biological process (BP) terms were iden-
+tified using enrichGO (clusterProfiler).
+Proteomics
+Proteomics analysis was performed using the subject sample in
+triplicate together with five in-assay controls, as described in
+1702 The American Journal of Human Genetics 112, 1699–1710, July 3, 2025
+
+detail previously.
+25
+Briefly, fibroblasts, grown as in clinical assays,
+were washed in PBS after harvesting, resuspended in SDS-TEAB
+buffer, and protein measured (Pierce BCA Protein Assay Kit).
+25 μg protein was reduced and alkylated using tris(2-carbox-
+yethyl)phosphine (TCEP) and 2-chloroacetamide, transferred to
+an S-Trap micro column (Protifi), and trypsinized overnight.
+The peptides were eluted from the S-Trap micro column using
+three elution buffers, dried, and resuspended in 2% acetonitrile
+and 0.1% trifluoroacetic acid, and 3 μL per sample was loaded
+on an OrbiTrap Eclipse mass spectrometer (Thermo Scientific)
+for LC-tandem MS (LC-MS/MS) analysis. Samples were loaded
+onto an Acclaim Pepmap 100 C18 75 μm × 2 cm trapping column
+and chromatographically resolved on-line using an EASY-Spray
+Pepmap RSLC C18 75 μm × 25 cm 2 μm analytical column
+(Thermo Scientific) using an Ultimate 3000 RSLCnano LC system.
+For data-independent acquisition (DIA) experiments, full MS res-
+olutions were set to 120,000 at m/z and scanning from 350 to
+1,400 m/z in the profile mode. The full MS automatic gain control
+(AGC) target was 250% with an IT of 50 ms, and data were ac-
+quired in 50 windows of 13.7 Da with an overlap of 1 Da with a
+resolution set to 30,000. All data were acquired in centroid
+mode using positive polarity. Raw data were processed using
+the Spectronaut platform (v.19.6.250122.62635, Sagan, Bio-
+gnosis) and searched against the UniProt human database (ca-
+nonical peptides + reviewed isoforms, total 42,447 entries).
+Default settings were applied, with the exception that single-hit
+proteins were excluded from the search. MS2 quantities from
+protein groups were imported into Perseus (v.2.0.10.0), and
+two valid values were filtered for subjects and in-assay control
+samples (n = 5). MS2 quantities of mitochondrial proteins were
+annotated with MitoCarta3.0 in Perseus. The relative complex
+abundance (RCA) was calculated and then plotted for each com-
+plex of the respiratory chain, the small and the large subunit of
+the mitoribosome, and the pyruvate dehydrogenase complex in
+R (v.4.3.0) and RStudio (v.2023.03.1+446) using a custom build
+program. To determine the variation in normal controls, the
+RCA was developed from 21 deidentified normal control fibro-
+blast cells with verified normal standard cellular energetics assays.
+RNA isolation and Northern blot analysis
+Total RNA was isolated from fibroblasts using the RNeasy Plus Kit
+(Qiagen). 5 μg of total RNA was separated on a denaturing MOPS/
+formaldehyde agarose gel and transferred to a nylon membrane.
+300- to 500-bp-long PCR products of individual mitochondrial
+genes (CO1, CO3, CYB, ND3, and CO2) were labeled with
+[α-
+32
+P]-dCTP (Revvity) using a Random Primed DNA labeling kit
+(Sigma). Hybridization was performed according to the manufac-
+turer’s manual using ExpressHyb hybridization solution (Takara
+Bio), and the radioactive signal was detected using a Phosphorim-
+ager system.
+RNA sequencing
+Fibroblast RNA was subjected to strand-specific, poly(A)-enriched
+RNA sequencing (RNA-seq) according to published protocols.
+26
+Following RNA-integrity assessment (BioAnalyzer), libraries
+were prepared as described in the TruSeq Stranded mRNA Sample
+Prep Guide (Illumina) and sequenced as 100-bp paired-end runs
+on a NovaSeq6000. Reads were mapped to GRCh37/hg19 using
+STAR-aligner. RNA-coverage data were extracted using SAMtools
+v.1.20 and corrected by the total number of reads mapped to
+mtDNA to account for the different sequencing depth. For the
+quantification of FASTKD5 mRNA expression, RNA-seq data
+were normalized and analyzed using the OUTRIDER package us-
+ing default settings.
+27
+Mitochondrial translation assay
+Pulse labeling of mitochondrial translation products in fibro-
+blasts was performed with 100 μCi/mL of a [
+35
+S]-methionine/
+cysteine mix (Revvity) in DMEM lacking methionine and
+cysteine and containing 100 μg/mL of a cytoplasmic translation
+inhibitor, emetine, for 60 min, as described in detail else-
+where.
+28
+Following the incubation, fibroblasts were resus-
+pended in PBS to measure the protein concentration using the
+BCA assay. 50 μg of protein was resuspended in loading buffer
+containing 93 mM Tris-HCl (pH 6.7), 7.5% glycerol, 1% SDS,
+0.25 mg bromophenol blue/mL, and 3% mercaptoethanol, son-
+icated for 5–8 s, and run on 15%–20% polyacrylamide gradient
+gels. To establish the protein loading, the top part of the gel
+(above 70 kDa marker) was cut and stained with Coomassie bril-
+liant blue R-250. The rest of the gel was dried, and the labeled
+mitochondrial translation products were detected by direct
+autoradiography.
+Immunofluorescence experiments
+For immunofluorescence experiments, fibroblasts expressing the
+WT-FASTKD5-3xFLAG construct were grown on coverslips for
+24 h. Cells were then fixed using 4% formaldehyde in PBS for
+20 min at 37
+◦
+C. Coverslips were washed 3 times with PBS, and
+cells were permeabilized in 0.1% Triton in PBS for 15 min at
+room temperature, washed 3 times with PBS, and blocked in
+PBS containing 5% BSA for a minimum of 10 min. Coverslips
+were then incubated with the indicated primary antibodies
+(Table S3) for 1 h at room temperature, washed 3 times with
+PBS, and incubated with the appropriate anti-species secondary
+antibodies coupled with Alexa fluorochromes (Thermo Scientific,
+1:2,000) and DAPI (Sigma, 1:2,000) for 30 min at room tempera-
+ture. Coverslips were washed 3 times with PBS and mounted with
+Fluromount-G (Thermo Scientific). Cells were imaged on an
+Olympus IX83 microscope connected with a Yokogawa CSU-X
+confocal scanning unit, using a UPLANSAPO 100×/1.40 oil objec-
+tive (Olympus) and an Andor Neo sCMOS camera. Images were
+processed in Fiji.
+29
+General statistical analysis
+Statistical analysis was performed using GraphPad Prism. Unless
+indicated otherwise in the figure legends, all experiments were
+performed at least in biological triplicates, and the results are
+presented as the mean 5 standard deviation (SD) of absolute
+values or percentages of control. For the comparison of multiple
+groups, two-way ANOVA with a Tukey’s multiple comparisons
+test was performed. p < 0.05 was considered significant. p values
+are as follows: *p < 0.05, **p < 0.01, ***p < 0.001, and
+****p < 0.0001.
+Ethics
+Studies in Colorado were done on an institutional review board
+(IRB)-approved research protocol, COMIRB #18-1828. Studies in
+Pennsylvania were performed through an IRB-approved research
+protocol, IRB 24-022190. Written informed consent was obtained
+from all subjects or from their parents or legal guardians to pub-
+lish this report.
+The American Journal of Human Genetics 112, 1699–1710, July 3, 2025 1703
+
+Figure 2. Subjects carrying pathogenic FASTKD5 variants present with a cytochrome c oxidase deficiency that is rescued by
+re-expression of wild-type FASTKD5
+(A) Steady-state levels of FASTKD5, FLAG, and other selected mitochondrial proteins assessed by immunoblotting in fibroblasts from
+two control individuals, two subjects, and the same cells over-expressing wild-type (WT) FASTKD5-3xFLAG. VDAC1 and SDHA were
+used as loading controls. Molecular weight markers (in kDa) are indicated on the left. FLAG indicates migration of FASTKD5-3xFLAG;
+endog indicates migration of endogenous FASTKD5 protein.
+(B) Quantification of total FASTKD5 (endogenous plus FASTKD5-3xFLAG) and MT-CO1 steady-state protein levels in subjects’ fibro-
+blasts as determined by immunoblotting (A) and compared to the levels in control fibroblasts, which were set to 1. Data are represented
+(legend continued on next page)
+1704 The American Journal of Human Genetics 112, 1699–1710, July 3, 2025
+
+Results
+Immunoblot analysis of fibroblasts showed decreased
+steady-state levels of FASTKD5 protein in two subjects
+for whom fibroblast cultures were available: 24% of con-
+trols in subject 1 and 45% of controls in subject 2
+(Figures 2A and 2B), while the FASTKD5 transcript levels
+were about 70% of controls for subject 1 and at control
+levels for subject 2 (Figure S1A). This resulted in a severe
+decrease in the steady-state levels of the cytochrome c ox-
+idase subunit 1 (MT-CO1; Figures 2A and 2B), a conse-
+quent reduction in the level of the fully assembled COX
+complex (complex IV; Figure 2C), and reduced COX enzy-
+matic activity (Figure 2D). The expression of other
+mtDNA-encoded proteins was not significantly changed
+(Figures 2A and S1B), resulting in the normal assembly
+of the other OXPHOS complexes (Figure 2C). There was
+no evidence of any subcomplex assemblies for any of
+the OXPHOS complexes. Proteomics analysis of
+OXPHOS complexes, mitoribosomes, and the pyruvate
+dehydrogenase complex in subject 1 fibroblasts also
+showed a specific complex IV deficiency (Figure S2A).
+Enzymatic analysis of the activities of all OXPHOS com-
+plexes showed a specific decrease in complex IV
+(Table S1) and reduced complex IV activity in subject 1 fi-
+broblasts on BN-PAGE in-gel activity staining (Figure S2B).
+Quantitative proteomics revealed severely reduced steady-
+state levels of all identified complex IV subunits in both
+subjects’ fibroblasts (Figure S2C). ORA of the proteomics
+data identified GO terms related to electron transport
+chain/respiration/OXPHOS as the only shared terms
+(significantly downregulated) for both subjects’ fibro-
+blasts, in agreement with the identified COX deficiency
+(Figure S2D). There were no significant changes in the
+expression of other mitochondrial RNA transcription/pro-
+cessing factors or proteins of mitochondrial RNA granules
+and mitochondrial translation (Figures 2A and S1B).
+The activity of the OXPHOS complexes was measured in a
+muscle biopsy specimen from subject 3. This analysis
+showed a severe deficiency in complex IV activity. Addition-
+ally, complex II activity was profoundly increased, while
+complex II+III activity was only slightly elevated, indicating
+a deficiency in complex III activity. Rotenone-sensitive
+complex I+III activity was also decreased (Table S2).
+FASTKD5 is essential for processing the primary mito-
+chondrial transcript at non-canonical sites: at the 5
+′
+end
+of MT-CO1, between MT-ATP8/6 and MT-CO3, and be-
+tween MT-ND5 and MT-CYB (Figure 1A). While the com-
+plete absence of FASTKD5 protein (in 143B cells where
+FASTKD5 was knocked out by CRISPR)
+7
+resulted in an
+almost complete lack of processing at all three non-canon-
+ical sites, residual amounts of FASTKD5 protein (in fibro-
+blasts or Hap1 cells in which FASTKD5 was knocked
+down by small interfering RNA [siRNA]
+8
+or by CRISPR
+10
+)
+were able to process the MT-ND5-CYB transcript but un-
+able to produce mature MT-CO1 or MT-CO3 transcripts.
+Northern blot analysis of subjects’ fibroblasts demon-
+strated the accumulation of unprocessed 5
+′
+end MT-CO1,
+MT-ATP8/6-CO3, and MT-ND5-CYB transcripts, with a
+lack of mature MT-CO1 and MT-CO3 (Figure 2E), but
+normal levels of mature MT-CYB, suggesting that residual
+activity of the FASTKD5 variants in the subjects’ fibro-
+blasts was sufficient to process MT-ND5-CYB pre-mRNA,
+resembling the situation in FASTKD5 knockdown cells.
+The processing and steady-state mRNA levels of other
+(canonical) mitochondrial transcripts were not affected
+in fibroblasts from either subject.
+To investigate the processing defect due to the mutations
+in FASTKD5 in further detail, we performed transcriptome
+RNA-seq analysis of fibroblasts from both subjects 1 and 2
+and subject 1 + WT-FASTKD5 (rescue) and compared
+them to control subjects. As expected, no major differences
+were found in the levels of canonical mitochondrial tran-
+scripts. In agreement with the Northern blot analysis, the
+level and processing of the MT-ND5-CYB transcript were
+normal, while the processing of 5
+′
+end MT-CO1 and MT-
+ATP8/6-CO3 was severely diminished in both subjects
+and rescued by the over-expression of WT-FASTKD5
+(Figure 3). The transcriptome analysis further confirmed
+low levels of MT-CO1 mRNA in both subjects.
+The lack of mature MT-CO1 mRNA resulted in a substan-
+tial decrease in the synthesis of the MT-CO1 polypeptide
+(Figures 2F and S3). Interestingly, although there was a sig-
+nificant decrease in mature MT-CO3 mRNA levels in both
+as the mean 5 SD based on 4–6 biological replicates. Two-way ANOVA with a Tukey’s multiple comparisons test was performed, and
+significant p values are indicated: *p < 0.05, **p < 0.01, ***p < 0.001, and ****p < 0.0001.
+(C) OXPHOS assembly in fibroblasts from two control individuals, two subjects, and the same cells over-expressing WT FASTKD5-
+3xFLAG was assessed by BN-PAGE analysis with complex-specific antibodies. Complex II was used as a loading control.
+(D) Cytochrome c oxidase (COX) activity in subjects’ fibroblasts determined by spectrophotometric enzymatic assay, shown as a COX/
+citrate synthase (COX/CS) ratio and normalized to the COX/CS ratio in control cells, which was set to 100%. Data are represented as
+the mean 5 SD based on 4 biological replicates. Two-way ANOVA with a Tukey’s multiple comparisons test was performed, and sig-
+nificant p values are indicated: ****p < 0.0001.
+(E) Processing of mitochondrial transcripts in subjects’ fibroblasts evaluated by Northern blot analysis. The canonical transcripts (ND3
+and CO2) were used as loading controls.
+(F) Synthesis of mitochondrial polypeptides in subjects’ fibroblasts determined by
+35
+S-methionine/cysteine incorporation into newly
+synthesized proteins in the presence of emetine to inhibit cytoplasmic protein synthesis. Coomassie total protein staining served as a
+loading control. Molecular weight markers (in kDa) are indicated on the left.
+(G) Rescue of MT-CO1 expression assessed at the single-cell level by immunofluorescence in control individuals’ and subjects’ fibro-
+blasts over-expressing WT FASTKD5-3xFLAG. Cells expressing WT-FASTKD5 were detected by anti-FLAG antibody (marked with aster-
+isks), PRDX3 was used as a mitochondrial marker. Scale bar is 10 μm.
+The American Journal of Human Genetics 112, 1699–1710, July 3, 2025 1705
+
+subjects, the MT-CO3 polypeptide was synthetized at con-
+trol levels in both subjects, confirming that the MT-
+CO3 polypeptide can be translated from a tri-cistronic
+MT-ATP8/6-CO3 transcript (Figure 1A), as shown previ-
+ously.
+7,30
+While both subjects showed an apparent in-
+crease in the synthesis of the ND4 polypeptide, this was
+not statistically significant (Figure S3). The translation of
+ATP6 and ATP8 appeared lower in subject 2 and was not
+changed by the expression of WT-FASTKD5; however,
+the steady-state level of ATP6 was normal on immunoblot
+analysis (Figure S1B), as was the assembly of complex V by
+BN-PAGE (Figure 2C). The phenotypic presentation in
+both subjects is thus largely determined by a severe defect
+in the processing of the 5
+′
+end MT-CO1 and the subse-
+quent lack of synthesis of the MT-CO1 polypeptide, lead-
+ing to a COX deficiency.
+To confirm the pathogenicity of FASTKD5 variants in
+these two subjects, WT-FASTKD5 was expressed in the
+subjects’ fibroblasts (Figures 2 and S1–S3). Stable expres-
+sion of FLAG-tagged FASTKD5 protein (to 1.6 and 4.2
+times of endogenous control FASTKD5 levels in subjects
+1 and 2, respectively; Figures 2A and 2B) resulted in the
+rescue of MT-CO1 and MT-CO3 processing (Figures 2E
+and 3), an increase in the translation of the MT-CO1 poly-
+peptide (Figure 2F), rescue of the steady-state level of the
+MT-CO1 protein (Figures 2A and 2B), and concomitant
+rescue of COX assembly (Figure 2C) and enzymatic activ-
+ity (Figure 2D). Immunofluorescence analysis showed the
+Figure 3. Detailed analysis of the RNA processing defect in subject fibroblasts
+Processing of 5
+′
+end MT-CO1 and MT-ATP8/6-MT-CO3 pre-mRNAs are affected by FASTKD5 mutations in subject 1 (top) and subject 2
+(middle). Mitochondrial transcriptome of fibroblasts from FASTKD5 subjects and control individuals was analyzed by RNA-seq, and
+relative sequencing coverage (single-bp resolution) is plotted against the indicated mitochondrial genome regions (bottom;
+numbering according to RefSeq accession number J01415). Colored lines represent individuals: subject 1 (blue), rescue - subject 1 +
+WT (purple), and subject 2 (orange). The black line represents the average of the control samples (10 and 7 control samples, respec-
+tively), and the gray line indicates the standard deviation (SD) of the control samples. The dotted red line shows the expected
+FASTKD5 cleavage sites (indicated by a red arrowhead in the schematic) with the nucleotide position indicated in red.
+1706 The American Journal of Human Genetics 112, 1699–1710, July 3, 2025
+
+rescue of MT-CO1 expression at the single-cell level
+(Figure 2G). These data confirm that the FASTKD5 gene
+is the disease-causing gene in these two subjects.
+To determine the mode of pathogenicity of the identified
+FASTKD5 variants, we expressed the individual variants in
+fibroblasts from both subjects and control individuals
+(Figure 4). We were able to express the p.Arg404Cys and
+p.Leu634Pro FASTKD5 protein to the same level as WT-
+FASTKD5; however, expression of either variant was unable
+to rescue the MT-CO1 expression in the subjects’ cells
+(Figure 4A) or COX activity (Figure 4B), supporting that
+these variants result in the loss of function. The
+p.Tyr125Cys FASTKD5 protein was unstable, as it was ex-
+pressed at levels significantly lower than the WT protein
+in fibroblasts from both the subjects and control individ-
+uals (Figure 4A). However, expression of this variant was
+able to double the COX activity in subject 2 (from 32%
+to 66%), confirming that the effect of the variant p.
+Tyr125Cys is hypomorphic due to the reduced stability of
+the protein (Figure 4B). Stabilizing this variant could poten-
+tially ameliorate the clinical phenotype in this subject.
+Discussion
+Mutations in at least 95 different genes have been associated
+with Leigh syndrome (MIM: 256000), which is the most
+common pediatric presentation of mitochondrial disease.
+31
+The vast majority are found in genes essential to the assem-
+bly and maintenance of the OXPHOS system. Leigh syn-
+drome is typically characterized by stepwise developmental
+regression and symmetrical brainstem and/or basal ganglia
+involvement. Loss of FASTKD5 function appears to affect
+the brain stem more than basal ganglia, similar to the com-
+mon presentation in SURF1-associated Leigh syndrome
+(MIM: 220110) that is caused by COX deficiency.
+32,33
+FASTKD5 is clearly essential for the earliest stages of
+mitochondrial gene expression, which includes the pro-
+cessing of the primary mitochondrial transcript at non-ca-
+nonical sites. The processing of the 5
+′
+ends of MT-CO1 and
+MT-ATP8/6-MT-CO3 appears to be particularly sensitive to
+the loss of FASTKD5 activity, while processing the MT-
+ND5-MT-CYB pre-mRNA is not affected in the presence
+of a residual amount of FASTKD5 protein. Thus, the
+biochemical deficiency, at least in the fibroblasts from
+subjects analyzed here, presents as an isolated complex
+IV deficiency. A severe complex IV deficiency was also
+observed in the muscle biopsy from subject 3, and the
+combined assays of complexes I+III and II+III were also
+abnormal, raising the possibility that the OXPHOS defects
+might be tissue specific, but additional studies would be
+required to substantiate this. An earlier study suggested
+that another member of the FASTK family of proteins
+(FASTKD4/TBRG4, MIM: 611325) might be involved in
+the processing of MT-ND5-MT-CYB pre-mRNA
+10
+; howev-
+er, recently, it has been shown that FASTKD4 does not
+possess endonuclease activity.
+34
+The level of FASTKD4
+protein in the subjects’ fibroblasts studied here was similar
+to that of the control individuals’ fibroblasts (Figures 2A
+and S1B) but was unable to compensate for the lack of
+FASTKD5 activity in processing the 5
+′
+end of MT-CO1
+and MT-ATP8/6-MT-CO3. We cannot, however, exclude
+Figure 4. Mode of pathogenicity of
+identified FASTKD5 variants
+(A) Immunoblotting analysis of steady-
+state levels of FASTKD5, MT-CO1, and
+MT-CYB proteins in fibroblasts from two
+control individuals, two subjects, and the
+same cells over-expressing either wild-
+type (WT) or variant FASTKD5-3xFLAG.
+SDHA was used as a loading control. Mo-
+lecular weight markers (in kDa) are indi-
+cated on the left. FLAG indicates migration
+of FASTKD5-3xFLAG; endog indicates
+migration of the endogenous FASTKD5
+protein.
+(B) Partial rescue of COX activity in sub-
+jects’ fibroblasts over-expressing indi-
+cated FASTKD5 variants as determined
+by spectrophotometric enzymatic assay
+and shown as a COX/citrate synthase
+(COX/CS) ratio, normalized to the COX/
+CS ratio in control cells, which was set
+to 100%. Data are represented as the
+mean 5 SD based on 4 biological repli-
+cates. Two-tailed paired t test was per-
+formed, and significant p values are indi-
+cated: *p < 0.05, **p < 0.01, ***p < 0.001,
+and ****p < 0.0001. The results shown for
+subject 1 and subject 2 are identical to
+those shown in Figure 2D.
+The American Journal of Human Genetics 112, 1699–1710, July 3, 2025 1707
+
+its involvement in processing MT-ND5-MT-CYB pre-
+mRNA in these subjects.
+All proteins in the FASTKD family function in the post-
+transcriptional regulation of mitochondrial RNA process-
+ing/modification; however, pathogenic variants have
+only been reported in one other member of the family,
+FASTKD2,
+35–37
+associated predominantly with mitochon-
+drial encephalomyopathy (MIM: 618855). FASTKD2
+(MIM: 612322) interacts with the 16S rRNA in the large
+subunit of the mitochondrial ribosome,
+8,38
+and loss of
+function impairs mitoribosome assembly, resulting in
+impaired mitochondrial translation.
+8
+Although the exact mechanism of mitochondrial mRNA
+loading onto mitochondrial ribosomes remains unknown,
+the LRPPRC/SLIRP (MIM: 607544/MIM: 610211) complex
+has been proposed to serve as a platform for mRNAs to
+reach the initiation complex.
+39
+The levels of LRPPRC pro-
+tein in the subjects investigated here were near those of
+the control individuals (Figures 2A and S1B), consistent
+with the fact that all but one mitochondrial mRNA (MT-
+CO1) were translated at a normal rate (Figures 2F and S3).
+Human mitochondrial transcripts are leaderless, with very
+short (1–3 nucleotides [nt]) or absent 5
+′
+untranslated regions
+(UTRs), suggesting that a prerequisite for mitochondrial
+translation initiation is the lack of a 5
+′
+leader. This is the
+case for 11 of the 13 mRNAs, as two transcripts are bi-cistronic
+(MT-ATP8/6 and MT-ND4L/ND4), allowing translation initi-
+ation on messages with 5
+′
+UTRs of 161 and 296 nt, respec-
+tively. Recently, a specific mechanism utilizing premature
+translation termination-reinitiation events has been pro-
+posed for the translation of the MT-ATP8/6 bi-cistronic tran-
+script.
+40
+Thus, the diminished processing at the 5
+′
+end of MT-
+CO1 and between MT-ATP8/6 and MT-CO3 in the subjects’ fi-
+broblasts would be expected to affect the synthesis of both
+MT-CO1 and MT-CO3 polypeptides; however, we observed
+normal levels of newly synthesized MT-CO3 (Figures 2F
+and S3) in both subjects, implying that translation can pro-
+ceed on a tri-cistronic MT-ATP8/6-CO3 transcript.
+Our data show that processing by RNase P and RNase Z is
+independent of FASTKD5 processing, as canonical (tRNA
+punctuated) mRNAs were correctly processed in the sub-
+jects’ fibroblasts. Likewise, transcriptome analysis of mito-
+chondrial mRNAs in subjects with mutations in ELAC2
+(RNase Z) revealed unprocessed 5
+′
+ends due to the lack of
+3
+′
+end processing at the adjacent tRNA. However, the pro-
+cessing of non-canonical transcripts was not affected.
+14
+It is presently unclear how FASTKD5 recognizes its
+client substrates. In vitro activity assays show that it can
+cleave synthetic RNA substrates appropriately,
+7
+but
+whether it relies on additional proteins for specificity
+and cleavage activity in vivo, as do RNase P
+3
+and RNase
+Z,
+4–6
+remains to be determined.
+Data and code availability
+Transcriptomic and proteomic data from subject fibroblasts are
+available upon request. Data on the pathogenic variants were
+deposited in ClinVar (ClinVar: SCV006081031, ClinVar: SCV00
+6081032, ClinVar: SCV006081033, ClinVar: SCV006081034,
+and ClinVar: SCV006081035).
+Acknowledgments
+We would like to thank Kathleen Daigneault for technical assis-
+tance. E.A.S. was funded by a grant (FRN178373) from the Cana-
+dian Institutes of Health Research. In Colorado, the study was
+supported by philanthropic support from the Children’s Hospital
+Colorado Riders for Samantha, by the University of Central Flor-
+ida, and by a grant from the National Institutes of Health (NIH
+U54NS078059) for the North American Mitochondrial Disease
+Consortium (NAMDC) to J.L.K.V.H. NAMDC is part of Rare Dis-
+eases Clinical Research Network (RDCRN), an initiative of the Of-
+fice of Rare Diseases Research (ORDR), NCATS. This consortium is
+funded through collaboration with NCATS. The work performed
+in the lab of R.R. is supported by NIH/NCCR 1 S10 OD028538-
+01A1 to Nichole Reisdorph. M.M. and P.L. are grateful to the
+European Reference Networks EURO-NMD and RND as represen-
+tatives for the Italian HCP partners. M.M. received research fund-
+ing from the European Joint Programme on Rare Diseases
+(EJPRD2019 project GENOMIT) and the European Union -
+NextGenerationEU- National Recovery and Resilience Plan
+(NRRP) – MISSION4 COMPONENT 2, INVESTIMENT N. 1.1,
+CALL PRIN 2022 D.D.104 02-02-2022 – (2022B9WY4A) CUP N.
+D57G23000430008. H.P. was supported by the BMBF (German
+Federal Ministry of Education and Research) through the German
+Center for Child and Adolescent Health (DZKJ), the mitoNET
+German Network for Mitochondrial Diseases (grant number
+01GM1906B), PerMiM Personalized Mitochondrial Medicine
+(grant number 01KU2016A), and the EJP RD project GENOMIT
+(01GM1920A) cofounded by the European Union. K.M.S. was
+supported by a grant from the Children’s Hospital of Philadelphia
+residency program.
+Declaration of interests
+The authors declare no competing interests.
+Supplemental information
+Supplemental information can be found online at https://doi.
+org/10.1016/j.ajhg.2025.05.007.
+Web resources
+ClinVar, https://www.ncbi.nlm.nih.gov/clinvar/
+GenBank, https://www.ncbi.nlm.nih.gov/genbank
+OMIM, https://www.omim.org
+Received: March 4, 2025
+Accepted: May 14, 2025
+Published: June 10, 2025
+References
+1. Ojala, D., Montoya, J., and Attardi, G. (1981). tRNA punctua-
+tion model of RNA processing in human mitochondria. Na-
+ture 290, 470–474. https://doi.org/10.1038/290470a0.
+1708 The American Journal of Human Genetics 112, 1699–1710, July 3, 2025
+
+2. Holzmann, J., Frank, P., Löffler, E., Bennett, K.L., Gerner, C.,
+and Rossmanith, W. (2008). RNase P without RNA: identifi-
+cation and functional reconstitution of the human mito-
+chondrial tRNA processing enzyme. Cell 135, 462–474.
+https://doi.org/10.1016/j.cell.2008.09.013.
+3. Bhatta, A., Dienemann, C., Cramer, P., and Hillen, H.S.
+(2021). Structural basis of RNA processing by human mito-
+chondrial RNase P. Nat. Struct. Mol. Biol. 28, 713–723.
+https://doi.org/10.1038/s41594-021-00637-y.
+4. Valentin Gese, G., and Hallberg, B.M. (2024). Structural basis
+of 3'-tRNA maturation by the human mitochondrial RNase Z
+complex. EMBO J. 43, 6573–6590. https://doi.org/10.1038/
+s44318-024-00297-w.
+5. Meynier, V., Hardwick, S.W., Catala, M., Roske, J.J., Oerum,
+S., Chirgadze, D.Y., Barraud, P., Yue, W.W., Luisi, B.F., and
+Tisné, C. (2024). Structural basis for human mitochondrial
+tRNA maturation. Nat. Commun. 15, 4683. https://doi.org/
+10.1038/s41467-024-49132-0.
+6. Bhatta, A., Kuhle, B., Yu, R.D., Spanaus, L., Ditter, K., Bohn-
+sack, K.E., and Hillen, H.S. (2025). Molecular basis of human
+nuclear and mitochondrial tRNA 3' processing. Nat. Struct.
+Mol. Biol. 32, 613–624. https://doi.org/10.1038/s41594-024-
+01445-w.
+7. Antonicka, H., Weraarpachai, W., Vu �ckovi �c, A., Hillen, H.S.,
+and Shoubridge, E.A. (2024). FASTKD5 processes mitochon-
+drial pre-mRNAs at non-canonical cleavage sites. Preprint at
+bioRxiv. https://doi.org/10.1101/2024.07.18.603998.
+8. Antonicka, H., and Shoubridge, E.A. (2015). Mitochondrial
+RNA Granules Are Centers for Posttranscriptional RNA Pro-
+cessing and Ribosome Biogenesis. Cell Rep. 10, 920–932.
+https://doi.org/10.1016/j.celrep.2015.01.030.
+9. Jourdain, A.A., Popow, J., de la Fuente, M.A., Martinou, J.C., An-
+derson, P., and Simarro, M. (2017). The FASTK family of proteins:
+emerging regulators of mitochondrial RNA biology. Nucleic Acids
+Res. 45, 10941–10947. https://doi.org/10.1093/nar/gkx772.
+10. Ohkubo, A., Van Haute, L., Rudler, D.L., Stentenbach, M.,
+Steiner, F.A., Rackham, O., Minczuk, M., Filipovska, A., and
+Martinou, J.C. (2021). The FASTK family proteins fine-tune
+mitochondrial RNA processing. PLoS Genet. 17, e1009873.
+https://doi.org/10.1371/journal.pgen.1009873.
+11. Metodiev, M.D., Thompson, K., Alston, C.L., Morris, A.A.M.,
+He, L., Assouline, Z., Rio, M., Bahi-Buisson, N., Pyle, A.,
+Griffin, H., et al. (2016). Recessive Mutations in TRMT10C
+Cause Defects in Mitochondrial RNA Processing and Multiple
+Respiratory Chain Deficiencies. Am. J. Hum. Genet. 99, 246.
+https://doi.org/10.1016/j.ajhg.2016.06.013.
+12. Hochberg, I., Demain, L.A.M., Richer, J., Thompson, K., Ur-
+quhart, J.E., Rea, A., Pagarkar, W., Rodríguez-Palmero, A.,
+Schlüter, A., Verdura, E., et al. (2021). Bi-allelic variants in
+the mitochondrial RNase P subunit PRORP cause mitochon-
+drial tRNA processing defects and pleiotropic multisystem
+presentations. Am. J. Hum. Genet. 108, 2195–2204. https://
+doi.org/10.1016/j.ajhg.2021.10.002.
+13. Falk, M.J., Gai, X., Shigematsu, M., Vilardo, E., Takase, R., Mc-
+Cormick, E., Christian, T., Place, E., Pierce, E.A., Consugar,
+M., et al. (2016). A novel HSD17B10 mutation impairing
+the activities of the mitochondrial RNase P complex causes
+X-linked intractable epilepsy and neurodevelopmental
+regression. RNA Biol. 13, 477–485. https://doi.org/10.1080/
+15476286.2016.1159381.
+14. Haack, T.B., Kopajtich, R., Freisinger, P., Wieland, T., Ror-
+bach, J., Nicholls, T.J., Baruffini, E., Walther, A., Danhauser,
+K., Zimmermann, F.A., et al. (2013). ELAC2 mutations cause
+a mitochondrial RNA processing defect associated with hy-
+pertrophic cardiomyopathy. Am. J. Hum. Genet. 93, 211–
+223. https://doi.org/10.1016/j.ajhg.2013.06.006.
+15. Saoura, M., Powell, C.A., Kopajtich, R., Alahmad, A., Al-Ba-
+lool, H.H., Albash, B., Alfadhel, M., Alston, C.L., Bertini, E.,
+Bonnen, P.E., et al. (2019). Mutations in ELAC2 associated
+with hypertrophic cardiomyopathy impair mitochondrial
+tRNA 3'-end processing. Hum. Mutat. 40, 1731–1748.
+https://doi.org/10.1002/humu.23777.
+16. Guo, R., and Haldeman-Englert, C.R. (2011). 1q21.1 Recur-
+rent Deletion, M.P. Adam, J. Feldman, G.M. Mirzaa, R.A. Pa-
+gon, S.E. Wallace, and A. Amemiya, eds. (Seattle: GeneRe-
+views).
+17. Lochmuller, H., Johns, T., and Shoubridge, E.A. (1999).
+Expression of the E6 and E7 genes of human papillomavirus
+(HPV16) extends the life span of human myoblasts. Exp. Cell
+Res. 248, 186–193. https://doi.org/10.1006/excr.1999.4407.
+18. Weraarpachai, W., Antonicka, H., Sasarman, F., Seeger, J.,
+Schrank, B., Kolesar, J.E., Lochmüller, H., Chevrette, M.,
+Kaufman, B.A., Horvath, R., and Shoubridge, E.A. (2009). Mu-
+tation in TACO1, encoding a translational activator of COX I,
+results in cytochrome c oxidase deficiency and late-onset
+Leigh syndrome. Nat. Genet. 41, 833–837. https://doi.org/
+10.1038/ng.390.
+19. Antonicka, H., Ogilvie, I., Taivassalo, T., Anitori, R.P., Haller,
+R.G., Vissing, J., Kennaway, N.G., and Shoubridge, E.A.
+(2003). Identification and characterization of a common set
+of complex I assembly intermediates in mitochondria from
+patients with complex I deficiency. J. Biol. Chem. 278,
+43081–43088. https://doi.org/10.1074/jbc.M304998200.
+20. Leary, S.C., and Sasarman, F. (2009). Oxidative phosphoryla-
+tion: synthesis of mitochondrially encoded proteins and
+assembly of individual structural subunits into functional
+holoenzyme complexes. Methods Mol. Biol. 554, 143–162.
+https://doi.org/10.1007/978-1-59745-521-3_10.
+21. Capaldi, R.A., Marusich, M.F., and Taanman, J.W. (1995).
+Mammalian cytochrome-c oxidase: characterization of
+enzyme and immunological detection of subunits in tissue
+extracts and whole cells. Methods Enzymol. 260, 117–132.
+https://doi.org/10.1016/0076-6879(95)60134-1.
+22. Srere, P.A. (1969). Citrate Synthase. Methods Enzymol. 13,
+3–11.
+23. Chatfield, K.C., Coughlin, C.R., 2nd, Friederich, M.W., Gal-
+lagher, R.C., Hesselberth, J.R., Lovell, M.A., Ofman, R., Swan-
+son, M.A., Thomas, J.A., Wanders, R.J.A., et al. (2015). Mito-
+chondrial energy failure in HSD10 disease is due to defective
+mtDNA transcript processing. Mitochondrion 21, 1–10.
+https://doi.org/10.1016/j.mito.2014.12.005.
+24. Kopajtich, R., Smirnov, D., Stenton, S.L., Loipfinger, S.,
+Meng, C., Scheller, I.F., Freisinger, P., Baski, R., Berutti, R.,
+Behr, J., et al. (2021). Integration of proteomics with geno-
+mics and transcriptomics increases the diagnostic rate of
+Mendelian disorders. Preprint at medRxiv. https://doi.org/
+10.1101/2021.03.09.21253187.
+25. Van Hove, J.L.K., Friederich, M.W., Hock, D.H., Stroud, D.A.,
+Caruana, N.J., Christians, U., Schniedewind, B., Michel, C.R.,
+Reisdorph, R., Lopez Gonzalez, E.D.J., et al. (2024). ACAD9
+treatment with bezafibrate and nicotinamide riboside tempo-
+rarily stabilizes cardiomyopathy and lactic acidosis. Mito-
+chondrion 78, 101905. https://doi.org/10.1016/j.mito.2024.
+101905.
+The American Journal of Human Genetics 112, 1699–1710, July 3, 2025 1709
+
+26. Kremer, L.S., Bader, D.M., Mertes, C., Kopajtich, R., Pichler,
+G., Iuso, A., Haack, T.B., Graf, E., Schwarzmayr, T., Terrile,
+C., et al. (2017). Genetic diagnosis of Mendelian disorders
+via RNA sequencing. Nat. Commun. 8, 15824. https://doi.
+org/10.1038/ncomms15824.
+27. Brechtmann, F., Mertes, C., Matusevi �ci �ut _e, A., Yépez, V.A.,
+Avsec,
+�
+Z., Herzog, M., Bader, D.M., Prokisch, H., and Ga-
+gneur, J. (2018). OUTRIDER: A Statistical Method for Detect-
+ing Aberrantly Expressed Genes in RNA Sequencing Data.
+Am. J. Hum. Genet. 103, 907–917. https://doi.org/10.1016/
+j.ajhg.2018.10.025.
+28. Sasarman, F., and Shoubridge, E.A. (2012). Radioactive label-
+ing of mitochondrial translation products in cultured cells.
+Methods Mol. Biol. 837, 207–217. https://doi.org/10.1007/
+978-1-61779-504-6_14.
+29. Schindelin, J., Arganda-Carreras, I., Frise, E., Kaynig, V.,
+Longair, M., Pietzsch, T., Preibisch, S., Rueden, C., Saalfeld,
+S., Schmid, B., et al. (2012). Fiji: an open-source platform
+for biological-image analysis. Nat. Methods 9, 676–682.
+https://doi.org/10.1038/nmeth.2019.
+30. Soto, I., Couvillion, M., Hansen, K.G., McShane, E., Moran, J.
+C., Barrientos, A., and Churchman, L.S. (2022). Balanced
+mitochondrial and cytosolic translatomes underlie the
+biogenesis of human respiratory complexes. Genome Biol.
+23, 170. https://doi.org/10.1186/s13059-022-02732-9.
+31. Alves, C.A.P.F., Teixeira, S.R., Martin-Saavedra, J.S., Guimar-
+ães Gonçalves, F., Lo Russo, F., Muraresku, C., McCormick,
+E.M., Falk, M.J., Zolkipli-Cunningham, Z., Ganetzky, R.,
+et al. (2020). Pediatric Leigh Syndrome: Neuroimaging Fea-
+tures and Genetic Correlations. Ann. Neurol. 88, 218–232.
+https://doi.org/10.1002/ana.25789.
+32. Zhu, Z., Yao, J., Johns, T., Fu, K., De Bie, I., Macmillan, C.,
+Cuthbert, A.P., Newbold, R.F., Wang, J., Chevrette, M., et al.
+(1998). SURF1, encoding a factor involved in the biogenesis
+of cytochrome c oxidase, is mutated in Leigh syndrome. Nat.
+Genet. 20, 337–343. https://doi.org/10.1038/3804.
+33. Tiranti, V., Hoertnagel, K., Carrozzo, R., Galimberti, C., Mu-
+naro, M., Granatiero, M., Zelante, L., Gasparini, P., Marzella,
+R., Rocchi, M., et al. (1998). Mutations of SURF-1 in Leigh dis-
+ease associated with cytochrome c oxidase deficiency. Am. J.
+Hum. Genet. 63, 1609–1621. https://doi.org/10.1086/
+302150.
+34. Yang, X., Stentenbach, M., Hughes, L.A., Siira, S.J., Lau, K.,
+Hothorn, M., Martinou, J.C., Rackham, O., and Filipovska,
+A. (2025). The Vsr-like protein FASTKD4 regulates the
+stability and polyadenylation of the MT-ND3 mRNA. Nucleic
+Acids Res. 53, gkae1261. https://doi.org/10.1093/nar/
+gkae1261.
+35. Ghezzi, D., Saada, A., D'Adamo, P., Fernandez-Vizarra, E.,
+Gasparini, P., Tiranti, V., Elpeleg, O., and Zeviani, M.
+(2008). FASTKD2 nonsense mutation in an infantile mito-
+chondrial encephalomyopathy associated with cytochrome
+c oxidase deficiency. Am. J. Hum. Genet. 83, 415–423.
+https://doi.org/10.1016/j.ajhg.2008.08.009.
+36. Yoo, D.H., Choi, Y.C., Nam, D.E., Choi, S.S., Kim, J.W., Choi,
+B.O., and Chung, K.W. (2017). Identification of FASTKD2
+compound heterozygous mutations as the underlying cause
+of autosomal recessive MELAS-like syndrome. Mitochondrion
+35, 54–58. https://doi.org/10.1016/j.mito.2017.05.005.
+37. Wei, X., Du, M., Li, D., Wen, S., Xie, J., Li, Y., Chen, A.,
+Zhang, K., Xu, P., Jia, M., et al. (2020). Mutations in
+FASTKD2 are associated with mitochondrial disease with
+multi-OXPHOS deficiency. Hum. Mutat. 41, 961–972.
+https://doi.org/10.1002/humu.23985.
+38. Popow, J., Alleaume, A.M., Curk, T., Schwarzl, T., Sauer, S.,
+and Hentze, M.W. (2015). FASTKD2 is an RNA-binding pro-
+tein required for mitochondrial RNA processing and transla-
+tion. RNA 21, 1873–1884. https://doi.org/10.1261/rna.
+052365.115.
+39. Singh, V., Moran, J.C., Itoh, Y., Soto, I.C., Fontanesi, F., Cou-
+villion, M., Huynen, M.A., Churchman, L.S., Barrientos, A.,
+and Amunts, A. (2024). Structural basis of LRPPRC-SLIRP-
+dependent translation by the mitoribosome. Nat. Struct.
+Mol. Biol. 31, 1838–1847. https://doi.org/10.1038/s41594-
+024-01365-9.
+40. Moran, J.C., Brivanlou, A., Brischigliaro, M., Fontanesi, F.,
+Rouskin, S., and Barrientos, A. (2024). The human mitochon-
+drial mRNA structurome reveals mechanisms of gene expres-
+sion. Science 385, eadm9238. https://doi.org/10.1126/sci-
+ence.adm9238.
+1710 The American Journal of Human Genetics 112, 1699–1710, July 3, 2025
+
+The American Journal of Human Genetics, Volume 112
+Supplemental information
+Bi-allelic mutations in FASTKD5 are associated
+with cytochrome c oxidase deficiency
+and early- to late-onset Leigh syndrome
+Hana Antonicka, W oranontee W eraarpachai, Katherine M. Szigety , Robert
+Kopajtich, James B. Gibson, Johan L.K. V an Hove, Marisa W . Friederich, Piervito
+Lopriore , Christiane Neuhofer , Roxanne A. V an Hove, Michel A. Cole, Richard
+Reisdorph, James T . Peterson, Katherine J. Dempsey , Rebecca D.
+Ganetzky , Michelangelo Mancuso, Holger Pr okisch, and Eric A. Shoubridge
+
+
+Figure S1
+  Figure S1. Quantification of steady-state levels of various mitochondrial proteins and FASTKD5 transcript levels in fibroblasts from subjects and rescues. (A) Beeswarm plot of F ASTKD5 transcript levels in fibroblasts from subject 1 (in blue), rescue (subject 1 + WT; in purple) and subject 2 (in orange). Individual control samples (n=999) are shown in grey. Thick black lines indicate the average of controls and is set to 1.
+
+
+
+(B) Quantification of the steady-state levels of the indicated proteins in controls, subjects’ fibroblasts and same cells over-expressing wild-type (WT) FASTKD5-3xFLAG as determined by immunoblotting (one example is shown in Figure 2A) and compared to the levels in controls, that were set to 1. Data are represented as the mean ± SD, based on 2-5 biological replicates. Two-way ANOV A with a Tukey’s multiple comparisons test was performed, and significant p-values are indicated; * p < 0.05.
+
+
+Figure S2
+  Figure S2. Proteomic analysis confirms cytochrome c oxidase deficiency in subjects’ fibroblasts.
+
+
+
+(A) Proteomic analysis of the relative complex abundance (RCA) of the OXPHOS complexes, large (LSU) and small (SSU) components of the mitochondrial ribosome and the pyruvate dehydrogenase complex (PDH) in subject 1 fibroblasts. The variation range of controls was calculated from 21 normal control fibroblast. p-values are as follows: *** p < 0.001, and **** p < 0.0001. (B) In-gel activity measurement of individual OXPHOS complexes in fibroblasts from subject 1. Fibroblasts from a control and subject 1 were separated by BN-PAGE analysis and an in-gel activity measurement was performed as indicated in Methods.  (C) Proteomics analysis of individual complex IV subunits. Protein fold change (compared to controls) is based on 11 samples, all measured together in one TMT11plex experiment. Subject 1 is shown in blue, rescue (subject 1 + WT) in purple, subject 2 in orange, individual control samples in grey. Thick black lines indicate the average of controls and are set to 1. (D) Dot plot showing GO term enrichment from the proteomics over-representation analysis (ORA). Ten downregulated GO terms were shared between subject 1 and subject 2. Dot size indicates the Gene ratio (the proportion of genes from each GO term with differential protein expression in the subjects). Dot colour corresponds to the adjusted p-value.
+
+
+Figure S3
+  Figure S3. Quantification of mitochondrial translation assay. Quantification of mitochondrial translation assay (one example is shown in Figure 2F) normalized to Coomassie total protein staining. Data are represented as the mean ± SD, based on 2-3 biological replicates. Two-way ANOV A with a Tukey’s multiple comparisons test was performed for control, control + WT, subject 1, subject 1 + WT and significant p-values are indicated (* p < 0.05, ** p < 0.01). No statistical test was performed for subject 2 or subject 2 + WT, as the analysis was only performed in duplicate.
+
+
+
+Table S1. Decreased COX activity in subject 1 fibroblasts.
+ Respiratory complex activities in subject 1 fibroblasts and in controls were measured spectrophotometrically and are represented as a specific activity and as a ratio to citrate synthase and complex II activities, respectively. Z-score indicates the difference of the value in subject 1 compared to SD of the controls. NA, not applicable.
+ Activity subject 1 (controls) (nmol/min/mg protein)
+Z-score  Ratio/CS Z-score  Ratio/complex II Z-score
+Complex I   93.9 (49.3-131.1) 0.3 196 (145-396) -0.2  356 (237-754) -0.2 Complex II   263.8 (130.9-364.4) 0.5  550 (297-863) -0.1  NA NA Complex III   34.1 (8-29.2) 2.1  71 (19-65) 2.0  129 (36-114) 2.1 Complex II-III   191.5 (61.8-158.8) 1.9  399 (131-376) 1.6  726 (263-1100) 0.8 Complex IV   1.9 (2.2-7.1) -2.2  4 (6-23) -2.3  7 (12-35) -2.4 Citrate synthase  479.9 (253.5-554.1) 0.7  NA NA  NA NA
+
+
+Table S2. Decreased COX and rotenone-sensitive complex I+III activity in subject 3 muscle.
+ Respiratory complex activities in subject 3 muscle homogenate were measured spectrophotometrically and are represented as a specific activity (nmol/min/mg protein) and as a ratio to citrate synthase and complex II activities, respectively. NA, not applicable.
+Respiratory complex activities Activity subject 3 (nmol/min/mg protein)  (% of mean) Control ± SD Ratio/CS  (controls) Ratio/complex II  (controls) NADH: Ferricyanide dehydrogenase (Complex I) 629 (175) 360.4 ± 96.3 1043  (901-1558) 9502         (27510-47573) NADH: cytochrome c reductase (Complexes I + III)  Total  Rotenone-sensitive
+  23.6 (83) 3.2 (37)
+  28.4 ± 6.1 8.7 ± 3.9
+  39 (76-118) 5 (16-43)
+  356 (2323-3594) 48 (500-1313) Succinate dehydrogenase  (Complex II) 66.2 (689) 9.6 ± 3.0 110 (23-43) NA Succinate: cytochrome c reductase  (Complexes II + III) 7.2 (172) 4.2 ± 1.2 12 (10-18) 109 (313-563) Cytochrome c oxidase  (Complex IV) 7.1 (18) 40.3 ± 15.5 12 (85-190) 107 (2583-5813) Citrate synthase 603 (206) 293.1 ± 68.0 NA NA
+
+
+Table S3. List of antibodies used in the study. REAGENTS SOURCE IDENTIFIER Antibodies  FASTKD5 Sigma Cat# SAB2700438 FLAG Sigma Cat# F1804 RRID:AB_262044 MT-CO1 Abcam Cat# ab14705 RRID: AB_2084810 MT-CYB Proteintech Cat# 55090-1-AP RRID:AB_2881266 MT-ATP6 Proteintech Cat# 55313-1-AP RRID:AB_2881305 MT-ND1 a kind gift of Anne Lombes  SDHA Abcam Cat# ab168536 RRID:AB_2857979 POLRMT Thermo Fisher Scientific Cat# PA5-28196 RRID:AB_2545672 ELAC2 Proteintech Cat# 10071-1-AP RRID:AB_2096551 MRPP1 (TRMT10C) Proteintech Cat# 29087-1-AP RRID:AB_2881239 GRSF1 Sigma Cat# HPA036985 RRID:AB_10672785 FASTKD2 Proteintech Cat# 17464-1-AP RRID:AB_2101119 TBRG4 (FASTKD4) Sigma Cat# HPA020582 RRID:AB_1857804 MTERF3 (MTERFD1) Sigma Cat# HPA002966 RRID:AB_2147359 TRUB2 Proteintech Cat# 19891-1-AP RRID:AB_10640900 MRPS18B Proteintech Cat# 16139-1-AP RRID:AB_2146368 MRPL11 Sigma Cat# HPA057685 LRPPRC in house  VDAC1 Abcam Cat# ab14734 RRID:AB_443084 NDUFA9 Abcam Cat# ab55521 RRID:AB_2150762 ATP5A1 Abcam Cat# ab110273 RRID:AB_10858175 UQCRC1 Abcam Cat# ab110252 RRID:AB_10863633 COX4I1 Abcam Cat# ab110261 RRID:AB_10862101 PRDX3 in house
+
+
+Peroxidase-AffiniPure Goat Anti-Mouse IgG (H+L) antibody Jackson ImmunoResearch Labs Cat# 115-035-146 RRID:AB_2307392 Peroxidase-AffiniPure Goat Anti-Rabbit IgG (H+L) antibody Jackson ImmunoResearch Labs Cat# 111-035-003 RRID:AB_2313567 Goat Anti-Mouse IgG (H+L) Highly Cross-adsorbed Antibody, Alexa Fluor™ 488 Conjugated
+Thermo Fisher Scientific Cat# A-11029 RRID:AB_138404
+Goat anti-Rabbit IgG (H+L) Highly Cross-Adsorbed Secondary Antibody, Alexa Fluor™ 594
+Thermo Fisher Scientific Cat# A-11037 RRID:AB_2534095
+Goat anti-Mouse IgG2a Cross-Adsorbed Secondary Antibody, Alexa Fluor™ 594 Thermo Fisher Scientific Cat# A-21135 RRID:AB_2535774 Donkey Anti-Rabbit IgG (H+L) Polyclonal Antibody, Alexa Fluor™ 647 Conjugated Thermo Fisher Scientific Cat# A-31573 RRID:AB_2536183 Goat Anti-Mouse IgG1 Antibody, Alexa Fluor™ 488 Conjugated Thermo Fisher Scientific Cat# A-21121 RRID:AB_2535764

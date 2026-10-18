@@ -260,10 +260,15 @@ and successful workflows that forgot to post a verdict are separate recovery
 cases. Generated PRs whose review was deliberately skipped are not retried.
 
 Before retrying, it checks the latest run attempt, that the PR is open, that a
-PR-event run still matches the current head, that no newer/active review exists,
-and that the reviewer has not already posted an approval or changes-requested
-verdict for that head. An old changes-requested verdict does not block recovery
-of a failed review of a new commit. Manual-triggered workflows retain their PR
+PR-event run still matches the current head, and that no newer/active review
+exists. For a manual- or comment-triggered run it also checks that the reviewer
+has not already posted an approval or changes-requested verdict for that head;
+an old changes-requested verdict does not block recovery of a failed review of a
+new commit. A failed PR-event run on the current head is the PR's own
+`claude-review` check, so an existing verdict does not block retrying it, and
+only a newer PR-event run on that head supersedes it: a manual or comment review
+runs on `main`, attaches no check to the PR head, and cannot turn that check
+green. Manual-triggered workflows retain their PR
 input and use their existing `gh pr checkout` step to review the current branch.
 
 Backoff is measured from the latest attempt's completion: 1 hour after the first
@@ -292,6 +297,41 @@ error and a deferral. Dry runs explicitly say that no requests were issued.
 
 ```bash
 just review-retry-preview
+```
+
+### Failed issue-opened workflows
+
+The same job then reruns failed issue-opened workflows: issue triage
+(`claude-issue-triage.yml`), issue summarize (`claude-issue-summarize.yml`) and
+dedupe (`claude-dedupe-issues.yml`). These are the ones with no other recovery:
+the `issues: opened` event cannot fire again for an issue that already exists, so
+an issue opened while the shared agent account is rate-limited, or while a
+credential is failing, otherwise gets no triage at all, and nothing records that
+it is missing (#13150).
+
+Each of the three workflows names its runs `Triage issue #N`, `Summarize issue
+#N` or `Dedupe issue #N`, and the sweep reads the issue number from that name
+only, never from an issue title. Runs from before the run name was added are
+not retried; the summary gives one count per workflow rather than listing them. For each workflow and issue, only the
+latest run is considered. It is rerun with `gh run rerun RUN_ID --failed` when it
+failed or timed out, the issue is still open, no newer or active run of that
+workflow exists for the issue, and the backoff above has elapsed. The budget is
+`max_review_retries`, counted separately from review retries and per run rather
+than per issue, and `dry_run` applies. A `pr_number` request skips this pass.
+
+A rerun repeats the whole failed job, including anything it did before it
+failed. For triage this is harmless, because applying the same labels again
+changes nothing. A summarize run that posted its comment and then failed would
+post a second one, so the summarize prompt first reads the issue's comments and
+stops if `github-actions[bot]` has already summarized the issue.
+
+The triage and summarize workflows also accept a manual `issue_number`
+dispatch, like dedupe, so an issue can be re-triaged without finding its
+original run:
+
+```bash
+gh workflow run claude-issue-triage.yml -f issue_number=13101
+gh workflow run claude-issue-summarize.yml -f issue_number=13101
 ```
 
 ## Review states and merge state

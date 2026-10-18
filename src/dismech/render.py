@@ -47,6 +47,7 @@ from dismech.module_collections import (
 )
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
+from dismech.research_reports import strip_run_suffix
 from dismech.term_labels import label_restates_title
 from dismech.term_tooltips import sample_type_descriptor, term_tooltip
 from dismech.treatment_platform import treatment_platform_label
@@ -117,6 +118,11 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # into the template so the vocabulary and its prose stay in one place, the
     # same rule `module_categories` follows.
     env.globals["quote_role_tooltip"] = quote_role_tooltip
+    # File name of an evidence artifact image, for its caption. Registered here
+    # rather than by the disorder renderer because the evidence partial
+    # (_evidence.html.j2) is compiled into module pages too (#10329), and a
+    # missing filter fails at compile time even when no evidence has images.
+    env.filters["basename"] = lambda p: Path(p).name
     return env
 
 
@@ -405,6 +411,28 @@ def _build_dismech_page_url_filter(
         )
 
     return _curie_to_dismech_url
+
+
+def _build_gene_page_url_filter(disorders_dir: Path) -> Callable[[str], str | None]:
+    """Resolve an HGNC CURIE to its ``pages/genes/`` page, if the gene has one.
+
+    Uses the gene-page rule itself (``dismech.genes.render.gene_page_ids``), so
+    a disorder page links exactly the genes the gene build writes pages for.
+    """
+    from dismech.genes.render import gene_page_ids, gene_page_name
+    from dismech.genes.slice import normalize_hgnc_id
+
+    kb_root = str(disorders_dir.resolve().parent)
+
+    def _gene_page_url(curie: str) -> str | None:
+        hgnc_id = normalize_hgnc_id(curie)
+        # Resolved on first use, not when the filter is built, so a page
+        # with no gene chip never pays for the KB walk. Memoised per KB root.
+        if hgnc_id is None or hgnc_id not in gene_page_ids(kb_root):
+            return None
+        return f"../genes/{gene_page_name(hgnc_id)}"
+
+    return _gene_page_url
 
 
 def _build_has_local_disorder_filter(
@@ -2639,7 +2667,6 @@ def render_disorder(
     env.filters["semantic_ref_href"] = lambda ref: (
         semantic_ref_index.get(str(ref), "") if ref is not None else ""
     )
-    env.filters["basename"] = lambda p: Path(p).name
     env.filters["dismech_page_url"] = _build_dismech_page_url_filter(
         yaml_path.parent,
         excluded_term_ids={current_term_id} if current_term_id else None,
@@ -2647,6 +2674,7 @@ def render_disorder(
     env.filters["has_local_disorder_page"] = _build_has_local_disorder_filter(
         yaml_path.parent,
     )
+    env.filters["gene_page_url"] = _build_gene_page_url_filter(yaml_path.parent)
 
     # Load and render template
     template = env.get_template(template_name)
@@ -2928,6 +2956,18 @@ def render_module(
         {node_name for edge in graph.edges for node_name in (edge.source, edge.target)}
     )
 
+    if output_path is None:
+        output_path = Path("pages/modules") / f"{yaml_path.stem}.html"
+    else:
+        output_path = Path(output_path)
+
+    # Evidence artifact images resolve against research/, as on disorder pages
+    # (render_disorder); the evidence partial is shared (#10329).
+    research_root = _resolve_nearby_dir(yaml_path.parent, "research")
+    research_root_rel = os.path.relpath(
+        research_root.resolve(), output_path.parent.resolve()
+    )
+
     html = template.render(
         module=module,
         module_id=yaml_path.stem,
@@ -2937,12 +2977,8 @@ def render_module(
         graph_issues=graph.integrity_issues,
         yaml_content=yaml_content,
         source_file=source_file,
+        research_root_rel=research_root_rel,
     )
-
-    if output_path is None:
-        output_path = Path("pages/modules") / f"{yaml_path.stem}.html"
-    else:
-        output_path = Path(output_path)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html)
@@ -3110,7 +3146,9 @@ def _scan_research_reports(
             continue
 
         slug = match.group("slug")
-        provider_raw = match.group("provider")
+        # A re-run beside an existing report carries the run date
+        # (`Foo-deep-research-falcon-2026-10-08.md`, #12700); it is still falcon.
+        provider_raw = strip_run_suffix(match.group("provider"))
         category = _display_name_from_provider(provider_raw)
         key = _normalize_provider_key(category)
         lookup = _normalize_disorder_lookup(_display_name_from_slug(slug))

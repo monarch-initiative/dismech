@@ -8,8 +8,8 @@ name: 00 · Curation Scanner
 
 on:
   schedule:
-    - cron: "0 * * * 1-5"  # weekday: hourly
-    - cron: "0 * * * 0,6"  # weekend: hourly
+    - cron: "17 * * * 1-5"  # weekday: hourly
+    - cron: "17 * * * 0,6"  # weekend: hourly
   workflow_dispatch:
     inputs:
       note:
@@ -170,16 +170,34 @@ jobs:
             - `is:open is:issue no:assignee label:curation ...effort selector...`
             - `is:open is:pr no:assignee label:curation ...effort selector...`
 
-            Effort tier routing:
+            Task and effort routing:
+            - `evidence_review`: review issues and PRs labelled `evidence-claim-mismatch`.
+              Use `.claude/skills/evidence-claim-mismatch/SKILL.md`. This task label
+              takes precedence over effort labels; all general jobs exclude it.
             - `low_effort`: suitable for bounded augmentation of existing disease
               entries and low-risk issue follow-up. Do not create new disease
               entries from this tier. If a task requires new disease curation,
               leave a brief comment and ensure the work is routed to `high_effort`.
             - `medium_effort`: suitable for bounded but less mechanical updates.
             - `high_effort`: default for curation work without lower-effort labels
-              and for new disease entry creation.
+              or `very-hard`, and for new disease entry creation.
+            - `very-hard`: Fable handles exceptionally difficult curation requiring
+              extensive reasoning, evidence synthesis, or complex mechanistic work.
 
-            If an item has more than one effort label, skip it rather than guessing.
+            In the general jobs, skip items with more than one effort label
+            (`low_effort`, `medium_effort`, `high_effort`, or `very-hard`) rather
+            than guessing. Never take evidence-claim-mismatch work in a general job,
+            including an unlabelled PR linked to an evidence-claim-mismatch issue.
+
+            Before selecting an issue, check its timeline and linked PRs. If an open
+            PR already addresses it, do not open a duplicate. In `evidence_review`,
+            a linked PR may lack the task labels: consider that PR as a candidate,
+            and if it is unassigned and you select it as this run's single target,
+            add `curation` and `evidence-claim-mismatch` and work on that PR. Do not
+            change labels on other candidates or on assigned PRs. Otherwise skip
+            the issue and follow up through an eligible PR. Recheck labels and
+            assignees before acting, and skip anything that no longer belongs to
+            this job or has been claimed by someone else.
 
             You may scan multiple candidates, but you must choose exactly one issue or pull request
             to actively work on in this run. Leave all other items untouched.
@@ -201,7 +219,19 @@ jobs:
             other candidates — name the deciding ranking signal and confirm it had no non-agent
             assignee — so the selection is transparent and auditable.
 
-            For the single selected unassigned curation issue:
+            For the single selected unassigned evidence-review issue:
+            - Perform the review in this run using the evidence-claim-mismatch skill.
+              Compare saved findings with the current disease YAML and reference
+              context, and expand the literature search where necessary.
+            - When corrections are justified, make and validate them and open a PR
+              with `Closes #<issue>` and both `curation` and `evidence-claim-mismatch`
+              labels. Keep those labels on follow-up PRs so they stay in this queue.
+            - If the review establishes that no edits are needed, explain why and
+              close the issue. If blocked, report the specific missing information
+              or failed dependency. A triage comment or bot mention is not a handoff;
+              do the curation here when it is possible.
+
+            For the single selected unassigned general curation issue:
             - Analyze the request.
             - Post a concise assessment comment covering the likely disease or disease area, what work is needed, and the estimated scope/risk.
             - If your analysis shows the task is already fully resolved, close the issue as completed
