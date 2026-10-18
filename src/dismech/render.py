@@ -118,6 +118,11 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # into the template so the vocabulary and its prose stay in one place, the
     # same rule `module_categories` follows.
     env.globals["quote_role_tooltip"] = quote_role_tooltip
+    # File name of an evidence artifact image, for its caption. Registered here
+    # rather than by the disorder renderer because the evidence partial
+    # (_evidence.html.j2) is compiled into module pages too (#10329), and a
+    # missing filter fails at compile time even when no evidence has images.
+    env.filters["basename"] = lambda p: Path(p).name
     return env
 
 
@@ -2662,7 +2667,6 @@ def render_disorder(
     env.filters["semantic_ref_href"] = lambda ref: (
         semantic_ref_index.get(str(ref), "") if ref is not None else ""
     )
-    env.filters["basename"] = lambda p: Path(p).name
     env.filters["dismech_page_url"] = _build_dismech_page_url_filter(
         yaml_path.parent,
         excluded_term_ids={current_term_id} if current_term_id else None,
@@ -2952,6 +2956,18 @@ def render_module(
         {node_name for edge in graph.edges for node_name in (edge.source, edge.target)}
     )
 
+    if output_path is None:
+        output_path = Path("pages/modules") / f"{yaml_path.stem}.html"
+    else:
+        output_path = Path(output_path)
+
+    # Evidence artifact images resolve against research/, as on disorder pages
+    # (render_disorder); the evidence partial is shared (#10329).
+    research_root = _resolve_nearby_dir(yaml_path.parent, "research")
+    research_root_rel = os.path.relpath(
+        research_root.resolve(), output_path.parent.resolve()
+    )
+
     html = template.render(
         module=module,
         module_id=yaml_path.stem,
@@ -2961,12 +2977,8 @@ def render_module(
         graph_issues=graph.integrity_issues,
         yaml_content=yaml_content,
         source_file=source_file,
+        research_root_rel=research_root_rel,
     )
-
-    if output_path is None:
-        output_path = Path("pages/modules") / f"{yaml_path.stem}.html"
-    else:
-        output_path = Path(output_path)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html)
