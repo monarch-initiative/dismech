@@ -28,6 +28,7 @@ Usage:
     ... --max-descendants 200      # tighten the COVERED_BY_PARENT signal
     ... --json report.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -46,7 +47,7 @@ import yaml
 REPO = "monarch-initiative/dismech"
 MONDO_DB = os.environ.get("MONDO_DB_PATH", str(Path.home() / ".data/oaklib/mondo.db"))
 TITLE_RE = re.compile(r"\(?(MONDO:\d{7})\)?")
-CURATE_RE = re.compile(r"^\s*curate\b", re.I)
+CURATE_RE = re.compile(r"^\s*curate\b", re.IGNORECASE)
 
 
 def load_stub_queue() -> list[dict]:
@@ -66,12 +67,14 @@ def load_stub_queue() -> list[dict]:
             continue
         mondo_id = doc.get("mondo_id")
         if isinstance(mondo_id, str) and mondo_id.startswith("MONDO:"):
-            out.append({
-                "number": Path(path).name,
-                "title": f"{doc.get('label')} [{doc.get('entry_type')}]",
-                "assignees": [],
-                "mondo_id": mondo_id,
-            })
+            out.append(
+                {
+                    "number": Path(path).name,
+                    "title": f"{doc.get('label')} [{doc.get('entry_type')}]",
+                    "assignees": [],
+                    "mondo_id": mondo_id,
+                }
+            )
     return out
 
 
@@ -85,13 +88,18 @@ def fetch_open_curation_issues(token: str) -> list[dict]:
     """
     out, page = [], 1
     while True:
-        url = (f"https://api.github.com/repos/{REPO}/issues"
-               f"?state=open&labels=curation&per_page=100&page={page}")
-        req = urllib.request.Request(url, headers={
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "dismech-queue-audit",
-        })
+        url = (
+            f"https://api.github.com/repos/{REPO}/issues"
+            f"?state=open&labels=curation&per_page=100&page={page}"
+        )
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+                "User-Agent": "dismech-queue-audit",
+            },
+        )
         with urllib.request.urlopen(req) as resp:
             batch = json.load(resp)
         if not batch:
@@ -99,11 +107,13 @@ def fetch_open_curation_issues(token: str) -> list[dict]:
         for it in batch:
             if "pull_request" in it:
                 continue
-            out.append({
-                "number": it["number"],
-                "title": it["title"],
-                "assignees": [a["login"] for a in it.get("assignees") or []],
-            })
+            out.append(
+                {
+                    "number": it["number"],
+                    "title": it["title"],
+                    "assignees": [a["login"] for a in it.get("assignees") or []],
+                }
+            )
         page += 1
     return out
 
@@ -117,7 +127,9 @@ def curated_mondo_ids() -> dict[str, str]:
     concept from the queue.
     """
     covered: dict[str, str] = {}
-    for path in sorted(glob.glob("kb/disorders/*.yaml")) + sorted(glob.glob("kb/groupings/*.yaml")):
+    for path in sorted(glob.glob("kb/disorders/*.yaml")) + sorted(
+        glob.glob("kb/groupings/*.yaml")
+    ):
         try:
             doc = yaml.safe_load(open(path))
         except Exception:
@@ -126,7 +138,7 @@ def curated_mondo_ids() -> dict[str, str]:
             continue
         stem = Path(path).stem
 
-        def add(term):
+        def add(term, stem=stem):
             if isinstance(term, dict):
                 tid = term.get("id")
                 if isinstance(tid, str) and tid.startswith("MONDO:"):
@@ -137,34 +149,54 @@ def curated_mondo_ids() -> dict[str, str]:
             add(dterm.get("term") or dterm)
         for sub in doc.get("has_subtypes") or []:
             if isinstance(sub, dict):
-                t = sub.get("subtype_term") or sub.get("disease_term") or sub.get("term")
+                t = (
+                    sub.get("subtype_term")
+                    or sub.get("disease_term")
+                    or sub.get("term")
+                )
                 if isinstance(t, dict):
                     add(t.get("term") or t)
-        for mapping in ((doc.get("mappings") or {}).get("mondo_mappings") or []):
+        for mapping in (doc.get("mappings") or {}).get("mondo_mappings") or []:
             if isinstance(mapping, dict) and mapping.get("mapping_predicate") in (
-                    "skos:exactMatch", "skos:narrowMatch"):
+                "skos:exactMatch",
+                "skos:narrowMatch",
+            ):
                 add(mapping.get("term") or mapping)
     return covered
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--max-descendants", type=int, default=500,
-                    help="only report a curated ancestor as COVERED_BY_PARENT when it "
-                         "has at most this many MONDO descendants (default 500); "
-                         "filters out coincidental hits on very general parents")
+    ap.add_argument(
+        "--max-descendants",
+        type=int,
+        default=500,
+        help="only report a curated ancestor as COVERED_BY_PARENT when it "
+        "has at most this many MONDO descendants (default 500); "
+        "filters out coincidental hits on very general parents",
+    )
     ap.add_argument("--json", help="write the full report to this path as JSON")
-    ap.add_argument("--source", choices=["stubs", "issues"], default="stubs",
-                    help="what to audit: the local stubs/ queue (default) or open "
-                         "GitHub curation issues")
-    ap.add_argument("--issues-json", help="with --source issues, read the issue list "
-                                          "from this JSON file instead of the API "
-                                          "(needed where egress to api.github.com is blocked)")
+    ap.add_argument(
+        "--source",
+        choices=["stubs", "issues"],
+        default="stubs",
+        help="what to audit: the local stubs/ queue (default) or open "
+        "GitHub curation issues",
+    )
+    ap.add_argument(
+        "--issues-json",
+        help="with --source issues, read the issue list "
+        "from this JSON file instead of the API "
+        "(needed where egress to api.github.com is blocked)",
+    )
     args = ap.parse_args()
 
     if not Path(MONDO_DB).exists():
-        print(f"MONDO sqlite not found at {MONDO_DB}; run `just gen-priority-dashboard` "
-              f"once to download it, or set MONDO_DB_PATH", file=sys.stderr)
+        print(
+            f"MONDO sqlite not found at {MONDO_DB}; run `just gen-priority-dashboard` "
+            f"once to download it, or set MONDO_DB_PATH",
+            file=sys.stderr,
+        )
         return 2
 
     if args.source == "stubs":
@@ -195,23 +227,29 @@ def main() -> int:
             curie = found.group(1) if found else None
         if curie:
             targets[curie].append(item)
-    print(f"items naming a MONDO term: {sum(len(v) for v in targets.values())} "
-          f"across {len(targets)} distinct terms")
+    print(
+        f"items naming a MONDO term: {sum(len(v) for v in targets.values())} "
+        f"across {len(targets)} distinct terms"
+    )
 
     conn = sqlite3.connect(MONDO_DB)
 
     def ancestors(curie: str) -> list[str]:
         rows = conn.execute(
             "select object from entailed_edge where subject=? and predicate='rdfs:subClassOf'",
-            (curie,)).fetchall()
+            (curie,),
+        ).fetchall()
         return [r[0] for r in rows if r[0].startswith("MONDO:") and r[0] != curie]
 
     # semsql indexes entailed_edge on (subject, ...) but not on object, so a
     # per-ancestor `where object=?` count full-scans ~5M rows each time. One
     # grouped pass builds the whole map instead.
-    desc_count: dict[str, int] = dict(conn.execute(
-        "select object, count(*) from entailed_edge "
-        "where predicate='rdfs:subClassOf' group by object").fetchall())
+    desc_count: dict[str, int] = dict(
+        conn.execute(
+            "select object, count(*) from entailed_edge "
+            "where predicate='rdfs:subClassOf' group by object"
+        ).fetchall()
+    )
 
     def descendants(curie: str) -> int:
         return desc_count.get(curie, 0)
@@ -221,11 +259,15 @@ def main() -> int:
         if len(issue_list) > 1:
             dupes.append({"mondo_id": curie, "issues": issue_list})
         if curie in curated:
-            already.append({"mondo_id": curie, "curated_as": curated[curie],
-                            "issues": issue_list})
+            already.append(
+                {"mondo_id": curie, "curated_as": curated[curie], "issues": issue_list}
+            )
             continue
-        hits = [{"ancestor": a, "curated_as": curated[a], "descendants": descendants(a)}
-                for a in ancestors(curie) if a in curated]
+        hits = [
+            {"ancestor": a, "curated_as": curated[a], "descendants": descendants(a)}
+            for a in ancestors(curie)
+            if a in curated
+        ]
         hits = [h for h in hits if h["descendants"] <= args.max_descendants]
         if hits:
             hits.sort(key=lambda h: h["descendants"])
@@ -242,26 +284,41 @@ def main() -> int:
     for d in dupes:
         print(f"  {d['mondo_id']}")
         for i in d["issues"]:
-            print(f"      #{i['number']}  {i['title']}  [{','.join(i['assignees']) or 'unassigned'}]")
+            print(
+                f"      #{i['number']}  {i['title']}  [{','.join(i['assignees']) or 'unassigned'}]"
+            )
 
     print(f"\n=== ALREADY_CURATED — term already covered exactly ({len(already)})")
     for a in already:
         print(f"  {a['mondo_id']} -> {a['curated_as']}")
         for i in a["issues"]:
-            print(f"      #{i['number']}  {i['title']}  [{','.join(i['assignees']) or 'unassigned'}]")
+            print(
+                f"      #{i['number']}  {i['title']}  [{','.join(i['assignees']) or 'unassigned'}]"
+            )
 
-    print(f"\n=== COVERED_BY_PARENT — a curated ancestor may already cover this "
-          f"({len(by_parent)}, ancestor <= {args.max_descendants} descendants)")
+    print(
+        f"\n=== COVERED_BY_PARENT — a curated ancestor may already cover this "
+        f"({len(by_parent)}, ancestor <= {args.max_descendants} descendants)"
+    )
     for b in by_parent:
         top = b["hits"][0]
         print(f"  {b['mondo_id']}  {title_of(b)}")
-        print(f"      nearest curated ancestor: {top['ancestor']} -> {top['curated_as']} "
-              f"({top['descendants']} descendants)")
+        print(
+            f"      nearest curated ancestor: {top['ancestor']} -> {top['curated_as']} "
+            f"({top['descendants']} descendants)"
+        )
 
     if args.json:
-        Path(args.json).write_text(json.dumps(
-            {"duplicate_issue": dupes, "already_curated": already,
-             "covered_by_parent": by_parent}, indent=2))
+        Path(args.json).write_text(
+            json.dumps(
+                {
+                    "duplicate_issue": dupes,
+                    "already_curated": already,
+                    "covered_by_parent": by_parent,
+                },
+                indent=2,
+            )
+        )
         print(f"\nwrote {args.json}")
     return 0
 
