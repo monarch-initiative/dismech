@@ -368,6 +368,10 @@ is available either, so a source's `≤ x` cannot be stated. Worked cases across
 "above 2%", `Cushing_Disease` nadir cortisol "at or below 3 mcg/dL". A `< x`
 criterion *is* expressed exactly, so the response to an unrepresentable threshold
 is to decline the band and record the inequality, never to move the boundary.
+The gap itself is recorded as an open decision (*`ReferenceRangeBand` bounds
+cannot state a strict `>` or a non-strict `≤` threshold* in
+`docs/explanation/design-decisions.md`), which carries these same cases; keep
+the two in step rather than restating one from the other.
 Distinguish that from having no code to attach a representable threshold to:
 `Primary_Ciliary_Dyskinesia` already carries correct 77 nL/min bands with no
 `loinc_term`, because LOINC has no nasal nitric oxide measurement — the clearest
@@ -377,12 +381,19 @@ case in this project for a LOINC term request.
 decisions §17 records only the first half, as its *Identity convention*:
 `diagnosis[].measurements` is test identity and prefers a Part or panel, with
 method- and specimen-specific codes reserved for a `definitions[]` phenotype
-algorithm. The complement is not recorded there, and this is its record:
-`biochemical[].loinc_term` is the measurement that quantifies a marker and
-needs an observation code, a Part being a component with no scale, specimen or
-method. `Trehalase_Deficiency` is the
-worked pair — the Part binds in `measurements`, nothing binds in the marker's
-`loinc_term`. One limit found in batch 28: a Part is only worth binding when it
+algorithm. The complement is **not settled, and this paragraph does not settle
+it**: whether a bare Part may fill `biochemical[].loinc_term` is an open
+decision in the register (*Whether a bare LOINC Part may fill
+`biochemical[].loinc_term`* in `docs/explanation/design-decisions.md`), where
+64 merged bindings across 38 entries already use a Part there, several of them
+deliberately. These batches read the slot as the measurement that quantifies a
+marker, and so preferred an observation code, a Part being a component with no
+scale, specimen or method; `Trehalase_Deficiency` is the worked pair under that
+reading — the Part binds in `measurements`, nothing binds in the marker's
+`loinc_term`. That is the reading this tranche followed, not a convention to
+apply elsewhere: the register's row owns the question, and nothing here is a
+reason to decline a Part binding or to migrate an existing one. One limit found
+in batch 28, independent of that question: a Part is only worth binding when it
 carries most of the available specificity. `LOINC:LP15910-0` *Trehalase* sat above
 two records and was bound; `LOINC:LP173640-6` *Nitric oxide* sits above twelve
 spanning nasal screening, an asthma marker and ventilator therapy, and was
