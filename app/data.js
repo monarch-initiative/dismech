@@ -5115,6 +5115,107 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "ACCES Syndrome",
+    "disease_id": "MONDO:0859262",
+    "category": "Mendelian",
+    "parents": [
+      "Multiple Congenital Anomalies Syndrome"
+    ],
+    "creation_date": "2026-10-16T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "ACCES syndrome (aplasia cutis congenita and ectrodactyly skeletal syndrome) is a rare autosomal dominant multiple congenital anomaly disorder caused by heterozygous UBA2 variants that are thought to act through loss of function. UBA2 encodes the catalytic subunit of the SUMO-activating E1 enzyme, a heterodimer with SAE1 that starts the SUMOylation cascade. The phenotype is highly variable, even within one family: aplasia cutis congenita, split hand or split foot and other digital anomalies, hip dysplasia and other skeletal findings, early growth deficiency, neurodevelopmental delay, and less often genital, renal, cardiac and ocular anomalies. Some carriers have only isolated aplasia cutis congenita or isolated split-hand/foot malformation. Variants are often de novo but are also transmitted through families.",
+    "pathophysiology": [
+      "UBA2 Loss of Function",
+      "Reduced Protein SUMOylation",
+      "Impaired Neural Crest Differentiation",
+      "Disrupted Distal Limb Morphogenesis"
+    ],
+    "cell_types": [
+      "neural crest cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000333"
+    ],
+    "biological_processes": [
+      "protein sumoylation",
+      "neural crest cell differentiation",
+      "embryonic digit morphogenesis"
+    ],
+    "phenotypes": [
+      "Aplasia cutis congenita",
+      "Ectrodactyly",
+      "Syndactyly",
+      "Preaxial polydactyly",
+      "Hip dysplasia",
+      "Scoliosis",
+      "Disproportionate short stature",
+      "Lumbar hyperlordosis",
+      "Growth delay",
+      "Global developmental delay",
+      "Ectodermal anomalies",
+      "Abnormal facial shape",
+      "Hypospadias",
+      "Duane anomaly",
+      "Renal anomaly",
+      "Cardiac anomaly"
+    ],
+    "phenotype_categories": [
+      "Integumentary",
+      "Skeletal",
+      "Growth",
+      "Neurological",
+      "Craniofacial",
+      "Genitourinary",
+      "Ophthalmological",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001057",
+      "HP:0100257",
+      "HP:0001159",
+      "HP:0100258",
+      "HP:0001385",
+      "HP:0002650",
+      "HP:0003498",
+      "HP:0002938",
+      "HP:0001510",
+      "HP:0001263",
+      "HP:0001574",
+      "HP:0001999",
+      "HP:0000047",
+      "HP:0009921",
+      "HP:0000077",
+      "HP:0001627"
+    ],
+    "frequencies": [],
+    "genes": [
+      "UBA2"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ACCES_Syndrome.yaml",
+    "page_url": "../pages/disorders/ACCES_Syndrome.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "ACTA1-Related Nemaline Myopathy",
     "disease_id": "MONDO:0008070",
     "category": "Mendelian",
@@ -86013,8 +86114,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Chemotherapy-Induced Neutropenia",
@@ -102013,6 +102114,78 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "32",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Congenital Factor XII Deficiency",
+    "disease_id": "MONDO:0009315",
+    "category": "Mendelian",
+    "parents": [
+      "inherited blood coagulation disorder",
+      "coagulation protein disease",
+      "hereditary disease"
+    ],
+    "creation_date": "2026-10-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Congenital factor XII deficiency (Hageman trait) is an autosomal recessive deficiency of coagulation factor XII, the serine protease that initiates the contact activation pathway. Biallelic F12 variants reduce factor XII activity and antigen, which markedly prolongs the activated partial thromboplastin time while leaving hemostasis intact: the tissue-factor/factor VIIa route to thrombin is untouched, so patients do not bleed abnormally and tolerate major surgery. The deficiency is therefore almost always found incidentally on preoperative or routine coagulation testing rather than through symptoms.\nIts interest is mechanistic rather than clinical. Factor XII-deficient mice are protected from arterial thrombosis despite normal hemostasis, platelet polyphosphate was identified as the endogenous activator, and heterozygous human loss-of-function carriers in two population biobanks are protected from venous thromboembolism without excess bleeding. That dissociation between thrombosis and hemostasis is what makes factor XII a drug target. The historical claim that the deficiency is itself thrombophilic has not survived meta-analysis.\nThe practical hazard is diagnostic, not hemorrhagic. A prolonged aPTT invites unnecessary plasma transfusion or cancelled surgery, and during cardiopulmonary bypass the activated clotting time cannot be used to steer heparin dosing.\nThe opposite lesion is a different disease: F12 gain-of-function variants cause hereditary angioedema with normal C1 inhibitor through unrestrained contact-system activation, curated in Hereditary_Angioedema.",
+    "pathophysiology": [
+      "F12 Loss of Function",
+      "Plasma Factor XII Deficiency",
+      "Contact Activation Failure",
+      "Impaired Polyphosphate-Driven Thrombus Propagation",
+      "Preserved Tissue-Factor-Initiated Hemostasis",
+      "Reduced Plasma Kallikrein-Kinin Activation"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "blood coagulation, intrinsic pathway",
+      "blood coagulation, fibrin clot formation",
+      "tissue-factor/factor VIIa-initiated coagulation (unaffected)",
+      "plasma kallikrein-kinin cascade"
+    ],
+    "phenotypes": [
+      "Reduced Factor XII Activity",
+      "Prolonged Partial Thromboplastin Time",
+      "Abnormal Bleeding"
+    ],
+    "phenotype_categories": [
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood"
+    ],
+    "phenotype_ids": [
+      "HP:0004841",
+      "HP:0003645",
+      "HP:0001892"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "F12"
+    ],
+    "treatments": [
+      "No Hemostatic Prophylaxis",
+      "Heparin Concentration Monitoring During Cardiopulmonary Bypass"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_Factor_XII_Deficiency.yaml",
+    "page_url": "../pages/disorders/Congenital_Factor_XII_Deficiency.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Congenital Factor X Deficiency",
@@ -131504,14 +131677,17 @@ window.searchData = [
   {
     "name": "EDARADD-Related Hypohidrotic Ectodermal Dysplasia",
     "disease_id": "MONDO:0013983",
-    "category": "Genetic",
+    "category": "Mendelian",
     "parents": [
       "Ectodermal Dysplasia"
     ],
     "creation_date": "2026-04-24T00:00:00Z",
     "updated_date": null,
-    "subtypes": [],
-    "description": "EDARADD-related hypohidrotic ectodermal dysplasia (HED3, ECTD11B) is an autosomal recessive disorder caused by biallelic loss-of-function mutations in EDARADD, which encodes the EDAR-associated death domain adaptor protein. EDARADD is an essential intracellular signal transducer that links the ectodysplasin receptor EDAR to downstream NF-\u03baB activation via TRAF6. Loss of EDARADD function blocks EDA-EDAR-NF-\u03baB signaling required for ectodermal appendage morphogenesis, producing the classic triad of hypohidrosis, hypotrichosis, and hypodontia. EDARADD mutations account for a small proportion of HED cases; the X-linked form (EDA mutations) is by far the most common, followed by EDAR mutations.",
+    "subtypes": [
+      "AR",
+      "AD"
+    ],
+    "description": "EDARADD-related hypohidrotic ectodermal dysplasia is an ultra-rare congenital ectodermal dysplasia caused by biallelic loss-of-function (autosomal recessive ECTD11B, OMIM 614941, HED3) or heterozygous dominant-negative (autosomal dominant ECTD11A, OMIM 614940) pathogenic variants in EDARADD, which encodes the intracellular death domain adaptor protein that couples the ectodysplasin A receptor (EDAR) to TRAF6/TAB2/TAK1-mediated canonical NF-\u03baB activation during embryonic ectodermal placode morphogenesis. Disruption of EDARADD-dependent NF-\u03baB signaling impairs the development of eccrine sweat glands, hair follicles, and teeth, producing the classic triad of hypohidrosis or anhidrosis with heat intolerance, hypotrichosis (sparse scalp and body hair), and hypodontia with conical teeth, clinically indistinguishable from EDA- and EDAR-related hypohidrotic ectodermal dysplasia.",
     "pathophysiology": [
       "Disrupted EDA-EDAR-EDARADD-NF-\u03baB Signaling",
       "Impaired Sweat Gland Development",
@@ -131519,37 +131695,40 @@ window.searchData = [
       "Impaired Tooth Development"
     ],
     "cell_types": [
-      "ectodermal cell"
+      "Surface Ectodermal Cell",
+      "Keratinocyte"
     ],
     "cell_type_ids": [
-      "CL:0000221"
+      "CL:0000114",
+      "CL:0000312"
     ],
     "biological_processes": [
-      "canonical NF-\u03baB signaling",
-      "ectoderm development",
-      "sweat gland development",
-      "hair follicle development",
-      "tooth development"
+      "Canonical NF-kappaB Signal Transduction",
+      "Ectodermal Placode Formation",
+      "Sweat Gland Development",
+      "Hair Follicle Development",
+      "Odontogenesis"
     ],
     "phenotypes": [
       "Hypohidrosis",
-      "Sparse Hair",
+      "Sparse Scalp Hair",
       "Hypodontia",
-      "Conical Tooth",
+      "Conical Teeth",
       "Heat Intolerance",
-      "Periorbital Wrinkles",
-      "Prominent Forehead",
+      "Dry Skin",
       "Sparse Eyebrow",
       "Sparse Eyelashes",
-      "Dry Skin",
-      "Nail Dystrophy",
+      "Periorbital Wrinkles",
+      "Prominent Forehead",
       "Keratoconjunctivitis Sicca",
       "Recurrent Respiratory Infections"
     ],
     "phenotype_categories": [
-      "Constitutional",
-      "Integument",
-      "Head and Neck",
+      "Dermatologic",
+      "Dental",
+      "Systemic",
+      "Craniofacial",
+      "Ophthalmologic",
       "Respiratory"
     ],
     "phenotype_hpo_categories": [
@@ -131564,38 +131743,43 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0000966",
-      "HP:0008070",
+      "HP:0002209",
       "HP:0000668",
       "HP:0000698",
       "HP:0002046",
-      "HP:0000607",
-      "HP:0002007",
+      "HP:0000958",
       "HP:0045075",
       "HP:0000653",
-      "HP:0000958",
-      "HP:0008404",
+      "HP:0000607",
+      "HP:0002007",
       "HP:0001097",
       "HP:0002205"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
     "genes": [
-      "EDARADD Loss-of-Function Variants"
+      "EDARADD Biallelic Loss-of-Function Variants",
+      "EDARADD Heterozygous Dominant-Negative Variants"
     ],
     "treatments": [
-      "Heat Avoidance and Environmental Modification",
-      "Dental Implantation and Prosthodontic Rehabilitation",
+      "Environmental Thermoregulation",
+      "Dental Rehabilitation",
+      "Supportive Care for Xerosis and Mucosal Dryness",
       "Genetic Counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "EDARADD_Hypohidrotic_Ectodermal_Dysplasia.yaml",
     "page_url": "../pages/disorders/EDARADD-Related_Hypohidrotic_Ectodermal_Dysplasia.html",
-    "num_phenotypes": 13,
+    "num_phenotypes": 12,
     "num_pathophysiology": 4,
-    "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "2"
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "EDAR-Related Hypohidrotic Ectodermal Dysplasia",
@@ -132396,7 +132580,8 @@ window.searchData = [
     ],
     "environmental": [],
     "biochemical": [
-      "Estrogen and Progesterone Receptor Testing",
+      "Estrogen Receptor Protein Expression (IHC)",
+      "Progesterone Receptor Protein Expression (IHC)",
       "Genomic Assays"
     ],
     "source_file": "ER_Positive_Breast_Cancer.yaml",
@@ -141026,6 +141211,156 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "69",
     "causal_graph_longest_path": "10"
+  },
+  {
+    "name": "FBXW7-Related Neurodevelopmental Disorder",
+    "disease_id": "MONDO:0859280",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal dominant intellectual disability",
+      "Neurodevelopmental disorder"
+    ],
+    "creation_date": "2026-10-17T00:58:01Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant neurodevelopmental disorder caused by heterozygous germline or constitutional mosaic FBXW7 variants (deletions, truncating, splice-site and WD40-domain missense variants). FBXW7 is the substrate-recognition subunit of the SCF(FBXW7) E3 ubiquitin ligase, which marks cyclin E, NOTCH, c-Jun, MYC and other phosphorylated regulators for proteasomal degradation. Affected individuals have global developmental delay, intellectual disability ranging from borderline to severe, language impairment, hypotonia, feeding and gastrointestinal problems, and variable structural brain anomalies of the corpus callosum, cerebellum and white matter. Expressivity is variable and penetrance incomplete. A small number of carriers have developed Wilms tumor through a somatic second hit on the other FBXW7 allele.",
+    "pathophysiology": [
+      "FBXW7 Haploinsufficiency",
+      "Impaired SCF(FBXW7) Substrate Degradation",
+      "NOTCH Accumulation in Neural Stem Cells",
+      "Excess Oligodendrocyte Progenitor Specification",
+      "Skewed Neural Stem Cell Differentiation",
+      "c-Jun Accumulation in Cerebellum",
+      "Impaired Cerebellar Development",
+      "Structural Brain Anomalies",
+      "Impaired Neuronal Function",
+      "Somatic Second Hit in FBXW7"
+    ],
+    "cell_types": [
+      "neural stem cell",
+      "oligodendrocyte precursor cell",
+      "Purkinje cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000047",
+      "CL:0002453",
+      "CL:0000121",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "SCF-dependent proteasomal protein catabolism",
+      "Notch signaling pathway",
+      "neuron differentiation",
+      "astrocyte differentiation",
+      "cerebellar Purkinje cell differentiation"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Atypical behavior",
+      "Autistic behavior",
+      "Delayed speech and language development",
+      "Hypotonia",
+      "Seizure",
+      "Absence seizures",
+      "Abnormal corpus callosum morphology",
+      "Abnormal cerebellum morphology",
+      "Polymicrogyria",
+      "Abnormal cerebral white matter morphology",
+      "Delayed CNS myelination",
+      "Macrocephaly",
+      "Microcephaly",
+      "Deeply set eye",
+      "Cleft or high palate",
+      "Strabismus",
+      "Abnormality of refraction",
+      "Congenital heart anomalies",
+      "Feeding difficulties",
+      "Constipation",
+      "Gastroesophageal reflux",
+      "Recurrent respiratory infections",
+      "Cryptorchidism",
+      "Wilms tumor"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Growth",
+      "Craniofacial",
+      "Ophthalmological",
+      "Cardiovascular",
+      "Gastrointestinal",
+      "Immunological",
+      "Genitourinary",
+      "Neoplasm"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000708",
+      "HP:0000729",
+      "HP:0000750",
+      "HP:0001252",
+      "HP:0001250",
+      "HP:0002121",
+      "HP:0001273",
+      "HP:0001317",
+      "HP:0002126",
+      "HP:0002500",
+      "HP:0002188",
+      "HP:0000256",
+      "HP:0000252",
+      "HP:0000490",
+      "HP:0000218",
+      "HP:0000486",
+      "HP:0000539",
+      "HP:0001627",
+      "HP:0011968",
+      "HP:0002019",
+      "HP:0002020",
+      "HP:0002205",
+      "HP:0000028",
+      "HP:0002667"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "FBXW7"
+    ],
+    "treatments": [
+      "Speech and Language Therapy",
+      "Physical Therapy",
+      "Antiseizure Pharmacotherapy",
+      "Laxative Therapy",
+      "Wilms Tumor Surveillance",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "FBXW7-Related_Neurodevelopmental_Disorder.yaml",
+    "page_url": "../pages/disorders/FBXW7-Related_Neurodevelopmental_Disorder.html",
+    "num_phenotypes": 26,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "FDX2-Related Mitochondrial Myopathy",
@@ -233024,7 +233359,10 @@ window.searchData = [
     ],
     "environmental": [],
     "biochemical": [
-      "MMR Protein Expression by IHC",
+      "MLH1 Protein Expression (IHC)",
+      "MSH2 Protein Expression (IHC)",
+      "MSH6 Protein Expression (IHC)",
+      "PMS2 Protein Expression (IHC)",
       "MSI Testing"
     ],
     "source_file": "MSI_High_Endometrial_Cancer.yaml",
@@ -261901,6 +262239,120 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "42",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Nephrotic Syndrome Type 12",
+    "disease_id": "MONDO:0014817",
+    "category": "Mendelian",
+    "parents": [
+      "Familial Idiopathic Steroid-Resistant Nephrotic Syndrome"
+    ],
+    "creation_date": "2026-10-17T05:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive steroid-resistant nephrotic syndrome caused by biallelic loss-of-function variants in NUP93, which encodes a scaffold nucleoporin of the inner ring of the nuclear pore complex. The founding report found NUP93 variants in six families; onset was between 1 and 6 years and kidney failure followed between 1 and 11 years. Biopsy usually shows focal segmental glomerulosclerosis, occasionally collapsing, and less often diffuse mesangial sclerosis. In cell-based and Xenopus egg-extract assays, patient alleles either disrupt nuclear pore assembly or abolish binding to SMAD4 and importin-7, and every allele tested fails to rescue BMP7-induced SMAD signalling. A podocyte-specific Nup93 knockout mouse loses nuclear pores, mislocalizes podocyte transcription factors, and develops progressive FSGS. ClinGen classifies the gene-disease relationship as Definitive.",
+    "pathophysiology": [
+      "Biallelic NUP93 Loss of Function",
+      "Disrupted Nuclear Pore Complex Assembly",
+      "Impaired BMP7-SMAD Nuclear Signaling",
+      "Reduced Nuclear Localization of Podocyte Transcription Factors",
+      "Impaired Podocyte Migration and Proliferation",
+      "Podocyte DNA Damage and Apoptosis",
+      "Podocyte Injury and Glomerular Filtration Barrier Failure"
+    ],
+    "cell_types": [
+      "podocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000653"
+    ],
+    "biological_processes": [
+      "nuclear pore organization",
+      "BMP signaling pathway",
+      "protein import into nucleus",
+      "podocyte cell migration",
+      "DNA damage response",
+      "glomerular filtration"
+    ],
+    "phenotypes": [
+      "Nephrotic Syndrome",
+      "Proteinuria",
+      "Hypoalbuminemia",
+      "Edema",
+      "Focal Segmental Glomerulosclerosis",
+      "Diffuse Mesangial Sclerosis",
+      "Podocyte Foot Process Effacement",
+      "Renal Tubular Atrophy and Interstitial Fibrosis",
+      "Microscopic Hematuria",
+      "Hypertension",
+      "Kidney Failure",
+      "Global Developmental Delay",
+      "Cardiomyopathy",
+      "Optic Atrophy",
+      "Short Stature",
+      "Bicuspid Aortic Valve"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Metabolic",
+      "Cardiovascular",
+      "Neurological",
+      "Ophthalmological",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0012588",
+      "HP:0012593",
+      "HP:0003073",
+      "HP:0000969",
+      "HP:0000097",
+      "HP:0001967",
+      "HP:0031266",
+      "HP:0000092",
+      "HP:0002907",
+      "HP:0000822",
+      "HP:0003774",
+      "HP:0001263",
+      "HP:0001638",
+      "HP:0000648",
+      "HP:0004322",
+      "HP:0001647"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "NUP93"
+    ],
+    "treatments": [
+      "Kidney Transplantation",
+      "Kidney Replacement Therapy",
+      "Renin-Angiotensin System Inhibition",
+      "Immunosuppression",
+      "Plasma Exchange for Post-Transplant Recurrence",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Nephrotic_Syndrome_Type_12.yaml",
+    "page_url": "../pages/disorders/Nephrotic_Syndrome_Type_12.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Nephrotic Syndrome Type 2",
@@ -361324,10 +361776,13 @@ window.searchData = [
       "Impaired Nail Development"
     ],
     "cell_types": [
-      "odontogenic ectomesenchymal progenitor",
+      "dental papilla cell",
+      "odontoblast",
       "nail-unit keratinocyte"
     ],
     "cell_type_ids": [
+      "CL:0000345",
+      "CL:0000060",
       "CL:0000312"
     ],
     "biological_processes": [
@@ -361377,8 +361832,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Torsade de Pointes Syndrome With Short Coupling Interval",
@@ -382817,17 +383272,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3546,
-  "total_subtypes": 4805,
-  "total_disorders_and_subtypes": 8351,
-  "total_unique_evidence_sources": 53161,
-  "total_unique_publications": 49599,
+  "total_disorder_pages": 3550,
+  "total_subtypes": 4807,
+  "total_disorders_and_subtypes": 8357,
+  "total_unique_evidence_sources": 53221,
+  "total_unique_publications": 49656,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3542,
-  "total_unique_pathological_events": 23401,
+  "total_pathographs": 3546,
+  "total_unique_pathological_events": 23427,
   "total_modules": 195,
-  "total_research_reports": 3671,
+  "total_research_reports": 3675,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 115
