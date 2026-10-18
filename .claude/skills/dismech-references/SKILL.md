@@ -483,6 +483,85 @@ and found nothing) versus no such marker (never retried under that route, so a
 in `kb/`, and names any that an evidence item with a `snippet:` cites. That last
 count should be zero. The recipe is a read-only triage view and always exits 0.
 
+## `abstract_only` is also one fetch, not the paper
+
+The rule above generalizes one tier up, and this is the tier that catches
+people, because nothing looks wrong. An `abstract_only` cache has a title,
+authors, journal and a real abstract, and snippets quoting it verify. It is
+still only a record of what one fetch retrieved, and a plain re-fetch can
+upgrade it:
+
+```bash
+just fetch-reference PMID:22771891
+#   Content type: full_text_xml
+#   Content length: 42746 characters
+```
+
+**This is measured, not anecdotal.** The census in
+[`docs/reports/abstract-only-recovery-census-2026-09-16.md`](../../../docs/reports/abstract-only-recovery-census-2026-09-16.md)
+(issue #10878) found 8,482 `abstract_only` caches — 26.7% of them — with a real
+body recoverable through the production extractor, and 5,809 that would gain at
+least one table. So the odds that a given `abstract_only` cache is hiding full
+text are roughly one in four.
+
+```bash
+just abstract-only-recovery-census                  # offline table census (seconds)
+just abstract-only-recovery-census --phase all      # network phases, resumable, hours
+```
+
+**Refetch the paper you need; never bulk-refetch the backlog.** #10878 declined
+a blanket refetch on purpose: rewriting thousands of `references_cache/` files
+in one PR is the merge-invisible failure shape that #8623 and #10061 document,
+and every open curation PR touching one of those files would go quietly wrong on
+merge. A single-file refetch because you need a number is the sanctioned move;
+batching the rest is a maintainer call, and the report names the two batching
+axes.
+
+**Re-fetch whenever the fact you need lives in a table or a figure.** An
+abstract can never carry a table row, so a number sourced to "Table 2" is not
+checkable against an `abstract_only` cache no matter how carefully you read it.
+`PMID:22771891` is the worked case: the cache was `abstract_only`, the abstract
+says only that HOG "was confirmed in the urine, sera and liver samples from PH3
+patients", and the concentrations a reviewer needed were in Table 2. One
+`fetch-reference` brought back `full_text_xml` carrying Table 2 verbatim as a
+markdown table, so those values became quotable snippets and the check went
+offline for everyone.
+
+**Reach for the repository's fetcher before any external full-text route.** On
+that paper, four outside routes were tried first — the NCBI BioC endpoint,
+Europe PMC `fullTextXML`, a PubMed MCP full-text call, and the PMC PDF URL —
+and a review note was written saying the values "could not be verified" while
+`just fetch-reference` returned them first time. The fetcher is
+not only the sanctioned way to *write* a cache file; it is usually the best way
+to *read* a paper.
+
+**An HTTP 200 does not establish retrieval.** `pmc.ncbi.nlm.nih.gov/articles/<PMCID>/pdf/<file>.pdf`
+answers 200 with a 21 KB reCAPTCHA challenge page whose title is "Checking your
+browser", and the article page does the same. Check the body, not the status
+code — the same trap CLAUDE.md records for the ICTRP portal's "not found" page.
+
+**Figure captions do not come through the XML route.** The same refreshed cache
+carries every table and no caption, so a kinetic constant printed in a figure
+legend stays uncheckable from the cache even at `full_text_xml`. When a number
+you need is in a caption, say in `notes` where it lives rather than implying the
+cache supports it.
+
+### Do not commit a publisher PDF
+
+Reading a paper on PMC is not permission to redistribute it. An NIH Public
+Access author manuscript carries the publisher's copyright — `nihms-393374.pdf`
+for `PMID:22771891` is stamped "© 2012 Elsevier B.V. All rights reserved" — and
+sits outside the PMC open-access subset, which is the redistributable tier.
+`references_cache/files/` is gitignored for exactly this class of file, so
+placing a PDF anywhere else in the tree routes around an existing decision.
+
+What the repository does deposit is fetcher-generated extracted text: tens of
+thousands of `references_cache/*.md` files, thousands of them `full_text_xml`,
+`full_text_pdf` or `full_text_html`. That is the deposit route. A PDF a user
+hands you is fine to read and quote in the session; the way to make its content
+durable is `just fetch-reference`, never a commit of the file or a hand-written
+cache entry.
+
 ## Reference-cache integrity
 
 Check the derived cache structure with:
