@@ -4993,7 +4993,10 @@ current-commit verdict on manual- and comment-triggered runs. A verdict does not
 block retrying a failed PR-event check on the current head, because a manual or
 comment review cannot turn that check green. The default budget is five retries per sweep; `dry_run`,
 `pr_number`, `review_retry_delay_hours` and `max_review_retries` are available in
-the manual trigger. See [review recovery](docs/explanation/automation-and-agents.md#recovering-failed-review-actions).
+the manual trigger. The same job reruns failed issue triage, summarize and
+dedupe runs, keyed by the issue number in each run's name (`Triage issue #N`),
+because `issues: opened` cannot fire again for an existing issue (#13150); all
+three also accept a manual `issue_number` dispatch. See [review recovery](docs/explanation/automation-and-agents.md#recovering-failed-review-actions).
 
 ### Inactive PR assignments
 
