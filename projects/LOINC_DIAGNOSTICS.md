@@ -168,6 +168,50 @@ system, nearly every condition already curated), then **G**, **B** and **P**,
 with **E** as a background worklist and **N**/**O** as the mechanical passes
 once the slot exists.
 
+**Tranche J notes.**
+
+- **A tranche J candidate pool must scan `definitions:`, not just `diagnosis:`
+  and `biochemical:`.** The tranche's own scope above names "criteria in
+  `definitions[]`" for exactly this reason (McDonald, NIA-AA and similar
+  documents live there). A noticeable share of this tranche's candidates —
+  on the order of a third, counted while building its pool rather than
+  measured against the corpus — were reachable only through that section.
+- **Open question, not settled: bind a method-specific LOINC code when no
+  Part-level identity exists, or decline the binding.** This is an exception
+  to the Part-or-panel identity rule stated above under *Where the content
+  lands*, taken where no Part code exists. Neurofilament light chain is the
+  worked pair, and both sides are in the KB:
+  `Early-Onset_Autosomal_Dominant_Alzheimer_Disease` binds `LOINC:100996-8`
+  *Neurofilament light chain [Mass/volume] in Cerebrospinal Fluid*, while
+  `Hunter_syndrome` declines a binding and records why in `notes` — its
+  marker spans CSF and serum, and LOINC codes the analyte per specimen
+  (`LOINC:100996-8` in CSF, `LOINC:101281-4` *... in Serum or Plasma by
+  Immunoassay* in serum), with no analyte Part found in the Monarch KG.
+  Both readings rest on the same facts, so this is a convention choice to
+  make once, not a fact to re-derive per entry.
+- **An absence claim about a LOINC code needs a date or release, not just a
+  search.** A code can exist in the current release that an earlier,
+  correctly-performed search found absent, and the release table records
+  which: of the seven neurofilament codes in LOINC 2.83, `LOINC:112614-3`
+  *Neurofilament light chain [Moles/volume] in Plasma by Immunoassay* was
+  first released in 2.83 itself, so a search against any earlier release
+  would rightly have reported it missing. That is release drift, not a faulty
+  search. State the LOINC release (or a retrieval date) alongside any "no code
+  exists" finding.
+- **The same analyte can carry different units across specimens, and the
+  gap is usually a different analyte rather than a missing unit.** Intact
+  human chorionic gonadotropin has a Mass/volume code in serum,
+  `LOINC:34670-0` *Choriogonadotropin [Mass/volume] in Serum or Plasma*, but
+  in cerebrospinal fluid only a Units/volume one, `LOINC:44001-6`
+  *Choriogonadotropin [Units/volume] in Cerebrospinal Fluid*. LOINC 2.83 does
+  carry a Mass/volume CSF code, `LOINC:55866-8`, but for the *free beta
+  subunit* — a different analyte, not the same measurement in another unit.
+  Note also that serum has both units available for intact HCG
+  (`LOINC:19080-1` is the Units/volume serum code), so the unit is a property
+  of the individual code and not of the specimen. A specimen pair is
+  therefore not necessarily a unit pair, and binding the specimen-identity
+  match is correct even when the units differ.
+
 Instruments LOINC does not carry — searches for HAM-D, HAM-A, ADOS, PANSS,
 Y-BOCS, EDSS, Hoehn and Yahr, Epworth, ADAS-Cog, QIDS and YMRS returned
 nothing in the KG at scoping; LOINC includes a copyrighted scale only with
