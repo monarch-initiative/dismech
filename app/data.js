@@ -118138,9 +118138,12 @@ window.searchData = [
     "description": "Dental fluorosis is a developmental enamel disorder caused by chronic excess fluoride exposure during tooth formation, producing dose-dependent enamel hypomineralization with white striations, opacity, staining, and in severe cases pitting and surface breakdown.",
     "pathophysiology": [
       "Developmental fluoride overexposure during amelogenesis",
+      "Secretory-stage amelogenin retention and delayed enamel mineralization",
       "Maturation-stage ameloblast dysfunction with KLK4 suppression",
       "Ion transport dysregulation during enamel maturation",
-      "Ferritin heavy-chain targeting and impaired ameloblast iron storage",
+      "Ameloblast iron storage and ferritin deficiency",
+      "Ameloblast endoplasmic reticulum stress and oxidative stress",
+      "Ameloblast apoptosis",
       "Enamel hypomineralization and opacity"
     ],
     "cell_types": [
@@ -118151,15 +118154,20 @@ window.searchData = [
     ],
     "biological_processes": [
       "biomineral tissue development",
+      "amelogenesis",
+      "enamel mineralization",
       "tooth mineralization",
       "calcium ion transport",
       "phosphate ion transport",
       "chloride transport",
-      "intracellular iron ion homeostasis"
+      "intracellular iron ion homeostasis",
+      "response to endoplasmic reticulum stress",
+      "response to oxidative stress",
+      "apoptotic process"
     ],
     "phenotypes": [
       "Enamel hypomineralization",
-      "Tooth discoloration and enamel opacity",
+      "Yellow-brown tooth discoloration",
       "Post-eruptive enamel surface breakdown"
     ],
     "phenotype_categories": [
@@ -118171,26 +118179,49 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0006285",
-      "HP:0000682",
+      "HP:0006286",
       "HP:0009722"
     ],
     "frequencies": [],
-    "genes": [],
+    "genes": [
+      "GSTP1",
+      "VDR",
+      "KL",
+      "BMP2",
+      "ALOX15",
+      "COL1A2"
+    ],
     "treatments": [
       "Microabrasion with in-office bleaching",
       "Resin infiltration",
-      "Exposure optimization in drinking water"
+      "Remineralization with CPP-ACFP (MI Paste Plus)",
+      "Exposure optimization in drinking water",
+      "Drinking water defluoridation and water source improvement",
+      "Calcium and vitamin D supplementation"
     ],
-    "environmental": [],
-    "biochemical": [],
+    "environmental": [
+      "Excessive drinking water fluoride exposure",
+      "Brick tea fluoride exposure",
+      "Indoor coal-burning fluoride pollution",
+      "Early-life fluoridated toothpaste ingestion",
+      "Short exclusive breastfeeding duration (<6 months)"
+    ],
+    "biochemical": [
+      "Urinary fluoride",
+      "Bone-specific alkaline phosphatase (BALP)",
+      "Matrix metalloproteinase-2 (MMP-2)",
+      "Matrix metalloproteinase-9 (MMP-9)",
+      "Serum osteocalcin (OC)",
+      "Serum parathyroid hormone (PTH)"
+    ],
     "source_file": "Dental_Fluorosis.yaml",
     "page_url": "../pages/disorders/Dental_Fluorosis.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 5,
-    "num_genes": 0,
-    "num_treatments": 3,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "2"
+    "num_pathophysiology": 8,
+    "num_genes": 6,
+    "num_treatments": 6,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Dentatorubral-Pallidoluysian Atrophy",
@@ -144855,6 +144886,7 @@ window.searchData = [
       "Callosal commissural development failure",
       "Defective actin-cytoskeletal effector signaling downstream of DCC",
       "RAD51 haploinsufficiency in corticospinal development",
+      "Defective DNAL4-mediated cytoplasmic dynein retrograde transport in commissural neurons",
       "Abnormal corticospinal tract decussation and ipsilateral projection",
       "Bilateral motor output and deficient interhemispheric inhibition"
     ],
@@ -144909,11 +144941,11 @@ window.searchData = [
     "source_file": "Familial_Congenital_Mirror_Movements.yaml",
     "page_url": "../pages/disorders/Familial_Congenital_Mirror_Movements.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 7,
     "num_genes": 5,
     "num_treatments": 3,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Familial Defective Apolipoprotein B-100",
@@ -147205,6 +147237,10 @@ window.searchData = [
       "Heritable Sinoatrial Node Pacemaker Dysfunction",
       "HCN4 Pacemaker Current Loss of Function",
       "SCN5A Sodium Current Loss of Function",
+      "ANK2 Membrane Targeting Dysfunction",
+      "LMNA Nuclear Lamina Haploinsufficiency",
+      "KRT8 Variant Susceptibility",
+      "MYH6 Variant Susceptibility",
       "Bradyarrhythmia and Hypoperfusion",
       "Syncope and Sudden Cardiac Death"
     ],
@@ -147245,7 +147281,7 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0001662",
       "HP:0011702",
-      "HP:0003546",
+      "HP:0033992",
       "HP:0001279",
       "HP:0001962",
       "HP:0005110",
@@ -147271,11 +147307,11 @@ window.searchData = [
     "source_file": "Familial_Sick_Sinus_Syndrome.yaml",
     "page_url": "../pages/disorders/Familial_Sick_Sinus_Syndrome.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 9,
     "num_genes": 6,
     "num_treatments": 1,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Familial Sleep-Related Hypermotor Epilepsy",
@@ -202933,61 +202969,98 @@ window.searchData = [
     ],
     "creation_date": "2026-04-04T00:00:00Z",
     "updated_date": null,
-    "subtypes": [],
-    "description": "Infantile myofibromatosis is one of the most prevalent soft tissue tumors of infancy and childhood, characterized by benign myofibroblastic tumors arising in skin, muscle, bone, and viscera. The familial form (type 1) is caused by heterozygous gain-of-function mutations in PDGFRB encoding a receptor tyrosine kinase. Multifocal nodules with visceral involvement carry a poor prognosis. Gain-of-function PDGFRB mutations are found predominantly in children and are particularly associated with multicentric disease. The mutant receptors show constitutive activation in the absence of ligand and are sensitive to tyrosine kinase inhibitors such as imatinib, offering potential targeted therapy. Hereditary progressive mucinous histiocytosis, a very rare PDGFRB-associated condition with limited phenotypic data (single G2P phenotype), is considered part of the broader PDGFRB gain-of-function spectrum and is noted here rather than given a separate entry.",
-    "pathophysiology": [
-      "Constitutive PDGFRB Signaling"
+    "subtypes": [
+      "Infantile Myofibromatosis 1",
+      "Infantile Myofibromatosis 2"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
-    "biological_processes": [],
+    "description": "Infantile myofibromatosis is one of the most prevalent soft tissue tumors of infancy and childhood, characterized by benign myofibroblastic and perivascular mesenchymal tumors arising in skin, subcutis, muscle, bone, and viscera. The familial form (type 1) and a majority of sporadic multicentric cases are caused by gain-of-function mutations in PDGFRB encoding platelet-derived growth factor receptor beta, arising either as autosomal dominant germline variants with variable expressivity (often following a two-hit model pairing a weakly activating germline variant with a somatic second hit) or as somatic/mosaic post-zygotic mutations, while familial infantile myofibromatosis type 2 is caused by a heterozygous activating NOTCH3 p.Leu1519Pro mutation that drives ligand-independent Notch signaling and upregulates PDGFRB expression. Solitary and non-visceral bony or soft-tissue lesions frequently regress spontaneously, whereas multifocal nodules with visceral involvement (cardiac, gastrointestinal, or central nervous system) carry a poor prognosis. Constitutively active PDGFRB mutants are sensitive to tyrosine kinase inhibitors such as imatinib (or dasatinib and ponatinib for the imatinib-resistant p.Asp850Val variant), and severe multicentric visceral disease also responds to low-dose methotrexate and vinblastine chemotherapy. Hereditary progressive mucinous histiocytosis, a very rare PDGFRB-associated condition with limited phenotypic data (single G2P phenotype), is considered part of the broader PDGFRB gain-of-function spectrum and is noted here rather than given a separate entry.",
+    "pathophysiology": [
+      "Constitutive PDGFRB Signaling",
+      "Activating NOTCH3 Signaling in Perivascular Myofibroblastic Precursors",
+      "Myofibroblastic and Perivascular Mesenchymal Proliferation"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "pericyte",
+      "vascular associated smooth muscle cell",
+      "myofibroblast cell",
+      "smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000669",
+      "CL:0000359",
+      "CL:0000186",
+      "CL:0000192"
+    ],
+    "biological_processes": [
+      "platelet-derived growth factor receptor signaling pathway",
+      "Notch signaling pathway",
+      "cell population proliferation"
+    ],
     "phenotypes": [
       "Myofibromatosis",
       "Fibroma",
       "Subcutaneous Nodules",
       "Osteolytic Bone Lesions",
-      "Cardiac Myofibroma"
+      "Soft Tissue Calcifications",
+      "Cardiac Myofibroma",
+      "Gastrointestinal Myofibroma",
+      "Central Nervous System Myofibroma"
     ],
     "phenotype_categories": [
       "Musculoskeletal",
       "Dermatologic",
       "Skeletal",
-      "Cardiovascular"
+      "Cardiovascular",
+      "Gastrointestinal",
+      "Neurological"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Digestive",
       "Integument",
       "Musculoskeletal",
-      "Neoplasm"
+      "Neoplasm",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0020135",
       "HP:0010614",
       "HP:0001482",
       "HP:0002797",
-      "HP:0100544"
+      "HP:0010766",
+      "HP:0100544",
+      "HP:0007378",
+      "HP:0100006"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
+      "VERY_FREQUENT"
     ],
     "genes": [
-      "PDGFRB Gain-of-Function Mutations"
+      "PDGFRB Gain-of-Function Mutations",
+      "NOTCH3 Gain-of-Function Mutation"
     ],
     "treatments": [
-      "Imatinib"
+      "Imatinib",
+      "Dasatinib and Ponatinib",
+      "Low-Dose Methotrexate and Vinblastine Chemotherapy",
+      "Watchful Waiting and Active Surveillance",
+      "Surgical Excision"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Vimentin Immunoreactivity",
+      "Muscle-Specific Actin (HHF-35) Immunoreactivity"
+    ],
     "source_file": "Infantile_Myofibromatosis.yaml",
     "page_url": "../pages/disorders/Infantile_Myofibromatosis.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 1,
-    "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "2"
+    "num_phenotypes": 8,
+    "num_pathophysiology": 3,
+    "num_genes": 2,
+    "num_treatments": 5,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Infantile Parkinsonism-Dystonia",
@@ -260214,7 +260287,7 @@ window.searchData = [
   },
   {
     "name": "NDE1-related Microcephaly-Lissencephaly",
-    "disease_id": null,
+    "disease_id": "MONDO:0700116",
     "category": "Mendelian",
     "parents": [
       "Microcephaly",
@@ -260299,8 +260372,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "NDP-Related Vitreoretinopathy",
@@ -301689,6 +301762,7 @@ window.searchData = [
       "fibrinolysis",
       "platelet activation",
       "innate immune response",
+      "vasodilation",
       "glomerular filtration"
     ],
     "phenotypes": [
@@ -301762,7 +301836,7 @@ window.searchData = [
     "num_pathophysiology": 14,
     "num_genes": 4,
     "num_treatments": 5,
-    "causal_graph_edges": "29",
+    "causal_graph_edges": "34",
     "causal_graph_longest_path": "7"
   },
   {
@@ -384437,15 +384511,15 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 3557,
-  "total_subtypes": 4811,
-  "total_disorders_and_subtypes": 8368,
-  "total_unique_evidence_sources": 53319,
-  "total_unique_publications": 49748,
+  "total_subtypes": 4813,
+  "total_disorders_and_subtypes": 8370,
+  "total_unique_evidence_sources": 53330,
+  "total_unique_publications": 49756,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
   "total_pathographs": 3554,
-  "total_unique_pathological_events": 23519,
-  "total_modules": 195,
+  "total_unique_pathological_events": 23529,
+  "total_modules": 196,
   "total_research_reports": 3682,
   "total_classifications": 21,
   "total_comorbidities": 51,
