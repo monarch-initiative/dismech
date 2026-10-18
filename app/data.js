@@ -93176,7 +93176,10 @@ window.searchData = [
       "Renoprotective supportive care"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Serum creatinine",
+      "Serum magnesium"
+    ],
     "source_file": "Cisplatin_Toxicity.yaml",
     "page_url": "../pages/disorders/Cisplatin_Toxicity.html",
     "num_phenotypes": 10,
@@ -139282,7 +139285,9 @@ window.searchData = [
     ],
     "biochemical": [
       "PD-L1 Immunohistochemistry",
-      "Squamous Cell Carcinoma Antigen"
+      "Squamous Cell Carcinoma Antigen",
+      "Systemic Immune-Inflammation Index",
+      "Systemic Inflammation Response Index"
     ],
     "source_file": "Esophageal_Squamous_Cell_Carcinoma.yaml",
     "page_url": "../pages/disorders/Esophageal_Squamous_Cell_Carcinoma.html",
@@ -174561,8 +174566,13 @@ window.searchData = [
       "Intermittent claudication",
       "Periarticular calcification",
       "Arthritis",
-      "Arthralgia and joint deformity",
-      "Arterial tortuosity and arteriomegaly"
+      "Arthralgia",
+      "Joint deformity",
+      "Early-onset osteoarthritis",
+      "Lower-extremity arterial occlusion",
+      "Chronic ischemic rest pain of the feet",
+      "Arterial tortuosity",
+      "Arteriomegaly and ectasia of lower-limb arteries"
     ],
     "phenotype_categories": [
       "Cardiovascular",
@@ -174579,7 +174589,12 @@ window.searchData = [
       "HP:0025477",
       "HP:0001369",
       "HP:0002829",
-      "HP:0005116"
+      "HP:0001367",
+      "HP:0003088",
+      "HP:0004950",
+      "HP:6000627",
+      "HP:0005116",
+      "HP:0035012"
     ],
     "frequencies": [],
     "genes": [
@@ -174594,12 +174609,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Hereditary_Arterial_and_Articular_Multiple_Calcification_Syndrome.yaml",
     "page_url": "../pages/disorders/Hereditary_Arterial_and_Articular_Multiple_Calcification_Syndrome.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 11,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Hereditary Breast and Ovarian Cancer Syndrome",
@@ -201951,6 +201966,130 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Infantile Liver Failure Syndrome 2",
+    "disease_id": "MONDO:0014659",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Infantile liver failure syndrome 2 (ILFS2) is an autosomal recessive disorder caused by biallelic variants in NBAS, which encodes a 2371-amino-acid peripheral membrane subunit of the syntaxin 18 complex that tethers vesicles returning from the Golgi to the endoplasmic reticulum (ER). The defining presentation is recurrent acute liver failure beginning in infancy, triggered by febrile infections, with transaminases that rise into the thousands during a crisis and usually normalise between crises. In the ILFS2 genetic subgroup, about 90% of patients develop hepatic encephalopathy, and the median maximum INR during crises is 8. The mechanistic link between fever and liver failure is thermal instability: patient fibroblasts carry reduced NBAS and p31 protein, and both the protein and its vesicle-tethering function are more sensitive to raised temperature than in control cells. At 40 C, patient fibroblasts develop ER stress, accumulate reactive oxygen species and undergo apoptosis. The step from that fibroblast result to hepatocyte death is inferred rather than measured in liver cells. Crises become less frequent with age but can occur into adulthood; ALF is the leading cause of death. Management is an emergency protocol of early antipyresis and anabolic glucose and lipid infusion, with N-acetylcysteine under evaluation and liver transplantation for severe recurrent disease.",
+    "pathophysiology": [
+      "Biallelic NBAS Variants",
+      "Reduced NBAS and p31 Protein Levels",
+      "Thermal Instability of the NBAS-Containing Syntaxin 18 Complex",
+      "Impaired Golgi-to-ER Retrograde Vesicle Tethering",
+      "Impaired Anterograde Secretion of Large Cargo",
+      "Endoplasmic Reticulum Stress",
+      "Reactive Oxygen Species Accumulation",
+      "Apoptotic Cell Death",
+      "Hepatocytolysis",
+      "Loss of Hepatic Synthetic and Detoxifying Function",
+      "Impaired ER-Associated Nonsense-Mediated mRNA Decay"
+    ],
+    "cell_types": [
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "Golgi-to-ER retrograde transport",
+      "protein secretion",
+      "response to endoplasmic reticulum stress",
+      "reactive oxygen species metabolic process",
+      "apoptotic process",
+      "nonsense-mediated decay"
+    ],
+    "phenotypes": [
+      "Recurrent Acute Liver Failure",
+      "Markedly Elevated Hepatic Transaminases",
+      "Hepatic Encephalopathy",
+      "Prolonged Prothrombin Time",
+      "Hyperammonemia",
+      "Hyperbilirubinemia",
+      "Hyperlactatemia",
+      "Hepatomegaly",
+      "Hepatic Necrosis",
+      "Hepatic Steatosis",
+      "Hepatic Fibrosis",
+      "Short Stature",
+      "Spontaneous Fractures",
+      "Global Developmental Delay",
+      "Secondary Microcephaly",
+      "Abnormal Natural Killer Cell Function",
+      "Decreased Circulating IgG",
+      "Pelger-Huet Anomaly",
+      "Optic Atrophy"
+    ],
+    "phenotype_categories": [
+      "Hepatic",
+      "Hematologic",
+      "Metabolic",
+      "Skeletal",
+      "Neurological",
+      "Immunological",
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0006554",
+      "HP:0002910",
+      "HP:0002480",
+      "HP:0008151",
+      "HP:0001987",
+      "HP:0002904",
+      "HP:0002151",
+      "HP:0002240",
+      "HP:0002605",
+      "HP:0001397",
+      "HP:0001395",
+      "HP:0004322",
+      "HP:0002756",
+      "HP:0001263",
+      "HP:0005484",
+      "HP:0012177",
+      "HP:0004315",
+      "HP:0011447",
+      "HP:0000648"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "NBAS"
+    ],
+    "treatments": [
+      "Early Antipyretic Therapy",
+      "Anabolic Glucose and Lipid Infusion",
+      "N-Acetylcysteine",
+      "Liver Transplantation"
+    ],
+    "environmental": [
+      "Febrile infection"
+    ],
+    "biochemical": [],
+    "source_file": "Infantile_Liver_Failure_Syndrome_2.yaml",
+    "page_url": "../pages/disorders/Infantile_Liver_Failure_Syndrome_2.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Infantile_Myofibromatosis",
     "disease_id": "MONDO:0009227",
     "category": "Genetic",
@@ -207715,7 +207854,9 @@ window.searchData = [
       "Chronic alcohol consumption and pre-existing liver disease",
       "Isoniazid exposure"
     ],
-    "biochemical": [],
+    "biochemical": [
+      "Serum alanine aminotransferase"
+    ],
     "source_file": "Isoniazid_Toxicity.yaml",
     "page_url": "../pages/disorders/Isoniazid_Toxicity.html",
     "num_phenotypes": 10,
@@ -216816,8 +216957,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "LAMA5-Related Bent Bone Dysplasia",
@@ -284996,6 +285137,152 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "PYCR1-Related De Barsy Syndrome",
+    "disease_id": "MONDO:0013755",
+    "category": "Mendelian",
+    "parents": [
+      "Cutis Laxa",
+      "Inborn Error of Amino Acid Metabolism"
+    ],
+    "creation_date": "2026-10-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "ARCL2B"
+    ],
+    "description": "Autosomal recessive neurocutaneous connective-tissue disorder caused by biallelic pathogenic variants in PYCR1, which encodes mitochondrial pyrroline-5-carboxylate reductase 1, the enzyme for the final step of de novo proline synthesis. Affected individuals have congenital lax, thin and wrinkled skin (most marked on the dorsum of the hands and feet) with visible veins, a triangular progeroid face, intrauterine and postnatal growth deficiency, hypotonia, psychomotor delay and variable intellectual disability, joint hypermobility and congenital hip dislocation, and in a subset corneal clouding, cataract, athetoid or dystonic movements, and corpus-callosum dysgenesis. The historical labels de Barsy syndrome (cutis laxa, autosomal recessive, type IIIB) and autosomal recessive cutis laxa type 2B describe overlapping parts of one PYCR1-related spectrum. Patient fibroblasts show altered mitochondrial morphology and membrane potential and increased apoptosis under oxidative stress.",
+    "pathophysiology": [
+      "Biallelic PYCR1 Loss of Function",
+      "Impaired Mitochondrial Proline Biosynthesis",
+      "Mitochondrial Morphology and Membrane Potential Defect",
+      "Increased Oxidative-Stress-Induced Apoptosis",
+      "Progeroid Skin and Connective-Tissue Changes",
+      "Neurodevelopmental Impairment"
+    ],
+    "cell_types": [
+      "skin fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0002620"
+    ],
+    "biological_processes": [
+      "L-proline biosynthetic process",
+      "mitochondrion organization",
+      "intrinsic apoptotic signaling pathway in response to oxidative stress"
+    ],
+    "phenotypes": [
+      "Cutis laxa",
+      "Thin skin",
+      "Excessive wrinkled skin",
+      "Prominent superficial veins",
+      "Lipodystrophy",
+      "Prematurely aged appearance",
+      "Triangular face",
+      "Intrauterine growth retardation",
+      "Postnatal growth retardation",
+      "Global developmental delay",
+      "Intellectual disability",
+      "Hypotonia",
+      "Microcephaly",
+      "Seizure",
+      "Abnormal corpus callosum morphology",
+      "Athetosis",
+      "Dystonia",
+      "Spasticity",
+      "Joint hypermobility",
+      "Congenital hip dislocation",
+      "Adducted thumb",
+      "Osteopenia",
+      "Wormian bones",
+      "Pes planus",
+      "Hernia",
+      "Large fontanelles",
+      "Blue sclerae",
+      "Strabismus",
+      "Corneal opacity",
+      "Cataract",
+      "Glaucoma",
+      "Aortic root dilatation"
+    ],
+    "phenotype_categories": [
+      "Dermatological",
+      "Craniofacial",
+      "Growth",
+      "Neurological",
+      "Musculoskeletal",
+      "Ophthalmological",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000973",
+      "HP:0000963",
+      "HP:0007392",
+      "HP:0001015",
+      "HP:0009125",
+      "HP:0007495",
+      "HP:0000325",
+      "HP:0001511",
+      "HP:0008897",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001252",
+      "HP:0000252",
+      "HP:0001250",
+      "HP:0001273",
+      "HP:0002305",
+      "HP:0001332",
+      "HP:0001257",
+      "HP:0001382",
+      "HP:0001374",
+      "HP:0001181",
+      "HP:0000938",
+      "HP:0002645",
+      "HP:0001763",
+      "HP:0100790",
+      "HP:0000239",
+      "HP:0000592",
+      "HP:0000486",
+      "HP:0007957",
+      "HP:0000518",
+      "HP:0000501",
+      "HP:0002616"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "PYCR1"
+    ],
+    "treatments": [
+      "Physical Therapy",
+      "Speech and Swallowing Therapy",
+      "Penetrating Keratoplasty",
+      "Orthopedic Management",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "PYCR1-Related_De_Barsy_Syndrome.yaml",
+    "page_url": "../pages/disorders/PYCR1-Related_De_Barsy_Syndrome.html",
+    "num_phenotypes": 32,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "45",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Pacak-Zhuang syndrome",
     "disease_id": "MONDO:0035540",
     "category": "Genetic",
@@ -308262,7 +308549,8 @@ window.searchData = [
     "pathophysiology": [
       "AAGAB Haploinsufficiency",
       "Growth Factor Receptor Signaling Increase",
-      "Keratinocyte Hyperproliferation"
+      "Keratinocyte Hyperproliferation",
+      "COL14A1 Loss-of-Function Association in Type 1B Disease"
     ],
     "cell_types": [
       "Keratinocyte"
@@ -308317,10 +308605,10 @@ window.searchData = [
     "source_file": "Punctate_Palmoplantar_Keratoderma.yaml",
     "page_url": "../pages/disorders/Punctate_Palmoplantar_Keratoderma.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 4,
     "num_genes": 3,
     "num_treatments": 4,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "4"
   },
   {
@@ -337728,6 +338016,8 @@ window.searchData = [
     "pathophysiology": [
       "11p15 Imprinting Dysregulation",
       "Reduced Paternal IGF2 Expression",
+      "CDKN1C Gain-of-Function",
+      "HMGA2 or PLAG1 Loss-of-Function",
       "Maternal Chromosome 7 Uniparental Disomy",
       "Prenatal and Postnatal Growth Restriction"
     ],
@@ -337749,13 +338039,26 @@ window.searchData = [
       "Hypoglycemia",
       "Gastroesophageal reflux",
       "Global developmental delay",
-      "Attention deficit hyperactivity disorder"
+      "Attention deficit hyperactivity disorder",
+      "Triangular face",
+      "Fifth finger clinodactyly",
+      "Micrognathia",
+      "Lower limb length discrepancy"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Growth",
+      "Craniofacial",
+      "Musculoskeletal",
+      "Gastrointestinal",
+      "Endocrine",
+      "Neurological",
+      "Psychiatric"
+    ],
     "phenotype_hpo_categories": [
       "Digestive",
       "Growth",
       "Head and Neck",
+      "Limbs",
       "Metabolism",
       "Musculoskeletal",
       "Nervous System"
@@ -337771,7 +338074,11 @@ window.searchData = [
       "HP:0001943",
       "HP:0002020",
       "HP:0001263",
-      "HP:0007018"
+      "HP:0007018",
+      "HP:0000325",
+      "HP:0004209",
+      "HP:0000347",
+      "HP:0100559"
     ],
     "frequencies": [],
     "genes": [
@@ -337790,12 +338097,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Silver_Russell_Syndrome.yaml",
     "page_url": "../pages/disorders/Silver-Russell_Syndrome.html",
-    "num_phenotypes": 11,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 15,
+    "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 4,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Simpson-Golabi-Behmel Syndrome Type 1",
@@ -344827,8 +345134,8 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "17",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Spinocerebellar Ataxia Type 2",
@@ -383272,17 +383579,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3550,
-  "total_subtypes": 4807,
-  "total_disorders_and_subtypes": 8357,
-  "total_unique_evidence_sources": 53221,
-  "total_unique_publications": 49656,
+  "total_disorder_pages": 3552,
+  "total_subtypes": 4808,
+  "total_disorders_and_subtypes": 8360,
+  "total_unique_evidence_sources": 53256,
+  "total_unique_publications": 49688,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3546,
-  "total_unique_pathological_events": 23427,
+  "total_pathographs": 3548,
+  "total_unique_pathological_events": 23445,
   "total_modules": 195,
-  "total_research_reports": 3675,
+  "total_research_reports": 3677,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 115
