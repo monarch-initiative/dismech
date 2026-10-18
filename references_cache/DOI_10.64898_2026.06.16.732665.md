@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.64898/2026.06.16.732665
+extractor_version: 1
 title: A novel preclinical mouse model recapitulates progressive phenotypes of Bryant-Li-Bhoj Syndrome
 authors:
 - Dana E. Layo-Carris
@@ -24,7 +25,7 @@ doi: 10.64898/2026.06.16.732665
 content_type: abstract_only
 is_preprint: true
 peer_review_status: preprint
-full_text_attempted: true
+full_text_declined: landing_page_only
 ---
 
 # A novel preclinical mouse model recapitulates progressive phenotypes of Bryant-Li-Bhoj Syndrome
@@ -40,7 +41,7 @@ Abstract
                   p.T45I). H3.3
                   T45I
                   mice recapitulate the BLBS natural history: perinatal growth restriction, delayed developmental milestones, and progressive motor and gait impairments. Adult mice additionally display craniofacial differences, impaired nest building, hyperactivity in a social context, and male-specific elevated aggression. The non-invasive, clinically translatable endpoints established here provide a validated preclinical platform for evaluating therapeutics for a community whose current standard of care is symptom management.
-                
+
 
 Summary Statement
 A new mouse model mirrors the developmental delays, motor decline, and behavioral changes seen in individuals with this rare, progressive genetic brain disorder, providing a foundation for testing future therapies.

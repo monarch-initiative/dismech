@@ -1,5 +1,6 @@
 ---
 reference_id: clinicaltrials:NCT00389181
+extractor_version: 1
 title: A Randomized Trial of Unruptured Brain Arteriovenous Malformations
 content_type: summary
 full_text_attempted: true

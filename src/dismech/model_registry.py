@@ -19,6 +19,10 @@ File                    Meaning
                         specification, with per-rule provenance into ``kb/``
 ``run.py``              that model's runner; ``--check`` verifies ``results.json``
 ``results.json``        the runner's committed, deterministic output
+``run.js``              optional browser port of ``run.py``, inlined into the
+                        model's generated page so it can run there; it must
+                        reproduce ``results.json`` exactly (a per-model parity
+                        test holds it to that)
 ======================  =====================================================
 
 A folder holds exactly one of ``config.yaml`` or ``spec.yaml``. There are no
@@ -41,6 +45,7 @@ CONFIG_NAME = "config.yaml"
 SPEC_NAME = "spec.yaml"
 RUNNER_NAME = "run.py"
 RESULTS_NAME = "results.json"
+BROWSER_RUNNER_NAME = "run.js"
 SBML_NAME = "model.xml"
 ANTIMONY_NAME = "model.ant"
 EXTENSION_NAME = "extension.ant"
@@ -52,6 +57,7 @@ KNOWN_FILES = frozenset(
         SPEC_NAME,
         RUNNER_NAME,
         RESULTS_NAME,
+        BROWSER_RUNNER_NAME,
         SBML_NAME,
         ANTIMONY_NAME,
         EXTENSION_NAME,

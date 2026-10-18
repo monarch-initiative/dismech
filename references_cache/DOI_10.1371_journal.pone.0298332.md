@@ -353,7 +353,7 @@ CR %ð Þ ¼
 ðNum ber of neg ativ e par tic ipa nts who tes ted pos iti ve at base lin eÞ
 Num ber of pos iti ve par ticip ants at base line
 x 100
-ERR %ð Þ ¼ 1  
+ERR %ð Þ ¼ 1 �
 ðAri thme ti c mean egg coun ts at foll ow-upÞ
 Arit hme tic mea n egg cou nts at base line
 x 100

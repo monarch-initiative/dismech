@@ -28,6 +28,7 @@ from dismech.structured_sources.base import (
     BulkFile,
     ReferenceCacheEntry,
     StructuredSource,
+    _sha256_of,
 )
 
 logger = logging.getLogger(__name__)
@@ -94,11 +95,20 @@ class ClinGenSource(StructuredSource):
         *,
         include_report_text: bool = True,
         timeout: float = 30.0,
+        csv_path: Path | None = None,
     ) -> None:
         super().__init__(data_dir)
         self.include_report_text = include_report_text
         self.timeout = timeout
+        #: Read this export instead of ``data_dir / gene_validity.csv`` (and
+        #: instead of the committed fallback). Set by ``rebuild clingen --csv``.
+        self.csv_path = csv_path
         self._report_cache: dict[str, _ClinGenReportDetails | None] = {}
+        # Provenance of the export actually parsed, recorded by build_index():
+        # the file, its sha256, and its own ``FILE CREATED:`` header. These, not
+        # the manifest pin, are what a cache file is stamped with (#13575).
+        self._source_path: Path | None = None
+        self._source_sha256: str = ""
 
     @classmethod
     def load_manifest(cls, manifest_path: Path) -> None:
@@ -121,6 +131,8 @@ class ClinGenSource(StructuredSource):
 
     def build_index(self) -> dict[str, _ClinGenValidityRecord]:
         path = self._csv_path()
+        self._source_path = path
+        self._source_sha256 = _sha256_of(path)
 
         records: dict[str, _ClinGenValidityRecord] = {}
         text = path.read_text(encoding="utf-8-sig")
@@ -143,6 +155,7 @@ class ClinGenSource(StructuredSource):
 
         if not header_seen:
             raise ValueError(f"{path} is missing the ClinGen CSV header row")
+        self._warn_if_pin_mismatch(path)
 
         for row in reader:
             if not row or _is_separator_row(row):
@@ -176,19 +189,63 @@ class ClinGenSource(StructuredSource):
         return records
 
     def _csv_path(self) -> Path:
+        if self.csv_path is not None:
+            if not self.csv_path.exists():
+                raise FileNotFoundError(f"{self.csv_path} not found")
+            return self.csv_path
+
         path = self.data_dir / _CSV_NAME
         if path.exists():
             return path
 
         # This repo already carries the ClinGen CSV used by the older GO
-        # mapping tooling. Keep structured-source reads usable before a local
-        # data/clingen refresh, while refresh() still writes to data/clingen.
+        # mapping tooling (src/dismech/clingen/). Keep structured-source reads
+        # usable before a local data/clingen refresh, while refresh() still
+        # writes to data/clingen -- but say so: on a fresh checkout this is the
+        # path every rebuild takes, because `just clingen-refresh` exits 1 on
+        # the drifted pin (#10426), and the committed file is whatever export
+        # was last committed there, not a current one (#13575).
         repo_root = Path(__file__).resolve().parents[3]
         fallback = repo_root / "cache" / "clingen" / _CSV_NAME
         if fallback.exists():
+            logger.warning(
+                "%s not found; reading the committed cache/clingen/%s instead. "
+                "That is an older ClinGen export, not a current one: run "
+                "`just clingen-refresh` (a drifted-pin failure still leaves the "
+                "download on disk) or pass `--csv PATH` to rebuild from a "
+                "current export.",
+                path,
+                _CSV_NAME,
+            )
             return fallback
 
         raise FileNotFoundError(f"{path} not found; run `just clingen-refresh` first")
+
+    def _warn_if_pin_mismatch(self, path: Path) -> None:
+        """Say when the export parsed is not the one the manifest pins.
+
+        Either direction happens: a fresh checkout reads the committed January
+        export against an August or October pin, and a failed
+        ``clingen-refresh`` leaves a newer download at the pinned path (#13575).
+        The cache file is stamped from the file either way; this only makes the
+        disagreement visible instead of silent.
+        """
+        pinned = next(
+            (bf.sha256 for bf in type(self).bulk_files if bf.name == _CSV_NAME),
+            "",
+        )
+        if not pinned or pinned == self._source_sha256:
+            return
+        logger.warning(
+            "%s does not match the sha256 pinned in data/clingen/MANIFEST.yaml "
+            "(file %s..., pin %s..., manifest snapshot_date %s). Cache files are "
+            "stamped with the file's own FILE CREATED date (%s), not the pin's.",
+            path,
+            self._source_sha256[:12],
+            pinned[:12],
+            getattr(type(self), "_manifest_snapshot_date", "") or "unknown",
+            getattr(self, "_file_created", "") or "unknown",
+        )
 
     def identifiers(self) -> Iterable[str]:
         idx = self.index()
@@ -204,13 +261,24 @@ class ClinGenSource(StructuredSource):
 
     @property
     def snapshot_date(self) -> str:
-        """Snapshot date from manifest or CSV metadata."""
-        manifest_date = getattr(type(self), "_manifest_snapshot_date", "")
-        if manifest_date:
-            return manifest_date
+        """Date of the export actually parsed (its ``FILE CREATED:`` header).
+
+        The manifest's ``snapshot_date`` is only a fallback for a CSV with no
+        header. It used to take precedence, which stamped the committed
+        January 2026 export as August, and a newer download as October (#13575).
+        """
         if not getattr(self, "_file_created", None):
             self.index()
-        return getattr(self, "_file_created", "")
+        return getattr(self, "_file_created", "") or getattr(
+            type(self), "_manifest_snapshot_date", ""
+        )
+
+    @property
+    def source_sha256(self) -> str:
+        """sha256 of the export actually parsed."""
+        if not self._source_sha256:
+            self.index()
+        return self._source_sha256
 
     @property
     def webpage(self) -> str:
@@ -232,7 +300,13 @@ class ClinGenSource(StructuredSource):
             title=f"{rec.gene_symbol} / {rec.disease_label} ({rec.classification})",
             body=body,
             content_type="structured_record",
-            extra_frontmatter={"database": "ClinGen"},
+            extra_frontmatter={
+                "database": "ClinGen",
+                # Which export this record was built from, so staleness is
+                # machine-readable (#12464, #13575).
+                "source_snapshot": self.snapshot_date,
+                "source_sha256": self.source_sha256,
+            },
         )
 
     def _get_report_details(

@@ -43,10 +43,10 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from dismech.model_links import iter_model_links
 from dismech.yaml_io import safe_load
 
 SCALE_ORDER = ["MOLECULAR", "CELLULAR", "TISSUE", "ORGANISM"]
-MODEL_SECTIONS = ["experimental_models", "animal_models", "computational_models"]
 
 
 def classify(model_scale, target_scale):
@@ -75,38 +75,34 @@ def collect(paths):
             for n in (data.get("pathophysiology") or [])
             if isinstance(n, dict)
         }
-        for section in MODEL_SECTIONS:
-            for model in data.get(section) or []:
-                if not isinstance(model, dict):
-                    continue
-                name = model.get("name") or model.get("species") or "(unnamed)"
-                for link in model.get("modeled_mechanisms") or []:
-                    if not isinstance(link, dict):
-                        continue
-                    target = link.get("target")
-                    ms = link.get("model_scale")
-                    ts = scales.get(target)
-                    verdict, gap = classify(ms, ts)
-                    rows.append(
-                        {
-                            "file": path,
-                            "section": section,
-                            "model": name,
-                            "target": target,
-                            "model_scale": ms,
-                            "target_scale": ts,
-                            "verdict": verdict,
-                            "gap": gap,
-                            "fidelity": link.get("fidelity"),
-                            "relationship": link.get("relationship"),
-                            "has_limitations": bool(link.get("limitations")),
-                            "divergences": [
-                                d.get("divergence_type")
-                                for d in (link.get("divergences") or [])
-                                if isinstance(d, dict)
-                            ],
-                        }
-                    )
+        for site in iter_model_links(data):
+            model, link = site.model, site.link
+            name = model.get("name") or model.get("species") or "(unnamed)"
+            target = link.get("target")
+            ms = link.get("model_scale")
+            ts = scales.get(target)
+            verdict, gap = classify(ms, ts)
+            rows.append(
+                {
+                    "file": path,
+                    "section": site.path_prefix,
+                    "model": name,
+                    "target": target,
+                    "model_scale": ms,
+                    "target_scale": ts,
+                    "verdict": verdict,
+                    "gap": gap,
+                    "fidelity": link.get("fidelity"),
+                    "relationship": link.get("relationship"),
+                    "has_limitations": bool(link.get("limitations")),
+                    "proposed": site.proposed,
+                    "divergences": [
+                        d.get("divergence_type")
+                        for d in (link.get("divergences") or [])
+                        if isinstance(d, dict)
+                    ],
+                }
+            )
     return rows
 
 

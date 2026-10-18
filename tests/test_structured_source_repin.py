@@ -160,3 +160,26 @@ def test_repin_manifest_is_a_noop_without_changes(tmp_path):
 
     assert repin_manifest(manifest, []) == []
     assert manifest.read_text() == MANIFEST
+
+
+class _TwoFileSource(_FakeSource):
+    bulk_files = (
+        BulkFile(name="a.xml", url="https://example.invalid/a.xml", sha256=STALE_SHA),
+        BulkFile(name="b.xml", url="https://example.invalid/b.xml", sha256=STALE_SHA),
+    )
+
+
+def test_stale_pin_still_downloads_every_file_before_refusing(tmp_path):
+    """Stopping at the first drifted file left a multi-file source with one
+    file on disk, and Orphanet then built records missing whole sections
+    (#13941). The refusal stands, but only after every file is fetched."""
+    data_dir = tmp_path / "data"
+    source = _TwoFileSource(data_dir)
+
+    with pytest.raises(ChecksumMismatchError) as excinfo:
+        source.refresh()
+
+    assert (data_dir / "a.xml").exists() and (data_dir / "b.xml").exists()
+    assert excinfo.value.name == "a.xml"
+    assert excinfo.value.also_drifted == ("b.xml",)
+    assert "also drifted: b.xml" in str(excinfo.value)

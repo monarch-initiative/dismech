@@ -1,0 +1,1543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Winchester Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Winchester Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Winchester Syndrome</h1>
+                
+                <p class="report-subtitle">Winchester Syndrome: A Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-10-15</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0010201" target="_blank" rel="noopener noreferrer">MONDO:0010201</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">20 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Winchester Syndrome: A Comprehensive Disease Characterization Report</h1>
+<p><strong>Disease:</strong> Winchester Syndrome
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0010201" target="_blank" rel="noopener noreferrer">MONDO:0010201</a> · <strong>OMIM:</strong> #277950 · <strong>Category:</strong> Mendelian (autosomal recessive)
+<strong>Report type:</strong> Disease knowledge-base characterization (multi-iteration autonomous literature synthesis)
+<strong>Evidence basis:</strong> Human clinical case reports/series, model-organism (mouse) studies, in vitro functional assays. No patient-level dataset was provided; this report is synthesized from primary literature (PMIDs cited inline).</p>
+<hr />
+<h2>Summary</h2>
+<p>Winchester syndrome is an ultra-rare, autosomal recessive "vanishing bone" skeletal dysplasia caused by <strong>biallelic loss-of-function mutations in <em>MMP14</em> (MT1-MMP, membrane type-1 matrix metalloproteinase)</strong>. The defining molecular lesion abolishes the cell-surface activation of pro-MMP2 and cripples pericellular remodeling of type I and type IV collagen. Because MT1-MMP is the master pericellular collagenase required to model skeletal and extraskeletal connective tissue, its loss produces a slow, relentless destruction of bone and a reactive fibrosis of soft tissue. Clinically, this manifests as progressive <strong>carpal and tarsal osteolysis</strong> ("disappearing bones"), generalized osteoporosis, destructive arthropathy with joint contractures, short stature, coarse facial features, peripheral corneal opacities, gingival hypertrophy, thickened leathery skin, and — in a substantial subset — congenital cardiac anomalies (<a href="https://pubmed.ncbi.nlm.nih.gov/22922033/">PMID: 22922033</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/14726867/">PMID: 14726867</a>).</p>
+<p>Winchester syndrome does not stand alone. Landmark nosological work places it within a unified <strong>"defective collagen-remodeling spectrum" (DECORS)</strong> together with Multicentric Osteolysis, Nodulosis, and Arthropathy (MONA/Torg-Winchester, caused by <em>MMP2</em>) and Frank-Ter Haar syndrome (caused by <em>SH3PXD2B</em>). The three gene products — SH3PXD2B, MMP14, and MMP2 — physically and functionally cooperate in a single collagen-degradation axis, which is why the three disorders share craniofacial malformation, reduced bone density, skeletal and cardiac anomalies, and dermal fibrosis (<a href="https://pubmed.ncbi.nlm.nih.gov/31218820/">PMID: 31218820</a>). The mechanism is strongly corroborated by mouse genetics: <em>Mmp14</em>-null mice reproduce the human phenotype (dwarfism, osteopenia, arthritis, soft-tissue fibrosis) through ablated collagenolysis, and <em>Mmp2</em>-null mice reproduce the bone-density and osteocyte-network defects (<a href="https://pubmed.ncbi.nlm.nih.gov/10520996/">PMID: 10520996</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/16959767/">PMID: 16959767</a>).</p>
+<p>The disease is strongly associated with <strong>consanguinity</strong>, has been reported across many ethnicities (Indian, Egyptian, Pakistani, Finnish, Iranian, Japanese), and is frequently misdiagnosed as juvenile idiopathic arthritis (JIA) or rheumatoid arthritis — a dangerous error that leads to inappropriate immunosuppression. Diagnosis rests on characteristic radiographic osteolysis confirmed by <strong>MMP-2 zymography</strong> or <strong>molecular testing of <em>MMP14<em>/</em>MMP2</em></strong>. <strong>No disease-modifying or curative therapy exists</strong>; care is supportive and multidisciplinary (physiotherapy, analgesia, orthopedic correction, and ophthalmologic/cardiac surveillance) (<a href="https://pubmed.ncbi.nlm.nih.gov/34466312/">PMID: 34466312</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/37842447/">PMID: 37842447</a>).</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Winchester syndrome is a Mendelian, autosomal recessive skeletal dysplasia belonging to the "idiopathic / inherited osteolysis" group of disorders. It is characterized by the spontaneous dissolution (osteolysis) of bones — most prominently the carpals and tarsals — together with generalized osteoporosis, progressive joint contractures, short stature, coarse facies, corneal opacities, and characteristic skin changes (<a href="https://pubmed.ncbi.nlm.nih.gov/14726867/">PMID: 14726867</a>). It is sometimes grouped under the colloquial term "disappearing bone disease," although that label also covers non-heritable entities such as Gorham-Stout disease (<a href="https://pubmed.ncbi.nlm.nih.gov/21995273/">PMID: 21995273</a>).</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0010201" target="_blank" rel="noopener noreferrer">MONDO:0010201</a></td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>#277950 (Winchester syndrome)</td>
+</tr>
+<tr>
+<td>Causal gene</td>
+<td><em>MMP14</em> (MT1-MMP); closely related MONA = <em>MMP2</em></td>
+</tr>
+<tr>
+<td>Spectrum</td>
+<td>DECORS (defective collagen-remodeling spectrum)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names.</strong> Winchester syndrome; Torg-Winchester syndrome; (closely related / historically conflated) Multicentric Osteolysis, Nodulosis and Arthropathy (MONA), Torg syndrome, Nodulosis-Arthropathy-Osteolysis (NAO) syndrome, Multicentric Osteolysis with Arthropathy (MOA). Historically, Winchester syndrome and Torg/MONA were considered variants of a single entity; molecular work now separates classic Winchester syndrome (<em>MMP14</em>) from MONA (<em>MMP2</em>), while uniting them mechanistically (<a href="https://pubmed.ncbi.nlm.nih.gov/24637309/">PMID: 24637309</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/31218820/">PMID: 31218820</a>).</p>
+<p><strong>Source of information.</strong> The evidence base is aggregated from <strong>individual patient case reports and small consanguineous-family case series</strong> rather than large registries or EHR datasets — a direct consequence of the disease's extreme rarity.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause — genetic.</strong> Classic Winchester syndrome is caused by <strong>homozygous (biallelic) loss-of-function mutations in <em>MMP14</em></strong>. Evans et al. (2012) identified homozygous <em>MMP14</em> mutations in the original Winchester sisters and demonstrated that the resulting signal-peptide substitution <strong>p.Thr17Arg</strong> decreases MT1-MMP membrane localization, with consequent impairment of pro-MMP2 activation (<a href="https://pubmed.ncbi.nlm.nih.gov/22922033/">PMID: 22922033</a>):</p>
+<blockquote>
+<p>"we have now identified homozygous mutations in membrane type-1 metalloproteinase (MT1-MMP or MMP14). We demonstrate that the resulting hydrophobic-region signal-peptide substitution (p.Thr17Arg) decreases MT1-MMP membrane localization with consequent impairment of pro-MMP2 activation."</p>
+</blockquote>
+<p>The closely allied MONA/Torg phenotype is caused by biallelic <em>MMP2</em> mutations; MMP2 encodes a gelatinase that cleaves type IV collagen, a major basement-membrane component (<a href="https://pubmed.ncbi.nlm.nih.gov/24637309/">PMID: 24637309</a>).</p>
+<p><strong>Genetic risk factors.</strong> The overwhelming risk determinant is <strong>inheritance of two pathogenic alleles</strong>, almost always in the setting of <strong>parental consanguinity</strong>. There are no established susceptibility loci or polygenic contributions; this is a monogenic Mendelian disorder.</p>
+<p><strong>Environmental risk factors.</strong> None established. There is no evidence that toxins, infections, diet, occupational exposure, age, or sex trigger or modify disease onset. The only "non-genetic" risk amplifier is the population-structural factor of consanguineous mating, which raises homozygosity.</p>
+<p><strong>Protective factors.</strong> None identified at the genetic or environmental level. Because the disorder is fully penetrant recessive, the only "protective" state is being a heterozygous carrier (clinically unaffected).</p>
+<p><strong>Gene–environment interactions.</strong> No gene–environment interaction has been described. The phenotype appears driven essentially entirely by genotype, with variable expressivity attributable to genetic/allelic background rather than environment.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Winchester syndrome is a multisystem disorder. The cardinal features, drawn primarily from Sidwell et al. (2004) and corroborated across the MONA/Winchester case series, are summarized below (<a href="https://pubmed.ncbi.nlm.nih.gov/14726867/">PMID: 14726867</a>):</p>
+<blockquote>
+<p>"characterized by dissolution of carpal and tarsal bones with generalized osteoporosis, progressive joint contractures, short stature, peripheral corneal opacities, and coarse facial features."</p>
+</blockquote>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Onset</th>
+<th>Severity / progression</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Carpal/tarsal osteolysis ("vanishing bone")</td>
+<td>Radiographic/clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0010656" target="_blank" rel="noopener noreferrer">HP:0010656</a> (carpal) / <a href="http://purl.obolibrary.org/obo/HP_0008369" target="_blank" rel="noopener noreferrer">HP:0008369</a> (tarsal)</td>
+<td>Childhood</td>
+<td>Progressive</td>
+<td>Cardinal/near-universal</td>
+</tr>
+<tr>
+<td>Generalized osteoporosis / reduced bone density</td>
+<td>Radiographic</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" rel="noopener noreferrer">HP:0000939</a></td>
+<td>Childhood</td>
+<td>Progressive</td>
+<td>Very frequent</td>
+</tr>
+<tr>
+<td>Progressive joint contractures</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" rel="noopener noreferrer">HP:0001371</a></td>
+<td>Childhood</td>
+<td>Progressive</td>
+<td>Very frequent</td>
+</tr>
+<tr>
+<td>Destructive arthropathy (pain, swelling, stiffness)</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" rel="noopener noreferrer">HP:0001387</a></td>
+<td>Childhood</td>
+<td>Progressive</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Short stature / dwarfism</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a></td>
+<td>Childhood</td>
+<td>Stable–progressive</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Coarse facial features</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" rel="noopener noreferrer">HP:0000280</a></td>
+<td>Childhood</td>
+<td>Progressive</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Peripheral corneal opacities</td>
+<td>Clinical sign (ocular)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" rel="noopener noreferrer">HP:0007957</a></td>
+<td>Childhood</td>
+<td>Slowly progressive</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Gingival hypertrophy</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000212" target="_blank" rel="noopener noreferrer">HP:0000212</a></td>
+<td>Childhood</td>
+<td>Progressive</td>
+<td>Variable</td>
+</tr>
+<tr>
+<td>Thickened, leathery skin / dermal fibrosis</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000974" target="_blank" rel="noopener noreferrer">HP:0000974</a> (thick skin)</td>
+<td>Childhood</td>
+<td>Progressive</td>
+<td>Variable</td>
+</tr>
+<tr>
+<td>Hypertrichosis / hirsutism</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000998" target="_blank" rel="noopener noreferrer">HP:0000998</a></td>
+<td>Childhood</td>
+<td>Stable</td>
+<td>Variable</td>
+</tr>
+<tr>
+<td>Hyperpigmentation</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000953" target="_blank" rel="noopener noreferrer">HP:0000953</a></td>
+<td>Childhood</td>
+<td>Variable</td>
+<td>Variable</td>
+</tr>
+<tr>
+<td>Subcutaneous nodules (esp. MONA; palmoplantar)</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031800" target="_blank" rel="noopener noreferrer">HP:0031800</a> / <a href="http://purl.obolibrary.org/obo/HP_0012732" target="_blank" rel="noopener noreferrer">HP:0012732</a></td>
+<td>Childhood</td>
+<td>Progressive</td>
+<td><strong>Distinguishes MONA from classic Winchester</strong></td>
+</tr>
+<tr>
+<td>Congenital cardiac/valve defects</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" rel="noopener noreferrer">HP:0001627</a></td>
+<td>Congenital</td>
+<td>Variable</td>
+<td>Subset (can be presenting feature)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Cutaneous phenotype.</strong> In addition to generalized skin thickening, a distinctive <strong>progressive multilayered banded skin</strong> pattern has been reported in Winchester syndrome, along with hypertrichosis, hyperpigmentation, and subcutaneous nodules (<a href="https://pubmed.ncbi.nlm.nih.gov/14726867/">PMID: 14726867</a>).</p>
+<p><strong>Key clinical distinction.</strong> Classic Winchester syndrome is historically distinguished from MONA by the <strong>absence or paucity of palmoplantar subcutaneous nodulosis</strong>; nodulosis is a hallmark of MONA (<em>MMP2</em>) (<a href="https://pubmed.ncbi.nlm.nih.gov/24637309/">PMID: 24637309</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39540058/">PMID: 39540058</a>).</p>
+<p><strong>Ocular phenotype (refined).</strong> In a molecularly confirmed spectrum patient, anterior-segment OCT demonstrated <strong>posterior stromal and endothelial hyperreflectivity</strong>, and confocal microscopy showed an <strong>acellular peripheral endothelium with a normal central endothelium</strong>; the peripheral corneal opacities were <strong>visually insignificant</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/39502084/">PMID: 39502084</a>):</p>
+<blockquote>
+<p>"Anterior segment optical coherence tomography (AS-OCT) demonstrated posterior stromal and endothelial hyperreflectivity. Confocal microscopy demonstrated an acellular peripheral endothelium with a normal central endothelium."</p>
+</blockquote>
+<p><strong>Quality-of-life impact.</strong> Formal instruments (EQ-5D, SF-36, PROMIS) have not been applied in this ultra-rare disease. Qualitatively, the dominant QoL burdens are <strong>progressive loss of hand and foot function from osteolysis plus contractures</strong>, chronic arthralgia, impaired mobility, and (where present) cardiac morbidity. Vision is usually preserved because corneal opacities are peripheral and visually insignificant.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal genes.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Gene (HGNC)</th>
+<th>Protein</th>
+<th>Associated phenotype</th>
+<th>Core molecular role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><em>MMP14</em></strong></td>
+<td>MT1-MMP (membrane type-1 MMP)</td>
+<td><strong>Classic Winchester syndrome</strong></td>
+<td>Cell-surface collagenase; activates pro-MMP2; pericellular type I collagen turnover</td>
+</tr>
+<tr>
+<td><strong><em>MMP2</em></strong></td>
+<td>Gelatinase A / 72 kDa type IV collagenase</td>
+<td>MONA / Torg (Winchester spectrum)</td>
+<td>Cleaves type IV collagen; osteocyte canalicular network maintenance</td>
+</tr>
+<tr>
+<td><em>SH3PXD2B</em></td>
+<td>Tks5 adaptor</td>
+<td>Frank-Ter Haar syndrome (same spectrum)</td>
+<td>Podosome scaffold organizing MT1-MMP delivery</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Pathogenic variants.</strong>
+- <strong><em>MMP14</em>:* The index pathogenic variant is the signal-peptide missense </strong>p.Thr17Arg<strong>, which reduces MT1-MMP membrane localization and impairs pro-MMP2 activation (<a href="https://pubmed.ncbi.nlm.nih.gov/22922033/">PMID: 22922033</a>).
+- </strong><em>MMP2</em>:* Reported variants span missense (e.g., c.538G&gt;A p.Asp180Asn <a href="https://pubmed.ncbi.nlm.nih.gov/24637309/">PMID: 24637309</a>; c.1188C&gt;A p.Ser396Arg, predicted to disturb the MMP2 collagen-binding region), splice-donor (e.g., c.1336+2T&gt;G, predicted to introduce a premature stop codon), and nonsense variants (<a href="https://pubmed.ncbi.nlm.nih.gov/37710205/">PMID: 37710205</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/37025869/">PMID: 37025869</a>).</p>
+<p><strong>Variant classification.</strong> Reported disease-causing variants are classified <strong>pathogenic/likely pathogenic</strong> per ACMG/AMP criteria, typically supported by homozygosity in affected individuals, carrier status in consanguineous parents, segregation, conservation, and in-silico/molecular-modeling evidence.</p>
+<p><strong>Variant type/class.</strong> Missense (signal-peptide and collagen-binding region), nonsense, and splice-site variants predominate. All converge on <strong>loss of function</strong>.</p>
+<p><strong>Allele frequency.</strong> Pathogenic alleles are <strong>extremely rare</strong> in population databases (gnomAD), consistent with an ultra-rare recessive disorder; most are private or population/family-specific.</p>
+<p><strong>Somatic vs germline.</strong> All pathogenic variants are <strong>germline</strong>; there is no somatic/oncogenic component.</p>
+<p><strong>Functional consequence.</strong> <strong>Loss of function</strong> of pericellular collagenolytic activity (MT1-MMP) and/or type IV collagenase activity (MMP2). For p.Thr17Arg, the mechanism is mislocalization of MT1-MMP away from the membrane, blocking the MT1-MMP → pro-MMP2 activation step (<a href="https://pubmed.ncbi.nlm.nih.gov/22922033/">PMID: 22922033</a>).</p>
+<p><strong>Modifier genes.</strong> Within the DECORS axis, <em>SH3PXD2B</em>, <em>MMP14</em>, and <em>MMP2</em> are functionally interdependent; dysfunction of one effectively modifies the output of the shared pathway (<a href="https://pubmed.ncbi.nlm.nih.gov/31218820/">PMID: 31218820</a>). No classical independent modifier loci are established. Significant <strong>intrafamilial variability</strong> in age of onset and severity is documented, implying modifier effects that remain uncharacterized (<a href="https://pubmed.ncbi.nlm.nih.gov/37710205/">PMID: 37710205</a>).</p>
+<p><strong>Epigenetic information.</strong> No disease-specific DNA-methylation or histone-modification signature has been reported for Winchester syndrome.</p>
+<p><strong>Chromosomal abnormalities.</strong> None; this is a single-gene disorder without characteristic aneuploidy, translocation, or large structural rearrangement.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> None implicated. No toxin, radiation, pollution, or occupational exposure is associated with onset or progression.</li>
+<li><strong>Lifestyle factors:</strong> None implicated (smoking, diet, exercise, alcohol have no established role).</li>
+<li><strong>Infectious agents:</strong> Not applicable. Winchester syndrome is not infectious and has no known infectious trigger.</li>
+</ul>
+<p>The only population-level non-genetic contributor is <strong>consanguinity</strong>, which increases the probability of homozygosity for rare recessive <em>MMP14</em>/<em>MMP2</em> alleles (<a href="https://pubmed.ncbi.nlm.nih.gov/26601801/">PMID: 26601801</a>).</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li><strong>Biallelic <em>MMP14</em> loss-of-function mutation</strong> (e.g., signal-peptide p.Thr17Arg) <strong>results in</strong> reduced MT1-MMP membrane localization. <em>(Demonstrated — <a href="https://pubmed.ncbi.nlm.nih.gov/22922033/">PMID: 22922033</a>)</em></li>
+<li>Reduced membrane MT1-MMP <strong>leads to</strong> impaired cell-surface activation of <strong>pro-MMP2 → active MMP2</strong>. <em>(Demonstrated — <a href="https://pubmed.ncbi.nlm.nih.gov/22922033/">PMID: 22922033</a>)</em></li>
+<li>Loss of MT1-MMP collagenolytic activity (± downstream MMP2 activity) <strong>leads to</strong> failure of <strong>pericellular type I / type IV collagen remodeling</strong>. <em>(Demonstrated in mouse — <a href="https://pubmed.ncbi.nlm.nih.gov/10520996/">PMID: 10520996</a>)</em></li>
+<li>Defective collagen turnover <strong>results in</strong> inadequate modeling and maintenance of skeletal and extraskeletal connective tissue. <em>(Demonstrated in mouse — <a href="https://pubmed.ncbi.nlm.nih.gov/10520996/">PMID: 10520996</a>)</em></li>
+<li><strong>Branch A (bone):</strong> Disrupted osteocytic canalicular network and dysregulated osteoblast gene expression (↑ osteopontin/bone sialoprotein) <strong>lead to</strong> abnormal bone homeostasis → <strong>progressive osteolysis + osteoporosis</strong> → carpal/tarsal dissolution, short stature, fractures. <em>(<a href="https://pubmed.ncbi.nlm.nih.gov/16959767/">PMID: 16959767</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/22917927/">PMID: 22917927</a>)</em></li>
+<li><strong>Branch B (joint):</strong> Failure to model peri-articular connective tissue <strong>leads to</strong> destructive arthropathy and <strong>joint contractures</strong>.</li>
+<li><strong>Branch C (soft tissue):</strong> Accumulation of unremodeled collagen <strong>results in</strong> <strong>dermal/soft-tissue fibrosis</strong>, thickened skin, gingival hypertrophy, coarse facies, and corneal stromal/endothelial changes. <em>(<a href="https://pubmed.ncbi.nlm.nih.gov/10520996/">PMID: 10520996</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39502084/">PMID: 39502084</a>)</em></li>
+<li><strong>Branch D (cardiac):</strong> Abnormal connective-tissue/valve matrix remodeling <strong>leads to</strong> <strong>congenital cardiac/valve defects</strong>. <em>(Inferred from phenotype + spectrum — <a href="https://pubmed.ncbi.nlm.nih.gov/37025869/">PMID: 37025869</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/33101055/">PMID: 33101055</a>)</em></li>
+<li>Secondary to MMP-2 loss, <strong>dysregulated serum cytokines and hormones</strong> <strong>are implicated in promoting osteolysis</strong> (candidate downstream amplifiers and therapeutic targets). <em>(Demonstrated/associative — <a href="https://pubmed.ncbi.nlm.nih.gov/33101055/">PMID: 33101055</a>)</em></li>
+</ol>
+<h3>Mechanistic schematic</h3>
+<pre><code> MMP14 (MT1-MMP) biallelic LOF
+    │  (p.Thr17Arg → mislocalization)
+    ▼
+ ↓ membrane MT1-MMP ──► ↓ pro-MMP2 activation
+    │                     │
+    ▼                     ▼
+ ↓ pericellular type I/IV collagenolysis  (core defect)
+    │
+    ▼
+ Inadequate connective-tissue remodeling
+   ├─► BONE: osteocyte canalicular + osteoblast dysregulation → osteolysis/osteoporosis
+   ├─► JOINT: arthropathy, contractures
+   ├─► SOFT TISSUE: dermal fibrosis, gingival/corneal/facial changes
+   └─► HEART: valve/cardiac matrix defects
+    │
+    ▼
+ (amplifier) dysregulated cytokines/hormones → further osteolysis
+</code></pre>
+<h3>Detail by category</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> Pericellular matrix proteolysis via the <strong>MT1-MMP → pro-MMP2 activation cascade</strong>; collagen (type I, type IV) degradation. Podosome-mediated protease delivery (SH3PXD2B/Tks5 scaffold) links the three DECORS genes (<a href="https://pubmed.ncbi.nlm.nih.gov/31218820/">PMID: 31218820</a>).</li>
+<li><strong>Cellular processes:</strong> Extracellular-matrix organization and turnover; bone remodeling (osteoclast/osteoblast/osteocyte coupling); fibroblast-driven fibrosis. GO suggestions: <a href="http://purl.obolibrary.org/obo/GO_0030574" target="_blank" rel="noopener noreferrer">GO:0030574</a> (collagen catabolic process), <a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" rel="noopener noreferrer">GO:0022617</a> (extracellular matrix disassembly), <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" rel="noopener noreferrer">GO:0001503</a> (ossification), <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" rel="noopener noreferrer">GO:0030198</a> (extracellular matrix organization).</li>
+<li><strong>Protein dysfunction:</strong> Loss of function — MT1-MMP mislocalized (signal-peptide defect); MMP2 missense disrupting the collagen-binding region, or truncating variants abolishing enzyme (<a href="https://pubmed.ncbi.nlm.nih.gov/22922033/">PMID: 22922033</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/37710205/">PMID: 37710205</a>).</li>
+<li><strong>Metabolic / biochemical abnormalities:</strong> Reduced/absent gelatinase (MMP-2) activity detectable by zymography; dysregulated serum cytokines/hormones (<a href="https://pubmed.ncbi.nlm.nih.gov/33101055/">PMID: 33101055</a>).</li>
+<li><strong>Immune involvement:</strong> No primary autoimmunity; the arthropathy is <strong>mechanical/degenerative</strong>, not inflammatory-autoimmune — a crucial point given frequent JIA misdiagnosis.</li>
+<li><strong>Tissue damage mechanisms:</strong> Failure of matrix maintenance → osteolysis (resorption outpacing modeling) and fibrosis (accumulation of poorly remodeled collagen).</li>
+<li><strong>Molecular profiling:</strong> <em>Mmp2</em>-null osteoblasts show upregulated <strong>osteopontin (OPN)</strong> and <strong>bone sialoprotein (BSP)</strong>, defining a bone-homeostasis feedback circuit (<a href="https://pubmed.ncbi.nlm.nih.gov/22917927/">PMID: 22917927</a>). No human single-cell or spatial datasets are published for this ultra-rare disease.</li>
+</ul>
+<p><strong>Cell types (CL):</strong> osteocyte (<a href="http://purl.obolibrary.org/obo/CL_0000137" target="_blank" rel="noopener noreferrer">CL:0000137</a>), osteoblast (<a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" rel="noopener noreferrer">CL:0000062</a>), osteoclast (<a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" rel="noopener noreferrer">CL:0000092</a>), fibroblast (<a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a>), corneal endothelial cell (<a href="http://purl.obolibrary.org/obo/CL_0000575" target="_blank" rel="noopener noreferrer">CL:0000575</a>).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level.</strong>
+- <em>Primary:</em> Skeleton — especially <strong>carpal and tarsal bones</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001773" target="_blank" rel="noopener noreferrer">UBERON:0001773</a> carpal region / tarsal region), small bones of hands and feet; generalized skeleton (osteoporosis).
+- <em>Joints:</em> wrists, interphalangeal and metacarpophalangeal joints, knees.
+- <em>Secondary / multisystem:</em> <strong>eye</strong> (cornea, <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" rel="noopener noreferrer">UBERON:0000964</a>), <strong>skin</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>), <strong>gingiva</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001828" target="_blank" rel="noopener noreferrer">UBERON:0001828</a>), <strong>heart/cardiac valves</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a> / <a href="http://purl.obolibrary.org/obo/UBERON_0000946" target="_blank" rel="noopener noreferrer">UBERON:0000946</a>).
+- <em>Body systems:</em> skeletal, articular/connective-tissue, integumentary, ocular, and cardiovascular.</p>
+<p><strong>Tissue and cell level.</strong> Connective tissue (bone matrix, dermal collagen); affected cell populations: osteocytes, osteoblasts, osteoclasts, fibroblasts, and corneal endothelial cells (peripheral acellular endothelium) (<a href="https://pubmed.ncbi.nlm.nih.gov/39502084/">PMID: 39502084</a>).</p>
+<p><strong>Subcellular level.</strong> Defect localizes to the <strong>plasma membrane / cell surface</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a>) where MT1-MMP acts, and the <strong>extracellular matrix / extracellular region</strong> (<a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" rel="noopener noreferrer">GO:0031012</a>, <a href="http://purl.obolibrary.org/obo/GO_0005615" target="_blank" rel="noopener noreferrer">GO:0005615</a>). Podosome-associated protease trafficking is implicated via SH3PXD2B.</p>
+<p><strong>Localization &amp; lateralization.</strong> Skeletal involvement is characteristically <strong>bilateral and symmetric</strong>, centered on the appendicular skeleton (hands/feet). Corneal opacities are <strong>peripheral and bilateral</strong>.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Typically <strong>childhood</strong>, though onset can range from early childhood into <strong>late adolescence</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/37710205/">PMID: 37710205</a>). Cardiac defects, when present, may be <strong>congenital</strong> and can be the first presentation (<a href="https://pubmed.ncbi.nlm.nih.gov/37025869/">PMID: 37025869</a>).</li>
+<li><strong>Onset pattern:</strong> Insidious and <strong>chronic</strong>.</li>
+<li><strong>Progression:</strong> <strong>Progressive</strong> osteolysis and contractures; longitudinal follow-up confirms continued bone loss over years (<a href="https://pubmed.ncbi.nlm.nih.gov/37710205/">PMID: 37710205</a>). There is a stereotyped chronological order — skeletal manifestations begin in hands/feet, with later, wider joint involvement (<a href="https://pubmed.ncbi.nlm.nih.gov/34307793/">PMID: 34307793</a>).</li>
+<li><strong>Disease course:</strong> Chronic, lifelong, progressive; no spontaneous remission.</li>
+<li><strong>Critical periods:</strong> Childhood/adolescence represents the window of most active osteolysis — the practical window for diagnosis and supportive intervention.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology.</strong> Winchester syndrome is <strong>ultra-rare</strong>; precise prevalence/incidence are not established and it is described only through isolated cases and small family series. Orphanet classifies it among extremely rare bone dysplasias.</p>
+<p><strong>Inheritance.</strong> <strong>Autosomal recessive</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/26601801/">PMID: 26601801</a>):</p>
+<blockquote>
+<p>"Multicentric osteolysis nodulosis and arthropathy (MONA) is an infrequently described autosomal recessive skeletal dysplasia."</p>
+</blockquote>
+<ul>
+<li><strong>Penetrance:</strong> Effectively complete in biallelic carriers.</li>
+<li><strong>Expressivity:</strong> Variable, with documented significant <strong>intrafamilial variability</strong> in onset and severity (<a href="https://pubmed.ncbi.nlm.nih.gov/37710205/">PMID: 37710205</a>).</li>
+<li><strong>Anticipation:</strong> Not applicable (not a repeat-expansion disorder).</li>
+<li><strong>Germline mosaicism:</strong> Not reported.</li>
+<li><strong>Founder effects:</strong> Many variants are private/family-specific; several populations harbor recurrent homozygous variants in consanguineous pedigrees.</li>
+<li><strong>Consanguinity:</strong> Strongly linked — the majority of reported families are consanguineous (<a href="https://pubmed.ncbi.nlm.nih.gov/26601801/">PMID: 26601801</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/22876575/">PMID: 22876575</a>).</li>
+<li><strong>Carrier frequency:</strong> Not established; expected to be very low outside consanguineous or founder populations.</li>
+</ul>
+<p><strong>Population demographics.</strong> Reported in diverse ethnicities — <strong>Indian, Egyptian, Pakistani, Finnish, Iranian, Japanese</strong> — supporting a <strong>pan-ethnic</strong> distribution (<a href="https://pubmed.ncbi.nlm.nih.gov/22876575/">PMID: 22876575</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/37710205/">PMID: 37710205</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38409917/">PMID: 38409917</a>). No strong sex predilection is established (consistent with autosomal recessive inheritance). Age distribution of affected individuals is concentrated in childhood through young adulthood at time of diagnosis.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical/radiographic.</strong> Diagnosis begins with the <strong>characteristic radiographic pattern</strong>: multicentric osteolysis predominantly of <strong>carpal and tarsal bones</strong>, osteopenia/osteoporosis, dysplastic changes of hands/feet, and (in MONA) subcutaneous nodules (<a href="https://pubmed.ncbi.nlm.nih.gov/37842447/">PMID: 37842447</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/34307793/">PMID: 34307793</a>).</p>
+<p><strong>Confirmatory tests.</strong> Diagnosis is established by (<a href="https://pubmed.ncbi.nlm.nih.gov/34466312/">PMID: 34466312</a>):</p>
+<blockquote>
+<p>"established either by measuring matrix metalloproteinase-2 (MMP-2) enzyme activity through electrophoresis (zymography) or genomic testing."</p>
+</blockquote>
+<ul>
+<li><strong>MMP-2 zymography</strong> (gelatin electrophoresis) — functional assay of gelatinase activity.</li>
+<li><strong>Molecular genetic testing</strong> of <strong><em>MMP14</em></strong> (Winchester) and <strong><em>MMP2</em></strong> (MONA) — single-gene testing, targeted panels, or <strong>whole-exome sequencing (WES)</strong>, which has been the discovery route in several families (<a href="https://pubmed.ncbi.nlm.nih.gov/37710205/">PMID: 37710205</a>).</li>
+</ul>
+<p><strong>Ocular imaging.</strong> AS-OCT and confocal microscopy characterize the peripheral corneal endothelial/stromal changes (<a href="https://pubmed.ncbi.nlm.nih.gov/39502084/">PMID: 39502084</a>).</p>
+<p><strong>Differential diagnosis.</strong> The most important and dangerous differential is <strong>juvenile idiopathic arthritis / rheumatoid arthritis</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/37842447/">PMID: 37842447</a>):</p>
+<blockquote>
+<p>"can be misdiagnosed as juvenile idiopathic arthritis or rheumatoid arthritis."</p>
+</blockquote>
+<p>Misclassification as JIA leads to inappropriate corticosteroid/immunosuppressive therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/39463871/">PMID: 39463871</a>). Other differentials include non-heritable osteolyses (Gorham-Stout disease), other inherited osteolysis syndromes, and skeletal dysplasias (<a href="https://pubmed.ncbi.nlm.nih.gov/21995273/">PMID: 21995273</a>).</p>
+<p><strong>Screening.</strong> In known families, <strong>cascade/carrier testing</strong> and genetic counseling are appropriate; prenatal/preimplantation testing is feasible when the familial variant is known. There is no population newborn screening.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival/mortality:</strong> No systematic survival data exist. Skeletal disease is not directly lethal, but <strong>cardiac involvement</strong> can be life-threatening — one child required open-heart surgery at 8 months of age (<a href="https://pubmed.ncbi.nlm.nih.gov/37025869/">PMID: 37025869</a>).</li>
+<li><strong>Morbidity/disability:</strong> Dominated by <strong>progressive loss of hand/foot function</strong>, contractures, chronic pain, and reduced mobility — a chronic, lifelong functional burden.</li>
+<li><strong>Disease course:</strong> Progressive osteolysis with accumulating skeletal deformity; complications include pathologic fractures, severe contractures, and cardiac/valvular disease.</li>
+<li><strong>Recovery potential:</strong> Osteolytic bone loss is <strong>not reversible</strong> with current care; management is palliative/supportive.</li>
+<li><strong>Prognostic factors:</strong> Presence and severity of <strong>cardiac involvement</strong> is the principal determinant of serious outcome; extent/rate of skeletal osteolysis governs functional disability. No validated prognostic biomarkers exist.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>No disease-specific or curative therapy exists</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/34466312/">PMID: 34466312</a>):</p>
+<blockquote>
+<p>"no specific therapy has been identified with proven long term relief and control of the disease progression."</p>
+</blockquote>
+<p><strong>Management is supportive and multidisciplinary:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Modality</th>
+<th>Purpose</th>
+<th>NCIT suggestion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Physiotherapy / rehabilitation</td>
+<td>Preserve joint mobility, limit contractures</td>
+<td>NCIT:C15682 (Physical Therapy)</td>
+</tr>
+<tr>
+<td>Analgesia</td>
+<td>Chronic pain control</td>
+<td>NCIT:C15329 (Analgesic Therapy)</td>
+</tr>
+<tr>
+<td>Orthopedic / reconstructive surgery</td>
+<td>Correct deformity, stabilize joints</td>
+<td>NCIT surgical repair</td>
+</tr>
+<tr>
+<td>Ophthalmologic surveillance</td>
+<td>Monitor corneal opacities</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Cardiac surveillance / surgery</td>
+<td>Detect &amp; correct valve/congenital defects</td>
+<td>NCIT:C15300 (Cardiac Surgery)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Pharmacotherapy / pharmacogenomics:</strong> No approved targeted drugs. Critically, <strong>immunosuppression/corticosteroids are not indicated</strong> and reflect misdiagnosis as inflammatory arthritis (<a href="https://pubmed.ncbi.nlm.nih.gov/39463871/">PMID: 39463871</a>).</p>
+<p><strong>Advanced / experimental therapeutics:</strong> None approved. A mechanistically promising direction: Sarker et al. identified <strong>dysregulated serum cytokines and hormones</strong> common to MMP-2-deficient mice and children as candidate <strong>therapeutic targets</strong> for the osteolysis (<a href="https://pubmed.ncbi.nlm.nih.gov/33101055/">PMID: 33101055</a>):</p>
+<blockquote>
+<p>"multicentric osteolysis, nodulosis, and arthropathy (MONA) as well as cardiac valve defects, dwarfism and hirsutism."</p>
+</blockquote>
+<p>Gene/enzyme-replacement approaches are conceptually plausible (restore MT1-MMP/MMP2 function) but remain untested.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not possible at the individual genetic level. The main lever is <strong>genetic counseling in consanguineous and known-carrier families</strong>, including reproductive options (carrier testing, prenatal/preimplantation genetic diagnosis once the familial variant is identified).</li>
+<li><strong>Secondary prevention:</strong> <strong>Early, accurate diagnosis</strong> — recognizing carpal/tarsal osteolysis and pursuing zymography/molecular testing rather than defaulting to a JIA diagnosis — prevents harmful immunosuppression and enables timely cardiac/ophthalmologic surveillance.</li>
+<li><strong>Tertiary prevention:</strong> Physiotherapy, orthopedic intervention, and <strong>cardiac monitoring</strong> to limit complications.</li>
+<li><strong>Immunization / public health / environmental interventions:</strong> Not applicable (non-infectious, non-environmental monogenic disorder).</li>
+<li><strong>Counseling:</strong> Genetic counseling is the cornerstone of prevention given autosomal recessive inheritance and consanguinity linkage.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy / orthologs:</strong> <em>MMP14</em> and <em>MMP2</em> are highly conserved across mammals; mouse orthologs <em>Mmp14</em> and <em>Mmp2</em> (NCBI Taxon:10090, <em>Mus musculus</em>) are the principal comparative systems.</li>
+<li><strong>Natural disease in other species:</strong> No well-characterized spontaneous Winchester-syndrome equivalent is documented in companion animals or wildlife; the disease model is engineered (knockout), not naturally occurring.</li>
+<li><strong>Comparative biology:</strong> The <strong>evolutionary conservation of the MT1-MMP → MMP2 collagen-remodeling axis</strong> is strong, which is why murine knockouts faithfully reproduce human skeletal/connective-tissue pathology (<a href="https://pubmed.ncbi.nlm.nih.gov/10520996/">PMID: 10520996</a>).</li>
+<li><strong>Transmission / zoonosis:</strong> Not applicable.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<p>Mouse knockouts are the definitive disease models and provide the strongest mechanistic validation (<a href="https://pubmed.ncbi.nlm.nih.gov/10520996/">PMID: 10520996</a>):</p>
+<blockquote>
+<p>"MT1-MMP deficiency causes craniofacial dysmorphism, arthritis, osteopenia, dwarfism, and fibrosis of soft tissues due to ablation of a collagenolytic activity that is essential for modeling of skeletal and extraskeletal connective tissues."</p>
+</blockquote>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Phenotype recapitulation</th>
+<th>Key insight</th>
+<th>Ref</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><em>Mmp14⁻/⁻</em></strong> mouse</td>
+<td>Constitutive knockout (mammalian)</td>
+<td><strong>High</strong> — dwarfism, osteopenia, arthritis, craniofacial dysmorphism, soft-tissue fibrosis</td>
+<td>Loss of essential collagenolysis drives connective-tissue disease</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10520996/">PMID: 10520996</a></td>
+</tr>
+<tr>
+<td><strong><em>Mmp2⁻/⁻</em></strong> mouse</td>
+<td>Constitutive knockout (mammalian)</td>
+<td><strong>High</strong> — ↓ bone mineral density, disrupted osteocytic canalicular network, dysregulated osteoblast genes</td>
+<td>MMP-2 crucial for osteocyte canaliculi and bone metabolism</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16959767/">PMID: 16959767</a></td>
+</tr>
+<tr>
+<td><em>Mmp2⁻/⁻</em> osteoblasts / SaOS2 siRNA</td>
+<td>Cellular / in vitro</td>
+<td>Upregulated <strong>OPN</strong> and <strong>BSP</strong></td>
+<td>Defines a bone-homeostasis feedback circuit regulated by MMP-2</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22917927/">PMID: 22917927</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Model characteristics.</strong> The canalicular-network insight is explicit (<a href="https://pubmed.ncbi.nlm.nih.gov/16959767/">PMID: 16959767</a>):</p>
+<blockquote>
+<p>"MMP-2 plays a crucial role in forming and maintaining the osteocytic canalicular network."</p>
+</blockquote>
+<p><strong>Limitations.</strong> Mouse models capture skeletal/connective-tissue biology well but do not fully model the human ocular phenotype or allele-specific effects (e.g., the human p.Thr17Arg mislocalization mechanism). <strong>Resources:</strong> MGI, IMPC/IMSR.</p>
+<hr />
+<h2>Key Findings (consolidated)</h2>
+<p><strong>F001 — Winchester syndrome is caused by biallelic <em>MMP14</em> (MT1-MMP) mutations.</strong> Evans et al. (2012) identified homozygous <em>MMP14</em> mutations in the original Winchester sisters; the p.Thr17Arg signal-peptide substitution decreases MT1-MMP membrane localization and impairs pro-MMP2 activation, inherited autosomal recessively (<a href="https://pubmed.ncbi.nlm.nih.gov/22922033/">PMID: 22922033</a>).</p>
+<p><strong>F002 — Winchester/MONA spectrum is a defective collagen-remodeling disorder (DECORS).</strong> de Vos et al. (2019) reviewed 63 patients and showed that Frank-Ter Haar (SH3PXD2B), Winchester (MMP14), and MONA (MMP2) share craniofacial malformations, reduced bone density, skeletal/cardiac anomalies, and dermal fibrosis; the protein products "directly cooperate in collagen remodeling," prompting the DECORS nosology (<a href="https://pubmed.ncbi.nlm.nih.gov/31218820/">PMID: 31218820</a>).</p>
+<p><strong>F003 — Mouse models recapitulate the human osteolysis syndrome via inadequate collagen turnover.</strong> <em>Mmp14⁻/⁻</em> and <em>Mmp2⁻/⁻</em> mice reproduce craniofacial dysmorphism, arthritis, osteopenia, dwarfism, soft-tissue fibrosis, reduced bone mineral density, and disrupted osteocytic canalicular networks (<a href="https://pubmed.ncbi.nlm.nih.gov/10520996/">PMID: 10520996</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/16959767/">PMID: 16959767</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/22917927/">PMID: 22917927</a>).</p>
+<p><strong>F004 — Core clinical phenotype: carpal/tarsal osteolysis, contractures, coarse facies, corneal opacities.</strong> Plus short stature, generalized osteoporosis, and cutaneous features (thickened skin, hypertrichosis, hyperpigmentation, subcutaneous nodules, gingival hypertrophy); Winchester is distinguished from MONA by paucity of palmoplantar nodulosis (<a href="https://pubmed.ncbi.nlm.nih.gov/14726867/">PMID: 14726867</a>).</p>
+<p><strong>F005 — Diagnosis relies on radiographic osteolysis + MMP2/MMP14 testing or MMP-2 zymography; frequently misdiagnosed as JIA</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/34466312/">PMID: 34466312</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/37842447/">PMID: 37842447</a>).</p>
+<p><strong>F006 — Autosomal recessive inheritance with strong consanguinity link; cardiac defects are part of the multisystem phenotype,</strong> and may be the first presentation (<a href="https://pubmed.ncbi.nlm.nih.gov/26601801/">PMID: 26601801</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/37025869/">PMID: 37025869</a>).</p>
+<p><strong>F007 — No disease-specific/curative therapy exists; management is supportive and multidisciplinary</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/34466312/">PMID: 34466312</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/33101055/">PMID: 33101055</a>).</p>
+<p><strong>F008 — Ocular involvement: peripheral corneal opacities with posterior stromal/endothelial changes, usually visually insignificant</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/39502084/">PMID: 39502084</a>).</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Role in this report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22922033/">22922033</a></td>
+<td><em>MT1-MMP (MMP14) causes Winchester syndrome</em></td>
+<td><strong>Establishes causal gene</strong> and p.Thr17Arg mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31218820/">31218820</a></td>
+<td><em>Multicentric osteolytic syndromes = defective collagen remodeling</em></td>
+<td>Unifies MMP14/MMP2/SH3PXD2B into <strong>DECORS</strong></td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10520996/">10520996</a></td>
+<td><em>MT1-MMP-deficient mice</em></td>
+<td>Mouse model recapitulates phenotype; collagenolytic mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16959767/">16959767</a></td>
+<td><em>MMP-2 in osteocytic canalicular formation</em></td>
+<td>Links MMP2 loss to bone phenotype</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22917927/">22917927</a></td>
+<td><em>Loss of MMP-2 upregulates OPN/BSP</em></td>
+<td>Downstream bone-homeostasis circuit</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/14726867/">14726867</a></td>
+<td><em>Progressive multilayered banded skin in Winchester</em></td>
+<td>Cardinal clinical + cutaneous features</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34466312/">34466312</a></td>
+<td><em>Clinical/molecular profile of MONA</em></td>
+<td>Diagnostic tests; no disease-modifying therapy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37842447/">37842447</a></td>
+<td><em>MONA simulating JIA in adult</em></td>
+<td>Key differential/misdiagnosis risk</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26601801/">26601801</a></td>
+<td><em>Clinical/mutation profile of MONA</em></td>
+<td>Autosomal recessive inheritance; consanguinity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37025869/">37025869</a></td>
+<td><em>Novel MONA mutation</em></td>
+<td>Cardiac defect as presenting feature</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33101055/">33101055</a></td>
+<td><em>Dysregulated cytokines/hormones in MMP-2 deficiency</em></td>
+<td>Multisystem phenotype; therapeutic targets</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39502084/">39502084</a></td>
+<td><em>Multimodal imaging of corneal opacities</em></td>
+<td>Refines ocular phenotype</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37710205/">37710205</a></td>
+<td><em>Two families (Pakistan/Finland)</em></td>
+<td>Variant spectrum; variable age of onset</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24637309/">24637309</a></td>
+<td><em>MMP2 case report</em></td>
+<td>Torg/MMP2 biology; nodulosis distinction</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22876575/">22876575</a></td>
+<td><em>Three Egyptian patients</em></td>
+<td>Pan-ethnic; consanguinity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39540058/">39540058</a></td>
+<td><em>Pakistani MONA family</em></td>
+<td>Nodulosis + MMP2 deficiency</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34307793/">34307793</a></td>
+<td><em>Two children, genetic–skeletal correlations</em></td>
+<td>Skeletal pattern, progression order</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39463871/">39463871</a></td>
+<td><em>MONA case series</em></td>
+<td>JIA misdiagnosis; multidisciplinary management</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38409917/">38409917</a></td>
+<td><em>Japanese siblings</em></td>
+<td>Pan-ethnic distribution</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21995273/">21995273</a></td>
+<td><em>Idiopathic osteolysis diagnosis/management</em></td>
+<td>Differential diagnosis framework</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All findings above are anchored to verified abstract quotes recorded during the investigation.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Nomenclature overlap.</strong> Classic Winchester syndrome (<em>MMP14</em>) and MONA/Torg (<em>MMP2</em>) are mechanistically unified but genetically distinct; much published literature uses "Torg-Winchester"/"MONA" interchangeably, so some clinical detail is drawn from the <em>MMP2</em> literature and extrapolated to the <em>MMP14</em> entity under the DECORS framework.</li>
+<li><strong>Thin human molecular data.</strong> There are <strong>no human transcriptomic, proteomic, single-cell, or spatial datasets</strong> for this ultra-rare disease; molecular profiling evidence is largely from mouse models.</li>
+<li><strong>No quantitative epidemiology.</strong> Prevalence, incidence, carrier frequency, and survival statistics are essentially unknown.</li>
+<li><strong>No validated outcome measures.</strong> QoL, prognostic biomarkers, and natural-history endpoints are not formalized.</li>
+<li><strong>No therapeutics pipeline.</strong> Treatment is entirely supportive; the cytokine/hormone-targeting hypothesis remains untested in patients.</li>
+<li><strong>Modifiers unexplained.</strong> Documented intrafamilial variability implies modifier effects that are uncharacterized.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Establish an international registry</strong> for <em>MMP14</em>/<em>MMP2</em> osteolysis to generate prevalence, natural-history, and genotype–phenotype data (addresses gaps 3–4).</li>
+<li><strong>Patient-derived iPSC → osteoblast/osteocyte/chondrocyte models</strong> and organoids to obtain human single-cell transcriptomic/proteomic signatures and test rescue of the MT1-MMP → pro-MMP2 axis.</li>
+<li><strong>Variant-function platform:</strong> systematically express <em>MMP14</em>/<em>MMP2</em> variants (e.g., p.Thr17Arg) to quantify membrane localization, pro-MMP2 activation, and collagenolysis — supporting ACMG reclassification of VUS.</li>
+<li><strong>Therapeutic proof-of-concept:</strong> test cytokine/hormone-pathway modulators identified by Sarker et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/33101055/">PMID: 33101055</a>) in <em>Mmp2⁻/⁻</em>/<em>Mmp14⁻/⁻</em> mice; explore enzyme-replacement or AAV gene-replacement in these models.</li>
+<li><strong>Diagnostic standardization:</strong> promote an algorithm of "carpal/tarsal osteolysis → MMP-2 zymography + <em>MMP14</em>/<em>MMP2</em> sequencing" to curb JIA misdiagnosis and inappropriate immunosuppression.</li>
+<li><strong>Prospective cardiac surveillance protocol</strong>, given that congenital heart disease can be the presenting and most dangerous manifestation (<a href="https://pubmed.ncbi.nlm.nih.gov/37025869/">PMID: 37025869</a>).</li>
+</ol>
+<hr />
+<p><em>Report compiled from a 5-iteration autonomous literature synthesis; 8 confirmed findings, 21 papers reviewed. Evidence source types: human clinical case reports/series, mouse model-organism studies, and in vitro/cellular experiments, as indicated throughout.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Winchester_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Winchester_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>20</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>4</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0010201</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>Winchester syndrome</strong></li>
+<li><code>HP:0000939</code> (1 mention) - the report calls it "Radiographic"; HP calls it <strong>Osteoporosis</strong></li>
+<li><code>HP:0001371</code> (1 mention) - the report calls it "Physical manifestation"; HP calls it <strong>Flexion contracture</strong></li>
+<li><code>HP:0001387</code> (1 mention) - the report calls it "Clinical sign"; HP calls it <strong>Joint stiffness</strong></li>
+<li><code>HP:0004322</code> (1 mention) - the report calls it "Physical manifestation"; HP calls it <strong>Short stature</strong></li>
+<li><code>HP:0000280</code> (1 mention) - the report calls it "Physical manifestation"; HP calls it <strong>Coarse facial features</strong></li>
+<li><code>HP:0007957</code> (1 mention) - the report calls it "Clinical sign (ocular)"; HP calls it <strong>Corneal opacity</strong></li>
+<li><code>HP:0000212</code> (1 mention) - the report calls it "Clinical sign"; HP calls it <strong>Gingival overgrowth</strong></li>
+<li><code>HP:0000998</code> (1 mention) - the report calls it "Physical manifestation"; HP calls it <strong>Hypertrichosis</strong></li>
+<li><code>HP:0001627</code> (1 mention) - the report calls it "Clinical sign"; HP calls it <strong>Abnormal heart morphology</strong></li>
+<li><code>NCIT:C15682</code> (1 mention) - the report calls it "Physical Therapy"; NCIT calls it <strong>Dose-Rate</strong></li>
+<li><code>NCIT:C15329</code> (1 mention) - the report calls it "Analgesic Therapy"; NCIT calls it <strong>Surgical Procedure</strong></li>
+<li><code>NCIT:C15300</code> (1 mention) - the report calls it "Cardiac Surgery"; NCIT calls it <strong>Photodynamic Therapy</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0005615</code> (obsolete extracellular space) (1 mention) - replaced by <code>GO:0005576</code></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0000974</code> (1 mention) - the report calls it "thick skin"; HP calls it <strong>Hyperextensible skin</strong>, and lists "Hyperelastic skin" among its other names</li>
+<li><code>HP:0000953</code> (1 mention) - the report calls it "Physical manifestation"; HP calls it <strong>Hyperpigmentation of the skin</strong>, and lists "Skin hyperpigmentation" among its other names</li>
+<li><code>UBERON:0002097</code> (1 mention) - the report calls it "skin"; UBERON calls it <strong>skin of body</strong>, and lists "skin" among its other names</li>
+<li><code>GO:0005886</code> (1 mention) - the report calls it "plasma membrane / cell surface"; GO calls it <strong>plasma membrane</strong></li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>Taxon</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Wilsons_Disease-falcon.html">← Wilson Disease (Falcon)</a>
+                
+                
+                <a href="Wiskott_Aldrich_Syndrome-fallback.html">Wiskott-Aldrich syndrome (Fallback) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Winchester_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Winchester_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
