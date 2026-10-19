@@ -249,14 +249,31 @@ turns on. Enriching an issue body with a definition or an OMIM ID is not that.
    that PR merges. If the PR is stalled on something you can supply, that is
    worth reporting to the user; it is usually more valuable than a fresh claim.
 
-6. **File the claim issue.** This is the claim — file it *before* starting work,
+6. **Re-check for a duplicate claim immediately before filing.** The claims
+   you fetched in step 3 are minutes old by now, and another agent may have
+   filed for the same disease since then. Re-fetch them as the **last thing you
+   do before each `gh issue create`**, nothing in between, and look for both
+   the MONDO ID and the label (see "Checking for duplicate claims" below). If a
+   claim has appeared, do not file: drop the candidate and pick another.
+
+7. **File the claim issue.** This is the claim — file it *before* starting work,
    not after.
 
-7. **Report**: the issue URLs, and — explicitly — every candidate you skipped
-   with the reason. If you filed fewer than N, say so; do not pad the count.
+8. **Check for a duplicate claim immediately after filing.** The re-check in
+   step 6 narrows the race window; it cannot close it, because two agents can
+   both pass it in the same few seconds and both file (#13799 and #13800 were
+   filed six seconds apart). So as soon as `gh issue create` returns, fetch the
+   open claims again, the same way, and look for any *other* open issue with
+   your MONDO ID or label. If there is one, the **lower-numbered issue keeps
+   the claim**; see "Checking for duplicate claims" for what to do in each
+   case. Do not start curating a disease until this check has come back clean.
 
-8. **Do we the work**: start curating the entries. Unless the user says to
-   hold off
+9. **Report**: the issue URLs, and — explicitly — every candidate you skipped
+   with the reason, including any you dropped at step 6 or step 8. If you filed
+   fewer than N, say so; do not pad the count.
+
+10. **Do the work**: start curating the entries, unless the user says to
+    hold off.
 
 ## Filing a claim
 
@@ -307,6 +324,52 @@ Curate a dismech entry for **<label>** ([<MONDO_ID>](https://monarchinitiative.o
 Stub: `stubs/<file>.yaml`
 Nominated by: <source_name from the stub>
 ```
+
+## Checking for duplicate claims
+
+Workflow steps 6 and 8 run the same check, once just before filing and once
+just after. Both use the **list** endpoint, which is immediately consistent;
+never use `gh issue list --search` or `search_issues` here, because the search
+index lags issue creation by seconds to minutes, which is exactly the window
+the check is for.
+
+```bash
+just fetch-claims                   # re-fetch: one list-API call -> tmp/claims.json
+just check-claims                   # "double-claims" lists any MONDO ID claimed twice
+jq -r '.[] | "#\(.number) \(.title)"' tmp/claims.json \
+  | grep -i -e "<MONDO_ID>" -e "<label>" -e "<synonym>" || true
+```
+
+Without `gh`, call `mcp__github__list_issues` with `labels: ["claim"]`,
+`state: "OPEN"`, `perPage: 100` and `fields: ["number","title","created_at"]`,
+paging until it returns fewer than 100, and scan the titles the same way.
+
+Match on the **label and its common synonyms as well as the MONDO ID**. The
+`double-claims` report is keyed on the MONDO ID, so it cannot see a claim filed
+under a different term for the same disease, or one whose title has no MONDO
+ID at all (`check-claims` lists those as unkeyed; read them too).
+
+**Before filing (step 6).** Any open claim for the candidate means do not file.
+Drop it, note it as skipped with the issue number, and take the next candidate.
+
+**After filing (step 8).** Ignore your own issue and look for any other open
+claim for the same disease. If there is none, the claim stands. If there is
+one, the lower issue number wins, whoever filed it, so both agents reach the
+same answer without talking to each other:
+
+- **Yours is the higher number:** close your issue as a duplicate, linking the
+  other one (`gh issue close <yours> --reason "not planned" --comment
+  "Duplicate of #<other>"`, or `mcp__github__issue_write` with `method:
+  "update"`, `state: "closed"`, `state_reason: "duplicate"`,
+  `duplicate_of: <other>`). Do not start curating it. Pick another candidate
+  and repeat steps 5 to 8 for it.
+- **Yours is the lower number:** keep it, and comment on the other issue
+  pointing at yours so its agent sees the duplicate even if it skipped this
+  check. Do not close someone else's issue yourself.
+
+If curation has already started on the losing side when you find the duplicate,
+stop it there; the section "When two PRs curate the same disease anyway" covers
+what to do if both reach a PR.
 
 **Do not edit the stub to record the claim.** The stub has no `claimed_by` or
 `status: CLAIMED` — that was removed on purpose. Two sources of truth for one
@@ -494,6 +557,10 @@ close the claim issue explaining it. That is a completed curation.
   in the pool and `next-unclaimed` will happily offer it. Search open PRs.
 - **Starting work before filing the claim issue.** The issue *is* the lock. Work
   done before it exists is unprotected.
+- **Filing on step 3's claims list, or skipping the check after filing.** The
+  list is stale by the time you file, and two agents can file in the same
+  seconds. Re-check just before and just after `gh issue create` (workflow
+  steps 6 and 8); the lower issue number keeps the claim.
 - **Filing a claim without the `claim` label or without the MONDO ID in the
   title.** Either one makes the issue invisible to the next person's check.
 - **Editing the stub to record a claim.** The stub has no claim fields. Use the
