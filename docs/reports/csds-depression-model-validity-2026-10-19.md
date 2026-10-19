@@ -32,9 +32,11 @@ only the abstract; the table at the end says which.
   tested is narrower: six molecules or programs that mark susceptible mice are
   also altered in patients with MDD compared with controls.
 - **CSDS findings bear on ten of the twelve mechanism nodes, but often in a
-  different direction or form from the node.** The dopamine and enkephalin
-  findings run opposite to the Monoamine Deficiency and PENK+ interneuron
-  nodes, and the neurogenesis suppression is transient rather than stalled.
+  different direction or form from the node.** The monoamine findings do not
+  fit the Monoamine Deficiency node (they are mixed in direction, and VTA
+  dopamine firing increases), the enkephalin finding runs opposite to the PENK+
+  interneuron node, and the neurogenesis suppression is transient rather than
+  stalled.
   There is no CSDS evidence for Reference Point Dysregulation or Neurogenic
   Niche Interferon Signaling Activation.
 - **The blood-brain barrier finding is the strongest case for a new node**:
@@ -307,15 +309,17 @@ with PMID:21799487 as the protocol reference:
 |---|---|---|---|
 | Neuroinflammation | `PARTIALLY_RECAPITULATES` | `MODERATE` | — |
 | Oligodendrocyte Dysfunction and Demyelination | `PARTIALLY_RECAPITULATES` | `MODERATE` | — |
-| Stress-Responsive Transcription Factor Reprogramming | `PARTIALLY_RECAPITULATES` | `MODERATE` | `STRUCTURAL_IDEALIZATION` (ΔFosB marks resilience or susceptibility by cell type) |
+| Stress-Responsive Transcription Factor Reprogramming | `PARTIALLY_RECAPITULATES` | `MODERATE` | `CONTESTED_ASSUMPTION` (the node assumes one direction of reprogramming; ΔFosB marks resilience in D1 neurons and susceptibility in D2 neurons) |
 | Neuroplasticity Deficits | `PARTIALLY_RECAPITULATES` | `LOW` | `CONTESTED_ASSUMPTION` (direction differs by region; mesolimbic BDNF promotes susceptibility) |
 | Excitation-Inhibition Imbalance | `PARTIALLY_RECAPITULATES` | `LOW` | — |
 | HPA Axis Dysregulation | `PARTIALLY_RECAPITULATES` | `LOW` | `CONTESTED_ASSUMPTION` (corticosterone rises in resilient mice too) |
 | Stalled Adult Hippocampal Neurogenesis | `PARTIALLY_RECAPITULATES` | `LOW` | `TEMPORAL_SCOPE` (suppression is transient) |
 | Mitochondrial Dysfunction | `MEASURES` | `LOW` | `PROXY_QUANTITY` (pathway overlap stands in for measured mitochondrial function) |
 
-Every link should also carry three default divergences:
+Every link should also carry four default divergences:
 
+- `SPECIES_MISMATCH`: every finding is from mice, most of them from the
+  standard C57BL/6J protocol.
 - `PROXY_QUANTITY`: social avoidance and sucrose preference stand in for
   depressed mood and anhedonia.
 - `CONTESTED_ASSUMPTION`: the anxiety and PTSD readings in question 1.
