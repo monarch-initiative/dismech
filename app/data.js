@@ -52266,7 +52266,8 @@ window.searchData = [
     ],
     "environmental": [],
     "biochemical": [
-      "Increased Circulating Lactate in a Severe Biallelic Presentation",
+      "Increased Circulating Lactate in a Severe Biallelic Presentation (Plasma)",
+      "Increased CSF Lactate in a Severe Biallelic Presentation",
       "Cytochrome c oxidase (COX) deficiency"
     ],
     "source_file": "Behr_Syndrome.yaml",
@@ -72509,7 +72510,8 @@ window.searchData = [
     "environmental": [],
     "biochemical": [
       "Reduced tissue complex IV activity",
-      "Elevated blood and CSF lactate"
+      "Elevated serum lactate",
+      "Elevated CSF lactate"
     ],
     "source_file": "COX6B1-Related_COX_Deficiency.yaml",
     "page_url": "../pages/disorders/COX6B1-Related_COX_Deficiency.html",
@@ -188686,6 +188688,130 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Hypomyelinating Leukodystrophy 2",
+    "disease_id": "MONDO:0012125",
+    "category": "Genetic",
+    "parents": [
+      "Leukodystrophy"
+    ],
+    "creation_date": "2026-10-16T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive hypomyelinating leukodystrophy caused by biallelic GJC2 variants. GJC2 encodes connexin-47 (Cx47), the gap-junction protein that couples oligodendrocytes to astrocytes (through Cx47/Cx43 channels) and to each other. The disease is the autosomal recessive phenocopy of Pelizaeus-Merzbacher disease: nystagmus beginning in the neonatal or early-infantile period, hypotonia that evolves into spasticity, cerebellar signs in childhood, and diffuse CNS hypomyelination on MRI, usually with normal cognition or mild intellectual disability and a slowly progressive course.\nTwo mechanisms are documented for the same protein. Most coding alleles abolish channel function, and several (p.P87S, p.Y269D, p.M283T) are also retained in the endoplasmic reticulum, where in primary oligodendrocytes they switch on the unfolded protein response and apoptotic pathways. A recurrent promoter variant (c.-167A>G) instead removes a SOX10 binding site and lowers GJC2 transcription. The milder allelic disorder, spastic paraplegia 44, is curated separately.",
+    "pathophysiology": [
+      "Biallelic GJC2 Loss of Function",
+      "Connexin-47 ER Retention and Unfolded Protein Response",
+      "Oligodendrocyte Apoptosis",
+      "Disrupted Oligodendrocyte-Astrocyte Panglial Coupling",
+      "Impaired Potassium Spatial Buffering",
+      "Microglial Activation and White Matter Inflammation",
+      "CNS Hypomyelination",
+      "Peripheral Nerve Myelin Involvement"
+    ],
+    "cell_types": [
+      "oligodendrocyte",
+      "astrocyte",
+      "microglial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000128",
+      "CL:0000127",
+      "CL:0000129"
+    ],
+    "biological_processes": [
+      "unfolded protein response",
+      "apoptotic process",
+      "potassium ion homeostasis",
+      "central nervous system myelination"
+    ],
+    "phenotypes": [
+      "Nystagmus",
+      "Hypotonia",
+      "Motor delay",
+      "Speech delay",
+      "Dysarthria",
+      "Spasticity",
+      "Gait ataxia",
+      "Dysmetria",
+      "Intention tremor",
+      "Head titubation",
+      "Dysdiadochokinesia",
+      "Mild intellectual disability",
+      "Seizures",
+      "Choreoathetosis",
+      "Dystonia",
+      "Optic atrophy",
+      "Hearing loss",
+      "Dysphagia",
+      "Hip dislocation",
+      "Scoliosis",
+      "CNS hypomyelination on MRI",
+      "Demyelinating peripheral neuropathy"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Neurodevelopmental",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000639",
+      "HP:0001252",
+      "HP:0001270",
+      "HP:0000750",
+      "HP:0001260",
+      "HP:0001257",
+      "HP:0002066",
+      "HP:0001310",
+      "HP:0002080",
+      "HP:0002599",
+      "HP:0002075",
+      "HP:0001256",
+      "HP:0007359",
+      "HP:0001266",
+      "HP:0001332",
+      "HP:0000648",
+      "HP:0000365",
+      "HP:0002015",
+      "HP:0002827",
+      "HP:0002650",
+      "HP:0003429",
+      "HP:0007108"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE",
+      "OBLIGATE"
+    ],
+    "genes": [
+      "GJC2"
+    ],
+    "treatments": [
+      "Supportive Care",
+      "Genetic Counseling",
+      "Oligodendrocyte-Targeted AAV-GJC2 Gene Therapy (preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypomyelinating_Leukodystrophy_2.yaml",
+    "page_url": "../pages/disorders/Hypomyelinating_Leukodystrophy_2.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Hypomyelinating Leukodystrophy 23",
     "disease_id": "MONDO:0030514",
     "category": "Mendelian",
@@ -207698,7 +207824,6 @@ window.searchData = [
       "VERY_RARE"
     ],
     "genes": [
-      "ACAD8 pathogenic variants",
       "ACAD8"
     ],
     "treatments": [
@@ -207723,9 +207848,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Isobutyryl-CoA_Dehydrogenase_Deficiency.html",
     "num_phenotypes": 15,
     "num_pathophysiology": 5,
-    "num_genes": 2,
+    "num_genes": 1,
     "num_treatments": 8,
-    "causal_graph_edges": "41",
+    "causal_graph_edges": "40",
     "causal_graph_longest_path": "6"
   },
   {
@@ -226798,7 +226923,9 @@ window.searchData = [
     "environmental": [
       "Injection of local anesthetic for regional or local anesthesia"
     ],
-    "biochemical": [],
+    "biochemical": [
+      "Plasma bupivacaine concentration"
+    ],
     "source_file": "Local_Anesthetic_Systemic_Toxicity.yaml",
     "page_url": "../pages/disorders/Local_Anesthetic_Systemic_Toxicity.html",
     "num_phenotypes": 15,
@@ -264848,6 +264975,139 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Neurodevelopmental Disorder With Dystonia And Seizures",
+    "disease_id": "MONDO:0859258",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-10-16T23:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Neurodevelopmental disorder with dystonia and seizures (NEDDS) is an autosomal recessive disorder caused by biallelic variants in SHQ1, the chaperone that binds the pseudouridine synthase dyskerin (NAP57) and is required for assembly of H/ACA small nucleolar ribonucleoproteins. These particles pseudouridylate ribosomal and spliceosomal RNAs, take part in pre-rRNA processing, and stabilize telomerase RNA. Onset is in infancy, at a median of about 3.5 months in the largest series, with profound hypotonia and dystonia (often paroxysmal), global developmental delay, brisk reflexes, variable autonomic dysfunction and seizures. Cerebellar atrophy can appear or progress over follow-up, and diffuse white matter hypomyelination is reported, especially with the homozygous p.I278T variant. Severity ranges from early epileptic encephalopathy with neurodegeneration to milder disease with developmental gains. Cerebrospinal fluid homovanillic acid is low and striatal dopamine transporter uptake is reduced, implicating dopaminergic pathways; levodopa has not produced a clear response. Patient fibroblasts lose SHQ1 protein, disease variants weaken SHQ1 binding to dyskerin, and in yeast they deplete H/ACA snoRNAs and impair rRNA processing and ribosome production. In developing mouse cortex, Shq1 knockdown disturbs neuronal migration and neurite growth.",
+    "pathophysiology": [
+      "Biallelic SHQ1 Loss of Function",
+      "Impaired H/ACA snoRNP Assembly",
+      "Defective rRNA Processing and Ribosome Biogenesis",
+      "Impaired Cortical Neuronal Migration and Neurite Growth",
+      "Striatal Dopaminergic Dysfunction",
+      "Cerebellar Degeneration",
+      "Impaired CNS Myelination"
+    ],
+    "cell_types": [
+      "cortical neuron",
+      "dopaminergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0010012",
+      "CL:0000700"
+    ],
+    "biological_processes": [
+      "box H/ACA snoRNP assembly",
+      "rRNA processing",
+      "ribosome biogenesis",
+      "neuron migration",
+      "neuron projection development",
+      "dopamine metabolic process",
+      "myelination"
+    ],
+    "phenotypes": [
+      "Dystonia",
+      "Paroxysmal dystonia",
+      "Generalized hypotonia",
+      "Hyperreflexia",
+      "Global developmental delay",
+      "Seizure",
+      "Epileptic encephalopathy",
+      "Spasticity",
+      "Chorea",
+      "Cerebellar atrophy",
+      "CNS hypomyelination",
+      "Neurodegeneration",
+      "Microcephaly",
+      "Abnormal autonomic nervous system physiology",
+      "Decreased CSF homovanillic acid concentration",
+      "Ataxia",
+      "Intellectual disability",
+      "Delayed speech and language development",
+      "Spastic tetraplegia",
+      "Dysphagia",
+      "Micrognathia",
+      "Decreased total neutrophil count",
+      "Thrombocytopenia",
+      "Feeding difficulties",
+      "Intrauterine growth retardation"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Metabolic",
+      "Gastrointestinal",
+      "Craniofacial",
+      "Hematological",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001332",
+      "HP:0002268",
+      "HP:0001290",
+      "HP:0001347",
+      "HP:0001263",
+      "HP:0001250",
+      "HP:0200134",
+      "HP:0001257",
+      "HP:0002072",
+      "HP:0001272",
+      "HP:0003429",
+      "HP:0002180",
+      "HP:0000252",
+      "HP:0012332",
+      "HP:0003785",
+      "HP:0001251",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0002510",
+      "HP:0002015",
+      "HP:0000347",
+      "HP:0001875",
+      "HP:0001873",
+      "HP:0011968",
+      "HP:0001511"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "SHQ1"
+    ],
+    "treatments": [
+      "Levodopa trial",
+      "Antiseizure medication",
+      "Adjunctive cannabidiol",
+      "Physiotherapy and augmentative communication"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Dystonia_And_Seizures.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Dystonia_And_Seizures.html",
+    "num_phenotypes": 25,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "neurodevelopmental disorder with facial dysmorphism, absent language, and pseudo-pelger-huet anomaly",
     "disease_id": "MONDO:0859298",
     "category": "Mendelian",
@@ -290479,6 +290739,7 @@ window.searchData = [
       "Connatal Pelizaeus-Merzbacher Disease",
       "Transitional Pelizaeus-Merzbacher Disease",
       "PLP1 Null Syndrome",
+      "SPG2",
       "Female Carrier Pelizaeus-Merzbacher Disease"
     ],
     "description": "Pelizaeus-Merzbacher disease (PMD) is an X-linked recessive hypomyelinating leukodystrophy caused by mutations in the PLP1 gene encoding proteolipid protein 1, the major structural protein of central nervous system myelin. PLP1 mutations lead to defective myelination through various mechanisms including protein misfolding, endoplasmic reticulum stress, oligodendrocyte apoptosis, and gene dosage effects. Clinical features include nystagmus, hypotonia, spasticity, ataxia, intellectual disability, and progressive motor deterioration. PMD is classified into connatal (severe), classic, and transitional forms based on age of onset and severity.\n",
@@ -342907,6 +343168,79 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Spermatogenic Failure 23",
+    "disease_id": "MONDO:0054727",
+    "category": "Mendelian",
+    "parents": [
+      "Spermatogenic Failure",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-10-17T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spermatogenic failure 23 (SPGF23) is autosomal recessive male infertility with non-obstructive azoospermia caused by biallelic loss-of-function variants in TEX14. TEX14 is a testis-expressed, catalytically inactive kinase-like protein that is recruited to the midbody of dividing germ cells, binds CEP55 and blocks abscission, converting the midbody into a stable intercellular bridge. In the absence of TEX14 the bridges that link clones of male germ cells do not form, and spermatogenesis fails; in the mouse models and in some patients the arrest is in meiotic prophase I.\nAffected men present with primary infertility and azoospermia. Testicular histology is heterogeneous between reports, ranging from Sertoli-cell-only tubules and incomplete spermatogonial arrest to meiotic arrest at the zygotene or pachytene stage. No sperm were retrieved in the carriers whose testicular sperm extraction outcome is reported, though one of those cohorts was selected for negative retrieval. Tex14 knockout mice and a pig line with a truncating Tex14 insertion reproduce meiotic arrest and male sterility, while Tex14-null female mice are fertile.",
+    "pathophysiology": [
+      "Loss of TEX14 Function",
+      "Failed Germ Cell Intercellular Bridge Formation",
+      "Asynchronous Spermatogonial Differentiation",
+      "Retrotransposon Derepression in Meiotic Germ Cells",
+      "Meiotic Prophase I Failure in Spermatocytes"
+    ],
+    "cell_types": [
+      "Spermatogonium",
+      "Primary spermatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000020",
+      "CL:0000656"
+    ],
+    "biological_processes": [
+      "Negative regulation of cytokinesis",
+      "Intercellular bridge organization",
+      "Male meiosis I"
+    ],
+    "phenotypes": [
+      "Male infertility",
+      "Non-obstructive azoospermia",
+      "Spermatocyte maturation arrest",
+      "Spermatogonial maturation arrest",
+      "Sertoli cell-only phenotype"
+    ],
+    "phenotype_categories": [
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary"
+    ],
+    "phenotype_ids": [
+      "HP:0003251",
+      "HP:0011961",
+      "HP:0031039",
+      "HP:4000187",
+      "HP:0034299"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "TEX14"
+    ],
+    "treatments": [
+      "Avoidance of Futile Testicular Sperm Extraction",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spermatogenic_Failure_23.yaml",
+    "page_url": "../pages/disorders/Spermatogenic_Failure_23.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Spermatogenic Failure 24",
     "disease_id": "MONDO:0054728",
     "category": "Mendelian",
@@ -384510,19 +384844,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3557,
-  "total_subtypes": 4813,
-  "total_disorders_and_subtypes": 8370,
-  "total_unique_evidence_sources": 53332,
-  "total_unique_publications": 49757,
+  "total_disorder_pages": 3560,
+  "total_subtypes": 4814,
+  "total_disorders_and_subtypes": 8374,
+  "total_unique_evidence_sources": 53375,
+  "total_unique_publications": 49799,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3554,
-  "total_unique_pathological_events": 23529,
+  "total_pathographs": 3557,
+  "total_unique_pathological_events": 23543,
   "total_modules": 196,
-  "total_research_reports": 3682,
+  "total_research_reports": 3685,
   "total_classifications": 21,
   "total_comorbidities": 51,
-  "total_groupings": 115
+  "total_groupings": 117
 };
 window.dispatchEvent(new Event('searchDataReady'));
