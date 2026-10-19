@@ -488,14 +488,41 @@ count should be zero. The recipe is a read-only triage view and always exits 0.
 The rule above generalizes one tier up, and this is the tier that catches
 people, because nothing looks wrong. An `abstract_only` cache has a title,
 authors, journal and a real abstract, and snippets quoting it verify. It is
-still only a record of what one fetch retrieved, and a plain re-fetch can
-upgrade it:
+still only a record of what one fetch retrieved, and a re-fetch can upgrade it.
+
+**Which command you need depends on one frontmatter field.** Read
+`full_text_attempted` before re-fetching, because the two cases take different
+commands and the plain one silently does nothing in the second:
+
+| Frontmatter | What a plain `just fetch-reference` does |
+|---|---|
+| no `full_text_attempted` | re-runs the full-text chain, and can upgrade the cache |
+| `full_text_attempted: true` | **nothing** — the retry is skipped; you need `--force` |
 
 ```bash
+grep -E '^(content_type|full_text_attempted):' references_cache/PMID_22771891.md
+
+# never attempted: the plain fetch is enough
 just fetch-reference PMID:22771891
 #   Content type: full_text_xml
 #   Content length: 42746 characters
+
+# already attempted: force a real refresh
+scripts/run_reference_validator.sh cache reference PMID:12345678 --force
 ```
+
+The skip is deliberate, not a bug: `_maybe_retry_full_text` in the validator's
+fetcher returns the record untouched when `full_text_attempted` is set, so a
+clean negative result is not re-queried on every later run. The census's own
+split matters here — of its 8,482 recoverable files, **2,610 carry
+`full_text_attempted: true`** and will not budge for a plain re-fetch, which is
+also why that subset is the closest thing to a list of papers stranded by the
+#10876 extractor bug.
+
+`--force` is not simply the stronger option. It replaces cached text with
+whatever the refresh returns, so on a source that now serves less than it did,
+it loses text rather than gaining it. Prefer the plain fetch where the
+frontmatter says it will work.
 
 **This is measured, not anecdotal.** The census in
 [`docs/reports/abstract-only-recovery-census-2026-09-16.md`](../../../docs/reports/abstract-only-recovery-census-2026-09-16.md)
