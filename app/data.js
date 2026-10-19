@@ -48050,7 +48050,8 @@ window.searchData = [
     ],
     "environmental": [],
     "biochemical": [
-      "BRAF V600E Mutation Detection",
+      "BRAF V600E Molecular Detection",
+      "BRAF V600E VE1 Immunohistochemistry",
       "MSI/MMR Testing"
     ],
     "source_file": "BRAF_V600E_Mutant_Colorectal_Cancer.yaml",
@@ -114881,6 +114882,158 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 2,
     "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "DIP2C-related Developmental Disorder With Speech Delay",
+    "disease_id": "MONDO:0700356",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-10-16T22:15:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DIP2C-related developmental disorder with speech delay is a dominant neurodevelopmental disorder caused by heterozygous variants in DIP2C, most of them predicted loss-of-function alleles (nonsense, frameshift and canonical splice-site variants). The defining cohort of 23 individuals all had developmental delay that falls hardest on expressive language and speech articulation, usually with mild developmental delay or intellectual disability and with measured IQ ranging into the typical range. Behavioural differences (hyperactivity and attention problems, anxiety), autism, hypotonia, feeding difficulties, seizures, and minor facial anomalies such as a high anterior hairline are variable; structural cardiac defects occur in a minority. In about half of the patients the variant was inherited, often from a parent with milder speech or learning difficulties, so expressivity is variable and penetrance may be incomplete. DIP2C encodes disco-interacting protein 2 homolog C, which carries a DMAP1-binding domain and acyl-CoA synthetase / AMP-binding domains and is expressed most highly in the prenatal neocortex. Its molecular function in the human brain is not established; current mechanistic evidence comes from mouse knockouts (altered cortical sphingolipid metabolism, myelination and neurotransmitter receptor gene expression) and zebrafish knockdown (cardiac looping defects). DIP2C lies next to ZMYND11 at 10p15.3, and contiguous 10p15.3 microdeletions removing both genes are a related but separate condition.",
+    "pathophysiology": [
+      "DIP2C Haploinsufficiency",
+      "Increased Cortical Sphingolipid Synthesis",
+      "Increased Oligodendrogenesis and Myelination",
+      "Altered Brain Neurotransmitter Receptor Gene Expression",
+      "Impaired Cardiac Looping"
+    ],
+    "cell_types": [
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "sphingolipid biosynthetic process",
+      "myelination",
+      "heart looping"
+    ],
+    "phenotypes": [
+      "Expressive language delay",
+      "Speech articulation difficulties",
+      "Speech apraxia",
+      "Neurodevelopmental delay",
+      "Delayed ability to walk",
+      "Mild intellectual disability",
+      "Atypical behavior",
+      "Attention deficit hyperactivity disorder",
+      "Anxiety",
+      "Autism",
+      "Developmental regression",
+      "Hypotonia",
+      "Seizure",
+      "Feeding difficulties",
+      "Failure to thrive",
+      "Sleep disturbance",
+      "High anterior hairline",
+      "Prominent forehead",
+      "Broad nasal tip",
+      "Bulbous nose",
+      "Abnormal ear morphology",
+      "Triangular face",
+      "Microcephaly",
+      "Delayed ability to sit",
+      "Thin corpus callosum",
+      "Strabismus",
+      "Hearing impairment",
+      "Recurrent otitis media",
+      "Depression",
+      "Clinodactyly of the 5th finger",
+      "Brachydactyly",
+      "Abnormality of refraction",
+      "Atrial septal defect",
+      "Bicuspid aortic valve",
+      "Hypertrophic cardiomyopathy"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Gastrointestinal",
+      "Growth",
+      "Craniofacial",
+      "Ophthalmological",
+      "Otolaryngological",
+      "Skeletal",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0002474",
+      "HP:0009088",
+      "HP:0011098",
+      "HP:0012758",
+      "HP:0031936",
+      "HP:0001256",
+      "HP:0000708",
+      "HP:0007018",
+      "HP:0000739",
+      "HP:0000717",
+      "HP:0002376",
+      "HP:0001252",
+      "HP:0001250",
+      "HP:0011968",
+      "HP:0001508",
+      "HP:0002360",
+      "HP:0009890",
+      "HP:0011220",
+      "HP:0000455",
+      "HP:0000414",
+      "HP:0031703",
+      "HP:0000325",
+      "HP:0000252",
+      "HP:0025336",
+      "HP:0033725",
+      "HP:0000486",
+      "HP:0000365",
+      "HP:0000403",
+      "HP:0000716",
+      "HP:0004209",
+      "HP:0001156",
+      "HP:0000539",
+      "HP:0001631",
+      "HP:0001647",
+      "HP:0001639"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OBLIGATE",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "DIP2C"
+    ],
+    "treatments": [
+      "Antiseizure medication",
+      "Speech and language therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "DIP2C-related_Developmental_Disorder_With_Speech_Delay.yaml",
+    "page_url": "../pages/disorders/DIP2C-related_Developmental_Disorder_With_Speech_Delay.html",
+    "num_phenotypes": 35,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "4"
   },
   {
@@ -204237,6 +204390,113 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Intellectual Developmental Disorder, Autosomal Dominant 64",
+    "disease_id": "MONDO:0030934",
+    "category": "Mendelian",
+    "parents": [
+      "Intellectual Disability, Autosomal Dominant",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-10-19T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Intellectual developmental disorder, autosomal dominant 64 (MRD64), also called ZNF292-related neurodevelopmental disorder, is caused by heterozygous predicted loss-of-function variants in ZNF292, a C2H2 zinc finger transcription factor that is highly expressed in the developing human brain. Nearly all variants arise de novo, and most lie in exon 8, the last and largest exon. Affected individuals have intellectual disability, usually mild to moderate, with prominent speech delay; many also have autism spectrum disorder or attention-deficit/hyperactivity disorder. Growth impairment with short stature, hypotonia, mild microcephaly and nonspecific facial features (most often micrognathia and hypertelorism) are variable. Whether the truncating variants act by haploinsufficiency or produce a truncated protein that escapes nonsense-mediated decay is not settled. In human stem cell models with reduced ZNF292, cortical interneuron progenitors differentiate too early and the resulting interneurons fail to mature normally.",
+    "pathophysiology": [
+      "ZNF292 Truncating Variants",
+      "Dysregulated ZNF292 Target Gene Transcription",
+      "Precocious Interneuron Progenitor Differentiation",
+      "Impaired Cortical Interneuron Maturation"
+    ],
+    "cell_types": [
+      "neural progenitor cell",
+      "cortical interneuron"
+    ],
+    "cell_type_ids": [
+      "CL:0011020",
+      "CL:0008031"
+    ],
+    "biological_processes": [
+      "regulation of DNA-templated transcription",
+      "cerebral cortex GABAergic interneuron differentiation",
+      "neuron maturation"
+    ],
+    "phenotypes": [
+      "Intellectual disability",
+      "Global developmental delay",
+      "Delayed speech and language development",
+      "Speech apraxia",
+      "Autism",
+      "Attention deficit hyperactivity disorder",
+      "Hypotonia",
+      "Short stature",
+      "Microcephaly",
+      "Micrognathia",
+      "Hypertelorism",
+      "Seizure",
+      "Strabismus",
+      "Nystagmus",
+      "Feeding difficulties",
+      "Constipation",
+      "Ventriculomegaly"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Growth",
+      "Craniofacial",
+      "Ophthalmological",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0011098",
+      "HP:0000717",
+      "HP:0007018",
+      "HP:0001252",
+      "HP:0004322",
+      "HP:0000252",
+      "HP:0000347",
+      "HP:0000316",
+      "HP:0001250",
+      "HP:0000486",
+      "HP:0000639",
+      "HP:0011968",
+      "HP:0002019",
+      "HP:0002119"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ZNF292"
+    ],
+    "treatments": [
+      "Supportive and Developmental Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Developmental_Disorder_Autosomal_Dominant_64.yaml",
+    "page_url": "../pages/disorders/Intellectual_Developmental_Disorder,_Autosomal_Dominant_64.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Intellectual Developmental Disorder, Autosomal Dominant 72",
     "disease_id": "MONDO:0957397",
     "category": "Mendelian",
@@ -274237,6 +274497,89 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Obesity, Hyperphagia, and Developmental Delay",
+    "disease_id": "MONDO:0013483",
+    "category": "Mendelian",
+    "parents": [
+      "Obesity",
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-10-17T04:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Rare autosomal dominant neurodevelopmental and monogenic obesity disorder caused by heterozygous loss-of-function variants in NTRK2, which encodes TrkB, the high-affinity receptor for brain-derived neurotrophic factor (BDNF). The index patient, a boy with a de novo p.Tyr722Cys kinase-domain variant, had hyperphagia, severe early-onset obesity, developmental delay and impaired memory, learning and nociception. A 2025 cohort of 44 individuals with NTRK2 variants separated truncating and structurally disruptive loss-of-function alleles, which give this comparatively mild phenotype of developmental delay, obesity and hyperphagia, from transmembrane-domain variants that upregulate TrkB and cause a severe developmental and epileptic encephalopathy. In mice, reduced TrkB signaling, and deletion of Ntrk2 from the paraventricular or dorsomedial hypothalamus, cause hyperphagic obesity, placing the satiety defect in hypothalamic TrkB-expressing neurons acting downstream of melanocortin-4 receptor signaling. In cultured neurons, patient TrkB variants impair BDNF-induced neurite outgrowth and glutamatergic synaptogenesis, the proposed basis of the neurodevelopmental features.",
+    "pathophysiology": [
+      "NTRK2 Heterozygous Loss of Function",
+      "Impaired BDNF-TrkB Intracellular Signaling",
+      "Loss of TrkB-Mediated Hypothalamic Satiety Signaling",
+      "Impaired Neurite Outgrowth and Synaptogenesis"
+    ],
+    "cell_types": [
+      "neuron",
+      "hypothalamus cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:2000030"
+    ],
+    "biological_processes": [
+      "neurotrophin TRK receptor signaling pathway",
+      "MAPK cascade",
+      "regulation of feeding behavior",
+      "neuron projection development",
+      "synapse assembly"
+    ],
+    "phenotypes": [
+      "Hyperphagia",
+      "Obesity",
+      "Global developmental delay",
+      "Memory impairment",
+      "Impaired pain sensation",
+      "Hyperactivity",
+      "Hypotonia",
+      "Delayed speech and language development",
+      "Autistic behavior",
+      "Absence seizures"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Neurological",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002591",
+      "HP:0001513",
+      "HP:0001263",
+      "HP:0002354",
+      "HP:0007328",
+      "HP:0000752",
+      "HP:0001252",
+      "HP:0000750",
+      "HP:0000729",
+      "HP:0002121"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NTRK2"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Obesity_Hyperphagia_And_Developmental_Delay.yaml",
+    "page_url": "../pages/disorders/Obesity,_Hyperphagia,_and_Developmental_Delay.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Obsessive-Compulsive Disorder",
@@ -352086,6 +352429,72 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Striatal Degeneration, Autosomal Dominant 2",
+    "disease_id": "MONDO:0014835",
+    "category": "Mendelian",
+    "parents": [
+      "Movement Disorder",
+      "Hyperkinetic Movement Disorder"
+    ],
+    "creation_date": "2026-10-18T21:54:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Striatal degeneration, autosomal dominant 2 is an ultra-rare childhood-onset hyperkinetic movement disorder caused by heterozygous missense variants in the regulatory GAF-B domain of PDE10A, a cyclic-nucleotide phosphodiesterase that is highly and selectively expressed in striatal medium spiny neurons. Most reported variants arose de novo, and one family shows dominant transmission. Affected individuals present between about 5 and 10 years of age with a scarcely progressive chorea, normal development and cognition, and symmetrical bilateral striatal T2 hyperintensity on brain MRI, which appears to evolve from striatal swelling with restricted diffusion in childhood to putaminal atrophy in adulthood. The substitutions leave basal enzyme activity intact but abolish allosteric stimulation of PDE10A by cAMP, and in cell models they cause the enzyme to misfold and aggregate.",
+    "pathophysiology": [
+      "PDE10A GAF-B Heterozygous Missense Substitution",
+      "PDE10A GAF-B Domain cAMP-Binding Defect",
+      "Loss of cAMP-Stimulated PDE10A Activation",
+      "PDE10A Misfolding and Aggregation",
+      "Reduced Striatal PDE10A Availability",
+      "Dysregulated cAMP Signaling in Striatal Medium Spiny Neurons"
+    ],
+    "cell_types": [
+      "striatal medium spiny neuron"
+    ],
+    "cell_type_ids": [
+      "CL:1001474"
+    ],
+    "biological_processes": [
+      "aggresome assembly",
+      "cAMP catabolic process"
+    ],
+    "phenotypes": [
+      "Chorea",
+      "Striatal T2 hyperintensity",
+      "Degeneration of the striatum",
+      "Parkinsonism"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002072",
+      "HP:0031206",
+      "HP:0040140",
+      "HP:0002548"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "PDE10A"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Striatal_Degeneration_Autosomal_Dominant_2.yaml",
+    "page_url": "../pages/disorders/Striatal_Degeneration,_Autosomal_Dominant_2.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Striate Palmoplantar Keratoderma Type 2",
     "disease_id": "MONDO:0013034",
     "category": "Genetic",
@@ -360276,6 +360685,88 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Testicular Dysgenesis Syndrome",
+    "disease_id": "MONDO:0005437",
+    "category": "Complex",
+    "parents": [
+      "gonadal dysgenesis",
+      "testicular disorder"
+    ],
+    "creation_date": "2026-10-18T23:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Testicular dysgenesis syndrome (TDS) is a proposed developmental entity in which maldevelopment of the fetal testis, whatever its primary cause, produces dysfunction of the somatic Leydig and Sertoli cells and, through that, a cluster of downstream male reproductive disorders: cryptorchidism and hypospadias at birth, and impaired spermatogenesis and testicular germ cell cancer in adult life. The unifying lesion is deficient androgen production and action during a fetal masculinisation programming window (MPW), identified in the rat as embryonic days 15.5 to 18.5 and postulated in humans at roughly 8 to 14 weeks of gestation. Anogenital distance (AGD) is programmed within that window and so serves as a non-invasive read-out of fetal androgen exposure, shortened in both anti-androgen-exposed rodents and phthalate-exposed human infants. TDS is a hypothesis about shared origin rather than a conventional clinical diagnosis: most affected individuals present with a single component, and the entry is curated as the mechanistic umbrella those components share. The strongest causal evidence is experimental and rodent; in humans the environmental arm rests on exposure-to-AGD associations rather than on a demonstrated full-component phenotype, and the genetic arm on isolated families.",
+    "pathophysiology": [
+      "Common Early Disruption of Testis Lineage Specification",
+      "Focal Testicular Dysgenesis",
+      "Fetal Leydig Cell Dysfunction",
+      "Deficient Androgen Action in the Masculinization Programming Window",
+      "Incomplete Reproductive Tract Masculinization",
+      "Impaired INSL3-RXFP2 Signalling at the Gubernaculum",
+      "Failure of Trans-abdominal Testicular Descent",
+      "Sertoli Cell Dysfunction",
+      "Arrested Gonocyte Differentiation",
+      "Germ Cell Neoplasia In Situ",
+      "Invasive Testicular Germ Cell Tumour"
+    ],
+    "cell_types": [
+      "Leydig cell",
+      "Sertoli cell",
+      "primordial germ cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000178",
+      "CL:0000216",
+      "CL:0000670"
+    ],
+    "biological_processes": [
+      "male gonad development",
+      "androgen biosynthetic process",
+      "androgen receptor signaling pathway",
+      "male genitalia development",
+      "spermatogenesis"
+    ],
+    "phenotypes": [
+      "Cryptorchidism",
+      "Hypospadias",
+      "Oligozoospermia",
+      "Male infertility",
+      "Testicular neoplasm"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0000028",
+      "HP:0000047",
+      "HP:0000798",
+      "HP:0003251",
+      "HP:0010788"
+    ],
+    "frequencies": [],
+    "genes": [
+      "AR partial loss-of-function variant",
+      "Common testicular germ cell tumour risk variants"
+    ],
+    "treatments": [],
+    "environmental": [
+      "Prenatal phthalate exposure",
+      "Maternal paracetamol and mild analgesic use",
+      "Environmental exposure of the fetal testis"
+    ],
+    "biochemical": [],
+    "source_file": "Testicular_Dysgenesis_Syndrome.yaml",
+    "page_url": "../pages/disorders/Testicular_Dysgenesis_Syndrome.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 11,
+    "num_genes": 2,
+    "num_treatments": 0,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Testicular Germ Cell Tumor",
     "disease_id": "MONDO:0010108",
     "category": "",
@@ -366310,7 +366801,12 @@ window.searchData = [
     ],
     "environmental": [],
     "biochemical": [
-      "Hormone Receptor and HER2 Testing",
+      "Estrogen Receptor Protein Expression (IHC)",
+      "Progesterone Receptor Protein Expression (IHC)",
+      "HER2 Protein Expression (IHC)",
+      "HER2 Gene Amplification (FISH)",
+      "PD-L1 Testing (22C3, CPS)",
+      "PD-L1 Testing (SP142, IC)",
       "BRCA1/2 Testing"
     ],
     "source_file": "Triple_Negative_Breast_Cancer.yaml",
@@ -384844,17 +385340,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3560,
+  "total_disorder_pages": 3565,
   "total_subtypes": 4814,
-  "total_disorders_and_subtypes": 8374,
-  "total_unique_evidence_sources": 53375,
-  "total_unique_publications": 49799,
+  "total_disorders_and_subtypes": 8379,
+  "total_unique_evidence_sources": 53427,
+  "total_unique_publications": 49851,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3557,
-  "total_unique_pathological_events": 23543,
+  "total_pathographs": 3562,
+  "total_unique_pathological_events": 23573,
   "total_modules": 196,
-  "total_research_reports": 3685,
+  "total_research_reports": 3691,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 117
