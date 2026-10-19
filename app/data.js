@@ -48050,7 +48050,8 @@ window.searchData = [
     ],
     "environmental": [],
     "biochemical": [
-      "BRAF V600E Mutation Detection",
+      "BRAF V600E Molecular Detection",
+      "BRAF V600E VE1 Immunohistochemistry",
       "MSI/MMR Testing"
     ],
     "source_file": "BRAF_V600E_Mutant_Colorectal_Cancer.yaml",
@@ -52266,7 +52267,8 @@ window.searchData = [
     ],
     "environmental": [],
     "biochemical": [
-      "Increased Circulating Lactate in a Severe Biallelic Presentation",
+      "Increased Circulating Lactate in a Severe Biallelic Presentation (Plasma)",
+      "Increased CSF Lactate in a Severe Biallelic Presentation",
       "Cytochrome c oxidase (COX) deficiency"
     ],
     "source_file": "Behr_Syndrome.yaml",
@@ -72509,7 +72511,8 @@ window.searchData = [
     "environmental": [],
     "biochemical": [
       "Reduced tissue complex IV activity",
-      "Elevated blood and CSF lactate"
+      "Elevated serum lactate",
+      "Elevated CSF lactate"
     ],
     "source_file": "COX6B1-Related_COX_Deficiency.yaml",
     "page_url": "../pages/disorders/COX6B1-Related_COX_Deficiency.html",
@@ -114879,6 +114882,158 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 2,
     "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "DIP2C-related Developmental Disorder With Speech Delay",
+    "disease_id": "MONDO:0700356",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-10-16T22:15:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DIP2C-related developmental disorder with speech delay is a dominant neurodevelopmental disorder caused by heterozygous variants in DIP2C, most of them predicted loss-of-function alleles (nonsense, frameshift and canonical splice-site variants). The defining cohort of 23 individuals all had developmental delay that falls hardest on expressive language and speech articulation, usually with mild developmental delay or intellectual disability and with measured IQ ranging into the typical range. Behavioural differences (hyperactivity and attention problems, anxiety), autism, hypotonia, feeding difficulties, seizures, and minor facial anomalies such as a high anterior hairline are variable; structural cardiac defects occur in a minority. In about half of the patients the variant was inherited, often from a parent with milder speech or learning difficulties, so expressivity is variable and penetrance may be incomplete. DIP2C encodes disco-interacting protein 2 homolog C, which carries a DMAP1-binding domain and acyl-CoA synthetase / AMP-binding domains and is expressed most highly in the prenatal neocortex. Its molecular function in the human brain is not established; current mechanistic evidence comes from mouse knockouts (altered cortical sphingolipid metabolism, myelination and neurotransmitter receptor gene expression) and zebrafish knockdown (cardiac looping defects). DIP2C lies next to ZMYND11 at 10p15.3, and contiguous 10p15.3 microdeletions removing both genes are a related but separate condition.",
+    "pathophysiology": [
+      "DIP2C Haploinsufficiency",
+      "Increased Cortical Sphingolipid Synthesis",
+      "Increased Oligodendrogenesis and Myelination",
+      "Altered Brain Neurotransmitter Receptor Gene Expression",
+      "Impaired Cardiac Looping"
+    ],
+    "cell_types": [
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "sphingolipid biosynthetic process",
+      "myelination",
+      "heart looping"
+    ],
+    "phenotypes": [
+      "Expressive language delay",
+      "Speech articulation difficulties",
+      "Speech apraxia",
+      "Neurodevelopmental delay",
+      "Delayed ability to walk",
+      "Mild intellectual disability",
+      "Atypical behavior",
+      "Attention deficit hyperactivity disorder",
+      "Anxiety",
+      "Autism",
+      "Developmental regression",
+      "Hypotonia",
+      "Seizure",
+      "Feeding difficulties",
+      "Failure to thrive",
+      "Sleep disturbance",
+      "High anterior hairline",
+      "Prominent forehead",
+      "Broad nasal tip",
+      "Bulbous nose",
+      "Abnormal ear morphology",
+      "Triangular face",
+      "Microcephaly",
+      "Delayed ability to sit",
+      "Thin corpus callosum",
+      "Strabismus",
+      "Hearing impairment",
+      "Recurrent otitis media",
+      "Depression",
+      "Clinodactyly of the 5th finger",
+      "Brachydactyly",
+      "Abnormality of refraction",
+      "Atrial septal defect",
+      "Bicuspid aortic valve",
+      "Hypertrophic cardiomyopathy"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Gastrointestinal",
+      "Growth",
+      "Craniofacial",
+      "Ophthalmological",
+      "Otolaryngological",
+      "Skeletal",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0002474",
+      "HP:0009088",
+      "HP:0011098",
+      "HP:0012758",
+      "HP:0031936",
+      "HP:0001256",
+      "HP:0000708",
+      "HP:0007018",
+      "HP:0000739",
+      "HP:0000717",
+      "HP:0002376",
+      "HP:0001252",
+      "HP:0001250",
+      "HP:0011968",
+      "HP:0001508",
+      "HP:0002360",
+      "HP:0009890",
+      "HP:0011220",
+      "HP:0000455",
+      "HP:0000414",
+      "HP:0031703",
+      "HP:0000325",
+      "HP:0000252",
+      "HP:0025336",
+      "HP:0033725",
+      "HP:0000486",
+      "HP:0000365",
+      "HP:0000403",
+      "HP:0000716",
+      "HP:0004209",
+      "HP:0001156",
+      "HP:0000539",
+      "HP:0001631",
+      "HP:0001647",
+      "HP:0001639"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OBLIGATE",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "DIP2C"
+    ],
+    "treatments": [
+      "Antiseizure medication",
+      "Speech and language therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "DIP2C-related_Developmental_Disorder_With_Speech_Delay.yaml",
+    "page_url": "../pages/disorders/DIP2C-related_Developmental_Disorder_With_Speech_Delay.html",
+    "num_phenotypes": 35,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "4"
   },
   {
@@ -188686,6 +188841,130 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Hypomyelinating Leukodystrophy 2",
+    "disease_id": "MONDO:0012125",
+    "category": "Genetic",
+    "parents": [
+      "Leukodystrophy"
+    ],
+    "creation_date": "2026-10-16T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive hypomyelinating leukodystrophy caused by biallelic GJC2 variants. GJC2 encodes connexin-47 (Cx47), the gap-junction protein that couples oligodendrocytes to astrocytes (through Cx47/Cx43 channels) and to each other. The disease is the autosomal recessive phenocopy of Pelizaeus-Merzbacher disease: nystagmus beginning in the neonatal or early-infantile period, hypotonia that evolves into spasticity, cerebellar signs in childhood, and diffuse CNS hypomyelination on MRI, usually with normal cognition or mild intellectual disability and a slowly progressive course.\nTwo mechanisms are documented for the same protein. Most coding alleles abolish channel function, and several (p.P87S, p.Y269D, p.M283T) are also retained in the endoplasmic reticulum, where in primary oligodendrocytes they switch on the unfolded protein response and apoptotic pathways. A recurrent promoter variant (c.-167A>G) instead removes a SOX10 binding site and lowers GJC2 transcription. The milder allelic disorder, spastic paraplegia 44, is curated separately.",
+    "pathophysiology": [
+      "Biallelic GJC2 Loss of Function",
+      "Connexin-47 ER Retention and Unfolded Protein Response",
+      "Oligodendrocyte Apoptosis",
+      "Disrupted Oligodendrocyte-Astrocyte Panglial Coupling",
+      "Impaired Potassium Spatial Buffering",
+      "Microglial Activation and White Matter Inflammation",
+      "CNS Hypomyelination",
+      "Peripheral Nerve Myelin Involvement"
+    ],
+    "cell_types": [
+      "oligodendrocyte",
+      "astrocyte",
+      "microglial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000128",
+      "CL:0000127",
+      "CL:0000129"
+    ],
+    "biological_processes": [
+      "unfolded protein response",
+      "apoptotic process",
+      "potassium ion homeostasis",
+      "central nervous system myelination"
+    ],
+    "phenotypes": [
+      "Nystagmus",
+      "Hypotonia",
+      "Motor delay",
+      "Speech delay",
+      "Dysarthria",
+      "Spasticity",
+      "Gait ataxia",
+      "Dysmetria",
+      "Intention tremor",
+      "Head titubation",
+      "Dysdiadochokinesia",
+      "Mild intellectual disability",
+      "Seizures",
+      "Choreoathetosis",
+      "Dystonia",
+      "Optic atrophy",
+      "Hearing loss",
+      "Dysphagia",
+      "Hip dislocation",
+      "Scoliosis",
+      "CNS hypomyelination on MRI",
+      "Demyelinating peripheral neuropathy"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Neurodevelopmental",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000639",
+      "HP:0001252",
+      "HP:0001270",
+      "HP:0000750",
+      "HP:0001260",
+      "HP:0001257",
+      "HP:0002066",
+      "HP:0001310",
+      "HP:0002080",
+      "HP:0002599",
+      "HP:0002075",
+      "HP:0001256",
+      "HP:0007359",
+      "HP:0001266",
+      "HP:0001332",
+      "HP:0000648",
+      "HP:0000365",
+      "HP:0002015",
+      "HP:0002827",
+      "HP:0002650",
+      "HP:0003429",
+      "HP:0007108"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE",
+      "OBLIGATE"
+    ],
+    "genes": [
+      "GJC2"
+    ],
+    "treatments": [
+      "Supportive Care",
+      "Genetic Counseling",
+      "Oligodendrocyte-Targeted AAV-GJC2 Gene Therapy (preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypomyelinating_Leukodystrophy_2.yaml",
+    "page_url": "../pages/disorders/Hypomyelinating_Leukodystrophy_2.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Hypomyelinating Leukodystrophy 23",
     "disease_id": "MONDO:0030514",
     "category": "Mendelian",
@@ -207698,7 +207977,6 @@ window.searchData = [
       "VERY_RARE"
     ],
     "genes": [
-      "ACAD8 pathogenic variants",
       "ACAD8"
     ],
     "treatments": [
@@ -207723,9 +208001,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Isobutyryl-CoA_Dehydrogenase_Deficiency.html",
     "num_phenotypes": 15,
     "num_pathophysiology": 5,
-    "num_genes": 2,
+    "num_genes": 1,
     "num_treatments": 8,
-    "causal_graph_edges": "41",
+    "causal_graph_edges": "40",
     "causal_graph_longest_path": "6"
   },
   {
@@ -226798,7 +227076,9 @@ window.searchData = [
     "environmental": [
       "Injection of local anesthetic for regional or local anesthesia"
     ],
-    "biochemical": [],
+    "biochemical": [
+      "Plasma bupivacaine concentration"
+    ],
     "source_file": "Local_Anesthetic_Systemic_Toxicity.yaml",
     "page_url": "../pages/disorders/Local_Anesthetic_Systemic_Toxicity.html",
     "num_phenotypes": 15,
@@ -264848,6 +265128,139 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Neurodevelopmental Disorder With Dystonia And Seizures",
+    "disease_id": "MONDO:0859258",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-10-16T23:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Neurodevelopmental disorder with dystonia and seizures (NEDDS) is an autosomal recessive disorder caused by biallelic variants in SHQ1, the chaperone that binds the pseudouridine synthase dyskerin (NAP57) and is required for assembly of H/ACA small nucleolar ribonucleoproteins. These particles pseudouridylate ribosomal and spliceosomal RNAs, take part in pre-rRNA processing, and stabilize telomerase RNA. Onset is in infancy, at a median of about 3.5 months in the largest series, with profound hypotonia and dystonia (often paroxysmal), global developmental delay, brisk reflexes, variable autonomic dysfunction and seizures. Cerebellar atrophy can appear or progress over follow-up, and diffuse white matter hypomyelination is reported, especially with the homozygous p.I278T variant. Severity ranges from early epileptic encephalopathy with neurodegeneration to milder disease with developmental gains. Cerebrospinal fluid homovanillic acid is low and striatal dopamine transporter uptake is reduced, implicating dopaminergic pathways; levodopa has not produced a clear response. Patient fibroblasts lose SHQ1 protein, disease variants weaken SHQ1 binding to dyskerin, and in yeast they deplete H/ACA snoRNAs and impair rRNA processing and ribosome production. In developing mouse cortex, Shq1 knockdown disturbs neuronal migration and neurite growth.",
+    "pathophysiology": [
+      "Biallelic SHQ1 Loss of Function",
+      "Impaired H/ACA snoRNP Assembly",
+      "Defective rRNA Processing and Ribosome Biogenesis",
+      "Impaired Cortical Neuronal Migration and Neurite Growth",
+      "Striatal Dopaminergic Dysfunction",
+      "Cerebellar Degeneration",
+      "Impaired CNS Myelination"
+    ],
+    "cell_types": [
+      "cortical neuron",
+      "dopaminergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0010012",
+      "CL:0000700"
+    ],
+    "biological_processes": [
+      "box H/ACA snoRNP assembly",
+      "rRNA processing",
+      "ribosome biogenesis",
+      "neuron migration",
+      "neuron projection development",
+      "dopamine metabolic process",
+      "myelination"
+    ],
+    "phenotypes": [
+      "Dystonia",
+      "Paroxysmal dystonia",
+      "Generalized hypotonia",
+      "Hyperreflexia",
+      "Global developmental delay",
+      "Seizure",
+      "Epileptic encephalopathy",
+      "Spasticity",
+      "Chorea",
+      "Cerebellar atrophy",
+      "CNS hypomyelination",
+      "Neurodegeneration",
+      "Microcephaly",
+      "Abnormal autonomic nervous system physiology",
+      "Decreased CSF homovanillic acid concentration",
+      "Ataxia",
+      "Intellectual disability",
+      "Delayed speech and language development",
+      "Spastic tetraplegia",
+      "Dysphagia",
+      "Micrognathia",
+      "Decreased total neutrophil count",
+      "Thrombocytopenia",
+      "Feeding difficulties",
+      "Intrauterine growth retardation"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Metabolic",
+      "Gastrointestinal",
+      "Craniofacial",
+      "Hematological",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001332",
+      "HP:0002268",
+      "HP:0001290",
+      "HP:0001347",
+      "HP:0001263",
+      "HP:0001250",
+      "HP:0200134",
+      "HP:0001257",
+      "HP:0002072",
+      "HP:0001272",
+      "HP:0003429",
+      "HP:0002180",
+      "HP:0000252",
+      "HP:0012332",
+      "HP:0003785",
+      "HP:0001251",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0002510",
+      "HP:0002015",
+      "HP:0000347",
+      "HP:0001875",
+      "HP:0001873",
+      "HP:0011968",
+      "HP:0001511"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "SHQ1"
+    ],
+    "treatments": [
+      "Levodopa trial",
+      "Antiseizure medication",
+      "Adjunctive cannabidiol",
+      "Physiotherapy and augmentative communication"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Dystonia_And_Seizures.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Dystonia_And_Seizures.html",
+    "num_phenotypes": 25,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "neurodevelopmental disorder with facial dysmorphism, absent language, and pseudo-pelger-huet anomaly",
     "disease_id": "MONDO:0859298",
     "category": "Mendelian",
@@ -273977,6 +274390,89 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Obesity, Hyperphagia, and Developmental Delay",
+    "disease_id": "MONDO:0013483",
+    "category": "Mendelian",
+    "parents": [
+      "Obesity",
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-10-17T04:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Rare autosomal dominant neurodevelopmental and monogenic obesity disorder caused by heterozygous loss-of-function variants in NTRK2, which encodes TrkB, the high-affinity receptor for brain-derived neurotrophic factor (BDNF). The index patient, a boy with a de novo p.Tyr722Cys kinase-domain variant, had hyperphagia, severe early-onset obesity, developmental delay and impaired memory, learning and nociception. A 2025 cohort of 44 individuals with NTRK2 variants separated truncating and structurally disruptive loss-of-function alleles, which give this comparatively mild phenotype of developmental delay, obesity and hyperphagia, from transmembrane-domain variants that upregulate TrkB and cause a severe developmental and epileptic encephalopathy. In mice, reduced TrkB signaling, and deletion of Ntrk2 from the paraventricular or dorsomedial hypothalamus, cause hyperphagic obesity, placing the satiety defect in hypothalamic TrkB-expressing neurons acting downstream of melanocortin-4 receptor signaling. In cultured neurons, patient TrkB variants impair BDNF-induced neurite outgrowth and glutamatergic synaptogenesis, the proposed basis of the neurodevelopmental features.",
+    "pathophysiology": [
+      "NTRK2 Heterozygous Loss of Function",
+      "Impaired BDNF-TrkB Intracellular Signaling",
+      "Loss of TrkB-Mediated Hypothalamic Satiety Signaling",
+      "Impaired Neurite Outgrowth and Synaptogenesis"
+    ],
+    "cell_types": [
+      "neuron",
+      "hypothalamus cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:2000030"
+    ],
+    "biological_processes": [
+      "neurotrophin TRK receptor signaling pathway",
+      "MAPK cascade",
+      "regulation of feeding behavior",
+      "neuron projection development",
+      "synapse assembly"
+    ],
+    "phenotypes": [
+      "Hyperphagia",
+      "Obesity",
+      "Global developmental delay",
+      "Memory impairment",
+      "Impaired pain sensation",
+      "Hyperactivity",
+      "Hypotonia",
+      "Delayed speech and language development",
+      "Autistic behavior",
+      "Absence seizures"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Neurological",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002591",
+      "HP:0001513",
+      "HP:0001263",
+      "HP:0002354",
+      "HP:0007328",
+      "HP:0000752",
+      "HP:0001252",
+      "HP:0000750",
+      "HP:0000729",
+      "HP:0002121"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NTRK2"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Obesity_Hyperphagia_And_Developmental_Delay.yaml",
+    "page_url": "../pages/disorders/Obesity,_Hyperphagia,_and_Developmental_Delay.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Obsessive-Compulsive Disorder",
@@ -290479,6 +290975,7 @@ window.searchData = [
       "Connatal Pelizaeus-Merzbacher Disease",
       "Transitional Pelizaeus-Merzbacher Disease",
       "PLP1 Null Syndrome",
+      "SPG2",
       "Female Carrier Pelizaeus-Merzbacher Disease"
     ],
     "description": "Pelizaeus-Merzbacher disease (PMD) is an X-linked recessive hypomyelinating leukodystrophy caused by mutations in the PLP1 gene encoding proteolipid protein 1, the major structural protein of central nervous system myelin. PLP1 mutations lead to defective myelination through various mechanisms including protein misfolding, endoplasmic reticulum stress, oligodendrocyte apoptosis, and gene dosage effects. Clinical features include nystagmus, hypotonia, spasticity, ataxia, intellectual disability, and progressive motor deterioration. PMD is classified into connatal (severe), classic, and transitional forms based on age of onset and severity.\n",
@@ -342907,6 +343404,79 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Spermatogenic Failure 23",
+    "disease_id": "MONDO:0054727",
+    "category": "Mendelian",
+    "parents": [
+      "Spermatogenic Failure",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-10-17T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spermatogenic failure 23 (SPGF23) is autosomal recessive male infertility with non-obstructive azoospermia caused by biallelic loss-of-function variants in TEX14. TEX14 is a testis-expressed, catalytically inactive kinase-like protein that is recruited to the midbody of dividing germ cells, binds CEP55 and blocks abscission, converting the midbody into a stable intercellular bridge. In the absence of TEX14 the bridges that link clones of male germ cells do not form, and spermatogenesis fails; in the mouse models and in some patients the arrest is in meiotic prophase I.\nAffected men present with primary infertility and azoospermia. Testicular histology is heterogeneous between reports, ranging from Sertoli-cell-only tubules and incomplete spermatogonial arrest to meiotic arrest at the zygotene or pachytene stage. No sperm were retrieved in the carriers whose testicular sperm extraction outcome is reported, though one of those cohorts was selected for negative retrieval. Tex14 knockout mice and a pig line with a truncating Tex14 insertion reproduce meiotic arrest and male sterility, while Tex14-null female mice are fertile.",
+    "pathophysiology": [
+      "Loss of TEX14 Function",
+      "Failed Germ Cell Intercellular Bridge Formation",
+      "Asynchronous Spermatogonial Differentiation",
+      "Retrotransposon Derepression in Meiotic Germ Cells",
+      "Meiotic Prophase I Failure in Spermatocytes"
+    ],
+    "cell_types": [
+      "Spermatogonium",
+      "Primary spermatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000020",
+      "CL:0000656"
+    ],
+    "biological_processes": [
+      "Negative regulation of cytokinesis",
+      "Intercellular bridge organization",
+      "Male meiosis I"
+    ],
+    "phenotypes": [
+      "Male infertility",
+      "Non-obstructive azoospermia",
+      "Spermatocyte maturation arrest",
+      "Spermatogonial maturation arrest",
+      "Sertoli cell-only phenotype"
+    ],
+    "phenotype_categories": [
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary"
+    ],
+    "phenotype_ids": [
+      "HP:0003251",
+      "HP:0011961",
+      "HP:0031039",
+      "HP:4000187",
+      "HP:0034299"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "TEX14"
+    ],
+    "treatments": [
+      "Avoidance of Futile Testicular Sperm Extraction",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spermatogenic_Failure_23.yaml",
+    "page_url": "../pages/disorders/Spermatogenic_Failure_23.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Spermatogenic Failure 24",
     "disease_id": "MONDO:0054728",
     "category": "Mendelian",
@@ -365976,7 +366546,12 @@ window.searchData = [
     ],
     "environmental": [],
     "biochemical": [
-      "Hormone Receptor and HER2 Testing",
+      "Estrogen Receptor Protein Expression (IHC)",
+      "Progesterone Receptor Protein Expression (IHC)",
+      "HER2 Protein Expression (IHC)",
+      "HER2 Gene Amplification (FISH)",
+      "PD-L1 Testing (22C3, CPS)",
+      "PD-L1 Testing (SP142, IC)",
       "BRCA1/2 Testing"
     ],
     "source_file": "Triple_Negative_Breast_Cancer.yaml",
@@ -384510,19 +385085,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3557,
-  "total_subtypes": 4813,
-  "total_disorders_and_subtypes": 8370,
-  "total_unique_evidence_sources": 53332,
-  "total_unique_publications": 49757,
+  "total_disorder_pages": 3562,
+  "total_subtypes": 4814,
+  "total_disorders_and_subtypes": 8376,
+  "total_unique_evidence_sources": 53392,
+  "total_unique_publications": 49816,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3554,
-  "total_unique_pathological_events": 23529,
+  "total_pathographs": 3559,
+  "total_unique_pathological_events": 23552,
   "total_modules": 196,
-  "total_research_reports": 3682,
+  "total_research_reports": 3688,
   "total_classifications": 21,
   "total_comorbidities": 51,
-  "total_groupings": 115
+  "total_groupings": 117
 };
 window.dispatchEvent(new Event('searchDataReady'));
