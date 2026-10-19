@@ -3115,6 +3115,49 @@ research-drug-mechanism provider disease drug asserted_mechanism *args="":
 	rmdir "$staging_dir" 2>/dev/null || true
 	exit ${dr_status:-0}
 
+# Deep research on the validity of an animal model or paradigm for a disorder:
+# what it models, what it does not, the disputes, individual differences, sex,
+# and which of the entry's pathophysiology nodes it informs (#14274).
+# Examples:
+#   just research-model-validity openscientist Major_Depressive_Disorder "chronic social defeat stress"
+[group('Research')]
+research-model-validity provider disease model *args="":
+	#!/usr/bin/env bash
+	set -e
+	mkdir -p {{research_dir}}/model_validity
+	yaml_file="{{kb_dir}}/{{disease}}.yaml"
+	if [ ! -f "$yaml_file" ]; then
+	    echo "Error: Disorder file not found: $yaml_file"
+	    exit 1
+	fi
+	disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
+	mechanism_nodes=$(uv run python -c "import sys,yaml;d=yaml.safe_load(open(sys.argv[1])) or {};print('; '.join(p['name'] for p in d.get('pathophysiology') or [] if p.get('name')))" "$yaml_file")
+	model_slug=$(echo "{{model}}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+|_+$//g' | cut -c1-40)
+	output_file="{{research_dir}}/model_validity/{{disease}}-model-validity-${model_slug}-deep-research-{{provider}}.md"
+	requested_provider="{{provider}}"
+	staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+	staged_file="$staging_dir/$(basename "$output_file")"
+	echo "Researching model validity: $disease_name | {{model}} ({{provider}}) -> $output_file"
+	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
+	{{dr_client}} research \
+	    --template {{templates_dir}}/disease_model_validity_research.md \
+	    --var "disease_name=$disease_name" \
+	    --var "model={{model}}" \
+	    --var "mechanism_nodes=$mechanism_nodes" \
+	    $provider_arg \
+	    --output "$staged_file" \
+	    --separate-citations "$staged_file.citations.md" \
+	    {{dr_validation}} \
+	    {{dr_term_validation}} \
+	    {{dr_fallback}} \
+	    {{args}} || dr_status=$?
+	if [ -f "$staged_file" ]; then
+	    {{dr_stamp}} "$staged_file"
+	    {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
+	fi
+	rmdir "$staging_dir" 2>/dev/null || true
+	exit ${dr_status:-0}
+
 # Deep research on a disorder using cyberian with codex agent
 [group('Research')]
 research-disorder-cyberian-codex disorder *args="":
