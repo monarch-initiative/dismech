@@ -188004,6 +188004,104 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Hypogonadotropic Hypogonadism 26 With or Without Anosmia",
+    "disease_id": "MONDO:0030534",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital hypogonadotropic hypogonadism",
+      "Kallmann syndrome"
+    ],
+    "creation_date": "2026-10-19T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "HH26 is the form of congenital hypogonadotropic hypogonadism (CHH) caused by heterozygous loss-of-function variants in TCF12, which encodes HEB, one of the three class I E proteins of the basic helix-loop-helix (bHLH) transcription factor family. E proteins act as heterodimer partners for tissue-specific class II bHLH factors such as TWIST1, and TCF12 was first known as a gene for coronal craniosynostosis, where the dose of TCF12-TWIST1 heterodimers is what matters.\nThe reproductive phenotype was described in 2020 in thirteen families with the anosmic form of isolated GnRH deficiency (Kallmann syndrome), twelve of them dominant and one recessive. In zebrafish, loss of tcf12 disturbs the patterning of GnRH neurons, shortens the terminal-nerve axons that GnRH neurons migrate along, and reduces olfactory bulb size, so the reproductive and olfactory deficits arise from one developmental lesion, as in other Kallmann genes. The same study placed TCF12 upstream of tcf3 and of stub1, a gene mutated in another syndromic form of GnRH deficiency, and showed that STUB1 mRNA rescues the tcf12 loss in vivo.\nThe phenotype is pleiotropic and variably penetrant. Carriers in one family can have absent puberty, anosmia, craniosynostosis, learning disability, or any combination of these, and some also have dental anomalies or joint hypermobility. Both later case reports describe heterozygous deletion or truncation of TCF12 in patients with Kallmann syndrome; in one of them, a boy with a de novo splice variant, the Kallmann phenotype was the only finding.",
+    "pathophysiology": [
+      "TCF12 Haploinsufficiency",
+      "Reduced E-Protein bHLH Heterodimer Transcriptional Activity",
+      "Attenuated tcf3 and stub1 Expression in the GnRH Network",
+      "Disrupted GnRH Neuron Patterning and Olfactory Development",
+      "GnRH-Driven Gonadotropin Deficiency"
+    ],
+    "cell_types": [
+      "GnRH neuron",
+      "pituitary gonadotrope"
+    ],
+    "cell_type_ids": [
+      "CL:0011111",
+      "CL:0000438"
+    ],
+    "biological_processes": [
+      "TCF12-dependent transcription of GnRH-network genes",
+      "GnRH neuron migration",
+      "olfactory bulb development"
+    ],
+    "phenotypes": [
+      "Hypogonadotropic Hypogonadism",
+      "Anosmia",
+      "Hyposmia",
+      "Abnormal Olfactory Bulb Morphology",
+      "Delayed Puberty",
+      "Micropenis",
+      "Cryptorchidism",
+      "Craniosynostosis",
+      "Specific Learning Disability",
+      "Intellectual Disability",
+      "Abnormality of the Dentition",
+      "Joint Hypermobility",
+      "Osteoporosis"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Neurological",
+      "Genitourinary",
+      "Musculoskeletal",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000044",
+      "HP:0000458",
+      "HP:0004409",
+      "HP:0040327",
+      "HP:0000823",
+      "HP:0000054",
+      "HP:0000028",
+      "HP:0001363",
+      "HP:0001328",
+      "HP:0001249",
+      "HP:0000164",
+      "HP:0001382",
+      "HP:0000939"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "TCF12"
+    ],
+    "treatments": [
+      "Sex Steroid Replacement for Induction of Secondary Sexual Characteristics",
+      "Gonadotropin or Pulsatile GnRH Therapy for Fertility"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypogonadotropic_Hypogonadism_26_With_Or_Without_Anosmia.yaml",
+    "page_url": "../pages/disorders/Hypogonadotropic_Hypogonadism_26_With_or_Without_Anosmia.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Hypokalemic Periodic Paralysis",
     "disease_id": "MONDO:0008223",
     "category": "Genetic",
@@ -203625,6 +203723,76 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Inflammatory Bowel Disease 30",
+    "disease_id": "MONDO:0033643",
+    "category": "Mendelian",
+    "parents": [
+      "Crohn Disease"
+    ],
+    "creation_date": "2026-10-19T02:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Inflammatory bowel disease 30 is an autosomal dominant monogenic form of Crohn disease caused by a heterozygous missense variant (V44I) in the T60 isoform of CARD8, a protein that normally binds NLRP3 and holds the NLRP3 inflammasome inactive until a specific stimulus arrives. The variant protein can no longer bind NLRP3, and because it also oligomerizes with the remaining normal T60 and T48 CARD8 and keeps them away from NLRP3, one mutant allele is enough to remove the brake (a dominant-negative effect). Monocytes from carriers release excess interleukin-1 beta (and interleukin-18) when the inflammasome is stimulated, and serum interleukin-1 beta is raised. The resulting Crohn disease was refractory to anti-TNF therapy in the index proband and responded to interleukin-1 blockade (anakinra, then canakinumab), which the discovery group takes as evidence that interleukin-1 beta is the driver. The entity rests on one kindred - a proband, his mother and his aunt, with Crohn disease of varying severity - so its phenotype spectrum, penetrance and frequency among Crohn disease patients are not established.",
+    "pathophysiology": [
+      "CARD8 T60 V44I Dominant-Negative Variant",
+      "Loss of CARD8 Restraint on NLRP3 Inflammasome Assembly",
+      "Excess Monocyte IL-1beta and IL-18 Secretion",
+      "Interleukin-1beta-Driven Intestinal Inflammation"
+    ],
+    "cell_types": [
+      "monocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000576"
+    ],
+    "biological_processes": [
+      "negative regulation of NLRP3 inflammasome complex assembly",
+      "NLRP3 inflammasome complex assembly",
+      "interleukin-1 beta production",
+      "interleukin-18 production"
+    ],
+    "phenotypes": [
+      "Crohn disease",
+      "Abdominal symptoms",
+      "Increased fecal calprotectin",
+      "Increased circulating interleukin 1beta concentration"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0100280",
+      "HP:0011458",
+      "HP:0034056",
+      "HP:6000374"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CARD8"
+    ],
+    "treatments": [
+      "Anakinra",
+      "Canakinumab",
+      "Anti-TNF Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Inflammatory_Bowel_Disease_30.yaml",
+    "page_url": "../pages/disorders/Inflammatory_Bowel_Disease_30.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Inflammatory Myofibroblastic Tumor",
     "disease_id": "MONDO:0015798",
     "category": "Complex",
@@ -204390,6 +204558,113 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Intellectual Developmental Disorder, Autosomal Dominant 64",
+    "disease_id": "MONDO:0030934",
+    "category": "Mendelian",
+    "parents": [
+      "Intellectual Disability, Autosomal Dominant",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-10-19T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Intellectual developmental disorder, autosomal dominant 64 (MRD64), also called ZNF292-related neurodevelopmental disorder, is caused by heterozygous predicted loss-of-function variants in ZNF292, a C2H2 zinc finger transcription factor that is highly expressed in the developing human brain. Nearly all variants arise de novo, and most lie in exon 8, the last and largest exon. Affected individuals have intellectual disability, usually mild to moderate, with prominent speech delay; many also have autism spectrum disorder or attention-deficit/hyperactivity disorder. Growth impairment with short stature, hypotonia, mild microcephaly and nonspecific facial features (most often micrognathia and hypertelorism) are variable. Whether the truncating variants act by haploinsufficiency or produce a truncated protein that escapes nonsense-mediated decay is not settled. In human stem cell models with reduced ZNF292, cortical interneuron progenitors differentiate too early and the resulting interneurons fail to mature normally.",
+    "pathophysiology": [
+      "ZNF292 Truncating Variants",
+      "Dysregulated ZNF292 Target Gene Transcription",
+      "Precocious Interneuron Progenitor Differentiation",
+      "Impaired Cortical Interneuron Maturation"
+    ],
+    "cell_types": [
+      "neural progenitor cell",
+      "cortical interneuron"
+    ],
+    "cell_type_ids": [
+      "CL:0011020",
+      "CL:0008031"
+    ],
+    "biological_processes": [
+      "regulation of DNA-templated transcription",
+      "cerebral cortex GABAergic interneuron differentiation",
+      "neuron maturation"
+    ],
+    "phenotypes": [
+      "Intellectual disability",
+      "Global developmental delay",
+      "Delayed speech and language development",
+      "Speech apraxia",
+      "Autism",
+      "Attention deficit hyperactivity disorder",
+      "Hypotonia",
+      "Short stature",
+      "Microcephaly",
+      "Micrognathia",
+      "Hypertelorism",
+      "Seizure",
+      "Strabismus",
+      "Nystagmus",
+      "Feeding difficulties",
+      "Constipation",
+      "Ventriculomegaly"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Growth",
+      "Craniofacial",
+      "Ophthalmological",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0011098",
+      "HP:0000717",
+      "HP:0007018",
+      "HP:0001252",
+      "HP:0004322",
+      "HP:0000252",
+      "HP:0000347",
+      "HP:0000316",
+      "HP:0001250",
+      "HP:0000486",
+      "HP:0000639",
+      "HP:0011968",
+      "HP:0002019",
+      "HP:0002119"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ZNF292"
+    ],
+    "treatments": [
+      "Supportive and Developmental Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Developmental_Disorder_Autosomal_Dominant_64.yaml",
+    "page_url": "../pages/disorders/Intellectual_Developmental_Disorder,_Autosomal_Dominant_64.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Intellectual Developmental Disorder, Autosomal Dominant 72",
     "disease_id": "MONDO:0957397",
     "category": "Mendelian",
@@ -204730,6 +205005,95 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 2,
     "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Intellectual Developmental Disorder With Muscle Tone Abnormalities And Distal Skeletal Defects",
+    "disease_id": "MONDO:0859277",
+    "category": "Mendelian",
+    "parents": [
+      "intellectual disability",
+      "peripheral nerve hyperexcitability syndrome"
+    ],
+    "creation_date": "2026-10-19T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive neurodevelopmental disorder caused by biallelic loss-of-function variants in LGI3, a secreted leucine-rich glioma-inactivated family protein. Affected children have global developmental delay and intellectual disability together with a peripheral nerve hyperexcitability syndrome: visible facial myokymia, diminished reflexes, distal limb deformities and electromyographic signs of motor nerve instability. The disorder was delineated in 2022 from 16 individuals in eight unrelated families. LGI3 is secreted by oligodendrocytes in the brain and, in peripheral nerve, mainly by the neurons themselves. It binds the axonal receptor ADAM23, which clusters Shaker-type (Kv1) potassium channels at the juxtaparanodes of myelinated axons. Without LGI3 those channel complexes are reduced and mislocalized, which the authors propose as the cause of the motor nerve hyperexcitability; how mislocalized channels produce myokymia is not established. The route to the intellectual disability is less settled still: in the mouse brain, loss of LGI3 alters Kv1-dependent short-term synaptic plasticity, but Lgi3-null mice showed no behavioural or cognitive deficit in the tests applied.",
+    "pathophysiology": [
+      "LGI3 Loss of Function",
+      "Loss of LGI3-ADAM23 Signaling at the Juxtaparanode",
+      "Juxtaparanodal Kv1 Channel Mislocalization",
+      "Peripheral Motor Nerve Hyperexcitability",
+      "Impaired Kv1-Mediated Short-Term Synaptic Plasticity"
+    ],
+    "cell_types": [
+      "oligodendrocyte",
+      "motor neuron",
+      "lower motor neuron",
+      "pyramidal neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000128",
+      "CL:0000100",
+      "CL:0008039",
+      "CL:0000598"
+    ],
+    "biological_processes": [
+      "clustering of voltage-gated potassium channels",
+      "regulation of short-term neuronal synaptic plasticity"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Facial myokymia",
+      "Abnormal electromyogram",
+      "Hyporeflexia",
+      "Distal limb deformities",
+      "Myokymia",
+      "Tongue fasciculations",
+      "Appendicular hypotonia",
+      "Narrow mouth",
+      "Attention deficit hyperactivity disorder"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Musculoskeletal",
+      "Craniofacial",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000317",
+      "HP:0003457",
+      "HP:0001265",
+      "HP:0040064",
+      "HP:0002411",
+      "HP:0001308",
+      "HP:0012389",
+      "HP:0000160",
+      "HP:0007018"
+    ],
+    "frequencies": [],
+    "genes": [
+      "LGI3"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Developmental_Disorder_With_Muscle_Tone_Abnormalities_And_Distal_Skeletal_Defects.yaml",
+    "page_url": "../pages/disorders/Intellectual_Developmental_Disorder_With_Muscle_Tone_Abnormalities_And_Distal_Skeletal_Defects.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "5"
   },
   {
@@ -258684,8 +259048,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "32",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Myiasis",
@@ -264941,6 +265305,146 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Neurodevelopmental Disorder With Characteristic Facial And Ectodermal Features And Tetraparesis 1",
+    "disease_id": "MONDO:0975745",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian Neurodevelopmental Disorder",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-10-19T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Neurodevelopmental disorder with characteristic facial and ectodermal features and tetraparesis 1 (NEDFET1) is an autosomal recessive syndrome caused by biallelic loss-of-function variants in GTPBP1, a translational GTPase related to the elongation factor eEF1A that acts in ribosome quality control. GTPBP1 deficiency produces the same syndrome as deficiency of its paralog GTPBP2 (Jaberi-Elahi syndrome), and the two are described together as GTPBP1/2-related ectodermal neurodevelopmental (GREND) syndrome. Affected children have profound developmental impairment with absent motor milestones and speech, microcephaly, refractory seizures beginning in the first year, progressive spastic tetraparesis, choreoathetoid and myoclonic movements, hearing and visual impairment, and brain atrophy that mainly affects the cerebellum. Characteristic facial features (high frontal hairline, sparse eyebrows and hair, prominent nasal bridge, full lips and cheeks) occur with ectodermal defects of hair, teeth, nails, skin pigmentation and sweat glands. In mice lacking Gtpbp1 on a strain with a brain tRNA deficiency, ribosomes pause at the affected codons and neurons die, which is the proposed mechanism; no translation defect was found in patient fibroblasts.",
+    "pathophysiology": [
+      "Loss of GTPBP1 Function",
+      "Unresolved Ribosome Pausing",
+      "Integrated Stress Response Activation",
+      "Reduced mTORC1 Signaling",
+      "Neuronal Degeneration"
+    ],
+    "cell_types": [
+      "cerebellar granule cell"
+    ],
+    "cell_type_ids": [
+      "CL:0001031"
+    ],
+    "biological_processes": [
+      "rescue of stalled cytosolic ribosome",
+      "integrated stress response signaling",
+      "TOR signaling"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Profound intellectual disability",
+      "Absent speech",
+      "Microcephaly",
+      "Axial hypotonia",
+      "Seizure",
+      "Spastic tetraparesis",
+      "Choreoathetosis",
+      "Cerebral atrophy",
+      "Cerebellar atrophy",
+      "Motor stereotypy",
+      "Hypoplasia of the corpus callosum",
+      "Flexion contracture",
+      "Tapered finger",
+      "Pes cavus",
+      "Feeding difficulties",
+      "Sensorineural hearing impairment",
+      "Reduced eye contact",
+      "Abnormal electroretinogram",
+      "Visual impairment",
+      "High anterior hairline",
+      "Prominent nasal bridge",
+      "Deeply set eye",
+      "Thick vermilion border",
+      "Full cheeks",
+      "Coarse facial features",
+      "Narrow forehead",
+      "Macroglossia",
+      "Sparse eyelashes",
+      "Sparse scalp hair",
+      "Sparse eyebrow",
+      "Hypodontia",
+      "Abnormal nail morphology",
+      "Abnormal skin pigmentation",
+      "Abnormal sweat gland morphology"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Skeletal",
+      "Gastrointestinal",
+      "Sensory",
+      "Craniofacial",
+      "Ectodermal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011344",
+      "HP:0002187",
+      "HP:0001344",
+      "HP:0000252",
+      "HP:0008936",
+      "HP:0001250",
+      "HP:0001285",
+      "HP:0001266",
+      "HP:0002059",
+      "HP:0001272",
+      "HP:0000733",
+      "HP:0002079",
+      "HP:0001371",
+      "HP:0001182",
+      "HP:0001761",
+      "HP:0011968",
+      "HP:0000407",
+      "HP:0000817",
+      "HP:0000512",
+      "HP:0000505",
+      "HP:0009890",
+      "HP:0000426",
+      "HP:0000490",
+      "HP:0012471",
+      "HP:0000293",
+      "HP:0000280",
+      "HP:0000341",
+      "HP:0000158",
+      "HP:0000653",
+      "HP:0002209",
+      "HP:0045075",
+      "HP:0000668",
+      "HP:0001597",
+      "HP:0001000",
+      "HP:0000971"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GTPBP1"
+    ],
+    "treatments": [
+      "Supportive and Symptomatic Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Characteristic_Facial_And_Ectodermal_Features_And_Tetraparesis_1.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Characteristic_Facial_And_Ectodermal_Features_And_Tetraparesis_1.html",
+    "num_phenotypes": 35,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Neurodevelopmental Disorder With Dysmorphic Facies, Sleep Disturbance, and Brain Abnormalities",
     "disease_id": "MONDO:0030852",
     "category": "Mendelian",
@@ -265724,6 +266228,75 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "27",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Neurodevelopmental Disorder With Poor Growth, Large Ears, And Dysmorphic Facies",
+    "disease_id": "MONDO:0859350",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "DNA Repair Disorder"
+    ],
+    "creation_date": "2026-10-19T02:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive neurodevelopmental disorder caused by biallelic truncating variants in ZNF668, a nucleolar zinc finger protein. ZNF668 was first proposed as a candidate gene in a consanguineous family with an unexplained dysmorphology syndrome, and the disorder was then delineated in two families with microcephaly, growth deficiency, severe global developmental delay, brain malformation and a recognizable facial dysmorphism. Patient fibroblasts show a DNA damage repair defect, which places the disorder among the Mendelian disorders of DNA repair. In cell lines, ZNF668 promotes Tip60-mediated acetylation of histone H2AX after DNA damage, which relaxes chromatin and lets repair proteins reach the lesion, and it stabilizes p53 by restraining MDM2. How the repair defect produces the neurodevelopmental phenotype has not been studied.",
+    "pathophysiology": [
+      "Biallelic ZNF668 Loss of Function",
+      "Impaired Tip60-Mediated H2AX Acetylation and Chromatin Relaxation",
+      "Reduced p53 Stabilization After DNA Damage",
+      "Defective DNA Damage Repair"
+    ],
+    "cell_types": [
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "DNA repair",
+      "double-strand break repair via homologous recombination"
+    ],
+    "phenotypes": [
+      "Microcephaly",
+      "Growth delay",
+      "Severe global developmental delay",
+      "Brain malformation",
+      "Facial dysmorphism"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Growth",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000252",
+      "HP:0001510",
+      "HP:0011344",
+      "HP:0012443",
+      "HP:0001999"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ZNF668"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Poor_Growth_Large_Ears_And_Dysmorphic_Facies.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Poor_Growth,_Large_Ears,_And_Dysmorphic_Facies.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Neurodevelopmental Disorder With Seizures And Brain Atrophy",
@@ -313104,6 +313677,182 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "ROSAH Syndrome",
+    "disease_id": "MONDO:0013999",
+    "category": "Mendelian",
+    "parents": [
+      "Autoinflammatory Disease"
+    ],
+    "creation_date": "2026-10-19T05:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "ROSAH syndrome (retinal dystrophy, optic nerve edema, splenomegaly, anhidrosis and headache), also called ALPK1-related autoinflammatory disease, is an autosomal dominant autoinflammatory disorder caused by heterozygous gain-of-function missense variants in ALPK1, most often p.Thr237Met. The mutant kinase loses its specificity for the bacterial sugar ADP-heptose and is activated by endogenous nucleotide sugars, driving constitutive ALPK1-TIFA signalling to NF-kappaB with an accompanying interferon/STAT1 signature. Patients show variable intraocular inflammation, optic disc elevation and cone-rod-type retinal degeneration, together with episodic fever, deforming arthritis, splenomegaly with cytopenias, hypohidrosis or anhidrosis from birth, hyposalivation, dental caries and short dental roots, headaches with premature basal ganglia mineralisation, and elevated CRP and TNF. Penetrance appears complete, but expressivity varies widely, even within families.",
+    "pathophysiology": [
+      "ALPK1 Gain-of-Function Missense Variants",
+      "Loss of ALPK1 Ligand Specificity",
+      "Constitutive TIFA Phosphorylation and TIFAsome Assembly",
+      "Constitutive Canonical NF-kappaB Activation",
+      "Interferon Signature and STAT1 Activation",
+      "Proinflammatory Cytokine Overproduction",
+      "Retinal and Optic Nerve Neuroinflammation",
+      "Intraocular Inflammation",
+      "Defective Primary Ciliogenesis",
+      "Cone-Rod Retinal Degeneration",
+      "Splenic Red Pulp Expansion",
+      "Salivary Gland Inflammation and Atrophy",
+      "Eccrine Sweat Gland Dysfunction"
+    ],
+    "cell_types": [
+      "neutrophil",
+      "monocyte",
+      "microglial cell",
+      "photoreceptor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000775",
+      "CL:0000576",
+      "CL:0000129",
+      "CL:0000210"
+    ],
+    "biological_processes": [
+      "canonical NF-kappaB signal transduction",
+      "type II interferon-mediated signaling pathway",
+      "inflammatory response",
+      "cilium assembly"
+    ],
+    "phenotypes": [
+      "Cone-Rod Dystrophy",
+      "Progressive Visual Loss",
+      "Optic Disc Elevation",
+      "Uveitis",
+      "Retinal Vasculitis",
+      "Cystoid Macular Edema",
+      "Vitreous Inflammatory Opacities",
+      "Angle-Closure Glaucoma",
+      "Keratoconus",
+      "Dry Eye",
+      "Vitreous Hemorrhage",
+      "Splenomegaly",
+      "Hepatomegaly",
+      "Transient Cytopenias",
+      "Transient Neutropenia",
+      "Lymphopenia",
+      "Anhidrosis or Hypohidrosis",
+      "Recurrent Headache",
+      "Basal Ganglia Calcification",
+      "Recurrent Low-Grade Fever",
+      "Elevated C-Reactive Protein",
+      "Deforming Inflammatory Arthritis",
+      "Arthralgia",
+      "Gastrointestinal Inflammation",
+      "Episodic Malaise",
+      "Recurrent Infections",
+      "Dental Caries",
+      "Short Dental Roots",
+      "Taurodontism",
+      "Enamel Defects",
+      "Hyposalivation",
+      "Failure to Lactate",
+      "AA Amyloidosis",
+      "Chronic Kidney Disease"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Hematologic",
+      "Gastrointestinal",
+      "Dermatologic",
+      "Neurological",
+      "Constitutional",
+      "Laboratory",
+      "Musculoskeletal",
+      "Immunologic",
+      "Dental",
+      "Reproductive",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Breast",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000548",
+      "HP:0000529",
+      "HP:0012795",
+      "HP:0000554",
+      "HP:0025188",
+      "HP:0011505",
+      "HP:0011531",
+      "HP:0012109",
+      "HP:0000563",
+      "HP:0001097",
+      "HP:0007902",
+      "HP:0001744",
+      "HP:0002240",
+      "HP:0001876",
+      "HP:0001875",
+      "HP:0001888",
+      "HP:0000966",
+      "HP:0002315",
+      "HP:0002135",
+      "HP:0001954",
+      "HP:0011227",
+      "HP:0001369",
+      "HP:0002829",
+      "HP:0002027",
+      "HP:0033834",
+      "HP:0002719",
+      "HP:0000670",
+      "HP:0006336",
+      "HP:0000679",
+      "HP:0006297",
+      "HP:0000217",
+      "HP:0031109",
+      "HP:4000041",
+      "HP:0012622"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ALPK1"
+    ],
+    "treatments": [
+      "IL-6 Receptor Blockade",
+      "TNF Inhibition",
+      "IL-1 Blockade",
+      "Splenectomy",
+      "Local Ocular Therapy for Macular Edema",
+      "Conventional Immunosuppression",
+      "Supportive and Dental Care",
+      "Multispecialty Surveillance",
+      "Genetic Counseling",
+      "Selective ALPK1 Inhibition (Preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ROSAH_Syndrome.yaml",
+    "page_url": "../pages/disorders/ROSAH_Syndrome.html",
+    "num_phenotypes": 34,
+    "num_pathophysiology": 13,
+    "num_genes": 1,
+    "num_treatments": 10,
+    "causal_graph_edges": "49",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "RP1-Related Retinopathy",
@@ -385233,19 +385982,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3564,
+  "total_disorder_pages": 3571,
   "total_subtypes": 4814,
-  "total_disorders_and_subtypes": 8378,
-  "total_unique_evidence_sources": 53419,
-  "total_unique_publications": 49843,
+  "total_disorders_and_subtypes": 8385,
+  "total_unique_evidence_sources": 53472,
+  "total_unique_publications": 49895,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3561,
-  "total_unique_pathological_events": 23569,
+  "total_pathographs": 3568,
+  "total_unique_pathological_events": 23603,
   "total_modules": 196,
-  "total_research_reports": 3690,
+  "total_research_reports": 3697,
   "total_classifications": 21,
   "total_comorbidities": 51,
-  "total_groupings": 117
+  "total_groupings": 118
 };
 window.dispatchEvent(new Event('searchDataReady'));
