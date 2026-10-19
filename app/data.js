@@ -344645,6 +344645,69 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Spermatogenic Failure 26",
+    "disease_id": "MONDO:0054730",
+    "category": "Mendelian",
+    "parents": [
+      "Spermatogenic Failure",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-10-19T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spermatogenic failure 26 (SPGF26) is autosomal recessive male infertility caused by biallelic loss-of-function variants in TSGA10, a testis-enriched centrosomal protein that localizes to the sperm midpiece. Affected men are otherwise healthy and present with acephalic spermatozoa syndrome: the ejaculate contains mostly headless sperm tails and a few loose heads. In TSGA10 deficiency the break lies between the distal centriole and the midpiece, so the tails retain little or no mitochondrial sheath, and the remaining midpiece and axoneme are disorganized. Sperm concentration and progressive motility can also be very low. Reported variants are frameshift, splice-site and missense alleles, homozygous in consanguineous families or in trans with a large deletion, and each leaves the sperm with no detectable TSGA10 protein. Assisted reproduction by intracytoplasmic sperm injection (ICSI) has given both failed and successful pregnancies.",
+    "pathophysiology": [
+      "Loss of TSGA10 Protein",
+      "Defective Sperm Head-Tail Coupling",
+      "Sperm Mitochondrial Sheath Disorganization"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "sperm mitochondrial sheath assembly"
+    ],
+    "phenotypes": [
+      "Male infertility",
+      "Acephalic spermatozoa",
+      "Abnormal sperm tail morphology",
+      "Abnormal sperm axoneme morphology",
+      "Severe oligozoospermia",
+      "Reduced progressive sperm motility"
+    ],
+    "phenotype_categories": [
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary"
+    ],
+    "phenotype_ids": [
+      "HP:0003251",
+      "HP:0012869",
+      "HP:0012868",
+      "HP:0033524",
+      "HP:0034818",
+      "HP:0034011"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TSGA10"
+    ],
+    "treatments": [
+      "Intracytoplasmic Sperm Injection",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spermatogenic_Failure_26.yaml",
+    "page_url": "../pages/disorders/Spermatogenic_Failure_26.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Spermatogenic Failure 28",
     "disease_id": "MONDO:0054732",
     "category": "Mendelian",
@@ -386317,17 +386380,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3574,
+  "total_disorder_pages": 3575,
   "total_subtypes": 4817,
-  "total_disorders_and_subtypes": 8391,
-  "total_unique_evidence_sources": 53499,
-  "total_unique_publications": 49925,
+  "total_disorders_and_subtypes": 8392,
+  "total_unique_evidence_sources": 53508,
+  "total_unique_publications": 49934,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3571,
-  "total_unique_pathological_events": 23633,
+  "total_pathographs": 3572,
+  "total_unique_pathological_events": 23636,
   "total_modules": 196,
-  "total_research_reports": 3700,
+  "total_research_reports": 3701,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 118
