@@ -38,6 +38,8 @@ modules:
 - addiction_cycle
 - parkinsonism_dopaminergic_degeneration
 - photoreceptor_degeneration
+- mu_opioid_receptor_agonism
+- mu_opioid_receptor_antagonism
 ---
 
 # GPCRs: Drug Mechanisms and Disease Modules
@@ -165,8 +167,8 @@ mechanism-level rather than disease-level.
       entry (GPCR drug mechanisms)
 
 ### Phase 1 — first modules
-- [ ] mu-opioid receptor agonism (first module; see above) — `mu_opioid_receptor_agonism`, in review in #14453
-- [ ] mu-opioid receptor antagonism — `mu_opioid_receptor_antagonism`, in review in #14456
+- [x] mu-opioid receptor agonism (first module; see above) — `mu_opioid_receptor_agonism` (#14453)
+- [x] mu-opioid receptor antagonism — `mu_opioid_receptor_antagonism` (#14456)
 - [ ] beta-adrenergic receptor blockade
 - [ ] GLP-1 receptor agonism
 - [ ] GPCR loss-of-function hormone resistance
