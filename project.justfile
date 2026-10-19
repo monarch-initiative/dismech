@@ -2185,6 +2185,11 @@ gen-discussions-data:
 gen-models-data:
     uv run python -m dismech.export.models_export
 
+# Rewrite cache/pathograph_stats.json (KB-wide mean pathograph edge count) read by render
+[group('Browser')]
+gen-pathograph-stats *args:
+    uv run python -m dismech.pathograph_stats {{args}}
+
 # Generate Mondo-keyed pathograph JSON artifact (for runtime embedding, e.g. Monarch pages)
 [group('Browser')]
 gen-pathographs:
