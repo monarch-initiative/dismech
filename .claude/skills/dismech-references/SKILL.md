@@ -524,6 +524,27 @@ whatever the refresh returns, so on a source that now serves less than it did,
 it loses text rather than gaining it. Prefer the plain fetch where the
 frontmatter says it will work.
 
+**After a `--force`, read the diff before committing.** A shortened body is the
+documented failure mode, not a hypothetical: in #12879 a re-fetch returned 64
+caches **5,360 lines shorter** than the committed ones and broke snippets that
+had verified moments earlier, in a PR whose subject was something else
+entirely. That issue is also where a fetch came back as an anti-bot page and
+was cached and compared as though it were the article — the same "HTTP 200 is
+not retrieval" trap, from inside this repository.
+
+```bash
+git diff --stat references_cache/        # insertions should not be mostly deletions
+```
+
+A re-fetch that *shrinks* a file can still be legitimate: the current extractor
+writes a cleaner body than older ones did, so a file can lose a duplicated
+abstract and keep every quotable sentence. The test is whether the snippets
+still verify, not whether the file got smaller:
+
+```bash
+just count-verified-snippets kb/disorders/<Entry>.yaml
+```
+
 **This is measured, not anecdotal.** The census in
 [`docs/reports/abstract-only-recovery-census-2026-09-16.md`](../../../docs/reports/abstract-only-recovery-census-2026-09-16.md)
 (issue #10878) found 8,482 `abstract_only` caches — 26.7% of them — with a real
