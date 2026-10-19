@@ -352322,6 +352322,72 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Striatal Degeneration, Autosomal Dominant 2",
+    "disease_id": "MONDO:0014835",
+    "category": "Mendelian",
+    "parents": [
+      "Movement Disorder",
+      "Hyperkinetic Movement Disorder"
+    ],
+    "creation_date": "2026-10-18T21:54:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Striatal degeneration, autosomal dominant 2 is an ultra-rare childhood-onset hyperkinetic movement disorder caused by heterozygous missense variants in the regulatory GAF-B domain of PDE10A, a cyclic-nucleotide phosphodiesterase that is highly and selectively expressed in striatal medium spiny neurons. Most reported variants arose de novo, and one family shows dominant transmission. Affected individuals present between about 5 and 10 years of age with a scarcely progressive chorea, normal development and cognition, and symmetrical bilateral striatal T2 hyperintensity on brain MRI, which appears to evolve from striatal swelling with restricted diffusion in childhood to putaminal atrophy in adulthood. The substitutions leave basal enzyme activity intact but abolish allosteric stimulation of PDE10A by cAMP, and in cell models they cause the enzyme to misfold and aggregate.",
+    "pathophysiology": [
+      "PDE10A GAF-B Heterozygous Missense Substitution",
+      "PDE10A GAF-B Domain cAMP-Binding Defect",
+      "Loss of cAMP-Stimulated PDE10A Activation",
+      "PDE10A Misfolding and Aggregation",
+      "Reduced Striatal PDE10A Availability",
+      "Dysregulated cAMP Signaling in Striatal Medium Spiny Neurons"
+    ],
+    "cell_types": [
+      "striatal medium spiny neuron"
+    ],
+    "cell_type_ids": [
+      "CL:1001474"
+    ],
+    "biological_processes": [
+      "aggresome assembly",
+      "cAMP catabolic process"
+    ],
+    "phenotypes": [
+      "Chorea",
+      "Striatal T2 hyperintensity",
+      "Degeneration of the striatum",
+      "Parkinsonism"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002072",
+      "HP:0031206",
+      "HP:0040140",
+      "HP:0002548"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "PDE10A"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Striatal_Degeneration_Autosomal_Dominant_2.yaml",
+    "page_url": "../pages/disorders/Striatal_Degeneration,_Autosomal_Dominant_2.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Striate Palmoplantar Keratoderma Type 2",
     "disease_id": "MONDO:0013034",
     "category": "Genetic",
@@ -360510,6 +360576,88 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "15",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Testicular Dysgenesis Syndrome",
+    "disease_id": "MONDO:0005437",
+    "category": "Complex",
+    "parents": [
+      "gonadal dysgenesis",
+      "testicular disorder"
+    ],
+    "creation_date": "2026-10-18T23:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Testicular dysgenesis syndrome (TDS) is a proposed developmental entity in which maldevelopment of the fetal testis, whatever its primary cause, produces dysfunction of the somatic Leydig and Sertoli cells and, through that, a cluster of downstream male reproductive disorders: cryptorchidism and hypospadias at birth, and impaired spermatogenesis and testicular germ cell cancer in adult life. The unifying lesion is deficient androgen production and action during a fetal masculinisation programming window (MPW), identified in the rat as embryonic days 15.5 to 18.5 and postulated in humans at roughly 8 to 14 weeks of gestation. Anogenital distance (AGD) is programmed within that window and so serves as a non-invasive read-out of fetal androgen exposure, shortened in both anti-androgen-exposed rodents and phthalate-exposed human infants. TDS is a hypothesis about shared origin rather than a conventional clinical diagnosis: most affected individuals present with a single component, and the entry is curated as the mechanistic umbrella those components share. The strongest causal evidence is experimental and rodent; in humans the environmental arm rests on exposure-to-AGD associations rather than on a demonstrated full-component phenotype, and the genetic arm on isolated families.",
+    "pathophysiology": [
+      "Common Early Disruption of Testis Lineage Specification",
+      "Focal Testicular Dysgenesis",
+      "Fetal Leydig Cell Dysfunction",
+      "Deficient Androgen Action in the Masculinization Programming Window",
+      "Incomplete Reproductive Tract Masculinization",
+      "Impaired INSL3-RXFP2 Signalling at the Gubernaculum",
+      "Failure of Trans-abdominal Testicular Descent",
+      "Sertoli Cell Dysfunction",
+      "Arrested Gonocyte Differentiation",
+      "Germ Cell Neoplasia In Situ",
+      "Invasive Testicular Germ Cell Tumour"
+    ],
+    "cell_types": [
+      "Leydig cell",
+      "Sertoli cell",
+      "primordial germ cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000178",
+      "CL:0000216",
+      "CL:0000670"
+    ],
+    "biological_processes": [
+      "male gonad development",
+      "androgen biosynthetic process",
+      "androgen receptor signaling pathway",
+      "male genitalia development",
+      "spermatogenesis"
+    ],
+    "phenotypes": [
+      "Cryptorchidism",
+      "Hypospadias",
+      "Oligozoospermia",
+      "Male infertility",
+      "Testicular neoplasm"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0000028",
+      "HP:0000047",
+      "HP:0000798",
+      "HP:0003251",
+      "HP:0010788"
+    ],
+    "frequencies": [],
+    "genes": [
+      "AR partial loss-of-function variant",
+      "Common testicular germ cell tumour risk variants"
+    ],
+    "treatments": [],
+    "environmental": [
+      "Prenatal phthalate exposure",
+      "Maternal paracetamol and mild analgesic use",
+      "Environmental exposure of the fetal testis"
+    ],
+    "biochemical": [],
+    "source_file": "Testicular_Dysgenesis_Syndrome.yaml",
+    "page_url": "../pages/disorders/Testicular_Dysgenesis_Syndrome.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 11,
+    "num_genes": 2,
+    "num_treatments": 0,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Testicular Germ Cell Tumor",
@@ -385085,17 +385233,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3562,
+  "total_disorder_pages": 3564,
   "total_subtypes": 4814,
-  "total_disorders_and_subtypes": 8376,
-  "total_unique_evidence_sources": 53392,
-  "total_unique_publications": 49816,
+  "total_disorders_and_subtypes": 8378,
+  "total_unique_evidence_sources": 53419,
+  "total_unique_publications": 49843,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3559,
-  "total_unique_pathological_events": 23552,
+  "total_pathographs": 3561,
+  "total_unique_pathological_events": 23569,
   "total_modules": 196,
-  "total_research_reports": 3688,
+  "total_research_reports": 3690,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 117
