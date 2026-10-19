@@ -4813,13 +4813,15 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `exports/sedml/*.omex` | NO | Derived — a byte-for-byte zip of the committed `exports/sedml/<model_id>/` directory; rebuild with `just sedml-export --omex` |
 | `app/models/data.js` | NO | Derived — the computational-models browser index, rebuilt from every `computational_models` block in `kb/` by `just gen-models-data`. **Never commit it from a curation PR**: it is regenerated wholesale, so two model PRs that both commit it conflict on it and nothing else (#9804) |
 | `app/hpo_category_cache.json` | NO | Derived — the HP-term-to-broad-category map, written by `just gen-browser-data` beside `app/data.js` and committed by the same workflow (#11299). Both `render` and `browser_export` read it |
+| `cache/pathograph_stats.json` | NO | Derived — the KB-wide mean pathograph edge count a disorder page compares against to decide whether to open grouped (#14539). Written by `just gen-pathograph-stats` in the page build and read by `render`, so a single-file render does not build every causal graph |
 | `cache/dataset_accessions.json` | **NEVER** | Deleted and ignored. Superseded by `references_cache/GEO_*.md`; keep it deleted when resolving old PRs |
 
 **Scope of the "derived" rule:** it governs *hand-authored* PRs — never commit
 these paths alongside a curation or code change. The derived artifacts do live in
 git, but only the `generate-pages` workflow writes them, in its own
 `auto/generate-pages` PR (`pages/`, `app/data.js`, `app/models/data.js`,
-`app/hpo_category_cache.json`, `pathographs/`, `dashboard/`, `elements/`).
+`app/hpo_category_cache.json`, `cache/pathograph_stats.json`, `pathographs/`,
+`dashboard/`, `elements/`).
 Such a bot PR is not a policy violation. See
 [`docs/page-build.md`](docs/page-build.md).
 

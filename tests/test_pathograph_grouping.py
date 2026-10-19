@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from dismech import render
+from dismech import pathograph_stats, render
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 JS_PATH = REPO_ROOT / "src" / "dismech" / "templates" / "_pathograph_grouping.js"
@@ -475,7 +475,10 @@ def _write_disorder(path: Path, name: str, chain_length: int) -> None:
     )
 
 
-def test_mean_edge_count_covers_only_entries_with_a_pathograph(tmp_path: Path) -> None:
+def test_mean_edge_count_covers_only_entries_with_a_pathograph(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(render, "_PATHOGRAPH_STATS_PATH", tmp_path / "absent.json")
     _write_disorder(tmp_path / "One.yaml", "One", 3)  # 2 edges
     _write_disorder(tmp_path / "Two.yaml", "Two", 6)  # 5 edges
     (tmp_path / "Empty.yaml").write_text(yaml.safe_dump({"name": "Empty"}))
@@ -483,7 +486,10 @@ def test_mean_edge_count_covers_only_entries_with_a_pathograph(tmp_path: Path) -
     assert render._pathograph_mean_edge_count(tmp_path) == round(3.5)
 
 
-def test_rendered_page_carries_the_group_by_control(tmp_path: Path) -> None:
+def test_rendered_page_carries_the_group_by_control(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(render, "_PATHOGRAPH_STATS_PATH", tmp_path / "absent.json")
     _write_disorder(tmp_path / "Small.yaml", "Small", 3)
     _write_disorder(tmp_path / "Large.yaml", "Large", 9)
     render._pathograph_mean_edge_count.cache_clear()
@@ -496,3 +502,44 @@ def test_rendered_page_carries_the_group_by_control(tmp_path: Path) -> None:
     assert match
     data = json.loads(json.loads(match.group(1)))
     assert data["grouping"] == {"mean_edge_count": round((2 + 8) / 2)}
+
+
+def test_committed_stats_file_is_read_instead_of_walking(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stats = tmp_path / "pathograph_stats.json"
+    stats.write_text(json.dumps({"mean_edge_count": 41}))
+    monkeypatch.setattr(render, "_PATHOGRAPH_STATS_PATH", stats)
+
+    def no_walk(_dir: Path) -> int:
+        raise AssertionError("the KB must not be walked when the stats file exists")
+
+    monkeypatch.setattr(pathograph_stats, "compute_mean_edge_count", no_walk)
+    # A directory unrelated to the stats file: the committed value still wins.
+    _write_disorder(tmp_path / "One.yaml", "One", 3)
+    render._pathograph_mean_edge_count.cache_clear()
+    assert render._pathograph_mean_edge_count(tmp_path) == 41
+    render._pathograph_mean_edge_count.cache_clear()
+
+
+def test_stats_cli_writes_then_checks(tmp_path: Path) -> None:
+    kb = tmp_path / "kb"
+    kb.mkdir()
+    _write_disorder(kb / "One.yaml", "One", 3)  # 2 edges
+    _write_disorder(kb / "Two.yaml", "Two", 6)  # 5 edges
+    out = tmp_path / "pathograph_stats.json"
+
+    assert pathograph_stats.main(["-i", str(kb), "-o", str(out), "--check"]) == 1
+    assert pathograph_stats.main(["-i", str(kb), "-o", str(out)]) == 0
+    assert pathograph_stats.read_stats(out)["mean_edge_count"] == round(3.5)
+    assert pathograph_stats.main(["-i", str(kb), "-o", str(out), "--check"]) == 0
+
+    _write_disorder(kb / "Three.yaml", "Three", 21)  # 20 edges -> mean 9
+    assert pathograph_stats.main(["-i", str(kb), "-o", str(out), "--check"]) == 1
+
+
+def test_committed_stats_file_is_well_formed() -> None:
+    stats = pathograph_stats.read_stats()
+    assert stats is not None, f"{pathograph_stats.PATHOGRAPH_STATS_PATH} is missing"
+    assert isinstance(stats["mean_edge_count"], int)
+    assert stats["mean_edge_count"] > 0

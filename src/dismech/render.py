@@ -18,7 +18,7 @@ import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from dismech import hierarchy_cache, kb_cache, oak_db
+from dismech import hierarchy_cache, kb_cache, oak_db, pathograph_stats
 from dismech.entity_refs import (
     DISEASE_KIND,
     SECTION_KEYS,
@@ -130,6 +130,7 @@ def _get_shared_env(template_dir_str: str) -> Environment:
 # shared with `browser_export`, which writes it. The exporter now reads it back
 # as its seed, so writer and both readers agree on one path.
 _HPO_CATEGORY_CACHE_PATH = HPO_CATEGORY_CACHE_PATH
+_PATHOGRAPH_STATS_PATH = pathograph_stats.PATHOGRAPH_STATS_PATH
 _FDA_SURROGATE_ENDPOINTS_RELATIVE_PATH = Path(
     "surrogate_endpoints/fda_surrogate_endpoints.yaml"
 )
@@ -172,27 +173,17 @@ def _phenotype_primary_category(hp_id: str | None) -> str | None:
 
 @lru_cache(maxsize=8)
 def _pathograph_mean_edge_count(disorders_dir: Path) -> int | None:
-    """Mean pathograph edge count over the entries in ``disorders_dir``.
+    """Mean pathograph edge count the page compares itself against (#14539).
 
-    Only entries that draw a pathograph count. The page compares its own edge
-    count against this to decide whether to open grouped (#14539). It is
-    rounded so the value embedded in every page changes rarely, rather than on
-    every curation PR.
+    Read from the committed ``cache/pathograph_stats.json``, which the page
+    build rewrites, so a single-file render does not build every disorder's
+    causal graph. Only when that file is absent is the mean computed by walking
+    ``disorders_dir``.
     """
-    counts = []
-    for path in sorted(disorders_dir.glob("*.yaml")):
-        try:
-            document = kb_cache.load_document(path)
-        except Exception:  # an unparsable sibling must not break this page
-            continue
-        if not isinstance(document, dict):
-            continue
-        edge_count = len(build_causal_graph(document).edges)
-        if edge_count:
-            counts.append(edge_count)
-    if not counts:
-        return None
-    return round(sum(counts) / len(counts))
+    stats = pathograph_stats.read_stats(_PATHOGRAPH_STATS_PATH)
+    if stats is not None and "mean_edge_count" in stats:
+        return stats["mean_edge_count"]
+    return pathograph_stats.compute_mean_edge_count(disorders_dir)
 
 
 def _add_pathograph_grouping_context(
