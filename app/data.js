@@ -48050,7 +48050,8 @@ window.searchData = [
     ],
     "environmental": [],
     "biochemical": [
-      "BRAF V600E Mutation Detection",
+      "BRAF V600E Molecular Detection",
+      "BRAF V600E VE1 Immunohistochemistry",
       "MSI/MMR Testing"
     ],
     "source_file": "BRAF_V600E_Mutant_Colorectal_Cancer.yaml",
@@ -114881,6 +114882,158 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 2,
     "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "DIP2C-related Developmental Disorder With Speech Delay",
+    "disease_id": "MONDO:0700356",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-10-16T22:15:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DIP2C-related developmental disorder with speech delay is a dominant neurodevelopmental disorder caused by heterozygous variants in DIP2C, most of them predicted loss-of-function alleles (nonsense, frameshift and canonical splice-site variants). The defining cohort of 23 individuals all had developmental delay that falls hardest on expressive language and speech articulation, usually with mild developmental delay or intellectual disability and with measured IQ ranging into the typical range. Behavioural differences (hyperactivity and attention problems, anxiety), autism, hypotonia, feeding difficulties, seizures, and minor facial anomalies such as a high anterior hairline are variable; structural cardiac defects occur in a minority. In about half of the patients the variant was inherited, often from a parent with milder speech or learning difficulties, so expressivity is variable and penetrance may be incomplete. DIP2C encodes disco-interacting protein 2 homolog C, which carries a DMAP1-binding domain and acyl-CoA synthetase / AMP-binding domains and is expressed most highly in the prenatal neocortex. Its molecular function in the human brain is not established; current mechanistic evidence comes from mouse knockouts (altered cortical sphingolipid metabolism, myelination and neurotransmitter receptor gene expression) and zebrafish knockdown (cardiac looping defects). DIP2C lies next to ZMYND11 at 10p15.3, and contiguous 10p15.3 microdeletions removing both genes are a related but separate condition.",
+    "pathophysiology": [
+      "DIP2C Haploinsufficiency",
+      "Increased Cortical Sphingolipid Synthesis",
+      "Increased Oligodendrogenesis and Myelination",
+      "Altered Brain Neurotransmitter Receptor Gene Expression",
+      "Impaired Cardiac Looping"
+    ],
+    "cell_types": [
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "sphingolipid biosynthetic process",
+      "myelination",
+      "heart looping"
+    ],
+    "phenotypes": [
+      "Expressive language delay",
+      "Speech articulation difficulties",
+      "Speech apraxia",
+      "Neurodevelopmental delay",
+      "Delayed ability to walk",
+      "Mild intellectual disability",
+      "Atypical behavior",
+      "Attention deficit hyperactivity disorder",
+      "Anxiety",
+      "Autism",
+      "Developmental regression",
+      "Hypotonia",
+      "Seizure",
+      "Feeding difficulties",
+      "Failure to thrive",
+      "Sleep disturbance",
+      "High anterior hairline",
+      "Prominent forehead",
+      "Broad nasal tip",
+      "Bulbous nose",
+      "Abnormal ear morphology",
+      "Triangular face",
+      "Microcephaly",
+      "Delayed ability to sit",
+      "Thin corpus callosum",
+      "Strabismus",
+      "Hearing impairment",
+      "Recurrent otitis media",
+      "Depression",
+      "Clinodactyly of the 5th finger",
+      "Brachydactyly",
+      "Abnormality of refraction",
+      "Atrial septal defect",
+      "Bicuspid aortic valve",
+      "Hypertrophic cardiomyopathy"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Gastrointestinal",
+      "Growth",
+      "Craniofacial",
+      "Ophthalmological",
+      "Otolaryngological",
+      "Skeletal",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0002474",
+      "HP:0009088",
+      "HP:0011098",
+      "HP:0012758",
+      "HP:0031936",
+      "HP:0001256",
+      "HP:0000708",
+      "HP:0007018",
+      "HP:0000739",
+      "HP:0000717",
+      "HP:0002376",
+      "HP:0001252",
+      "HP:0001250",
+      "HP:0011968",
+      "HP:0001508",
+      "HP:0002360",
+      "HP:0009890",
+      "HP:0011220",
+      "HP:0000455",
+      "HP:0000414",
+      "HP:0031703",
+      "HP:0000325",
+      "HP:0000252",
+      "HP:0025336",
+      "HP:0033725",
+      "HP:0000486",
+      "HP:0000365",
+      "HP:0000403",
+      "HP:0000716",
+      "HP:0004209",
+      "HP:0001156",
+      "HP:0000539",
+      "HP:0001631",
+      "HP:0001647",
+      "HP:0001639"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OBLIGATE",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "DIP2C"
+    ],
+    "treatments": [
+      "Antiseizure medication",
+      "Speech and language therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "DIP2C-related_Developmental_Disorder_With_Speech_Delay.yaml",
+    "page_url": "../pages/disorders/DIP2C-related_Developmental_Disorder_With_Speech_Delay.html",
+    "num_phenotypes": 35,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "4"
   },
   {
@@ -274239,6 +274392,89 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Obesity, Hyperphagia, and Developmental Delay",
+    "disease_id": "MONDO:0013483",
+    "category": "Mendelian",
+    "parents": [
+      "Obesity",
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-10-17T04:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Rare autosomal dominant neurodevelopmental and monogenic obesity disorder caused by heterozygous loss-of-function variants in NTRK2, which encodes TrkB, the high-affinity receptor for brain-derived neurotrophic factor (BDNF). The index patient, a boy with a de novo p.Tyr722Cys kinase-domain variant, had hyperphagia, severe early-onset obesity, developmental delay and impaired memory, learning and nociception. A 2025 cohort of 44 individuals with NTRK2 variants separated truncating and structurally disruptive loss-of-function alleles, which give this comparatively mild phenotype of developmental delay, obesity and hyperphagia, from transmembrane-domain variants that upregulate TrkB and cause a severe developmental and epileptic encephalopathy. In mice, reduced TrkB signaling, and deletion of Ntrk2 from the paraventricular or dorsomedial hypothalamus, cause hyperphagic obesity, placing the satiety defect in hypothalamic TrkB-expressing neurons acting downstream of melanocortin-4 receptor signaling. In cultured neurons, patient TrkB variants impair BDNF-induced neurite outgrowth and glutamatergic synaptogenesis, the proposed basis of the neurodevelopmental features.",
+    "pathophysiology": [
+      "NTRK2 Heterozygous Loss of Function",
+      "Impaired BDNF-TrkB Intracellular Signaling",
+      "Loss of TrkB-Mediated Hypothalamic Satiety Signaling",
+      "Impaired Neurite Outgrowth and Synaptogenesis"
+    ],
+    "cell_types": [
+      "neuron",
+      "hypothalamus cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:2000030"
+    ],
+    "biological_processes": [
+      "neurotrophin TRK receptor signaling pathway",
+      "MAPK cascade",
+      "regulation of feeding behavior",
+      "neuron projection development",
+      "synapse assembly"
+    ],
+    "phenotypes": [
+      "Hyperphagia",
+      "Obesity",
+      "Global developmental delay",
+      "Memory impairment",
+      "Impaired pain sensation",
+      "Hyperactivity",
+      "Hypotonia",
+      "Delayed speech and language development",
+      "Autistic behavior",
+      "Absence seizures"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Neurological",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002591",
+      "HP:0001513",
+      "HP:0001263",
+      "HP:0002354",
+      "HP:0007328",
+      "HP:0000752",
+      "HP:0001252",
+      "HP:0000750",
+      "HP:0000729",
+      "HP:0002121"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NTRK2"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Obesity_Hyperphagia_And_Developmental_Delay.yaml",
+    "page_url": "../pages/disorders/Obesity,_Hyperphagia,_and_Developmental_Delay.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Obsessive-Compulsive Disorder",
     "disease_id": "MONDO:0008114",
     "category": "Psychiatric",
@@ -366310,7 +366546,12 @@ window.searchData = [
     ],
     "environmental": [],
     "biochemical": [
-      "Hormone Receptor and HER2 Testing",
+      "Estrogen Receptor Protein Expression (IHC)",
+      "Progesterone Receptor Protein Expression (IHC)",
+      "HER2 Protein Expression (IHC)",
+      "HER2 Gene Amplification (FISH)",
+      "PD-L1 Testing (22C3, CPS)",
+      "PD-L1 Testing (SP142, IC)",
       "BRCA1/2 Testing"
     ],
     "source_file": "Triple_Negative_Breast_Cancer.yaml",
@@ -384844,17 +385085,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3560,
+  "total_disorder_pages": 3562,
   "total_subtypes": 4814,
-  "total_disorders_and_subtypes": 8374,
-  "total_unique_evidence_sources": 53375,
-  "total_unique_publications": 49799,
+  "total_disorders_and_subtypes": 8376,
+  "total_unique_evidence_sources": 53392,
+  "total_unique_publications": 49816,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3557,
-  "total_unique_pathological_events": 23543,
+  "total_pathographs": 3559,
+  "total_unique_pathological_events": 23552,
   "total_modules": 196,
-  "total_research_reports": 3685,
+  "total_research_reports": 3688,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 117
