@@ -2389,6 +2389,18 @@ export-kgx:
 export-kgx-maximal out_dir="output/maximal_kgx":
     uv run python -m dismech.export.maximal_kgx_export -o {{out_dir}}
 
+# The archives .github/workflows/release-assets.yaml attaches to each release
+# (kb.zip, pathographs.zip, pathographs_cx2.zip, dismech_models_omex.zip and
+# release_manifest.json), built locally into `out_dir`. About three minutes.
+# Build the non-KGX release archives locally.
+[group('Export')]
+release-assets out_dir="dist":
+    uv run python -m dismech.export.release_assets kb-zip -o {{out_dir}}/kb.zip
+    uv run python -m dismech.export.release_assets pathographs -o {{out_dir}}/pathographs.zip
+    uv run python -m dismech.export.release_assets cx2 -o {{out_dir}}/pathographs_cx2.zip
+    uv run python -m dismech.export.release_assets omex -o {{out_dir}}/dismech_models_omex.zip
+    uv run python -m dismech.export.release_assets manifest --assets-dir {{out_dir}} -o {{out_dir}}/release_manifest.json
+
 # Project disorder YAMLs to a MONDO-anchored, HPOA-extended TSV plus a disease-disease comorbidity sidecar.
 # MONDO-bound subtypes get their own rows: unscoped phenotypes are inherited down to
 # them (marked in the `inherited_from` column). Pass --no-subtypes for parents only.
