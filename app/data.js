@@ -15294,7 +15294,8 @@ window.searchData = [
       "Central Mu-Opioid Receptor Overactivation",
       "Brainstem Respiratory Center Suppression",
       "Parasympathetic Pupillary Constriction",
-      "Reduced Gastrointestinal Motility"
+      "Reduced Gastrointestinal Motility",
+      "Competitive Mu-Opioid Receptor Antagonist Occupancy (Naloxone Target)"
     ],
     "cell_types": [
       "central nervous system neuron",
@@ -15357,10 +15358,10 @@ window.searchData = [
     "source_file": "Acute_Opioid_Poisoning.yaml",
     "page_url": "../pages/disorders/Acute_Opioid_Poisoning.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "17",
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "5"
   },
   {
@@ -15383,23 +15384,27 @@ window.searchData = [
       "Spinal Central Sensitization",
       "Spinal Microglial Gating of Opioid Antinociception",
       "Resolution with Wound Healing",
-      "Transition to Chronic Post-Surgical Pain"
+      "Transition to Chronic Post-Surgical Pain",
+      "Spinal Mu-Opioid Receptor Antinociception (Opioid Analgesic Target)"
     ],
     "cell_types": [
       "Nociceptor (A-delta / C-fiber primary afferent)",
       "Sensitized nociceptor (A-delta / C-fiber primary afferent)",
       "Peripheral nociceptor",
-      "Spinal dorsal horn microglia"
+      "Spinal dorsal horn microglia",
+      "second-order dorsal horn neuron"
     ],
     "cell_type_ids": [
       "CL:0000198",
-      "CL:0000129"
+      "CL:0000129",
+      "CL:0002611"
     ],
     "biological_processes": [
       "Activity-dependent synaptic potentiation (central sensitization)",
       "NMDA/glutamatergic signaling in the dorsal horn",
       "Dorsal-horn microglial activation",
-      "Microglial modulation of spinal opioid antinociceptive signaling"
+      "Microglial modulation of spinal opioid antinociceptive signaling",
+      "transmission of nociceptive input in the dorsal horn"
     ],
     "phenotypes": [
       "Acute post-surgical pain",
@@ -15435,10 +15440,10 @@ window.searchData = [
     "source_file": "Acute_Post-Surgical_Pain.yaml",
     "page_url": "../pages/disorders/Acute_Post-Surgical_Pain.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 6,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "7"
   },
   {
@@ -20410,7 +20415,8 @@ window.searchData = [
       "Cortical Inflammatory Mediator Induction",
       "Cortical Glial Reactivity",
       "Cortical Caspase-3 Activation",
-      "VTA CRF2-Associated Drinking Modulation"
+      "VTA CRF2-Associated Drinking Modulation",
+      "Competitive Mu-Opioid Receptor Antagonist Occupancy (Naltrexone Target)"
     ],
     "cell_types": [
       "GABAergic neuron",
@@ -20539,10 +20545,10 @@ window.searchData = [
     "source_file": "Alcohol_Use_Disorder.yaml",
     "page_url": "../pages/disorders/Alcohol_Use_Disorder.html",
     "num_phenotypes": 24,
-    "num_pathophysiology": 29,
+    "num_pathophysiology": 30,
     "num_genes": 6,
     "num_treatments": 18,
-    "causal_graph_edges": "80",
+    "causal_graph_edges": "83",
     "causal_graph_longest_path": "6"
   },
   {
@@ -61620,6 +61626,90 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Brucella Canis Brucellosis",
+    "disease_id": "MONDO:0001857",
+    "category": "Infectious Disease",
+    "parents": [
+      "Brucellosis"
+    ],
+    "creation_date": "2026-09-30T00:16:17Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Brucella canis brucellosis is a dog-associated form of human brucellosis caused by the facultatively intracellular bacterium Brucella canis after zoonotic exposure to infected dogs, canine reproductive fluids, blood, or laboratory cultures.",
+    "pathophysiology": [
+      "Dog-Associated Brucella canis Acquisition",
+      "Brucella canis Lipid-Raft Macrophage Entry",
+      "Intracellular Brucella canis Survival",
+      "Systemic Febrile Brucella canis Illness",
+      "Requirement for Cell-Penetrant Antimicrobials"
+    ],
+    "cell_types": [
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "symbiont entry into host",
+      "biological process involved in interaction with host",
+      "inflammatory response",
+      "response to antibiotic"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Fatigue",
+      "Headache",
+      "Chills",
+      "Malaise",
+      "Splenomegaly",
+      "Lymphadenopathy",
+      "Endocarditis",
+      "Septic arthritis"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0012378",
+      "HP:0002315",
+      "HP:0025143",
+      "HP:0033834",
+      "HP:0001744",
+      "HP:0002716",
+      "HP:0100584",
+      "HP:0003095"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Doxycycline-rifampicin combination therapy",
+      "Doxycycline-aminoglycoside combination therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Brucella_Canis_Brucellosis.yaml",
+    "page_url": "../pages/disorders/Brucella_Canis_Brucellosis.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Brucella Melitensis Brucellosis",
     "disease_id": "MONDO:0001972",
     "category": "Infectious Disease",
@@ -61734,7 +61824,8 @@ window.searchData = [
     "creation_date": "2026-05-08T13:18:32Z",
     "updated_date": null,
     "subtypes": [
-      "Brucella melitensis brucellosis"
+      "Brucella melitensis brucellosis",
+      "Brucella canis brucellosis"
     ],
     "description": "Brucellosis is a zoonotic bacterial infection caused by Brucella species, typically acquired through exposure to infected animals, contaminated animal products, or unpasteurized dairy products. Clinical illness often presents as a systemic febrile syndrome and may relapse or involve focal complications.",
     "pathophysiology": [
@@ -202753,6 +202844,84 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Impetigo",
+    "disease_id": "MONDO:0004592",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial infection"
+    ],
+    "creation_date": "2026-09-29T17:30:14Z",
+    "updated_date": null,
+    "subtypes": [
+      "Nonbullous",
+      "Bullous"
+    ],
+    "description": "Impetigo is an acute, highly contagious superficial bacterial infection of the epidermis caused by Staphylococcus aureus, Streptococcus pyogenes, or both. Nonbullous disease produces vesiculopustules that rupture into honey-colored crusted erosions, whereas toxigenic S. aureus causes bullous impetigo by secreting exfoliative toxins that cleave desmoglein 1 and split the granular layer of the epidermis.",
+    "pathophysiology": [
+      "Epidermal Barrier Disruption",
+      "Superficial Bacterial Colonization",
+      "Nonbullous Pyogenic Epidermal Infection",
+      "Exfoliative Toxin Production by S. aureus",
+      "Desmoglein 1 Ectodomain Cleavage",
+      "Granular-Layer Acantholysis and Bullae",
+      "Post-Streptococcal Immune Sequelae"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "desmoglein 1 proteolysis",
+      "homophilic cell-cell adhesion"
+    ],
+    "phenotypes": [
+      "Honey-colored crusts",
+      "Vesicles",
+      "Pustules",
+      "Flaccid bullae"
+    ],
+    "phenotype_categories": [
+      "Skin"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0200041",
+      "HP:0200037",
+      "HP:0200039",
+      "HP:0008066"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Topical Antibiotic Therapy for Limited Impetigo",
+      "Oral Antibiotic Therapy for Extensive or Outbreak Disease",
+      "Ivermectin Mass Drug Administration for Scabies-Associated Community Impetigo"
+    ],
+    "environmental": [
+      "Scabies infestation",
+      "Crowded living environments",
+      "Poor hygiene",
+      "Hot and humid climate"
+    ],
+    "biochemical": [],
+    "source_file": "Impetigo.yaml",
+    "page_url": "../pages/disorders/Impetigo.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Inborn Disorder of Bile Acid Synthesis",
     "disease_id": "MONDO:0019218",
     "category": "Mendelian",
@@ -264653,6 +264822,80 @@ window.searchData = [
     "causal_graph_longest_path": "11"
   },
   {
+    "name": "Necrotizing Soft Tissue Infection",
+    "disease_id": "MONDO:0018602",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial infection"
+    ],
+    "creation_date": "2026-09-29T18:37:01Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Necrotizing soft tissue infection is a rapidly progressive bacterial infection of skin, fascia, subcutaneous tissue, or muscle in which fascial bacterial spread, exotoxin activity, and deep-tissue destruction make early clinical recognition, broad-spectrum antibiotics, and urgent surgical source control decisive for limb and survival outcomes.",
+    "pathophysiology": [
+      "Bacterial Proliferation Across Deep Soft Tissues",
+      "Group A Streptococcal Fibrinolytic Escape",
+      "Clostridial Alpha-Toxin Endothelial Injury",
+      "Progressive Soft-Tissue Necrosis",
+      "Streptococcal Superantigen Exotoxin Release",
+      "Streptococcal Toxic Shock and Multiorgan Failure"
+    ],
+    "cell_types": [
+      "blood vessel endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000071"
+    ],
+    "biological_processes": [],
+    "phenotypes": [
+      "Pain out of proportion",
+      "Erythema",
+      "Hemorrhagic bullae",
+      "Skin necrosis",
+      "Edema",
+      "Hypotension"
+    ],
+    "phenotype_categories": [
+      "Pain",
+      "Skin",
+      "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0012531",
+      "HP:0010783",
+      "HP:0008066",
+      "HP:0033126",
+      "HP:0000969",
+      "HP:0002615"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Early Repeated Surgical Debridement",
+      "Immediate Broad-Spectrum Antibiotic Therapy",
+      "Adjunctive Clindamycin for Severe GAS NSTI"
+    ],
+    "environmental": [
+      "Diabetes mellitus",
+      "Immunocompromise"
+    ],
+    "biochemical": [],
+    "source_file": "Necrotizing_Soft_Tissue_Infection.yaml",
+    "page_url": "../pages/disorders/Necrotizing_Soft_Tissue_Infection.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Nemaline Myopathy",
     "disease_id": "MONDO:0018958",
     "category": "Mendelian",
@@ -278878,7 +279121,8 @@ window.searchData = [
       "Brainstem Respiratory Rhythm Suppression",
       "Fatal Opioid Overdose",
       "Prefrontal Executive Control Deficit",
-      "Compulsive Opioid Seeking and Loss of Control"
+      "Compulsive Opioid Seeking and Loss of Control",
+      "Competitive Mu-Opioid Receptor Antagonist Occupancy (Naltrexone and Naloxone Target)"
     ],
     "cell_types": [
       "dopaminergic neuron",
@@ -278995,10 +279239,10 @@ window.searchData = [
     "source_file": "Opioid_Use_Disorder.yaml",
     "page_url": "../pages/disorders/Opioid_Use_Disorder.html",
     "num_phenotypes": 21,
-    "num_pathophysiology": 13,
+    "num_pathophysiology": 14,
     "num_genes": 4,
     "num_treatments": 10,
-    "causal_graph_edges": "54",
+    "causal_graph_edges": "58",
     "causal_graph_longest_path": "9"
   },
   {
@@ -388209,19 +388453,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3596,
-  "total_subtypes": 4819,
-  "total_disorders_and_subtypes": 8415,
-  "total_unique_evidence_sources": 53715,
-  "total_unique_publications": 50136,
+  "total_disorder_pages": 3599,
+  "total_subtypes": 4822,
+  "total_disorders_and_subtypes": 8421,
+  "total_unique_evidence_sources": 53747,
+  "total_unique_publications": 50168,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3593,
-  "total_unique_pathological_events": 23752,
+  "total_pathographs": 3596,
+  "total_unique_pathological_events": 23772,
   "total_modules": 196,
-  "total_research_reports": 3723,
+  "total_research_reports": 3726,
   "total_classifications": 21,
   "total_comorbidities": 51,
-  "total_groupings": 118
+  "total_groupings": 119
 };
 window.dispatchEvent(new Event('searchDataReady'));
