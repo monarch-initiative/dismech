@@ -177,9 +177,9 @@ mechanism-level rather than disease-level.
 ### Phase 2 — conformers and remaining modules
 - [ ] Add `conforms_to` on the treatment-linked pathophysiology nodes of the
       candidate conformers above
-  - [x] The four opioid entries, against both mu-opioid modules, in #14973:
-        `Opioid_Use_Disorder`, `Acute_Opioid_Poisoning`, `Acute_Post-Surgical_Pain`,
-        `Alcohol_Use_Disorder`
+  - [ ] The four opioid-treated entries, in #14973 (in review): `Opioid_Use_Disorder` and
+        `Acute_Opioid_Poisoning` against both mu-opioid modules, `Acute_Post-Surgical_Pain`
+        against agonism, `Alcohol_Use_Disorder` against antagonism
 - [ ] Remaining Workstream A modules
 - [ ] Gs alpha defect module
 
