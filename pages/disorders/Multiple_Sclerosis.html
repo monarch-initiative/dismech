@@ -2725,6 +2725,90 @@
             flex-shrink: 0;
         }
 
+        /* Group-by control (#14539). Tinted while a grouping is applied, so a
+           collapsed graph is never mistaken for the whole graph. */
+        .pathograph-groupbar {
+            padding: 10px 16px;
+            background: #f9fafb;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.8rem;
+            color: #374151;
+        }
+
+        .pathograph-groupbar.is-active {
+            background: #eef2ff;
+            border-bottom-color: #c7d2fe;
+        }
+
+        .pg-groupbar-controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pg-groupbar-title {
+            font-weight: 600;
+            margin-right: 4px;
+        }
+
+        .pg-group-mode,
+        .pg-group-collapse {
+            font: inherit;
+            font-size: 0.76rem;
+            padding: 3px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 999px;
+            background: #fff;
+            color: #374151;
+            cursor: pointer;
+        }
+
+        .pg-group-mode.is-selected {
+            background: #4f46e5;
+            border-color: #4f46e5;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .pg-group-mode:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .pg-groupbar-status {
+            margin-top: 6px;
+            line-height: 1.45;
+        }
+
+        .pathograph-groupbar.is-active .pg-groupbar-status {
+            color: #3730a3;
+            font-weight: 500;
+        }
+
+        .pathograph-tooltip .tt-members {
+            list-style: none;
+            margin: 6px 0 0;
+            padding: 0;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+
+        .pathograph-tooltip .tt-members li {
+            margin: 2px 0;
+        }
+
+        .pathograph-tooltip .tt-member {
+            font: inherit;
+            color: #dbeafe;
+            background: none;
+            border: none;
+            padding: 0;
+            text-align: left;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
         .graph-note {
             margin-bottom: 12px;
             font-size: 0.84rem;
@@ -2839,6 +2923,385 @@
     </style>
     <script src="https://d3js.org/d3.v7.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js" integrity="sha384-2IH3T69EIKYC4c+RXZifZRvaH5SRUdacJW7j6HtE5rQbvLhKKdawxq6vpIzJ7j9M" crossorigin="anonymous"></script>
+    <script>
+    /* Pathograph "Group by" (#14539): collapse sets of nodes into super-nodes.
+
+   Collapsing happens here, in the client, on a copy of the payload. graph.py's
+   output is never changed, so every member node and its evidence stays one
+   expand away, and the exports (CX2, KGX) are unaffected.
+
+   This file is plain JavaScript with no Jinja syntax, so the page inlines it
+   with an include and tests/test_pathograph_grouping.py loads it under node. */
+var PathographGrouping = (function() {
+    /* Modes can be combined. They run in this order, each on the graph the
+       previous one left, so the treatment pass sees grouped phenotypes and
+       modules as single targets, and chains are found last among whatever
+       nodes no other mode took. */
+    var MODES = [
+        {key: "none", label: "None"},
+        {key: "phenotype_system", label: "Phenotype system"},
+        {key: "module", label: "Mechanism module"},
+        {key: "treatment_target", label: "Treatment target"},
+        {key: "chain", label: "Linear chains"}
+    ];
+
+    /* Predicates that explain a phenotype (qc_plugins.CAUSAL_PREDICATES). A
+       phenotype reached only by a treatment or readout edge is not explained. */
+    var CAUSAL_PREDICATES = {causes: true, leads_to: true, triggers: true, exacerbates: true};
+
+    /* A group needs at least two members, and grouping stops before the graph
+       shrinks below MIN_VISIBLE_NODES nodes or MIN_KEPT_FRACTION of its nodes,
+       so the main chains stay readable rather than folding into two boxes. The
+       mechanism backbone (pathophysiology nodes) is held to the same floor. */
+    var MIN_GROUP_SIZE = 2;
+    var MIN_VISIBLE_NODES = 3;
+    var MIN_KEPT_FRACTION = 1 / 3;
+    var GROUP_ID_PREFIX = "__group__:";
+
+    function modeLabel(mode) {
+        for (var i = 0; i < MODES.length; i++) {
+            if (MODES[i].key === mode) return MODES[i].label;
+        }
+        return mode;
+    }
+
+    /* Orphan targets signal a curation error, so they are never swallowed.
+       A box from an earlier pass is not regrouped either. */
+    function isGroupable(node) {
+        return !!node && !node.is_group && !node.is_orphan && node.node_type !== "orphan" && node.node_type !== "unknown";
+    }
+
+    function groupKeys(node) {
+        return (node && node.group_keys) || {};
+    }
+
+    function humanizeModule(stem) {
+        var text = String(stem).replace(/_/g, " ");
+        return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+
+    function neighbourSets(data) {
+        var preds = {}, succs = {};
+        data.nodes.forEach(function(n) { preds[n.id] = {}; succs[n.id] = {}; });
+        data.edges.forEach(function(e) {
+            if (succs[e.source]) succs[e.source][e.target] = true;
+            if (preds[e.target]) preds[e.target][e.source] = true;
+        });
+        return {preds: preds, succs: succs};
+    }
+
+    function explainedPhenotypes(data) {
+        var explained = {};
+        data.edges.forEach(function(e) {
+            /* A self-loop explains nothing, as in qc_plugins.causal_inlink_coverage. */
+            if (CAUSAL_PREDICATES[e.predicate] && e.source !== e.target) explained[e.target] = true;
+        });
+        return explained;
+    }
+
+    function bucket(nodes, keyFn) {
+        var buckets = {}, order = [];
+        nodes.forEach(function(n) {
+            var key = keyFn(n);
+            if (!key) return;
+            if (!buckets[key]) { buckets[key] = []; order.push(key); }
+            buckets[key].push(n.id);
+        });
+        return order.map(function(key) { return {key: key, members: buckets[key]}; });
+    }
+
+    function phenotypeSystemGroups(data) {
+        var phenotypes = data.nodes.filter(function(n) {
+            return n.node_type === "phenotype" && isGroupable(n);
+        });
+        return bucket(phenotypes, function(n) { return groupKeys(n).phenotype_system; })
+            .map(function(g) {
+                return {key: g.key, label: g.key + " phenotypes", members: g.members};
+            });
+    }
+
+    function treatmentTargetGroups(data) {
+        var nb = neighbourSets(data);
+        var byId = {};
+        data.nodes.forEach(function(n) { byId[n.id] = n; });
+        var treatments = data.nodes.filter(function(n) {
+            return n.node_type === "treatment" && isGroupable(n);
+        });
+        return bucket(treatments, function(n) {
+            var targets = Object.keys(nb.succs[n.id] || {}).sort();
+            return targets.length ? JSON.stringify(targets) : null;
+        }).map(function(g) {
+            /* A target may be a box from an earlier pass; name it by its label. */
+            var targets = JSON.parse(g.key).map(function(id) {
+                return byId[id] && byId[id].is_group ? byId[id].label : id;
+            });
+            var shown = targets.length > 2 ? targets.slice(0, 2).join(", ") + ", …" : targets.join(", ");
+            return {key: g.key, label: "Treatments → " + shown, members: g.members};
+        });
+    }
+
+    function moduleGroups(data) {
+        var mechanisms = data.nodes.filter(function(n) {
+            return n.node_type === "pathophysiology" && isGroupable(n);
+        });
+        return bucket(mechanisms, function(n) {
+            var modules = groupKeys(n).modules;
+            return modules && modules.length ? modules[0] : null;
+        }).map(function(g) {
+            return {key: g.key, label: humanizeModule(g.key) + " module", members: g.members};
+        });
+    }
+
+    /* Maximal runs of nodes with exactly one predecessor and one successor,
+       followed predecessor to successor. Branch points and the chain's ends stay
+       visible, so the collapsed run reads "A -> ... -> D (n steps)" in place. */
+    function chainGroups(data) {
+        var nb = neighbourSets(data);
+        var byId = {};
+        data.nodes.forEach(function(n) { byId[n.id] = n; });
+        function single(map) {
+            var keys = Object.keys(map);
+            return keys.length === 1 ? keys[0] : null;
+        }
+        function linear(id) {
+            var n = byId[id];
+            if (!isGroupable(n)) return false;
+            var p = single(nb.preds[id]), s = single(nb.succs[id]);
+            return !!p && !!s && p !== id && s !== id;
+        }
+        var used = {}, groups = [];
+        data.nodes.forEach(function(n) {
+            if (used[n.id] || !linear(n.id)) return;
+            /* Walk back to the start of the run; stop on a cycle. */
+            var start = n.id, seen = {};
+            seen[start] = true;
+            while (true) {
+                var p = single(nb.preds[start]);
+                if (!linear(p) || seen[p] || used[p]) break;
+                seen[p] = true;
+                start = p;
+            }
+            var run = [], cur = start, inRun = {};
+            while (cur && linear(cur) && !inRun[cur] && !used[cur]) {
+                run.push(cur);
+                inRun[cur] = true;
+                cur = single(nb.succs[cur]);
+            }
+            run.forEach(function(id) { used[id] = true; });
+            if (run.length >= MIN_GROUP_SIZE) {
+                groups.push({
+                    key: run[0],
+                    label: run[0] + " → … → " + run[run.length - 1] + " (" + run.length + " steps)",
+                    members: run
+                });
+            }
+        });
+        return groups;
+    }
+
+    function candidateGroups(data, mode) {
+        var groups;
+        if (mode === "phenotype_system") groups = phenotypeSystemGroups(data);
+        else if (mode === "treatment_target") groups = treatmentTargetGroups(data);
+        else if (mode === "module") groups = moduleGroups(data);
+        else if (mode === "chain") groups = chainGroups(data);
+        else groups = [];
+        groups = groups.filter(function(g) { return g.members.length >= MIN_GROUP_SIZE; });
+        groups.forEach(function(g) { g.id = GROUP_ID_PREFIX + mode + ":" + g.key; });
+        /* Largest first, so the floor below spends its budget on the biggest wins. */
+        groups.sort(function(a, b) {
+            return b.members.length - a.members.length || (a.label < b.label ? -1 : a.label > b.label ? 1 : 0);
+        });
+        return groups;
+    }
+
+    function edgeStyleKey(e) {
+        return [
+            e.predicate || "",
+            e.is_orphan ? "orphan" : "",
+            (e.hypothesis_groups || []).slice().sort().join(",")
+        ].join("|");
+    }
+
+    /* Selected modes in the fixed order they run in (MODES order). "none" and
+       unknown keys are dropped, so [] means grouping is off. */
+    function normalizeModes(modes) {
+        if (!modes) return [];
+        if (!Array.isArray(modes)) modes = [modes];
+        var wanted = {};
+        modes.forEach(function(m) { wanted[m] = true; });
+        return MODES.map(function(m) { return m.key; }).filter(function(k) {
+            return k !== "none" && wanted[k];
+        });
+    }
+
+    /* One pass: collapse `mode`'s groups in `graph`, the output of the
+       previous pass. A pass only groups original nodes, never an earlier
+       pass's box, but it sees the earlier boxes as neighbours, so treatments
+       aimed at different phenotypes of one system share a target once the
+       phenotypes are grouped. */
+    function groupingPass(graph, mode, ctx) {
+        var byId = {};
+        graph.nodes.forEach(function(n) { byId[n.id] = n; });
+        var applied = [];
+        candidateGroups(graph, mode).forEach(function(g) {
+            if (ctx.expanded[g.id]) { ctx.expandedGroups.push(g); return; }
+            var saved = g.members.length - 1;
+            var mechanismMembers = g.members.filter(function(id) { return byId[id].node_type === "pathophysiology"; }).length;
+            var mechanismSaved = mechanismMembers ? mechanismMembers - 1 : 0;
+            if (ctx.visible - saved < ctx.floor || ctx.visibleMechanisms - mechanismSaved < ctx.mechanismFloor) {
+                ctx.skipped.push(g);
+                return;
+            }
+            ctx.visible -= saved;
+            ctx.visibleMechanisms -= mechanismSaved;
+            applied.push(g);
+        });
+        if (!applied.length) return graph;
+
+        var repOf = {};
+        var groupNodes = applied.map(function(g) {
+            var members = g.members.map(function(id) { return byId[id]; });
+            var types = {};
+            members.forEach(function(m) { types[m.node_type] = true; repOf[m.id] = g.id; });
+            var first = members[0];
+            var unexplained = members.filter(function(m) {
+                return m.node_type === "phenotype" && !ctx.explained[m.id];
+            }).map(function(m) { return m.id; });
+            return {
+                id: g.id,
+                label: g.label,
+                node_type: Object.keys(types).length === 1 ? first.node_type : "pathophysiology",
+                color: first.color,
+                is_orphan: false,
+                is_group: true,
+                group_mode: mode,
+                members: members,
+                unexplained: unexplained,
+                internal_edges: 0
+            };
+        });
+        var groupById = {};
+        groupNodes.forEach(function(g) { groupById[g.id] = g; });
+
+        var nodes = graph.nodes.filter(function(n) { return !repOf[n.id]; }).concat(groupNodes);
+        var edges = [], merged = {};
+        graph.edges.forEach(function(e) {
+            var s = repOf[e.source] || e.source, t = repOf[e.target] || e.target;
+            var count = e.multiplicity || 1;
+            if (s === t && groupById[s]) { groupById[s].internal_edges += count; return; }
+            if (s === e.source && t === e.target) { edges.push(e); return; }
+            var key = s + "\u0000" + t + "\u0000" + edgeStyleKey(e);
+            var m = merged[key];
+            if (!m) {
+                m = {};
+                for (var k in e) { if (Object.prototype.hasOwnProperty.call(e, k)) m[k] = e[k]; }
+                m.source = s;
+                m.target = t;
+                m.multiplicity = 0;
+                m.merged = [];
+                merged[key] = m;
+                edges.push(m);
+            }
+            /* An edge merged in an earlier pass carries its originals along, so
+               the count and hover list always refer to graph.py's edges. */
+            m.multiplicity += count;
+            m.merged = m.merged.concat(e.merged || [e]);
+        });
+        ctx.groups = ctx.groups.concat(groupNodes);
+        return {nodes: nodes, edges: edges};
+    }
+
+    /* Build the drawn graph for a set of modes. `expanded` holds the ids of
+       groups the reader has opened. The floor below is shared by every pass,
+       so stacking modes can never fold a graph further than one mode could. */
+    function applyGrouping(data, modes, expanded) {
+        modes = normalizeModes(modes);
+        var total = data.nodes.length;
+        var mechanismTotal = data.nodes.filter(function(n) { return n.node_type === "pathophysiology"; }).length;
+        var ctx = {
+            expanded: expanded || {},
+            explained: explainedPhenotypes(data),
+            floor: Math.max(MIN_VISIBLE_NODES, Math.ceil(total * MIN_KEPT_FRACTION)),
+            mechanismFloor: Math.min(mechanismTotal, Math.max(MIN_VISIBLE_NODES, Math.ceil(mechanismTotal * MIN_KEPT_FRACTION))),
+            visible: total,
+            visibleMechanisms: mechanismTotal,
+            groups: [],
+            skipped: [],
+            expandedGroups: []
+        };
+        var graph = {nodes: data.nodes, edges: data.edges};
+        modes.forEach(function(mode) { graph = groupingPass(graph, mode, ctx); });
+        return {
+            modes: modes,
+            nodes: graph.nodes,
+            edges: graph.edges,
+            groups: ctx.groups,
+            skipped: ctx.skipped,
+            expanded: ctx.expandedGroups
+        };
+    }
+
+    /* Drawn-edge count is the complexity the reader sees; node count breaks ties. */
+    function complexity(view) {
+        return view.edges.length * 10000 + view.nodes.length;
+    }
+
+    /* Every non-empty combination of the grouping modes, fewest modes first. */
+    function modeCombinations() {
+        var keys = MODES.map(function(m) { return m.key; }).filter(function(k) { return k !== "none"; });
+        var combos = [];
+        for (var mask = 1; mask < (1 << keys.length); mask++) {
+            combos.push(keys.filter(function(k, i) { return mask & (1 << i); }));
+        }
+        combos.sort(function(a, b) { return a.length - b.length; });
+        return combos;
+    }
+
+    /* Which modes to show first. Off unless the graph has more edges than the
+       knowledge-base mean; then the combination that draws the fewest edges.
+       A mode that changes nothing is never added, because combinations are
+       tried smallest first and only a strictly better score replaces the best. */
+    function chooseDefaultModes(data, meanEdgeCount) {
+        if (meanEdgeCount == null || !(data.edges.length > meanEdgeCount)) return [];
+        var best = [], bestScore = complexity(data);
+        modeCombinations().forEach(function(combo) {
+            var view = applyGrouping(data, combo, {});
+            if (!view.groups.length) return;
+            var score = complexity(view);
+            if (score < bestScore) { best = combo; bestScore = score; }
+        });
+        return best;
+    }
+
+    /* A mode is worth offering if it groups something on its own, or as part
+       of the full combination (treatments that only share a target once their
+       phenotypes are grouped). */
+    function availableModes(data) {
+        var all = applyGrouping(data, modeCombinations().pop(), {});
+        var available = {};
+        all.groups.forEach(function(g) { available[g.group_mode] = true; });
+        MODES.forEach(function(m) {
+            if (m.key !== "none" && candidateGroups(data, m.key).length) available[m.key] = true;
+        });
+        return available;
+    }
+
+    return {
+        MODES: MODES,
+        CAUSAL_PREDICATES: CAUSAL_PREDICATES,
+        MIN_VISIBLE_NODES: MIN_VISIBLE_NODES,
+        modeLabel: modeLabel,
+        normalizeModes: normalizeModes,
+        candidateGroups: candidateGroups,
+        applyGrouping: applyGrouping,
+        chooseDefaultModes: chooseDefaultModes,
+        availableModes: availableModes
+    };
+})();
+
+if (typeof module !== "undefined" && module.exports) module.exports = PathographGrouping;
+    </script>
     <script>
     /* Pathograph: interactive D3.js causal mechanism network */
     var NODE_SHAPES = {
@@ -3051,40 +3514,27 @@
         var svgEl = document.getElementById(containerId + "-svg");
         var tooltipEl = document.getElementById(containerId + "-tooltip");
         var legendEl = document.getElementById(containerId + "-legend");
+        var groupbarEl = document.getElementById(containerId + "-groupbar");
         if (!data || !data.nodes || !data.nodes.length) return;
-
-        /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph({ multigraph: true });
-        g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
-        g.setDefaultEdgeLabel(function() { return {}; });
 
         /* Node id of the tooltip the user clicked (pinned), if any. */
         var pinnedNodeId = null;
 
         var nodeMap = {};
-        data.nodes.forEach(function(n) {
-            nodeMap[n.id] = n;
-            var labelLen = n.id.length;
-            var w = Math.max(120, Math.min(220, labelLen * 8 + 30));
-            var h = 44;
-            g.setNode(n.id, { width: w, height: h, label: n.id });
-        });
-        data.edges.forEach(function(e, edgeIndex) {
-            // Different roles may connect the same variant and gene.
-            g.setEdge(e.source, e.target, {}, String(edgeIndex));
-        });
-        dagre.layout(g);
+        data.nodes.forEach(function(n) { nodeMap[n.id] = n; });
 
-        var graphInfo = g.graph();
-        var totalW = graphInfo.width + 60;
-        var totalH = graphInfo.height + 60;
+        /* -- Group by (#14539) --
+           Collapsing is done client-side by PathographGrouping on a copy of the
+           payload. A graph with more edges than the knowledge-base mean opens
+           in whichever combination of modes draws the fewest edges. */
+        var grouping = data.grouping || {};
+        var defaultGroupModes = PathographGrouping.chooseDefaultModes(data, grouping.mean_edge_count);
+        var groupModes = defaultGroupModes.slice();
+        var expandedGroups = {};
+        var view = null;
 
         /* -- SVG setup with zoom -- */
-        var svg = d3.select(svgEl)
-            .attr("viewBox", "0 0 " + totalW + " " + totalH)
-            .attr("preserveAspectRatio", "xMidYMid meet")
-            .style("min-height", Math.min(totalH, 600) + "px");
-
+        var svg = d3.select(svgEl).attr("preserveAspectRatio", "xMidYMid meet");
         var rootG = svg.append("g").attr("class", "pathograph-root");
 
         var zoom = d3.zoom()
@@ -3177,25 +3627,8 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#7c3aed");
 
-        /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e, edgeIndex) {
-            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
-            if (!dagreEdge || !dagreEdge.points) return;
-            var pts = dagreEdge.points;
-            var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            var edgePath = edgesG.append("path")
-                .attr("d", line(pts))
-                .attr("fill", "none")
-                .attr("stroke", edgeStroke(e))
-                .attr("stroke-width", hasHypothesisGroups(e) ? 2.4 : 1.8)
-                .attr("stroke-dasharray", edgeDashArray(e))
-                .attr("marker-end", edgeMarker(e))
-                .attr("data-source", e.source)
-                .attr("data-target", e.target)
-                .attr("data-predicate", e.predicate);
-            edgePath.append("title").text(edgeTitle(e));
-        });
+        var nodesG = rootG.append("g").attr("class", "pg-nodes");
 
         /* -- Shape helpers -- */
         function drawNodeShape(sel, nodeData, w, h) {
@@ -3245,94 +3678,322 @@
             }
         }
 
-        /* -- Draw nodes -- */
-        var nodesG = rootG.append("g").attr("class", "pg-nodes");
-        data.nodes.forEach(function(n) {
-            var dagreNode = g.node(n.id);
-            if (!dagreNode) return;
-            var nw = dagreNode.width, nh = dagreNode.height;
-            var nodeG = nodesG.append("g")
-                .attr("transform", "translate(" + dagreNode.x + "," + dagreNode.y + ")")
-                .attr("data-node-type", n.node_type)
-                .attr("data-node-id", n.id)
-                .style("cursor", "pointer");
+        function nodeLabel(n) {
+            return n.is_group ? n.label : n.id;
+        }
 
-            drawNodeShape(nodeG, n, nw, nh);
+        function mergedEdgeTitle(e) {
+            var parts = [e.multiplicity + " edges merged"];
+            if (e.predicate) parts.push(humanizeEnum(e.predicate));
+            if (e.hypothesis_groups && e.hypothesis_groups.length) parts.push("hypotheses: " + e.hypothesis_groups.join(", "));
+            e.merged.slice(0, 8).forEach(function(m) { parts.push(m.source + " -> " + m.target); });
+            if (e.merged.length > 8) parts.push("... and " + (e.merged.length - 8) + " more");
+            return parts.join("\n");
+        }
 
-            /* Node-type icon badge */
-            var nodeIcon = getNodeIcon(n);
-            if (nodeIcon) {
-                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
-                var iconBadge = nodeG.append("g")
-                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
-                    .style("pointer-events", "none");
-                iconBadge.append("circle")
-                    .attr("r", 9)
-                    .attr("fill", "rgba(255,255,255,0.95)")
-                    .attr("stroke", iconStroke)
-                    .attr("stroke-width", 1.2);
-                iconBadge.append("text")
-                    .attr("text-anchor", "middle")
-                    .attr("dominant-baseline", "central")
-                    .attr("font-size", "10px")
-                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
-                    .text(nodeIcon);
-            }
+        /* -- Layout and draw the current view; re-run on every grouping change -- */
+        function layoutAndDraw() {
+            view = PathographGrouping.applyGrouping(data, groupModes, expandedGroups);
+            view.groups.forEach(function(gn) { nodeMap[gn.id] = gn; });
 
-            /* Label text */
-            var label = n.id;
-            var maxChars = Math.floor(nw / 7);
-            if (label.length > maxChars) label = label.substring(0, maxChars - 1) + "\u2026";
-            nodeG.append("text")
-                .attr("text-anchor", "middle")
-                .attr("dominant-baseline", "central")
-                .attr("font-size", "11px")
-                .attr("font-family", "system-ui, -apple-system, sans-serif")
-                .attr("fill", "#1f2937")
-                .text(label);
-
-            /* PDB structure badge */
-            var hasPdb = n.meta && n.meta.pdb_structures && n.meta.pdb_structures.length;
-            if (hasPdb) {
-                var badgeG = nodeG.append("g")
-                    .attr("transform", "translate(" + (nw/2 - 10) + "," + (-nh/2 - 6) + ")")
-                    .style("cursor", "pointer");
-                badgeG.append("circle")
-                    .attr("r", 9)
-                    .attr("fill", "#1e40af")
-                    .attr("stroke", "#fff")
-                    .attr("stroke-width", 1.5);
-                badgeG.append("text")
-                    .attr("text-anchor", "middle")
-                    .attr("dominant-baseline", "central")
-                    .attr("font-size", "9px")
-                    .attr("fill", "#fff")
-                    .text("3D");
-                badgeG.append("title").text(n.meta.pdb_structures.length + " PDB structure(s)");
-                badgeG.on("click", function(event) {
-                    event.stopPropagation();
-                    var pdbId = n.meta.pdb_structures[0].pdb_id;
-                    window.open("https://www.rcsb.org/3d-view/" + pdbId, "_blank");
-                });
-            }
-
-            /* Interaction: hover */
-            nodeG.on("mouseenter", function(event) {
-                /* A pinned tooltip stays put until the user dismisses it. */
-                if (pinnedNodeId && pinnedNodeId !== n.id) return;
-                highlightNode(n.id, true);
-                showTooltip(event, n);
-            }).on("mouseleave", function() {
-                if (pinnedNodeId) return;
-                highlightNode(n.id, false);
-                hideTooltip();
-            }).on("click", function(event) {
-                event.stopPropagation();
-                pinnedNodeId = n.id;
-                highlightNode(n.id, true);
-                showTooltip(event, n);
+            var g = new dagre.graphlib.Graph({ multigraph: true });
+            g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
+            g.setDefaultEdgeLabel(function() { return {}; });
+            view.nodes.forEach(function(n) {
+                var labelLen = nodeLabel(n).length;
+                var w = n.is_group
+                    ? Math.max(160, Math.min(260, labelLen * 7 + 40))
+                    : Math.max(120, Math.min(220, labelLen * 8 + 30));
+                g.setNode(n.id, { width: w, height: n.is_group ? 56 : 44, label: nodeLabel(n) });
             });
-        });
+            view.edges.forEach(function(e, edgeIndex) {
+                // Different roles may connect the same variant and gene.
+                g.setEdge(e.source, e.target, {}, String(edgeIndex));
+            });
+            dagre.layout(g);
+
+            var graphInfo = g.graph();
+            var totalW = graphInfo.width + 60;
+            var totalH = graphInfo.height + 60;
+            svg.attr("viewBox", "0 0 " + totalW + " " + totalH)
+                .style("min-height", Math.min(totalH, 600) + "px");
+            svg.call(zoom.transform, d3.zoomIdentity);
+
+            edgesG.selectAll("*").remove();
+            nodesG.selectAll("*").remove();
+
+            /* -- Draw edges -- */
+            view.edges.forEach(function(e, edgeIndex) {
+                var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
+                if (!dagreEdge || !dagreEdge.points) return;
+                var pts = dagreEdge.points;
+                var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
+                /* A merged edge keeps its members' style; width shows how many. */
+                var width = hasHypothesisGroups(e) ? 2.4 : 1.8;
+                if (e.multiplicity > 1) width += Math.min(3, (e.multiplicity - 1) * 0.6);
+                var edgePath = edgesG.append("path")
+                    .attr("d", line(pts))
+                    .attr("fill", "none")
+                    .attr("stroke", edgeStroke(e))
+                    .attr("stroke-width", width)
+                    .attr("stroke-dasharray", edgeDashArray(e))
+                    .attr("marker-end", edgeMarker(e))
+                    .attr("data-source", e.source)
+                    .attr("data-target", e.target)
+                    .attr("data-predicate", e.predicate);
+                edgePath.append("title").text(e.merged ? mergedEdgeTitle(e) : edgeTitle(e));
+            });
+
+            /* -- Draw nodes -- */
+            view.nodes.forEach(function(n) {
+                var dagreNode = g.node(n.id);
+                if (!dagreNode) return;
+                var nw = dagreNode.width, nh = dagreNode.height;
+                var nodeG = nodesG.append("g")
+                    .attr("transform", "translate(" + dagreNode.x + "," + dagreNode.y + ")")
+                    .attr("data-node-type", n.node_type)
+                    .attr("data-node-id", n.id)
+                    .attr("class", n.is_group ? "pg-group-node" : null)
+                    .style("cursor", "pointer");
+
+                /* A group is drawn as a stack: a second outline offset behind it. */
+                if (n.is_group) {
+                    var stackG = nodeG.append("g").attr("transform", "translate(5,-5)");
+                    drawNodeShape(stackG, {node_type: n.node_type, color: "#ffffff"}, nw, nh);
+                }
+                drawNodeShape(nodeG, n, nw, nh);
+
+                /* Node-type icon badge */
+                var nodeIcon = n.is_group ? NODE_TYPE_ICONS[n.node_type] : getNodeIcon(n);
+                if (nodeIcon) {
+                    var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                    var iconBadge = nodeG.append("g")
+                        .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                        .style("pointer-events", "none");
+                    iconBadge.append("circle")
+                        .attr("r", 9)
+                        .attr("fill", "rgba(255,255,255,0.95)")
+                        .attr("stroke", iconStroke)
+                        .attr("stroke-width", 1.2);
+                    iconBadge.append("text")
+                        .attr("text-anchor", "middle")
+                        .attr("dominant-baseline", "central")
+                        .attr("font-size", "10px")
+                        .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                        .text(nodeIcon);
+                }
+
+                /* Label text */
+                var label = nodeLabel(n);
+                var maxChars = Math.floor(nw / 7);
+                if (label.length > maxChars) label = label.substring(0, maxChars - 1) + "…";
+                nodeG.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("y", n.is_group ? -7 : 0)
+                    .attr("font-size", "11px")
+                    .attr("font-weight", n.is_group ? 600 : null)
+                    .attr("font-family", "system-ui, -apple-system, sans-serif")
+                    .attr("fill", "#1f2937")
+                    .text(label);
+
+                if (n.is_group) {
+                    /* Member count, plus how many phenotypes have no causal inlink,
+                       so connected and disconnected phenotypes stay distinguishable. */
+                    var sub = n.members.length + " nodes";
+                    if (n.unexplained.length) sub += " · " + n.unexplained.length + " not causally linked";
+                    nodeG.append("text")
+                        .attr("text-anchor", "middle")
+                        .attr("dominant-baseline", "central")
+                        .attr("y", 9)
+                        .attr("font-size", "10px")
+                        .attr("font-family", "system-ui, -apple-system, sans-serif")
+                        .attr("fill", n.unexplained.length ? "#92400e" : "#4b5563")
+                        .text(sub);
+                    var countG = nodeG.append("g")
+                        .attr("transform", "translate(" + (nw/2 - 4) + "," + (-nh/2 - 2) + ")")
+                        .style("pointer-events", "none");
+                    countG.append("circle")
+                        .attr("r", 10)
+                        .attr("fill", "#4f46e5")
+                        .attr("stroke", "#fff")
+                        .attr("stroke-width", 1.5);
+                    countG.append("text")
+                        .attr("text-anchor", "middle")
+                        .attr("dominant-baseline", "central")
+                        .attr("font-size", "9px")
+                        .attr("font-weight", 700)
+                        .attr("fill", "#fff")
+                        .text(n.members.length);
+                }
+
+                /* PDB structure badge */
+                var hasPdb = !n.is_group && n.meta && n.meta.pdb_structures && n.meta.pdb_structures.length;
+                if (hasPdb) {
+                    var badgeG = nodeG.append("g")
+                        .attr("transform", "translate(" + (nw/2 - 10) + "," + (-nh/2 - 6) + ")")
+                        .style("cursor", "pointer");
+                    badgeG.append("circle")
+                        .attr("r", 9)
+                        .attr("fill", "#1e40af")
+                        .attr("stroke", "#fff")
+                        .attr("stroke-width", 1.5);
+                    badgeG.append("text")
+                        .attr("text-anchor", "middle")
+                        .attr("dominant-baseline", "central")
+                        .attr("font-size", "9px")
+                        .attr("fill", "#fff")
+                        .text("3D");
+                    badgeG.append("title").text(n.meta.pdb_structures.length + " PDB structure(s)");
+                    badgeG.on("click", function(event) {
+                        event.stopPropagation();
+                        var pdbId = n.meta.pdb_structures[0].pdb_id;
+                        window.open("https://www.rcsb.org/3d-view/" + pdbId, "_blank");
+                    });
+                }
+
+                /* Interaction: hover */
+                nodeG.on("mouseenter", function(event) {
+                    /* A pinned tooltip stays put until the user dismisses it. */
+                    if (pinnedNodeId && pinnedNodeId !== n.id) return;
+                    highlightNode(n.id, true);
+                    showTooltip(event, n);
+                }).on("mouseleave", function() {
+                    if (pinnedNodeId) return;
+                    highlightNode(n.id, false);
+                    hideTooltip();
+                }).on("click", function(event) {
+                    event.stopPropagation();
+                    pinnedNodeId = n.id;
+                    highlightNode(n.id, true);
+                    showTooltip(event, n);
+                }).on("dblclick", function(event) {
+                    /* Stop d3.zoom's double-click zoom; on a group, expand it. */
+                    event.stopPropagation();
+                    event.preventDefault();
+                    if (n.is_group) expandGroup(n.id);
+                });
+            });
+
+            filterByType();
+            renderGroupbar();
+        }
+
+        function expandGroup(groupId) {
+            expandedGroups[groupId] = true;
+            unpinTooltip();
+            hideTooltip();
+            layoutAndDraw();
+        }
+
+        function setGroupModes(modes) {
+            groupModes = PathographGrouping.normalizeModes(modes);
+            expandedGroups = {};
+            unpinTooltip();
+            hideTooltip();
+            layoutAndDraw();
+        }
+
+        function sameModes(a, b) {
+            return a.join("|") === b.join("|");
+        }
+
+        function modesText(modes) {
+            return modes.map(PathographGrouping.modeLabel).join(" + ");
+        }
+
+        /* -- Group-by control: mode toggles plus a status line naming the
+           grouping currently applied, so a collapsed graph never passes for
+           the whole graph. Modes combine; None clears them all. -- */
+        var availableModes = PathographGrouping.availableModes(data);
+
+        function renderGroupbar() {
+            if (!groupbarEl) return;
+            groupbarEl.innerHTML = "";
+            groupbarEl.classList.toggle("is-active", groupModes.length > 0);
+
+            var controls = document.createElement("div");
+            controls.className = "pg-groupbar-controls";
+            controls.setAttribute("role", "group");
+            controls.setAttribute("aria-label", "Group pathograph nodes by");
+            var title = document.createElement("span");
+            title.className = "pg-groupbar-title";
+            title.textContent = "Group by";
+            controls.appendChild(title);
+            PathographGrouping.MODES.forEach(function(m) {
+                var isNone = m.key === "none";
+                var selected = isNone ? groupModes.length === 0 : groupModes.indexOf(m.key) !== -1;
+                var btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "pg-group-mode" + (selected ? " is-selected" : "");
+                btn.setAttribute("aria-pressed", selected ? "true" : "false");
+                btn.textContent = (isNone || !selected ? "" : "✓ ") + m.label;
+                if (!isNone && !availableModes[m.key]) {
+                    btn.disabled = true;
+                    btn.title = "Nothing in this graph groups this way";
+                }
+                btn.addEventListener("click", function() {
+                    if (isNone) {
+                        if (groupModes.length) setGroupModes([]);
+                    } else if (selected) {
+                        setGroupModes(groupModes.filter(function(k) { return k !== m.key; }));
+                    } else {
+                        setGroupModes(groupModes.concat([m.key]));
+                    }
+                });
+                controls.appendChild(btn);
+            });
+            if (defaultGroupModes.length && !sameModes(groupModes, defaultGroupModes)) {
+                var reset = document.createElement("button");
+                reset.type = "button";
+                reset.className = "pg-group-collapse";
+                reset.textContent = "Back to default";
+                reset.title = "Default for this graph: " + modesText(defaultGroupModes);
+                reset.addEventListener("click", function() { setGroupModes(defaultGroupModes); });
+                controls.appendChild(reset);
+            }
+            groupbarEl.appendChild(controls);
+
+            var status = document.createElement("div");
+            status.className = "pg-groupbar-status";
+            status.setAttribute("aria-live", "polite");
+            var text;
+            if (!groupModes.length) {
+                text = "Grouping: off. Showing all " + data.nodes.length + " nodes and " + data.edges.length + " edges.";
+            } else {
+                var grouped = 0;
+                view.groups.forEach(function(gn) { grouped += gn.members.length; });
+                text = "Grouping: " + modesText(groupModes) + ". ";
+                if (view.groups.length) {
+                    text += view.groups.length + (view.groups.length === 1 ? " group holds " : " groups hold ") + grouped +
+                        " of " + data.nodes.length + " nodes; " + data.edges.length + " edges are drawn as " + view.edges.length + ".";
+                } else if (view.expanded.length) {
+                    text += "Every group is expanded, so all " + data.nodes.length + " nodes are shown.";
+                } else {
+                    text += "Nothing in this graph groups this way, so all " + data.nodes.length + " nodes are shown.";
+                }
+                if (sameModes(groupModes, defaultGroupModes)) {
+                    text += " On by default: this graph has more edges than the knowledge-base average (" +
+                        grouping.mean_edge_count + "), and this combination draws the fewest.";
+                }
+                if (view.skipped.length) {
+                    text += " " + view.skipped.length + (view.skipped.length === 1 ? " group was" : " groups were") +
+                        " left open so the main chains stay readable.";
+                }
+                text += " Click a group to list its members; double-click it to expand.";
+            }
+            status.appendChild(document.createTextNode(text));
+            if (view.expanded.length) {
+                var collapseAll = document.createElement("button");
+                collapseAll.type = "button";
+                collapseAll.className = "pg-group-collapse";
+                collapseAll.textContent = "Collapse " + view.expanded.length + " expanded";
+                collapseAll.addEventListener("click", function() { setGroupModes(groupModes); });
+                status.appendChild(document.createTextNode(" "));
+                status.appendChild(collapseAll);
+            }
+            groupbarEl.appendChild(status);
+        }
 
         /* Click on background clears highlight */
         svg.on("click", function() {
@@ -3361,11 +4022,11 @@
             if (!on) { clearHighlight(); return; }
             /* Find connected edges */
             var connectedNodes = new Set([nodeId]);
-            data.edges.forEach(function(e) {
+            view.edges.forEach(function(e) {
                 if (e.source === nodeId) connectedNodes.add(e.target);
                 if (e.target === nodeId) connectedNodes.add(e.source);
             });
-            nodesG.selectAll("g").each(function() {
+            nodesG.selectAll("g[data-node-id]").each(function() {
                 var el = d3.select(this);
                 var nid = el.attr("data-node-id");
                 el.style("opacity", connectedNodes.has(nid) ? 1 : 0.2);
@@ -3378,12 +4039,13 @@
         }
 
         function clearHighlight() {
-            nodesG.selectAll("g").style("opacity", 1);
+            nodesG.selectAll("g[data-node-id]").style("opacity", 1);
             edgesG.selectAll("path").style("opacity", 1);
         }
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            if (n.is_group) { showGroupTooltip(event, n); return; }
             function formatHistopathologyTerm(term) {
                 var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
                 if (term.term_id && term.term_label && term.term_label !== display) {
@@ -3688,6 +4350,60 @@
             tooltipEl.style.opacity = "1";
             tooltipEl.classList.add("is-visible");
 
+            placeTooltip(event);
+        }
+
+        /* A group's tooltip lists its members, each still one click from its
+           card, so grouping never hides evidence. */
+        function showGroupTooltip(event, n) {
+            var isPinned = pinnedNodeId === n.id;
+            var html = [];
+            html.push('<div class="tt-title">' + escapeHtml((NODE_TYPE_ICONS[n.node_type] || "") + " " + n.label) + '</div>');
+            html.push('<div class="tt-type">Group \u00b7 ' + escapeHtml(PathographGrouping.modeLabel(n.group_mode)) + '</div>');
+            var metaParts = ['<span>' + n.members.length + ' nodes</span>'];
+            if (n.internal_edges) metaParts.push('<span>' + n.internal_edges + ' edges inside the group</span>');
+            if (n.unexplained.length) metaParts.push('<span>' + n.unexplained.length + ' phenotype(s) with no causal inlink, marked \u25cb</span>');
+            html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+            var unexplained = {};
+            n.unexplained.forEach(function(id) { unexplained[id] = true; });
+            html.push('<ul class="tt-members">');
+            n.members.forEach(function(m, i) {
+                var mark = unexplained[m.id] ? "\u25cb " : "";
+                var text = escapeHtml(mark + m.id);
+                if (isPinned && findCardForNode(m.id, m.node_type)) {
+                    html.push('<li><button type="button" class="tt-member" data-member="' + i + '">' + text + '</button></li>');
+                } else {
+                    html.push('<li>' + text + '</li>');
+                }
+            });
+            html.push('</ul>');
+            if (isPinned) {
+                html.push('<button type="button" class="tt-jump tt-expand">Expand group</button>');
+            } else {
+                html.push('<div class="tt-hint">Click to pin and jump to a member; double-click to expand</div>');
+            }
+            tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            Array.prototype.forEach.call(tooltipEl.querySelectorAll(".tt-member"), function(btn) {
+                btn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    var member = n.members[Number(btn.getAttribute("data-member"))];
+                    jumpToCard(member.id, member.node_type);
+                });
+            });
+            var expandBtn = tooltipEl.querySelector(".tt-expand");
+            if (expandBtn) {
+                expandBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    expandGroup(n.id);
+                });
+            }
+            tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
+            placeTooltip(event);
+        }
+
+        function placeTooltip(event) {
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
             var x = event.clientX - rect.left + 14;
@@ -3751,7 +4467,7 @@
         });
 
         function filterByType() {
-            nodesG.selectAll("g").each(function() {
+            nodesG.selectAll("g[data-node-id]").each(function() {
                 var el = d3.select(this);
                 var t = el.attr("data-node-type");
                 el.style("display", activeTypes.has(t) ? null : "none");
@@ -3765,6 +4481,8 @@
                 el.style("display", (sVis && tVis) ? null : "none");
             });
         }
+
+        layoutAndDraw();
     }
     </script>
 </head>
@@ -3984,6 +4702,7 @@
                     <summary>Data</summary>
                     <ul class="dm-nav-panel">
                         <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
                     </ul>
                 </details>
             </li>
@@ -4042,7 +4761,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 28</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 29</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Multiple%20Sclerosis"
@@ -4226,7 +4945,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">28</div>
+                <div class="stat-value">29</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4266,7 +4985,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -5621,6 +6340,23 @@ This pathophysiological event occurs in Spinal cord (UBERON:0002240). UBERON:000
                 </div>
 
 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Experimental models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-human-myelin-microphysiological-system-with-autologous-patient-immune-cells">Human myelin microphysiological system with autologous patient immune cells</a>
+
+                            <span class="crosslink-meta">ORGANOID</span>
+
+
+                            <span class="crosslink-desc">Patient immune cells strip myelin from otherwise healthy human myelinating tissue more than healthy-donor cells do, so the model reproduces immune-driven demyelination with the disease difference carried by the patient&#39;s own leukocytes.</span>
+
+                        </div>
+
+                    </div>
+                </div>
+
 
 
 	                <div class="crosslink-block">
@@ -6561,6 +7297,23 @@ This pathophysiological event involves Inflammatory response (GO:0006954). GO:00
 
 
 
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Experimental models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-human-myelin-microphysiological-system-with-autologous-patient-immune-cells">Human myelin microphysiological system with autologous patient immune cells</a>
+
+                            <span class="crosslink-meta">ORGANOID</span>
+
+
+                            <span class="crosslink-desc">The co-culture reports expansion of proinflammatory T-cell subsets from MS-patient blood on contact with human myelinating tissue, a measurement on the T-cell arm of MS neuroinflammation.</span>
+
+                        </div>
+
+                    </div>
+                </div>
 
 
 
@@ -8761,7 +9514,7 @@ This pathophysiological event occurs in White matter (UBERON:0002316). UBERON:00
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
-            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            <div class="graph-note">Use <strong>Group by</strong> to collapse related nodes into one box. Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
 
             <div class="graph-warning">
                 <strong>Referential integrity issues (1):</strong>
@@ -8774,6 +9527,7 @@ This pathophysiological event occurs in White matter (UBERON:0002316). UBERON:00
             </div>
 
             <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-groupbar" id="pathograph-groupbar"></div>
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Multiple Sclerosis</title>
@@ -8783,7 +9537,7 @@ This pathophysiological event occurs in White matter (UBERON:0002316). UBERON:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anti-CD20 B-cell Depletion Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 monoclonal antibodies (ocrelizumab, ofatumumab) selectively deplete CD20+ B lymphocytes, providing direct interventional validation of the B-cell arm of MS pathogenesis. They markedly reduce relapse rate and MRI activity in relapsing MS, and ocrelizumab is the first therapy shown to modestly slow confirmed disability progression in primary progressive MS.\", \"meta\": {\"evidence_count\": 7, \"therapeutic_agents\": [\"ocrelizumab\", \"ofatumumab\"]}}, {\"id\": \"Axonal Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Along with demyelination, damage to the axons themselves contributes to the permanent neurological deficits.\", \"meta\": {\"evidence_count\": 6}}, {\"id\": \"CD28\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"CD28\"], \"gene_terms\": [{\"label\": \"CD28\", \"id\": \"hgnc:1653\"}], \"association\": \"GWAS\"}}, {\"id\": \"CD40\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"CD40\"], \"gene_terms\": [{\"label\": \"CD40\", \"id\": \"hgnc:11919\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"CNS Mitochondrial Respiratory Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cells of the MS central nervous system lose mitochondrial respiratory capacity. Nuclear-encoded mitochondrial transcripts and respiratory chain complex I and III activities fall in motor cortex neurons, neurons lacking complex IV activity accumulate in progressive MS well beyond the number seen in aged controls, and the mitochondrial biogenesis co-activator PGC-1alpha is reduced in deep-layer pyramidal neurons together with oxidative phosphorylation subunits. Complex IV activity is also reduced in cerebellar Purkinje cells in progressive MS. A distinct, lesion-restricted form occurs in Pattern III acute lesions, where complex IV is lost from oligodendrocytes, astrocytes and axons. The resulting ATP shortfall is proposed to drive calcium-mediated degeneration of chronically demyelinated axons. The decline is not uniform: inside active and chronic inactive white-matter lesions, mitochondrial number and complex IV activity rise, consistent with a compensatory response to the higher energy demand of demyelinated axons that also adds to oxidative stress.\", \"meta\": {\"evidence_count\": 9, \"cell_types\": [\"Neuron\", \"Oligodendrocyte\", \"Astrocyte\"], \"biological_processes\": [\"Oxidative phosphorylation\", \"Reactive oxygen species metabolism\"], \"genes\": [\"PPARGC1A\"], \"gene_terms\": [{\"label\": \"PPARGC1A\", \"id\": \"hgnc:9237\"}], \"locations\": [\"Cerebral cortex\", \"Gray matter\", \"Cerebellar cortex\", \"White matter\"]}}, {\"id\": \"Chronic Inflammation-Induced Oligodendroglial and Glial Senescence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"p16INK4a+ and 53BP1+ senescent cells accumulate within actively demyelinating white- and gray-matter lesions, with co-localization to oligodendrocytes, astrocytes, microglia, macrophages, and neurons. Senescence-associated secretory phenotype (SASP) factors are elevated in the CSF of affected patients, and a higher senescent-cell burden is associated with faster disability progression. Inflammation-induced senescence markers can also be induced in human oligodendrocyte-lineage cells directly by pro-inflammatory microglial secretions.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Oligodendrocyte\", \"Astrocyte\", \"Microglial cell\"], \"biological_processes\": [\"Cellular senescence\"], \"locations\": [\"White matter\", \"Gray matter\"]}}, {\"id\": \"Clonally Expanded Neuronal mtDNA Deletions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple mitochondrial DNA deletions, clonally expanded to high levels within single neurons, are proposed as the lesion behind the respiratory deficiency of MS gray matter neurons. In one secondary progressive MS series the deletions were found throughout the gray matter and accounted for the complex IV defect in most respiratory-deficient neurons, and the authors suggest they may be induced by inflammation. A separate single-cell study of MS brain found no deletion load above age-matched controls in lesions or in normal-appearing gray or white matter, so this upstream step is contested.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Aerobic respiration\"], \"locations\": [\"Gray matter\"]}}, {\"id\": \"Compartmentalized CNS Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation behind a relatively closed blood-brain barrier, including chronic active lesions, meningeal inflammation, and innate immune activation, contributes to smoldering tissue injury and disability progression not fully captured by conventional relapse-focused MRI outcomes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Microglial cell\", \"B cell\"], \"biological_processes\": [\"Inflammatory response\"], \"locations\": [\"Meninges\", \"Gray matter\"]}}, {\"id\": \"Corticosteroids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Used to reduce inflammation and speed recovery during acute exacerbations.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Demyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immune system attacks and destroys myelin, the protective sheath around nerve fibers, disrupting nerve signal transmission.\", \"meta\": {\"evidence_count\": 9, \"cell_types\": [\"Oligodendrocyte\", \"T cell\", \"B cell\", \"Microglial cell\", \"Astrocyte\", \"CD4-positive, alpha-beta T cell\"], \"biological_processes\": [\"Antigen processing and presentation of peptide antigen via MHC class II\", \"T cell activation\", \"Cytokine-mediated signaling pathway\", \"Complement activation\", \"Myelination\"], \"locations\": [\"Central nervous system\", \"Meninges\", \"White matter\", \"Gray matter\", \"Brain\", \"Spinal cord\"], \"computational_models\": [{\"name\": \"UISS-MS Agent-Based Treatment Simulator\", \"model_type\": \"AGENT_BASED\", \"model_software\": \"Universal Immune System Simulator (UISS)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Immune-agent interactions drive loss of modeled oligodendrocytes, which is used as the simulation\u0027s cellular proxy for myelin injury and relapse.\"}, {\"name\": \"Virtual Multiple Sclerosis Patient Whole-Brain Model\", \"model_type\": \"DIGITAL_TWIN\", \"model_software\": \"Python, C++/SWIG, Jupyter, PyTorch sbi\", \"model_format\": \"Python/C++ source and Jupyter notebooks\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"The inverse model treats slower large-scale signal propagation as a functional consequence of myelin damage and infers an individual average conduction velocity from the participant\u0027s connectome and MEG spectrum.\"}, {\"name\": \"Lesion-Aware Personalized Whole-Brain Conduction-Delay Model\", \"model_type\": \"DIGITAL_TWIN\", \"model_software\": \"Custom Stuart-Landau simulator with the SBI toolbox\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"The model maps the fraction of each white-matter tract occupied by a patient-specific lesion to an additional edge-specific conduction delay, then infers a subject-level lesion-effect parameter from MEG spectra.\"}]}}, {\"id\": \"Disease-Modifying Therapies (DMTs)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Medications that can slow the progression of the disease and reduce the frequency and severity of relapses.\", \"meta\": {\"evidence_count\": 6}}, {\"id\": \"EBNA1-GlialCAM Molecular Mimicry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Antibodies raised against the Epstein-Barr virus nuclear antigen 1 (EBNA1) cross-react with the CNS protein glial cell adhesion molecule (GlialCAM), supplying a molecular route from EBV infection of B cells to a CNS-directed adaptive response. The cross-reactivity was found in clonally expanded cerebrospinal-fluid B cells of people with MS and is structurally resolved at the EBNA1 AA386-405 epitope; anti-EBNA1 and anti-GlialCAM responses are elevated in MS and interact with the HLA-DRB1*15:01 risk allele. Whether this mimicry is sufficient to initiate disease, or one of several routes (bystander activation, immortalization of autoreactive B cells) is unresolved.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"B cell\", \"Cerebrospinal-fluid plasmablast\"], \"biological_processes\": [\"B cell activation\", \"Humoral immune response mediated by circulating immunoglobulin\"], \"locations\": [\"Central nervous system\"]}}, {\"id\": \"Epstein-Barr Virus Infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7}}, {\"id\": \"HLA-DRB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"HLA-DRB1\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"IL2RA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IL2RA\"], \"gene_terms\": [{\"label\": \"IL2RA\", \"id\": \"hgnc:6008\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"IL7R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IL7R\"], \"gene_terms\": [{\"label\": \"IL7R\", \"id\": \"hgnc:6024\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Inflammatory Lesions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune cells crossing the blood-brain barrier create focal areas of inflammation in the central nervous system.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"T cell\", \"Macrophage\"], \"biological_processes\": [\"Inflammatory response\"], \"genes\": [\"TNFRSF1A\"], \"gene_terms\": [{\"label\": \"TNFRSF1A\", \"id\": \"hgnc:11916\"}], \"computational_models\": [{\"name\": \"UISS-MS Agent-Based Treatment Simulator\", \"model_type\": \"AGENT_BASED\", \"model_software\": \"Universal Immune System Simulator (UISS)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"UISS-MS converts sufficiently large simulated oligodendrocyte-loss events into MRI-detectable relapses, providing a coarse lesion-level output for comparison with clinical-trial relapse data.\"}]}}, {\"id\": \"Lesion-Aware Personalized Whole-Brain Conduction-Delay Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Direct successor to the Virtual Multiple Sclerosis Patient model. It retains each participant\u0027s 84-region DTI connectome and noisy Stuart-Landau dynamics but augments distance-derived edge delays based on a shared whole-brain velocity with an additive tract-specific term derived from the fraction of each tract intersecting the participant\u0027s FLAIR lesion mask. Simulation-based inference estimates the patient-specific strength of the lesion-to-delay relationship.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"DIGITAL_TWIN\", \"model_software\": \"Custom Stuart-Landau simulator with the SBI toolbox\", \"publication\": \"PMID:40317832\"}}, {\"id\": \"Microglial NLRP3 Inflammasome Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NLRP3, PYCARD (ASC), CASP1, IL1B, and IL18 transcripts are elevated specifically within chronic active lesions in progressive MS, and NLRP3 inflammasome activity (NLRP3-dependent IL-1beta release; NLRP3, IL1B, and GSDMD expression) is elevated in circulating immune cells from people with MS relative to healthy controls, indicating dysregulated NLRP3 inflammasome assembly both centrally and peripherally.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Microglial cell\"], \"biological_processes\": [\"NLRP3 inflammasome complex assembly\"], \"genes\": [\"NLRP3\", \"PYCARD\", \"CASP1\"], \"gene_terms\": [{\"label\": \"NLRP3\", \"id\": \"hgnc:16400\"}, {\"label\": \"PYCARD\", \"id\": \"hgnc:16608\"}, {\"label\": \"CASP1\", \"id\": \"hgnc:1499\"}], \"locations\": [\"White matter\"]}}, {\"id\": \"Neurological Disability\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Oligodendrocyte Precursor and Microglial Autophagic-Mitophagic Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autophagic and mitophagic flux is dysregulated in MS lesions: microglial autophagy declines with age and disease-associated activation, impairing phagocytic clearance of myelin debris, while autophagy and mitophagy marker levels rise in patients\u0027 biofluids during active disease and in demyelinating models, where the resulting autophagic flux itself contributes to impaired mitochondrial function and defective myelin production. The pathway\u0027s core ATG-mediated cytoplasmic quality-control function is lost either way, so this node conforms to the disabled macroautophagy hallmark-of-aging module rather than asserting a single direction of dysregulation.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Microglial cell\", \"Oligodendrocyte precursor cell\"], \"biological_processes\": [\"Macroautophagy\", \"Mitophagy\"], \"genes\": [\"BECN1\"], \"gene_terms\": [{\"label\": \"BECN1\", \"id\": \"hgnc:1034\"}]}}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"STAT3\"], \"gene_terms\": [{\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}], \"association\": \"GWAS\"}}, {\"id\": \"TNFRSF1A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"TNFRSF1A\"], \"gene_terms\": [{\"label\": \"TNFRSF1A\", \"id\": \"hgnc:11916\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"TYK2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"TYK2\"], \"gene_terms\": [{\"label\": \"TYK2\", \"id\": \"hgnc:12440\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Th1/Th17-Mediated Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MS immunopathology is mediated by myelin-reactive CD4+ T cells of Th1 and Th17 lineage. Th17 cells produce IL-17, IL-22, and other proinflammatory cytokines that disrupt blood-brain barrier tight junction proteins and recruit neutrophils into the CNS. The IL-23/IL-17 axis amplifies neuroinflammation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T-helper 17 cell\", \"T-helper 1 cell\"], \"biological_processes\": [\"T-helper 17 type immune response\", \"Inflammatory response\"], \"genes\": [\"HLA-DRB1\", \"TYK2\", \"STAT3\", \"IL7R\", \"IL2RA\", \"CD40\", \"CD28\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}, {\"label\": \"TYK2\", \"id\": \"hgnc:12440\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}, {\"label\": \"IL7R\", \"id\": \"hgnc:6024\"}, {\"label\": \"IL2RA\", \"id\": \"hgnc:6008\"}, {\"label\": \"CD40\", \"id\": \"hgnc:11919\"}, {\"label\": \"CD28\", \"id\": \"hgnc:1653\"}], \"computational_models\": [{\"name\": \"UISS-MS Agent-Based Treatment Simulator\", \"model_type\": \"AGENT_BASED\", \"model_software\": \"Universal Immune System Simulator (UISS)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The disease layer explicitly represents cytokine-dependent Th1 and Th17 differentiation, migration across the blood-brain barrier, reactivation in the CNS, and inflammatory interactions with microglia and other immune agents.\"}]}}, {\"id\": \"UISS-MS Agent-Based Treatment Simulator\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Multiscale, multi-compartment agent-based model of relapsing-remitting multiple sclerosis. Its physiology layer represents innate and adaptive immune agents; its MS disease layer represents antigen presentation, Th1/Th17 and B-cell responses, blood-brain-barrier migration, CNS inflammation, and oligodendrocyte loss; and its treatment layers simulate cladribine and ocrelizumab. Retrospective virtual cohorts were selected to match aggregate CLARITY and OPERA trial characteristics and outcomes.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"AGENT_BASED\", \"model_software\": \"Universal Immune System Simulator (UISS)\", \"publication\": \"PMID:37266405\"}}, {\"id\": \"Virtual Multiple Sclerosis Patient Whole-Brain Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Subject-specific delayed whole-brain model that couples 84 noisy Stuart-Landau oscillators according to each participant\u0027s DTI-derived connectome. Simulation-based Bayesian inference uses source-reconstructed MEG alpha-spectrum features to estimate a global coupling parameter and one average whole-brain conduction velocity for each participant.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"DIGITAL_TWIN\", \"model_software\": \"Python, C++/SWIG, Jupyter, PyTorch sbi\", \"model_format\": \"Python/C++ source and Jupyter notebooks\", \"publication\": \"PMID:38974971\"}}, {\"id\": \"Vitamin D Deficiency\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3}}], \"edges\": [{\"source\": \"Demyelination\", \"target\": \"Neurological Disability\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Autoimmune demyelination and neuronal loss lead to progressive neurological disability.\"}, {\"source\": \"Demyelination\", \"target\": \"CNS Mitochondrial Respiratory Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed rather than demonstrated. Loss of myelin is thought to raise the energy demand of the denuded axon and so alter the number, distribution and activity of its mitochondria. The cited studies state this as a hypothesis to explain their tissue findings and do not test it directly.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"EBNA1-GlialCAM Molecular Mimicry\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cross-reactive anti-EBNA1 immunity is proposed to feed the CNS-directed autoimmune attack that produces focal inflammatory lesions. The causal step is currently carried by a model system: immunizing against EBNA1 worsens experimental autoimmune encephalomyelitis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Th1/Th17-Mediated Neuroinflammation\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autoreactive Th17 cells migrate through the BBB and drive focal demyelinating lesion formation.\"}, {\"source\": \"Th1/Th17-Mediated Neuroinflammation\", \"target\": \"Oligodendrocyte Precursor and Microglial Autophagic-Mitophagic Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proinflammatory cytokine milieu generated by Th1/Th17 cells is one of the inducers used to establish the in vitro and in vivo MS models in which autophagic-mitophagic flux is dysregulated.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Compartmentalized CNS Inflammation\", \"target\": \"Axonal Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent compartmentalized inflammation at chronic active lesion rims sustains demyelination and axonal degeneration that contribute to PIRA.\", \"hypothesis_groups\": [\"chronic_active_lesion_smouldering_inflammation_pira\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic active lesion demyelination\"]}, {\"source\": \"Compartmentalized CNS Inflammation\", \"target\": \"Microglial NLRP3 Inflammasome Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Innate immune activation within chronic active lesions provides the priming and myelin-debris danger signals that drive NLRP3 inflammasome assembly in lesion-resident microglia.\"}, {\"source\": \"Compartmentalized CNS Inflammation\", \"target\": \"Chronic Inflammation-Induced Oligodendroglial and Glial Senescence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Soluble factors released by pro-inflammatory microglia within compartmentalized lesions drive a senescent phenotype in nearby oligodendrocyte-lineage cells.\"}, {\"source\": \"Oligodendrocyte Precursor and Microglial Autophagic-Mitophagic Dysregulation\", \"target\": \"Demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structurally and mechanistically unrelated autophagy inhibitors improve myelin production and normalize axonal myelination in demyelinating models, indicating that the dysregulated autophagic-mitophagic flux itself impairs myelin maintenance rather than merely accompanying it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Inflammation-Induced Oligodendroglial and Glial Senescence\", \"target\": \"Demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A greater senescent-cell load in demyelinated lesions is associated with faster loss of ambulation and earlier death, consistent with the persistent SASP secretome impairing remyelination capacity and sustaining lesion pathology.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"senescence-associated secretory phenotype\"]}, {\"source\": \"Microglial NLRP3 Inflammasome Activation\", \"target\": \"Axonal Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NLRP3-dependent IL-1beta/IL-18 maturation and gasdermin-D-associated pyroptotic signaling within chronic active lesions add a further, innate-immune route to the tissue injury that manifests as axonal damage.\"}, {\"source\": \"Clonally Expanded Neuronal mtDNA Deletions\", \"target\": \"CNS Mitochondrial Respiratory Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deletions that remove mtDNA-encoded respiratory chain subunits leave the affected neuron unable to assemble complex IV.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CNS Mitochondrial Respiratory Deficiency\", \"target\": \"Axonal Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ATP production in demyelinated axon segments is proposed to disturb ion homeostasis and trigger calcium-mediated axonal degeneration, and the extent of neuronal PGC-1alpha loss correlates with neuronal loss in MS cortex.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"disturbed axonal ion homeostasis\", \"calcium-mediated axonal degeneration\"]}, {\"source\": \"Vitamin D Deficiency\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded below the Epstein-Barr link into this same node. The second item is the more interesting of the two and the reason this link is drawn at all: a low-frequency coding variant that raises the risk of vitamin D insufficiency also raises the odds of this disease, which is a genetic-instrument argument rather than another observational association. Both items stop at disease risk.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Epstein-Barr Virus Infection\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded above the vitamin D link into this same node, on evidence rather than on preference: this exposure has a quantified hazard, is described by its source as the strongest known risk factor for the disease, and is argued elsewhere to be necessary though not sufficient. The intermediates are nonetheless unknown, because no cited sentence follows the virus to myelin-reactive T cells; the route from infection to this node is exactly what the field is still arguing about.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disease-Modifying Therapies (DMTs)\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Disease-Modifying Therapies (DMTs)\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-CD20 B-cell Depletion Therapy\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Corticosteroids\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"UISS-MS Agent-Based Treatment Simulator\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The disease layer explicitly represents cytokine-dependent Th1 and Th17 differentiation, migration across the blood-brain barrier, reactivation in the CNS, and inflammatory interactions with microglia and other immune agents.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The immune rules are a mechanistic abstraction assembled from a conceptual ontology rather than fitted to longitudinal cellular or cytokine data from individual patients. Validation is against aggregate relapse and safety outcomes in selected RRMS-like virtual populations, not direct measurements of Th1/Th17 states. Progressive MS and compartmentalized chronic CNS inflammation are outside the demonstrated validation scope.\"}, {\"source\": \"UISS-MS Agent-Based Treatment Simulator\", \"target\": \"Demyelination\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Immune-agent interactions drive loss of modeled oligodendrocytes, which is used as the simulation\u0027s cellular proxy for myelin injury and relapse.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Demyelination is reduced to oligodendrocyte loss in a simulated 3-mm3 white-matter volume. The model does not resolve myelin ultrastructure, tract-specific conduction, remyelination, or axonal injury, and the oligodendrocyte-loss threshold is not an individualized imaging model.\"}, {\"source\": \"UISS-MS Agent-Based Treatment Simulator\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"UISS-MS converts sufficiently large simulated oligodendrocyte-loss events into MRI-detectable relapses, providing a coarse lesion-level output for comparison with clinical-trial relapse data.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"A fixed loss of 50,000 oligodendrocytes is used as the MRI-detection threshold. This is a derived event proxy, not a spatial lesion-growth or MRI-physics model, and it does not reproduce lesion topography, contrast enhancement, immune-cell composition, chronic-active rims, or lesion-wise uncertainty.\"}, {\"source\": \"Virtual Multiple Sclerosis Patient Whole-Brain Model\", \"target\": \"Demyelination\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The inverse model treats slower large-scale signal propagation as a functional consequence of myelin damage and infers an individual average conduction velocity from the participant\u0027s connectome and MEG spectrum.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model does not simulate immune attack, myelin loss, lesion formation, remyelination, or axonal injury. It collapses spatially heterogeneous conduction into one homogeneous whole-brain velocity, and alpha-spectrum changes can also arise from excitation/inhibition balance, 1/f structure, or thalamic-loop changes. The evidence comes from 18 patients and 20 controls at one site; EDSS was available for 17 patients, and no external or longitudinal validation cohort was used.\"}, {\"source\": \"Lesion-Aware Personalized Whole-Brain Conduction-Delay Model\", \"target\": \"Demyelination\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The model maps the fraction of each white-matter tract occupied by a patient-specific lesion to an additional edge-specific conduction delay, then infers a subject-level lesion-effect parameter from MEG spectra.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"FLAIR lesion fraction is an imaging proxy, not a direct measure of myelin thickness, axon diameter, or active inflammation. The model does not generate lesions or simulate immune attack, remyelination, axonal damage, or progression. One scalar gamma applies the same lesion-to-delay rule to all affected tracts, source reconstruction is vulnerable to volume conduction, and alternative mechanisms can alter alpha spectra. The same 18-patient/20-control source cohort as the 2024 study was used, without longitudinal or external validation.\"}, {\"source\": \"HLA-DRB1\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL7R\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL2RA\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TYK2\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CD40\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNFRSF1A\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CD28\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Neurological Disability\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anti-CD20 B-cell Depletion Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 monoclonal antibodies (ocrelizumab, ofatumumab) selectively deplete CD20+ B lymphocytes, providing direct interventional validation of the B-cell arm of MS pathogenesis. They markedly reduce relapse rate and MRI activity in relapsing MS, and ocrelizumab is the first therapy shown to modestly slow confirmed disability progression in primary progressive MS.\", \"meta\": {\"evidence_count\": 7, \"therapeutic_agents\": [\"ocrelizumab\", \"ofatumumab\"]}}, {\"id\": \"Axonal Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Along with demyelination, damage to the axons themselves contributes to the permanent neurological deficits.\", \"meta\": {\"evidence_count\": 6}}, {\"id\": \"CD28\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"CD28\"], \"gene_terms\": [{\"label\": \"CD28\", \"id\": \"hgnc:1653\"}], \"association\": \"GWAS\"}}, {\"id\": \"CD40\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"CD40\"], \"gene_terms\": [{\"label\": \"CD40\", \"id\": \"hgnc:11919\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"CNS Mitochondrial Respiratory Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cells of the MS central nervous system lose mitochondrial respiratory capacity. Nuclear-encoded mitochondrial transcripts and respiratory chain complex I and III activities fall in motor cortex neurons, neurons lacking complex IV activity accumulate in progressive MS well beyond the number seen in aged controls, and the mitochondrial biogenesis co-activator PGC-1alpha is reduced in deep-layer pyramidal neurons together with oxidative phosphorylation subunits. Complex IV activity is also reduced in cerebellar Purkinje cells in progressive MS. A distinct, lesion-restricted form occurs in Pattern III acute lesions, where complex IV is lost from oligodendrocytes, astrocytes and axons. The resulting ATP shortfall is proposed to drive calcium-mediated degeneration of chronically demyelinated axons. The decline is not uniform: inside active and chronic inactive white-matter lesions, mitochondrial number and complex IV activity rise, consistent with a compensatory response to the higher energy demand of demyelinated axons that also adds to oxidative stress.\", \"meta\": {\"evidence_count\": 9, \"cell_types\": [\"Neuron\", \"Oligodendrocyte\", \"Astrocyte\"], \"biological_processes\": [\"Oxidative phosphorylation\", \"Reactive oxygen species metabolism\"], \"genes\": [\"PPARGC1A\"], \"gene_terms\": [{\"label\": \"PPARGC1A\", \"id\": \"hgnc:9237\"}], \"locations\": [\"Cerebral cortex\", \"Gray matter\", \"Cerebellar cortex\", \"White matter\"]}, \"group_keys\": {\"modules\": [\"mitochondrial_dysfunction\"]}}, {\"id\": \"Chronic Inflammation-Induced Oligodendroglial and Glial Senescence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"p16INK4a+ and 53BP1+ senescent cells accumulate within actively demyelinating white- and gray-matter lesions, with co-localization to oligodendrocytes, astrocytes, microglia, macrophages, and neurons. Senescence-associated secretory phenotype (SASP) factors are elevated in the CSF of affected patients, and a higher senescent-cell burden is associated with faster disability progression. Inflammation-induced senescence markers can also be induced in human oligodendrocyte-lineage cells directly by pro-inflammatory microglial secretions.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Oligodendrocyte\", \"Astrocyte\", \"Microglial cell\"], \"biological_processes\": [\"Cellular senescence\"], \"locations\": [\"White matter\", \"Gray matter\"]}, \"group_keys\": {\"modules\": [\"cellular_senescence\"]}}, {\"id\": \"Clonally Expanded Neuronal mtDNA Deletions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple mitochondrial DNA deletions, clonally expanded to high levels within single neurons, are proposed as the lesion behind the respiratory deficiency of MS gray matter neurons. In one secondary progressive MS series the deletions were found throughout the gray matter and accounted for the complex IV defect in most respiratory-deficient neurons, and the authors suggest they may be induced by inflammation. A separate single-cell study of MS brain found no deletion load above age-matched controls in lesions or in normal-appearing gray or white matter, so this upstream step is contested.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Aerobic respiration\"], \"locations\": [\"Gray matter\"]}, \"group_keys\": {\"modules\": [\"mitochondrial_dysfunction\"]}}, {\"id\": \"Compartmentalized CNS Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation behind a relatively closed blood-brain barrier, including chronic active lesions, meningeal inflammation, and innate immune activation, contributes to smoldering tissue injury and disability progression not fully captured by conventional relapse-focused MRI outcomes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Microglial cell\", \"B cell\"], \"biological_processes\": [\"Inflammatory response\"], \"locations\": [\"Meninges\", \"Gray matter\"]}}, {\"id\": \"Corticosteroids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Used to reduce inflammation and speed recovery during acute exacerbations.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Demyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immune system attacks and destroys myelin, the protective sheath around nerve fibers, disrupting nerve signal transmission.\", \"meta\": {\"evidence_count\": 9, \"cell_types\": [\"Oligodendrocyte\", \"T cell\", \"B cell\", \"Microglial cell\", \"Astrocyte\", \"CD4-positive, alpha-beta T cell\"], \"biological_processes\": [\"Antigen processing and presentation of peptide antigen via MHC class II\", \"T cell activation\", \"Cytokine-mediated signaling pathway\", \"Complement activation\", \"Myelination\"], \"locations\": [\"Central nervous system\", \"Meninges\", \"White matter\", \"Gray matter\", \"Brain\", \"Spinal cord\"], \"experimental_models\": [{\"name\": \"Human myelin microphysiological system with autologous patient immune cells\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Patient immune cells strip myelin from otherwise healthy human myelinating tissue more than healthy-donor cells do, so the model reproduces immune-driven demyelination with the disease difference carried by the patient\u0027s own leukocytes.\"}], \"computational_models\": [{\"name\": \"UISS-MS Agent-Based Treatment Simulator\", \"model_type\": \"AGENT_BASED\", \"model_software\": \"Universal Immune System Simulator (UISS)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Immune-agent interactions drive loss of modeled oligodendrocytes, which is used as the simulation\u0027s cellular proxy for myelin injury and relapse.\"}, {\"name\": \"Virtual Multiple Sclerosis Patient Whole-Brain Model\", \"model_type\": \"DIGITAL_TWIN\", \"model_software\": \"Python, C++/SWIG, Jupyter, PyTorch sbi\", \"model_format\": \"Python/C++ source and Jupyter notebooks\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"The inverse model treats slower large-scale signal propagation as a functional consequence of myelin damage and infers an individual average conduction velocity from the participant\u0027s connectome and MEG spectrum.\"}, {\"name\": \"Lesion-Aware Personalized Whole-Brain Conduction-Delay Model\", \"model_type\": \"DIGITAL_TWIN\", \"model_software\": \"Custom Stuart-Landau simulator with the SBI toolbox\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"The model maps the fraction of each white-matter tract occupied by a patient-specific lesion to an additional edge-specific conduction delay, then infers a subject-level lesion-effect parameter from MEG spectra.\"}]}}, {\"id\": \"Disease-Modifying Therapies (DMTs)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Medications that can slow the progression of the disease and reduce the frequency and severity of relapses.\", \"meta\": {\"evidence_count\": 6}}, {\"id\": \"EBNA1-GlialCAM Molecular Mimicry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Antibodies raised against the Epstein-Barr virus nuclear antigen 1 (EBNA1) cross-react with the CNS protein glial cell adhesion molecule (GlialCAM), supplying a molecular route from EBV infection of B cells to a CNS-directed adaptive response. The cross-reactivity was found in clonally expanded cerebrospinal-fluid B cells of people with MS and is structurally resolved at the EBNA1 AA386-405 epitope; anti-EBNA1 and anti-GlialCAM responses are elevated in MS and interact with the HLA-DRB1*15:01 risk allele. Whether this mimicry is sufficient to initiate disease, or one of several routes (bystander activation, immortalization of autoreactive B cells) is unresolved.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"B cell\", \"Cerebrospinal-fluid plasmablast\"], \"biological_processes\": [\"B cell activation\", \"Humoral immune response mediated by circulating immunoglobulin\"], \"locations\": [\"Central nervous system\"]}}, {\"id\": \"Epstein-Barr Virus Infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7}}, {\"id\": \"HLA-DRB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"HLA-DRB1\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Human myelin microphysiological system with autologous patient immune cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A human myelin microphysiological system (myelin MPS) built by culturing neural organoids on 3D-printed devices carrying directional microfibers and then co-culturing them with oligodendrocyte progenitor cells, giving 96 myelinating tissue models per conventional well plate. Peripheral T cells and monocytes from people with MS, or from healthy donors, are then added to the healthy myelinating tissue. Cells from MS patients caused more demyelination than healthy-donor cells, with expansion of proinflammatory T-cell subsets and more myelin uptake by monocytes/macrophages. Combined imaging and flow-cytometry features separated healthy-donor, untreated-MS, responder and nonresponder profiles after prednisone, glatiramer acetate, interferon beta-1a or dimethyl fumarate, which the authors propose as a way to test an individual patient\u0027s treatment response. Reported in a preprint that has not been peer reviewed.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"oligodendrocyte progenitor cell\", \"patient-derived T cell\", \"patient-derived monocyte\"], \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"conditions\": [\"co-culture with autologous T cells and monocytes from MS patients\", \"co-culture with T cells and monocytes from healthy donors\", \"immune cells from patients treated with prednisone, glatiramer acetate, interferon beta-1a or dimethyl fumarate\"], \"publication\": \"PPR:PPR1322929\"}}, {\"id\": \"IL2RA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IL2RA\"], \"gene_terms\": [{\"label\": \"IL2RA\", \"id\": \"hgnc:6008\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"IL7R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IL7R\"], \"gene_terms\": [{\"label\": \"IL7R\", \"id\": \"hgnc:6024\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Inflammatory Lesions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune cells crossing the blood-brain barrier create focal areas of inflammation in the central nervous system.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"T cell\", \"Macrophage\"], \"biological_processes\": [\"Inflammatory response\"], \"genes\": [\"TNFRSF1A\"], \"gene_terms\": [{\"label\": \"TNFRSF1A\", \"id\": \"hgnc:11916\"}], \"computational_models\": [{\"name\": \"UISS-MS Agent-Based Treatment Simulator\", \"model_type\": \"AGENT_BASED\", \"model_software\": \"Universal Immune System Simulator (UISS)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"UISS-MS converts sufficiently large simulated oligodendrocyte-loss events into MRI-detectable relapses, providing a coarse lesion-level output for comparison with clinical-trial relapse data.\"}]}}, {\"id\": \"Lesion-Aware Personalized Whole-Brain Conduction-Delay Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Direct successor to the Virtual Multiple Sclerosis Patient model. It retains each participant\u0027s 84-region DTI connectome and noisy Stuart-Landau dynamics but augments distance-derived edge delays based on a shared whole-brain velocity with an additive tract-specific term derived from the fraction of each tract intersecting the participant\u0027s FLAIR lesion mask. Simulation-based inference estimates the patient-specific strength of the lesion-to-delay relationship.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"DIGITAL_TWIN\", \"model_software\": \"Custom Stuart-Landau simulator with the SBI toolbox\", \"publication\": \"PMID:40317832\"}}, {\"id\": \"Microglial NLRP3 Inflammasome Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NLRP3, PYCARD (ASC), CASP1, IL1B, and IL18 transcripts are elevated specifically within chronic active lesions in progressive MS, and NLRP3 inflammasome activity (NLRP3-dependent IL-1beta release; NLRP3, IL1B, and GSDMD expression) is elevated in circulating immune cells from people with MS relative to healthy controls, indicating dysregulated NLRP3 inflammasome assembly both centrally and peripherally.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Microglial cell\"], \"biological_processes\": [\"NLRP3 inflammasome complex assembly\"], \"genes\": [\"NLRP3\", \"PYCARD\", \"CASP1\"], \"gene_terms\": [{\"label\": \"NLRP3\", \"id\": \"hgnc:16400\"}, {\"label\": \"PYCARD\", \"id\": \"hgnc:16608\"}, {\"label\": \"CASP1\", \"id\": \"hgnc:1499\"}], \"locations\": [\"White matter\"]}, \"group_keys\": {\"modules\": [\"nlrp3_inflammasome_activation\"]}}, {\"id\": \"Neurological Disability\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Oligodendrocyte Precursor and Microglial Autophagic-Mitophagic Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autophagic and mitophagic flux is dysregulated in MS lesions: microglial autophagy declines with age and disease-associated activation, impairing phagocytic clearance of myelin debris, while autophagy and mitophagy marker levels rise in patients\u0027 biofluids during active disease and in demyelinating models, where the resulting autophagic flux itself contributes to impaired mitochondrial function and defective myelin production. The pathway\u0027s core ATG-mediated cytoplasmic quality-control function is lost either way, so this node conforms to the disabled macroautophagy hallmark-of-aging module rather than asserting a single direction of dysregulation.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Microglial cell\", \"Oligodendrocyte precursor cell\"], \"biological_processes\": [\"Macroautophagy\", \"Mitophagy\"], \"genes\": [\"BECN1\"], \"gene_terms\": [{\"label\": \"BECN1\", \"id\": \"hgnc:1034\"}]}, \"group_keys\": {\"modules\": [\"disabled_macroautophagy\"]}}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"STAT3\"], \"gene_terms\": [{\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}], \"association\": \"GWAS\"}}, {\"id\": \"TNFRSF1A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"TNFRSF1A\"], \"gene_terms\": [{\"label\": \"TNFRSF1A\", \"id\": \"hgnc:11916\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"TYK2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"TYK2\"], \"gene_terms\": [{\"label\": \"TYK2\", \"id\": \"hgnc:12440\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Th1/Th17-Mediated Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MS immunopathology is mediated by myelin-reactive CD4+ T cells of Th1 and Th17 lineage. Th17 cells produce IL-17, IL-22, and other proinflammatory cytokines that disrupt blood-brain barrier tight junction proteins and recruit neutrophils into the CNS. The IL-23/IL-17 axis amplifies neuroinflammation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T-helper 17 cell\", \"T-helper 1 cell\"], \"biological_processes\": [\"T-helper 17 type immune response\", \"Inflammatory response\"], \"genes\": [\"HLA-DRB1\", \"TYK2\", \"STAT3\", \"IL7R\", \"IL2RA\", \"CD40\", \"CD28\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}, {\"label\": \"TYK2\", \"id\": \"hgnc:12440\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}, {\"label\": \"IL7R\", \"id\": \"hgnc:6024\"}, {\"label\": \"IL2RA\", \"id\": \"hgnc:6008\"}, {\"label\": \"CD40\", \"id\": \"hgnc:11919\"}, {\"label\": \"CD28\", \"id\": \"hgnc:1653\"}], \"experimental_models\": [{\"name\": \"Human myelin microphysiological system with autologous patient immune cells\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"relationship\": \"MEASURES\", \"fidelity\": \"LOW\", \"description\": \"The co-culture reports expansion of proinflammatory T-cell subsets from MS-patient blood on contact with human myelinating tissue, a measurement on the T-cell arm of MS neuroinflammation.\"}], \"computational_models\": [{\"name\": \"UISS-MS Agent-Based Treatment Simulator\", \"model_type\": \"AGENT_BASED\", \"model_software\": \"Universal Immune System Simulator (UISS)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The disease layer explicitly represents cytokine-dependent Th1 and Th17 differentiation, migration across the blood-brain barrier, reactivation in the CNS, and inflammatory interactions with microglia and other immune agents.\"}]}}, {\"id\": \"UISS-MS Agent-Based Treatment Simulator\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Multiscale, multi-compartment agent-based model of relapsing-remitting multiple sclerosis. Its physiology layer represents innate and adaptive immune agents; its MS disease layer represents antigen presentation, Th1/Th17 and B-cell responses, blood-brain-barrier migration, CNS inflammation, and oligodendrocyte loss; and its treatment layers simulate cladribine and ocrelizumab. Retrospective virtual cohorts were selected to match aggregate CLARITY and OPERA trial characteristics and outcomes.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"AGENT_BASED\", \"model_software\": \"Universal Immune System Simulator (UISS)\", \"publication\": \"PMID:37266405\"}}, {\"id\": \"Virtual Multiple Sclerosis Patient Whole-Brain Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Subject-specific delayed whole-brain model that couples 84 noisy Stuart-Landau oscillators according to each participant\u0027s DTI-derived connectome. Simulation-based Bayesian inference uses source-reconstructed MEG alpha-spectrum features to estimate a global coupling parameter and one average whole-brain conduction velocity for each participant.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"DIGITAL_TWIN\", \"model_software\": \"Python, C++/SWIG, Jupyter, PyTorch sbi\", \"model_format\": \"Python/C++ source and Jupyter notebooks\", \"publication\": \"PMID:38974971\"}}, {\"id\": \"Vitamin D Deficiency\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3}}], \"edges\": [{\"source\": \"Demyelination\", \"target\": \"Neurological Disability\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Autoimmune demyelination and neuronal loss lead to progressive neurological disability.\"}, {\"source\": \"Demyelination\", \"target\": \"CNS Mitochondrial Respiratory Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed rather than demonstrated. Loss of myelin is thought to raise the energy demand of the denuded axon and so alter the number, distribution and activity of its mitochondria. The cited studies state this as a hypothesis to explain their tissue findings and do not test it directly.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"EBNA1-GlialCAM Molecular Mimicry\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cross-reactive anti-EBNA1 immunity is proposed to feed the CNS-directed autoimmune attack that produces focal inflammatory lesions. The causal step is currently carried by a model system: immunizing against EBNA1 worsens experimental autoimmune encephalomyelitis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Th1/Th17-Mediated Neuroinflammation\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autoreactive Th17 cells migrate through the BBB and drive focal demyelinating lesion formation.\"}, {\"source\": \"Th1/Th17-Mediated Neuroinflammation\", \"target\": \"Oligodendrocyte Precursor and Microglial Autophagic-Mitophagic Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proinflammatory cytokine milieu generated by Th1/Th17 cells is one of the inducers used to establish the in vitro and in vivo MS models in which autophagic-mitophagic flux is dysregulated.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Compartmentalized CNS Inflammation\", \"target\": \"Axonal Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent compartmentalized inflammation at chronic active lesion rims sustains demyelination and axonal degeneration that contribute to PIRA.\", \"hypothesis_groups\": [\"chronic_active_lesion_smouldering_inflammation_pira\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic active lesion demyelination\"]}, {\"source\": \"Compartmentalized CNS Inflammation\", \"target\": \"Microglial NLRP3 Inflammasome Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Innate immune activation within chronic active lesions provides the priming and myelin-debris danger signals that drive NLRP3 inflammasome assembly in lesion-resident microglia.\"}, {\"source\": \"Compartmentalized CNS Inflammation\", \"target\": \"Chronic Inflammation-Induced Oligodendroglial and Glial Senescence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Soluble factors released by pro-inflammatory microglia within compartmentalized lesions drive a senescent phenotype in nearby oligodendrocyte-lineage cells.\"}, {\"source\": \"Oligodendrocyte Precursor and Microglial Autophagic-Mitophagic Dysregulation\", \"target\": \"Demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structurally and mechanistically unrelated autophagy inhibitors improve myelin production and normalize axonal myelination in demyelinating models, indicating that the dysregulated autophagic-mitophagic flux itself impairs myelin maintenance rather than merely accompanying it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Inflammation-Induced Oligodendroglial and Glial Senescence\", \"target\": \"Demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A greater senescent-cell load in demyelinated lesions is associated with faster loss of ambulation and earlier death, consistent with the persistent SASP secretome impairing remyelination capacity and sustaining lesion pathology.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"senescence-associated secretory phenotype\"]}, {\"source\": \"Microglial NLRP3 Inflammasome Activation\", \"target\": \"Axonal Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NLRP3-dependent IL-1beta/IL-18 maturation and gasdermin-D-associated pyroptotic signaling within chronic active lesions add a further, innate-immune route to the tissue injury that manifests as axonal damage.\"}, {\"source\": \"Clonally Expanded Neuronal mtDNA Deletions\", \"target\": \"CNS Mitochondrial Respiratory Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deletions that remove mtDNA-encoded respiratory chain subunits leave the affected neuron unable to assemble complex IV.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CNS Mitochondrial Respiratory Deficiency\", \"target\": \"Axonal Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ATP production in demyelinated axon segments is proposed to disturb ion homeostasis and trigger calcium-mediated axonal degeneration, and the extent of neuronal PGC-1alpha loss correlates with neuronal loss in MS cortex.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"disturbed axonal ion homeostasis\", \"calcium-mediated axonal degeneration\"]}, {\"source\": \"Vitamin D Deficiency\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded below the Epstein-Barr link into this same node. The second item is the more interesting of the two and the reason this link is drawn at all: a low-frequency coding variant that raises the risk of vitamin D insufficiency also raises the odds of this disease, which is a genetic-instrument argument rather than another observational association. Both items stop at disease risk.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Epstein-Barr Virus Infection\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded above the vitamin D link into this same node, on evidence rather than on preference: this exposure has a quantified hazard, is described by its source as the strongest known risk factor for the disease, and is argued elsewhere to be necessary though not sufficient. The intermediates are nonetheless unknown, because no cited sentence follows the virus to myelin-reactive T cells; the route from infection to this node is exactly what the field is still arguing about.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disease-Modifying Therapies (DMTs)\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Disease-Modifying Therapies (DMTs)\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-CD20 B-cell Depletion Therapy\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Corticosteroids\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Human myelin microphysiological system with autologous patient immune cells\", \"target\": \"Demyelination\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Patient immune cells strip myelin from otherwise healthy human myelinating tissue more than healthy-donor cells do, so the model reproduces immune-driven demyelination with the disease difference carried by the patient\u0027s own leukocytes.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Preprint, not peer reviewed. The myelinating tissue is healthy, so the model starts from intact myelin rather than from a lesion with its own CNS-resident inflammation, and it has no blood-brain barrier for the immune cells to cross. Demyelination develops over a co-culture period rather than over the relapsing or progressive course of the disease. The increased myelin uptake reported here sits beside peer-reviewed work in which monocyte-derived macrophages from MS patients phagocytosed purified human myelin less well than healthy-donor cells (PMID:29379818); the two assays differ in cell state and in myelin presentation, and the abstract does not reconcile them.\"}, {\"source\": \"Human myelin microphysiological system with autologous patient immune cells\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The co-culture reports expansion of proinflammatory T-cell subsets from MS-patient blood on contact with human myelinating tissue, a measurement on the T-cell arm of MS neuroinflammation.\", \"relationship\": \"MEASURES\", \"fidelity\": \"LOW\", \"limitations\": \"Preprint, not peer reviewed. The abstract says \\\"proinflammatory T-cell subsets\\\" without naming Th1 or Th17 lineages, so the correspondence to this node\u0027s Th1/Th17 claim is not established from the abstract.\"}, {\"source\": \"UISS-MS Agent-Based Treatment Simulator\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The disease layer explicitly represents cytokine-dependent Th1 and Th17 differentiation, migration across the blood-brain barrier, reactivation in the CNS, and inflammatory interactions with microglia and other immune agents.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The immune rules are a mechanistic abstraction assembled from a conceptual ontology rather than fitted to longitudinal cellular or cytokine data from individual patients. Validation is against aggregate relapse and safety outcomes in selected RRMS-like virtual populations, not direct measurements of Th1/Th17 states. Progressive MS and compartmentalized chronic CNS inflammation are outside the demonstrated validation scope.\"}, {\"source\": \"UISS-MS Agent-Based Treatment Simulator\", \"target\": \"Demyelination\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Immune-agent interactions drive loss of modeled oligodendrocytes, which is used as the simulation\u0027s cellular proxy for myelin injury and relapse.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Demyelination is reduced to oligodendrocyte loss in a simulated 3-mm3 white-matter volume. The model does not resolve myelin ultrastructure, tract-specific conduction, remyelination, or axonal injury, and the oligodendrocyte-loss threshold is not an individualized imaging model.\"}, {\"source\": \"UISS-MS Agent-Based Treatment Simulator\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"UISS-MS converts sufficiently large simulated oligodendrocyte-loss events into MRI-detectable relapses, providing a coarse lesion-level output for comparison with clinical-trial relapse data.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"A fixed loss of 50,000 oligodendrocytes is used as the MRI-detection threshold. This is a derived event proxy, not a spatial lesion-growth or MRI-physics model, and it does not reproduce lesion topography, contrast enhancement, immune-cell composition, chronic-active rims, or lesion-wise uncertainty.\"}, {\"source\": \"Virtual Multiple Sclerosis Patient Whole-Brain Model\", \"target\": \"Demyelination\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The inverse model treats slower large-scale signal propagation as a functional consequence of myelin damage and infers an individual average conduction velocity from the participant\u0027s connectome and MEG spectrum.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model does not simulate immune attack, myelin loss, lesion formation, remyelination, or axonal injury. It collapses spatially heterogeneous conduction into one homogeneous whole-brain velocity, and alpha-spectrum changes can also arise from excitation/inhibition balance, 1/f structure, or thalamic-loop changes. The evidence comes from 18 patients and 20 controls at one site; EDSS was available for 17 patients, and no external or longitudinal validation cohort was used.\"}, {\"source\": \"Lesion-Aware Personalized Whole-Brain Conduction-Delay Model\", \"target\": \"Demyelination\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The model maps the fraction of each white-matter tract occupied by a patient-specific lesion to an additional edge-specific conduction delay, then infers a subject-level lesion-effect parameter from MEG spectra.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"FLAIR lesion fraction is an imaging proxy, not a direct measure of myelin thickness, axon diameter, or active inflammation. The model does not generate lesions or simulate immune attack, remyelination, axonal damage, or progression. One scalar gamma applies the same lesion-to-delay rule to all affected tracts, source reconstruction is vulnerable to volume conduction, and alternative mechanisms can alter alpha spectra. The same 18-patient/20-control source cohort as the 2024 study was used, without longitudinal or external validation.\"}, {\"source\": \"HLA-DRB1\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL7R\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL2RA\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TYK2\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CD40\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNFRSF1A\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CD28\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Neurological Disability\"], \"grouping\": {\"mean_edge_count\": 23}}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -14622,13 +15376,538 @@ This dataset samples demyelinated white-matter lesion tissue, annotated with whi
         <!-- Experimental Models -->
 
 
+<div id="experimental-models"></div>
+<div class="card" id="models">
+    <div class="card-header">
+        <div class="card-icon" style="background: #fffbeb; color: #f59e0b;">🧫</div>
+        <h2 class="card-title">Experimental Models</h2>
+        <span class="card-count">1</span>
+    </div>
+
+    <div class="item-box exp-model-box anchor-target" id="experimental-model-human-myelin-microphysiological-system-with-autologous-patient-immune-cells" data-dismech-node="Human myelin microphysiological system with autologous patient immune cells" data-dismech-type="experimental_model">
+        <div class="item-name">
+            Human myelin microphysiological system with autologous patient immune cells
+
+            <span class="tag tag-exp-model-type">ORGANOID</span>
+
+
+            <span class="tag tag-namo-type">
+
+
+
+    <a href="https://w3id.org/monarch-initiative/namo/Organoid" target="_blank" class="curie-chip curie-chip-namo" title="Open namo:Organoid">namo:Organoid</a>
+
+
+            </span>
+
+        </div>
+
+        <div class="item-desc">A human myelin microphysiological system (myelin MPS) built by culturing neural organoids on 3D-printed devices carrying directional microfibers and then co-culturing them with oligodendrocyte progenitor cells, giving 96 myelinating tissue models per conventional well plate. Peripheral T cells and monocytes from people with MS, or from healthy donors, are then added to the healthy myelinating tissue. Cells from MS patients caused more demyelination than healthy-donor cells, with expansion of proinflammatory T-cell subsets and more myelin uptake by monocytes/macrophages. Combined imaging and flow-cytometry features separated healthy-donor, untreated-MS, responder and nonresponder profiles after prednisone, glatiramer acetate, interferon beta-1a or dimethyl fumarate, which the authors propose as a way to test an individual patient&#39;s treatment response. Reported in a preprint that has not been peer reviewed.</div>
+
+
+        <div class="tag-list" style="margin-top: 10px;">
+
+            <span class="tag tag-condition">co-culture with autologous T cells and monocytes from MS patients</span>
+
+            <span class="tag tag-condition">co-culture with T cells and monocytes from healthy donors</span>
+
+            <span class="tag tag-condition">immune cells from patients treated with prednisone, glatiramer acetate, interferon beta-1a or dimethyl fumarate</span>
+
+        </div>
+
+
+        <div class="tag-list" style="margin-top: 10px;">
+
+
+
+            <span class="tag tag-cell">
+
+                oligodendrocyte progenitor cell
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002453" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-128">CL:0002453</a>
+
+
+
+                <span class="pill-tip" role="tooltip" id="pill-tip-128">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses oligodendrocyte progenitor cell, annotated with oligodendrocyte precursor cell (CL:0002453). CL:0002453 is a cell type from the Cell Ontology.</span>
+            </span>
+
+
+
+            <span class="tag tag-cell">
+
+                patient-derived T cell
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-129">CL:0000084</a>
+
+
+
+                <span class="pill-tip" role="tooltip" id="pill-tip-129">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses patient-derived T cell, annotated with T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
+            </span>
+
+
+
+            <span class="tag tag-cell">
+
+                patient-derived monocyte
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-130">CL:0000576</a>
+
+
+
+                <span class="pill-tip" role="tooltip" id="pill-tip-130">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses patient-derived monocyte, annotated with monocyte (CL:0000576). CL:0000576 is a cell type from the Cell Ontology.</span>
+            </span>
+
+        </div>
+
+
+        <div class="model-detail-list">
+
+            <div class="model-detail-row">
+                <div class="model-detail-label">Organism</div>
+
+
+                <div class="model-detail-value">
+
+                    human
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-131">NCBITaxon:9606</a>
+
+
+
+                    <span class="pill-tip" role="tooltip" id="pill-tip-131">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
+                </div>
+            </div>
+
+
+
+            <div class="model-detail-row">
+                <div class="model-detail-label">Cell source</div>
+                <div class="model-detail-value">Neural organoids and oligodendrocyte progenitor cells forming the myelinating tissue; peripheral T cells and monocytes from MS patients or healthy donors</div>
+            </div>
+
+
+            <div class="model-detail-row">
+                <div class="model-detail-label">Culture</div>
+                <div class="model-detail-value">Neural organoids on 3D-printed directional microfiber devices in a 96-well plate format</div>
+            </div>
+
+
+            <div class="model-detail-row">
+                <div class="model-detail-label">Publication</div>
+                <div class="model-detail-value">
+
+
+
+    <a href="https://bioregistry.io/PPR:PPR1322929" target="_blank" class="curie-chip curie-chip-ppr" title="Open PPR:PPR1322929">PPR:PPR1322929</a>
+
+
+                </div>
+            </div>
+
+        </div>
+
+
+
+<div class="crosslink-block">
+    <div class="crosslink-title">Pathograph links</div>
+    <div class="crosslink-list">
+
+        <div class="crosslink-item">
+            <a href="#pathophysiology-demyelination">Demyelination</a>
+
+            <span class="crosslink-meta">partially recapitulates</span>
+
+
+            <span class="crosslink-meta">fidelity: moderate</span>
+
+
+            <span class="model-link-scale" title="The biological scale the model observes, which may be below the scale of the node it is linked to.">observes: tissue</span>
+
+
+            <span class="crosslink-desc">Patient immune cells strip myelin from otherwise healthy human myelinating tissue more than healthy-donor cells do, so the model reproduces immune-driven demyelination with the disease difference carried by the patient&#39;s own leukocytes.</span>
+
+
+            <div class="mapping-notes">Limitations: Preprint, not peer reviewed. The myelinating tissue is healthy, so the model starts from intact myelin rather than from a lesion with its own CNS-resident inflammation, and it has no blood-brain barrier for the immune cells to cross. Demyelination develops over a co-culture period rather than over the relapsing or progressive course of the disease. The increased myelin uptake reported here sits beside peer-reviewed work in which monocyte-derived macrophages from MS patients phagocytosed purified human myelin less well than healthy-donor cells (PMID:29379818); the two assays differ in cell state and in myelin presentation, and the abstract does not reconcile them.</div>
+
+
+            <div class="experiment-section">
+                <div class="experiment-section-title">Divergences from the human mechanism</div>
+
+                <div class="model-divergence">
+                    <span class="model-divergence-type">boundary omission</span>
+
+                    <span class="model-materiality model-materiality-QUALIFYING">qualifying</span>
+
+
+                    <div class="mapping-notes">There is no blood-brain barrier and no resident autoreactive CNS inflammation in the system; patient leukocytes are placed directly on the myelinating tissue, so the trafficking and lesion-initiation steps that precede demyelination in MS are outside the model.</div>
+
+                </div>
+
+                <div class="model-divergence">
+                    <span class="model-divergence-type">temporal scope</span>
+
+                    <span class="model-materiality model-materiality-QUALIFYING">qualifying</span>
+
+
+                    <div class="mapping-notes">Demyelination is measured after a single co-culture exposure, whereas the node describes myelin loss accumulating across relapses and progression over years.</div>
+
+                </div>
+
+            </div>
+
+
+            <div class="experiment-section">
+                <div class="experiment-section-title">Readouts</div>
+
+
+<div class="experiment-subitem">
+    <div class="experiment-subitem-name">Demyelination of myelinated tissue after immune-cell co-culture</div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="mapping-notes">Direction: INCREASED</div>
+
+
+    <div class="mapping-notes">Interpretation: Greater demyelination with MS-patient than with healthy-donor T cells and monocytes is the model&#39;s correlate of the immune attack on myelin.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1322929" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1322929" target="_blank">PPR:PPR1322929</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"autologous T cells and monocytes from MS patients induced substantially greater demyelination than those from healthy donors"</div>
+
+
+                <div class="evidence-explanation">Preprint (not peer reviewed) reporting the patient-versus-donor difference in demyelination within the model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+</div>
+
+
+<div class="experiment-subitem">
+    <div class="experiment-subitem-name">Myelin uptake by monocytes/macrophages after co-culture</div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="mapping-notes">Direction: INCREASED</div>
+
+
+    <div class="mapping-notes">Interpretation: More myelin taken up by patient monocytes/macrophages accompanies the increased demyelination in the model.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1322929" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1322929" target="_blank">PPR:PPR1322929</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"accompanied by expansion of proinflammatory T-cell subsets and increased myelin uptake by monocytes/macrophages after coculture with these healthy myelinating neural tissues"</div>
+
+
+                <div class="evidence-explanation">Preprint (not peer reviewed) reporting increased myelin uptake by patient monocytes/macrophages in the co-culture.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+</div>
+
+            </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1322929" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1322929" target="_blank">PPR:PPR1322929</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"By culturing neural organoids on 3D-printed devices containing directional microfibers, followed by coculture with oligodendrocyte progenitor cells, 96 myelin MPS models can be generated within a conventional well plate."</div>
+
+
+                <div class="evidence-explanation">Describes the human myelinating tissue on which patient immune cells act; preprint, not peer reviewed.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+        </div>
+
+        <div class="crosslink-item">
+            <a href="#pathophysiology-th1-th17-mediated-neuroinflammation">Th1/Th17-Mediated Neuroinflammation</a>
+
+            <span class="crosslink-meta">measures</span>
+
+
+            <span class="crosslink-meta">fidelity: low</span>
+
+
+            <span class="model-link-scale" title="The biological scale the model observes, which may be below the scale of the node it is linked to.">observes: cellular</span>
+
+
+            <span class="crosslink-desc">The co-culture reports expansion of proinflammatory T-cell subsets from MS-patient blood on contact with human myelinating tissue, a measurement on the T-cell arm of MS neuroinflammation.</span>
+
+
+            <div class="mapping-notes">Limitations: Preprint, not peer reviewed. The abstract says &#34;proinflammatory T-cell subsets&#34; without naming Th1 or Th17 lineages, so the correspondence to this node&#39;s Th1/Th17 claim is not established from the abstract.</div>
+
+
+            <div class="experiment-section">
+                <div class="experiment-section-title">Divergences from the human mechanism</div>
+
+                <div class="model-divergence">
+                    <span class="model-divergence-type">proxy quantity</span>
+
+                    <span class="model-materiality model-materiality-QUALIFYING">qualifying</span>
+
+
+                    <div class="mapping-notes">The readout is expansion of unspecified proinflammatory T-cell subsets in co-culture; the node is Th1/Th17 lineage-driven inflammation in the CNS, so the measured quantity stands in for the node&#39;s at lower resolution.</div>
+
+                </div>
+
+            </div>
+
+
+            <div class="experiment-section">
+                <div class="experiment-section-title">Readouts</div>
+
+
+<div class="experiment-subitem">
+    <div class="experiment-subitem-name">Proinflammatory T-cell subset expansion after co-culture</div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="mapping-notes">Direction: INCREASED</div>
+
+
+    <div class="mapping-notes">Interpretation: Expansion of proinflammatory T cells from MS-patient blood in contact with myelinating tissue.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1322929" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1322929" target="_blank">PPR:PPR1322929</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"accompanied by expansion of proinflammatory T-cell subsets and increased myelin uptake by monocytes/macrophages after coculture with these healthy myelinating neural tissues"</div>
+
+
+                <div class="evidence-explanation">Preprint (not peer reviewed) reporting proinflammatory T-cell subset expansion in the co-culture.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+</div>
+
+            </div>
+
+
+
+        </div>
+
+    </div>
+</div>
+
+
+
+
+
+
+        <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">The preprint is the only source for this model. No responder or nonresponder result is recorded against the entry&#39;s treatments, because a single unreviewed study of a predictive platform is not evidence about how those drugs work in MS.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1322929" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1322929" target="_blank">PPR:PPR1322929</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Integration of imaging and flow-cytometric features distinguished healthy-donor, untreated-MS, responder, and nonresponder profiles following treatment with prednisone, glatiramer acetate, interferon β-1a, or dimethyl fumarate."</div>
+
+
+                <div class="evidence-explanation">Preprint (not peer reviewed) reporting that the model&#39;s readouts separate treatment responders from nonresponders for four standard MS therapies. This is a proposed use of the model, not evidence that any therapy acts by a particular mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+    </div>
+
+</div>
+
 
 <!-- Animal Models -->
 
 
 <!-- Computational Models -->
 
-<div class="card" id="models">
+<div class="card">
     <div class="card-header">
         <div class="card-icon" style="background: #f0fdf4; color: #22c55e;">🧮</div>
         <h2 class="card-title">Computational Models</h2>
@@ -18486,6 +19765,182 @@ environmental:
     term:
       id: ECTO:3000001
       label: exposure to virus
+experimental_models:
+- name: Human myelin microphysiological system with autologous patient immune cells
+  description: &gt;-
+    A human myelin microphysiological system (myelin MPS) built by culturing
+    neural organoids on 3D-printed devices carrying directional microfibers and
+    then co-culturing them with oligodendrocyte progenitor cells, giving 96
+    myelinating tissue models per conventional well plate. Peripheral T cells
+    and monocytes from people with MS, or from healthy donors, are then added
+    to the healthy myelinating tissue. Cells from MS patients caused more
+    demyelination than healthy-donor cells, with expansion of proinflammatory
+    T-cell subsets and more myelin uptake by monocytes/macrophages. Combined
+    imaging and flow-cytometry features separated healthy-donor, untreated-MS,
+    responder and nonresponder profiles after prednisone, glatiramer acetate,
+    interferon beta-1a or dimethyl fumarate, which the authors propose as a
+    way to test an individual patient&#39;s treatment response. Reported in a
+    preprint that has not been peer reviewed.
+  experimental_model_type: ORGANOID
+  namo_type: namo:Organoid
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  cell_types:
+  - preferred_term: oligodendrocyte progenitor cell
+    term:
+      id: CL:0002453
+      label: oligodendrocyte precursor cell
+  - preferred_term: patient-derived T cell
+    term:
+      id: CL:0000084
+      label: T cell
+  - preferred_term: patient-derived monocyte
+    term:
+      id: CL:0000576
+      label: monocyte
+  conditions:
+  - co-culture with autologous T cells and monocytes from MS patients
+  - co-culture with T cells and monocytes from healthy donors
+  - immune cells from patients treated with prednisone, glatiramer acetate, interferon beta-1a or dimethyl fumarate
+  cell_source: Neural organoids and oligodendrocyte progenitor cells forming the myelinating tissue; peripheral
+    T cells and monocytes from MS patients or healthy donors
+  culture_system: Neural organoids on 3D-printed directional microfiber devices in a 96-well plate format
+  publication: PPR:PPR1322929
+  modeled_mechanisms:
+  - target: Demyelination
+    relationship: PARTIALLY_RECAPITULATES
+    fidelity: MODERATE
+    model_scale: TISSUE
+    description: &gt;-
+      Patient immune cells strip myelin from otherwise healthy human
+      myelinating tissue more than healthy-donor cells do, so the model
+      reproduces immune-driven demyelination with the disease difference
+      carried by the patient&#39;s own leukocytes.
+    limitations: &gt;-
+      Preprint, not peer reviewed. The myelinating tissue is healthy, so the
+      model starts from intact myelin rather than from a lesion with its own
+      CNS-resident inflammation, and it has no blood-brain barrier for the
+      immune cells to cross. Demyelination develops over a co-culture period
+      rather than over the relapsing or progressive course of the disease. The
+      increased myelin uptake reported here sits beside peer-reviewed work in
+      which monocyte-derived macrophages from MS patients phagocytosed purified
+      human myelin less well than healthy-donor cells (PMID:29379818); the two
+      assays differ in cell state and in myelin presentation, and the abstract
+      does not reconcile them.
+    divergences:
+    - divergence_type: BOUNDARY_OMISSION
+      materiality: QUALIFYING
+      description: &gt;-
+        There is no blood-brain barrier and no resident autoreactive CNS
+        inflammation in the system; patient leukocytes are placed directly on
+        the myelinating tissue, so the trafficking and lesion-initiation steps
+        that precede demyelination in MS are outside the model.
+    - divergence_type: TEMPORAL_SCOPE
+      materiality: QUALIFYING
+      description: &gt;-
+        Demyelination is measured after a single co-culture exposure, whereas
+        the node describes myelin loss accumulating across relapses and
+        progression over years.
+    readouts:
+    - name: Demyelination of myelinated tissue after immune-cell co-culture
+      target: Demyelination
+      direction: INCREASED
+      interpretation: &gt;-
+        Greater demyelination with MS-patient than with healthy-donor T cells
+        and monocytes is the model&#39;s correlate of the immune attack on myelin.
+      evidence:
+      - reference: PPR:PPR1322929
+        reference_title: &#34;Engineering human myelin microphysiological systems for testing patient treatment response in multiple sclerosis&#34;
+        supports: SUPPORT
+        evidence_source: IN_VITRO
+        quote_role: PRIMARY_RESULT
+        snippet: &#34;autologous T cells and monocytes from MS patients induced substantially greater demyelination than those from healthy donors&#34;
+        explanation: &gt;-
+          Preprint (not peer reviewed) reporting the patient-versus-donor
+          difference in demyelination within the model.
+    - name: Myelin uptake by monocytes/macrophages after co-culture
+      target: Demyelination
+      direction: INCREASED
+      interpretation: &gt;-
+        More myelin taken up by patient monocytes/macrophages accompanies the
+        increased demyelination in the model.
+      evidence:
+      - reference: PPR:PPR1322929
+        reference_title: &#34;Engineering human myelin microphysiological systems for testing patient treatment response in multiple sclerosis&#34;
+        supports: SUPPORT
+        evidence_source: IN_VITRO
+        quote_role: PRIMARY_RESULT
+        snippet: &#34;accompanied by expansion of proinflammatory T-cell subsets and increased myelin uptake by monocytes/macrophages after coculture with these healthy myelinating neural tissues&#34;
+        explanation: &gt;-
+          Preprint (not peer reviewed) reporting increased myelin uptake by
+          patient monocytes/macrophages in the co-culture.
+    evidence:
+    - reference: PPR:PPR1322929
+      reference_title: &#34;Engineering human myelin microphysiological systems for testing patient treatment response in multiple sclerosis&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      quote_role: PRIMARY_RESULT
+      snippet: &#34;By culturing neural organoids on 3D-printed devices containing directional microfibers, followed by coculture with oligodendrocyte progenitor cells, 96 myelin MPS models can be generated within a conventional well plate.&#34;
+      explanation: &gt;-
+        Describes the human myelinating tissue on which patient immune cells
+        act; preprint, not peer reviewed.
+  - target: Th1/Th17-Mediated Neuroinflammation
+    relationship: MEASURES
+    fidelity: LOW
+    model_scale: CELLULAR
+    description: &gt;-
+      The co-culture reports expansion of proinflammatory T-cell subsets from
+      MS-patient blood on contact with human myelinating tissue, a measurement
+      on the T-cell arm of MS neuroinflammation.
+    limitations: &gt;-
+      Preprint, not peer reviewed. The abstract says &#34;proinflammatory T-cell
+      subsets&#34; without naming Th1 or Th17 lineages, so the correspondence to
+      this node&#39;s Th1/Th17 claim is not established from the abstract.
+    divergences:
+    - divergence_type: PROXY_QUANTITY
+      materiality: QUALIFYING
+      description: &gt;-
+        The readout is expansion of unspecified proinflammatory T-cell subsets
+        in co-culture; the node is Th1/Th17 lineage-driven inflammation in the
+        CNS, so the measured quantity stands in for the node&#39;s at lower
+        resolution.
+    readouts:
+    - name: Proinflammatory T-cell subset expansion after co-culture
+      target: Th1/Th17-Mediated Neuroinflammation
+      direction: INCREASED
+      interpretation: &gt;-
+        Expansion of proinflammatory T cells from MS-patient blood in contact
+        with myelinating tissue.
+      evidence:
+      - reference: PPR:PPR1322929
+        reference_title: &#34;Engineering human myelin microphysiological systems for testing patient treatment response in multiple sclerosis&#34;
+        supports: SUPPORT
+        evidence_source: IN_VITRO
+        quote_role: PRIMARY_RESULT
+        snippet: &#34;accompanied by expansion of proinflammatory T-cell subsets and increased myelin uptake by monocytes/macrophages after coculture with these healthy myelinating neural tissues&#34;
+        explanation: &gt;-
+          Preprint (not peer reviewed) reporting proinflammatory T-cell subset
+          expansion in the co-culture.
+  evidence:
+  - reference: PPR:PPR1322929
+    reference_title: &#34;Engineering human myelin microphysiological systems for testing patient treatment response in multiple sclerosis&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    quote_role: PRIMARY_RESULT
+    snippet: &#34;Integration of imaging and flow-cytometric features distinguished healthy-donor, untreated-MS, responder, and nonresponder profiles following treatment with prednisone, glatiramer acetate, interferon β-1a, or dimethyl fumarate.&#34;
+    explanation: &gt;-
+      Preprint (not peer reviewed) reporting that the model&#39;s readouts separate
+      treatment responders from nonresponders for four standard MS therapies.
+      This is a proposed use of the model, not evidence that any therapy acts
+      by a particular mechanism.
+  notes: &gt;-
+    The preprint is the only source for this model. No responder or
+    nonresponder result is recorded against the entry&#39;s treatments, because a
+    single unreviewed study of a predictive platform is not evidence about how
+    those drugs work in MS.
 computational_models:
 - name: UISS-MS Agent-Based Treatment Simulator
   description: &gt;-
@@ -19998,7 +21453,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Multiple Sclerosis", "mondoId": "MONDO:0005301", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Multiple_Sclerosis", "yamlRevision": "b1cb5a89c983"};
+        const OS_CONFIG = {"diseaseName": "Multiple Sclerosis", "mondoId": "MONDO:0005301", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Multiple_Sclerosis", "yamlRevision": "f1f184c3c3ac"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
