@@ -1,6 +1,6 @@
 ---
 title: 'GPCRs: Drug Mechanisms and Disease Modules'
-status: PLANNED
+status: IN_PROGRESS
 description: >-
   Mechanism modules anchored on G protein-coupled receptors: drug-mechanism
   modules for the major GPCR-targeting drug classes, and disease modules for
@@ -177,6 +177,9 @@ mechanism-level rather than disease-level.
 ### Phase 2 — conformers and remaining modules
 - [ ] Add `conforms_to` on the treatment-linked pathophysiology nodes of the
       candidate conformers above
+  - [x] The four opioid entries, against both mu-opioid modules, in #14973:
+        `Opioid_Use_Disorder`, `Acute_Opioid_Poisoning`, `Acute_Post-Surgical_Pain`,
+        `Alcohol_Use_Disorder`
 - [ ] Remaining Workstream A modules
 - [ ] Gs alpha defect module
 
