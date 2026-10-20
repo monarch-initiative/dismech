@@ -49,10 +49,16 @@ for (const templateName of ["disorder", "module"]) {
             "utf8",
         );
         const layoutStart = template.indexOf("var g = new dagre.graphlib.Graph(");
-        const drawStart = template.indexOf('var edgesG = rootG.append("g")');
-        assert.ok(layoutStart >= 0 && drawStart >= 0);
         const layout = template.slice(layoutStart, template.indexOf("var graphInfo", layoutStart));
-        const draw = template.slice(drawStart, template.indexOf("function drawNodeShape", drawStart));
+        // The disorder page creates its edge layer once and redraws edges into
+        // it on every grouping change (#14539), so its edge loop sits apart from
+        // the layer it draws into. The module page still draws in one block.
+        const [drawFrom, drawTo, prelude] = templateName === "disorder"
+            ? ["/* -- Draw edges -- */", "/* -- Draw nodes -- */", 'var edgesG = rootG.append("g");\n']
+            : ['var edgesG = rootG.append("g")', "function drawNodeShape", ""];
+        const drawStart = template.indexOf(drawFrom);
+        assert.ok(layoutStart >= 0 && drawStart >= 0);
+        const draw = prelude + template.slice(drawStart, template.indexOf(drawTo, drawStart));
         const rootG = new Element("g");
         const data = {
             nodes: [{ id: "SV" }, { id: "LMNB1" }],
@@ -67,6 +73,10 @@ for (const templateName of ["disorder", "module"]) {
         line.x = line.y = line.curve = () => line;
         runInNewContext(layout + draw, {
             data,
+            // The disorder page lays out a grouped copy of the data; with no
+            // grouping applied it carries the same nodes and edges.
+            view: data,
+            nodeLabel: node => node.id,
             rootG,
             dagre: {
                 graphlib: { Graph },
