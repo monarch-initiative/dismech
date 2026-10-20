@@ -1911,6 +1911,119 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "3-Methylglutaconic Aciduria Type VIIA",
+    "disease_id": "MONDO:0859237",
+    "category": "Mendelian",
+    "parents": [
+      "3-Methylglutaconic Aciduria",
+      "Mitochondrial Disease",
+      "Congenital Neutropenia"
+    ],
+    "creation_date": "2026-10-20T01:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "3-methylglutaconic aciduria type VIIA (MGCA7A) is the autosomal dominant form of CLPB deficiency. It is caused by specific heterozygous missense variants in CLPB, all reported so far as de novo, that lie in the nucleotide-binding domain of this ATP-dependent AAA+ disaggregase of the mitochondrial intermembrane space. Mutant subunits assemble with wild-type CLPB and inhibit its disaggregase activity, and to a lesser extent its ATPase activity, in a dominant-negative manner. The result resembles the recessive form (type VIIB): congenital neutropenia with recurrent infections, epilepsy, developmental delay and intellectual disability, with brain atrophy and white matter abnormalities in some patients, and raised urinary 3-methylglutaconic acid in some. Cataracts, a feature of the recessive form, have not been reported. Management is supportive, with granulocyte colony-stimulating factor for the neutropenia. The boundary with the other dominant CLPB disorder, severe congenital neutropenia type 9 (isolated neutropenia, OMIM 619813), is not settled.",
+    "pathophysiology": [
+      "Dominant-Negative Inhibition of CLPB Disaggregase",
+      "Intermembrane Space Protein Aggregation",
+      "HAX1 Insolubility and Altered CLPB-HAX1 Interaction",
+      "Granulocytic Precursor Apoptosis",
+      "Impaired Neutrophil Differentiation",
+      "Neurodevelopmental Dysfunction",
+      "Secondary 3-Methylglutaconic Acid Accumulation"
+    ],
+    "cell_types": [
+      "myeloblast",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000835",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "protein refolding",
+      "apoptotic process",
+      "neutrophil differentiation"
+    ],
+    "phenotypes": [
+      "Congenital neutropenia",
+      "Recurrent infections",
+      "Seizures",
+      "Global developmental delay",
+      "Intellectual disability",
+      "Absent speech",
+      "Movement disorder",
+      "Cerebral white matter abnormalities",
+      "Thin corpus callosum",
+      "Cerebral atrophy",
+      "Growth delay",
+      "3-Methylglutaconic aciduria",
+      "Spasticity",
+      "Cataract",
+      "Myeloid malignancy",
+      "Death in childhood"
+    ],
+    "phenotype_categories": [
+      "Hematological",
+      "Immunological",
+      "Neurological",
+      "Growth",
+      "Metabolic",
+      "Ophthalmological",
+      "Neoplasm",
+      "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001875",
+      "HP:0002719",
+      "HP:0001250",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001344",
+      "HP:0100022",
+      "HP:0002500",
+      "HP:0033725",
+      "HP:0002059",
+      "HP:0001510",
+      "HP:0003535",
+      "HP:0001257",
+      "HP:0000518",
+      "HP:0001909"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CLPB"
+    ],
+    "treatments": [
+      "Granulocyte Colony-Stimulating Factor",
+      "Hematopoietic Stem Cell Transplantation",
+      "Multidisciplinary Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Urinary 3-methylglutaconic acid"
+    ],
+    "source_file": "3-methylglutaconic_Aciduria_Type_VIIA.yaml",
+    "page_url": "../pages/disorders/3-Methylglutaconic_Aciduria_Type_VIIA.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "3-Methylglutaconic Aciduria Type VIIB",
     "disease_id": "MONDO:0014561",
     "category": "Mendelian",
@@ -15329,6 +15442,81 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Acute Pyelonephritis",
+    "disease_id": "MONDO:0003529",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial urinary tract infection"
+    ],
+    "creation_date": "2026-09-30T09:47:36Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Acute pyelonephritis is a bacterial upper urinary tract infection in which uropathogenic bacteria ascend from the bladder through the ureter, seed the renal pelvis and renal parenchyma, and provoke acute tubulointerstitial inflammation with fever, flank pain, and risk of bacteremia or sepsis.",
+    "pathophysiology": [
+      "Vesicoureteral Bacterial Ascent",
+      "Renal Parenchymal Bacterial Expansion",
+      "Acute Tubulointerstitial Inflammation"
+    ],
+    "cell_types": [
+      "kidney collecting duct epithelial cell",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:1000454",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "defense response to bacterium",
+      "neutrophil activation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Flank pain",
+      "Pyuria",
+      "Sepsis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Genitourinary",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0030157",
+      "HP:0012085",
+      "HP:0100806"
+    ],
+    "frequencies": [],
+    "genes": [
+      "IRF3",
+      "CXCL8",
+      "CXCR1"
+    ],
+    "treatments": [
+      "Culture-guided fluoroquinolone antimicrobial therapy",
+      "Intravenous third-generation cephalosporin (ceftriaxone)",
+      "Ceftazidime-avibactam",
+      "Source control (decompression and drainage)"
+    ],
+    "environmental": [
+      "Diabetes mellitus",
+      "Urinary tract obstruction",
+      "Pregnancy"
+    ],
+    "biochemical": [],
+    "source_file": "Acute_Pyelonephritis.yaml",
+    "page_url": "../pages/disorders/Acute_Pyelonephritis.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 3,
+    "num_treatments": 4,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Acute Radiation Syndrome",
     "disease_id": "MONDO:0033938",
     "category": "Complex",
@@ -18525,6 +18713,88 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "51",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Aeromonas Hydrophila Intestinal Disease",
+    "disease_id": "MONDO:0024459",
+    "category": "Infectious Disease",
+    "parents": [
+      "Aeromonas Hydrophila Infectious Disease"
+    ],
+    "creation_date": "2026-09-30T06:33:29Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Aeromonas hydrophila intestinal disease is an acquired bacterial gastroenteritis caused by waterborne or foodborne Aeromonas hydrophila. It can present as watery, cholera-like diarrhea with dehydration or as a dysentery-like bloody diarrhea when pore-forming toxins drive epithelial injury and inflammatory signaling.",
+    "pathophysiology": [
+      "Contaminated Food and Water Ingestion",
+      "Mucus Adhesion and Intestinal Colonization",
+      "Act and Aerolysin Pore-Toxin Activation",
+      "cAMP and Eicosanoid Secretory Signaling",
+      "MAPK-Caspase Inflammatory Epithelial Injury",
+      "Species Attribution and Commensal Ambiguity"
+    ],
+    "cell_types": [
+      "enterocyte",
+      "macrophage",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000584",
+      "CL:0000235",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "cytokine production",
+      "monoatomic ion transport",
+      "MAPK cascade",
+      "apoptotic process",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Watery Diarrhea",
+      "Bloody Diarrhea",
+      "Dehydration",
+      "Sepsis",
+      "Fever",
+      "Abdominal Pain"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0002014",
+      "HP:0025085",
+      "HP:0001944",
+      "HP:0100806",
+      "HP:0001945",
+      "HP:0002027"
+    ],
+    "frequencies": [
+      "OCCASIONAL",
+      "RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Susceptibility-Guided Antibiotic Therapy",
+      "Fluid and Electrolyte Rehydration"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Aeromonas_Hydrophila_Intestinal_Disease.yaml",
+    "page_url": "../pages/disorders/Aeromonas_Hydrophila_Intestinal_Disease.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Aflatoxicosis",
@@ -24491,6 +24761,85 @@ window.searchData = [
     "num_treatments": 15,
     "causal_graph_edges": "60",
     "causal_graph_longest_path": "11"
+  },
+  {
+    "name": "Anaerobic meningitis",
+    "disease_id": "MONDO:0002000",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial meningitis",
+      "Anaerobic Bacteria Infectious Disease"
+    ],
+    "creation_date": "2026-09-30T03:14:32Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Anaerobic meningitis is bacterial meningitis caused by anaerobic bacteria, usually after oral, gastrointestinal, skin, or abscess-associated anaerobes exploit otogenic, odontogenic, traumatic, device-associated, or postoperative barrier disruption, reach the cerebrospinal-fluid compartment, replicate locally, and trigger neutrophilic meningeal inflammation with high rates of intracranial complications and neurologic sequelae.",
+    "pathophysiology": [
+      "Endogenous Anaerobe Barrier Breach",
+      "Anaerobic CNS Seeding",
+      "Anaerobic CSF Replication",
+      "Anaerobic Neutrophilic Meningitis",
+      "TLR-Driven Innate Inflammatory Signaling",
+      "Oxidative Stress and Blood-Brain Barrier Breakdown",
+      "Septic Thrombophlebitis and Lemierre Branch",
+      "Bacteroides Capsular Abscess Formation",
+      "Anaerobic CNS Injury"
+    ],
+    "cell_types": [
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "toll-like receptor signaling pathway",
+      "neutrophil chemotaxis",
+      "response to oxidative stress",
+      "superoxide anion generation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Nuchal rigidity",
+      "Reduced consciousness",
+      "Focal neurologic deficit",
+      "CSF polymorphonuclear pleocytosis"
+    ],
+    "phenotype_categories": [
+      "Laboratory abnormality"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0031179",
+      "HP:0004372",
+      "HP:0012756"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Anaerobe-Active Antimicrobial Therapy",
+      "Surgical Source Control",
+      "Adjunctive Dexamethasone"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "CSF lactate"
+    ],
+    "source_file": "Anaerobic_Meningitis.yaml",
+    "page_url": "../pages/disorders/Anaerobic_meningitis.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Anaerobic Pneumonia",
@@ -57439,6 +57788,78 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Bordetella Parapertussis Infectious Disease",
+    "disease_id": "MONDO:0001353",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bordetellosis",
+      "Bacterial Respiratory Infection"
+    ],
+    "creation_date": "2026-09-30T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Bordetella parapertussis infectious disease, or parapertussis, is an acute whooping-cough-like respiratory infection caused by Bordetella parapertussis. The bacterium uses a BvgAS-regulated Bordetella virulence program to colonize ciliated respiratory mucosa, expresses an O-antigen lipopolysaccharide that promotes complement evasion, and is poorly prevented by current B. pertussis-directed pertussis vaccines.",
+    "pathophysiology": [
+      "BvgAS-Regulated Airway Colonization",
+      "Bordetella O-Antigen Complement Evasion",
+      "Pertactin-Mediated Resistance to Neutrophil Clearance",
+      "Vaccine Escape and Acellular Vaccine Facilitation",
+      "Pertussis-Toxin-Mediated Coinfection Facilitation",
+      "Whooping Cough-Like Illness"
+    ],
+    "cell_types": [
+      "ciliated epithelial cell",
+      "neutrophil",
+      "alveolar macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000067",
+      "CL:0000775",
+      "CL:0000583"
+    ],
+    "biological_processes": [
+      "adhesion of symbiont to host",
+      "negative regulation of complement activation",
+      "neutrophil mediated immunity",
+      "response to host immune response"
+    ],
+    "phenotypes": [
+      "Whooping cough",
+      "Paroxysmal cough",
+      "Post-tussive vomiting",
+      "Apnea",
+      "Cyanosis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Integument",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0031247",
+      "HP:0033362",
+      "HP:0002013",
+      "HP:0002104",
+      "HP:0000961"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Macrolide antibiotic therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Bordetella_Parapertussis_Infectious_Disease.yaml",
+    "page_url": "../pages/disorders/Bordetella_Parapertussis_Infectious_Disease.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Borjeson-Forssman-Lehmann syndrome",
     "disease_id": "MONDO:0010537",
     "category": "Mendelian",
@@ -80136,6 +80557,79 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "27",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Cellulitis",
+    "disease_id": "MONDO:0005230",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial infection"
+    ],
+    "creation_date": "2026-09-29T18:04:43Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Cellulitis is an acute bacterial infection of the deep dermis and subcutaneous tissue, most often a nonpurulent beta-hemolytic streptococcal infection that follows a skin barrier breach and is promoted by chronic edema or lymphatic and venous drainage impairment.",
+    "pathophysiology": [
+      "Skin Barrier Portal of Entry",
+      "Impaired Lymphatic and Venous Drainage",
+      "Bacterial Proliferation in Deep Dermis and Subcutis",
+      "Streptolysin S-Amplified Streptococcal Cytotoxicity",
+      "Innate Inflammatory Edema and Cellulitis Plaque",
+      "Recurrent Cellulitis Loop"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "lymphatic endothelial cell",
+      "macrophage",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0002138",
+      "CL:0000235",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "defense response to Gram-positive bacterium",
+      "interleukin-1 beta production",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Poorly demarcated erythema",
+      "Localized edema",
+      "Localized pain and tenderness"
+    ],
+    "phenotype_categories": [
+      "Skin"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0010783",
+      "HP:0000969",
+      "HP:0012531"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Acute Antibiotic Therapy for Nonpurulent Cellulitis",
+      "Penicillin V Recurrence Prophylaxis",
+      "Compression Therapy for Chronic Leg Edema"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cellulitis.yaml",
+    "page_url": "../pages/disorders/Cellulitis.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Cenani-Lenz Syndactyly Syndrome",
@@ -134211,6 +134705,72 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Ecthyma",
+    "disease_id": "MONDO:0001404",
+    "category": "Infectious Disease",
+    "parents": [
+      "Impetigo"
+    ],
+    "creation_date": "2026-09-29T19:01:41Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Ecthyma is an ulcerative bacterial pyoderma and deeper variant of impetigo in which group A streptococci or Staphylococcus aureus extend through the epidermis into the dermis at sites of minor skin trauma.",
+    "pathophysiology": [
+      "Excoriated Skin Portal",
+      "Staphylococcal or Streptococcal Dermal Pyoderma",
+      "Streptolysin S and Sse Neutrophil Evasion",
+      "Shallow Dermal Ulceration",
+      "Nephritogenic GAS Postinfectious Sequela"
+    ],
+    "cell_types": [
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000775"
+    ],
+    "biological_processes": [],
+    "phenotypes": [
+      "Skin ulcer",
+      "Crusted ulcer surface",
+      "Erythematous raised ulcer margin",
+      "Scarring after healing",
+      "Glomerulonephritis"
+    ],
+    "phenotype_categories": [
+      "Skin",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Genitourinary",
+      "Immune",
+      "Integument",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0200042",
+      "HP:0010783",
+      "HP:0000987",
+      "HP:0000099"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Systemic Antibiotics for Deep Impetigo",
+      "MRSA-Directed Oral Antibiotics"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Ecthyma.yaml",
+    "page_url": "../pages/disorders/Ecthyma.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Ectodermal Dysplasia and Immunodeficiency 2",
     "disease_id": "MONDO:0012806",
     "category": "Mendelian",
@@ -139236,6 +139796,73 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Erythrasma",
+    "disease_id": "MONDO:0002885",
+    "category": "Infectious Disease",
+    "parents": [
+      "Pyoderma"
+    ],
+    "creation_date": "2026-09-29T19:59:05Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Erythrasma is a chronic superficial bacterial infection in which Corynebacterium minutissimum overgrows within warm, moist stratum corneum in toe webs and intertriginous skin folds, producing scaling brown-red patches with coral-pink Wood lamp fluorescence from corynebacterial porphyrins. C. minutissimum can be recovered from the same site as a concurrent Candida albicans or dermatophyte infection, and these fungal infections are also its main clinical mimics.",
+    "pathophysiology": [
+      "Warm Moist Skin-Fold C. minutissimum Overgrowth",
+      "Superficial Stratum Corneum Infection",
+      "Corynebacterial Porphyrin Accumulation",
+      "Brown-Red Scaling Patches",
+      "Coral-Pink Wood Lamp Fluorescence"
+    ],
+    "cell_types": [
+      "corneocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002153"
+    ],
+    "biological_processes": [
+      "porphyrin-containing compound biosynthetic process"
+    ],
+    "phenotypes": [
+      "Scaling skin",
+      "Hyperpigmentation of the skin",
+      "Erythema",
+      "Hypopigmentation of the skin"
+    ],
+    "phenotype_categories": [
+      "Skin"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0040189",
+      "HP:0000953",
+      "HP:0010783",
+      "HP:0001010"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Topical Antimicrobial Therapy",
+      "Systemic Macrolide Therapy",
+      "Oral Tetracycline Therapy"
+    ],
+    "environmental": [
+      "Diabetes mellitus",
+      "Older age"
+    ],
+    "biochemical": [],
+    "source_file": "Erythrasma.yaml",
+    "page_url": "../pages/disorders/Erythrasma.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Familial Erythrocytosis 5",
     "disease_id": "MONDO:0033483",
     "category": "Mendelian",
@@ -141144,6 +141771,82 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "External Hordeolum",
+    "disease_id": "MONDO:0001642",
+    "category": "Infectious Disease",
+    "parents": [
+      "eye infectious disorder",
+      "skin disease caused by bacterial infection",
+      "staphylococcal infection"
+    ],
+    "creation_date": "2026-09-29T22:26:54Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "External hordeolum is an acute localized staphylococcal infection at the eyelid lash line in which bacteria seed a gland of Zeis or Moll and trigger neutrophilic suppuration around an eyelash follicle.",
+    "pathophysiology": [
+      "Chronic Blepharitis and Meibomian Gland Dysfunction",
+      "Demodex Eyelash Infestation",
+      "Lash-Line Gland Orifice Obstruction",
+      "Lash-Associated Staphylococcal Gland Seeding",
+      "Acute Suppurative Lash-Line Inflammation"
+    ],
+    "cell_types": [
+      "Neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "neutrophil activation"
+    ],
+    "phenotypes": [
+      "Hordeolum Externum",
+      "Eyelid Pain",
+      "Eyelid Swelling",
+      "Eyelid Erythema",
+      "Preseptal Cellulitis",
+      "Eyelid Necrosis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Head and Neck",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0010607",
+      "HP:0034808",
+      "HP:0100540",
+      "HP:0040323",
+      "HP:0100658",
+      "HP:0033126"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Warm compresses and lid hygiene",
+      "Local or systemic antibiotic therapy",
+      "Incision and drainage"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "External_Hordeolum.yaml",
+    "page_url": "../pages/disorders/External_Hordeolum.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "FADD-Related Immunodeficiency",
@@ -172869,6 +173572,77 @@ window.searchData = [
     "num_treatments": 9,
     "causal_graph_edges": "48",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Helicobacter Pylori Infectious Disease",
+    "disease_id": "MONDO:0006781",
+    "category": "Infectious Disease",
+    "parents": [
+      "bacterial infectious disease"
+    ],
+    "creation_date": "2026-09-30T08:09:19Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Helicobacter pylori infectious disease is a chronic acquired bacterial infection of the human gastric mucosa caused by the urease-producing Gram-negative species Helicobacter pylori. It is usually acquired in childhood, persists lifelong if untreated, causes chronic active gastritis, and can progress through topography-dependent branches to peptic ulcer disease, gastric atrophy and intestinal metaplasia, gastric adenocarcinoma, or gastric MALT lymphoma.",
+    "pathophysiology": [
+      "Childhood Human-to-Human Exposure",
+      "UreI and Urease Acid Survival",
+      "Gastric Mucus Colonization",
+      "Chronic Gastric Mucosal Inflammation",
+      "Antral Gastrin-Driven Acid Hypersecretion",
+      "Duodenal Ulceration",
+      "Corpus Gastritis-Induced Hypochlorhydria",
+      "Gastric Mucosal Atrophy",
+      "CagA E-cadherin Binding and Beta-Catenin Release",
+      "Phosphorylated CagA SHP-2 Activation",
+      "Gastric Intestinal Metaplasia"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Chronic active gastritis",
+      "Peptic ulcer",
+      "Epigastric pain",
+      "Stomach cancer",
+      "Gastric MALT lymphoma"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Digestive",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0005263",
+      "HP:0004398",
+      "HP:0410019",
+      "HP:0012126",
+      "HP:0045038"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Acid suppression plus multidrug eradication therapy",
+      "Susceptibility-guided rescue eradication"
+    ],
+    "environmental": [
+      "Low-socioeconomic childhood household exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Helicobacter_Pylori_Infectious_Disease.yaml",
+    "page_url": "../pages/disorders/Helicobacter_Pylori_Infectious_Disease.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 11,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Heme Oxygenase 1 Deficiency",
@@ -207806,6 +208580,76 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Internal Hordeolum",
+    "disease_id": "MONDO:0004917",
+    "category": "Infectious Disease",
+    "parents": [
+      "eye infectious disorder",
+      "staphylococcal infection"
+    ],
+    "creation_date": "2026-09-29T21:56:01Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Internal hordeolum is an acute localized staphylococcal infection of a meibomian gland in which bacteria entering at the eyelid margin trigger neutrophilic suppuration within the tarsal gland.",
+    "pathophysiology": [
+      "Meibomian Gland Dysfunction and Chronic Blepharitis",
+      "Meibomian Gland Orifice Obstruction",
+      "Meibomian Gland Staphylococcal Seeding",
+      "Acute Suppurative Tarsal Gland Inflammation",
+      "Chalazion Formation",
+      "Preseptal Eyelid Cellulitis"
+    ],
+    "cell_types": [
+      "Neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "neutrophil activation"
+    ],
+    "phenotypes": [
+      "Hordeolum Internum",
+      "Eyelid Pain",
+      "Eyelid Erythema",
+      "Eyelid Swelling"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Head and Neck",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0010608",
+      "HP:0034808",
+      "HP:0040323",
+      "HP:0100540"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Warm compresses and lid hygiene",
+      "Local or systemic antibiotic therapy",
+      "Incision and drainage"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Internal_Hordeolum.yaml",
+    "page_url": "../pages/disorders/Internal_Hordeolum.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Interstitial Lung Disease 1",
     "disease_id": "MONDO:0030608",
     "category": "Mendelian",
@@ -233513,7 +234357,8 @@ window.searchData = [
     ],
     "environmental": [],
     "biochemical": [
-      "Blood and cerebrospinal fluid lactate"
+      "Blood lactate",
+      "Cerebrospinal fluid lactate"
     ],
     "source_file": "MERRF_Syndrome.yaml",
     "page_url": "../pages/disorders/MERRF_Syndrome.html",
@@ -244193,6 +245038,7 @@ window.searchData = [
       "Weight loss through lifestyle modification",
       "Resmetirom",
       "Semaglutide",
+      "Zalfermin",
       "Vitamin E",
       "Pioglitazone",
       "Bariatric surgery"
@@ -244204,8 +245050,8 @@ window.searchData = [
     "num_phenotypes": 7,
     "num_pathophysiology": 13,
     "num_genes": 5,
-    "num_treatments": 6,
-    "causal_graph_edges": "41",
+    "num_treatments": 7,
+    "causal_graph_edges": "43",
     "causal_graph_longest_path": "8"
   },
   {
@@ -248662,6 +249508,103 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 2,
     "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Mitochondrial Complex II Deficiency, Nuclear Type 3",
+    "disease_id": "MONDO:0030937",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease"
+    ],
+    "creation_date": "2026-10-20T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mitochondrial complex II deficiency, nuclear type 3 (MC2DN3) is an autosomal recessive mitochondrial respiratory-chain disorder caused by biallelic pathogenic variants in SDHD, which encodes one of the two small hydrophobic subunits that anchor the catalytic SDHA/SDHB dimer of succinate dehydrogenase (complex II) to the inner mitochondrial membrane. Recessive SDHD variants reduce steady-state levels of SDH subunits and impair assembly of complex II, leaving an isolated complex II deficiency that disrupts both succinate oxidation in the tricarboxylic acid cycle and electron transfer to ubiquinone. The reported phenotype is a variable multisystem mitochondrial disease: early-onset progressive encephalomyopathy with developmental delay or regression, severe to profound intellectual disability, hypotonia, seizures, nystagmus, optic atrophy, progressive microcephaly and raised lactate with urinary excretion of Krebs-cycle intermediates, and/or cardiomyopathy ranging from fatal prenatal-onset hypertrophic cardiomyopathy with left ventricular non-compaction to childhood dilated cardiomyopathy. Only a handful of families have been described. The disorder is distinct from the autosomal dominant, paternally transmitted SDHD-related hereditary paraganglioma-pheochromocytoma syndrome (PGL1), which is caused by monoallelic germline SDHD loss with somatic loss of the second allele in tumours; none of the recessive complex II deficiency alleles reported so far has been linked to tumourigenesis.\n",
+    "pathophysiology": [
+      "SDHD Loss and Impaired Complex II Assembly",
+      "Impaired Succinate Oxidation and Electron Transfer to Ubiquinone",
+      "Bioenergetic Failure and Multisystem Energy Deficit"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "respiratory chain complex II assembly",
+      "mitochondrial electron transport, succinate to ubiquinone",
+      "tricarboxylic acid cycle",
+      "oxidative phosphorylation",
+      "lactate biosynthetic process"
+    ],
+    "phenotypes": [
+      "Mitochondrial encephalomyopathy",
+      "Developmental regression",
+      "Intellectual disability",
+      "Hypotonia",
+      "Seizures",
+      "Optic atrophy",
+      "Nystagmus",
+      "Progressive microcephaly",
+      "Hypertrophic cardiomyopathy with left ventricular non-compaction",
+      "Dilated cardiomyopathy",
+      "Elevated circulating lactate",
+      "Urinary excretion of Krebs cycle intermediates",
+      "Decreased activity of mitochondrial complex II",
+      "Hypertrichosis",
+      "Hirschsprung disease"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Ophthalmological",
+      "Cardiovascular",
+      "Metabolism/Laboratory abnormality",
+      "Integument",
+      "Digestive"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0006789",
+      "HP:0002376",
+      "HP:0010864",
+      "HP:0001252",
+      "HP:0001250",
+      "HP:0000648",
+      "HP:0000639",
+      "HP:0000253",
+      "HP:0011664",
+      "HP:0001644",
+      "HP:0002151",
+      "HP:0034648",
+      "HP:0008314",
+      "HP:0000998",
+      "HP:0002251"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SDHD biallelic pathogenic variants"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [
+      "Reduced succinate dehydrogenase (complex II) enzyme activity"
+    ],
+    "source_file": "Mitochondrial_Complex_II_Deficiency_Nuclear_Type_3.yaml",
+    "page_url": "../pages/disorders/Mitochondrial_Complex_II_Deficiency,_Nuclear_Type_3.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "5"
   },
   {
@@ -300023,6 +300966,92 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Pneumonia Caused By Pseudomonas Aeruginosa Infection",
+    "disease_id": "MONDO:0037398",
+    "category": "Infectious Disease",
+    "parents": [
+      "Pseudomonas aeruginosa infectious disease"
+    ],
+    "creation_date": "2026-09-30T09:04:44Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Pneumonia caused by Pseudomonas aeruginosa infection is an acute bacterial lower-respiratory infection in which the opportunistic Gram-negative bacillus Pseudomonas aeruginosa reaches the distal airways or ventilated alveolar compartment, senses and injures epithelial and macrophage surfaces through flagellin, a type III secretion system, and cytotoxic effectors, and drives a suppurative neutrophilic pneumonia that can progress to alveolar-capillary barrier failure, sepsis, and ventilator-associated multidrug-resistant disease. In structurally abnormal airways, especially cystic fibrosis or bronchiectasis, mucoid alginate biofilm formation creates a chronic phagocytosis-resistant branch of infection.",
+    "pathophysiology": [
+      "Lower-Airway Pseudomonas Infection",
+      "Airway Flagellin-TLR5 Signaling",
+      "Type III Secretion Cytotoxicity",
+      "NLRC4 Inflammasome IL-1 Beta Release",
+      "Mucoid Alginate Biofilm Immune Evasion",
+      "Chronic Pseudomonas Airway Persistence",
+      "Neutrophilic Alveolar-Capillary Injury"
+    ],
+    "cell_types": [
+      "epithelial cell",
+      "pulmonary alveolar type 2 cell",
+      "alveolar macrophage",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000066",
+      "CL:0002063",
+      "CL:0000583",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "toll-like receptor signaling pathway",
+      "inflammatory response",
+      "interleukin-1 beta production",
+      "phagocytosis",
+      "biofilm formation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Purulent tracheal secretions",
+      "Dyspnea",
+      "Increased total leukocyte count",
+      "Elevated circulating C-reactive protein concentration",
+      "Acute respiratory distress syndrome",
+      "Sepsis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Immune",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0032016",
+      "HP:0002094",
+      "HP:0001974",
+      "HP:0011227",
+      "HP:0033677",
+      "HP:0100806"
+    ],
+    "frequencies": [
+      "Common",
+      "Subset"
+    ],
+    "genes": [],
+    "treatments": [
+      "Susceptibility-guided antipseudomonal beta-lactam therapy",
+      "Adjunctive inhaled colistin-aminoglycoside therapy for selected MDR cases"
+    ],
+    "environmental": [
+      "Mechanical ventilation and ICU airway instrumentation"
+    ],
+    "biochemical": [],
+    "source_file": "Pneumonia_Caused_By_Pseudomonas_Aeruginosa_Infection.yaml",
+    "page_url": "../pages/disorders/Pneumonia_Caused_By_Pseudomonas_Aeruginosa_Infection.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Pneumonic Plague",
@@ -355714,6 +356743,67 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Sycosis Barbae",
+    "disease_id": "MONDO:1050000",
+    "category": "Infectious Disease",
+    "parents": [
+      "Folliculitis"
+    ],
+    "creation_date": "2026-09-29T20:59:56Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Sycosis barbae is the deeper staphylococcal form of folliculitis barbae in which Staphylococcus aureus infection of shaved beard-region hair follicles extends beyond superficial follicular pustules into perifollicular nodules, furuncles, or coalescent carbuncles.",
+    "pathophysiology": [
+      "Staphylococcus aureus Skin and Mucosal Colonization",
+      "Shaving-Associated Staphylococcal Follicular Infection",
+      "Deep Perifollicular Staphylococcal Inflammation"
+    ],
+    "cell_types": [
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "neutrophil activation"
+    ],
+    "phenotypes": [
+      "Beard-Area Follicular Pustules",
+      "Furuncle",
+      "Carbuncle"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0200039",
+      "HP:0020083",
+      "HP:0020084"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Topical or Systemic Antibacterial Therapy",
+      "Incision and Drainage",
+      "Decolonization for Recurrent Staphylococcal SSTI"
+    ],
+    "environmental": [
+      "Shaving of the beard area"
+    ],
+    "biochemical": [],
+    "source_file": "Sycosis_Barbae.yaml",
+    "page_url": "../pages/disorders/Sycosis_Barbae.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Syndromic X-linked Intellectual Disability 94",
     "disease_id": "MONDO:0010402",
     "category": "Mendelian",
@@ -375066,6 +376156,94 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Vibrio Vulnificus Infectious Disease",
+    "disease_id": "MONDO:0043297",
+    "category": "Infectious Disease",
+    "parents": [
+      "Vibrio Infectious Disease"
+    ],
+    "creation_date": "2026-09-30T07:37:07Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Vibrio vulnificus infectious disease is an acute marine Gram-negative bacterial infection acquired from raw or undercooked shellfish or from seawater exposure of an open wound. It can cause primary septicemia, necrotizing wound infection, and gastroenteritis, with cirrhosis, iron overload, and other immunocompromising conditions predisposing to fulminant bacteremia and septic shock.",
+    "pathophysiology": [
+      "Marine Exposure or Raw-Oyster Ingestion",
+      "Vulnibactin-Mediated Iron Acquisition",
+      "Capsular Serum Resistance",
+      "MARTX-Mediated Intestinal Barrier Breach",
+      "VvhA Cytolysin-Mediated Cytotoxicity",
+      "VvpE Metalloprotease Tissue Destruction",
+      "Cytokine-Driven Septic Shock"
+    ],
+    "cell_types": [
+      "epithelial cell",
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000066",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Sepsis",
+      "Cellulitis",
+      "Necrotizing fasciitis",
+      "Ecchymosis",
+      "Hypotension",
+      "Diarrhea",
+      "Hemorrhagic bullae",
+      "Decreased total leukocyte count",
+      "Thrombocytopenia",
+      "Elevated circulating creatinine concentration",
+      "Hypoalbuminemia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0100806",
+      "HP:0100658",
+      "HP:0100537",
+      "HP:0031364",
+      "HP:0002615",
+      "HP:0002014",
+      "HP:0008066",
+      "HP:0001882",
+      "HP:0001873",
+      "HP:0003259",
+      "HP:0003073"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Early combination antibiotic therapy",
+      "Emergency surgical debridement or fasciotomy",
+      "Supportive and critical care"
+    ],
+    "environmental": [
+      "Warm coastal water and oyster exposure",
+      "Chronic liver disease and iron overload"
+    ],
+    "biochemical": [],
+    "source_file": "Vibrio_Vulnificus_Infectious_Disease.yaml",
+    "page_url": "../pages/disorders/Vibrio_Vulnificus_Infectious_Disease.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Vici Syndrome",
     "disease_id": "MONDO:0009452",
     "category": "Mendelian",
@@ -386877,17 +388055,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3580,
+  "total_disorder_pages": 3595,
   "total_subtypes": 4819,
-  "total_disorders_and_subtypes": 8399,
-  "total_unique_evidence_sources": 53557,
-  "total_unique_publications": 49981,
+  "total_disorders_and_subtypes": 8414,
+  "total_unique_evidence_sources": 53690,
+  "total_unique_publications": 50111,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3577,
-  "total_unique_pathological_events": 23655,
+  "total_pathographs": 3592,
+  "total_unique_pathological_events": 23738,
   "total_modules": 196,
-  "total_research_reports": 3707,
+  "total_research_reports": 3722,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 118
