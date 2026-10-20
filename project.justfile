@@ -1614,6 +1614,34 @@ list-hypothesis-links:
 aop-chain-census *args:
     uv run python scripts/aop_chain_census.py "$@"
 
+# Taxonomic census of animal models: which entries are modelled only in
+# mammals. `species` on AnimalModel is free text, so this normalises it into
+# clades rather than grepping. Backs the alternative-model research reports in
+# research/ -- run this rather than trusting their figures, which move with every
+# curation PR. Report-only, exits 0.
+# Example: just model-taxon-census --entry Testicular_Dysgenesis_Syndrome
+[group('QC')]
+model-taxon-census *args:
+    uv run python scripts/model_taxon_census.py "$@"
+
+# Render, and optionally run, an alternative-model deep-research prompt for one
+# use case in templates/alternative_models/. Four variables are the hand-written
+# search plan in that YAML; existing_models and mechanism_nodes are generated
+# from the entry by model_taxon_census.py, so the prompt states the record's
+# real state. Print it with --dry-run before spending a run.
+# Example: just alternative-models-research mdd_alternative_systems --dry-run
+alternative-models-research *args:
+    uv run python scripts/run_alternative_models_research.py "$@"
+
+# Check that a deep-research report's block quotes are verbatim in the abstracts
+# they cite. A pre-curation gate: it catches a paraphrase presented as a quote,
+# or a quote attributed to the wrong PMID. Reads abstracts only, so a quote taken
+# from a full text shows as NOT_IN_ABSTRACT rather than as a failure.
+# Example: just check-report-quotes research/Some_Entry-alternative-models-deep-research-openscientist.md
+[group('QC')]
+check-report-quotes *args:
+    uv run python scripts/check_report_quotes.py "$@"
+
 # Census of toxicokinetic (ADME) pathophysiology nodes: where exposures land,
 # what binds an absorption/distribution/metabolism/excretion node, and which
 # sit at ORGANISM scale on a molecular term. Backs the toxicokinetic sections
