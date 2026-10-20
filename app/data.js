@@ -168149,7 +168149,8 @@ window.searchData = [
     ],
     "environmental": [],
     "biochemical": [
-      "HER2 Testing (IHC and FISH)"
+      "HER2 Protein Overexpression (IHC)",
+      "ERBB2/HER2 Gene Amplification (FISH)"
     ],
     "source_file": "HER2_Positive_Breast_Cancer.yaml",
     "page_url": "../pages/disorders/HER2-Positive_Breast_Cancer.html",
@@ -235102,7 +235103,10 @@ window.searchData = [
     "environmental": [],
     "biochemical": [
       "MSI Testing",
-      "MMR Immunohistochemistry",
+      "MLH1 Protein Expression (IHC)",
+      "MSH2 Protein Expression (IHC)",
+      "MSH6 Protein Expression (IHC)",
+      "PMS2 Protein Expression (IHC)",
       "Tumor Mutational Burden"
     ],
     "source_file": "MSI_High_Colorectal_Cancer.yaml",
