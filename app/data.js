@@ -26430,6 +26430,105 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Angiomatoid Fibrous Histiocytoma",
+    "disease_id": "MONDO:0012809",
+    "category": "Cancer",
+    "parents": [
+      "soft tissue neoplasm"
+    ],
+    "creation_date": "2026-10-20T12:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Angiomatoid fibrous histiocytoma (AFH) is a rare soft tissue neoplasm of intermediate (locally recurring, rarely metastasizing) biological potential and uncertain line of differentiation. It usually presents in children and young adults as a slowly growing, often painless subcutaneous mass of the extremities that is frequently mistaken for a hematoma or hemangioma. Histologically it shows nodules of ovoid to spindle histiocytoid cells with blood-filled pseudovascular spaces, a fibrous pseudocapsule, and a dense lymphoplasmacytic cuff. It is defined by somatic fusions of a FET-family gene (EWSR1, rarely FUS) to a CREB-family transcription factor, most often EWSR1::CREB1 and less often EWSR1::ATF1, FUS::ATF1, or EWSR1::CREM. A minority of patients develop a paraneoplastic inflammatory syndrome (fever, anemia, weight loss, raised inflammatory markers) driven by tumor-derived interleukin-6 that resolves after resection. Complete surgical excision is usually curative.",
+    "pathophysiology": [
+      "FET-CREB Family Gene Fusion",
+      "Constitutive CRE-Dependent Transcription",
+      "Neoplastic Myoid Cell Proliferation",
+      "Tumor-Derived IL-6 Overproduction",
+      "Paraneoplastic Inflammatory Syndrome",
+      "Multinodular Tumor Architecture",
+      "CDKN2A/B Homozygous Deletion",
+      "Metastatic Dissemination"
+    ],
+    "cell_types": [
+      "mesenchymal cell of uncertain differentiation",
+      "neoplastic myoid cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008019"
+    ],
+    "biological_processes": [
+      "positive regulation of transcription by RNA polymerase II",
+      "cell population proliferation",
+      "positive regulation of interleukin-6 production",
+      "interleukin-6-mediated signaling pathway",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Painless subcutaneous mass",
+      "Fever",
+      "Anemia",
+      "Weight loss",
+      "Elevated inflammatory markers",
+      "Increased circulating interleukin-6",
+      "Regional lymph node metastasis",
+      "Membranous nephropathy"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Constitutional",
+      "Hematologic",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0001482",
+      "HP:0001945",
+      "HP:0001903",
+      "HP:0001824",
+      "HP:0003565",
+      "HP:0030783",
+      "HP:0002716",
+      "HP:0012578"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "EWSR1",
+      "CREB1",
+      "ATF1",
+      "FUS",
+      "CREM"
+    ],
+    "treatments": [
+      "Wide local excision",
+      "Chemotherapy",
+      "Tocilizumab",
+      "Radiation therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Angiomatoid_Fibrous_Histiocytoma.yaml",
+    "page_url": "../pages/disorders/Angiomatoid_Fibrous_Histiocytoma.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 8,
+    "num_genes": 5,
+    "num_treatments": 4,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Angiosarcoma",
     "disease_id": "MONDO:0016982",
     "category": "Cancer",
@@ -202203,7 +202302,7 @@ window.searchData = [
       "ICF3",
       "ICF4"
     ],
-    "description": "Immunodeficiency-centromeric instability-facial anomalies syndrome is a rare autosomal recessive primary immunodeficiency caused by defects in DNA methylation and chromatin regulators. The syndrome combines hypogammaglobulinemia and variable combined immunodeficiency with juxtacentromeric heterochromatin hypomethylation, chromosome instability, and craniofacial and neurodevelopmental manifestations.\n",
+    "description": "Immunodeficiency-centromeric instability-facial anomalies syndrome is a rare autosomal recessive primary immunodeficiency caused by defects in DNA methylation and chromatin regulators. The syndrome combines hypogammaglobulinemia and variable combined immunodeficiency with juxtacentromeric heterochromatin hypomethylation, chromosome instability, and craniofacial and neurodevelopmental manifestations.",
     "pathophysiology": [
       "ICF Gene Network Disruption",
       "Pericentromeric Satellite Hypomethylation",
@@ -205431,8 +205530,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 6,
     "num_treatments": 4,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Inherited Threoninemia",
@@ -210830,12 +210929,13 @@ window.searchData = [
     "creation_date": "2026-02-06T03:25:37Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Jackson-Weiss syndrome is a craniosynostosis syndrome caused by heterozygous mutations in FGFR2, characterized by craniosynostosis, midface hypoplasia, and foot abnormalities including broad great toes and tarsal/metatarsal fusion. Unlike Apert and Pfeiffer syndromes, hand involvement is typically absent or minimal. The syndrome was originally described in a large Amish kindred and shows significant intrafamilial variability.\n",
+    "description": "Jackson-Weiss syndrome is a craniosynostosis syndrome caused by heterozygous mutations in FGFR2, characterized by craniosynostosis, midface hypoplasia, and foot abnormalities including broad great toes and tarsal/metatarsal fusion. Unlike Apert and Pfeiffer syndromes, hand involvement is typically absent or minimal. The syndrome was originally described in a large Amish kindred and shows significant intrafamilial variability.",
     "pathophysiology": [
       "FGFR2 Gain-of-Function Signaling",
       "Sustained MAPK/ERK signaling in suture osteoblasts",
       "Accelerated cranial suture osteogenesis",
-      "Premature cranial suture fusion"
+      "Premature cranial suture fusion",
+      "Abnormal pedal skeletal development"
     ],
     "cell_types": [
       "Osteoblast"
@@ -210877,7 +210977,7 @@ window.searchData = [
       "EXCLUDED"
     ],
     "genes": [
-      "FGFR2 Mutations"
+      "FGFR2"
     ],
     "treatments": [
       "Cranial Vault Surgery",
@@ -210888,11 +210988,11 @@ window.searchData = [
     "source_file": "Jackson-Weiss_Syndrome.yaml",
     "page_url": "../pages/disorders/Jackson-Weiss_Syndrome.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Jacobsen Syndrome",
@@ -213707,8 +213807,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "26",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "KCNA2-Related Developmental and Epileptic Encephalopathy",
@@ -217284,7 +217384,7 @@ window.searchData = [
       "Classic Vohwinkel Syndrome",
       "Loricrin Keratoderma (Variant Vohwinkel Syndrome)"
     ],
-    "description": "Keratoderma hereditarium mutilans, also known as Vohwinkel syndrome, is a rare autosomal dominant genodermatosis unified by diffuse honeycomb palmoplantar keratoderma and pseudoainhum, in which constricting digital bands can progress to autoamputation. The classic GJB2-associated form combines keratoderma, pseudoainhum, starfish-like acral keratoses, and sensorineural hearing loss caused by connexin 26 dysfunction. The LOR-associated loricrin keratoderma variant, also called the Camisa variant, combines keratoderma and pseudoainhum with generalized ichthyosis, while deafness is not a feature of this ichthyosiform subtype.\n",
+    "description": "Keratoderma hereditarium mutilans, also known as Vohwinkel syndrome, is a rare autosomal dominant genodermatosis unified by diffuse honeycomb palmoplantar keratoderma and pseudoainhum, in which constricting digital bands can progress to autoamputation. The classic GJB2-associated form combines keratoderma, pseudoainhum, starfish-like acral keratoses, and sensorineural hearing loss caused by connexin 26 dysfunction. The LOR-associated loricrin keratoderma variant, also called the Camisa variant, combines keratoderma and pseudoainhum with generalized ichthyosis, while deafness is not a feature of this ichthyosiform subtype.",
     "pathophysiology": [
       "Gap Junction Dysfunction",
       "Abnormal Epidermal Differentiation",
@@ -217354,8 +217454,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 2,
     "num_treatments": 5,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Keratosis follicularis spinulosa decalvans",
@@ -221037,8 +221137,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "LRRK2-Related Parkinson Disease",
@@ -244078,9 +244178,10 @@ window.searchData = [
     "subtypes": [],
     "description": "Meningeal melanocytoma is a rare, usually well-differentiated melanocytic neoplasm arising from leptomeningeal melanocytes. It most often behaves as a low-grade central nervous system tumor, but local recurrence and malignant progression can occur.",
     "pathophysiology": [
-      "Leptomeningeal Melanocytic Tumor Formation",
+      "GNAQ and GNA11 Somatic Hotspot Mutations",
       "G-alpha-q Pathway Activation",
       "Melanocytic Tumor Cell Proliferation",
+      "Leptomeningeal Melanocytic Tumor Formation",
       "Neurologic Mass Effect"
     ],
     "cell_types": [
@@ -244091,10 +244192,10 @@ window.searchData = [
       "CL:0000148"
     ],
     "biological_processes": [
-      "melanocytic tumor cell proliferation",
       "G protein-coupled receptor signaling pathway",
       "MAPK cascade",
-      "Hippo-YAP signaling"
+      "Hippo-YAP signaling",
+      "melanocytic tumor cell proliferation"
     ],
     "phenotypes": [
       "Headache",
@@ -244134,7 +244235,8 @@ window.searchData = [
     ],
     "frequencies": [],
     "genes": [
-      "GNAQ/GNA11 pathway alterations"
+      "GNAQ",
+      "GNA11"
     ],
     "treatments": [
       "Gross Total Resection",
@@ -244145,11 +244247,11 @@ window.searchData = [
     "source_file": "Meningeal_Melanocytoma.yaml",
     "page_url": "../pages/disorders/Meningeal_Melanocytoma.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 4,
-    "num_genes": 1,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
     "num_treatments": 2,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Meningioma",
@@ -271354,7 +271456,7 @@ window.searchData = [
     "creation_date": "2026-06-13T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Neuronal ceroid lipofuscinosis 2 is a TPP1-related late-infantile NCL caused by biallelic loss of lysosomal tripeptidyl peptidase 1 activity. Classic CLN2 presents at about two to four years with language delay or regression and epilepsy, then progresses through motor and language decline, neurodegeneration, retinal dystrophy or visual loss, and premature death. Intracerebroventricular cerliponase alfa is an approved enzyme-replacement therapy that slows motor-language decline but does not cure the disease.\n",
+    "description": "Neuronal ceroid lipofuscinosis 2 is a TPP1-related late-infantile NCL caused by biallelic loss of lysosomal tripeptidyl peptidase 1 activity. Classic CLN2 presents at about two to four years with language delay or regression and epilepsy, then progresses through motor and language decline, neurodegeneration, retinal dystrophy or visual loss, and premature death. Intracerebroventricular cerliponase alfa is an approved enzyme-replacement therapy that slows motor-language decline but does not cure the disease.",
     "pathophysiology": [
       "TPP1 lysosomal peptidase deficiency",
       "Progressive Neurologic Decline",
@@ -271378,6 +271480,7 @@ window.searchData = [
       "Myoclonus",
       "Spasticity",
       "Dystonia",
+      "Hypokinesia",
       "Motor deterioration",
       "Visual impairment",
       "Retinal dystrophy"
@@ -271395,11 +271498,15 @@ window.searchData = [
       "HP:0001336",
       "HP:0001257",
       "HP:0001332",
+      "HP:0002375",
       "HP:0002333",
       "HP:0000505",
       "HP:0000556"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
     "genes": [
       "TPP1"
     ],
@@ -271411,12 +271518,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Neuronal_Ceroid_Lipofuscinosis_2.yaml",
     "page_url": "../pages/disorders/Neuronal_Ceroid_Lipofuscinosis_2.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 10,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Neuronal Ceroid Lipofuscinosis 3",
@@ -280967,7 +281074,7 @@ window.searchData = [
     "creation_date": "2026-02-06T03:25:37Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Osteogenesis imperfecta type III is the most severe non-lethal form of OI, characterized by progressive skeletal deformity, very short stature, and hundreds of fractures over a lifetime. Caused by dominant-negative mutations in COL1A1 or COL1A2, affected individuals typically require wheelchair mobility and have significant morbidity from skeletal complications. Sclerae may be blue at birth but often lighten with age. Dentinogenesis imperfecta is common. This entry covers the COL1A1/COL1A2-related form (progressively deforming OI per GeneReviews); severe OI caused by recessive or non-collagen-gene variants is out of scope.\n",
+    "description": "Osteogenesis imperfecta type III is the most severe non-lethal form of OI, characterized by progressive skeletal deformity, very short stature, and hundreds of fractures over a lifetime. Caused by dominant-negative mutations in COL1A1 or COL1A2, affected individuals typically require wheelchair mobility and have significant morbidity from skeletal complications. Sclerae may be blue at birth but often lighten with age. Dentinogenesis imperfecta is common. This entry covers the COL1A1/COL1A2-related form (progressively deforming OI per GeneReviews); severe OI caused by recessive or non-collagen-gene variants is out of scope.",
     "pathophysiology": [
       "Dominant-Negative Collagen Defect",
       "Defective Bone Matrix and Progressive Bone Fragility",
@@ -281045,7 +281152,8 @@ window.searchData = [
       "OCCASIONAL"
     ],
     "genes": [
-      "COL1A1/COL1A2 Mutations"
+      "COL1A1",
+      "COL1A2"
     ],
     "treatments": [
       "Bisphosphonate Therapy",
@@ -281059,10 +281167,10 @@ window.searchData = [
     "page_url": "../pages/disorders/Osteogenesis_Imperfecta_Type_III.html",
     "num_phenotypes": 17,
     "num_pathophysiology": 3,
-    "num_genes": 1,
+    "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Osteogenesis Imperfecta Type IV",
@@ -283780,20 +283888,23 @@ window.searchData = [
   {
     "name": "Ovarian Endometrioid Carcinoma",
     "disease_id": "MONDO:0006335",
-    "category": "",
+    "category": "Complex",
     "parents": [
       "ovarian carcinoma"
     ],
     "creation_date": "2026-06-19T12:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Ovarian endometrioid carcinoma (OEC) is the second most common epithelial ovarian cancer histotype, accounting for roughly 10% of ovarian carcinomas. It resembles endometrioid carcinoma of the uterine corpus, is frequently endometriosis-associated, and is characterized by recurrent CTNNB1/Wnt-beta-catenin activation, PI3K-pathway lesions (PIK3CA gain, PTEN loss), and ARID1A (SWI/SNF) loss. The endometrial-cancer molecular taxonomy (POLE-ultramutated, mismatch-repair-deficient, p53-abnormal, no specific molecular profile) also applies to OEC, which is enriched for Lynch syndrome-associated tumors, supporting routine mismatch-repair testing. Most OECs are low-grade, present at an early stage, and carry a more favorable prognosis than high-grade serous carcinoma, whereas p53-abnormal/high-grade OECs behave more aggressively.",
+    "description": "Ovarian endometrioid carcinoma (OEC) is the second most common epithelial ovarian cancer histotype, accounting for roughly 10-15% of ovarian carcinomas. It resembles endometrioid carcinoma of the uterine corpus, is frequently endometriosis-associated, and is characterized by recurrent CTNNB1/Wnt-beta-catenin activation, PI3K-pathway lesions (PIK3CA gain, PTEN loss), MAPK-pathway activation (KRAS), and ARID1A (SWI/SNF) loss. The endometrial-cancer molecular taxonomy (POLE-ultramutated, mismatch-repair-deficient, p53-abnormal, no specific molecular profile) also applies to OEC, which is enriched for Lynch syndrome-associated tumors, supporting routine mismatch-repair testing. Most OECs are low-grade, present at an early stage, and carry a more favorable prognosis than high-grade serous carcinoma, whereas p53-abnormal/high-grade OECs behave more aggressively.",
     "pathophysiology": [
       "Endometriosis-Associated Origin",
       "ARID1A and SWI/SNF Chromatin Remodeling Loss",
       "PI3K-AKT Pathway Activation",
       "Wnt-Beta-Catenin Pathway Activation",
+      "MAPK Pathway Activation",
       "Mismatch Repair Deficiency",
+      "POLE Exonuclease Domain Ultramutation",
+      "TP53 Mutation and Genomic Instability",
       "Tumor Cell Proliferation"
     ],
     "cell_types": [
@@ -283808,7 +283919,10 @@ window.searchData = [
       "chromatin remodeling",
       "PI3K/AKT signaling",
       "canonical Wnt signaling pathway",
+      "MAPK cascade",
       "mismatch repair",
+      "DNA replication proofreading",
+      "apoptotic process",
       "cell population proliferation"
     ],
     "phenotypes": [
@@ -283843,7 +283957,8 @@ window.searchData = [
       "PIK3CA",
       "ARID1A",
       "KRAS",
-      "POLE"
+      "POLE",
+      "TP53"
     ],
     "treatments": [
       "Cytoreductive Surgery",
@@ -283853,17 +283968,16 @@ window.searchData = [
     ],
     "environmental": [],
     "biochemical": [
-      "Serum CA-125",
       "Microsatellite Instability"
     ],
     "source_file": "Ovarian_Endometrioid_Carcinoma.yaml",
     "page_url": "../pages/disorders/Ovarian_Endometrioid_Carcinoma.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 6,
-    "num_genes": 6,
+    "num_pathophysiology": 9,
+    "num_genes": 7,
     "num_treatments": 4,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Ovarian High-Grade Serous Carcinoma",
@@ -285768,17 +285882,17 @@ window.searchData = [
     "creation_date": "2026-04-13T04:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "PHARC syndrome is an autosomal recessive neurodegenerative disorder caused by biallelic ABHD12 loss of function. The syndrome combines polyneuropathy, hearing loss, ataxia, retinitis pigmentosa, and cataract, reflecting progressive involvement of peripheral nerves, retina, auditory pathways, and cerebellar systems. Current mechanistic models implicate dysregulated lysophosphatidylserine metabolism and lipid-driven neuroinflammation.",
+    "description": "PHARC syndrome is an autosomal recessive neurodegenerative disorder caused by biallelic ABHD12 loss of function. The syndrome combines polyneuropathy, hearing loss, ataxia, retinitis pigmentosa, and cataract, with frequent pyramidal signs and cerebellar atrophy, reflecting progressive involvement of peripheral nerves, retina, auditory pathways, corticospinal tracts, and cerebellar systems. Mechanistically, loss of ABHD12 lysophosphatidylserine hydrolase activity causes accumulation of proinflammatory very-long-chain lysophosphatidylserine lipids that activate microglial Toll-like receptor 2 signaling and drive age-dependent neuroinflammation.",
     "pathophysiology": [
       "ABHD12 loss of lipid hydrolase activity",
       "Abnormal lysophosphatidylserine signaling",
       "Microglial activation and neuroinflammation",
       "Progressive multisystem neurodegeneration",
-      "Ophthalmic involvement",
       "Peripheral nerve degeneration",
       "Cerebellar degeneration",
       "Auditory pathway degeneration",
-      "Retinal degeneration"
+      "Retinal degeneration",
+      "Lens opacification and cataractogenesis"
     ],
     "cell_types": [
       "microglial cell"
@@ -285797,7 +285911,11 @@ window.searchData = [
       "Sensorineural hearing impairment",
       "Ataxia",
       "Retinitis pigmentosa",
-      "Cataract"
+      "Macular atrophy",
+      "Abnormal retinal pigmentation",
+      "Cataract",
+      "Abnormal pyramidal sign",
+      "Cerebellar atrophy"
     ],
     "phenotype_categories": [
       "Neurologic",
@@ -285814,9 +285932,16 @@ window.searchData = [
       "HP:0000407",
       "HP:0001251",
       "HP:0000510",
-      "HP:0000518"
+      "HP:0007401",
+      "HP:0007703",
+      "HP:0000518",
+      "HP:0007256",
+      "HP:0001272"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
     "genes": [
       "ABHD12"
     ],
@@ -285830,11 +285955,11 @@ window.searchData = [
     ],
     "source_file": "PHARC_syndrome.yaml",
     "page_url": "../pages/disorders/PHARC_syndrome.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 9,
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "18",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "6"
   },
   {
@@ -308112,7 +308237,7 @@ window.searchData = [
       "OCCASIONAL"
     ],
     "genes": [
-      "ZBTB20 pathogenic variants"
+      "ZBTB20"
     ],
     "treatments": [
       "Multidisciplinary Supportive Care",
@@ -308135,8 +308260,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "26",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Progressive Bulbar Palsy",
@@ -317884,7 +318009,7 @@ window.searchData = [
     "creation_date": "2026-06-17T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Relapsing polychondritis is a rare, immune-mediated, multisystemic disease characterized by recurrent episodes of inflammation of cartilaginous and proteoglycan-rich structures. It targets the external ear, nose, larynx and tracheobronchial tree, joints, eyes, inner ear, and \u2014 reflecting its systemic reach \u2014 the aorta and cardiac valves. The cartilage-directed arm is an HLA-DR4-associated, Th1-skewed autoimmune process, while a recently recognized subset (~8%) is driven instead by somatic UBA1 mutations (VEXAS syndrome), underscoring that \"relapsing polychondritis\" is likely more than one disease. Airway and cardiovascular (aortic) involvement are the principal drivers of morbidity and mortality.\n",
+    "description": "Relapsing polychondritis is a rare, immune-mediated, multisystemic disease characterized by recurrent episodes of inflammation of cartilaginous and proteoglycan-rich structures. It targets the external ear, nose, larynx and tracheobronchial tree, joints, eyes, inner ear, and \u2014 reflecting its systemic reach \u2014 the aorta and cardiac valves. The cartilage-directed arm is an HLA-DR4-associated, Th1-skewed autoimmune process, while a recently recognized subset (~8%) is driven instead by somatic UBA1 mutations (VEXAS syndrome), underscoring that \"relapsing polychondritis\" is likely more than one disease. Airway and cardiovascular (aortic) involvement are the principal drivers of morbidity and mortality.",
     "pathophysiology": [
       "Cartilage Antigen Exposure from Triggering Insults",
       "Cartilage-Directed Adaptive Autoimmunity",
@@ -317964,8 +318089,8 @@ window.searchData = [
     ],
     "frequencies": [],
     "genes": [
-      "HLA-DR4 (HLA-DRB1) Susceptibility",
-      "Somatic UBA1 Mutation (VEXAS Syndrome Overlap)"
+      "HLA-DRB1",
+      "UBA1"
     ],
     "treatments": [
       "Corticosteroid Therapy",
@@ -317983,8 +318108,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 2,
     "num_treatments": 6,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Renal Agenesis",
@@ -331907,9 +332032,12 @@ window.searchData = [
     "description": "Saethre-Chotzen syndrome (acrocephalosyndactyly type III) is one of the most common autosomal dominant craniosynostosis syndromes, caused by haploinsufficiency of TWIST1, a basic helix-loop-helix (bHLH) transcription factor. Unlike the FGFR gain-of-function craniosynostoses, which fuse sutures by excess pro-osteogenic signalling, Saethre-Chotzen exemplifies the boundary/niche-loss route to premature suture fusion: loss of one TWIST1 allele removes the anti-osteogenic restraint that maintains suture patency (TWIST1 inhibition of RUNX2, the TWIST1-EphA4 osteogenic boundary between the neural-crest frontal bone and the mesodermal parietal bone, and the Gli1+/Axin2+ suture mesenchymal stem-cell niche). The result is typically bilateral coronal craniosynostosis with ptosis, low frontal hairline, facial asymmetry, prominent ear crura, and limb anomalies (brachydactyly, cutaneous syndactyly).",
     "pathophysiology": [
       "TWIST1 haploinsufficiency and loss of suture osteogenic restraint",
+      "Defective frontal-parietal neural crest-mesoderm boundary",
+      "Depletion of suture Gli1+ mesenchymal stem cells",
       "De-repressed osteoblast differentiation in coronal suture",
       "Premature coronal suture fusion",
-      "Craniofacial dysmorphism"
+      "Craniofacial dysmorphism",
+      "Disrupted TWIST1-dependent limb bud mesenchyme patterning"
     ],
     "cell_types": [
       "migratory cranial neural crest cell",
@@ -331923,8 +332051,11 @@ window.searchData = [
     ],
     "biological_processes": [
       "negative regulation of osteoblast differentiation",
+      "ephrin receptor signaling pathway",
+      "stem cell population maintenance",
       "osteoblast differentiation",
-      "cranial suture morphogenesis"
+      "cranial suture morphogenesis",
+      "embryonic limb morphogenesis"
     ],
     "phenotypes": [
       "Coronal Craniosynostosis",
@@ -331932,17 +332063,28 @@ window.searchData = [
       "Facial asymmetry",
       "Prominent ear crura",
       "Low frontal hairline",
+      "Strabismus",
+      "Hypertelorism",
+      "Increased intracranial pressure",
+      "Hearing impairment",
       "Brachydactyly",
       "Cutaneous syndactyly"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Skeletal",
+      "Ophthalmologic",
+      "Craniofacial",
+      "Neurological",
+      "Otologic"
+    ],
     "phenotype_hpo_categories": [
       "Ear",
       "Eye",
       "Head and Neck",
       "Integument",
       "Limbs",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0004440",
@@ -331950,6 +332092,10 @@ window.searchData = [
       "HP:0000324",
       "HP:0009899",
       "HP:0000294",
+      "HP:0000486",
+      "HP:0000316",
+      "HP:0002516",
+      "HP:0000365",
       "HP:0001156",
       "HP:0010554"
     ],
@@ -331966,12 +332112,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Saethre-Chotzen_Syndrome.yaml",
     "page_url": "../pages/disorders/Saethre-Chotzen_Syndrome.html",
-    "num_phenotypes": 7,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
     "num_genes": 2,
     "num_treatments": 2,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Sagittal Sinus Thrombosis",
@@ -332237,7 +332383,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "25",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "6"
   },
   {
@@ -350533,7 +350679,7 @@ window.searchData = [
     "creation_date": "2026-03-04T20:22:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Spondylocarpotarsal synostosis syndrome is a rare skeletal dysplasia most often modeled here as classic autosomal recessive FLNB-related SCT, with disproportionate short stature, progressive vertebral fusion, scoliosis, and carpal/tarsal synostosis. Biallelic FLNB loss-of-function should be separated diagnostically from monoallelic FLNB gain-of-function disorders and from MYH3/RFLNA-related SCT-like phenotypes.\n",
+    "description": "Spondylocarpotarsal synostosis syndrome is a rare skeletal dysplasia most often modeled here as classic autosomal recessive FLNB-related SCT, with disproportionate short stature, progressive vertebral fusion, scoliosis, and carpal/tarsal synostosis. Biallelic FLNB loss-of-function should be separated diagnostically from monoallelic FLNB gain-of-function disorders and from MYH3/RFLNA-related SCT-like phenotypes.",
     "pathophysiology": [
       "FLNB Loss-of-Function with Filamin B Deficiency",
       "Derepressed TGF-beta/BMP Disc Ossification",
@@ -350574,7 +350720,8 @@ window.searchData = [
       "Pes Planus",
       "Enamel Hypoplasia",
       "Cleft Palate",
-      "Round Face"
+      "Round Face",
+      "Cervical Spine Instability"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
@@ -350600,7 +350747,8 @@ window.searchData = [
       "HP:0001763",
       "HP:0006297",
       "HP:0000175",
-      "HP:0000311"
+      "HP:0000311",
+      "HP:0010646"
     ],
     "frequencies": [],
     "genes": [
@@ -350617,12 +350765,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Spondylocarpotarsal_Synostosis_Syndrome.yaml",
     "page_url": "../pages/disorders/Spondylocarpotarsal_Synostosis_Syndrome.html",
-    "num_phenotypes": 16,
+    "num_phenotypes": 17,
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "27",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Spondylocostal Dysostosis",
@@ -358154,7 +358302,9 @@ window.searchData = [
       "Hemivertebrae",
       "Congenital Scoliosis"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Musculoskeletal"
+    ],
     "phenotype_hpo_categories": [
       "Musculoskeletal"
     ],
@@ -358162,8 +358312,12 @@ window.searchData = [
       "HP:0002937",
       "HP:0002650"
     ],
-    "frequencies": [],
-    "genes": [],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "TBX6 Null Allele and Hypomorphic Risk Haplotype"
+    ],
     "treatments": [
       "Scoliosis Surgical Management"
     ],
@@ -358173,10 +358327,10 @@ window.searchData = [
     "page_url": "../pages/disorders/TBX6-Associated_Congenital_Scoliosis.html",
     "num_phenotypes": 2,
     "num_pathophysiology": 3,
-    "num_genes": 0,
+    "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "TCF20-Associated Neurodevelopmental Disorder",
@@ -388055,17 +388209,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3595,
+  "total_disorder_pages": 3596,
   "total_subtypes": 4819,
-  "total_disorders_and_subtypes": 8414,
-  "total_unique_evidence_sources": 53690,
-  "total_unique_publications": 50111,
+  "total_disorders_and_subtypes": 8415,
+  "total_unique_evidence_sources": 53715,
+  "total_unique_publications": 50136,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3592,
-  "total_unique_pathological_events": 23738,
+  "total_pathographs": 3593,
+  "total_unique_pathological_events": 23752,
   "total_modules": 196,
-  "total_research_reports": 3722,
+  "total_research_reports": 3723,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 118
