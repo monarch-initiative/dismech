@@ -19,7 +19,7 @@ g = gene("hgnc:877")
 **<span class="result" data-code="g.symbol()">ALDH7A1<span class="method"></span></span>**
 (<span class="result" data-code="g.name()">aldehyde dehydrogenase 7 family member A1<span class="method"></span></span>), also called
 antiquitin, is named by <span class="result" data-code="g.disorder_count()">1<span class="method"></span></span> disorder entry,
-<span class="result" data-compare="names" data-code="g.disorders()">Pyridoxine-Dependent Epilepsy<span class="method"></span></span>.
+<span class="result" data-compare="names" data-code="g.disorders()">ALDH7A1-Related Pyridoxine-Dependent Epilepsy<span class="method"></span></span>.
 
 ## Normal function
 
@@ -30,10 +30,10 @@ acting in
 
 ## Causative record
 
-Pyridoxine-Dependent Epilepsy types ALDH7A1 as
-<span class="result" data-code="g.relationship('Pyridoxine-Dependent Epilepsy')">causative<span class="method"></span></span>, with a
-<span class="result" data-code="g.variant_origin('Pyridoxine-Dependent Epilepsy')">germline<span class="method"></span></span> variant origin. The gene sits on the
-node <span class="result" data-code="g.node('Pyridoxine-Dependent Epilepsy', 'Antiquitin (ALDH7A1) Deficiency')">Antiquitin (ALDH7A1) Deficiency<span class="method"></span></span>.
+ALDH7A1-Related Pyridoxine-Dependent Epilepsy types ALDH7A1 as
+<span class="result" data-code="g.relationship('ALDH7A1-Related Pyridoxine-Dependent Epilepsy')">causative<span class="method"></span></span>, with a
+<span class="result" data-code="g.variant_origin('ALDH7A1-Related Pyridoxine-Dependent Epilepsy')">germline<span class="method"></span></span> variant origin. The gene sits on the
+node <span class="result" data-code="g.node('ALDH7A1-Related Pyridoxine-Dependent Epilepsy', 'Antiquitin (ALDH7A1) Deficiency')">Antiquitin (ALDH7A1) Deficiency<span class="method"></span></span>.
 
 ## Agreement between the layers
 

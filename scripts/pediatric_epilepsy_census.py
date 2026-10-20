@@ -166,7 +166,8 @@ ILAE_AGE_GROUP: dict[str, str] = {
     "Post-Traumatic_Epilepsy": "VARIABLE",
     # etiology-specific, pediatric onset
     "KCNQ2_Developmental_and_Epileptic_Encephalopathy": "ETIOLOGY_PEDIATRIC",
-    "Pyridoxine-Dependent_Epilepsy": "ETIOLOGY_PEDIATRIC",
+    "ALDH7A1-Related_Pyridoxine-Dependent_Epilepsy": "ETIOLOGY_PEDIATRIC",
+    "PLPBP-Related_Pyridoxine-Dependent_Epilepsy": "ETIOLOGY_PEDIATRIC",
     "PNPO_Deficiency": "ETIOLOGY_PEDIATRIC",
     "CDKL5_Deficiency_Disorder": "ETIOLOGY_PEDIATRIC",
     "PCDH19_Clustering_Epilepsy": "ETIOLOGY_PEDIATRIC",
