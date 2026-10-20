@@ -2725,6 +2725,90 @@
             flex-shrink: 0;
         }
 
+        /* Group-by control (#14539). Tinted while a grouping is applied, so a
+           collapsed graph is never mistaken for the whole graph. */
+        .pathograph-groupbar {
+            padding: 10px 16px;
+            background: #f9fafb;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.8rem;
+            color: #374151;
+        }
+
+        .pathograph-groupbar.is-active {
+            background: #eef2ff;
+            border-bottom-color: #c7d2fe;
+        }
+
+        .pg-groupbar-controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pg-groupbar-title {
+            font-weight: 600;
+            margin-right: 4px;
+        }
+
+        .pg-group-mode,
+        .pg-group-collapse {
+            font: inherit;
+            font-size: 0.76rem;
+            padding: 3px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 999px;
+            background: #fff;
+            color: #374151;
+            cursor: pointer;
+        }
+
+        .pg-group-mode.is-selected {
+            background: #4f46e5;
+            border-color: #4f46e5;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .pg-group-mode:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .pg-groupbar-status {
+            margin-top: 6px;
+            line-height: 1.45;
+        }
+
+        .pathograph-groupbar.is-active .pg-groupbar-status {
+            color: #3730a3;
+            font-weight: 500;
+        }
+
+        .pathograph-tooltip .tt-members {
+            list-style: none;
+            margin: 6px 0 0;
+            padding: 0;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+
+        .pathograph-tooltip .tt-members li {
+            margin: 2px 0;
+        }
+
+        .pathograph-tooltip .tt-member {
+            font: inherit;
+            color: #dbeafe;
+            background: none;
+            border: none;
+            padding: 0;
+            text-align: left;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
         .graph-note {
             margin-bottom: 12px;
             font-size: 0.84rem;
@@ -2839,6 +2923,385 @@
     </style>
     <script src="https://d3js.org/d3.v7.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js" integrity="sha384-2IH3T69EIKYC4c+RXZifZRvaH5SRUdacJW7j6HtE5rQbvLhKKdawxq6vpIzJ7j9M" crossorigin="anonymous"></script>
+    <script>
+    /* Pathograph "Group by" (#14539): collapse sets of nodes into super-nodes.
+
+   Collapsing happens here, in the client, on a copy of the payload. graph.py's
+   output is never changed, so every member node and its evidence stays one
+   expand away, and the exports (CX2, KGX) are unaffected.
+
+   This file is plain JavaScript with no Jinja syntax, so the page inlines it
+   with an include and tests/test_pathograph_grouping.py loads it under node. */
+var PathographGrouping = (function() {
+    /* Modes can be combined. They run in this order, each on the graph the
+       previous one left, so the treatment pass sees grouped phenotypes and
+       modules as single targets, and chains are found last among whatever
+       nodes no other mode took. */
+    var MODES = [
+        {key: "none", label: "None"},
+        {key: "phenotype_system", label: "Phenotype system"},
+        {key: "module", label: "Mechanism module"},
+        {key: "treatment_target", label: "Treatment target"},
+        {key: "chain", label: "Linear chains"}
+    ];
+
+    /* Predicates that explain a phenotype (qc_plugins.CAUSAL_PREDICATES). A
+       phenotype reached only by a treatment or readout edge is not explained. */
+    var CAUSAL_PREDICATES = {causes: true, leads_to: true, triggers: true, exacerbates: true};
+
+    /* A group needs at least two members, and grouping stops before the graph
+       shrinks below MIN_VISIBLE_NODES nodes or MIN_KEPT_FRACTION of its nodes,
+       so the main chains stay readable rather than folding into two boxes. The
+       mechanism backbone (pathophysiology nodes) is held to the same floor. */
+    var MIN_GROUP_SIZE = 2;
+    var MIN_VISIBLE_NODES = 3;
+    var MIN_KEPT_FRACTION = 1 / 3;
+    var GROUP_ID_PREFIX = "__group__:";
+
+    function modeLabel(mode) {
+        for (var i = 0; i < MODES.length; i++) {
+            if (MODES[i].key === mode) return MODES[i].label;
+        }
+        return mode;
+    }
+
+    /* Orphan targets signal a curation error, so they are never swallowed.
+       A box from an earlier pass is not regrouped either. */
+    function isGroupable(node) {
+        return !!node && !node.is_group && !node.is_orphan && node.node_type !== "orphan" && node.node_type !== "unknown";
+    }
+
+    function groupKeys(node) {
+        return (node && node.group_keys) || {};
+    }
+
+    function humanizeModule(stem) {
+        var text = String(stem).replace(/_/g, " ");
+        return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+
+    function neighbourSets(data) {
+        var preds = {}, succs = {};
+        data.nodes.forEach(function(n) { preds[n.id] = {}; succs[n.id] = {}; });
+        data.edges.forEach(function(e) {
+            if (succs[e.source]) succs[e.source][e.target] = true;
+            if (preds[e.target]) preds[e.target][e.source] = true;
+        });
+        return {preds: preds, succs: succs};
+    }
+
+    function explainedPhenotypes(data) {
+        var explained = {};
+        data.edges.forEach(function(e) {
+            /* A self-loop explains nothing, as in qc_plugins.causal_inlink_coverage. */
+            if (CAUSAL_PREDICATES[e.predicate] && e.source !== e.target) explained[e.target] = true;
+        });
+        return explained;
+    }
+
+    function bucket(nodes, keyFn) {
+        var buckets = {}, order = [];
+        nodes.forEach(function(n) {
+            var key = keyFn(n);
+            if (!key) return;
+            if (!buckets[key]) { buckets[key] = []; order.push(key); }
+            buckets[key].push(n.id);
+        });
+        return order.map(function(key) { return {key: key, members: buckets[key]}; });
+    }
+
+    function phenotypeSystemGroups(data) {
+        var phenotypes = data.nodes.filter(function(n) {
+            return n.node_type === "phenotype" && isGroupable(n);
+        });
+        return bucket(phenotypes, function(n) { return groupKeys(n).phenotype_system; })
+            .map(function(g) {
+                return {key: g.key, label: g.key + " phenotypes", members: g.members};
+            });
+    }
+
+    function treatmentTargetGroups(data) {
+        var nb = neighbourSets(data);
+        var byId = {};
+        data.nodes.forEach(function(n) { byId[n.id] = n; });
+        var treatments = data.nodes.filter(function(n) {
+            return n.node_type === "treatment" && isGroupable(n);
+        });
+        return bucket(treatments, function(n) {
+            var targets = Object.keys(nb.succs[n.id] || {}).sort();
+            return targets.length ? JSON.stringify(targets) : null;
+        }).map(function(g) {
+            /* A target may be a box from an earlier pass; name it by its label. */
+            var targets = JSON.parse(g.key).map(function(id) {
+                return byId[id] && byId[id].is_group ? byId[id].label : id;
+            });
+            var shown = targets.length > 2 ? targets.slice(0, 2).join(", ") + ", …" : targets.join(", ");
+            return {key: g.key, label: "Treatments → " + shown, members: g.members};
+        });
+    }
+
+    function moduleGroups(data) {
+        var mechanisms = data.nodes.filter(function(n) {
+            return n.node_type === "pathophysiology" && isGroupable(n);
+        });
+        return bucket(mechanisms, function(n) {
+            var modules = groupKeys(n).modules;
+            return modules && modules.length ? modules[0] : null;
+        }).map(function(g) {
+            return {key: g.key, label: humanizeModule(g.key) + " module", members: g.members};
+        });
+    }
+
+    /* Maximal runs of nodes with exactly one predecessor and one successor,
+       followed predecessor to successor. Branch points and the chain's ends stay
+       visible, so the collapsed run reads "A -> ... -> D (n steps)" in place. */
+    function chainGroups(data) {
+        var nb = neighbourSets(data);
+        var byId = {};
+        data.nodes.forEach(function(n) { byId[n.id] = n; });
+        function single(map) {
+            var keys = Object.keys(map);
+            return keys.length === 1 ? keys[0] : null;
+        }
+        function linear(id) {
+            var n = byId[id];
+            if (!isGroupable(n)) return false;
+            var p = single(nb.preds[id]), s = single(nb.succs[id]);
+            return !!p && !!s && p !== id && s !== id;
+        }
+        var used = {}, groups = [];
+        data.nodes.forEach(function(n) {
+            if (used[n.id] || !linear(n.id)) return;
+            /* Walk back to the start of the run; stop on a cycle. */
+            var start = n.id, seen = {};
+            seen[start] = true;
+            while (true) {
+                var p = single(nb.preds[start]);
+                if (!linear(p) || seen[p] || used[p]) break;
+                seen[p] = true;
+                start = p;
+            }
+            var run = [], cur = start, inRun = {};
+            while (cur && linear(cur) && !inRun[cur] && !used[cur]) {
+                run.push(cur);
+                inRun[cur] = true;
+                cur = single(nb.succs[cur]);
+            }
+            run.forEach(function(id) { used[id] = true; });
+            if (run.length >= MIN_GROUP_SIZE) {
+                groups.push({
+                    key: run[0],
+                    label: run[0] + " → … → " + run[run.length - 1] + " (" + run.length + " steps)",
+                    members: run
+                });
+            }
+        });
+        return groups;
+    }
+
+    function candidateGroups(data, mode) {
+        var groups;
+        if (mode === "phenotype_system") groups = phenotypeSystemGroups(data);
+        else if (mode === "treatment_target") groups = treatmentTargetGroups(data);
+        else if (mode === "module") groups = moduleGroups(data);
+        else if (mode === "chain") groups = chainGroups(data);
+        else groups = [];
+        groups = groups.filter(function(g) { return g.members.length >= MIN_GROUP_SIZE; });
+        groups.forEach(function(g) { g.id = GROUP_ID_PREFIX + mode + ":" + g.key; });
+        /* Largest first, so the floor below spends its budget on the biggest wins. */
+        groups.sort(function(a, b) {
+            return b.members.length - a.members.length || (a.label < b.label ? -1 : a.label > b.label ? 1 : 0);
+        });
+        return groups;
+    }
+
+    function edgeStyleKey(e) {
+        return [
+            e.predicate || "",
+            e.is_orphan ? "orphan" : "",
+            (e.hypothesis_groups || []).slice().sort().join(",")
+        ].join("|");
+    }
+
+    /* Selected modes in the fixed order they run in (MODES order). "none" and
+       unknown keys are dropped, so [] means grouping is off. */
+    function normalizeModes(modes) {
+        if (!modes) return [];
+        if (!Array.isArray(modes)) modes = [modes];
+        var wanted = {};
+        modes.forEach(function(m) { wanted[m] = true; });
+        return MODES.map(function(m) { return m.key; }).filter(function(k) {
+            return k !== "none" && wanted[k];
+        });
+    }
+
+    /* One pass: collapse `mode`'s groups in `graph`, the output of the
+       previous pass. A pass only groups original nodes, never an earlier
+       pass's box, but it sees the earlier boxes as neighbours, so treatments
+       aimed at different phenotypes of one system share a target once the
+       phenotypes are grouped. */
+    function groupingPass(graph, mode, ctx) {
+        var byId = {};
+        graph.nodes.forEach(function(n) { byId[n.id] = n; });
+        var applied = [];
+        candidateGroups(graph, mode).forEach(function(g) {
+            if (ctx.expanded[g.id]) { ctx.expandedGroups.push(g); return; }
+            var saved = g.members.length - 1;
+            var mechanismMembers = g.members.filter(function(id) { return byId[id].node_type === "pathophysiology"; }).length;
+            var mechanismSaved = mechanismMembers ? mechanismMembers - 1 : 0;
+            if (ctx.visible - saved < ctx.floor || ctx.visibleMechanisms - mechanismSaved < ctx.mechanismFloor) {
+                ctx.skipped.push(g);
+                return;
+            }
+            ctx.visible -= saved;
+            ctx.visibleMechanisms -= mechanismSaved;
+            applied.push(g);
+        });
+        if (!applied.length) return graph;
+
+        var repOf = {};
+        var groupNodes = applied.map(function(g) {
+            var members = g.members.map(function(id) { return byId[id]; });
+            var types = {};
+            members.forEach(function(m) { types[m.node_type] = true; repOf[m.id] = g.id; });
+            var first = members[0];
+            var unexplained = members.filter(function(m) {
+                return m.node_type === "phenotype" && !ctx.explained[m.id];
+            }).map(function(m) { return m.id; });
+            return {
+                id: g.id,
+                label: g.label,
+                node_type: Object.keys(types).length === 1 ? first.node_type : "pathophysiology",
+                color: first.color,
+                is_orphan: false,
+                is_group: true,
+                group_mode: mode,
+                members: members,
+                unexplained: unexplained,
+                internal_edges: 0
+            };
+        });
+        var groupById = {};
+        groupNodes.forEach(function(g) { groupById[g.id] = g; });
+
+        var nodes = graph.nodes.filter(function(n) { return !repOf[n.id]; }).concat(groupNodes);
+        var edges = [], merged = {};
+        graph.edges.forEach(function(e) {
+            var s = repOf[e.source] || e.source, t = repOf[e.target] || e.target;
+            var count = e.multiplicity || 1;
+            if (s === t && groupById[s]) { groupById[s].internal_edges += count; return; }
+            if (s === e.source && t === e.target) { edges.push(e); return; }
+            var key = s + "\u0000" + t + "\u0000" + edgeStyleKey(e);
+            var m = merged[key];
+            if (!m) {
+                m = {};
+                for (var k in e) { if (Object.prototype.hasOwnProperty.call(e, k)) m[k] = e[k]; }
+                m.source = s;
+                m.target = t;
+                m.multiplicity = 0;
+                m.merged = [];
+                merged[key] = m;
+                edges.push(m);
+            }
+            /* An edge merged in an earlier pass carries its originals along, so
+               the count and hover list always refer to graph.py's edges. */
+            m.multiplicity += count;
+            m.merged = m.merged.concat(e.merged || [e]);
+        });
+        ctx.groups = ctx.groups.concat(groupNodes);
+        return {nodes: nodes, edges: edges};
+    }
+
+    /* Build the drawn graph for a set of modes. `expanded` holds the ids of
+       groups the reader has opened. The floor below is shared by every pass,
+       so stacking modes can never fold a graph further than one mode could. */
+    function applyGrouping(data, modes, expanded) {
+        modes = normalizeModes(modes);
+        var total = data.nodes.length;
+        var mechanismTotal = data.nodes.filter(function(n) { return n.node_type === "pathophysiology"; }).length;
+        var ctx = {
+            expanded: expanded || {},
+            explained: explainedPhenotypes(data),
+            floor: Math.max(MIN_VISIBLE_NODES, Math.ceil(total * MIN_KEPT_FRACTION)),
+            mechanismFloor: Math.min(mechanismTotal, Math.max(MIN_VISIBLE_NODES, Math.ceil(mechanismTotal * MIN_KEPT_FRACTION))),
+            visible: total,
+            visibleMechanisms: mechanismTotal,
+            groups: [],
+            skipped: [],
+            expandedGroups: []
+        };
+        var graph = {nodes: data.nodes, edges: data.edges};
+        modes.forEach(function(mode) { graph = groupingPass(graph, mode, ctx); });
+        return {
+            modes: modes,
+            nodes: graph.nodes,
+            edges: graph.edges,
+            groups: ctx.groups,
+            skipped: ctx.skipped,
+            expanded: ctx.expandedGroups
+        };
+    }
+
+    /* Drawn-edge count is the complexity the reader sees; node count breaks ties. */
+    function complexity(view) {
+        return view.edges.length * 10000 + view.nodes.length;
+    }
+
+    /* Every non-empty combination of the grouping modes, fewest modes first. */
+    function modeCombinations() {
+        var keys = MODES.map(function(m) { return m.key; }).filter(function(k) { return k !== "none"; });
+        var combos = [];
+        for (var mask = 1; mask < (1 << keys.length); mask++) {
+            combos.push(keys.filter(function(k, i) { return mask & (1 << i); }));
+        }
+        combos.sort(function(a, b) { return a.length - b.length; });
+        return combos;
+    }
+
+    /* Which modes to show first. Off unless the graph has more edges than the
+       knowledge-base mean; then the combination that draws the fewest edges.
+       A mode that changes nothing is never added, because combinations are
+       tried smallest first and only a strictly better score replaces the best. */
+    function chooseDefaultModes(data, meanEdgeCount) {
+        if (meanEdgeCount == null || !(data.edges.length > meanEdgeCount)) return [];
+        var best = [], bestScore = complexity(data);
+        modeCombinations().forEach(function(combo) {
+            var view = applyGrouping(data, combo, {});
+            if (!view.groups.length) return;
+            var score = complexity(view);
+            if (score < bestScore) { best = combo; bestScore = score; }
+        });
+        return best;
+    }
+
+    /* A mode is worth offering if it groups something on its own, or as part
+       of the full combination (treatments that only share a target once their
+       phenotypes are grouped). */
+    function availableModes(data) {
+        var all = applyGrouping(data, modeCombinations().pop(), {});
+        var available = {};
+        all.groups.forEach(function(g) { available[g.group_mode] = true; });
+        MODES.forEach(function(m) {
+            if (m.key !== "none" && candidateGroups(data, m.key).length) available[m.key] = true;
+        });
+        return available;
+    }
+
+    return {
+        MODES: MODES,
+        CAUSAL_PREDICATES: CAUSAL_PREDICATES,
+        MIN_VISIBLE_NODES: MIN_VISIBLE_NODES,
+        modeLabel: modeLabel,
+        normalizeModes: normalizeModes,
+        candidateGroups: candidateGroups,
+        applyGrouping: applyGrouping,
+        chooseDefaultModes: chooseDefaultModes,
+        availableModes: availableModes
+    };
+})();
+
+if (typeof module !== "undefined" && module.exports) module.exports = PathographGrouping;
+    </script>
     <script>
     /* Pathograph: interactive D3.js causal mechanism network */
     var NODE_SHAPES = {
@@ -3051,40 +3514,27 @@
         var svgEl = document.getElementById(containerId + "-svg");
         var tooltipEl = document.getElementById(containerId + "-tooltip");
         var legendEl = document.getElementById(containerId + "-legend");
+        var groupbarEl = document.getElementById(containerId + "-groupbar");
         if (!data || !data.nodes || !data.nodes.length) return;
-
-        /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph({ multigraph: true });
-        g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
-        g.setDefaultEdgeLabel(function() { return {}; });
 
         /* Node id of the tooltip the user clicked (pinned), if any. */
         var pinnedNodeId = null;
 
         var nodeMap = {};
-        data.nodes.forEach(function(n) {
-            nodeMap[n.id] = n;
-            var labelLen = n.id.length;
-            var w = Math.max(120, Math.min(220, labelLen * 8 + 30));
-            var h = 44;
-            g.setNode(n.id, { width: w, height: h, label: n.id });
-        });
-        data.edges.forEach(function(e, edgeIndex) {
-            // Different roles may connect the same variant and gene.
-            g.setEdge(e.source, e.target, {}, String(edgeIndex));
-        });
-        dagre.layout(g);
+        data.nodes.forEach(function(n) { nodeMap[n.id] = n; });
 
-        var graphInfo = g.graph();
-        var totalW = graphInfo.width + 60;
-        var totalH = graphInfo.height + 60;
+        /* -- Group by (#14539) --
+           Collapsing is done client-side by PathographGrouping on a copy of the
+           payload. A graph with more edges than the knowledge-base mean opens
+           in whichever combination of modes draws the fewest edges. */
+        var grouping = data.grouping || {};
+        var defaultGroupModes = PathographGrouping.chooseDefaultModes(data, grouping.mean_edge_count);
+        var groupModes = defaultGroupModes.slice();
+        var expandedGroups = {};
+        var view = null;
 
         /* -- SVG setup with zoom -- */
-        var svg = d3.select(svgEl)
-            .attr("viewBox", "0 0 " + totalW + " " + totalH)
-            .attr("preserveAspectRatio", "xMidYMid meet")
-            .style("min-height", Math.min(totalH, 600) + "px");
-
+        var svg = d3.select(svgEl).attr("preserveAspectRatio", "xMidYMid meet");
         var rootG = svg.append("g").attr("class", "pathograph-root");
 
         var zoom = d3.zoom()
@@ -3177,25 +3627,8 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#7c3aed");
 
-        /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e, edgeIndex) {
-            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
-            if (!dagreEdge || !dagreEdge.points) return;
-            var pts = dagreEdge.points;
-            var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            var edgePath = edgesG.append("path")
-                .attr("d", line(pts))
-                .attr("fill", "none")
-                .attr("stroke", edgeStroke(e))
-                .attr("stroke-width", hasHypothesisGroups(e) ? 2.4 : 1.8)
-                .attr("stroke-dasharray", edgeDashArray(e))
-                .attr("marker-end", edgeMarker(e))
-                .attr("data-source", e.source)
-                .attr("data-target", e.target)
-                .attr("data-predicate", e.predicate);
-            edgePath.append("title").text(edgeTitle(e));
-        });
+        var nodesG = rootG.append("g").attr("class", "pg-nodes");
 
         /* -- Shape helpers -- */
         function drawNodeShape(sel, nodeData, w, h) {
@@ -3245,94 +3678,322 @@
             }
         }
 
-        /* -- Draw nodes -- */
-        var nodesG = rootG.append("g").attr("class", "pg-nodes");
-        data.nodes.forEach(function(n) {
-            var dagreNode = g.node(n.id);
-            if (!dagreNode) return;
-            var nw = dagreNode.width, nh = dagreNode.height;
-            var nodeG = nodesG.append("g")
-                .attr("transform", "translate(" + dagreNode.x + "," + dagreNode.y + ")")
-                .attr("data-node-type", n.node_type)
-                .attr("data-node-id", n.id)
-                .style("cursor", "pointer");
+        function nodeLabel(n) {
+            return n.is_group ? n.label : n.id;
+        }
 
-            drawNodeShape(nodeG, n, nw, nh);
+        function mergedEdgeTitle(e) {
+            var parts = [e.multiplicity + " edges merged"];
+            if (e.predicate) parts.push(humanizeEnum(e.predicate));
+            if (e.hypothesis_groups && e.hypothesis_groups.length) parts.push("hypotheses: " + e.hypothesis_groups.join(", "));
+            e.merged.slice(0, 8).forEach(function(m) { parts.push(m.source + " -> " + m.target); });
+            if (e.merged.length > 8) parts.push("... and " + (e.merged.length - 8) + " more");
+            return parts.join("\n");
+        }
 
-            /* Node-type icon badge */
-            var nodeIcon = getNodeIcon(n);
-            if (nodeIcon) {
-                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
-                var iconBadge = nodeG.append("g")
-                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
-                    .style("pointer-events", "none");
-                iconBadge.append("circle")
-                    .attr("r", 9)
-                    .attr("fill", "rgba(255,255,255,0.95)")
-                    .attr("stroke", iconStroke)
-                    .attr("stroke-width", 1.2);
-                iconBadge.append("text")
-                    .attr("text-anchor", "middle")
-                    .attr("dominant-baseline", "central")
-                    .attr("font-size", "10px")
-                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
-                    .text(nodeIcon);
-            }
+        /* -- Layout and draw the current view; re-run on every grouping change -- */
+        function layoutAndDraw() {
+            view = PathographGrouping.applyGrouping(data, groupModes, expandedGroups);
+            view.groups.forEach(function(gn) { nodeMap[gn.id] = gn; });
 
-            /* Label text */
-            var label = n.id;
-            var maxChars = Math.floor(nw / 7);
-            if (label.length > maxChars) label = label.substring(0, maxChars - 1) + "\u2026";
-            nodeG.append("text")
-                .attr("text-anchor", "middle")
-                .attr("dominant-baseline", "central")
-                .attr("font-size", "11px")
-                .attr("font-family", "system-ui, -apple-system, sans-serif")
-                .attr("fill", "#1f2937")
-                .text(label);
-
-            /* PDB structure badge */
-            var hasPdb = n.meta && n.meta.pdb_structures && n.meta.pdb_structures.length;
-            if (hasPdb) {
-                var badgeG = nodeG.append("g")
-                    .attr("transform", "translate(" + (nw/2 - 10) + "," + (-nh/2 - 6) + ")")
-                    .style("cursor", "pointer");
-                badgeG.append("circle")
-                    .attr("r", 9)
-                    .attr("fill", "#1e40af")
-                    .attr("stroke", "#fff")
-                    .attr("stroke-width", 1.5);
-                badgeG.append("text")
-                    .attr("text-anchor", "middle")
-                    .attr("dominant-baseline", "central")
-                    .attr("font-size", "9px")
-                    .attr("fill", "#fff")
-                    .text("3D");
-                badgeG.append("title").text(n.meta.pdb_structures.length + " PDB structure(s)");
-                badgeG.on("click", function(event) {
-                    event.stopPropagation();
-                    var pdbId = n.meta.pdb_structures[0].pdb_id;
-                    window.open("https://www.rcsb.org/3d-view/" + pdbId, "_blank");
-                });
-            }
-
-            /* Interaction: hover */
-            nodeG.on("mouseenter", function(event) {
-                /* A pinned tooltip stays put until the user dismisses it. */
-                if (pinnedNodeId && pinnedNodeId !== n.id) return;
-                highlightNode(n.id, true);
-                showTooltip(event, n);
-            }).on("mouseleave", function() {
-                if (pinnedNodeId) return;
-                highlightNode(n.id, false);
-                hideTooltip();
-            }).on("click", function(event) {
-                event.stopPropagation();
-                pinnedNodeId = n.id;
-                highlightNode(n.id, true);
-                showTooltip(event, n);
+            var g = new dagre.graphlib.Graph({ multigraph: true });
+            g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
+            g.setDefaultEdgeLabel(function() { return {}; });
+            view.nodes.forEach(function(n) {
+                var labelLen = nodeLabel(n).length;
+                var w = n.is_group
+                    ? Math.max(160, Math.min(260, labelLen * 7 + 40))
+                    : Math.max(120, Math.min(220, labelLen * 8 + 30));
+                g.setNode(n.id, { width: w, height: n.is_group ? 56 : 44, label: nodeLabel(n) });
             });
-        });
+            view.edges.forEach(function(e, edgeIndex) {
+                // Different roles may connect the same variant and gene.
+                g.setEdge(e.source, e.target, {}, String(edgeIndex));
+            });
+            dagre.layout(g);
+
+            var graphInfo = g.graph();
+            var totalW = graphInfo.width + 60;
+            var totalH = graphInfo.height + 60;
+            svg.attr("viewBox", "0 0 " + totalW + " " + totalH)
+                .style("min-height", Math.min(totalH, 600) + "px");
+            svg.call(zoom.transform, d3.zoomIdentity);
+
+            edgesG.selectAll("*").remove();
+            nodesG.selectAll("*").remove();
+
+            /* -- Draw edges -- */
+            view.edges.forEach(function(e, edgeIndex) {
+                var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
+                if (!dagreEdge || !dagreEdge.points) return;
+                var pts = dagreEdge.points;
+                var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
+                /* A merged edge keeps its members' style; width shows how many. */
+                var width = hasHypothesisGroups(e) ? 2.4 : 1.8;
+                if (e.multiplicity > 1) width += Math.min(3, (e.multiplicity - 1) * 0.6);
+                var edgePath = edgesG.append("path")
+                    .attr("d", line(pts))
+                    .attr("fill", "none")
+                    .attr("stroke", edgeStroke(e))
+                    .attr("stroke-width", width)
+                    .attr("stroke-dasharray", edgeDashArray(e))
+                    .attr("marker-end", edgeMarker(e))
+                    .attr("data-source", e.source)
+                    .attr("data-target", e.target)
+                    .attr("data-predicate", e.predicate);
+                edgePath.append("title").text(e.merged ? mergedEdgeTitle(e) : edgeTitle(e));
+            });
+
+            /* -- Draw nodes -- */
+            view.nodes.forEach(function(n) {
+                var dagreNode = g.node(n.id);
+                if (!dagreNode) return;
+                var nw = dagreNode.width, nh = dagreNode.height;
+                var nodeG = nodesG.append("g")
+                    .attr("transform", "translate(" + dagreNode.x + "," + dagreNode.y + ")")
+                    .attr("data-node-type", n.node_type)
+                    .attr("data-node-id", n.id)
+                    .attr("class", n.is_group ? "pg-group-node" : null)
+                    .style("cursor", "pointer");
+
+                /* A group is drawn as a stack: a second outline offset behind it. */
+                if (n.is_group) {
+                    var stackG = nodeG.append("g").attr("transform", "translate(5,-5)");
+                    drawNodeShape(stackG, {node_type: n.node_type, color: "#ffffff"}, nw, nh);
+                }
+                drawNodeShape(nodeG, n, nw, nh);
+
+                /* Node-type icon badge */
+                var nodeIcon = n.is_group ? NODE_TYPE_ICONS[n.node_type] : getNodeIcon(n);
+                if (nodeIcon) {
+                    var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                    var iconBadge = nodeG.append("g")
+                        .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                        .style("pointer-events", "none");
+                    iconBadge.append("circle")
+                        .attr("r", 9)
+                        .attr("fill", "rgba(255,255,255,0.95)")
+                        .attr("stroke", iconStroke)
+                        .attr("stroke-width", 1.2);
+                    iconBadge.append("text")
+                        .attr("text-anchor", "middle")
+                        .attr("dominant-baseline", "central")
+                        .attr("font-size", "10px")
+                        .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                        .text(nodeIcon);
+                }
+
+                /* Label text */
+                var label = nodeLabel(n);
+                var maxChars = Math.floor(nw / 7);
+                if (label.length > maxChars) label = label.substring(0, maxChars - 1) + "…";
+                nodeG.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("y", n.is_group ? -7 : 0)
+                    .attr("font-size", "11px")
+                    .attr("font-weight", n.is_group ? 600 : null)
+                    .attr("font-family", "system-ui, -apple-system, sans-serif")
+                    .attr("fill", "#1f2937")
+                    .text(label);
+
+                if (n.is_group) {
+                    /* Member count, plus how many phenotypes have no causal inlink,
+                       so connected and disconnected phenotypes stay distinguishable. */
+                    var sub = n.members.length + " nodes";
+                    if (n.unexplained.length) sub += " · " + n.unexplained.length + " not causally linked";
+                    nodeG.append("text")
+                        .attr("text-anchor", "middle")
+                        .attr("dominant-baseline", "central")
+                        .attr("y", 9)
+                        .attr("font-size", "10px")
+                        .attr("font-family", "system-ui, -apple-system, sans-serif")
+                        .attr("fill", n.unexplained.length ? "#92400e" : "#4b5563")
+                        .text(sub);
+                    var countG = nodeG.append("g")
+                        .attr("transform", "translate(" + (nw/2 - 4) + "," + (-nh/2 - 2) + ")")
+                        .style("pointer-events", "none");
+                    countG.append("circle")
+                        .attr("r", 10)
+                        .attr("fill", "#4f46e5")
+                        .attr("stroke", "#fff")
+                        .attr("stroke-width", 1.5);
+                    countG.append("text")
+                        .attr("text-anchor", "middle")
+                        .attr("dominant-baseline", "central")
+                        .attr("font-size", "9px")
+                        .attr("font-weight", 700)
+                        .attr("fill", "#fff")
+                        .text(n.members.length);
+                }
+
+                /* PDB structure badge */
+                var hasPdb = !n.is_group && n.meta && n.meta.pdb_structures && n.meta.pdb_structures.length;
+                if (hasPdb) {
+                    var badgeG = nodeG.append("g")
+                        .attr("transform", "translate(" + (nw/2 - 10) + "," + (-nh/2 - 6) + ")")
+                        .style("cursor", "pointer");
+                    badgeG.append("circle")
+                        .attr("r", 9)
+                        .attr("fill", "#1e40af")
+                        .attr("stroke", "#fff")
+                        .attr("stroke-width", 1.5);
+                    badgeG.append("text")
+                        .attr("text-anchor", "middle")
+                        .attr("dominant-baseline", "central")
+                        .attr("font-size", "9px")
+                        .attr("fill", "#fff")
+                        .text("3D");
+                    badgeG.append("title").text(n.meta.pdb_structures.length + " PDB structure(s)");
+                    badgeG.on("click", function(event) {
+                        event.stopPropagation();
+                        var pdbId = n.meta.pdb_structures[0].pdb_id;
+                        window.open("https://www.rcsb.org/3d-view/" + pdbId, "_blank");
+                    });
+                }
+
+                /* Interaction: hover */
+                nodeG.on("mouseenter", function(event) {
+                    /* A pinned tooltip stays put until the user dismisses it. */
+                    if (pinnedNodeId && pinnedNodeId !== n.id) return;
+                    highlightNode(n.id, true);
+                    showTooltip(event, n);
+                }).on("mouseleave", function() {
+                    if (pinnedNodeId) return;
+                    highlightNode(n.id, false);
+                    hideTooltip();
+                }).on("click", function(event) {
+                    event.stopPropagation();
+                    pinnedNodeId = n.id;
+                    highlightNode(n.id, true);
+                    showTooltip(event, n);
+                }).on("dblclick", function(event) {
+                    /* Stop d3.zoom's double-click zoom; on a group, expand it. */
+                    event.stopPropagation();
+                    event.preventDefault();
+                    if (n.is_group) expandGroup(n.id);
+                });
+            });
+
+            filterByType();
+            renderGroupbar();
+        }
+
+        function expandGroup(groupId) {
+            expandedGroups[groupId] = true;
+            unpinTooltip();
+            hideTooltip();
+            layoutAndDraw();
+        }
+
+        function setGroupModes(modes) {
+            groupModes = PathographGrouping.normalizeModes(modes);
+            expandedGroups = {};
+            unpinTooltip();
+            hideTooltip();
+            layoutAndDraw();
+        }
+
+        function sameModes(a, b) {
+            return a.join("|") === b.join("|");
+        }
+
+        function modesText(modes) {
+            return modes.map(PathographGrouping.modeLabel).join(" + ");
+        }
+
+        /* -- Group-by control: mode toggles plus a status line naming the
+           grouping currently applied, so a collapsed graph never passes for
+           the whole graph. Modes combine; None clears them all. -- */
+        var availableModes = PathographGrouping.availableModes(data);
+
+        function renderGroupbar() {
+            if (!groupbarEl) return;
+            groupbarEl.innerHTML = "";
+            groupbarEl.classList.toggle("is-active", groupModes.length > 0);
+
+            var controls = document.createElement("div");
+            controls.className = "pg-groupbar-controls";
+            controls.setAttribute("role", "group");
+            controls.setAttribute("aria-label", "Group pathograph nodes by");
+            var title = document.createElement("span");
+            title.className = "pg-groupbar-title";
+            title.textContent = "Group by";
+            controls.appendChild(title);
+            PathographGrouping.MODES.forEach(function(m) {
+                var isNone = m.key === "none";
+                var selected = isNone ? groupModes.length === 0 : groupModes.indexOf(m.key) !== -1;
+                var btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "pg-group-mode" + (selected ? " is-selected" : "");
+                btn.setAttribute("aria-pressed", selected ? "true" : "false");
+                btn.textContent = (isNone || !selected ? "" : "✓ ") + m.label;
+                if (!isNone && !availableModes[m.key]) {
+                    btn.disabled = true;
+                    btn.title = "Nothing in this graph groups this way";
+                }
+                btn.addEventListener("click", function() {
+                    if (isNone) {
+                        if (groupModes.length) setGroupModes([]);
+                    } else if (selected) {
+                        setGroupModes(groupModes.filter(function(k) { return k !== m.key; }));
+                    } else {
+                        setGroupModes(groupModes.concat([m.key]));
+                    }
+                });
+                controls.appendChild(btn);
+            });
+            if (defaultGroupModes.length && !sameModes(groupModes, defaultGroupModes)) {
+                var reset = document.createElement("button");
+                reset.type = "button";
+                reset.className = "pg-group-collapse";
+                reset.textContent = "Back to default";
+                reset.title = "Default for this graph: " + modesText(defaultGroupModes);
+                reset.addEventListener("click", function() { setGroupModes(defaultGroupModes); });
+                controls.appendChild(reset);
+            }
+            groupbarEl.appendChild(controls);
+
+            var status = document.createElement("div");
+            status.className = "pg-groupbar-status";
+            status.setAttribute("aria-live", "polite");
+            var text;
+            if (!groupModes.length) {
+                text = "Grouping: off. Showing all " + data.nodes.length + " nodes and " + data.edges.length + " edges.";
+            } else {
+                var grouped = 0;
+                view.groups.forEach(function(gn) { grouped += gn.members.length; });
+                text = "Grouping: " + modesText(groupModes) + ". ";
+                if (view.groups.length) {
+                    text += view.groups.length + (view.groups.length === 1 ? " group holds " : " groups hold ") + grouped +
+                        " of " + data.nodes.length + " nodes; " + data.edges.length + " edges are drawn as " + view.edges.length + ".";
+                } else if (view.expanded.length) {
+                    text += "Every group is expanded, so all " + data.nodes.length + " nodes are shown.";
+                } else {
+                    text += "Nothing in this graph groups this way, so all " + data.nodes.length + " nodes are shown.";
+                }
+                if (sameModes(groupModes, defaultGroupModes)) {
+                    text += " On by default: this graph has more edges than the knowledge-base average (" +
+                        grouping.mean_edge_count + "), and this combination draws the fewest.";
+                }
+                if (view.skipped.length) {
+                    text += " " + view.skipped.length + (view.skipped.length === 1 ? " group was" : " groups were") +
+                        " left open so the main chains stay readable.";
+                }
+                text += " Click a group to list its members; double-click it to expand.";
+            }
+            status.appendChild(document.createTextNode(text));
+            if (view.expanded.length) {
+                var collapseAll = document.createElement("button");
+                collapseAll.type = "button";
+                collapseAll.className = "pg-group-collapse";
+                collapseAll.textContent = "Collapse " + view.expanded.length + " expanded";
+                collapseAll.addEventListener("click", function() { setGroupModes(groupModes); });
+                status.appendChild(document.createTextNode(" "));
+                status.appendChild(collapseAll);
+            }
+            groupbarEl.appendChild(status);
+        }
 
         /* Click on background clears highlight */
         svg.on("click", function() {
@@ -3361,11 +4022,11 @@
             if (!on) { clearHighlight(); return; }
             /* Find connected edges */
             var connectedNodes = new Set([nodeId]);
-            data.edges.forEach(function(e) {
+            view.edges.forEach(function(e) {
                 if (e.source === nodeId) connectedNodes.add(e.target);
                 if (e.target === nodeId) connectedNodes.add(e.source);
             });
-            nodesG.selectAll("g").each(function() {
+            nodesG.selectAll("g[data-node-id]").each(function() {
                 var el = d3.select(this);
                 var nid = el.attr("data-node-id");
                 el.style("opacity", connectedNodes.has(nid) ? 1 : 0.2);
@@ -3378,12 +4039,13 @@
         }
 
         function clearHighlight() {
-            nodesG.selectAll("g").style("opacity", 1);
+            nodesG.selectAll("g[data-node-id]").style("opacity", 1);
             edgesG.selectAll("path").style("opacity", 1);
         }
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            if (n.is_group) { showGroupTooltip(event, n); return; }
             function formatHistopathologyTerm(term) {
                 var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
                 if (term.term_id && term.term_label && term.term_label !== display) {
@@ -3688,6 +4350,60 @@
             tooltipEl.style.opacity = "1";
             tooltipEl.classList.add("is-visible");
 
+            placeTooltip(event);
+        }
+
+        /* A group's tooltip lists its members, each still one click from its
+           card, so grouping never hides evidence. */
+        function showGroupTooltip(event, n) {
+            var isPinned = pinnedNodeId === n.id;
+            var html = [];
+            html.push('<div class="tt-title">' + escapeHtml((NODE_TYPE_ICONS[n.node_type] || "") + " " + n.label) + '</div>');
+            html.push('<div class="tt-type">Group \u00b7 ' + escapeHtml(PathographGrouping.modeLabel(n.group_mode)) + '</div>');
+            var metaParts = ['<span>' + n.members.length + ' nodes</span>'];
+            if (n.internal_edges) metaParts.push('<span>' + n.internal_edges + ' edges inside the group</span>');
+            if (n.unexplained.length) metaParts.push('<span>' + n.unexplained.length + ' phenotype(s) with no causal inlink, marked \u25cb</span>');
+            html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+            var unexplained = {};
+            n.unexplained.forEach(function(id) { unexplained[id] = true; });
+            html.push('<ul class="tt-members">');
+            n.members.forEach(function(m, i) {
+                var mark = unexplained[m.id] ? "\u25cb " : "";
+                var text = escapeHtml(mark + m.id);
+                if (isPinned && findCardForNode(m.id, m.node_type)) {
+                    html.push('<li><button type="button" class="tt-member" data-member="' + i + '">' + text + '</button></li>');
+                } else {
+                    html.push('<li>' + text + '</li>');
+                }
+            });
+            html.push('</ul>');
+            if (isPinned) {
+                html.push('<button type="button" class="tt-jump tt-expand">Expand group</button>');
+            } else {
+                html.push('<div class="tt-hint">Click to pin and jump to a member; double-click to expand</div>');
+            }
+            tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            Array.prototype.forEach.call(tooltipEl.querySelectorAll(".tt-member"), function(btn) {
+                btn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    var member = n.members[Number(btn.getAttribute("data-member"))];
+                    jumpToCard(member.id, member.node_type);
+                });
+            });
+            var expandBtn = tooltipEl.querySelector(".tt-expand");
+            if (expandBtn) {
+                expandBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    expandGroup(n.id);
+                });
+            }
+            tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
+            placeTooltip(event);
+        }
+
+        function placeTooltip(event) {
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
             var x = event.clientX - rect.left + 14;
@@ -3751,7 +4467,7 @@
         });
 
         function filterByType() {
-            nodesG.selectAll("g").each(function() {
+            nodesG.selectAll("g[data-node-id]").each(function() {
                 var el = d3.select(this);
                 var t = el.attr("data-node-type");
                 el.style("display", activeTypes.has(t) ? null : "none");
@@ -3765,6 +4481,8 @@
                 el.style("display", (sVis && tVis) ? null : "none");
             });
         }
+
+        layoutAndDraw();
     }
     </script>
 </head>
@@ -3984,6 +4702,7 @@
                     <summary>Data</summary>
                     <ul class="dm-nav-panel">
                         <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
                     </ul>
                 </details>
             </li>
@@ -5607,9 +6326,10 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
-            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            <div class="graph-note">Use <strong>Group by</strong> to collapse related nodes into one box. Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
 
             <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-groupbar" id="pathograph-groupbar"></div>
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Isobutyryl-CoA Dehydrogenase Deficiency</title>
@@ -5619,7 +6339,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACAD8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ACAD8\"], \"gene_terms\": [{\"label\": \"ACAD8\", \"id\": \"hgnc:87\"}], \"association\": \"Pathogenic Variants\", \"variant_count\": 3}}, {\"id\": \"ACAD8 molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ACAD8 pathogenic variants reduce isobutyryl-CoA dehydrogenase catalytic activity in mitochondria.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"L-valine catabolic process\"], \"molecular_functions\": [\"isobutyryl-CoA dehydrogenase activity\"], \"genes\": [\"ACAD8\"], \"gene_terms\": [{\"label\": \"ACAD8\", \"id\": \"hgnc:87\"}], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia was reported in the index symptomatic patient who also had cardiomyopathy and secondary carnitine deficiency. It is the most frequently reported abnormality among the symptomatic minority.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Autism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One case report describes a girl with IBDD presenting with autism as the main clinical feature. Trio whole exome sequencing did not identify an alternative genetic diagnosis. The causal association remains uncertain.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0000717\"}}, {\"id\": \"C4-acylcarnitine (isobutyrylcarnitine)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:73017\", \"term_label\": \"O-isobutyrylcarnitine\", \"readouts\": [{\"target\": \"Metabolite accumulation and biomarker shunting\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated C4-acylcarnitine reports isobutyryl-CoA shunting into carnitine conjugates downstream of impaired ACAD8-dependent valine catabolism.\"}]}}, {\"id\": \"C4-acylcarnitine ratio biomarkers (C4/C0, C4/C6, C4/C8)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:73017\", \"term_label\": \"O-isobutyrylcarnitine\", \"readouts\": [{\"target\": \"Metabolite accumulation and biomarker shunting\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"C4-based ratios refine interpretation of the elevated C4-acylcarnitine biomarker produced by ACAD8-related metabolite shunting.\"}]}}, {\"id\": \"Conservative monitoring\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Given the uncertain clinical significance of IBDD, most patients identified through newborn screening are managed with conservative monitoring. Regular clinical assessment with attention to growth, development, and metabolic status is recommended. In many cases, no specific intervention is required.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Decreased circulating carnitine concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary carnitine deficiency has been reported in the original symptomatic IBDD patient with cardiomyopathy and anemia. Many screened individuals have normal free carnitine, so this is modeled as a rare biochemical phenotype.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0003234\"}}, {\"id\": \"Dehydration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One patient in the newborn-screening follow-up series required repeated hospitalization for emesis and dehydration, while developing normally at age five.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001944\"}}, {\"id\": \"Dietary management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In the initial period after diagnosis, dietary management may include monitoring of protein intake. In the Chinese NBS cohort, patients gradually transitioned to a normal diet after 6 months of age with favorable outcomes.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiomyopathy was reported in the original index case of IBDD, who presented with dilated cardiomyopathy, anemia, and secondary carnitine deficiency at age two years. This remains a rare presentation.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001644\"}}, {\"id\": \"Elevated C4-acylcarnitine\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent elevation of C4-acylcarnitine (isobutyrylcarnitine) in blood is the hallmark biochemical marker, detectable on newborn screening. C4 represents both isobutyryl- and butyrylcarnitine, requiring differentiation from short-chain acyl-CoA dehydrogenase deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Metabolite accumulation and biomarker shunting\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The same C4-acylcarnitine accumulation is detected clinically as the newborn-screening phenotype.\"}], \"term_id\": \"HP:0045045\"}}, {\"id\": \"Elevated hepatic transaminases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum transaminases and gamma-glutamyl transferase have been reported in a subset of IBDD individuals. An ACAD8-deficient mouse model also exhibits progressive hepatic steatosis with mitochondriopathy.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"reports_on\": [{\"target\": \"Hepatic involvement and mitochondrial stress\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The hepatic involvement signal most often appears as isolated serum transaminase elevation.\"}], \"term_id\": \"HP:0002910\"}}, {\"id\": \"Emergency glucose regimen\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A glucose polymer emergency regimen may be provided as a precautionary measure for managing potential hypoglycemic episodes during intercurrent illness, although its necessity in IBDD remains uncertain.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Enzyme redundancy and low clinical penetrance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A plausible mechanistic explanation for the frequently benign phenotype of IBDD is substrate promiscuity among acyl-CoA dehydrogenase family members. In HEK-293 ACAD8-deletion models, other ACADs appear to compensate for isobutyryl-CoA handling, which may help explain the low clinical penetrance observed in human cohorts.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Ethylmalonic acid (urinary)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:741548\", \"term_label\": \"ethylmalonic acid\", \"readouts\": [{\"target\": \"Metabolite accumulation and biomarker shunting\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Normal or absent ethylmalonic acid helps distinguish IBDD-associated C4 elevation from SCADD-associated C4 elevation.\"}]}}, {\"id\": \"Free carnitine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:17126\", \"term_label\": \"carnitine\", \"readouts\": [{\"target\": \"Metabolite accumulation and biomarker shunting\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Low free carnitine can accompany excessive acylcarnitine formation in rare symptomatic cases, but normal free carnitine does not exclude IBDD.\"}]}}, {\"id\": \"Genetic counseling\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Genetic counseling is recommended for families of affected individuals, including discussion of autosomal recessive inheritance, the typically benign prognosis, recurrence risk, and the uncertain clinical significance of the condition.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth delay or failure to thrive has been reported in a small subset of patients.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hepatic involvement and mitochondrial stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of IBDD individuals shows liver enzyme abnormalities including elevated transaminases and gamma-glutamyl transferase. One reported human case had hepatomegaly with ultrasound findings suggestive of hepatic steatosis, and an ACAD8-deficient mouse model develops hepatic steatosis with abnormal hepatocyte mitochondria.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatic steatosis has been observed in the ACAD8-deficient mouse model with abnormal mitochondrial ultrastructure; one reported human case had hepatomegaly with ultrasound findings suggestive of steatosis.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Impaired mitochondrial valine catabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of ACAD8 function creates a metabolic block in valine degradation, leading to accumulation of isobutyryl-CoA and diversion into alternate conjugation products including isobutyrylcarnitine (C4) and isobutyrylglycine.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"valine catabolic process\", \"branched-chain amino acid catabolic process\"]}}, {\"id\": \"Improved screening biomarker ratios\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Novel C4-based acylcarnitine ratios have been proposed to reduce false positive rates in newborn screening and to improve discrimination between IBDD and SCADD. Seven ratios including C4/C0, C4/C5, C4/C6, and C4/C8 showed robust performance in distinguishing true positives from false positives.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Isobutyrylglycine (urinary)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:70979\", \"term_label\": \"N-isobutyrylglycine\", \"readouts\": [{\"target\": \"Metabolite accumulation and biomarker shunting\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Urinary isobutyrylglycine reports glycine conjugation of accumulated isobutyryl-CoA, but this marker is intermittently present.\"}]}}, {\"id\": \"Ketotic hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One case was diagnosed with IBDD after presenting with hypoglycemic encephalopathy during acute gastroenteritis. The causal relationship between IBDD and hypoglycemia is uncertain.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0012734\"}}, {\"id\": \"L-carnitine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carnitine supplementation may be indicated in patients with documented secondary carnitine deficiency. The original symptomatic case with cardiomyopathy improved with oral L-carnitine. However, carnitine supplementation is not universally required when free carnitine levels are normal.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Largely asymptomatic course\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Most reported individuals with IBDD remain clinically asymptomatic after diagnosis, despite persistent biochemical abnormalities.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\"}}, {\"id\": \"Metabolite accumulation and biomarker shunting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of ACAD8 activity leads to accumulation of isobutyryl-CoA, which is conjugated to carnitine (forming C4-acylcarnitine) and glycine (forming isobutyrylglycine). Elevated C4-acylcarnitine with increased C4/C2 and C4/C3 ratios is the hallmark newborn screening marker. Urinary isobutyrylglycine is variably present and may be intermittently normal.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"branched-chain amino acid catabolic process\"]}}, {\"id\": \"Motor developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transient motor delay was observed in a minority of patients. In a 40-patient Chinese cohort, four patients had transient motor delay.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Muscular hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia has been variably reported among symptomatic IBDD patients.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Newborn screening\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"IBDD is detectable through expanded newborn screening using tandem mass spectrometry (MS/MS) via elevated C4-acylcarnitine. A diagnostic follow-up algorithm involving plasma and urine acylcarnitine profiling, urinary organic acid analysis, and molecular genetic testing of ACAD8 has been developed for confirmatory diagnosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Second-tier screening with UPLC-MS/MS\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Second-tier testing using ultraperformance liquid chromatography-tandem mass spectrometry to quantify ethylmalonate and isobutyrylglycine in dried blood spots can reduce referrals by over 90% while maintaining sensitivity for IBDD and SCADD differential diagnosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Speech delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech delay has been reported in isolated IBDD cases. One Chinese cohort of seven IBDD patients included one juvenile with speech delay.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Emesis has been reported in some symptomatic IBDD patients, particularly during episodes of metabolic stress.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002013\"}}, {\"id\": \"c.1000C\u003eT (p.R334C)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The second most common ACAD8 variant, observed at an allelic frequency of 8.6% across published IBDD cases.\\n\"}, {\"id\": \"c.286G\u003eA (p.Gly96Ser)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common ACAD8 variant, observed at an allelic frequency of 27.2% in a literature review of 81 IBDD patients. This variant has been found solely in the Chinese population to date.\\n\"}, {\"id\": \"c.845C\u003eT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous variant identified in a patient who presented with hypoglycemic encephalopathy and was followed for 10 years with benign outcome.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Impaired mitochondrial valine catabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ACAD8 activity blocks isobutyryl-CoA oxidation in the valine pathway.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Largely asymptomatic course\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ACAD8-related isobutyryl-CoA dehydrogenase deficiency is most often a low-penetrance biochemical phenotype detected by newborn screening rather than a consistently symptomatic clinical disease.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anemia is a rare reported clinical manifestation in symptomatic IBDD.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiomyopathy was reported in the original symptomatic IBDD case.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Motor developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor delay is among the nonspecific manifestations reported in a minority of cases.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to thrive or growth delay is reported in a small symptomatic subset.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Speech delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Speech delay is reported in isolated symptomatic cases.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Muscular hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypotonia is a nonspecific manifestation in a minority of symptomatic patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Autism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autism has been reported in a single IBDD case without an alternative genetic diagnosis, but causality remains uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Emesis is reported among nonspecific symptomatic presentations.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Dehydration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent dehydration requiring hospitalization has been reported in one symptomatic patient.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Ketotic hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ketotic hypoglycemia has been reported, but the authors considered causality uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial valine catabolism\", \"target\": \"Metabolite accumulation and biomarker shunting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ACAD8 loss blocks valine catabolism and diverts accumulating isobutyryl-CoA into detectable C4 and glycine conjugates.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"C4-acylcarnitine (isobutyrylcarnitine)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated isobutyryl-CoA is conjugated to carnitine, producing elevated C4-acylcarnitine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"Isobutyrylglycine (urinary)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Isobutyryl-CoA can also be conjugated to glycine and excreted as urinary isobutyrylglycine, although this marker is variable.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"C4-acylcarnitine ratio biomarkers (C4/C0, C4/C6, C4/C8)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent C4-acylcarnitine elevation shifts C4-based acylcarnitine ratios used for screening discrimination.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"Free carnitine\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Carnitine conjugation can contribute to secondary carnitine depletion in rare symptomatic cases.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"isobutyryl-CoA conjugation to carnitine\"]}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"Decreased circulating carnitine concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated isobutyryl-CoA can be conjugated to carnitine, causing secondary depletion of circulating carnitine in rare symptomatic cases.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"isobutyryl-CoA conjugation to carnitine\"]}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"Hepatic involvement and mitochondrial stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reported liver-test abnormalities and the ACAD8-deficient mouse liver phenotype suggest a possible hepatic consequence, but the intervening mechanism remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Enzyme redundancy and low clinical penetrance\", \"target\": \"Largely asymptomatic course\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ACAD substrate promiscuity may help explain why most reported ACAD8-deficient individuals remain clinically asymptomatic despite persistent biochemical abnormalities.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic involvement and mitochondrial stress\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One reported human case and the ACAD8-deficient mouse model suggest possible hepatic steatosis, although causality remains uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hepatocellular mitochondrial stress\"]}, {\"source\": \"Conservative monitoring\", \"target\": \"Largely asymptomatic course\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dietary management\", \"target\": \"Largely asymptomatic course\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"L-carnitine supplementation\", \"target\": \"Metabolite accumulation and biomarker shunting\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Emergency glucose regimen\", \"target\": \"Ketotic hypoglycemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Elevated C4-acylcarnitine\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Improved screening biomarker ratios\", \"target\": \"Elevated C4-acylcarnitine\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Genetic counseling\", \"target\": \"Largely asymptomatic course\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Second-tier screening with UPLC-MS/MS\", \"target\": \"Elevated C4-acylcarnitine\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"C4-acylcarnitine (isobutyrylcarnitine)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated C4-acylcarnitine reports isobutyryl-CoA shunting into carnitine conjugates downstream of impaired ACAD8-dependent valine catabolism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"Isobutyrylglycine (urinary)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Urinary isobutyrylglycine reports glycine conjugation of accumulated isobutyryl-CoA, but this marker is intermittently present.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"Ethylmalonic acid (urinary)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Normal or absent ethylmalonic acid helps distinguish IBDD-associated C4 elevation from SCADD-associated C4 elevation.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"Free carnitine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low free carnitine can accompany excessive acylcarnitine formation in rare symptomatic cases, but normal free carnitine does not exclude IBDD.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"C4-acylcarnitine ratio biomarkers (C4/C0, C4/C6, C4/C8)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"C4-based ratios refine interpretation of the elevated C4-acylcarnitine biomarker produced by ACAD8-related metabolite shunting.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"Elevated C4-acylcarnitine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The same C4-acylcarnitine accumulation is detected clinically as the newborn-screening phenotype.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Hepatic involvement and mitochondrial stress\", \"target\": \"Elevated hepatic transaminases\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The hepatic involvement signal most often appears as isolated serum transaminase elevation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ACAD8\", \"target\": \"ACAD8 molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.286G\u003eA (p.Gly96Ser)\", \"target\": \"ACAD8\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1000C\u003eT (p.R334C)\", \"target\": \"ACAD8\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.845C\u003eT\", \"target\": \"ACAD8\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACAD8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ACAD8\"], \"gene_terms\": [{\"label\": \"ACAD8\", \"id\": \"hgnc:87\"}], \"association\": \"Pathogenic Variants\", \"variant_count\": 3}}, {\"id\": \"ACAD8 molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ACAD8 pathogenic variants reduce isobutyryl-CoA dehydrogenase catalytic activity in mitochondria.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"L-valine catabolic process\"], \"molecular_functions\": [\"isobutyryl-CoA dehydrogenase activity\"], \"genes\": [\"ACAD8\"], \"gene_terms\": [{\"label\": \"ACAD8\", \"id\": \"hgnc:87\"}], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia was reported in the index symptomatic patient who also had cardiomyopathy and secondary carnitine deficiency. It is the most frequently reported abnormality among the symptomatic minority.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001903\"}, \"group_keys\": {\"phenotype_system\": \"Blood\"}}, {\"id\": \"Autism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One case report describes a girl with IBDD presenting with autism as the main clinical feature. Trio whole exome sequencing did not identify an alternative genetic diagnosis. The causal association remains uncertain.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0000717\"}, \"group_keys\": {\"phenotype_system\": \"Nervous System\"}}, {\"id\": \"C4-acylcarnitine (isobutyrylcarnitine)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:73017\", \"term_label\": \"O-isobutyrylcarnitine\", \"readouts\": [{\"target\": \"Metabolite accumulation and biomarker shunting\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated C4-acylcarnitine reports isobutyryl-CoA shunting into carnitine conjugates downstream of impaired ACAD8-dependent valine catabolism.\"}]}}, {\"id\": \"C4-acylcarnitine ratio biomarkers (C4/C0, C4/C6, C4/C8)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:73017\", \"term_label\": \"O-isobutyrylcarnitine\", \"readouts\": [{\"target\": \"Metabolite accumulation and biomarker shunting\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"C4-based ratios refine interpretation of the elevated C4-acylcarnitine biomarker produced by ACAD8-related metabolite shunting.\"}]}}, {\"id\": \"Conservative monitoring\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Given the uncertain clinical significance of IBDD, most patients identified through newborn screening are managed with conservative monitoring. Regular clinical assessment with attention to growth, development, and metabolic status is recommended. In many cases, no specific intervention is required.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Decreased circulating carnitine concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary carnitine deficiency has been reported in the original symptomatic IBDD patient with cardiomyopathy and anemia. Many screened individuals have normal free carnitine, so this is modeled as a rare biochemical phenotype.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0003234\"}, \"group_keys\": {\"phenotype_system\": \"Cellular\"}}, {\"id\": \"Dehydration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One patient in the newborn-screening follow-up series required repeated hospitalization for emesis and dehydration, while developing normally at age five.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001944\"}, \"group_keys\": {\"phenotype_system\": \"Metabolism\"}}, {\"id\": \"Dietary management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In the initial period after diagnosis, dietary management may include monitoring of protein intake. In the Chinese NBS cohort, patients gradually transitioned to a normal diet after 6 months of age with favorable outcomes.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiomyopathy was reported in the original index case of IBDD, who presented with dilated cardiomyopathy, anemia, and secondary carnitine deficiency at age two years. This remains a rare presentation.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001644\"}, \"group_keys\": {\"phenotype_system\": \"Cardiovascular\"}}, {\"id\": \"Elevated C4-acylcarnitine\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent elevation of C4-acylcarnitine (isobutyrylcarnitine) in blood is the hallmark biochemical marker, detectable on newborn screening. C4 represents both isobutyryl- and butyrylcarnitine, requiring differentiation from short-chain acyl-CoA dehydrogenase deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Metabolite accumulation and biomarker shunting\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The same C4-acylcarnitine accumulation is detected clinically as the newborn-screening phenotype.\"}], \"term_id\": \"HP:0045045\"}, \"group_keys\": {\"phenotype_system\": \"Metabolism\"}}, {\"id\": \"Elevated hepatic transaminases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum transaminases and gamma-glutamyl transferase have been reported in a subset of IBDD individuals. An ACAD8-deficient mouse model also exhibits progressive hepatic steatosis with mitochondriopathy.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"reports_on\": [{\"target\": \"Hepatic involvement and mitochondrial stress\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The hepatic involvement signal most often appears as isolated serum transaminase elevation.\"}], \"term_id\": \"HP:0002910\"}, \"group_keys\": {\"phenotype_system\": \"Metabolism\"}}, {\"id\": \"Emergency glucose regimen\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A glucose polymer emergency regimen may be provided as a precautionary measure for managing potential hypoglycemic episodes during intercurrent illness, although its necessity in IBDD remains uncertain.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Enzyme redundancy and low clinical penetrance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A plausible mechanistic explanation for the frequently benign phenotype of IBDD is substrate promiscuity among acyl-CoA dehydrogenase family members. In HEK-293 ACAD8-deletion models, other ACADs appear to compensate for isobutyryl-CoA handling, which may help explain the low clinical penetrance observed in human cohorts.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Ethylmalonic acid (urinary)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:741548\", \"term_label\": \"ethylmalonic acid\", \"readouts\": [{\"target\": \"Metabolite accumulation and biomarker shunting\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Normal or absent ethylmalonic acid helps distinguish IBDD-associated C4 elevation from SCADD-associated C4 elevation.\"}]}}, {\"id\": \"Free carnitine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:17126\", \"term_label\": \"carnitine\", \"readouts\": [{\"target\": \"Metabolite accumulation and biomarker shunting\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Low free carnitine can accompany excessive acylcarnitine formation in rare symptomatic cases, but normal free carnitine does not exclude IBDD.\"}]}}, {\"id\": \"Genetic counseling\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Genetic counseling is recommended for families of affected individuals, including discussion of autosomal recessive inheritance, the typically benign prognosis, recurrence risk, and the uncertain clinical significance of the condition.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth delay or failure to thrive has been reported in a small subset of patients.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001510\"}, \"group_keys\": {\"phenotype_system\": \"Growth\"}}, {\"id\": \"Hepatic involvement and mitochondrial stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of IBDD individuals shows liver enzyme abnormalities including elevated transaminases and gamma-glutamyl transferase. One reported human case had hepatomegaly with ultrasound findings suggestive of hepatic steatosis, and an ACAD8-deficient mouse model develops hepatic steatosis with abnormal hepatocyte mitochondria.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatic steatosis has been observed in the ACAD8-deficient mouse model with abnormal mitochondrial ultrastructure; one reported human case had hepatomegaly with ultrasound findings suggestive of steatosis.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001397\"}, \"group_keys\": {\"phenotype_system\": \"Digestive\"}}, {\"id\": \"Impaired mitochondrial valine catabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of ACAD8 function creates a metabolic block in valine degradation, leading to accumulation of isobutyryl-CoA and diversion into alternate conjugation products including isobutyrylcarnitine (C4) and isobutyrylglycine.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"valine catabolic process\", \"branched-chain amino acid catabolic process\"]}}, {\"id\": \"Improved screening biomarker ratios\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Novel C4-based acylcarnitine ratios have been proposed to reduce false positive rates in newborn screening and to improve discrimination between IBDD and SCADD. Seven ratios including C4/C0, C4/C5, C4/C6, and C4/C8 showed robust performance in distinguishing true positives from false positives.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Isobutyrylglycine (urinary)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:70979\", \"term_label\": \"N-isobutyrylglycine\", \"readouts\": [{\"target\": \"Metabolite accumulation and biomarker shunting\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Urinary isobutyrylglycine reports glycine conjugation of accumulated isobutyryl-CoA, but this marker is intermittently present.\"}]}}, {\"id\": \"Ketotic hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One case was diagnosed with IBDD after presenting with hypoglycemic encephalopathy during acute gastroenteritis. The causal relationship between IBDD and hypoglycemia is uncertain.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0012734\"}, \"group_keys\": {\"phenotype_system\": \"Metabolism\"}}, {\"id\": \"L-carnitine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carnitine supplementation may be indicated in patients with documented secondary carnitine deficiency. The original symptomatic case with cardiomyopathy improved with oral L-carnitine. However, carnitine supplementation is not universally required when free carnitine levels are normal.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Largely asymptomatic course\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Most reported individuals with IBDD remain clinically asymptomatic after diagnosis, despite persistent biochemical abnormalities.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\"}}, {\"id\": \"Metabolite accumulation and biomarker shunting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of ACAD8 activity leads to accumulation of isobutyryl-CoA, which is conjugated to carnitine (forming C4-acylcarnitine) and glycine (forming isobutyrylglycine). Elevated C4-acylcarnitine with increased C4/C2 and C4/C3 ratios is the hallmark newborn screening marker. Urinary isobutyrylglycine is variably present and may be intermittently normal.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"branched-chain amino acid catabolic process\"]}}, {\"id\": \"Motor developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transient motor delay was observed in a minority of patients. In a 40-patient Chinese cohort, four patients had transient motor delay.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001270\"}, \"group_keys\": {\"phenotype_system\": \"Nervous System\"}}, {\"id\": \"Muscular hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia has been variably reported among symptomatic IBDD patients.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001252\"}, \"group_keys\": {\"phenotype_system\": \"Musculoskeletal\"}}, {\"id\": \"Newborn screening\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"IBDD is detectable through expanded newborn screening using tandem mass spectrometry (MS/MS) via elevated C4-acylcarnitine. A diagnostic follow-up algorithm involving plasma and urine acylcarnitine profiling, urinary organic acid analysis, and molecular genetic testing of ACAD8 has been developed for confirmatory diagnosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Second-tier screening with UPLC-MS/MS\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Second-tier testing using ultraperformance liquid chromatography-tandem mass spectrometry to quantify ethylmalonate and isobutyrylglycine in dried blood spots can reduce referrals by over 90% while maintaining sensitivity for IBDD and SCADD differential diagnosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Speech delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech delay has been reported in isolated IBDD cases. One Chinese cohort of seven IBDD patients included one juvenile with speech delay.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000750\"}, \"group_keys\": {\"phenotype_system\": \"Nervous System\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Emesis has been reported in some symptomatic IBDD patients, particularly during episodes of metabolic stress.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002013\"}, \"group_keys\": {\"phenotype_system\": \"Digestive\"}}, {\"id\": \"c.1000C\u003eT (p.R334C)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The second most common ACAD8 variant, observed at an allelic frequency of 8.6% across published IBDD cases.\\n\"}, {\"id\": \"c.286G\u003eA (p.Gly96Ser)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common ACAD8 variant, observed at an allelic frequency of 27.2% in a literature review of 81 IBDD patients. This variant has been found solely in the Chinese population to date.\\n\"}, {\"id\": \"c.845C\u003eT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous variant identified in a patient who presented with hypoglycemic encephalopathy and was followed for 10 years with benign outcome.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Impaired mitochondrial valine catabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ACAD8 activity blocks isobutyryl-CoA oxidation in the valine pathway.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Largely asymptomatic course\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ACAD8-related isobutyryl-CoA dehydrogenase deficiency is most often a low-penetrance biochemical phenotype detected by newborn screening rather than a consistently symptomatic clinical disease.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anemia is a rare reported clinical manifestation in symptomatic IBDD.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiomyopathy was reported in the original symptomatic IBDD case.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Motor developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor delay is among the nonspecific manifestations reported in a minority of cases.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to thrive or growth delay is reported in a small symptomatic subset.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Speech delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Speech delay is reported in isolated symptomatic cases.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Muscular hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypotonia is a nonspecific manifestation in a minority of symptomatic patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Autism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autism has been reported in a single IBDD case without an alternative genetic diagnosis, but causality remains uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Emesis is reported among nonspecific symptomatic presentations.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Dehydration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent dehydration requiring hospitalization has been reported in one symptomatic patient.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ACAD8 molecular function deficiency\", \"target\": \"Ketotic hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ketotic hypoglycemia has been reported, but the authors considered causality uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial valine catabolism\", \"target\": \"Metabolite accumulation and biomarker shunting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ACAD8 loss blocks valine catabolism and diverts accumulating isobutyryl-CoA into detectable C4 and glycine conjugates.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"C4-acylcarnitine (isobutyrylcarnitine)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated isobutyryl-CoA is conjugated to carnitine, producing elevated C4-acylcarnitine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"Isobutyrylglycine (urinary)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Isobutyryl-CoA can also be conjugated to glycine and excreted as urinary isobutyrylglycine, although this marker is variable.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"C4-acylcarnitine ratio biomarkers (C4/C0, C4/C6, C4/C8)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent C4-acylcarnitine elevation shifts C4-based acylcarnitine ratios used for screening discrimination.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"Free carnitine\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Carnitine conjugation can contribute to secondary carnitine depletion in rare symptomatic cases.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"isobutyryl-CoA conjugation to carnitine\"]}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"Decreased circulating carnitine concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated isobutyryl-CoA can be conjugated to carnitine, causing secondary depletion of circulating carnitine in rare symptomatic cases.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"isobutyryl-CoA conjugation to carnitine\"]}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"Hepatic involvement and mitochondrial stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reported liver-test abnormalities and the ACAD8-deficient mouse liver phenotype suggest a possible hepatic consequence, but the intervening mechanism remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Enzyme redundancy and low clinical penetrance\", \"target\": \"Largely asymptomatic course\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ACAD substrate promiscuity may help explain why most reported ACAD8-deficient individuals remain clinically asymptomatic despite persistent biochemical abnormalities.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic involvement and mitochondrial stress\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"One reported human case and the ACAD8-deficient mouse model suggest possible hepatic steatosis, although causality remains uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hepatocellular mitochondrial stress\"]}, {\"source\": \"Conservative monitoring\", \"target\": \"Largely asymptomatic course\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dietary management\", \"target\": \"Largely asymptomatic course\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"L-carnitine supplementation\", \"target\": \"Metabolite accumulation and biomarker shunting\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Emergency glucose regimen\", \"target\": \"Ketotic hypoglycemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Elevated C4-acylcarnitine\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Improved screening biomarker ratios\", \"target\": \"Elevated C4-acylcarnitine\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Genetic counseling\", \"target\": \"Largely asymptomatic course\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Second-tier screening with UPLC-MS/MS\", \"target\": \"Elevated C4-acylcarnitine\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"C4-acylcarnitine (isobutyrylcarnitine)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated C4-acylcarnitine reports isobutyryl-CoA shunting into carnitine conjugates downstream of impaired ACAD8-dependent valine catabolism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"Isobutyrylglycine (urinary)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Urinary isobutyrylglycine reports glycine conjugation of accumulated isobutyryl-CoA, but this marker is intermittently present.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"Ethylmalonic acid (urinary)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Normal or absent ethylmalonic acid helps distinguish IBDD-associated C4 elevation from SCADD-associated C4 elevation.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"Free carnitine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low free carnitine can accompany excessive acylcarnitine formation in rare symptomatic cases, but normal free carnitine does not exclude IBDD.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"C4-acylcarnitine ratio biomarkers (C4/C0, C4/C6, C4/C8)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"C4-based ratios refine interpretation of the elevated C4-acylcarnitine biomarker produced by ACAD8-related metabolite shunting.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Metabolite accumulation and biomarker shunting\", \"target\": \"Elevated C4-acylcarnitine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The same C4-acylcarnitine accumulation is detected clinically as the newborn-screening phenotype.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Hepatic involvement and mitochondrial stress\", \"target\": \"Elevated hepatic transaminases\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The hepatic involvement signal most often appears as isolated serum transaminase elevation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ACAD8\", \"target\": \"ACAD8 molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.286G\u003eA (p.Gly96Ser)\", \"target\": \"ACAD8\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1000C\u003eT (p.R334C)\", \"target\": \"ACAD8\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.845C\u003eT\", \"target\": \"ACAD8\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": [], \"grouping\": {\"mean_edge_count\": 23}}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
