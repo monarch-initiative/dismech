@@ -3971,6 +3971,8 @@ Non-negotiable rules:
 - `evidence_source` classifies the cited study, not the curator or claim.
 - Treat deep-research reports as leads. Read their reference-validation results
   and run `just preflight-dr <report> <MONDO_ID>` before using their content.
+  `confabulation_rate` covers only cited identifiers; `preflight-dr` also warns
+  on an HGNC identifier written beside the wrong gene (#9845).
 - Never create or hand-edit `references_cache/*.md`; generate or regenerate an
   entry with `just fetch-reference <ID>`.
 - **Re-derive the cited-PMID list immediately before pruning uncited caches.** A

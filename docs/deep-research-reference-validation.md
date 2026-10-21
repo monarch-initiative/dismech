@@ -190,10 +190,21 @@ separate `quotes_not_checkable: 2`, not as a total of eleven.
 **`needs_review: true` is the one flag to grep for.** It is set whenever any
 identifier failed to resolve, *or* any quote failed to match, *or* any reference
 looks off topic — deliberately wider than `confabulation_rate`, which measures
-identifier resolution and nothing else. A report whose every identifier resolved
-but whose quotes did not match still reports `confabulation_rate: 0.0`; that is
-how a CHILD-syndrome report with six mismatched quotes was once read as clean.
-Treat `needs_review` as "go and look", not as a failure.
+the resolution of *cited* identifiers and nothing else. A report whose every
+identifier resolved but whose quotes did not match still reports
+`confabulation_rate: 0.0`; that is how a CHILD-syndrome report with six
+mismatched quotes was once read as clean. Treat `needs_review` as "go and look",
+not as a failure.
+
+**An identifier written in the report's prose is not a cited reference, so
+`confabulation_rate` never sees it.** The key-identifiers table at the top of a
+report is entirely such identifiers. The MRD30 report gave `HGNC:29316` for
+ZMYND11 with `confabulation_rate: 0.0`; `HGNC:29316` is ZSWIM6 (#9845).
+`just preflight-dr` checks HGNC identifiers in the prose: one written beside the
+intended gene must be the identifier MONDO records for it, and one written beside
+any other gene symbol must be that gene's own HGNC identifier. Either mismatch
+gives `WARN` and names the gene the identifier really belongs to. It checks only
+`HGNC:` identifiers, and only those with a gene symbol on the same line.
 
 **The key is written only when it is true, so its absence is not always an
 all-clear.** Nine committed reports meet a trigger in their own block and still

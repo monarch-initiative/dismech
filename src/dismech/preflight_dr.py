@@ -39,6 +39,8 @@ Verdicts
     the effector gene GIP reaches 0.44 of KDM1A, above the 0.40 the Temtamy
     rival reached, so no ratio separates the two. Read the sections naming
     the second gene and exclude them only if they are about another disease.
+    A gene identifier that names a different gene from the symbol written
+    beside it also gives ``WARN`` (#9845; see :func:`check_gene_identifiers`).
 ``PASS``
     The canonical gene dominates the report's gene mentions.
 ``SKIP``
@@ -204,6 +206,31 @@ class MondoRecord:
     #: Human-readable descriptions of lookups that *failed* (as opposed to
     #: lookups that legitimately returned nothing). Never silently dropped.
     lookup_errors: tuple[str, ...] = ()
+    #: Resolved symbol -> the HGNC CURIE MONDO's ``RO:0004003`` edge points
+    #: at, kept so a report's own identifier for the gene can be compared
+    #: with it (#9845). :attr:`genes` keeps only the symbol.
+    gene_curies: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class GeneIdentifierFinding:
+    """A gene identifier in the report that names a different gene (#9845).
+
+    ``kind`` is ``canonical`` when the report's identifier for the intended
+    gene is not the one MONDO records, and ``symbol`` when an identifier
+    disagrees with the gene symbol written beside it.
+    """
+
+    kind: str
+    line: int
+    curie: str
+    #: The gene symbol the identifier was written beside.
+    symbol: str
+    #: What HGNC calls ``curie``; empty when it was not looked up or HGNC
+    #: does not know it.
+    curie_symbol: str = ""
+    #: The identifier the symbol should have carried, where known.
+    expected_curie: str = ""
 
 
 @dataclass
@@ -231,6 +258,9 @@ class PreflightResult:
     #: ``RO:0004003`` cause of, other than the intended entity. Filled only
     #: when the canonical gene is never mentioned (see :func:`find_rival_diseases`).
     rival_diseases: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
+    #: Gene identifiers in the report that name a different gene than the
+    #: symbol beside them (see :func:`check_gene_identifiers`).
+    gene_identifier_findings: list[GeneIdentifierFinding] = field(default_factory=list)
 
     @property
     def expected_absent(self) -> bool:
@@ -351,6 +381,28 @@ def default_lexicon(*, allow_fallback: bool = True):
 def strip_curies(text: str) -> str:
     """Remove ontology/database CURIEs so their prefixes are not counted as genes."""
     return CURIE_RE.sub(" ", text)
+
+
+#: CURIE prefixes :func:`check_gene_identifiers` compares against the gene
+#: symbol written beside them. Deliberately an allowlist: :data:`CURIE_RE` is
+#: loose enough to match prose such as "Table 1: 5 patients", which is harmless
+#: when stripping and wrong when asserting.
+GENE_CURIE_PREFIXES = ("HGNC", "hgnc")
+
+
+def extract_curies(text: str, prefixes=GENE_CURIE_PREFIXES) -> list[str]:
+    """Return the CURIEs in ``text`` whose prefix is in ``prefixes``, in order.
+
+    Whitespace around the colon and a sentence-final full stop are removed, so
+    ``HGNC : 29316.`` comes back as ``HGNC:29316``.
+    """
+    found: list[str] = []
+    for match in CURIE_RE.finditer(text):
+        prefix, _, local = match.group(0).partition(":")
+        prefix = prefix.strip()
+        if prefix in prefixes:
+            found.append(f"{prefix}:{local.strip().rstrip('.')}")
+    return found
 
 
 def extract_gene_mentions(text: str, lexicon=None) -> Counter:
@@ -476,6 +528,7 @@ def fetch_mondo_record(
     genes: list[str] = []
     unresolved: list[str] = []
     aliases: dict[str, tuple[str, ...]] = {}
+    gene_curies: dict[str, str] = {}
     try:
         relationships = list(adapter.relationships([mondo_id]))
     except Exception as exc:
@@ -494,6 +547,7 @@ def fetch_mondo_record(
         if not resolved:
             unresolved.append(symbol)
             continue
+        gene_curies[symbol] = str(obj)
         gene_aliases = _gene_aliases(obj, symbol, _hgnc, errors)
         if gene_aliases:
             aliases[symbol] = gene_aliases
@@ -519,6 +573,7 @@ def fetch_mondo_record(
         unresolved_genes=tuple(unresolved),
         gene_aliases=aliases,
         lookup_errors=tuple(errors),
+        gene_curies=gene_curies,
     )
 
 
@@ -750,6 +805,147 @@ def _describe_rival_diseases(found: dict[str, list[tuple[str, str]]], counts: di
     return ", and ".join(parts)
 
 
+def pair_gene_curies(text: str, lexicon=None, prefixes=GENE_CURIE_PREFIXES):
+    """Yield ``(line_number, curie, symbol)`` for each gene CURIE in ``text``.
+
+    ``symbol`` is the gene symbol the CURIE was written beside: the nearest
+    one before it on the same line, or failing that the nearest one after it
+    (``| HGNC:29316 | ZMYND11 |``). A CURIE inside parentheses belongs to the
+    symbol in front of them, so ``*SLC35A1* (Golgi CMP-sialic acid
+    transporter; HGNC:10940)`` pairs with SLC35A1, not CMP. A CURIE with no
+    gene symbol on its line is not paired. Ontology prefixes (``HGNC``
+    itself, ``OMIM``) are never taken for the symbol.
+    """
+    lexicon = lexicon if lexicon is not None else HeuristicLexicon()
+    for number, line in enumerate(text.splitlines(), start=1):
+        curies = []
+        for match in CURIE_RE.finditer(line):
+            found = extract_curies(match.group(0), prefixes)
+            if found:
+                curies.append((match.start(), found[0]))
+        if not curies:
+            continue
+        # Blank every CURIE, keeping offsets, so "HGNC" in "HGNC:29316" is not
+        # read as a symbol.
+        blanked = CURIE_RE.sub(lambda m: " " * len(m.group(0)), line)
+        symbols = [
+            (m.start(), m.group(0))
+            for m in GENE_TOKEN_RE.finditer(blanked)
+            if m.group(0) not in ONTOLOGY_PREFIX_TOKENS and m.group(0) in lexicon
+        ]
+        for position, curie in curies:
+            opened: list[int] = []
+            for index, char in enumerate(line[:position]):
+                if char == "(":
+                    opened.append(index)
+                elif char == ")" and opened:
+                    opened.pop()
+            before = [sym for start, sym in symbols if start < position]
+            if opened:
+                outside = [sym for start, sym in symbols if start < opened[-1]]
+                before = outside or before
+            after = [sym for start, sym in symbols if start > position]
+            symbol = before[-1] if before else (after[0] if after else "")
+            if symbol:
+                yield number, curie, symbol
+
+
+def _same_curie(left: str, right: str) -> bool:
+    return str(left).lower() in {v.lower() for v in _curie_variants(right)}
+
+
+def check_gene_identifiers(
+    text: str, record: MondoRecord, lexicon=None, hgnc_adapter=None
+) -> tuple[list[GeneIdentifierFinding], list[str]]:
+    """Find gene CURIEs that name a different gene from the symbol beside them.
+
+    Two comparisons, run on every CURIE :func:`pair_gene_curies` pairs with a
+    symbol (#9845):
+
+    * ``canonical``: the CURIE is written beside the intended gene (or one of
+      its aliases) and is not the CURIE MONDO's ``RO:0004003`` edge points at.
+      This is a string comparison and needs no HGNC lookup, so it runs under
+      ``--no-hgnc`` too.
+    * ``symbol``: HGNC gives the symbol a different identifier from the CURIE
+      beside it. Needs ``hgnc_adapter``; without one it is not run.
+
+    A legitimately named second gene with its correct identifier is not a
+    finding. Returns ``(findings, errors)``; a lookup that raises goes into
+    ``errors`` rather than counting as a clean result.
+    """
+    findings: list[GeneIdentifierFinding] = []
+    errors: list[str] = []
+    canonical: dict[str, str] = {}
+    for gene, curie in record.gene_curies.items():
+        canonical[gene] = curie
+        for alias in record.gene_aliases.get(gene, ()):
+            canonical.setdefault(alias, curie)
+
+    def _hgnc_symbol(curie: str) -> str:
+        if hgnc_adapter is None:
+            return ""
+        try:
+            for variant in _curie_variants(curie):
+                symbol = hgnc_adapter.label(variant)
+                if symbol:
+                    return str(symbol)
+        except Exception as exc:
+            errors.append(f"HGNC label lookup for {curie} failed: {exc}")
+        return ""
+
+    def _hgnc_curies(symbol: str) -> list[str]:
+        try:
+            return [
+                str(c) for c in (hgnc_adapter.curies_by_label(symbol) or [])
+                if str(c).lower().startswith("hgnc:")
+            ]
+        except Exception as exc:
+            errors.append(f"HGNC identifier lookup for {symbol} failed: {exc}")
+            return []
+
+    seen: set[tuple[int, str, str]] = set()
+    for number, curie, symbol in pair_gene_curies(text, lexicon):
+        if (number, curie, symbol) in seen:
+            continue
+        seen.add((number, curie, symbol))
+        expected = canonical.get(symbol)
+        if expected is not None:
+            if not _same_curie(curie, expected):
+                findings.append(GeneIdentifierFinding(
+                    kind="canonical",
+                    line=number,
+                    curie=curie,
+                    symbol=symbol,
+                    curie_symbol=_hgnc_symbol(curie),
+                    expected_curie=expected,
+                ))
+            continue
+        if hgnc_adapter is None:
+            continue
+        own = _hgnc_curies(symbol)
+        if not own or any(_same_curie(curie, c) for c in own):
+            continue
+        findings.append(GeneIdentifierFinding(
+            kind="symbol",
+            line=number,
+            curie=curie,
+            symbol=symbol,
+            curie_symbol=_hgnc_symbol(curie),
+            expected_curie=own[0],
+        ))
+    return findings, errors
+
+
+def _describe_gene_identifier(finding: GeneIdentifierFinding) -> str:
+    actual = f", which is {finding.curie_symbol}" if finding.curie_symbol else ""
+    expected = (
+        f"; {finding.symbol} is {finding.expected_curie}" if finding.expected_curie else ""
+    )
+    return (
+        f"line {finding.line}: {finding.curie} beside {finding.symbol}{actual}{expected}"
+    )
+
+
 def assess(
     record: MondoRecord,
     gene_counts: Counter,
@@ -761,6 +957,8 @@ def assess(
     lexicon_name: str = "hgnc",
     lexicon_note: str = "",
     rival_disease_lookup=None,
+    gene_identifier_findings=(),
+    gene_identifier_errors=(),
 ) -> PreflightResult:
     """Compare a report's gene mentions against a MONDO entity's canonical gene.
 
@@ -768,7 +966,57 @@ def assess(
     :func:`find_rival_diseases` returns. It is called only when the canonical
     gene is never mentioned; ``None`` skips the check, which then cannot turn
     a ``WARN`` into a ``FAIL``.
+
+    ``gene_identifier_findings`` and ``gene_identifier_errors`` are what
+    :func:`check_gene_identifiers` returns. Either one caps a ``PASS`` or
+    ``SKIP`` at ``WARN``; neither can produce or remove a ``FAIL``.
     """
+    result = _assess_gene_mentions(
+        record,
+        gene_counts,
+        report_omim,
+        report=report,
+        min_signal=min_signal,
+        rival_ratio=rival_ratio,
+        lexicon_name=lexicon_name,
+        lexicon_note=lexicon_note,
+        rival_disease_lookup=rival_disease_lookup,
+    )
+    findings = list(gene_identifier_findings)
+    errors = list(gene_identifier_errors)
+    if (findings or errors) and result.verdict in (PASS, SKIP):
+        result.verdict = WARN
+    if findings:
+        result.gene_identifier_findings = findings
+        result.reasons.append(
+            "The report gives a gene identifier that names a different gene from "
+            "the symbol beside it: "
+            + "; ".join(_describe_gene_identifier(f) for f in findings)
+            + ". Do not copy gene identifiers from this report; look each one up "
+            "in HGNC."
+        )
+    if errors:
+        result.lookup_errors.extend(errors)
+        result.reasons.append(
+            "Some gene identifiers in the report could not be checked: "
+            + "; ".join(errors)
+        )
+    return result
+
+
+def _assess_gene_mentions(
+    record: MondoRecord,
+    gene_counts: Counter,
+    report_omim: set[str] | None = None,
+    *,
+    report: str = "",
+    min_signal: int = DEFAULT_MIN_SIGNAL,
+    rival_ratio: float = DEFAULT_RIVAL_RATIO,
+    lexicon_name: str = "hgnc",
+    lexicon_note: str = "",
+    rival_disease_lookup=None,
+) -> PreflightResult:
+    """The gene-mention comparison behind :func:`assess`."""
     report_omim = report_omim or set()
     expected = list(record.genes)
     unresolved = set(record.unresolved_genes)
@@ -1048,6 +1296,19 @@ def preflight(
         # counts and silently downgrades a FAIL to a WARN.
         lexicon = HeuristicLexicon(reason=str(exc))
         counts = extract_gene_mentions(text, lexicon)
+    # The symbol-beside-identifier comparison needs HGNC itself, so it runs
+    # only with the live lexicon; the comparison against MONDO's identifier
+    # for the intended gene needs nothing and always runs.
+    hgnc_adapter = getattr(lexicon, "_adapter", None) if use_hgnc else None
+    try:
+        findings, identifier_errors = check_gene_identifiers(
+            text, record, lexicon, hgnc_adapter
+        )
+    except LexiconUnavailable as exc:
+        findings, identifier_errors = check_gene_identifiers(
+            text, record, HeuristicLexicon(reason=str(exc))
+        )
+        identifier_errors.append(f"HGNC lexicon failed while checking gene identifiers: {exc}")
     return assess(
         record,
         counts,
@@ -1058,6 +1319,8 @@ def preflight(
         lexicon_name=getattr(lexicon, "name", "custom"),
         lexicon_note=getattr(lexicon, "reason", ""),
         rival_disease_lookup=_default_rival_lookup(adapter, use_hgnc),
+        gene_identifier_findings=findings,
+        gene_identifier_errors=identifier_errors,
     )
 
 
@@ -1090,6 +1353,8 @@ def format_report(result: PreflightResult) -> str:
     for symbol, diseases in result.rival_diseases.items():
         for mondo_id, label in diseases:
             lines.append(f"  rival disease   : {symbol} -> {mondo_id} {label}".rstrip())
+    for finding in result.gene_identifier_findings:
+        lines.append(f"  gene identifier : {_describe_gene_identifier(finding)}")
     if result.lexicon != "hgnc":
         suffix = f" (HGNC unavailable: {result.lexicon_note})" if result.lexicon_note else ""
         lines.append(f"  lexicon         : {result.lexicon}{suffix}")
