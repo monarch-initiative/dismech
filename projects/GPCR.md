@@ -9,6 +9,7 @@ tags: [PHARMACOLOGY, MODULES, GPCR]
 diseases:
 - Heart_Failure
 - Essential_Hypertension
+- Atrial_Fibrillation
 - Type_2_Diabetes_Mellitus
 - Obesity
 - Obesity_Due_to_MC4R_Pathway_Disruption
@@ -40,6 +41,7 @@ modules:
 - photoreceptor_degeneration
 - mu_opioid_receptor_agonism
 - mu_opioid_receptor_antagonism
+- beta_adrenergic_receptor_blockade
 ---
 
 # GPCRs: Drug Mechanisms and Disease Modules
@@ -99,7 +101,7 @@ conform:
 
 | Proposed module | Receptor (gene) | Drug classes | Candidate conformers |
 |---|---|---|---|
-| beta-adrenergic receptor blockade | ADRB1, ADRB2 | beta-blockers | Heart_Failure, Essential_Hypertension, Atrial_Fibrillation, Glaucoma, Migraine |
+| beta-adrenergic receptor blockade | ADRB1, ADRB2 | beta-blockers | Heart_Failure, Essential_Hypertension, Atrial_Fibrillation (Glaucoma and Migraine were assessed and rejected; see the module's scope notes) |
 | AT1 receptor blockade | AGTR1 | sartans | Essential_Hypertension, Heart_Failure, diabetic kidney disease |
 | mu-opioid receptor agonism | OPRM1 | opioid analgesics; antagonists/partial agonists for OUD | Opioid_Use_Disorder, Acute_Opioid_Poisoning |
 | D2 receptor antagonism | DRD2 | antipsychotics, antiemetics | Schizophrenia; toxicity arm to drug-induced parkinsonism |
@@ -169,7 +171,7 @@ mechanism-level rather than disease-level.
 ### Phase 1 — first modules
 - [x] mu-opioid receptor agonism (first module; see above) — `mu_opioid_receptor_agonism` (#14453)
 - [x] mu-opioid receptor antagonism — `mu_opioid_receptor_antagonism` (#14456)
-- [ ] beta-adrenergic receptor blockade
+- [ ] beta-adrenergic receptor blockade — `beta_adrenergic_receptor_blockade` (#15087, in review)
 - [ ] GLP-1 receptor agonism
 - [ ] GPCR loss-of-function hormone resistance
 - [ ] GPCR constitutive activation
@@ -180,6 +182,10 @@ mechanism-level rather than disease-level.
   - [x] The four opioid-treated entries, in #14973: `Opioid_Use_Disorder` and
         `Acute_Opioid_Poisoning` against both mu-opioid modules, `Acute_Post-Surgical_Pain`
         against agonism, `Alcohol_Use_Disorder` against antagonism
+  - [ ] Three beta-blocker-treated entries, in #15087 (in review): `Heart_Failure`,
+        `Essential_Hypertension` and `Atrial_Fibrillation` against
+        `beta_adrenergic_receptor_blockade`. `Migraine` and `Glaucoma` are deliberately
+        not wired — see that module's scope notes
 - [ ] Remaining Workstream A modules
 - [ ] Gs alpha defect module
 
