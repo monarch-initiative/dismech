@@ -1994,8 +1994,9 @@ update-retired-support-prose-baseline:
 # Guard against one quoted sentence carrying two different `evidence_source`
 # values in the same file -- `evidence_source` describes the cited publication,
 # not the block the quote was pasted into, so a file that says both is
-# self-contradicting (#8184). Grandfathered against origin/main like the length
-# and title checks.
+# self-contradicting (#8184). Also compares the same sentence across files and
+# fails on HUMAN_CLINICAL against IN_VITRO/MODEL_ORGANISM/COMPUTATIONAL (#11221).
+# Grandfathered against origin/main like the length and title checks.
 [group('QC')]
 check-snippet-grading:
     uv run python scripts/check_snippet_grading.py --against-ref origin/main
@@ -2003,12 +2004,15 @@ check-snippet-grading:
 # List every snippet-grading divergence, baselined or not (triage view).
 # `--fields all` adds the `supports` divergences, which are NOT gated -- see the
 # script docstring for why (they are overwhelmingly correct curation).
+# `--cross-file` lists the same sentence graded differently in two files,
+# including the report-only pairs involving OTHER (pending #10273).
 [group('QC')]
 list-snippet-grading *args="":
     uv run python scripts/check_snippet_grading.py --all {{args}}
 
-# Regenerate the snippet-grading baseline after intentionally changing the set
-# (e.g. reconciling backlog divergences). Review the diff before committing.
+# Regenerate both snippet-grading baselines (per-file and cross-file) after
+# intentionally changing the set (e.g. reconciling backlog divergences). Review
+# the diff before committing.
 [group('QC')]
 update-snippet-grading-baseline:
     uv run python scripts/check_snippet_grading.py --update-baseline
