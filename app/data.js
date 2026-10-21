@@ -136079,6 +136079,97 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Ehrlichiosis",
+    "disease_id": "MONDO:0016003",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial Infection",
+      "Vector-borne disease"
+    ],
+    "creation_date": "2026-09-30T01:15:21Z",
+    "updated_date": null,
+    "subtypes": [
+      "Human monocytic ehrlichiosis",
+      "Ehrlichia ewingii ehrlichiosis",
+      "Ehrlichia muris eauclairensis ehrlichiosis"
+    ],
+    "description": "Ehrlichiosis is an acute tick-borne zoonotic bacterial infection caused by obligately intracellular Ehrlichia species. Tick-delivered organisms infect leukocytes, replicate inside cytoplasmic morulae, and produce a febrile cytopenic illness that can progress to systemic inflammatory complications.",
+    "pathophysiology": [
+      "Tick-Borne Ehrlichia Acquisition",
+      "Leukocyte Ehrlichia Entry",
+      "Vacuolar Ehrlichia Replication",
+      "Febrile Cytopenic Ehrlichiosis Syndrome"
+    ],
+    "cell_types": [
+      "monocyte",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000576",
+      "CL:0000775"
+    ],
+    "biological_processes": [],
+    "phenotypes": [
+      "Fever",
+      "Thrombocytopenia",
+      "Leukopenia",
+      "Elevated hepatic transaminases",
+      "Headache",
+      "Myalgia",
+      "Skin rash",
+      "Lymphopenia",
+      "Hyponatremia",
+      "Anemia",
+      "Acute Respiratory Distress Syndrome",
+      "Hemophagocytosis",
+      "Meningoencephalitis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0001873",
+      "HP:0001882",
+      "HP:0002910",
+      "HP:0002315",
+      "HP:0003326",
+      "HP:0000988",
+      "HP:0001888",
+      "HP:0002902",
+      "HP:0001903",
+      "HP:0033677",
+      "HP:0012156",
+      "HP:0002383"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Doxycycline"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Ehrlichiosis.yaml",
+    "page_url": "../pages/disorders/Ehrlichiosis.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Eiken Syndrome",
     "disease_id": "MONDO:0010803",
     "category": "Mendelian",
@@ -196779,7 +196870,7 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "1",
+    "causal_graph_edges": "5",
     "causal_graph_longest_path": "1"
   },
   {
@@ -206538,7 +206629,7 @@ window.searchData = [
     "creation_date": "2026-03-11T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Inherited threoninemia is an extremely rare inborn error of amino acid metabolism characterized by markedly elevated concentrations of threonine in plasma, urine, and cerebrospinal fluid. First described in 1978, the condition is proposed to result from deficient hepatic threonine dehydratase (EC 4.2.1.16) activity, blocking conversion of threonine to 2-ketobutyrate. Excess threonine may secondarily be associated with secondary hyperglycinemia and a non-ketotic hyperglycinemia-like neurological phenotype, although the exact biochemical bridge is not established from cached abstract evidence. Clinical features reported in affected individuals include seizures, intellectual disability, failure to thrive, lethargy, and feeding difficulties. A separate phenotypic association with Leber congenital amaurosis and hepatomegaly has been reported in siblings with hyperthreoninemia, though the causal relationship remains uncertain. No causative gene has been identified at the molecular level; the disorder is defined by enzyme activity and metabolite measurements. Consanguinity has been noted in reported families, consistent with autosomal recessive inheritance.\n",
+    "description": "Inherited threoninemia is an extremely rare inborn error of amino acid metabolism characterized by markedly elevated concentrations of threonine in plasma, urine, and cerebrospinal fluid. First described in 1978, the condition is proposed to result from deficient hepatic threonine dehydratase (EC 4.2.1.16) activity, blocking conversion of threonine to 2-ketobutyrate. Excess threonine may secondarily be associated with secondary hyperglycinemia and a non-ketotic hyperglycinemia-like neurological phenotype, although the exact biochemical bridge is not established from cached abstract evidence. Clinical features reported in affected individuals include seizures, intellectual disability, failure to thrive, lethargy, and feeding difficulties. A separate phenotypic association with Leber congenital amaurosis and hepatomegaly has been reported in siblings with hyperthreoninemia, though the causal relationship remains uncertain. No causative gene has been identified at the molecular level; the disorder is defined by enzyme activity and metabolite measurements. Consanguinity has been noted in reported families, consistent with autosomal recessive inheritance.",
     "pathophysiology": [
       "Hepatic threonine dehydratase deficiency",
       "Systemic threonine accumulation",
@@ -222369,7 +222460,7 @@ window.searchData = [
       "EPM2A-related Lafora disease",
       "NHLRC1-related Lafora disease"
     ],
-    "description": "Lafora disease is a rare, fatal form of progressive myoclonus epilepsy (PME type 2) with autosomal recessive inheritance, typically presenting in late childhood or adolescence (ages 12-17). It is caused by biallelic pathogenic variants in EPM2A (encoding laforin, a dual-specificity glycogen phosphatase) or NHLRC1/EPM2B (encoding malin, an E3 ubiquitin ligase). The hallmark pathological feature is the accumulation of Lafora bodies - insoluble, poorly branched polyglucosan inclusions - in neurons, astrocytes, and other tissues. The disease is characterized by progressive myoclonus, epileptic seizures (generalized tonic-clonic, absence, and occipital), visual hallucinations, and relentless cognitive decline leading to dementia and death within approximately 10 years of onset. There is currently no disease-modifying therapy.\n",
+    "description": "Lafora disease is a rare, fatal form of progressive myoclonus epilepsy (PME type 2) with autosomal recessive inheritance, typically presenting in late childhood or adolescence (ages 12-17). It is caused by biallelic pathogenic variants in EPM2A (encoding laforin, a dual-specificity glycogen phosphatase) or NHLRC1/EPM2B (encoding malin, an E3 ubiquitin ligase). The hallmark pathological feature is the accumulation of Lafora bodies - insoluble, poorly branched polyglucosan inclusions - in neurons, astrocytes, and other tissues. The disease is characterized by progressive myoclonus, epileptic seizures (generalized tonic-clonic, absence, and occipital), visual hallucinations, and relentless cognitive decline leading to dementia and death within approximately 10 years of onset. There is currently no disease-modifying therapy.",
     "pathophysiology": [
       "Loss of laforin glycogen phosphatase activity",
       "Loss of laforin-malin complex regulation of glycogen synthesis",
@@ -226672,7 +226763,8 @@ window.searchData = [
       "Deep Brain Stimulation",
       "Febuxostat",
       "Colchicine",
-      "Rasburicase"
+      "Rasburicase",
+      "Avoidance of Uricosuric/Purine-Blocking Agents and Dehydration"
     ],
     "environmental": [],
     "biochemical": [
@@ -226685,8 +226777,8 @@ window.searchData = [
     "num_phenotypes": 23,
     "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 8,
-    "causal_graph_edges": "47",
+    "num_treatments": 9,
+    "causal_graph_edges": "49",
     "causal_graph_longest_path": "4"
   },
   {
@@ -228190,7 +228282,7 @@ window.searchData = [
     "creation_date": "2026-06-04T12:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Lichtenstein-Knorr syndrome (LIKNS; SCAR19) is a very rare autosomal recessive neurodegenerative disorder that associates progressive cerebellar ataxia with severe progressive sensorineural hearing loss. It is caused by biallelic loss-of-function variants in SLC9A1, which encodes NHE1 (sodium/hydrogen exchanger isoform 1), the major plasma-membrane Na+/H+ exchanger. NHE1 maintains intracellular pH homeostasis by exchanging one intracellular proton for one extracellular sodium ion. The founding family carried a homozygous p.Gly305Arg missense mutation that causes near-complete de-glycosylation, mistargeting, and loss of proton-pumping activity of NHE1; subsequent families carry truncating variants. Loss of NHE1 function dysregulates intracellular pH in the central nervous system, producing selective neuronal vulnerability (cerebellar/Purkinje neurons and cochlear hair cells), recapitulated by the spontaneous and knockout Slc9a1 (\"swe\", slow-wave epilepsy) mouse models that show ataxia, seizures, and selective neuronal cell death. Deafness is variable and may be absent in some SLC9A1-mutated patients, so it may not be an essential phenotypic feature. Management is supportive (hearing aids or cochlear implantation, rehabilitation, and seizure control).\n",
+    "description": "Lichtenstein-Knorr syndrome (LIKNS; SCAR19) is a very rare autosomal recessive neurodegenerative disorder that associates progressive cerebellar ataxia with severe progressive sensorineural hearing loss. It is caused by biallelic loss-of-function variants in SLC9A1, which encodes NHE1 (sodium/hydrogen exchanger isoform 1), the major plasma-membrane Na+/H+ exchanger. NHE1 maintains intracellular pH homeostasis by exchanging one intracellular proton for one extracellular sodium ion. The founding family carried a homozygous p.Gly305Arg missense mutation that causes near-complete de-glycosylation, mistargeting, and loss of proton-pumping activity of NHE1; subsequent families carry truncating variants. Loss of NHE1 function dysregulates intracellular pH in the central nervous system, producing selective neuronal vulnerability (cerebellar/Purkinje neurons and cochlear hair cells), recapitulated by the spontaneous and knockout Slc9a1 (\"swe\", slow-wave epilepsy) mouse models that show ataxia, seizures, and selective neuronal cell death. Deafness is variable and may be absent in some SLC9A1-mutated patients, so it may not be an essential phenotypic feature. Management is supportive (hearing aids or cochlear implantation, rehabilitation, and seizure control).",
     "pathophysiology": [
       "SLC9A1 (NHE1) loss of function",
       "Impaired intracellular pH homeostasis",
@@ -302650,6 +302742,94 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Pneumonic Tularemia",
+    "disease_id": "MONDO:0002212",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tularemia"
+    ],
+    "creation_date": "2026-09-29T22:52:21Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Pneumonic tularemia is the inhalational and pulmonary form of Francisella tularensis infection in which aerosolized bacteria reach the lung, escape the macrophage phagosome into the cytosol, and trigger acute inflammatory pneumonia.",
+    "pathophysiology": [
+      "Inhaled Francisella tularensis Exposure",
+      "Macrophage Phagosomal Escape and Cytosolic Replication",
+      "Atypical Lipid A TLR4 Evasion",
+      "GBP-IRGB10 Francisella Bacteriolysis",
+      "AIM2 Inflammasome Pyroptosis",
+      "Th1 IFN-gamma TNF-iNOS Control",
+      "Pulmonary Inflammation"
+    ],
+    "cell_types": [
+      "macrophage",
+      "CD4-positive, alpha-beta T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000624"
+    ],
+    "biological_processes": [
+      "symbiont-mediated disruption of host phagosome",
+      "negative regulation of toll-like receptor 4 signaling pathway",
+      "AIM2 inflammasome complex assembly",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Pneumonia",
+      "Fever",
+      "Cough",
+      "Tachypnea",
+      "Pleuritic Chest Pain",
+      "Pleural Effusion",
+      "Mediastinal Lymphadenopathy",
+      "Chills",
+      "Headache",
+      "Myalgia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Immune",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory",
+      "Thoracic Cavity"
+    ],
+    "phenotype_ids": [
+      "HP:0002090",
+      "HP:0001945",
+      "HP:0012735",
+      "HP:0002789",
+      "HP:0033771",
+      "HP:0002202",
+      "HP:0100721",
+      "HP:0025143",
+      "HP:0002315",
+      "HP:0003326"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Tularemia antibiotic therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Pneumonic_Tularemia.yaml",
+    "page_url": "../pages/disorders/Pneumonic_Tularemia.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Podoconiosis",
     "disease_id": "MONDO:0005425",
     "category": "Environmental Lymphatic Disease",
@@ -372515,6 +372695,7 @@ window.searchData = [
       "Glandular form",
       "Ulceroglandular",
       "Oculoglandular",
+      "Pneumonic",
       "Typhoidal"
     ],
     "description": "Tularemia is a highly infectious zoonotic disease caused by the intracellular Gram-negative bacterium Francisella tularensis. Humans acquire infection through arthropod (tick or mosquito) bites, direct contact with infected animals (especially rabbits, hares, and rodents), ingestion of contaminated food or water, or inhalation of infectious aerosols; person-to-person transmission has not been reported. After uptake by macrophages, F. tularensis escapes the phagosome into the cytosol via the Francisella Pathogenicity Island-encoded type VI secretion system, where it replicates and triggers caspase-1 inflammasome activation and granulomatous inflammation. The route of inoculation determines the clinical form: ulceroglandular, glandular, oculoglandular, oropharyngeal, pneumonic, and typhoidal tularemia. F. tularensis requires as few as 10 organisms to cause disease and is classified as a Category A bioterrorism agent.\n",
@@ -390738,17 +390919,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3622,
-  "total_subtypes": 4827,
-  "total_disorders_and_subtypes": 8449,
-  "total_unique_evidence_sources": 54102,
-  "total_unique_publications": 50518,
+  "total_disorder_pages": 3624,
+  "total_subtypes": 4831,
+  "total_disorders_and_subtypes": 8455,
+  "total_unique_evidence_sources": 54120,
+  "total_unique_publications": 50536,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3619,
-  "total_unique_pathological_events": 23900,
+  "total_pathographs": 3621,
+  "total_unique_pathological_events": 23909,
   "total_modules": 197,
-  "total_research_reports": 3750,
+  "total_research_reports": 3752,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 119
