@@ -1240,3 +1240,17 @@ def test_a_curie_in_parentheses_pairs_with_the_gene_in_front_of_them():
     """The SLC35A1-CDG report: CMP inside the parenthesis is not the gene."""
     line = "**Gene:** *SLC35A1* (Golgi CMP-sialic acid transporter; HGNC:10940, 6q15)"
     assert list(P.pair_gene_curies(line)) == [(1, "HGNC:10940", "SLC35A1")]
+
+
+def test_curies_sharing_a_parenthesis_pair_in_order_with_the_listed_genes():
+    """The Hodgkin lymphoma report: JAK1's correct ID is not paired with JAK2."""
+    line = "- JAK-STAT: JAK1, JAK2 (HGNC:6190, HGNC:6192)"
+    assert list(P.pair_gene_curies(line)) == [
+        (1, "HGNC:6190", "JAK1"),
+        (1, "HGNC:6192", "JAK2"),
+    ]
+
+
+def test_curies_sharing_a_parenthesis_are_not_guessed_without_a_matching_list():
+    line = "JAK2 signalling (HGNC:6190, HGNC:6192) in Reed-Sternberg cells"
+    assert list(P.pair_gene_curies(line)) == []

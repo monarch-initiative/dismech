@@ -87,6 +87,7 @@ cover (NHE1 for SLC9A1), which a mention count alone would bin.
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import re
 from collections import Counter
@@ -815,6 +816,12 @@ def pair_gene_curies(text: str, lexicon=None, prefixes=GENE_CURIE_PREFIXES):
     transporter; HGNC:10940)`` pairs with SLC35A1, not CMP. A CURIE with no
     gene symbol on its line is not paired. Ontology prefixes (``HGNC``
     itself, ``OMIM``) are never taken for the symbol.
+
+    Parentheses holding several CURIEs pair them in order with a list of as
+    many symbols written just before the ``(``: ``JAK1, JAK2 (HGNC:6190,
+    HGNC:6192)`` pairs JAK1 with the first. When no such list is there the
+    CURIEs in that group are not paired, since there is no telling which gene
+    each one is for.
     """
     lexicon = lexicon if lexicon is not None else HeuristicLexicon()
     for number, line in enumerate(text.splitlines(), start=1):
@@ -829,10 +836,12 @@ def pair_gene_curies(text: str, lexicon=None, prefixes=GENE_CURIE_PREFIXES):
         # read as a symbol.
         blanked = CURIE_RE.sub(lambda m: " " * len(m.group(0)), line)
         symbols = [
-            (m.start(), m.group(0))
+            (m.start(), m.end(), m.group(0))
             for m in GENE_TOKEN_RE.finditer(blanked)
             if m.group(0) not in ONTOLOGY_PREFIX_TOKENS and m.group(0) in lexicon
         ]
+        groups: dict[int, list[str]] = {}
+        placed = []
         for position, curie in curies:
             opened: list[int] = []
             for index, char in enumerate(line[:position]):
@@ -840,14 +849,47 @@ def pair_gene_curies(text: str, lexicon=None, prefixes=GENE_CURIE_PREFIXES):
                     opened.append(index)
                 elif char == ")" and opened:
                     opened.pop()
-            before = [sym for start, sym in symbols if start < position]
-            if opened:
-                outside = [sym for start, sym in symbols if start < opened[-1]]
+            group = opened[-1] if opened else None
+            if group is not None:
+                groups.setdefault(group, []).append(curie)
+            placed.append((position, curie, group))
+        for position, curie, group in placed:
+            members = groups.get(group, []) if group is not None else []
+            if len(members) > 1:
+                listed = _symbol_list_before(line, symbols, group, len(members))
+                if listed:
+                    yield number, curie, listed[members.index(curie)]
+                continue
+            before = [sym for start, _end, sym in symbols if start < position]
+            if group is not None:
+                outside = [sym for start, _end, sym in symbols if start < group]
                 before = outside or before
-            after = [sym for start, sym in symbols if start > position]
+            after = [sym for start, _end, sym in symbols if start > position]
             symbol = before[-1] if before else (after[0] if after else "")
             if symbol:
                 yield number, curie, symbol
+
+
+_LIST_SEPARATOR_RE = re.compile(r"^[\s,;/*_]*(?:and|or|&)?[\s,;/*_]*$", re.IGNORECASE)
+_BEFORE_PAREN_RE = re.compile(r"^[\s*_]*$")
+
+
+def _symbol_list_before(line: str, symbols, paren: int, count: int) -> list[str]:
+    """The ``count`` symbols listed immediately before ``line[paren]``, or ``[]``.
+
+    "Immediately" means only list punctuation (commas, "and", emphasis marks)
+    sits between them and between the last of them and the parenthesis.
+    """
+    before = [(start, end, sym) for start, end, sym in symbols if end <= paren]
+    if len(before) < count:
+        return []
+    listed = before[-count:]
+    if not _BEFORE_PAREN_RE.match(line[listed[-1][1] : paren]):
+        return []
+    for (_s, end, _sym), (start, _e, _next) in itertools.pairwise(listed):
+        if not _LIST_SEPARATOR_RE.match(line[end:start]):
+            return []
+    return [sym for _start, _end, sym in listed]
 
 
 def _same_curie(left: str, right: str) -> bool:
@@ -1299,7 +1341,15 @@ def preflight(
     # The symbol-beside-identifier comparison needs HGNC itself, so it runs
     # only with the live lexicon; the comparison against MONDO's identifier
     # for the intended gene needs nothing and always runs.
-    hgnc_adapter = getattr(lexicon, "_adapter", None) if use_hgnc else None
+    hgnc_adapter = None
+    open_adapter = getattr(lexicon, "_get_adapter", None) if use_hgnc else None
+    if open_adapter is not None:
+        # Opened explicitly: the lexicon opens its adapter lazily, so reading
+        # its attribute would depend on an earlier lookup having happened.
+        try:
+            hgnc_adapter = open_adapter()
+        except LexiconUnavailable:
+            hgnc_adapter = None
     try:
         findings, identifier_errors = check_gene_identifiers(
             text, record, lexicon, hgnc_adapter

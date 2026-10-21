@@ -204,7 +204,10 @@ ZMYND11 with `confabulation_rate: 0.0`; `HGNC:29316` is ZSWIM6 (#9845).
 intended gene must be the identifier MONDO records for it, and one written beside
 any other gene symbol must be that gene's own HGNC identifier. Either mismatch
 gives `WARN` and names the gene the identifier really belongs to. It checks only
-`HGNC:` identifiers, and only those with a gene symbol on the same line.
+`HGNC:` identifiers, and only those with a gene symbol on the same line. A
+symbol HGNC lists only as a previous symbol (`GBA1`, while the OBO build still
+says `GBA`) cannot be compared and is skipped, so no finding for such a gene is
+not a clean result.
 
 **The key is written only when it is true, so its absence is not always an
 all-clear.** Nine committed reports meet a trigger in their own block and still
