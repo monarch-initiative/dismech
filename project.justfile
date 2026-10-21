@@ -1063,7 +1063,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1909,6 +1909,15 @@ check-snippet-boundaries *files:
 check-folded-hyphens:
     uv run python scripts/check_folded_hyphens.py
 
+# An evidence item inserted inside a '>-' notes scalar parses as prose, so the
+# entry validates and count-verified-snippets silently leaves it out (#11230).
+# Flags a string value containing a line that opens with a KB key such as
+# '- reference:' or 'snippet:'. No baseline: every finding fails.
+# Gate YAML structure swallowed into string values in kb/ and src/
+[group('QC')]
+check-folded-yaml *args:
+    uv run python scripts/check_folded_yaml.py {{args}}
+
 # Guard against NEW degenerate evidence snippets in kb/ -- bare terms too short
 # to carry a claim (e.g. snippet: 'Strabismus'), which support nothing and are
 # usually lifted from a table that never survives text extraction (#7450).
@@ -1994,8 +2003,9 @@ update-retired-support-prose-baseline:
 # Guard against one quoted sentence carrying two different `evidence_source`
 # values in the same file -- `evidence_source` describes the cited publication,
 # not the block the quote was pasted into, so a file that says both is
-# self-contradicting (#8184). Grandfathered against origin/main like the length
-# and title checks.
+# self-contradicting (#8184). Also compares the same sentence across files and
+# fails on HUMAN_CLINICAL against IN_VITRO/MODEL_ORGANISM/COMPUTATIONAL (#11221).
+# Grandfathered against origin/main like the length and title checks.
 [group('QC')]
 check-snippet-grading:
     uv run python scripts/check_snippet_grading.py --against-ref origin/main
@@ -2003,12 +2013,15 @@ check-snippet-grading:
 # List every snippet-grading divergence, baselined or not (triage view).
 # `--fields all` adds the `supports` divergences, which are NOT gated -- see the
 # script docstring for why (they are overwhelmingly correct curation).
+# `--cross-file` lists the same sentence graded differently in two files,
+# including the report-only pairs involving OTHER (pending #10273).
 [group('QC')]
 list-snippet-grading *args="":
     uv run python scripts/check_snippet_grading.py --all {{args}}
 
-# Regenerate the snippet-grading baseline after intentionally changing the set
-# (e.g. reconciling backlog divergences). Review the diff before committing.
+# Regenerate both snippet-grading baselines (per-file and cross-file) after
+# intentionally changing the set (e.g. reconciling backlog divergences). Review
+# the diff before committing.
 [group('QC')]
 update-snippet-grading-baseline:
     uv run python scripts/check_snippet_grading.py --update-baseline
@@ -2878,6 +2891,20 @@ alternative-models-research provider slug *args="":
 template-version-audit *args="":
     @uv run python scripts/template_version.py audit {{args}}
 
+# Report deep-research reports that name a MONDO CURIE for a different disease
+# than the one the report is about (#9949). A report's own Term Validation only
+# compares a CURIE with a label printed next to it, so the disease's own MONDO
+# term, usually printed bare in an identifier list, is never checked there.
+# Offline: labels come from cache/mondo/terms.csv only. Report-only, exit 0,
+# not part of `just qc`. A MISMATCH row is a lead to read, not a verdict.
+# Examples:
+#   just dr-mondo-audit
+#   just dr-mondo-audit --format tsv --out /tmp/dr_mondo.tsv
+#   just dr-mondo-audit research/Achondroplasia-deep-research-falcon.md
+[group('Research')]
+dr-mondo-audit *args="":
+    @uv run python scripts/dr_mondo_audit.py {{args}}
+
 # Verify that datasets[].accession values resolve to real repository records.
 # Nothing else in the validation stack checks dataset accessions, so run this
 # before committing any new `datasets:` block.
@@ -2964,6 +2991,11 @@ research-disorder provider disorder *args="":
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
     mondo_id=$(uv run python -c "import sys,yaml;d=yaml.safe_load(open(sys.argv[1])) or {};t=(d.get('disease_term') or {}).get('term') or {};i=(t.get('id') or '').strip() if isinstance(t,dict) else '';print(i if i.startswith('MONDO:') and i != 'MONDO:0000001' else '')" "$yaml_file" 2>/dev/null || echo "")
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
+    # Identity anchors (#14907): MONDO's causal gene(s), OMIM xref and synonyms,
+    # so a serial-number name ("... autosomal dominant 64") cannot be researched
+    # as a different gene's disease. Offline; "not recorded" when unknown.
+    anchor_vars=()
+    while IFS= read -r line; do anchor_vars+=(--var "$line"); done < <(uv run python -m dismech.research_anchors "$yaml_file" "$mondo_id" || printf 'causal_genes=not recorded\nomim_id=not recorded\nsynonyms=not recorded\n')
     output_file="{{research_dir}}/{{disorder}}-deep-research-{{provider}}.md"
     requested_provider="{{provider}}"
     staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
@@ -2976,6 +3008,7 @@ research-disorder provider disorder *args="":
         --var "disease_name=$disease_name" \
         --var "mondo_id=$mondo_id" \
         --var "category=$category" \
+        "${anchor_vars[@]}" \
         $provider_arg \
         --output "$staged_file" \
         --separate-citations "$staged_file.citations.md" \
@@ -3300,6 +3333,11 @@ research-disorder-cyberian-codex disorder *args="":
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
     mondo_id=$(uv run python -c "import sys,yaml;d=yaml.safe_load(open(sys.argv[1])) or {};t=(d.get('disease_term') or {}).get('term') or {};i=(t.get('id') or '').strip() if isinstance(t,dict) else '';print(i if i.startswith('MONDO:') and i != 'MONDO:0000001' else '')" "$yaml_file" 2>/dev/null || echo "")
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
+    # Identity anchors (#14907): MONDO's causal gene(s), OMIM xref and synonyms,
+    # so a serial-number name ("... autosomal dominant 64") cannot be researched
+    # as a different gene's disease. Offline; "not recorded" when unknown.
+    anchor_vars=()
+    while IFS= read -r line; do anchor_vars+=(--var "$line"); done < <(uv run python -m dismech.research_anchors "$yaml_file" "$mondo_id" || printf 'causal_genes=not recorded\nomim_id=not recorded\nsynonyms=not recorded\n')
     output_file="{{research_dir}}/{{disorder}}-deep-research-cyberian-codex.md"
     requested_provider="cyberian-codex"
     staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
@@ -3310,6 +3348,7 @@ research-disorder-cyberian-codex disorder *args="":
         --var "disease_name=$disease_name" \
         --var "mondo_id=$mondo_id" \
         --var "category=$category" \
+        "${anchor_vars[@]}" \
         --provider cyberian \
         --param agent_type=codex \
         --output "$staged_file" \

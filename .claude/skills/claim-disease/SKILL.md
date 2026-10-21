@@ -168,7 +168,10 @@ turns on. Enriching an issue body with a definition or an OMIM ID is not that.
    ```
 
    `next-unclaimed` takes `--json` if you want it machine-readable. Ask for
-   headroom (`N + 20`), because you will skip candidates.
+   headroom (`N + 20`), because you will skip candidates. It already leaves out
+   stubs whose MONDO ID the KB covers; a `[advisory] possible_kb_duplicate`
+   line under a candidate (`advisories` in `--json`) means an entry with the
+   same name exists under another MONDO ID, so open that entry before choosing.
 
    **No `gh` CLI (web and remote sessions).** `just fetch-claims` shells out to
    `gh`, which is absent there — and `curl https://api.github.com` fails too:
