@@ -82,7 +82,9 @@ class IdentityAnchors:
         synonyms = f"{len(self.synonyms)}"
         if self.synonyms and self.synonym_source:
             synonyms += f" ({self.synonym_source})"
-        return f"Identity anchors: causal genes {genes}; OMIM {omim}; synonyms {synonyms}"
+        return (
+            f"Identity anchors: causal genes {genes}; OMIM {omim}; synonyms {synonyms}"
+        )
 
 
 def _one_line(value: object) -> str:
@@ -110,7 +112,9 @@ def exact_synonyms(mondo_id: str, adapter) -> tuple[str, ...]:
     return tuple(value for pred, value in pairs if pred in EXACT_SYNONYM_PREDICATES)
 
 
-def anchors_from_mondo(mondo_id: str, adapter) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+def anchors_from_mondo(
+    mondo_id: str, adapter
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
     """``(genes, omim_ids, exact_synonyms)`` from a MONDO adapter.
 
     Reuses :func:`dismech.preflight_dr.fetch_mondo_record` with HGNC disabled,
@@ -145,30 +149,51 @@ def genes_from_stub(mondo_id: str, stubs_dir: Path) -> tuple[str, ...]:
         stub = safe_load_path(path) or {}
         if stub.get("mondo_id") != mondo_id:
             continue
-        labels = [g.get("label") for g in stub.get("genes") or [] if isinstance(g, dict)]
+        labels = [
+            g.get("label") for g in stub.get("genes") or [] if isinstance(g, dict)
+        ]
         return _dedupe(label for label in labels if label)
     return ()
 
 
+def _gene_label(row: dict) -> str | None:
+    gene_term = row.get("gene_term") or {}
+    if not isinstance(gene_term, dict):
+        return None
+    term = gene_term.get("term") or {}
+    return (term.get("label") if isinstance(term, dict) else None) or gene_term.get(
+        "preferred_term"
+    )
+
+
 def genes_from_entry(entry: dict) -> tuple[str, ...]:
-    """The entry's own ``relationship_type: CAUSATIVE`` genes.
+    """The entry's own causal genes, read from its ``genetic`` rows.
 
     The last resort, for a curated disease whose stub is gone when the MONDO
-    build is absent. Only ``CAUSATIVE`` rows count: a risk or modifier gene is
-    not the gene that says which disease this is.
+    build is absent. ``relationship_type: CAUSATIVE`` rows win: a risk or
+    modifier gene is not the gene that says which disease this is. Many
+    monogenic entries leave ``relationship_type`` unset (``Marfan_Syndrome``'s
+    FBN1 row), so when no row is ``CAUSATIVE`` an untyped row is used, but only
+    if the untyped rows name exactly one gene. Several untyped genes are as
+    likely to be somatic drivers or a differential as causes, and naming the
+    wrong one would steer the provider the way this anchor exists to prevent.
     """
-    labels = []
-    for row in entry.get("genetic") or []:
-        if not isinstance(row, dict) or row.get("relationship_type") != "CAUSATIVE":
-            continue
-        gene_term = row.get("gene_term") or {}
-        term = gene_term.get("term") or {} if isinstance(gene_term, dict) else {}
-        label = (term.get("label") if isinstance(term, dict) else None) or (
-            gene_term.get("preferred_term") if isinstance(gene_term, dict) else None
-        )
-        if label:
-            labels.append(label)
-    return _dedupe(labels)
+    rows = [row for row in entry.get("genetic") or [] if isinstance(row, dict)]
+    causative = _dedupe(
+        label
+        for row in rows
+        if row.get("relationship_type") == "CAUSATIVE"
+        if (label := _gene_label(row))
+    )
+    if causative:
+        return causative
+    untyped = _dedupe(
+        label
+        for row in rows
+        if not row.get("relationship_type")
+        if (label := _gene_label(row))
+    )
+    return untyped if len(untyped) == 1 else ()
 
 
 def _open_local_mondo():
@@ -211,7 +236,9 @@ def collect_anchors(
             if adapter is not None:
                 genes, omim, mondo_synonyms = anchors_from_mondo(mondo_id, adapter)
         except Exception as exc:  # pragma: no cover - adapter variance
-            print(f"MONDO identity lookup for {mondo_id} failed: {exc}", file=sys.stderr)
+            print(
+                f"MONDO identity lookup for {mondo_id} failed: {exc}", file=sys.stderr
+            )
     if genes:
         gene_source = "MONDO"
     else:
@@ -221,7 +248,12 @@ def collect_anchors(
         genes = genes_from_entry(entry)
         gene_source = "entry" if genes else ""
 
-    label = _one_line(adapter.label(mondo_id) or "") if adapter is not None and mondo_id else ""
+    label = ""
+    if adapter is not None and mondo_id:
+        try:
+            label = _one_line(adapter.label(mondo_id) or "")
+        except Exception as exc:  # pragma: no cover - adapter variance
+            print(f"MONDO label lookup for {mondo_id} failed: {exc}", file=sys.stderr)
     exclude = (name, name.replace("_", " "), label)
     synonyms = _dedupe(mondo_synonyms, exclude=exclude)
     if synonyms:
@@ -242,11 +274,17 @@ def collect_anchors(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("yaml_file", type=Path, help="Disorder YAML the research run is for")
-    parser.add_argument("mondo_id", nargs="?", default="", help="The entry's MONDO ID (may be empty)")
+    parser.add_argument(
+        "yaml_file", type=Path, help="Disorder YAML the research run is for"
+    )
+    parser.add_argument(
+        "mondo_id", nargs="?", default="", help="The entry's MONDO ID (may be empty)"
+    )
     parser.add_argument("--stubs-dir", type=Path, default=DEFAULT_STUBS_DIR)
     parser.add_argument(
-        "--no-mondo", action="store_true", help="Do not open the local MONDO build even if present"
+        "--no-mondo",
+        action="store_true",
+        help="Do not open the local MONDO build even if present",
     )
     args = parser.parse_args(argv)
 

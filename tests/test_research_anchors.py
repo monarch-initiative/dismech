@@ -63,7 +63,10 @@ def _mrd64_adapter(gene_label="ZNF292"):
             "HGNC:18410": gene_label,
         },
         relationships=[(MRD64, "RO:0004003", "HGNC:18410")],
-        mappings=[("skos:exactMatch", "OMIM:619188"), ("skos:exactMatch", "Orphanet:1")],
+        mappings=[
+            ("skos:exactMatch", "OMIM:619188"),
+            ("skos:exactMatch", "Orphanet:1"),
+        ],
         aliases=[
             ("oio:hasExactSynonym", "ZNF292-related neurodevelopmental disorder"),
             ("oio:hasExactSynonym", "MRD64"),
@@ -76,7 +79,9 @@ ENTRY = {"name": "Intellectual Developmental Disorder, Autosomal Dominant 64"}
 
 
 def test_numbered_disease_gets_its_causal_gene_omim_and_synonyms(tmp_path):
-    anchors = collect_anchors(ENTRY, MRD64, adapter=_mrd64_adapter(), stubs_dir=tmp_path)
+    anchors = collect_anchors(
+        ENTRY, MRD64, adapter=_mrd64_adapter(), stubs_dir=tmp_path
+    )
     assert anchors.template_vars() == {
         "causal_genes": "ZNF292",
         "omim_id": "OMIM:619188",
@@ -132,10 +137,16 @@ def test_entry_causative_genes_are_the_last_resort(tmp_path, monkeypatch):
         "name": ENTRY["name"],
         "synonyms": ["MRD64", ENTRY["name"]],
         "genetic": [
-            {"name": "ZNF292", "relationship_type": "CAUSATIVE",
-             "gene_term": {"term": {"id": "hgnc:18410", "label": "ZNF292"}}},
-            {"name": "APOE", "relationship_type": "RISK_FACTOR",
-             "gene_term": {"term": {"id": "hgnc:613", "label": "APOE"}}},
+            {
+                "name": "ZNF292",
+                "relationship_type": "CAUSATIVE",
+                "gene_term": {"term": {"id": "hgnc:18410", "label": "ZNF292"}},
+            },
+            {
+                "name": "APOE",
+                "relationship_type": "RISK_FACTOR",
+                "gene_term": {"term": {"id": "hgnc:613", "label": "APOE"}},
+            },
         ],
     }
     anchors = collect_anchors(entry, MRD64, stubs_dir=tmp_path)
@@ -143,6 +154,50 @@ def test_entry_causative_genes_are_the_last_resort(tmp_path, monkeypatch):
     assert anchors.gene_source == "entry"
     # The entry's own name is not repeated back as a synonym.
     assert anchors.synonyms == ("MRD64",)
+
+
+def _row(symbol, hgnc, relationship_type=None):
+    row = {"name": symbol, "gene_term": {"term": {"id": hgnc, "label": symbol}}}
+    if relationship_type:
+        row["relationship_type"] = relationship_type
+    return row
+
+
+def test_a_single_untyped_gene_stands_in_when_no_row_is_causative(
+    tmp_path, monkeypatch
+):
+    """Monogenic entries often leave relationship_type unset (Marfan's FBN1 row)."""
+    monkeypatch.setattr(research_anchors, "_open_local_mondo", lambda: None)
+    entry = {
+        "name": "Marfan Syndrome",
+        "genetic": [_row("FBN1", "hgnc:3603"), _row("APOE", "hgnc:613", "MODIFIER")],
+    }
+    anchors = collect_anchors(entry, "MONDO:0007947", stubs_dir=tmp_path)
+    assert anchors.causal_genes == ("FBN1",)
+    assert anchors.gene_source == "entry"
+
+
+def test_several_untyped_genes_are_not_named_as_causal(tmp_path, monkeypatch):
+    """Untyped genes in a multigenic entry may be somatic drivers or a differential."""
+    monkeypatch.setattr(research_anchors, "_open_local_mondo", lambda: None)
+    entry = {
+        "name": "Some Cancer",
+        "genetic": [_row("BRAF", "hgnc:1097"), _row("MLH1", "hgnc:7127")],
+    }
+    anchors = collect_anchors(entry, "MONDO:0000000", stubs_dir=tmp_path)
+    assert anchors.causal_genes == ()
+
+
+def test_a_failed_label_lookup_keeps_the_genes_already_found(tmp_path):
+    adapter = _mrd64_adapter()
+    real_label = adapter.label
+    adapter.label = lambda curie: (
+        (_ for _ in ()).throw(RuntimeError("boom"))
+        if curie == MRD64
+        else real_label(curie)
+    )
+    anchors = collect_anchors(ENTRY, MRD64, adapter=adapter, stubs_dir=tmp_path)
+    assert anchors.causal_genes == ("ZNF292",)
 
 
 def test_a_gene_mondo_holds_only_as_a_bare_curie_is_not_an_anchor(tmp_path):
@@ -180,8 +235,10 @@ def test_template_renders_with_exactly_the_variables_the_recipes_pass():
 @pytest.mark.parametrize("recipe", RECIPES)
 def test_recipes_rendering_the_template_pass_the_anchors(recipe):
     text = (ROOT / "project.justfile").read_text()
-    match = re.search(rf"^{re.escape(recipe)} .*?:\n(.*?)(?=^\S)", text, re.MULTILINE | re.DOTALL)
+    match = re.search(
+        rf"^{re.escape(recipe)} .*?:\n(.*?)(?=^\S)", text, re.MULTILINE | re.DOTALL
+    )
     assert match, recipe
     body = match.group(1)
-    assert "python -m dismech.research_anchors \"$yaml_file\" \"$mondo_id\"" in body
+    assert 'python -m dismech.research_anchors "$yaml_file" "$mondo_id"' in body
     assert '"${anchor_vars[@]}"' in body
