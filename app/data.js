@@ -33791,7 +33791,8 @@ window.searchData = [
       "Gut Microbial TMA Production",
       "Elevated Circulating TMAO",
       "Muscarinic M2 Receptor Inhibition",
-      "Cardiac Autonomic Dysfunction"
+      "Cardiac Autonomic Dysfunction",
+      "Beta-Adrenergic Receptor Blockade (Rate-Control Target)"
     ],
     "cell_types": [
       "Atrial Cardiomyocyte",
@@ -33869,10 +33870,10 @@ window.searchData = [
     "source_file": "Atrial_Fibrillation.yaml",
     "page_url": "../pages/disorders/Atrial_Fibrillation.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 11,
     "num_genes": 2,
     "num_treatments": 8,
-    "causal_graph_edges": "41",
+    "causal_graph_edges": "42",
     "causal_graph_longest_path": "7"
   },
   {
@@ -141539,7 +141540,8 @@ window.searchData = [
       "Renin-Angiotensin-Aldosterone System Dysregulation",
       "Sympathetic Nervous System Overactivity",
       "Immune and Inflammatory Activation",
-      "Oxidative Stress"
+      "Oxidative Stress",
+      "Beta-Adrenergic Receptor Blockade (Beta-Blocker Target)"
     ],
     "cell_types": [
       "Vascular Smooth Muscle Cell",
@@ -141613,10 +141615,10 @@ window.searchData = [
     "source_file": "Essential_Hypertension.yaml",
     "page_url": "../pages/disorders/Essential_Hypertension.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 3,
     "num_treatments": 6,
-    "causal_graph_edges": "2",
+    "causal_graph_edges": "3",
     "causal_graph_longest_path": "1"
   },
   {
@@ -174311,7 +174313,8 @@ window.searchData = [
       "Tissue Glucocorticoid Amplification by 11beta-HSD1",
       "Postmenopausal Oestrogen Withdrawal",
       "Loss of Myocardial Oestrogen Receptor Signalling",
-      "Lipoprotein(a)-Driven Coronary Microvascular Dysfunction"
+      "Lipoprotein(a)-Driven Coronary Microvascular Dysfunction",
+      "Beta-Adrenergic Receptor Blockade (Beta-Blocker Target)"
     ],
     "cell_types": [
       "Cardiomyocyte",
@@ -174399,10 +174402,10 @@ window.searchData = [
     "source_file": "Heart_Failure.yaml",
     "page_url": "../pages/disorders/Heart_Failure.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 10,
     "num_genes": 3,
     "num_treatments": 8,
-    "causal_graph_edges": "32",
+    "causal_graph_edges": "33",
     "causal_graph_longest_path": "7"
   },
   {
@@ -239261,8 +239264,8 @@ window.searchData = [
     "num_pathophysiology": 12,
     "num_genes": 5,
     "num_treatments": 9,
-    "causal_graph_edges": "22",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Mal De Debarquement",
@@ -267299,14 +267302,18 @@ window.searchData = [
     "updated_date": null,
     "subtypes": [
       "MYCN-Amplified Neuroblastoma",
-      "Stage 4S Neuroblastoma",
-      "High-Risk Neuroblastoma"
+      "High-Risk Neuroblastoma",
+      "Adrenal Gland Neuroblastoma"
     ],
-    "description": "Neuroblastoma is the most common extracranial solid tumor of childhood, arising from neural crest-derived sympathetic nervous system precursors. It demonstrates remarkable clinical heterogeneity, ranging from spontaneous regression in infants to highly aggressive metastatic disease in older children. MYCN amplification, present in approximately 20% of cases, is among the most powerful adverse genomic prognostic markers and drives aggressive tumor behavior. Risk stratification in the INRG system combines stage, age, histologic category and grade of differentiation, MYCN status, chromosome 11q status, and DNA ploidy to guide treatment intensity. A distinct axis of neuroblastoma biology is the mechanism of telomere maintenance: MYCN amplification, TERT rearrangement, and ATRX mutation/alternative lengthening of telomeres are largely mutually exclusive routes to telomere maintenance, with ATRX-mutant disease defining an indolent but treatment-refractory adolescent and young-adult subtype. Low-risk neuroblastoma may require only observation, while high-risk disease requires intensive multimodal therapy with immunotherapy.",
+    "description": "Neuroblastoma is the most common extracranial solid tumor of childhood, arising from neural crest-derived sympathetic nervous system precursors. It demonstrates remarkable clinical heterogeneity, ranging from spontaneous regression in infants to highly aggressive metastatic disease in older children. MYCN amplification, present in approximately 20% of cases, is among the most powerful adverse genomic prognostic markers and drives aggressive tumor behavior. Risk stratification in the INRG system combines stage, age, histologic category and grade of differentiation, MYCN status, chromosome 11q status, and DNA ploidy to guide treatment intensity. A distinct axis of neuroblastoma biology is the mechanism of telomere maintenance: telomerase is activated through TERT rearrangement, MYCN amplification or high TERT expression without either alteration, while alternative lengthening of telomeres (ALT), often with ATRX alteration, maintains telomeres without telomerase. The two mechanisms are almost mutually exclusive. ATRX-altered disease is enriched in older children, adolescents and young adults and often runs a slow but progressive course, with poor response to induction chemotherapy reported for large ATRX deletions and truncating mutations. Low-risk neuroblastoma may require only observation, while high-risk disease requires intensive multimodal therapy with immunotherapy.",
     "pathophysiology": [
       "Neural Crest Developmental Arrest",
       "MYCN-Driven Proliferation",
-      "ALK Signaling Activation"
+      "ALK Signaling Activation",
+      "Telomerase Activation",
+      "Reduced ATRX/DAXX Complex Abundance",
+      "Alternative Lengthening of Telomeres",
+      "Unlimited Replicative Potential"
     ],
     "cell_types": [
       "neural crest derived neuroblast"
@@ -267317,47 +267324,71 @@ window.searchData = [
     "biological_processes": [
       "cell differentiation",
       "cell population proliferation",
-      "MAPK cascade"
+      "MAPK cascade",
+      "telomere maintenance via telomerase",
+      "telomere maintenance via recombination"
     ],
     "phenotypes": [
       "Abdominal Mass",
+      "Abdominal Pain",
+      "Abdominal Distension",
       "Hypertension",
       "Fever",
       "Weight Loss",
       "Proptosis",
       "Bone Pain",
-      "Diarrhea"
+      "Diarrhea",
+      "Horner Syndrome",
+      "Spinal Cord Compression",
+      "Anemia",
+      "Thrombocytopenia",
+      "Hepatomegaly",
+      "Subcutaneous Nodules"
     ],
     "phenotype_categories": [
       "Abdominal",
+      "Gastrointestinal",
       "Cardiovascular",
       "Constitutional",
       "Ophthalmologic",
       "Musculoskeletal",
-      "Gastrointestinal"
+      "Neurologic",
+      "Hematologic",
+      "Hepatic",
+      "Dermatologic"
     ],
     "phenotype_hpo_categories": [
+      "Blood",
       "Cardiovascular",
       "Constitutional",
       "Digestive",
       "Eye",
       "Growth",
+      "Integument",
       "Metabolism",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0031500",
+      "HP:0002027",
+      "HP:0003270",
       "HP:0000822",
       "HP:0001945",
       "HP:0001824",
       "HP:0000520",
       "HP:0002653",
-      "HP:0002014"
+      "HP:0005208",
+      "HP:0002277",
+      "HP:0002176",
+      "HP:0001903",
+      "HP:0001873",
+      "HP:0002240",
+      "HP:0001482"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
       "OCCASIONAL",
-      "FREQUENT"
+      "VERY_RARE"
     ],
     "genes": [
       "MYCN Amplification",
@@ -267383,12 +267414,12 @@ window.searchData = [
     ],
     "source_file": "Neuroblastoma.yaml",
     "page_url": "../pages/disorders/Neuroblastoma.html",
-    "num_phenotypes": 7,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 15,
+    "num_pathophysiology": 7,
     "num_genes": 6,
     "num_treatments": 7,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Neurocardiorenal Malformation Syndrome",
@@ -282431,7 +282462,7 @@ window.searchData = [
     "creation_date": "2026-02-06T03:25:37Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Osteogenesis imperfecta type IV represents moderate severity OI, intermediate between the mild type I and severe type III. Caused by dominant-negative mutations in COL1A1 or COL1A2, affected individuals have moderate bone fragility, variable short stature, normal or near-normal scleral hue (distinguishing it from type I), and may have dentinogenesis imperfecta. Phenotypic severity is highly variable, overlapping with both milder and more severe forms.\n",
+    "description": "Osteogenesis imperfecta type IV (referred to in current GeneReviews clinical nosology as common variable osteogenesis imperfecta with normal sclerae) represents moderate severity OI, intermediate between the mild type I and severe type III. Caused by heterozygous dominant-negative structural mutations in COL1A1 or COL1A2 (most frequently triple-helical glycine substitutions or in-frame splice defects), affected individuals have moderate bone fragility, variable short stature, normal or near-normal scleral hue in adulthood (distinguishing it from type I), and frequent dentinogenesis imperfecta. Phenotypic severity is highly variable, overlapping with both milder and more severe forms.",
     "pathophysiology": [
       "Procollagen Processing and Intracellular Trafficking Defect",
       "Defective Collagen Matrix Assembly",
@@ -282506,7 +282537,8 @@ window.searchData = [
       "FREQUENT"
     ],
     "genes": [
-      "COL1A1/COL1A2 Mutations"
+      "COL1A1",
+      "COL1A2"
     ],
     "treatments": [
       "Bisphosphonate Therapy",
@@ -282522,10 +282554,10 @@ window.searchData = [
     "page_url": "../pages/disorders/Osteogenesis_Imperfecta_Type_IV.html",
     "num_phenotypes": 15,
     "num_pathophysiology": 3,
-    "num_genes": 1,
+    "num_genes": 2,
     "num_treatments": 6,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Osteogenesis Imperfecta Type IX",
@@ -306035,6 +306067,81 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Premature Ovarian Failure 19",
+    "disease_id": "MONDO:0030985",
+    "category": "Mendelian",
+    "parents": [
+      "Primary Ovarian Insufficiency",
+      "Meiotic Disorder"
+    ],
+    "creation_date": "2026-10-20T23:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Premature ovarian failure 19 (POF19) is an autosomal recessive form of primary ovarian insufficiency caused by biallelic variants in HSF2BP (heat shock transcription factor 2 binding protein, also called MEILB2). HSF2BP is a germline protein that binds BRCA2 and, with its partner BRME1, is needed to load the recombinases RAD51 and DMC1 onto programmed DNA double-strand breaks in meiotic prophase I. Three homozygous missense alleles have been reported: p.Ser167Leu in a consanguineous family with three affected sisters, and p.Cys128Arg and p.Leu186Pro in two unrelated women from a cohort of 1,030 sporadic POI cases. Affected women have a spontaneous menarche, irregular menses, and loss of menses between their late teens and mid-twenties, with high FSH and LH; the two sporadic patients had atrophic ovaries without follicles on ultrasound. In mice, loss of Hsf2bp reduces recombinase loading and crossovers in oocytes and depletes the follicle pool; the p.Ser167Leu allele behaves as a hypomorph. No affected men have been reported, although Hsf2bp loss blocks spermatogenesis in mice.",
+    "pathophysiology": [
+      "HSF2BP Partial Loss of Function",
+      "Impaired Recombinase Loading and Crossover Formation in Oocytes",
+      "Oocyte Elimination in Meiotic Prophase",
+      "Ovarian Follicle Depletion"
+    ],
+    "cell_types": [
+      "oocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000023"
+    ],
+    "biological_processes": [
+      "DNA recombinase assembly",
+      "double-strand break repair via homologous recombination",
+      "reciprocal meiotic recombination",
+      "female gamete generation"
+    ],
+    "phenotypes": [
+      "Premature ovarian insufficiency",
+      "Secondary amenorrhea",
+      "Oligomenorrhea",
+      "Elevated circulating follicle stimulating hormone level",
+      "Elevated circulating luteinizing hormone level",
+      "Decreased serum estradiol",
+      "Female infertility"
+    ],
+    "phenotype_categories": [
+      "Reproductive",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0008209",
+      "HP:0000869",
+      "HP:0000876",
+      "HP:0008232",
+      "HP:0011969",
+      "HP:0008214",
+      "HP:0008222"
+    ],
+    "frequencies": [],
+    "genes": [
+      "HSF2BP"
+    ],
+    "treatments": [
+      "Hormone replacement therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Premature_Ovarian_Failure_19.yaml",
+    "page_url": "../pages/disorders/Premature_Ovarian_Failure_19.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Premature Ovarian Failure 20",
     "disease_id": "MONDO:0030975",
     "category": "Mendelian",
@@ -328071,6 +328178,121 @@ window.searchData = [
     "num_genes": 3,
     "num_treatments": 6,
     "causal_graph_edges": "42",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "SHILCA Syndrome",
+    "disease_id": "MONDO:0031007",
+    "category": "Mendelian",
+    "parents": [
+      "NMNAT1-related retinopathy",
+      "Leber congenital amaurosis",
+      "Spondyloepiphyseal dysplasia"
+    ],
+    "creation_date": "2026-10-21T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "SHILCA syndrome is an autosomal recessive multisystem disorder caused by biallelic NMNAT1 alleles that reduce expression of the nuclear NAD+ synthase more severely than the alleles behind retina-restricted Leber congenital amaurosis 9. The defining features are a severe spondyloepiphyseal dysplasia, sensorineural hearing loss, intellectual disability and Leber congenital amaurosis, with brain anomalies on MRI. The one compound heterozygous patient described in detail also had severe short stature, hypomyelinating leukoencephalopathy, progressive brain and cerebellar atrophy, corpus callosum hypoplasia and pseudocolobomatous macular atrophy. Every reported patient carries an Alu-mediated duplication of NMNAT1 exons 4-5 on a shared founder haplotype, either homozygous or in trans with a splice variant. The duplication cuts NMNAT1 expression roughly four-fold and produces aberrant transcripts. Complete loss of Nmnat1 is embryonic lethal in mice, so the authors read SHILCA as the intermediate point on an NMNAT1 dosage series between LCA9 and lethality. That extra-retinal tissues fail because nuclear NAD+ falls below what they tolerate is a hypothesis; NAD+ has not been measured in patients. Four patients are published.",
+    "pathophysiology": [
+      "NMNAT1 Severe Hypomorphic Loss of Function",
+      "Multi-Tissue Nuclear NAD+ Insufficiency",
+      "Photoreceptor Degeneration"
+    ],
+    "cell_types": [
+      "photoreceptor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000210"
+    ],
+    "biological_processes": [
+      "nuclear NAD+ biosynthesis",
+      "photoreceptor cell death"
+    ],
+    "phenotypes": [
+      "Spondyloepiphyseal Dysplasia",
+      "Delayed Skeletal Maturation",
+      "Scoliosis",
+      "Biconcave Vertebral Bodies",
+      "Severe Short Stature",
+      "Sensorineural Hearing Loss",
+      "Intellectual Disability",
+      "Global Developmental Delay",
+      "Axial Hypotonia",
+      "Ataxia",
+      "Dyskinesia",
+      "CNS Hypomyelination",
+      "Brain Atrophy",
+      "Cerebellar Atrophy",
+      "Hypoplasia of the Corpus Callosum",
+      "Leber Congenital Amaurosis",
+      "Nystagmus",
+      "Esotropia",
+      "Undetectable Electroretinogram",
+      "Macular Atrophy",
+      "Optic Disc Pallor",
+      "Attenuation of Retinal Blood Vessels",
+      "Hypermetropia",
+      "Coarse Facial Features",
+      "Depressed Nasal Bridge"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Growth",
+      "Audiological",
+      "Neurological",
+      "Ophthalmological",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002655",
+      "HP:0002750",
+      "HP:0002650",
+      "HP:0004586",
+      "HP:0003510",
+      "HP:0000407",
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0008936",
+      "HP:0001251",
+      "HP:0100660",
+      "HP:0003429",
+      "HP:0012444",
+      "HP:0001272",
+      "HP:0002079",
+      "HP:0001141",
+      "HP:0000639",
+      "HP:0000565",
+      "HP:0000550",
+      "HP:0007401",
+      "HP:0000543",
+      "HP:0007843",
+      "HP:0000540",
+      "HP:0000280",
+      "HP:0005280"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NMNAT1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SHILCA_Syndrome.yaml",
+    "page_url": "../pages/disorders/SHILCA_Syndrome.html",
+    "num_phenotypes": 25,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "5"
   },
   {
@@ -388470,6 +388692,65 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "ZFP36L2-related Oocyte Maturation Defect",
+    "disease_id": "MONDO:0859330",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "female reproductive system disease"
+    ],
+    "creation_date": "2026-10-21T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "ZFP36L2-related oocyte maturation defect (oocyte maturation defect 13) is an autosomal-recessive form of primary female infertility caused by biallelic variants in ZFP36L2, an AU-rich-element RNA-binding protein that recruits the CCR4-NOT deadenylase to degrade maternal mRNAs in the oocyte and zygote. Affected women have no reported somatic abnormality, and their IVF/ICSI cycles fail either because oocytes do not mature or because fertilized embryos arrest before implantation. Patient variants lower ZFP36L2 protein, weaken its binding to the CCR4-NOT complex, and impair degradation of maternal mRNAs in HeLa cells, mouse oocytes, and patient zygotes. In mice, oocyte-specific loss of Zfp36l2 leaves histone demethylase mRNAs undegraded, so oocytes fail to gain H3K4 and H3K9 methylation and to silence transcription, and they then mature and fertilize poorly. A hypomorphic Zfp36l2 allele gives two-cell embryo arrest or, on another strain background, oocyte germinal-vesicle arrest. Fewer than ten affected women have been reported, all in Chinese infertility cohorts, and no treatment is established.",
+    "pathophysiology": [
+      "Biallelic ZFP36L2 Variants Reducing mRNA Decay Activator Function",
+      "Impaired Maternal mRNA Decay in Oocytes and Zygotes",
+      "Failed Oocyte H3K4 and H3K9 Methylation",
+      "Failed Global Transcriptional Silencing in Oocytes"
+    ],
+    "cell_types": [
+      "oocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000023"
+    ],
+    "biological_processes": [
+      "maternal mRNA clearance",
+      "mRNA destabilization"
+    ],
+    "phenotypes": [
+      "Female Infertility",
+      "Oocyte Maturation Arrest",
+      "Embryo Developmental Arrest"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0008222",
+      "HP:0034914",
+      "HP:0020003"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ZFP36L2"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ZFP36L2-related_Oocyte_Maturation_Defect.yaml",
+    "page_url": "../pages/disorders/ZFP36L2-related_Oocyte_Maturation_Defect.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "ZNF341 Deficiency",
     "disease_id": "MONDO:0032654",
     "category": "Mendelian",
@@ -390457,17 +390738,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3619,
+  "total_disorder_pages": 3622,
   "total_subtypes": 4827,
-  "total_disorders_and_subtypes": 8446,
-  "total_unique_evidence_sources": 53989,
-  "total_unique_publications": 50406,
+  "total_disorders_and_subtypes": 8449,
+  "total_unique_evidence_sources": 54102,
+  "total_unique_publications": 50518,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3616,
-  "total_unique_pathological_events": 23887,
-  "total_modules": 196,
-  "total_research_reports": 3746,
+  "total_pathographs": 3619,
+  "total_unique_pathological_events": 23900,
+  "total_modules": 197,
+  "total_research_reports": 3750,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 119
