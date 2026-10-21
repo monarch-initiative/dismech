@@ -4104,6 +4104,15 @@ this is now a much weaker effect than it used to be — retiring `PARTIAL` cut
 most of that signal was the value's ambiguity rather than claim-relativity.
 Gating `supports` is worth revisiting.
 
+The same comparison now also runs **across files** (#11221): one sentence of one
+reference graded `HUMAN_CLINICAL` in one entry and `IN_VITRO`, `MODEL_ORGANISM`
+or `COMPUTATIONAL` in another fails, because one of the two files is wrong, and
+the fix may belong in the file you did not touch. Pairs involving `OTHER` are
+report-only until #10273 settles that convention (`just list-snippet-grading
+--cross-file`). Its limit is the per-file one: it compares one verbatim sentence.
+Two different sentences making the same claim are not compared, and nor are two
+sentences of one paper carrying different values, which is a correct split.
+
 **Why the entity-ref check is a CI step and not just a test.** The same rules
 run in `check_entity_ref_foreign_keys`, but CI selects pytest by changed path,
 and a curation PR touches only `kb/` — matching neither the `python` nor the
