@@ -15,6 +15,7 @@ from dismech.reference_snippet_audit import (
     CachedReferenceIndex,
     PairOutcome,
     SnippetPair,
+    Unverified,
     audit_files,
     check_pair,
     discover_field_names,
@@ -694,7 +695,7 @@ def test_the_ellipsis_form_the_hint_suggests_verifies(tmp_path: Path) -> None:
             "haematuria (0.59 [0.35-0.98])"
         ),
     )
-    assert verbatim is not PairOutcome.VERIFIED
+    assert isinstance(verbatim, Unverified)
     assert "[0.31-0.83]" in verbatim.reason
 
     bridged = check_pair(
