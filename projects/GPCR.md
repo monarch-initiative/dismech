@@ -171,7 +171,7 @@ mechanism-level rather than disease-level.
 ### Phase 1 — first modules
 - [x] mu-opioid receptor agonism (first module; see above) — `mu_opioid_receptor_agonism` (#14453)
 - [x] mu-opioid receptor antagonism — `mu_opioid_receptor_antagonism` (#14456)
-- [ ] beta-adrenergic receptor blockade — `beta_adrenergic_receptor_blockade` (#15087, in review)
+- [x] beta-adrenergic receptor blockade — `beta_adrenergic_receptor_blockade` (#15087)
 - [ ] GLP-1 receptor agonism
 - [ ] GPCR loss-of-function hormone resistance
 - [ ] GPCR constitutive activation
@@ -182,7 +182,7 @@ mechanism-level rather than disease-level.
   - [x] The four opioid-treated entries, in #14973: `Opioid_Use_Disorder` and
         `Acute_Opioid_Poisoning` against both mu-opioid modules, `Acute_Post-Surgical_Pain`
         against agonism, `Alcohol_Use_Disorder` against antagonism
-  - [ ] Three beta-blocker-treated entries, in #15087 (in review): `Heart_Failure`,
+  - [x] Three beta-blocker-treated entries, in #15087: `Heart_Failure`,
         `Essential_Hypertension` and `Atrial_Fibrillation` against
         `beta_adrenergic_receptor_blockade`. `Migraine` and `Glaucoma` are deliberately
         not wired — see that module's scope notes
