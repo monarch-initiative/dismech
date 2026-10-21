@@ -7,6 +7,8 @@ so the entry validates and the snippet count silently leaves the item out
 See scripts/check_folded_yaml.py.
 """
 
+import pytest
+
 from scripts.check_folded_yaml import (
     find_violations_in_text,
     main,
@@ -31,6 +33,7 @@ notes: >-
 """
 
 
+@pytest.mark.ci_step_twin("scripts/check_folded_yaml.py")
 def test_no_swallowed_yaml_structure():
     findings, _ = scan_repo()
     found = [f"{rel}: {path}: {line}" for rel, path, line in findings]
@@ -48,6 +51,28 @@ def test_swallowed_evidence_item_is_flagged():
     assert ("notes", "- reference: PMID:18074387") in found
     # The real evidence item on the phenotype is parsed structure, not prose.
     assert not any(path.startswith("phenotypes") for path, _ in found)
+
+
+def test_swallowed_item_folded_onto_one_line_is_flagged():
+    # Same indentation as the prose and no blank line: ``>-`` folds the whole
+    # item into the paragraph, so no key opens a line.
+    text = (
+        "notes: >-\n"
+        "  Prose long enough to count as a real paragraph of disease notes.\n"
+        "  - reference: PMID:1\n"
+        "  supports: SUPPORT\n"
+        '  snippet: "x"\n'
+    )
+    assert find_violations_in_text(text) == [("notes", "- reference: PMID:1 supports:")]
+
+
+def test_prose_naming_a_reference_is_not_flagged():
+    text = (
+        "notes: >-\n"
+        "  The reference: PMID:12345678 is a case series; it supports the\n"
+        "  claim only indirectly, as the explanation on that item says.\n"
+    )
+    assert find_violations_in_text(text) == []
 
 
 def test_swallowed_item_in_literal_scalar_is_flagged():

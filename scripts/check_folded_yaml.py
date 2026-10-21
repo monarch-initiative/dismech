@@ -29,7 +29,10 @@ A parsed string value of at least ``MIN_LENGTH`` characters containing a line
 that starts with one of a small set of KB keys (``- reference:``,
 ``snippet:``, ``supports:``, ``- name:`` and so on; see ``KEY_LINE_RE``). The
 key must open the line, which prose that merely mentions ``snippet:``
-mid-sentence never does. The check reads parsed values, not raw text, so a
+mid-sentence never does. A ``>-`` scalar folds an item written at the prose's
+own indentation onto a single line, so ``FLATTENED_ITEM_RE`` also matches a
+``reference: <CURIE>`` followed directly by another evidence-item key,
+anywhere in the value. The check reads parsed values, not raw text, so a
 key that YAML actually parsed as a key is never flagged.
 
 No baseline
@@ -77,6 +80,16 @@ KEY_LINE_RE = re.compile(
     r"|- target:|phenotype_term:|treatment_term:|- name:)\s"
 )
 
+# The same item folded onto one line. When the swallowed block sits at the
+# prose's own indentation with no blank line before it, ``>-`` joins every
+# line with a space, so no key opens a line and KEY_LINE_RE sees nothing. A
+# ``reference: <CURIE>`` followed directly by another evidence-item key is
+# that shape; prose has no reason to write it.
+FLATTENED_ITEM_RE = re.compile(
+    r"(?:^|\s)(?:- )?reference: [A-Za-z][\w.-]*:\S+"
+    r"\s+(?:supports|evidence_source|snippet|explanation):\s"
+)
+
 
 def _iter_strings(node: Any, path: str) -> Iterator[tuple[str, str]]:
     """Yield (yaml_path, value) for every string value under *node*."""
@@ -102,6 +115,9 @@ def find_violations_in_document(document: Any) -> Iterator[tuple[str, str]]:
             if line_end == -1:
                 line_end = len(value)
             yield path or "<root>", value[line_start:line_end].strip()
+        if not KEY_LINE_RE.search(value):
+            for m in FLATTENED_ITEM_RE.finditer(value):
+                yield path or "<root>", m.group(0).strip()
 
 
 def find_violations_in_text(text: str) -> list[tuple[str, str]]:
