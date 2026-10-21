@@ -4031,6 +4031,7 @@ a file path:
 
 ```bash
 just check-folded-hyphens
+just check-folded-yaml
 just check-snippet-length
 just check-title-snippets
 just check-snippet-grading
@@ -4043,7 +4044,8 @@ just check-qualifier-terms kb/disorders/MyDisease.yaml
 just check-source-defect-claims  # report-only
 ```
 
-They catch folded-scalar word corruption, non-propositional short snippets,
+They catch folded-scalar word corruption, evidence items swallowed into a
+block scalar, non-propositional short snippets,
 paper titles used as findings, one quoted sentence graded with two different
 `evidence_source` values in the same file, prose arguing for a retired
 `supports` grade, environmental claims without
