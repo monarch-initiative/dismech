@@ -2884,6 +2884,11 @@ research-disorder provider disorder *args="":
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
     mondo_id=$(uv run python -c "import sys,yaml;d=yaml.safe_load(open(sys.argv[1])) or {};t=(d.get('disease_term') or {}).get('term') or {};i=(t.get('id') or '').strip() if isinstance(t,dict) else '';print(i if i.startswith('MONDO:') and i != 'MONDO:0000001' else '')" "$yaml_file" 2>/dev/null || echo "")
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
+    # Identity anchors (#14907): MONDO's causal gene(s), OMIM xref and synonyms,
+    # so a serial-number name ("... autosomal dominant 64") cannot be researched
+    # as a different gene's disease. Offline; "not recorded" when unknown.
+    anchor_vars=()
+    while IFS= read -r line; do anchor_vars+=(--var "$line"); done < <(uv run python -m dismech.research_anchors "$yaml_file" "$mondo_id" || printf 'causal_genes=not recorded\nomim_id=not recorded\nsynonyms=not recorded\n')
     output_file="{{research_dir}}/{{disorder}}-deep-research-{{provider}}.md"
     requested_provider="{{provider}}"
     staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
@@ -2896,6 +2901,7 @@ research-disorder provider disorder *args="":
         --var "disease_name=$disease_name" \
         --var "mondo_id=$mondo_id" \
         --var "category=$category" \
+        "${anchor_vars[@]}" \
         $provider_arg \
         --output "$staged_file" \
         --separate-citations "$staged_file.citations.md" \
@@ -3220,6 +3226,11 @@ research-disorder-cyberian-codex disorder *args="":
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
     mondo_id=$(uv run python -c "import sys,yaml;d=yaml.safe_load(open(sys.argv[1])) or {};t=(d.get('disease_term') or {}).get('term') or {};i=(t.get('id') or '').strip() if isinstance(t,dict) else '';print(i if i.startswith('MONDO:') and i != 'MONDO:0000001' else '')" "$yaml_file" 2>/dev/null || echo "")
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
+    # Identity anchors (#14907): MONDO's causal gene(s), OMIM xref and synonyms,
+    # so a serial-number name ("... autosomal dominant 64") cannot be researched
+    # as a different gene's disease. Offline; "not recorded" when unknown.
+    anchor_vars=()
+    while IFS= read -r line; do anchor_vars+=(--var "$line"); done < <(uv run python -m dismech.research_anchors "$yaml_file" "$mondo_id" || printf 'causal_genes=not recorded\nomim_id=not recorded\nsynonyms=not recorded\n')
     output_file="{{research_dir}}/{{disorder}}-deep-research-cyberian-codex.md"
     requested_provider="cyberian-codex"
     staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
@@ -3230,6 +3241,7 @@ research-disorder-cyberian-codex disorder *args="":
         --var "disease_name=$disease_name" \
         --var "mondo_id=$mondo_id" \
         --var "category=$category" \
+        "${anchor_vars[@]}" \
         --provider cyberian \
         --param agent_type=codex \
         --output "$staged_file" \
