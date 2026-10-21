@@ -9,13 +9,13 @@ names no chemical and that only three entries share, while levodopa is bound as 
 substance (`CHEBI:15765`) on 34 entries as a therapy. No single query returns both. This
 note covers the schema and the search, not one disease.
 
-dismech at commit [`be3d728`](https://github.com/monarch-initiative/dismech/commit/be3d728a02abce35a7a8e0b664f863888e60c1c3)
+dismech at commit [`c31a6b6`](https://github.com/monarch-initiative/dismech/commit/c31a6b6edd5ce59b55b0f4ded9d36320f724d433)
 (2026-10-20). The tree moves with every curation PR, so re-run rather than quoting these
 figures.
 
 Measurements:
-- 3,914 files parsed from `kb/disorders/`, `kb/modules/`, `kb/groupings/`.
-- 29,592 bindings & 3,573 distinct terms, across CHEBI, NCIT, ECTO, XCO, ENVO and FOODON.
+- 3,915 files parsed from `kb/disorders/`, `kb/modules/`, `kb/groupings/`.
+- 29,611 bindings & 3,573 distinct terms, across CHEBI, NCIT, ECTO, XCO, ENVO and FOODON.
 
 ## Drugs and exposures have no cross-entry *record*, but the bound CURIEs are indexed
 
@@ -48,10 +48,10 @@ Disease
 ├── treatments: [Treatment]                      THE DRUG LIVES HERE
 │   ├── name                                     string; a clinical concept, NOT the drug
 │   └── treatment_term: TreatmentDescriptor
-│       ├── term                                 NCIT    14,782 ·  460 · 3,476
+│       ├── term                                 NCIT    14,784 ·  460 · 3,477
 │       │                                        the ACTION (Pharmacotherapy, …), not the drug
 │       ├── therapeutic_agent: [ChemicalEntityDescriptor]   ◄── search HERE for a drug
-│       │   └── term                             CHEBI    4,671 ·            2,181 files
+│       │   └── term                             CHEBI    4,674 ·            2,182 files
 │       │                                        NCIT     1,891   drug classes, biologics
 │       ├── regimen_term                         NCIT        23 ·   15 ·    19
 │       ├── dietary_modifications[].food         FOODON       7 ·    7 ·     3
@@ -116,7 +116,7 @@ committed, one row per CURIE bound anywhere in the KB, with columns `curie,label
 | `cache/xco/terms.csv` | 23 |
 
 That is the fast first pass for "is this chemical bound at all", and it is far cheaper than
-parsing 3,914 YAML files.
+parsing 3,915 YAML files.
 
 Two caveats carry over from `CLAUDE.md`, and both are load-bearing:
 
@@ -129,7 +129,7 @@ Two caveats carry over from `CLAUDE.md`, and both are load-bearing:
 
 ### Environmental Factors
 
-`ExposureClassifications` has six slot options, which follow. Usage is thin: across 1,390
+`ExposureClassifications` has six slot options, which follow. Usage is thin: across 1,391
 `environmental[]` entries in `kb/disorders/` and `kb/modules/`, only **44 carry an
 `exposure_classifications` block at all**, in 24 files:
 
@@ -144,7 +144,7 @@ Two caveats carry over from `CLAUDE.md`, and both are load-bearing:
 
 For exposure work these are the most directly usable fields in the schema — route, duration
 and hazard class are what separate an occupational pesticide exposure from a dietary residue,
-which `exposure to pesticide` alone cannot — but at 44 of 1,390 entries they are not yet a
+which `exposure to pesticide` alone cannot — but at 44 of 1,391 entries they are not yet a
 search surface.
 
 ## Recipe: how to search for a drug or environmental factor
