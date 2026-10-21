@@ -18,7 +18,7 @@ import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from dismech import hierarchy_cache, kb_cache, oak_db
+from dismech import hierarchy_cache, kb_cache, oak_db, pathograph_stats
 from dismech.entity_refs import (
     DISEASE_KIND,
     SECTION_KEYS,
@@ -118,6 +118,11 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # into the template so the vocabulary and its prose stay in one place, the
     # same rule `module_categories` follows.
     env.globals["quote_role_tooltip"] = quote_role_tooltip
+    # File name of an evidence artifact image, for its caption. Registered here
+    # rather than by the disorder renderer because the evidence partial
+    # (_evidence.html.j2) is compiled into module pages too (#10329), and a
+    # missing filter fails at compile time even when no evidence has images.
+    env.filters["basename"] = lambda p: Path(p).name
     return env
 
 
@@ -125,6 +130,7 @@ def _get_shared_env(template_dir_str: str) -> Environment:
 # shared with `browser_export`, which writes it. The exporter now reads it back
 # as its seed, so writer and both readers agree on one path.
 _HPO_CATEGORY_CACHE_PATH = HPO_CATEGORY_CACHE_PATH
+_PATHOGRAPH_STATS_PATH = pathograph_stats.PATHOGRAPH_STATS_PATH
 _FDA_SURROGATE_ENDPOINTS_RELATIVE_PATH = Path(
     "surrogate_endpoints/fda_surrogate_endpoints.yaml"
 )
@@ -155,6 +161,70 @@ def _load_hpo_category_cache() -> dict[str, list[str]]:
     if _HPO_CATEGORY_CACHE_PATH.exists():
         return json.loads(_HPO_CATEGORY_CACHE_PATH.read_text())
     return {}
+
+
+def _phenotype_primary_category(hp_id: str | None) -> str | None:
+    """Return the HPO broad category a phenotype card is filed under, if any."""
+    if not hp_id:
+        return None
+    categories = _load_hpo_category_cache().get(hp_id) or []
+    return categories[0] if categories else None
+
+
+@lru_cache(maxsize=8)
+def _pathograph_mean_edge_count(disorders_dir: Path) -> int | None:
+    """Mean pathograph edge count the page compares itself against (#14539).
+
+    Read from the committed ``cache/pathograph_stats.json``, which the page
+    build rewrites, so a single-file render does not build every disorder's
+    causal graph. Only when that file is absent is the mean computed by walking
+    ``disorders_dir``.
+    """
+    stats = pathograph_stats.read_stats(_PATHOGRAPH_STATS_PATH)
+    if stats is not None and "mean_edge_count" in stats:
+        return stats["mean_edge_count"]
+    return pathograph_stats.compute_mean_edge_count(disorders_dir)
+
+
+def _add_pathograph_grouping_context(
+    pathograph_data: str, disorder: dict, mean_edge_count: int | None
+) -> str:
+    """Attach the keys the client-side "Group by" control groups on.
+
+    Each node gains ``group_keys`` (a phenotype's HPO broad category, the
+    module stems a pathophysiology node conforms to), and the payload gains
+    ``grouping.mean_edge_count``. Nothing is collapsed here: grouping happens
+    in the page script, so the node and edge lists stay as graph.py built them.
+    """
+    if not pathograph_data:
+        return pathograph_data
+    data = json.loads(pathograph_data)
+    modules_by_name: dict[str, list[str]] = {}
+    for item in disorder.get("pathophysiology") or []:
+        if not isinstance(item, dict) or not item.get("name"):
+            continue
+        refs = item.get("conforms_to") or []
+        if isinstance(refs, str):
+            refs = [refs]
+        stems = [str(ref).split("#", 1)[0] for ref in refs if ref]
+        if stems:
+            modules_by_name[item["name"]] = list(dict.fromkeys(stems))
+    for node in data.get("nodes", []):
+        keys: dict[str, object] = {}
+        if node.get("node_type") == "phenotype":
+            category = _phenotype_primary_category(
+                (node.get("meta") or {}).get("term_id")
+            )
+            if category:
+                keys["phenotype_system"] = category
+        elif (
+            node.get("node_type") == "pathophysiology" and node["id"] in modules_by_name
+        ):
+            keys["modules"] = modules_by_name[node["id"]]
+        if keys:
+            node["group_keys"] = keys
+    data["grouping"] = {"mean_edge_count": mean_edge_count}
+    return json.dumps(data)
 
 
 def _group_phenotypes_by_category(
@@ -2662,7 +2732,6 @@ def render_disorder(
     env.filters["semantic_ref_href"] = lambda ref: (
         semantic_ref_index.get(str(ref), "") if ref is not None else ""
     )
-    env.filters["basename"] = lambda p: Path(p).name
     env.filters["dismech_page_url"] = _build_dismech_page_url_filter(
         yaml_path.parent,
         excluded_term_ids={current_term_id} if current_term_id else None,
@@ -2681,7 +2750,11 @@ def render_disorder(
     # Build causal graph and generate Mermaid code + pathograph JSON
     graph = build_causal_graph(disorder)
     mermaid_code = generate_mermaid(graph)
-    pathograph_data = graph_to_json(graph, disorder)
+    pathograph_data = _add_pathograph_grouping_context(
+        graph_to_json(graph, disorder),
+        disorder,
+        _pathograph_mean_edge_count(yaml_path.parent.resolve()),
+    )
     pathograph_node_count = len(
         {node_name for edge in graph.edges for node_name in (edge.source, edge.target)}
     )
@@ -2952,6 +3025,18 @@ def render_module(
         {node_name for edge in graph.edges for node_name in (edge.source, edge.target)}
     )
 
+    if output_path is None:
+        output_path = Path("pages/modules") / f"{yaml_path.stem}.html"
+    else:
+        output_path = Path(output_path)
+
+    # Evidence artifact images resolve against research/, as on disorder pages
+    # (render_disorder); the evidence partial is shared (#10329).
+    research_root = _resolve_nearby_dir(yaml_path.parent, "research")
+    research_root_rel = os.path.relpath(
+        research_root.resolve(), output_path.parent.resolve()
+    )
+
     html = template.render(
         module=module,
         module_id=yaml_path.stem,
@@ -2961,12 +3046,8 @@ def render_module(
         graph_issues=graph.integrity_issues,
         yaml_content=yaml_content,
         source_file=source_file,
+        research_root_rel=research_root_rel,
     )
-
-    if output_path is None:
-        output_path = Path("pages/modules") / f"{yaml_path.stem}.html"
-    else:
-        output_path = Path(output_path)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html)

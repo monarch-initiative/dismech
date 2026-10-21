@@ -4,6 +4,9 @@
 schema_path := "src/dismech/schema/dismech.yaml"
 history_schema_path := "src/dismech/schema/history.yaml"
 synthesis_schema_path := "src/dismech/schema/research_synthesis.yaml"
+phenodist_schema_path := "src/dismech/schema/phenotype_distribution.yaml"
+phenodist_dir := "kb/phenotype_distributions"
+phenodist_examples_dir := "examples/phenotype_distributions"
 kb_dir := "kb/disorders"
 modules_dir := "kb/modules"
 comorbidity_dir := "kb/comorbidities"
@@ -342,6 +345,43 @@ validate-synthesis-all:
     printf 'Validating %s research synthesis file(s).\n' "${#files[@]}"
     uv run linkml-validate --schema {{synthesis_schema_path}} --target-class ResearchSynthesis "${files[@]}"
     uv run python -m dismech.research_synthesis "${files[@]}"
+
+# Validate a single phenotype profile set
+[group('QC')]
+validate-phenotype-distribution file:
+    #!/usr/bin/env bash
+    set -e
+    uv run linkml-validate --schema {{phenodist_schema_path}} --target-class ProfileSet {{file}}
+    uv run python -m dismech.phenotype_distribution --check-terms {{file}}
+
+# Validate all phenotype profile sets (kb + examples)
+[group('QC')]
+validate-phenotype-distributions:
+    #!/usr/bin/env bash
+    set -e
+    shopt -s nullglob
+    files=({{phenodist_dir}}/*.yaml {{phenodist_examples_dir}}/*.yaml)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No phenotype profile sets found."
+        exit 0
+    fi
+    printf 'Validating %s phenotype profile set(s).\n' "${#files[@]}"
+    for f in "${files[@]}"; do
+        uv run linkml-validate --schema {{phenodist_schema_path}} --target-class ProfileSet "$f"
+    done
+    uv run python -m dismech.phenotype_distribution --check-terms "${files[@]}"
+
+# Regenerate references_cache/PHENODIST_*.md for curated (kb/) profile sets.
+# Examples are deliberately excluded: they are demonstrations and must not
+# become citable. NEVER hand-write these cache files.
+[group('Data')]
+phenodist-rebuild:
+    #!/usr/bin/env bash
+    set -e
+    # Pass the directory, not a file glob: a full rebuild must still prune when
+    # the directory is empty or absent, which is exactly the case where stale
+    # citable cache files would otherwise be left behind.
+    uv run python -m dismech.phenotype_distribution --write-cache {{phenodist_dir}}
 
 # Schema validation for all files in bounded batches (safe as the corpus grows)
 [group('QC')]
@@ -1023,7 +1063,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1440,6 +1480,15 @@ node-classes *args:
 check-skill-files:
     uv run python scripts/check_skill_files.py
 
+# Rewrite the shared site header into the hand-written pages (index.html,
+# app/, details/) from src/dismech/templates/_site_nav.html.j2, which every
+# Jinja template includes. Run after editing the partial; --check reports only.
+# tests/test_site_nav.py fails while any copy is stale (issue #14022).
+# Copy the shared site header into the hand-written site pages.
+[group('QC')]
+sync-site-nav *args:
+    uv run python scripts/sync_site_nav.py {{args}}
+
 # Census of every skill and its description length, exit 0.
 [group('QC')]
 list-skill-files:
@@ -1454,6 +1503,12 @@ list-skill-files:
 [group('QC')]
 check-duplicate-keys *files:
     uv run python scripts/check_duplicate_yaml_keys.py "$@"
+
+# Detect the fingerprint left by older yamlfix hooks inside block scalars (#12101).
+# Also fails on a plain scalar cut short by an unquoted ' #' (#12094).
+[group('QC')]
+check-block-scalar-comments *files:
+    uv run python scripts/check_block_scalar_comments.py "$@"
 
 # Guard against tracked paths that differ only in letter case (#11204). On the
 # macOS/Windows default case-insensitive filesystem only one file of such a pair
@@ -1559,11 +1614,48 @@ list-hypothesis-links:
 aop-chain-census *args:
     uv run python scripts/aop_chain_census.py "$@"
 
+# Census of toxicokinetic (ADME) pathophysiology nodes: where exposures land,
+# what binds an absorption/distribution/metabolism/excretion node, and which
+# sit at ORGANISM scale on a molecular term. Backs the toxicokinetic sections
+# of projects/AOP_EMOD_ALIGNMENT.md -- run this rather than trusting the
+# figures there. Report-only, exits 0.
+# Example: just tk-node-census --format list
+[group('QC')]
+tk-node-census *args:
+    uv run python scripts/toxicokinetic_node_census.py "$@"
+
 # Regenerate the grandfathered dangling-target baseline. Only ever to REMOVE
 # entries as the backlog is burned down -- never to admit a new break.
 [group('QC')]
 update-causal-target-baseline:
     uv run python scripts/check_causal_targets.py --update-baseline
+
+# Two disorder entries sharing one disease_term must each record it in
+# mappings.mondo_mappings as skos:exactMatch (at most one entry) or
+# skos:narrowMatch (design decisions section 3a). Nothing else notices two
+# curators claiming one MONDO class under different filenames (#10113, #9618).
+# Ungated and whole-KB because the PR that creates a collision touches only kb/,
+# and the other entry in the pair is one it never opened. The backlog is
+# grandfathered per member in tests/shared_disease_term_baseline.txt, so a new
+# entry joining a grandfathered group still fails. ~30s, offline.
+# Gate: entries sharing a disease_term must record exactMatch/narrowMatch to it.
+[group('QC')]
+check-shared-disease-terms:
+    uv run python scripts/check_shared_disease_terms.py
+
+# Every disease_term shared by two or more disorder entries, with each member's
+# recorded predicate and finding. Exit 0.
+# Worklist: every shared disease_term group with each member's predicate (#10113).
+[group('QC')]
+list-shared-disease-terms:
+    uv run python scripts/check_shared_disease_terms.py --report
+
+# Only ever to REMOVE rows as the backlog is repaired -- never to admit a new
+# collision.
+# Regenerate the shared disease_term baseline (shrink only).
+[group('QC')]
+update-shared-disease-term-baseline:
+    uv run python scripts/check_shared_disease_terms.py --update-baseline
 
 # The complement of check-causal-targets: phenotypes that NO causal edge
 # explains. That check finds edges whose target resolves to nothing; this finds
@@ -2093,6 +2185,11 @@ gen-discussions-data:
 gen-models-data:
     uv run python -m dismech.export.models_export
 
+# Rewrite cache/pathograph_stats.json (KB-wide mean pathograph edge count) read by render
+[group('Browser')]
+gen-pathograph-stats *args:
+    uv run python -m dismech.pathograph_stats {{args}}
+
 # Generate Mondo-keyed pathograph JSON artifact (for runtime embedding, e.g. Monarch pages)
 [group('Browser')]
 gen-pathographs:
@@ -2205,7 +2302,7 @@ gen-gene-pages *ARGS:
 genes-ingest-refresh *ARGS:
     uv run python -m dismech.genes ingest-refresh {{ARGS}}
 
-# Rewrite kb/genes/ingest/*.tsv for every gene the KB names (never hand-edit)
+# Rewrite kb/genes/ingest/*.tsv for every gene the KB names or curates (never hand-edit)
 [group('Genes')]
 genes-ingest-build:
     uv run python -m dismech.genes ingest-build
@@ -2291,6 +2388,18 @@ export-kgx:
 [group('Export')]
 export-kgx-maximal out_dir="output/maximal_kgx":
     uv run python -m dismech.export.maximal_kgx_export -o {{out_dir}}
+
+# The archives .github/workflows/release-assets.yaml attaches to each release
+# (kb.zip, pathographs.zip, pathographs_cx2.zip, dismech_models_omex.zip and
+# release_manifest.json), built locally into `out_dir`. About three minutes.
+# Build the non-KGX release archives locally.
+[group('Export')]
+release-assets out_dir="dist":
+    uv run python -m dismech.export.release_assets kb-zip -o {{out_dir}}/kb.zip
+    uv run python -m dismech.export.release_assets pathographs -o {{out_dir}}/pathographs.zip
+    uv run python -m dismech.export.release_assets cx2 -o {{out_dir}}/pathographs_cx2.zip
+    uv run python -m dismech.export.release_assets omex -o {{out_dir}}/dismech_models_omex.zip
+    uv run python -m dismech.export.release_assets manifest --assets-dir {{out_dir}} -o {{out_dir}}/release_manifest.json
 
 # Project disorder YAMLs to a MONDO-anchored, HPOA-extended TSV plus a disease-disease comorbidity sidecar.
 # MONDO-bound subtypes get their own rows: unscoped phenotypes are inherited down to
@@ -2972,6 +3081,95 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	rmdir "$staging_dir" 2>/dev/null || true
 	exit ${dr_status:-0}
 
+# Deep research on whether a drug's therapeutic mechanism in a disease is established.
+# Used by projects/DRUGS_UNKNOWN_MECHANISM.md to decide whether a treatment's
+# target_mechanisms edge is settled, one of several candidates, or a knowledge gap.
+# <disease> may be a disorder stem or a module stem. The prompt receives the
+# entry's `name:`, so for a module it reads e.g. "Deregulated Nutrient Sensing Module".
+# Examples:
+#   just research-drug-mechanism openscientist Major_Depressive_Disorder ketamine "Excitation-Inhibition Imbalance"
+[group('Research')]
+research-drug-mechanism provider disease drug asserted_mechanism *args="":
+	#!/usr/bin/env bash
+	set -e
+	mkdir -p {{research_dir}}/drug_mechanism
+	yaml_file="{{kb_dir}}/{{disease}}.yaml"
+	[ -f "$yaml_file" ] || yaml_file="{{modules_dir}}/{{disease}}.yaml"
+	if [ ! -f "$yaml_file" ]; then
+	    echo "Error: no disorder or module file for {{disease}}"
+	    for f in {{kb_dir}}/*.yaml {{modules_dir}}/*.yaml; do basename "$f" .yaml; done | grep -i -- "$(echo '{{disease}}' | cut -c1-6)" | head -10
+	    exit 1
+	fi
+	disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
+	drug_slug=$(echo "{{drug}}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+|_+$//g' | cut -c1-40)
+	output_file="{{research_dir}}/drug_mechanism/{{disease}}-drug-mechanism-${drug_slug}-deep-research-{{provider}}.md"
+	requested_provider="{{provider}}"
+	staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+	staged_file="$staging_dir/$(basename "$output_file")"
+	echo "Researching drug mechanism: $disease_name | {{drug}} -> {{asserted_mechanism}} ({{provider}}) -> $output_file"
+	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
+	{{dr_client}} research \
+	    --template {{templates_dir}}/drug_mechanism_research.md \
+	    --var "disease_name=$disease_name" \
+	    --var "drug={{drug}}" \
+	    --var "asserted_mechanism={{asserted_mechanism}}" \
+	    $provider_arg \
+	    --output "$staged_file" \
+	    --separate-citations "$staged_file.citations.md" \
+	    {{dr_validation}} \
+	    {{dr_term_validation}} \
+	    {{dr_fallback}} \
+	    {{args}} || dr_status=$?
+	if [ -f "$staged_file" ]; then
+	    {{dr_stamp}} "$staged_file"
+	    {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
+	fi
+	rmdir "$staging_dir" 2>/dev/null || true
+	exit ${dr_status:-0}
+
+# Deep research on the validity of an animal model or paradigm for a disorder:
+# what it models, what it does not, the disputes, individual differences, sex,
+# and which of the entry's pathophysiology nodes it informs (#14274).
+# Examples:
+#   just research-model-validity openscientist Major_Depressive_Disorder "chronic social defeat stress"
+[group('Research')]
+research-model-validity provider disease model *args="":
+	#!/usr/bin/env bash
+	set -e
+	mkdir -p {{research_dir}}/model_validity
+	yaml_file="{{kb_dir}}/{{disease}}.yaml"
+	if [ ! -f "$yaml_file" ]; then
+	    echo "Error: Disorder file not found: $yaml_file"
+	    exit 1
+	fi
+	disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
+	mechanism_nodes=$(uv run python -c "import sys,yaml;d=yaml.safe_load(open(sys.argv[1])) or {};print('; '.join(p['name'] for p in d.get('pathophysiology') or [] if p.get('name')))" "$yaml_file")
+	model_slug=$(echo "{{model}}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+|_+$//g' | cut -c1-40)
+	output_file="{{research_dir}}/model_validity/{{disease}}-model-validity-${model_slug}-deep-research-{{provider}}.md"
+	requested_provider="{{provider}}"
+	staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+	staged_file="$staging_dir/$(basename "$output_file")"
+	echo "Researching model validity: $disease_name | {{model}} ({{provider}}) -> $output_file"
+	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
+	{{dr_client}} research \
+	    --template {{templates_dir}}/disease_model_validity_research.md \
+	    --var "disease_name=$disease_name" \
+	    --var "model={{model}}" \
+	    --var "mechanism_nodes=$mechanism_nodes" \
+	    $provider_arg \
+	    --output "$staged_file" \
+	    --separate-citations "$staged_file.citations.md" \
+	    {{dr_validation}} \
+	    {{dr_term_validation}} \
+	    {{dr_fallback}} \
+	    {{args}} || dr_status=$?
+	if [ -f "$staged_file" ]; then
+	    {{dr_stamp}} "$staged_file"
+	    {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
+	fi
+	rmdir "$staging_dir" 2>/dev/null || true
+	exit ${dr_status:-0}
+
 # Deep research on a disorder using cyberian with codex agent
 [group('Research')]
 research-disorder-cyberian-codex disorder *args="":
@@ -3254,6 +3452,17 @@ fetch-reference +identifiers:
                 uv run python -m dismech.structured_sources.cli rebuild clingen-dosage --id "$identifier"
                 ;;
             ORPHA:*|Orphanet:*)
+                # Every record merges five Orphadata products, so all five must
+                # be present (#13941). A drifted pin fails the refresh but
+                # still downloads every file, so `|| true` lets the rebuild
+                # run; it stamps the files' own release date and warns. If the
+                # download itself failed, the rebuild names the remedy.
+                for orpha_file in en_product1.xml en_product4.xml en_product6.xml en_product9_prev.xml en_product9_ages.xml; do
+                    if [ ! -f "data/orphadata/$orpha_file" ]; then
+                        uv run python -m dismech.structured_sources.cli refresh orphanet || true
+                        break
+                    fi
+                done
                 uv run python -m dismech.structured_sources.cli rebuild orphanet --id "$identifier"
                 ;;
             ICEES:*)

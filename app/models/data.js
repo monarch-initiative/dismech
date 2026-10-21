@@ -6298,6 +6298,48 @@ window.searchData = [
     "source_file": "kb/disorders/Parkinsons_Disease.yaml"
   },
   {
+    "model_key": "Essential_Fructosuria--computational-model-whole-body-fructose-metabolism-model-of-essential-fructosuria-allen-and-musante-2018--0",
+    "name": "Whole-body fructose metabolism model of essential fructosuria (Allen and Musante 2018)",
+    "description": "A mathematical model of oral and intravenous fructose disposition, calibrated to healthy subjects and then adapted to reproduce published essential fructosuria data. To fit those data the model needed adaptations beyond hepatic KHK loss: altered portal absorption, slower peripheral metabolism, near-absent renal fructose reabsorption, and upregulated alternative hepatic pathways. These are model predictions, not measurements.",
+    "model_type": "Physiological",
+    "model_type_raw": "PHYSIOLOGICAL",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:29664676",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Essential Fructosuria",
+    "disease_id": "MONDO:0009252",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn Error of Carbohydrate Metabolism",
+      "Disorder of Fructose Metabolism"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Renal Excretion of Unmetabolized Fructose"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "",
+    "creation_date": "2026-10-14T20:49:40Z",
+    "page_url": "../../pages/disorders/Essential_Fructosuria.html#computational-model-whole-body-fructose-metabolism-model-of-essential-fructosuria-allen-and-musante-2018",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Essential_Fructosuria.yaml"
+  },
+  {
     "model_key": "Diabetes_mellitus--computational-model-whole-body-human-metabolic-model-for-diabetes--1",
     "name": "Whole-Body Human Metabolic Model for Diabetes",
     "description": "Multi-organ metabolic model (Harvey/Harvetta) capturing inter-organ metabolic fluxes in diabetes. Models liver, muscle, adipose, and pancreas metabolism with tissue-specific constraints derived from omics data.",
@@ -6565,8 +6607,8 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 134,
-  "total_source_entries": 61,
+  "total_models": 135,
+  "total_source_entries": 62,
   "total_model_types": 11,
   "total_runnable": 4,
   "total_with_repository": 56
