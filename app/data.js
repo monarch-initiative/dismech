@@ -4878,6 +4878,103 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "ABCB1-Related Acute Transient Encephalopathy",
+    "disease_id": "MONDO:0975801",
+    "category": "Mendelian",
+    "parents": [
+      "brain disorder",
+      "hereditary neurological disease"
+    ],
+    "creation_date": "2026-10-20T23:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Acute transient encephalopathy (ENPAT, OMIM 620950) is an autosomal recessive disorder caused by biallelic loss-of-function variants in ABCB1, the gene encoding P-glycoprotein. P-glycoprotein sits in the luminal membrane of the blood-brain-barrier endothelium and effluxes a broad range of xenobiotic and endogenous substrates out of the brain. When both ABCB1 alleles are inactivated that efflux is lost, and the disorder presents as discrete, fully reversible episodes of encephalopathy separated by complete clinical normality.\nTwo precipitants are documented, in the two families reported so far, and they are different in kind. In the index family, monozygotic Korean twin sisters with a nonsense and a splice-donor ABCB1 allele had recurrent episodes that each began during an acute febrile or afebrile illness, with no drug consistently implicated; verapamil positron emission tomography showed markedly increased and retained tracer in their brains, and Mdr1a/b-null mice cleared brain cytokines more slowly than wild-type animals after a lipopolysaccharide challenge, which the authors offered as a candidate molecular trigger. In the second family, a 13-year-old boy carrying two ABCB1 nonsense alleles developed coma and focal deficits after a single prophylactic dose of ivermectin inside the ordinary therapeutic range, and recovered fully on supportive care.\nThe scope call this entry makes is that the two presentations are one disease rather than a disease and a pharmacogenetic trait. The lesion is a rare biallelic germline loss of function, not a common transporter polymorphism that modifies drug handling; the twins' episodes occurred without any drug exposure, so the phenotype does not require a substrate drug; and both presentations converge on the same mechanism, loss of P-glycoprotein efflux at the blood-brain barrier followed by accumulation of a substrate in the brain. The drug precipitant is therefore recorded here as an environmental trigger acting on that mechanism, not as the disease definition.\nBetween episodes there is no constitutive abnormality. Brain magnetic resonance imaging, cerebrospinal fluid, electroencephalography and metabolic screening were all normal or non-specific in the index twins, who were reported as normal in growth and cognition at 14 years, so this entry records episodic dysfunction and no structural lesion.\n",
+    "pathophysiology": [
+      "Biallelic ABCB1 Loss of Function",
+      "Loss of P-glycoprotein Efflux at the Blood-Brain Barrier",
+      "Systemic Inflammatory Response to Acute Illness",
+      "Brain Accumulation of P-glycoprotein Substrates",
+      "Potentiation of GABAergic and Glutamate-Gated Chloride Conductance",
+      "Delayed Clearance of Proinflammatory Cytokines from Brain",
+      "Acute Reversible Neuronal Dysfunction"
+    ],
+    "cell_types": [
+      "brain capillary endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:2000044"
+    ],
+    "biological_processes": [
+      "xenobiotic efflux across the blood-brain barrier",
+      "systemic inflammatory response",
+      "xenobiotic transport",
+      "clearance of inflammatory mediators across the blood-brain barrier"
+    ],
+    "phenotypes": [
+      "Acute encephalopathy",
+      "Reduced consciousness",
+      "Coma",
+      "Focal neurologic deficit",
+      "Spasticity",
+      "Hyperreflexia",
+      "Visual hallucination",
+      "Irritability",
+      "Fever",
+      "Vomiting",
+      "Abdominal pain"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Constitutional",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0006846",
+      "HP:0004372",
+      "HP:0001259",
+      "HP:0012638",
+      "HP:0001257",
+      "HP:0001347",
+      "HP:0002367",
+      "HP:0000737",
+      "HP:0001945",
+      "HP:0002013",
+      "HP:0002027"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ABCB1"
+    ],
+    "treatments": [
+      "Supportive Care During an Episode",
+      "Avoidance of P-glycoprotein Substrate Drugs",
+      "Genetic Counseling"
+    ],
+    "environmental": [
+      "Exposure to ivermectin at a therapeutic dose"
+    ],
+    "biochemical": [],
+    "source_file": "ABCB1-Related_Acute_Transient_Encephalopathy.yaml",
+    "page_url": "../pages/disorders/ABCB1-Related_Acute_Transient_Encephalopathy.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "ABCC9-Related Intellectual Disability and Myopathy Syndrome",
     "disease_id": "MONDO:0859224",
     "category": "Mendelian",
@@ -10632,6 +10729,79 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 0,
     "causal_graph_edges": "10",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Acantholytic Blistering of Oral and Laryngeal Mucosa",
+    "disease_id": "MONDO:0030986",
+    "category": "Mendelian",
+    "parents": [
+      "Desmosomal Disease",
+      "Inherited Mucosal Blistering Disorder"
+    ],
+    "creation_date": "2026-10-20T23:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Acantholytic blistering of the oral and laryngeal mucosa (ABOLM; OMIM 619226) is a very rare autosomal recessive mucosal blistering disorder caused by biallelic loss-of-function variants in DSG3, which encodes the desmosomal cadherin desmoglein 3. It is the genetic counterpart of the mucosal form of pemphigus vulgaris: the protein that pemphigus autoantibodies block is instead absent, so the disease reproduces a pemphigus-like mucosal phenotype without evidence of autoimmunity. The restriction to mucosa follows from the desmoglein compensation principle: in squamous mucosa desmoglein 1 is expressed at much lower levels than desmoglein 3 and cannot replace it, whereas in epidermis desmoglein 1 maintains adhesion. Only a few families have been reported, carrying a homozygous nonsense variant, a homozygous deletion of the DSG3 terminal exon, and a homozygous missense variant.",
+    "pathophysiology": [
+      "Biallelic DSG3 Loss of Function",
+      "Loss of Desmoglein 3 Mediated Keratinocyte Adhesion",
+      "Insufficient Desmoglein 1 Compensation in Squamous Mucosa",
+      "Suprabasal Acantholysis of Oral and Laryngeal Mucosa"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "oral mucosa squamous cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:1001576"
+    ],
+    "biological_processes": [
+      "cell-cell adhesion"
+    ],
+    "phenotypes": [
+      "Oral mucosal blisters",
+      "Erosion of oral mucosa",
+      "Laryngeal mucosal friability",
+      "Acantholysis",
+      "Suprabasal cleavage",
+      "Feeding difficulties"
+    ],
+    "phenotype_categories": [
+      "Mucosal",
+      "Respiratory",
+      "Histopathology",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Integument",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0200097",
+      "HP:0031446",
+      "HP:0025423",
+      "HP:0100792",
+      "HP:0034194",
+      "HP:0011968"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DSG3"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Acantholytic_Blistering_of_Oral_and_Laryngeal_Mucosa.yaml",
+    "page_url": "../pages/disorders/Acantholytic_Blistering_of_Oral_and_Laryngeal_Mucosa.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "5"
   },
   {
@@ -61090,6 +61260,66 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "6",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Breasts and Nipples Aplasia or Hypoplasia 2",
+    "disease_id": "MONDO:0014450",
+    "category": "Mendelian",
+    "parents": [
+      "Isolated congenital breast hypoplasia/aplasia"
+    ],
+    "creation_date": "2026-10-20T23:35:36Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Breasts and/or nipples, aplasia or hypoplasia of, 2 (BNAH2; MIM 616001) is an extremely rare autosomal recessive disorder of nipple-areola development caused by biallelic loss-of-function variants in PTPRF, which encodes the receptor-type protein tyrosine phosphatase LAR. The disorder rests on a single published family: three children (a girl and two boys) from two branches of a consanguineous Israeli Arab kindred who were homozygous for a PTPRF frameshift variant and showed nipple anomalies ranging from unilateral hypothelia to bilateral athelia, with no other consistent anomaly apart from a characteristic eyebrow shape. A second, unresolved observation is a woman with syndromic bilateral amastia carrying a balanced translocation that disrupts one PTPRF allele, in whom PTPRF protein was nearly absent but no second variant was found. Female mice lacking the LAR phosphatase domains develop mammary glands but fail at terminal alveolar differentiation and cannot lactate. How PTPRF loss perturbs development of the nipple-areola region in humans has not been studied directly; the gene product localizes to adherens junctions and has been proposed to act through epithelial cell-cell contacts, growth factor signaling and the canonical Wnt pathway. Because the human evidence is one family plus one single-allele case, the mechanism and phenotype spectrum recorded here are provisional.",
+    "pathophysiology": [
+      "Biallelic PTPRF Loss of Function",
+      "Disrupted LAR Signaling at Epithelial Adherens Junctions",
+      "Defective Nipple-Areola Development"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "nipple development"
+    ],
+    "phenotypes": [
+      "Athelia",
+      "Hypothelia",
+      "Amastia",
+      "Characteristic Eyebrow Shape"
+    ],
+    "phenotype_categories": [
+      "Integumentary",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Head and Neck",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0002561",
+      "HP:0002557",
+      "HP:0100783",
+      "HP:0000534"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PTPRF"
+    ],
+    "treatments": [
+      "Breast and Nipple-Areola Reconstructive Surgery"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Breasts_and_Nipples_Aplasia_or_Hypoplasia_2.yaml",
+    "page_url": "../pages/disorders/Breasts_and_Nipples_Aplasia_or_Hypoplasia_2.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Brittle Cornea Syndrome",
@@ -309801,6 +310031,118 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Progressive Myoclonic Epilepsy Type 11",
+    "disease_id": "MONDO:0030034",
+    "category": "Mendelian",
+    "parents": [
+      "Progressive Myoclonus Epilepsy"
+    ],
+    "creation_date": "2026-10-20T19:17:31Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Progressive myoclonic epilepsy type 11 (EPM11) is an autosomal dominant neurodevelopmental and epileptic disorder caused by heterozygous, almost always de novo, truncating variants in the last exon (exon 17) of SEMA6B, which encodes the class 6 transmembrane semaphorin 6B. Because these variants lie in the region where a premature stop codon escapes nonsense-mediated mRNA decay, the mutant transcript is stable and is predicted to yield a truncated protein that keeps its extracellular sema domain and transmembrane segment but lacks the intracellular domain through which class 6 semaphorins signal as receptors. Heterozygous truncating variants earlier in the gene occur in the general population, so simple haploinsufficiency is not the accepted mechanism; whether the truncated protein acts as a dominant negative, gains a toxic function, or adds to a partial loss of SEMA6B signalling is unresolved. Development is mildly delayed from infancy and seizures usually begin between about 1 and 6 years. In the classic presentation, action and cortical myoclonus, generalized tonic-clonic, atonic and absence seizures, cerebellar ataxia, pyramidal signs and cognitive and motor regression follow, with loss of independent walking and speech in the second decade. The same class of variants also produces developmental and epileptic encephalopathy without a recognized progressive myoclonic course and, less often, intellectual disability without epilepsy. This entry treats these presentations as one SEMA6B-related disease spectrum rather than as separate disorders, because they share the genotype and no genotype-phenotype correlation separates them.",
+    "pathophysiology": [
+      "SEMA6B Last-Exon Truncating Variant Escaping NMD",
+      "Stable Truncated SEMA6B Lacking the Intracellular Domain",
+      "Disrupted SEMA6B-Plexin Signalling",
+      "Impaired Dendritic Spine Formation and Maturation",
+      "Defective Axon Guidance",
+      "Abnormal Neural Circuit Development",
+      "Cortical Hyperexcitability",
+      "Cerebellar Dysfunction"
+    ],
+    "cell_types": [
+      "hippocampal glutamatergic neuron",
+      "cortical excitatory neuron",
+      "cerebellar Purkinje cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000679",
+      "CL:0000121"
+    ],
+    "biological_processes": [
+      "semaphorin-plexin signaling pathway",
+      "dendritic spine development",
+      "commissural neuron axon guidance",
+      "neuron development"
+    ],
+    "phenotypes": [
+      "Global Developmental Delay",
+      "Hypotonia",
+      "Intellectual Disability",
+      "Seizures",
+      "Bilateral Tonic-Clonic Seizures",
+      "Atonic Seizures",
+      "Absence Seizures",
+      "Non-Convulsive Status Epilepticus",
+      "Myoclonus",
+      "Cortical Action Myoclonus",
+      "Giant Somatosensory Evoked Potentials",
+      "Photoparoxysmal Response",
+      "Developmental Regression",
+      "Motor Regression",
+      "Loss of Ambulation",
+      "Loss of Speech",
+      "Ataxia",
+      "Intention Tremor",
+      "Cerebellar Atrophy",
+      "Spasticity",
+      "Microcephaly"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0001249",
+      "HP:0001250",
+      "HP:0002069",
+      "HP:0010819",
+      "HP:0002121",
+      "HP:0031475",
+      "HP:0001336",
+      "HP:0040148",
+      "HP:0001312",
+      "HP:0010852",
+      "HP:0002376",
+      "HP:0033044",
+      "HP:0002505",
+      "HP:0002371",
+      "HP:0001251",
+      "HP:0002080",
+      "HP:0001272",
+      "HP:0001257",
+      "HP:0000252"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "SEMA6B"
+    ],
+    "treatments": [
+      "Antiseizure and Antimyoclonic Pharmacotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Progressive_Myoclonic_Epilepsy_Type_11.yaml",
+    "page_url": "../pages/disorders/Progressive_Myoclonic_Epilepsy_Type_11.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "10"
+  },
+  {
     "name": "Progressive Myoclonic Epilepsy Type 7",
     "disease_id": "MONDO:0014521",
     "category": "Genetic",
@@ -361066,6 +361408,121 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "TNRC6B-Related Neurodevelopmental Disorder",
+    "disease_id": "MONDO:0030995",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "neurodevelopmental disorder"
+    ],
+    "creation_date": "2026-10-20T23:34:23Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "TNRC6B-related neurodevelopmental disorder (OMIM 619243, global developmental delay with speech and behavioral abnormalities) is an autosomal dominant condition caused by heterozygous loss-of-function variants in TNRC6B (22q13.1), which encodes a GW182-family scaffold of the microRNA-induced silencing complex (miRISC). TNRC6B binds Argonaute proteins through its N-terminal GW repeats and recruits the PAN2-PAN3 and CCR4-NOT deadenylase complexes, so that miRNA-bound transcripts are translationally repressed and degraded. Reported alleles are mostly nonsense, frameshift, splice-site and intragenic or whole-gene deletions, with a few missense variants, consistent with haploinsufficiency. All 17 individuals of the founding series had developmental delay or intellectual disability, with IQ values ranging from the moderately impaired to the normal range, while some later-reported carriers have only learning difficulties or behavioral features. Speech delay is the most frequent developmental feature. Autism or autistic traits, ADHD and other behavioral problems are common. Hypotonia, joint hypermobility and other musculoskeletal or connective tissue findings occur in many patients, and seizures, short stature, aortic root dilation and nonspecific dysmorphic features are reported in a minority. Most variants arise de novo, but about a quarter are inherited from mildly affected parents, and expressivity is variable within families.",
+    "pathophysiology": [
+      "TNRC6B Haploinsufficiency",
+      "Reduced miRISC Scaffold Function",
+      "Dysregulated Post-Transcriptional Control of Neurodevelopmental Genes",
+      "Abnormal Neurodevelopment"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "miRNA-mediated post-transcriptional gene silencing",
+      "miRNA-mediated gene silencing by mRNA destabilization"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Delayed speech and language development",
+      "Speech apraxia",
+      "Delayed fine motor development",
+      "Delayed gross motor development",
+      "Autistic behavior",
+      "Attention deficit hyperactivity disorder",
+      "Age-inappropriate oppositional behavior",
+      "Hypotonia",
+      "Seizure",
+      "Joint hypermobility",
+      "Aortic root aneurysm",
+      "Mitral valve prolapse",
+      "Craniosynostosis",
+      "Short stature",
+      "Decreased body weight",
+      "Abnormal facial shape",
+      "Hypertelorism",
+      "Strabismus",
+      "Amblyopia",
+      "Cafe-au-lait spot"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Musculoskeletal",
+      "Cardiovascular",
+      "Skeletal",
+      "Growth",
+      "Craniofacial",
+      "Ophthalmological",
+      "Integument"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0011098",
+      "HP:0010862",
+      "HP:0002194",
+      "HP:0000729",
+      "HP:0007018",
+      "HP:0010865",
+      "HP:0001252",
+      "HP:0001250",
+      "HP:0001382",
+      "HP:0002616",
+      "HP:0001634",
+      "HP:0001363",
+      "HP:0004322",
+      "HP:0004325",
+      "HP:0001999",
+      "HP:0000316",
+      "HP:0000486",
+      "HP:0000646",
+      "HP:0000957"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "TNRC6B"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "TNRC6B-Related_Neurodevelopmental_Disorder.yaml",
+    "page_url": "../pages/disorders/TNRC6B-Related_Neurodevelopmental_Disorder.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "TP63-Related Ectodermal Dysplasia Spectrum",
     "disease_id": "MONDO:1040001",
     "category": "Genetic",
@@ -378351,6 +378808,130 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Visceral Heterotaxy 8",
+    "disease_id": "MONDO:0014967",
+    "category": "Mendelian",
+    "parents": [
+      "Visceral heterotaxy",
+      "Congenital Disorder"
+    ],
+    "creation_date": "2026-10-20T23:34:44Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Visceral heterotaxy 8 (HTX8) is an autosomal recessive laterality disorder caused by biallelic loss-of-function variants in PKD1L1, which encodes polycystin-1-like 1, an eleven-pass transmembrane polycystin-1 family protein that partners with the cation channel PKD2 in cilia of the embryonic left-right organizer. PKD1L1 is not needed to build or move the organizer cilia: in mutant mice node and cilia morphology and cilia motility are normal and leftward nodal flow is generated. It is needed to interpret that flow, so that the right-biased expression of the Nodal antagonist CERL2 (DAND5) at the node and the left-sided Nodal, Lefty2 and Pitx2 cascade in the lateral plate mesoderm fail to arise. Affected individuals have situs inversus totalis or situs ambiguus (heterotaxy), usually with complex congenital heart disease such as unbalanced atrioventricular septal defects, double-outlet right ventricle, transposition of the great arteries, pulmonary atresia or stenosis and single-ventricle physiology, together with splenic anomalies (polysplenia or asplenia), right-sided stomach, midline or left-sided liver and intestinal malrotation. Several affected pregnancies have shown nonimmune hydrops, and PKD1L1 variants have also been reported in biliary atresia splenic malformation syndrome. There is no airway or sperm motility disease, because motile cilia are intact. Severity varies within families carrying the same genotype.",
+    "pathophysiology": [
+      "PKD1L1 Loss of Function",
+      "Failure of Nodal Flow Sensing at the Left-Right Organizer",
+      "Loss of Right-Biased Cerl2 Expression at the Node Crown",
+      "Lateral Plate Mesoderm Nodal Cascade Mispatterning",
+      "Cardiac Laterality and Outflow Tract Malformation",
+      "Biliary Epithelial Primary Cilia Deficiency"
+    ],
+    "cell_types": [
+      "cholangiocyte"
+    ],
+    "cell_type_ids": [
+      "CL:1000488"
+    ],
+    "biological_processes": [
+      "cellular response to fluid shear stress (nodal flow)",
+      "determination of left/right symmetry",
+      "negative regulation of nodal signaling pathway (Cerl2)",
+      "nodal signaling pathway",
+      "left/right pattern formation",
+      "heart looping",
+      "cilium assembly"
+    ],
+    "phenotypes": [
+      "Heterotaxy",
+      "Situs inversus totalis",
+      "Dextrocardia",
+      "Atrial situs ambiguous",
+      "Unbalanced atrioventricular canal defect",
+      "Hypoplastic left ventricle",
+      "Double outlet right ventricle",
+      "Levotransposition of the great arteries",
+      "Pulmonary artery atresia",
+      "Pulmonic stenosis",
+      "Ventricular septal defect",
+      "Single ventricle",
+      "Right aortic arch",
+      "Systemic venous anomalies",
+      "Pulmonary venous anomalies",
+      "Right-sided stomach",
+      "Midline liver",
+      "Polysplenia",
+      "Asplenia",
+      "Intestinal malrotation",
+      "Abnormal lung lobation",
+      "Nonimmune hydrops fetalis",
+      "Biliary atresia"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Gastrointestinal",
+      "Hematologic",
+      "Respiratory",
+      "Hepatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Metabolism",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0030853",
+      "HP:0001696",
+      "HP:0001651",
+      "HP:0011539",
+      "HP:0011579",
+      "HP:0004383",
+      "HP:0001719",
+      "HP:0011540",
+      "HP:0004935",
+      "HP:0001642",
+      "HP:0001629",
+      "HP:0001750",
+      "HP:0012020",
+      "HP:0005345",
+      "HP:0011718",
+      "HP:0100802",
+      "HP:0034188",
+      "HP:0001748",
+      "HP:0001746",
+      "HP:0002566",
+      "HP:0002101",
+      "HP:0001790",
+      "HP:0005912"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "PKD1L1"
+    ],
+    "treatments": [
+      "Cardiac surgery",
+      "Antibiotic prophylaxis for asplenia",
+      "Immunization against encapsulated bacteria"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Visceral_Heterotaxy_8.yaml",
+    "page_url": "../pages/disorders/Visceral_Heterotaxy_8.html",
+    "num_phenotypes": 23,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "39",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Visceral Heterotaxy 9",
     "disease_id": "MONDO:0030070",
     "category": "Mendelian",
@@ -389708,17 +390289,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3611,
+  "total_disorder_pages": 3617,
   "total_subtypes": 4827,
-  "total_disorders_and_subtypes": 8438,
-  "total_unique_evidence_sources": 53904,
-  "total_unique_publications": 50322,
+  "total_disorders_and_subtypes": 8444,
+  "total_unique_evidence_sources": 53971,
+  "total_unique_publications": 50388,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3608,
-  "total_unique_pathological_events": 23842,
+  "total_pathographs": 3614,
+  "total_unique_pathological_events": 23871,
   "total_modules": 196,
-  "total_research_reports": 3739,
+  "total_research_reports": 3745,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 119
