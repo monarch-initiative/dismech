@@ -35,7 +35,9 @@ import sys
 import urllib.parse
 import urllib.request
 
-from linkml_reference_validator.validation.supporting_text_validator import SupportingTextValidator
+from linkml_reference_validator.validation.supporting_text_validator import (
+    SupportingTextValidator,
+)
 
 EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 # A quote line, then within the next few lines the PMID it is attributed to.
