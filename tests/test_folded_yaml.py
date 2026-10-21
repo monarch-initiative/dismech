@@ -66,6 +66,21 @@ def test_swallowed_item_folded_onto_one_line_is_flagged():
     assert find_violations_in_text(text) == [("notes", "- reference: PMID:1 supports:")]
 
 
+def test_folded_item_led_by_reference_title_is_flagged():
+    # In the KB the key after ``reference:`` is almost always
+    # ``reference_title:``, so that is the commonest folded shape.
+    text = (
+        "notes: >-\n"
+        "  Prose long enough to count as a real paragraph of disease notes.\n"
+        "  - reference: PMID:1\n"
+        "  reference_title: A study\n"
+        "  supports: SUPPORT\n"
+    )
+    assert find_violations_in_text(text) == [
+        ("notes", "- reference: PMID:1 reference_title:")
+    ]
+
+
 def test_prose_naming_a_reference_is_not_flagged():
     text = (
         "notes: >-\n"

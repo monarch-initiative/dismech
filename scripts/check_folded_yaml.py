@@ -87,7 +87,8 @@ KEY_LINE_RE = re.compile(
 # that shape; prose has no reason to write it.
 FLATTENED_ITEM_RE = re.compile(
     r"(?:^|\s)(?:- )?reference: [A-Za-z][\w.-]*:\S+"
-    r"\s+(?:supports|evidence_source|snippet|explanation):\s"
+    r"\s+(?:reference_title|supports|evidence_source|snippet|explanation"
+    r"|directness|quote_role):\s"
 )
 
 
