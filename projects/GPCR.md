@@ -1,6 +1,6 @@
 ---
 title: 'GPCRs: Drug Mechanisms and Disease Modules'
-status: PLANNED
+status: IN_PROGRESS
 description: >-
   Mechanism modules anchored on G protein-coupled receptors: drug-mechanism
   modules for the major GPCR-targeting drug classes, and disease modules for
@@ -38,6 +38,8 @@ modules:
 - addiction_cycle
 - parkinsonism_dopaminergic_degeneration
 - photoreceptor_degeneration
+- mu_opioid_receptor_agonism
+- mu_opioid_receptor_antagonism
 ---
 
 # GPCRs: Drug Mechanisms and Disease Modules
@@ -165,8 +167,8 @@ mechanism-level rather than disease-level.
       entry (GPCR drug mechanisms)
 
 ### Phase 1 — first modules
-- [ ] mu-opioid receptor agonism (first module; see above) — `mu_opioid_receptor_agonism`, in review in #14453
-- [ ] mu-opioid receptor antagonism — `mu_opioid_receptor_antagonism`, in review in #14456
+- [x] mu-opioid receptor agonism (first module; see above) — `mu_opioid_receptor_agonism` (#14453)
+- [x] mu-opioid receptor antagonism — `mu_opioid_receptor_antagonism` (#14456)
 - [ ] beta-adrenergic receptor blockade
 - [ ] GLP-1 receptor agonism
 - [ ] GPCR loss-of-function hormone resistance
@@ -175,6 +177,9 @@ mechanism-level rather than disease-level.
 ### Phase 2 — conformers and remaining modules
 - [ ] Add `conforms_to` on the treatment-linked pathophysiology nodes of the
       candidate conformers above
+  - [x] The four opioid-treated entries, in #14973: `Opioid_Use_Disorder` and
+        `Acute_Opioid_Poisoning` against both mu-opioid modules, `Acute_Post-Surgical_Pain`
+        against agonism, `Alcohol_Use_Disorder` against antagonism
 - [ ] Remaining Workstream A modules
 - [ ] Gs alpha defect module
 
