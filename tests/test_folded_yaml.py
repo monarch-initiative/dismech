@@ -1,0 +1,99 @@
+"""Guard test: no YAML structure swallowed into a string value in kb/ or src/.
+
+An evidence item inserted inside a ``notes: >-`` block scalar parses as prose,
+so the entry validates and the snippet count silently leaves the item out
+(dismech #11230, hit on #11169). There is no baseline: every finding fails.
+
+See scripts/check_folded_yaml.py.
+"""
+
+from scripts.check_folded_yaml import (
+    find_violations_in_text,
+    main,
+    scan_repo,
+)
+
+SWALLOWED = """\
+name: Example
+phenotypes:
+- name: Intrauterine growth retardation
+  evidence:
+  - reference: PMID:20301283
+    supports: SUPPORT
+notes: >-
+  Disease-level notes that run on for long enough to be a real paragraph,
+  checked before the band is set.
+
+  - reference: PMID:18074387
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: "Almost 70% of patients weighed <or=2,500 g."
+"""
+
+
+def test_no_swallowed_yaml_structure():
+    findings, _ = scan_repo()
+    found = [f"{rel}: {path}: {line}" for rel, path, line in findings]
+    assert not found, (
+        "YAML structure swallowed into a string value. A string contains a "
+        "line opening with a KB key, which usually means a block was inserted "
+        "inside a block scalar. Move it out:\n  " + "\n  ".join(found)
+    )
+
+
+def test_swallowed_evidence_item_is_flagged():
+    found = find_violations_in_text(SWALLOWED)
+    assert found, "a swallowed evidence item must be flagged"
+    assert {path for path, _ in found} == {"notes"}
+    assert ("notes", "- reference: PMID:18074387") in found
+    # The real evidence item on the phenotype is parsed structure, not prose.
+    assert not any(path.startswith("phenotypes") for path, _ in found)
+
+
+def test_swallowed_item_in_literal_scalar_is_flagged():
+    text = (
+        "description: |\n"
+        "  A long literal description that keeps going past sixty characters.\n"
+        '  snippet: "exact quote"\n'
+    )
+    assert find_violations_in_text(text) == [("description", 'snippet: "exact quote"')]
+
+
+def test_key_mentioned_mid_line_is_not_flagged():
+    text = (
+        "description: >-\n"
+        "  A long description that merely mentions the snippet: field and the\n"
+        "  supports: SUPPORT grade in passing, and - reference: inline too.\n"
+    )
+    assert find_violations_in_text(text) == []
+
+
+def test_short_values_are_not_flagged():
+    assert find_violations_in_text('notes: "snippet: short"\n') == []
+
+
+def test_nested_path_is_reported():
+    text = (
+        "phenotypes:\n"
+        "- name: Seizures\n"
+        "  notes: |\n"
+        "    Some notes about this phenotype that are long enough to count.\n"
+        "    - name: Another phenotype\n"
+    )
+    assert find_violations_in_text(text) == [
+        ("phenotypes[0].notes", "- name: Another phenotype")
+    ]
+
+
+def test_exit_codes(tmp_path, capsys):
+    bad = tmp_path / "bad.yaml"
+    bad.write_text(SWALLOWED, encoding="utf-8")
+    good = tmp_path / "good.yaml"
+    good.write_text("name: Example\nnotes: >-\n  Plain prose only.\n", encoding="utf-8")
+
+    assert main([str(bad)]) == 1
+    assert main([str(good)]) == 0
+    assert main(["--all", str(bad)]) == 0
+    assert main(["--count", str(bad)]) == 0
+    out = capsys.readouterr().out
+    assert "notes: - reference: PMID:18074387" in out
