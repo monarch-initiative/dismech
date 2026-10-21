@@ -80,7 +80,7 @@ jobs:
       # frozen copy silently drops most phenotypes into "Other" (issue #11299).
       BUILT_PATHS: >-
         pages/ app/data.js app/models/data.js app/hpo_category_cache.json
-        pathographs/ dashboard/ elements/
+        cache/pathograph_stats.json pathographs/ dashboard/ elements/
 
     steps:
       - name: Checkout repository
@@ -231,7 +231,8 @@ jobs:
           # Park this build's pages in a throwaway commit so changing base cannot
           # lose them. Only pages/ needs parking: every other BUILT_PATHS entry
           # -- app/data.js, app/models/data.js, app/hpo_category_cache.json,
-          # pathographs/, dashboard/ and elements/ -- is generated further down,
+          # cache/pathograph_stats.json, pathographs/, dashboard/ and elements/
+          # -- is generated further down,
           # and doing so AFTER this step is what makes them come from the fresh
           # KB.
           BASE="$(git rev-parse HEAD)"
@@ -358,6 +359,15 @@ jobs:
 
       - name: Generate pathograph artifact
         run: just gen-pathographs
+
+      # The KB-wide mean edge count the disorder pages compare against to decide
+      # whether a pathograph opens grouped (#14539). It is committed so that a
+      # single-file render need not build every causal graph, and regenerated
+      # here, after the re-anchor, so it reflects the KB this run commits. Pages
+      # rendered earlier in this run read the previous value; the mean is
+      # rounded, so that one-build lag rarely changes a page.
+      - name: Generate pathograph stats
+        run: just gen-pathograph-stats
 
       - name: Generate compliance dashboard
         # gen-dashboard already runs gen-priority-dashboard internally, so a
