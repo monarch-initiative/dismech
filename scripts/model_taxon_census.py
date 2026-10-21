@@ -7,11 +7,15 @@ species strings into clades and reports, per entry, which clades carry a model
 and which pathograph nodes any model is linked to.
 
 Two uses. The census reports how many entries are mammal-only, which is the
-shape of the gap that the alternative-model research reports in research/ set out
-to close. The per-entry mode prints one entry's nodes, models and the
-node-to-model links, which is the query those reports' DisMech-side claims rest
-on, and it feeds two of the variables of
-templates/disease_alternative_models_research.md.
+shape of the gap an alternative-model research run sets out to close. The
+per-entry mode prints one entry's nodes, models and the node-to-model links, and
+generates the `existing_models` and `mechanism_nodes` variables of
+templates/disease_alternative_models_research.md, so a prompt states the
+record's current state rather than a remembered one.
+
+Node links are read through `dismech.model_links.iter_model_links`, so a node
+modelled by an organoid or an iPSC system counts as modelled. Clades are read
+from `animal_models` alone, because only AnimalModel carries `species`.
 
 Species strings that match no clade are never silently bucketed: they are
 counted as `unclassified` and `--unclassified` lists them, so the mapping below
@@ -36,7 +40,7 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "src"))
 
 from dismech import kb_cache
-from dismech.yaml_io import safe_load_path  # noqa: F401  (parity with sibling scripts)
+from dismech.model_links import iter_model_links
 
 ROOTS = ("kb/disorders", "kb/modules")
 
@@ -257,6 +261,26 @@ def experimental_sections(doc: dict) -> list[dict]:
     return [m for m in models if isinstance(m, dict)] if isinstance(models, list) else []
 
 
+def linked_nodes_by_block(doc: dict) -> dict[str, set[str]]:
+    """Map each modelled node name to the model blocks that link it.
+
+    A model-to-mechanism link has more than one home -- `animal_models`,
+    `experimental_models` and `computational_models` all carry
+    `modeled_mechanisms` -- so a join that reads only `animal_models` marks an
+    organoid- or iPSC-modelled node as unmodelled. That is the one fact this
+    script exists to get right, since the research prompt sends the provider
+    after exactly the nodes reported as unmodelled. `include_proposed=False`
+    keeps the model systems of proposed experiments out: they have not been run,
+    and this is a report about models that exist.
+    """
+    by_node: dict[str, set[str]] = {}
+    for site in iter_model_links(doc, include_proposed=False):
+        target = site.link.get("target")
+        if target:
+            by_node.setdefault(target, set()).add(site.path_prefix)
+    return by_node
+
+
 def render_existing_models(doc: dict) -> str:
     """The `existing_models` block for templates/disease_alternative_models_research.md.
 
@@ -293,8 +317,15 @@ def render_existing_models(doc: dict) -> str:
         lines.append("")
         for model in experimental:
             label = model.get("name") or "(unnamed)"
-            kind = model.get("model_type") or model.get("category") or "type not stated"
+            kind = model.get("experimental_model_type") or "type not stated"
             lines.append(f"- **{label}** ({kind})")
+            targets = [
+                m["target"]
+                for m in (model.get("modeled_mechanisms") or [])
+                if isinstance(m, dict) and m.get("target")
+            ]
+            if targets:
+                lines.append(f"    - linked to: {', '.join(targets)}")
         lines.append("")
     else:
         lines.append(
@@ -317,11 +348,7 @@ def render_mechanism_nodes(doc: dict) -> str:
     if not isinstance(nodes, list):
         return "This entry has no `pathophysiology` block."
 
-    linked: set[str] = set()
-    for model in model_sections(doc):
-        for mech in model.get("modeled_mechanisms") or []:
-            if isinstance(mech, dict) and mech.get("target"):
-                linked.add(mech["target"])
+    linked = linked_nodes_by_block(doc)
 
     lines = ["| # | Node | Scale | Already modelled |", "|---|---|---|---|"]
     for index, node in enumerate(nodes, start=1):
@@ -329,7 +356,11 @@ def render_mechanism_nodes(doc: dict) -> str:
             continue
         name = node.get("name") or "(unnamed)"
         scale = node.get("biological_scale") or "**not stated**"
-        lines.append(f"| {index} | {name} | {scale} | {'yes' if name in linked else '**no**'} |")
+        blocks = linked.get(name)
+        # Naming the block is not decoration: an animal-modelled node and an
+        # organoid-modelled one are differently open to an alternative model.
+        state = f"yes ({', '.join(sorted(blocks))})" if blocks else "**no**"
+        lines.append(f"| {index} | {name} | {scale} | {state} |")
     return "\n".join(lines)
 
 
@@ -338,10 +369,13 @@ def scan_entry(path: pathlib.Path, doc: dict) -> dict:
     nodes = doc.get("pathophysiology")
     node_names = [n.get("name") for n in nodes if isinstance(n, dict)] if isinstance(nodes, list) else []
 
+    # Clades are an AnimalModel question -- only that class carries `species` --
+    # so the clade counters read `animal_models` alone, while the node links read
+    # every model block. The two answer different questions; merging them would
+    # make an organoid look like a taxon.
     models = model_sections(doc)
     clades: collections.Counter[str] = collections.Counter()
     unclassified: list[str] = []
-    linked_nodes: set[str] = set()
 
     for model in models:
         species = model.get("species") or ""
@@ -349,11 +383,9 @@ def scan_entry(path: pathlib.Path, doc: dict) -> dict:
         clades[clade] += 1
         if clade == "unclassified":
             unclassified.append(species)
-        mechanisms = model.get("modeled_mechanisms")
-        if isinstance(mechanisms, list):
-            for mech in mechanisms:
-                if isinstance(mech, dict) and mech.get("target"):
-                    linked_nodes.add(mech["target"])
+
+    links_by_node = linked_nodes_by_block(doc)
+    linked_nodes = set(links_by_node)
 
     present = {clade for clade, count in clades.items() if count}
     return {
@@ -366,6 +398,7 @@ def scan_entry(path: pathlib.Path, doc: dict) -> dict:
         "clades": clades,
         "unclassified": unclassified,
         "linked_nodes": linked_nodes,
+        "links_by_node": links_by_node,
         "unlinked_nodes": [n for n in node_names if n not in linked_nodes],
         "mammal_only": bool(models) and present <= {MAMMAL},
         "has_non_mammal": bool(present & set(NON_MAMMAL_ANIMAL)),
@@ -407,10 +440,11 @@ def print_entry(row: dict) -> None:
     else:
         print("Model clades: none - this entry has no animal_models block.")
 
-    print("\n| Pathograph node | Models linked to it |")
+    print("\n| Pathograph node | Model blocks linked to it |")
     print("|---|---|")
     for name in row["node_names"]:
-        print(f"| {name} | {'yes' if name in row['linked_nodes'] else '-'} |")
+        blocks = row["links_by_node"].get(name)
+        print(f"| {name} | {', '.join(sorted(blocks)) if blocks else '-'} |")
 
     if row["unlinked_nodes"]:
         print(f"\nNodes with no model link ({len(row['unlinked_nodes'])}):")
