@@ -328,6 +328,13 @@ every cheap ontology feature (child count, synonym count, aggregator tags)
 correlates with being a grouping rather than with being worth curating
 (issue #8969).
 
+`next-stubs` and `next-unclaimed` leave out the stubs `tidy-stubs` would delete
+(`already_curated`, `obsolete_term`), so the pool never offers a disease the KB
+already holds by MONDO ID; `--include-stale` puts them back. Other `check-stubs`
+advisories, such as `possible_kb_duplicate`, keep the stub in the pool and are
+printed beside it, and in `--json` as `advisories`. The check reads every KB
+file, so the command takes about half a minute (#11616).
+
 **`entry_type` is the lump/split decision and is never pre-filled.** Seeded
 stubs are all `UNDECIDED`. Deciding is the curator's first job:
 
