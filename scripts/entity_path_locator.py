@@ -58,24 +58,42 @@ def repo_commit(repo: Path) -> str:
         return "not-a-git-checkout"
 
 
+CURIE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.]*:[A-Za-z0-9]")
+
+
+def _curies(node, path: str):
+    """Every CURIE-valued string under this node, with the path that holds it.
+
+    Descends to whatever depth the slot nests to, because the CURIE on a
+    treatment or an exposure is two levels down (`<slot>.term.id`) and a
+    descriptor can carry further bound terms below that.
+    """
+    if isinstance(node, str):
+        if CURIE_RE.match(node):
+            yield path, node
+    elif isinstance(node, dict):
+        for key, val in node.items():
+            if key in PROSE_SLOTS:
+                continue
+            yield from _curies(val, f"{path}.{key}" if path else key)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _curies(item, f"{path}[]")
+
+
 def bound_terms(holder: dict) -> list[str]:
-    """Ontology terms bound anywhere directly under the holding object."""
+    """The CURIEs bound under the holding object's term-bearing slots.
+
+    A term counts as bound only where a CURIE is actually present. A free-text
+    `preferred_term` with no `term` beside it is a label the curator chose, not
+    a binding, and reporting it as one is what made every treatment and every
+    exposure look term-bound.
+    """
     found = []
     for slot in TERM_SLOTS:
-        val = holder.get(slot)
-        if isinstance(val, str) and re.match(r"^[A-Za-z][A-Za-z0-9_.]*:[A-Za-z0-9]", val):
-            found.append(f"{slot}={val}")
-        elif isinstance(val, dict):
-            for k in ("id", "term", "label"):
-                if isinstance(val.get(k), str):
-                    found.append(f"{slot}.{k}={val[k]}")
-        elif isinstance(val, list):
-            for item in val:
-                if isinstance(item, dict):
-                    for k in ("id", "term", "label", "preferred_term"):
-                        if isinstance(item.get(k), str):
-                            found.append(f"{slot}[].{k}={item[k]}")
-    return found
+        if slot in holder:
+            found += [f"{path}={curie}" for path, curie in _curies(holder[slot], slot)]
+    return list(dict.fromkeys(found))
 
 
 def walk(node, pattern: re.Pattern, path: str = "", holder: dict | None = None):

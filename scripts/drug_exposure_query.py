@@ -70,6 +70,11 @@ PROBES = [
             "regimen_term.term",
         ],
         "agent_paths": ["treatment_term.therapeutic_agent[].term"],
+        # On a TreatmentDescriptor, preferred_term names the treatment as a whole
+        # ("levodopa pharmacotherapy") while its term is only the action
+        # (NCIT:C15986). Trusting it here resolves the action CURIE as though it
+        # were the drug, so the action slot does not get that signal.
+        "action_paths": ["treatment_term.term"],
         "links": "target_mechanisms", "effect": "treatment_effect",
     },
     {
@@ -158,6 +163,26 @@ def walk_path(obj, path: str):
         yield from walk_path(val, rest)
 
 
+def walk_terms(holder, path: str):
+    """Yield (term, preferred_term) for every term reached by a term path.
+
+    `preferred_term` sits on the descriptor that carries the term, one level
+    above it, and it is often the clinical name where the bound label is a
+    systematic one: `CHEBI:15765` is labelled `L-dopa` and preferred as
+    `levodopa`. Matching the label alone misses the substance that the
+    treatments actually point at, which is the whole trap this script exists
+    to avoid falling into.
+    """
+    parent_path, sep, leaf = path.rpartition(".")
+    if sep and leaf == "term":
+        for parent in walk_path(holder, parent_path):
+            if isinstance(parent, dict) and parent.get("term") is not None:
+                yield parent["term"], str(parent.get("preferred_term") or "")
+    else:
+        for term in walk_path(holder, path):
+            yield term, ""
+
+
 def term_id_label(term) -> tuple[str, str]:
     """A term object is {id, label}; tolerate a bare CURIE string."""
     if isinstance(term, dict):
@@ -182,15 +207,21 @@ class Query:
             return True
         return any(c.lower() in low for c in self.curies)
 
-    def matches_term(self, curie: str, label: str, holder_name: str) -> str | None:
-        """Why this binding matched: by CURIE, by term label, or by holder name."""
+    def matches_term(self, curie: str, label: str, holder_name: str,
+                     preferred: str = "") -> str | None:
+        """Why this binding matched: by CURIE, by term label, by the descriptor's
+        preferred_term, or by holder name."""
         if curie and curie.upper() in self.curies:
             return "curie"
         if self.terms:
-            lab, nam = label.lower(), (holder_name or "").lower()
+            lab = label.lower()
+            pref = (preferred or "").lower()
+            nam = (holder_name or "").lower()
             for t in self.terms:
                 if lab and t in lab:
                     return "label"
+                if pref and t in pref:
+                    return "preferred_term"
                 if nam and t in nam:
                     return "name"
         return None
@@ -244,16 +275,18 @@ def collect(repo: Path, globs: list[str], q: Query) -> dict:
                 if not isinstance(holder, dict):
                     continue
                 for tp in probe["term_paths"]:
-                    for term in walk_path(holder, tp):
+                    trust_preferred = tp not in probe.get("action_paths", ())
+                    for term, preferred in walk_terms(holder, tp):
                         curie, label = term_id_label(term)
-                        why = q.matches_term(curie, label, holder.get("name", ""))
+                        why = q.matches_term(curie, label, holder.get("name", ""),
+                                             preferred if trust_preferred else "")
                         if not why:
                             continue
                         # A holder-name match says the HOLDER is about the query, not
                         # that this term is the query: a treatment named for one drug
                         # also binds its co-drugs and its action term. Those must not
                         # enter the resolved-term list.
-                        if curie and why in ("curie", "label"):
+                        if curie and why in ("curie", "label", "preferred_term"):
                             q.resolved[curie].add(label)
                         hits.append({
                             "file": rel,
@@ -342,7 +375,7 @@ def render_md(res: dict) -> str:
     out.append("")
 
     # Only direct term matches count here; a holder-name match is about the holder.
-    direct = [h for h in hits if h["matched_by"] in ("curie", "label")]
+    direct = [h for h in hits if h["matched_by"] in ("curie", "label", "preferred_term")]
     roles_by_entry = defaultdict(set)
     for h in direct:
         roles_by_entry[h["entry"]].add(h["role"])

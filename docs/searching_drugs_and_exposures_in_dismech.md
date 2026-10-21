@@ -124,6 +124,8 @@ Two caveats carry over from `CLAUDE.md`, and both are load-bearing:
   bound, so a chemical nobody has curated yet is missing from it for that reason alone.
 - The cache tells you a CURIE is bound *somewhere*, not where or in what role. For that you
   still need the per-entry scan the scripts below do.
+- A row being present is not proof it is current either. The label is what the KB accepted when
+  the row was written, which `retrieved_at` dates; `migrate-cache` is what moves it.
 
 ### Environmental Factors
 
@@ -257,10 +259,12 @@ version above. Steps 4 to 6 are not continuations of it — each answers a quest
       --curie CHEBI:15765 --curie NCIT:C611
     ```
 
-    `--term` is a case-insensitive substring on term labels *and* holder names; `--curie` is
-    exact. Both are repeatable, and giving both is the safe default, since a term bound under a
-    systematic label will not match its clinical name. About 2.5 s — a raw-text prefilter
-    means only the handful of files that could match are parsed.
+    `--term` is a case-insensitive substring on the bound term's label, the descriptor's
+    `preferred_term` and the holder's name; `--curie` is exact. Both are repeatable. The
+    `preferred_term` is what catches a substance bound under a systematic label — `levodopa`
+    finds `CHEBI:15765 L-dopa` because the agent descriptor prefers the clinical name — but
+    passing the CURIE too is still the safer habit. About 2.5 s — a raw-text prefilter means
+    only the handful of files that could match are parsed.
 
 4. **Inventory the bindings across the whole KB** when the question is coverage rather than one
     term. Cover **all** the vocabularies: CHEBI *and* NCIT for therapy, mechanism and
@@ -274,9 +278,9 @@ version above. Steps 4 to 6 are not continuations of it — each answers a quest
     ```
 
 5. **Locate the string matches by schema path** when grep finds a name but step 3 returns
-    nothing, or a hit looks doubtful. It matches strings rather than CURIEs and reports the
-    schema path of each one, separating identity slots from prose and citation titles, so you
-    can see which mentions are claims and which are only text.
+    nothing, or a hit looks doubtful. It matches strings rather than CURIEs, reports the schema
+    path of each one, and lists the CURIEs bound under the holding object, so you can tell a
+    curated identity from a mention that is only prose.
 
     ```sh
     uv run python scripts/entity_path_locator.py --term levodopa --term trifluralin
@@ -308,7 +312,7 @@ uv run python scripts/drug_exposure_query.py --term levodopa
 |---|---|---|
 | `drug_exposure_query.py` | For one drug or environmental factor: which diseases carry it, in which role, and which pathograph nodes it acts on, with direction and link type. Plus whether it acts as both a drug and an exposure, asked across the KB and within a single entry. | One term. ~2.5 s, prefiltered. |
 | `chemical_binding_inventory.py` | Every nested ontology binding by schema path, role and prefix; which terms are multi-role; reverse lookup from CURIE to entries. The reverse lookup is the part no `just` recipe offers. Does not read the enum axes. | Whole KB, ~1.5 min. |
-| `entity_path_locator.py` | For a named entity, the schema path of every string match, whether the holding object carries a bound term, and whether the mention is identity, prose or citation metadata. | Whole KB, ~1.5 min. |
+| `entity_path_locator.py` | For a named entity, the schema path of every string match, and which CURIEs are bound under the holding object's term-bearing slots, so a curated identity can be told from a prose mention. | Whole KB, ~1.5 min. |
 
 Every script writes markdown by default and takes `--out`. `drug_exposure_query.py` also takes
 `--format tsv` for a row per disease × role × mechanism, and `--format json`;
