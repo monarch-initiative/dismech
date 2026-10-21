@@ -1496,3 +1496,19 @@ For honest curation, these are **confirmed absences**, not unsearched areas:
 - [AAGAB mutations in punctate palmoplantar keratoderma (PMC4282079)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4282079/)
 - [Mutations in AP2S1 cause familial hypocalciuric hypercalcemia type 3, Nat Genet](https://www.nature.com/articles/ng.2492)
 - [Modeling AP2M1 developmental and epileptic encephalopathy in Drosophila, DMM](https://journals.biologists.com/dmm/article/18/11/dmm052419/369896/Modeling-AP2M1-developmental-and-epileptic)
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.3.0rc3.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 20 |
+| Resolved | 20 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| References weighed for topical relevance | 20 |
+| On topic | 7 |
+| Off topic | 0 |
+
+All extracted references resolved successfully.

@@ -195,6 +195,31 @@ but whose quotes did not match still reports `confabulation_rate: 0.0`; that is
 how a CHILD-syndrome report with six mismatched quotes was once read as clean.
 Treat `needs_review` as "go and look", not as a failure.
 
+**The key is written only when it is true, so its absence is not always an
+all-clear.** Nine committed reports meet a trigger in their own block and still
+omit the key: four with mismatched quotes and five with unresolved identifiers
+(#11794). All nine were written by validator 0.2.1, which set the key correctly
+on 211 other reports, so the version alone does not explain it. No report
+written by a 0.3.0 release candidate omits it so far (23 flagged, none missing).
+Upstream decides whether to write the key, and these reports are not
+hand-edited. Instead:
+
+- `just dr-validation-census --needs-review` checks each report against the
+  triggers directly (`not_found`, `unresolved_references`, `quotes_valid` below
+  `quotes_checked` or `quotes_unsupported`, `off_topic` or
+  `off_topic_references`) and lists the reports that meet one but omit the key
+  under their own heading. The summary prints the count as
+  `trigger met, key absent`, and `--format tsv` adds `needs_review_missing` and
+  `review_triggers` columns.
+- `tests/test_dr_reference_validation_census.py` pins the nine known cases. A
+  newly committed report that omits the key fails it, and so does a known case
+  once it has been regenerated with the key, so the list can only shrink or be
+  extended on purpose.
+
+The undecided relevance band (assessed, neither on nor off topic) is not a
+trigger, for the reason given in the relevance section earlier on this page: a
+reference nobody ruled on has not been ruled off topic.
+
 ### In the report body
 
 A `## Reference Validation` section is appended at the end:

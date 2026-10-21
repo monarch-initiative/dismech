@@ -1,7 +1,7 @@
 """
 SED-ML / COMBINE-archive export for dismech-perturb model configs.
 
-``models/<model_id>.config.yaml`` is, in substance, a private encoding of a
+``models/<model_id>/config.yaml`` is, in substance, a private encoding of a
 SED-ML simulation experiment: each ``scenarios`` entry is a set of pre-simulation
 model changes, ``coupling`` is a uniform time course plus integrator settings,
 and the disorder YAML's ``computational_models[].variables`` are the observables
@@ -11,7 +11,7 @@ tellurium, VCell, AMICI, ...) can run a dismech scenario without dismech code.
 
 Output per model, under ``exports/sedml/<model_id>/``:
 
-* ``<sbml_file>``     — a copy of the SBML model
+* ``<model_id>.xml``  — a copy of the SBML model
 * ``simulation.sedml``— SED-ML L1V3 describing every scenario
 * ``manifest.xml``    — COMBINE archive manifest
 
@@ -45,7 +45,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from dismech import kb_cache
+from dismech import kb_cache, model_registry
 from dismech.perturb.simulate import (
     ModelConfig,
     load_model_config,
@@ -174,7 +174,9 @@ def read_sbml_model_info(sbml_path: Path) -> SbmlModelInfo:
         symbol_id = param.get("id")
         raw = param.get("value")
         if symbol_id and raw is not None:
-            symbols[symbol_id] = ModelSymbol(symbol_id, "parameter", "value", float(raw))
+            symbols[symbol_id] = ModelSymbol(
+                symbol_id, "parameter", "value", float(raw)
+            )
 
     species = model.find(f"{{{namespace}}}listOfSpecies")
     for item in species if species is not None else []:
@@ -319,7 +321,7 @@ def build_sedml(
         root,
         f"dismech-perturb scenarios for {config.model_id}"
         + (f" ({disease_name})" if disease_name else "")
-        + f". Generated from models/{config.model_id}.config.yaml by "
+        + f". Generated from models/{config.model_id}/config.yaml by "
         "dismech.perturb.sedml_export; do not hand-edit. Scenario changes are "
         "resolved to absolute values against the SBML initial values, in the "
         "order dismech-perturb applies them: severity dial, then gene effect, "
@@ -335,7 +337,7 @@ def build_sedml(
             "id": "base_model",
             "name": config.model_id,
             "language": "urn:sedml:language:sbml",
-            "source": config.sbml_file,
+            "source": f"{config.model_id}.xml",
         },
     )
     for scenario in scenarios:
@@ -539,7 +541,9 @@ def write_omex(archive_dir: Path, omex_path: Path) -> None:
             archive.writestr(entry, path.read_bytes())
 
 
-def find_disorder_for_model(model_id: str, disorders_dir: Path) -> dict[str, Any] | None:
+def find_disorder_for_model(
+    model_id: str, disorders_dir: Path
+) -> dict[str, Any] | None:
     """Find the disorder entry curating ``model_id`` (for variables/thresholds)."""
     if not disorders_dir.exists():
         return None
@@ -571,10 +575,10 @@ def export_config(
     disorders_dir: Path = Path("kb/disorders"),
     write_archive: bool = False,
 ) -> ExportResult:
-    """Export one ``models/<model_id>.config.yaml`` to a COMBINE archive."""
+    """Export one ``models/<model_id>/config.yaml`` to a COMBINE archive."""
     with open(config_path) as handle:
         raw = safe_load(handle) or {}
-    model_id = str(raw.get("model_id") or config_path.stem)
+    model_id = str(raw.get("model_id") or model_registry.model_id_of(config_path))
 
     if raw.get("extension_file"):
         return ExportResult(
@@ -608,13 +612,14 @@ def export_config(
 
     archive_dir = output_root / model_id
     archive_dir.mkdir(parents=True, exist_ok=True)
-    (archive_dir / config.sbml_file).write_bytes(sbml_path.read_bytes())
+    # Named by model id inside the archive: the source file is models/<id>/model.xml,
+    # and a bare model.xml would not say which model an unpacked archive holds.
+    archived_sbml = f"{config.model_id}.xml"
+    (archive_dir / archived_sbml).write_bytes(sbml_path.read_bytes())
     (archive_dir / "simulation.sedml").write_text(
-        build_sedml(
-            config, info, scenarios, disease_name=(disorder or {}).get("name")
-        )
+        build_sedml(config, info, scenarios, disease_name=(disorder or {}).get("name"))
     )
-    (archive_dir / "manifest.xml").write_text(build_manifest(config.sbml_file))
+    (archive_dir / "manifest.xml").write_text(build_manifest(archived_sbml))
 
     omex_path = None
     if write_archive:
@@ -632,7 +637,7 @@ def export_config(
 
 
 def export_all(
-    models_dir: Path = Path("models"),
+    models_dir: Path = model_registry.MODELS_DIR,
     output_root: Path = Path("exports/sedml"),
     *,
     disorders_dir: Path = Path("kb/disorders"),
@@ -645,7 +650,7 @@ def export_all(
             disorders_dir=disorders_dir,
             write_archive=write_archive,
         )
-        for path in sorted(models_dir.glob("*.config.yaml"))
+        for path in model_registry.iter_configs(models_dir)
     ]
 
 
@@ -653,7 +658,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Export dismech-perturb model configs as SED-ML / COMBINE archives"
     )
-    parser.add_argument("--models-dir", default="models")
+    parser.add_argument("--models-dir", default=str(model_registry.MODELS_DIR))
     parser.add_argument("--disorders-dir", default="kb/disorders")
     parser.add_argument("--output", "-o", default="exports/sedml")
     parser.add_argument(
@@ -667,9 +672,9 @@ def main() -> None:
     args = parser.parse_args()
 
     models_dir = Path(args.models_dir)
-    paths = sorted(models_dir.glob("*.config.yaml"))
+    paths = model_registry.iter_configs(models_dir)
     if args.id:
-        paths = [path for path in paths if path.name == f"{args.id}.config.yaml"]
+        paths = [path for path in paths if model_registry.model_id_of(path) == args.id]
         if not paths:
             parser.error(f"no config found for model_id '{args.id}' in {models_dir}")
 

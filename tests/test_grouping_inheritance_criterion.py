@@ -41,13 +41,15 @@ class _FakeAdapter:
 
 
 @pytest.fixture
-def fake_ontology(monkeypatch):
+def fake_ontology(monkeypatch, tmp_path):
+    # An empty cache directory, so the fake hierarchy is what gets consulted.
+    monkeypatch.setattr(G, "CLOSURE_CACHE_DIR", tmp_path)
     monkeypatch.setattr(G, "_get_oak_adapter", lambda _s: _FakeAdapter(HIERARCHY))
-    G.term_closure.cache_clear()
-    G.set_closure_enabled(True)
+    G.reset_closure_caches()
+    G.set_live_lookup_enabled(True)
     yield
-    G.term_closure.cache_clear()
-    G.set_closure_enabled(True)
+    G.reset_closure_caches()
+    G.set_live_lookup_enabled(True)
 
 
 def _leaf(term_id: str | None = None, **extra) -> dict:
@@ -66,11 +68,17 @@ def _facts(*inheritance_ids: str) -> G.DiseaseFacts:
 
 
 def test_matching_inheritance_term_is_satisfied(fake_ontology):
-    assert G._eval_node(_leaf("HP:0010984"), _facts("HP:0010984")) is G.Satisfaction.SATISFIED
+    assert (
+        G._eval_node(_leaf("HP:0010984"), _facts("HP:0010984"))
+        is G.Satisfaction.SATISFIED
+    )
 
 
 def test_absent_inheritance_term_is_not_satisfied(fake_ontology):
-    assert G._eval_node(_leaf("HP:0010984"), _facts("HP:0000007")) is G.Satisfaction.NOT_SATISFIED
+    assert (
+        G._eval_node(_leaf("HP:0010984"), _facts("HP:0000007"))
+        is G.Satisfaction.NOT_SATISFIED
+    )
 
 
 def test_payload_less_leaf_still_unknown(fake_ontology):
@@ -80,7 +88,10 @@ def test_payload_less_leaf_still_unknown(fake_ontology):
 
 def test_digenic_does_not_satisfy_an_oligogenic_criterion(fake_ontology):
     """The two are siblings, not parent/child - a grouping meaning either must OR them."""
-    assert G._eval_node(_leaf("HP:0010983"), _facts("HP:0010984")) is G.Satisfaction.NOT_SATISFIED
+    assert (
+        G._eval_node(_leaf("HP:0010983"), _facts("HP:0010984"))
+        is G.Satisfaction.NOT_SATISFIED
+    )
 
 
 def test_parent_criterion_satisfied_by_descendant_term(fake_ontology):

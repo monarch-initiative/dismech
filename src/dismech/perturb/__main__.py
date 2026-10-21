@@ -10,6 +10,7 @@ from pathlib import Path
 
 import typer
 
+from dismech import model_registry
 from dismech.perturb.graph import extract_causal_edges, trace_causal_paths
 from dismech.perturb.phenotypes import evaluate_phenotypes
 from dismech.perturb.simulate import (
@@ -31,15 +32,14 @@ def _find_model_config(
     if not models:
         return None
 
-    search_dirs = [models_dir] if models_dir else [Path("models")]
+    search_dir = models_dir or model_registry.MODELS_DIR
     for model in models:
         model_id = model.get("model_id", "")
         if not model_id:
             continue
-        for d in search_dirs:
-            config_path = d / f"{model_id}.config.yaml"
-            if config_path.exists():
-                return load_model_config(config_path, disorder=disorder)
+        config_path = model_registry.find_config(model_id, search_dir)
+        if config_path:
+            return load_model_config(config_path, disorder=disorder)
 
     return None
 

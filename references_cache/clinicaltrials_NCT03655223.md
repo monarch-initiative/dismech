@@ -1,5 +1,6 @@
 ---
 reference_id: clinicaltrials:NCT03655223
+extractor_version: 1
 title: "Early Check: A Collaborative Innovation to Facilitate Pre-Symptomatic Clinical Trials in Newborns"
 content_type: summary
 full_text_attempted: true

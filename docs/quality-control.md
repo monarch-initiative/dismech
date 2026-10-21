@@ -385,6 +385,98 @@ lowering it, and `null` there silently disables the gate. The sibling
 *A resolving target is not a connected phenotype* carries the current figure and
 how to read a failure; this page deliberately does not restate it.
 
+
+## Granularity ladder: `just check-granularity`
+
+Design decisions §3e fixes how finely an infectious disease is split — the
+default entry is the named clinical entity, strata below it are `has_subtypes`
+only when documented to differ, promotion to a separate entry needs two
+differentiating axes, and a phase is never an entry. Some of those rules are
+judgement and some are not, and the check draws that line rather than blurring
+it:
+
+```bash
+just check-granularity                          # census + worklist, exit 0
+just check-granularity --format list            # one line per finding
+just check-granularity --format tsv             # one row per entry (the computed columns)
+just check-granularity kb/disorders/Cholera.yaml
+just check-granularity --strict                 # exit 1 on any deterministic finding
+just check-granularity --fail-on TAXON_LUMP     # gate on one class, advisory or not
+just check-granularity --scope all              # cross-entry classes over every entry
+```
+
+| Class | Rule | Gates under `--strict` |
+|---|---|---|
+| `MISSING_AGENT`, `UNBOUND_AGENT`, `MISSING_TRANSMISSION` | R25 — every microbial entry names a NCBITaxon-bound agent and a transmission route | yes |
+| `ROOT_AS_ENTRY` | R2 — anchored to *infectious disease* or one of its four kingdom-level children | yes |
+| `DOUBLE_MODELLED`, `DANGLING_POINTER` | R20 — a subtype that is also another entry carries `curated_in`, and the pointer resolves | yes |
+| `DUPLICATE_ANCHOR` | R18/R28 — two entries on one `disease_term` with no `skos:narrowMatch` | yes |
+| `PATHOTYPE_COLLAPSE` | R15 — two agents bound to the same taxon | yes |
+| `TAXON_LUMP` → `LUMP_RECORDED` | R7–R9 — three or more agents, no subtypes, and no `Deliberately lumped.` paragraph in `review_notes` | no |
+| `UNBOUND_SUBTYPE`, `UNBOUND_AGENT_STRATUM` | R12 — may have no honest term to bind | no |
+| `NO_PROGRESSION` | R21 — only matters where the disease has phases | no |
+| `MISSING_LIFECYCLE` | R26 — heuristic: transmission text names a vector or reservoir | no |
+| `POINTER_TERM_MISMATCH` | R20 — a pointer resolves, but its `subtype_term` disagrees with the target's `disease_term` | no |
+| `POINTER` | informational — a pointer subtype, working as designed | no |
+
+**Report-only, and the advisory half is not a number to drive up.** An
+undifferentiated lump is the ladder's default state under R9, so `TAXON_LUMP`
+means "no decision recorded", and the right output of looking at one is as
+likely a recorded lump as a new subtype. It runs inside `just qc` at exit 0;
+`--strict` exists for when the deterministic backlog (the `infectious_agent`
+and `transmission` backfills on #10115) is cleared.
+
+**Scope follows the ladder's own exclusions.** A carcinoma with an HPV agent
+block is a cancer whose pathogen is an annotation (R23); a Mendelian
+susceptibility disorder, a post-infectious sequela and a mycotoxicosis are
+likewise not microbial entries. They are counted in the summary and not
+assessed. The cross-entry classes (`DOUBLE_MODELLED`, `DUPLICATE_ANCHOR`) are
+the mechanical half of #10113 and #10116 as much as of this ladder; `--scope
+all` runs them KB-wide, where the umbrella-entry pattern (`Epilepsy` listing
+`Juvenile Myoclonic Epilepsy`, which has its own entry) makes them a backlog in
+the hundreds.
+
+## Shared `disease_term`: `just check-shared-disease-terms`
+
+Two disorder entries can carry the same `disease_term` and pass every other
+gate. Sometimes that is deliberate: design decisions §3a lets a promoted cancer
+stratum (EGFR-mutant NSCLC) anchor to its parent's MONDO term when MONDO has no
+class for the stratum. Sometimes it is two curators who curated the same disease
+under different filenames, which is how #9618 nearly merged three duplicates.
+This check tells the two apart by requiring the deliberate case to say so
+(#10113):
+
+- every entry sharing a `disease_term` has a `mappings.mondo_mappings` row for
+  that CURIE with `mapping_predicate` `skos:exactMatch` or `skos:narrowMatch`;
+- at most one entry in the group says `skos:exactMatch`.
+
+A group where every entry says `skos:narrowMatch` is legal. It means the parent
+disease has no entry of its own yet, as with the five lung adenocarcinoma
+strata. An entry with no row is reported and is never treated as the exact
+match. `skos:closeMatch` or a misspelled predicate is reported too, since
+`mapping_predicate` has no enum to catch it. `Cutaneous_Melanoma` and its
+`BRAF_V600_Mutant_Melanoma` and `NRAS_Mutant_Melanoma` strata are the worked
+example.
+
+```bash
+just check-shared-disease-terms            # gate (in `just qc`, ungated in CI)
+just list-shared-disease-terms             # every shared group, with each member's predicate
+just update-shared-disease-term-baseline   # only ever to shrink the baseline
+```
+
+Groups that predate the check are listed in
+`tests/shared_disease_term_baseline.txt`, one row per entry, so a new entry
+that joins a listed group still fails. Rows are keyed on the file path, so
+renaming or merging a listed entry makes its finding read as new: add the
+mapping in the renaming PR rather than re-adding the row. Repairing a listed group is curation, not
+a mechanical fix: some need a `skos:narrowMatch` row, some need a parent entry
+created, and some are two entries that should be one. The issue thread sorts
+the current groups into those cases.
+
+`just check-granularity` reports a weaker form of this as `DUPLICATE_ANCHOR`.
+That class is report-only and limited to infectious entries unless run with
+`--scope all`.
+
 ## Adding a new computed metric
 
 1. Implement a class with an `evaluate(self, data, config) -> list[AggregatedPathScore]`

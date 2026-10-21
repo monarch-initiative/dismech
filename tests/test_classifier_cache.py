@@ -3,7 +3,6 @@
 import json
 from copy import deepcopy
 
-import pytest
 import yaml
 from click.testing import CliRunner
 
@@ -11,13 +10,6 @@ from dismech.classifier.audit import assess, inventory
 from dismech.classifier.audit import main as audit_main
 from dismech.classifier.cache import BENCHMARK, ResultCache, main
 from tests.test_classifier_audit import FakeClassifier, disease
-
-
-@pytest.fixture(autouse=True)
-def isolate_cache_environment(monkeypatch):
-    import os
-
-    monkeypatch.setenv("DISMECH_KB_CACHE", os.environ.get("DISMECH_KB_CACHE", "1"))
 
 
 def setup(tmp_path):

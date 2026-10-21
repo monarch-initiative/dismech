@@ -12,16 +12,23 @@ chapter exists" note because its sandbox blocks every network tool.
 from __future__ import annotations
 
 import csv
+import json
+import sys
+import types
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
 from dismech.bookshelf import (
     DEFAULT_INDEX_DIR,
+    MATCH_KINDS,
     SOURCE_TAGS,
     BookshelfIndex,
     Chapter,
+    Match,
     entry_names,
+    kind_rank,
     normalize,
     source_from_cache_text,
 )
@@ -75,6 +82,9 @@ def index() -> BookshelfIndex:
             "NBK11111",
             "ATN1-Related Neurodevelopmental Disorder.",
         ),
+        _chapter(
+            "genereviews", "26925472", "NBK344340", "17q12 Recurrent Duplication."
+        ),
         _chapter("statpearls", "30855785", "NBK538197", "Dandy-Walker Malformation."),
         _chapter("statpearls", "30726024", "NBK537339", "Marfan Syndrome."),
     ]:
@@ -89,7 +99,9 @@ def _entry(
     label: str | None = None,
     references: list[dict] = (),
 ) -> dict:
-    doc: dict = {"name": name, "synonyms": list(synonyms)}
+    doc: dict = {"name": name}
+    if synonyms:
+        doc["synonyms"] = list(synonyms)
     doc["disease_term"] = {
         "preferred_term": label or name,
         "term": {"id": "MONDO:0000001", "label": label or name},
@@ -372,7 +384,7 @@ def test_retired_or_partial_matches_are_candidates_not_gaps(tmp_path, index):
     assert not report.gating
 
 
-def test_strict_exit_code_and_formats(tmp_path, index, monkeypatch, capsys):
+def _write_index(tmp_path: Path, index: BookshelfIndex) -> Path:
     index_dir = tmp_path / "index"
     index_dir.mkdir()
     for source in SOURCE_TAGS:
@@ -382,14 +394,13 @@ def test_strict_exit_code_and_formats(tmp_path, index, monkeypatch, capsys):
             writer.writerow(["pmid", "nbk", "retired", "pubdate", "title"])
             for c in rows:
                 writer.writerow([c.pmid, c.nbk, "1" if c.retired else "0", "", c.title])
+    return index_dir
+
+
+def test_strict_exit_code_and_formats(tmp_path, index, monkeypatch, capsys):
+    index_dir = _write_index(tmp_path, index)
     entry = tmp_path / "Marfan_Syndrome.yaml"
     entry.write_text("name: Marfan Syndrome\n")
-    # main() calls kb_cache.default_off(), which writes DISMECH_KB_CACHE=0 into
-    # os.environ via setdefault. Left alone, that outlives this test and disables
-    # the parsed-KB cache for every later test in the process (test_kb_cache.py
-    # failed five ways in CI). Pinning the variable through monkeypatch makes the
-    # setdefault a no-op and restores the environment on teardown.
-    monkeypatch.setenv("DISMECH_KB_CACHE", "1")
     args = [
         str(entry),
         "--index-dir",
@@ -405,6 +416,234 @@ def test_strict_exit_code_and_formats(tmp_path, index, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert out.splitlines()[0].startswith("path\tcollection\tverdict")
     assert cgb.main(args + ["--format", "json"]) == 0
+
+
+# -- live PubMed supplement (#14133) -------------------------------------------
+
+
+def test_match_kinds_share_one_ordering():
+    """``Match.rank`` and the report's row sort use one scale, ``""`` last."""
+    chapter = _chapter("genereviews", "1", "NBK1", "X.")
+    ranks = [Match(chapter, kind, "x").rank for kind in MATCH_KINDS]
+    assert ranks == [kind_rank(kind) for kind in MATCH_KINDS] == sorted(ranks)
+    assert MATCH_KINDS[0] == "EXACT" and MATCH_KINDS[-1] == "ONLINE"
+    assert kind_rank("") > max(ranks)
+
+
+class _FakeNcbiClient:
+    """Stands in for ``build_bookshelf_index.NcbiClient``: one chapter, no network."""
+
+    PMID = "99999999"  # deliberately absent from the fixture index
+    calls: ClassVar[list[tuple[str, dict]]] = []
+
+    def __init__(self, api_key=None):
+        pass
+
+    def call(self, endpoint: str, **params: str) -> dict:
+        self.calls.append((endpoint, params))
+        if endpoint == "esearch.fcgi":
+            hit = params["term"] == "DNASE2 Deficiency[TI] AND genereviews[book]"
+            return {"esearchresult": {"idlist": [self.PMID] if hit else []}}
+        assert endpoint == "esummary.fcgi" and params["id"] == self.PMID
+        return {
+            "result": {
+                self.PMID: {
+                    "title": "DNASE2 Deficiency.",
+                    "articleids": [{"idtype": "bookaccession", "value": "NBK999999"}],
+                }
+            }
+        }
+
+
+def test_online_hit_missing_from_index_returns_a_verdict(
+    tmp_path, index, monkeypatch, capsys
+):
+    """``--online`` used to crash with ``ValueError`` on any live hit (#14133)."""
+    fake = types.ModuleType("build_bookshelf_index")
+    fake.NcbiClient = _FakeNcbiClient
+    monkeypatch.setitem(sys.modules, "build_bookshelf_index", fake)
+    monkeypatch.setattr(_FakeNcbiClient, "calls", [])
+    assert _FakeNcbiClient.PMID not in index.by_pmid
+
+    index_dir = _write_index(tmp_path, index)
+    entry = tmp_path / "DNASE2_Deficiency.yaml"
+    entry.write_text("name: DNASE2 Deficiency\nsynonyms:\n- DNase II deficiency\n")
+    args = [
+        str(entry),
+        "--index-dir",
+        str(index_dir),
+        "--cache-dir",
+        str(tmp_path / "cache"),
+        "--online",
+    ]
+
+    assert cgb.main(args + ["--format", "json"]) == 0
+    (report,) = json.loads(capsys.readouterr().out)
+    gr = report["sources"]["genereviews"]
+    assert gr["verdict"] == "CANDIDATE_CHAPTER"
+    (row,) = gr["chapters"]
+    assert (row["pmid"], row["nbk"], row["kind"]) == (
+        _FakeNcbiClient.PMID,
+        "NBK999999",
+        "ONLINE",
+    )
+    assert report["sources"]["statpearls"]["verdict"] == "NO_CHAPTER"
+    assert any(endpoint == "esummary.fcgi" for endpoint, _ in _FakeNcbiClient.calls)
+
+    # A live hit is a candidate for a person to read, never a gate.
+    assert cgb.main(args + ["--strict"]) == 0
+    out = capsys.readouterr().out
+    assert f"PMID:{_FakeNcbiClient.PMID} NBK999999" in out and "ONLINE via" in out
+
+
+def test_online_hit_ranks_after_index_title_matches(tmp_path, index):
+    class _Online:
+        def search(self, names):
+            chapter = _chapter("genereviews", "99999998", "", "Usher Syndrome.")
+            return [Match(chapter, "ONLINE", "Usher Syndrome")]
+
+    path = tmp_path / "Usher_Syndrome.yaml"
+    path.write_text("name: Usher Syndrome\n")
+    report = cgb.assess_entry(
+        path,
+        _entry("Usher Syndrome"),
+        path.read_text(),
+        index,
+        cache_dir=tmp_path / "cache",
+        online=_Online(),
+        rel_to=tmp_path,
+    )
+    gr = report.sources["genereviews"]
+    assert [(r.pmid, r.kind) for r in gr.chapters] == [
+        ("20301442", "CONTAINS"),
+        ("99999998", "ONLINE"),
+    ]
+    assert gr.verdict == "CANDIDATE_CHAPTER"
+
+
+# -- entries with no synonyms (#12075) ----------------------------------------
+
+
+def test_synonymless_no_chapter_is_unproven_and_says_what_was_searched(tmp_path, index):
+    # The chapter is titled by a synonym the draft does not carry yet.
+    report = _assess(tmp_path, index, _entry("Chromosome 17q12 Duplication Syndrome"))
+    assert report.synonymless
+    assert report.sources["genereviews"].verdict == "NO_CHAPTER"
+    assert report.unproven("genereviews")
+    assert report.gating and report.has_unproven and not report.noteworthy
+    text = "\n".join(cgb.format_text(report, show_all=False))
+    assert "note: entry has no synonyms" in text
+    assert "'Chromosome 17q12 Duplication Syndrome'" in text
+
+    # With the synonym the same chapter is an exact match.
+    report = _assess(
+        tmp_path,
+        index,
+        _entry(
+            "Chromosome 17q12 Duplication Syndrome", ["17q12 recurrent duplication"]
+        ),
+    )
+    assert not report.synonymless
+    gr = report.sources["genereviews"]
+    assert gr.verdict == "UNTAGGED_CHAPTER" and gr.chapters[0].pmid == "26925472"
+    assert not report.unproven("genereviews")
+
+
+def test_no_chapter_with_synonyms_stays_clean(tmp_path, index):
+    report = _assess(
+        tmp_path, index, _entry("Dandy-Walker Syndrome", ["Dandy-Walker malformation"])
+    )
+    assert report.sources["genereviews"].verdict == "NO_CHAPTER"
+    assert not report.unproven("genereviews")
+    assert not report.gating
+    text = "\n".join(cgb.format_text(report, show_all=True))
+    assert "note:" not in text
+
+
+@pytest.mark.parametrize("synonyms", [None, [""], ["   "]])
+def test_absent_or_blank_synonyms_count_as_none(tmp_path, index, synonyms):
+    doc = _entry("Chromosome 17q12 Duplication Syndrome")
+    if synonyms is not None:
+        doc["synonyms"] = synonyms
+    report = _assess(tmp_path, index, doc)
+    assert report.synonymless and report.unproven("genereviews")
+    assert not report.no_synonyms_recorded
+
+
+def test_explicit_empty_synonyms_records_that_none_exist(tmp_path, index):
+    doc = _entry("Chromosome 17q12 Duplication Syndrome")
+    doc["synonyms"] = []
+    report = _assess(tmp_path, index, doc)
+    assert report.synonymless and report.no_synonyms_recorded
+    assert report.sources["genereviews"].verdict == "NO_CHAPTER"
+    assert not report.unproven("genereviews")
+    assert not report.gating
+
+
+def test_synonymless_candidate_is_noted_but_does_not_gate(tmp_path, index):
+    report = _assess(tmp_path, index, _entry("Alpha Thalassemia"))
+    assert report.sources["genereviews"].verdict == "CANDIDATE_CHAPTER"
+    assert report.unproven("genereviews")
+    assert not report.gating
+    assert "note: entry has no synonyms" in "\n".join(
+        cgb.format_text(report, show_all=False)
+    )
+
+
+def test_statpearls_unproven_never_gates(tmp_path, index):
+    # Nothing in either collection names this entry, and it has no synonyms.
+    report = _assess(tmp_path, index, _entry("Imaginary Syndrome"))
+    assert report.unproven("statpearls") and report.unproven("genereviews")
+    report.sources["genereviews"].verdict = "TAGGED"  # isolate the StatPearls side
+    assert not report.gating
+
+
+def test_strict_fails_on_synonymless_no_chapter(tmp_path, index, monkeypatch, capsys):
+    index_dir = tmp_path / "index"
+    index_dir.mkdir()
+    for source in SOURCE_TAGS:
+        rows = [r.chapter for r in index.rows if r.chapter.source == source]
+        with (index_dir / f"{source}.csv").open("w", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(["pmid", "nbk", "retired", "pubdate", "title"])
+            for c in rows:
+                writer.writerow([c.pmid, c.nbk, "1" if c.retired else "0", "", c.title])
+    entry = tmp_path / "Draft.yaml"
+    entry.write_text("name: Chromosome 17q12 Duplication Syndrome\n")
+    args = [
+        str(entry),
+        "--index-dir",
+        str(index_dir),
+        "--cache-dir",
+        str(tmp_path / "cache"),
+    ]
+    assert cgb.main(args) == 0
+    out = capsys.readouterr().out
+    assert "note: entry has no synonyms" in out
+    assert "1 NO_CHAPTER/CANDIDATE_CHAPTER verdicts above are from" in out
+    assert "is not a\nverified negative" in out
+    assert cgb.main(args + ["--strict"]) == 1
+    capsys.readouterr()
+    assert cgb.main(args + ["--format", "json"]) == 0
+    assert '"synonymless": true' in capsys.readouterr().out
+
+    # A whole-KB --strict run names the entries it fails on.
+    monkeypatch.setattr(cgb, "iter_targets", lambda paths: [entry])
+    assert cgb.main(args[1:] + ["--strict"]) == 1
+    out = capsys.readouterr().out
+    assert "note: entry has no synonyms" in out and "`--all` lists" not in out
+    assert cgb.main(args[1:]) == 0
+    assert "`--all` lists those entries" in capsys.readouterr().out
+
+    entry.write_text("name: Chromosome 17q12 Duplication Syndrome\nsynonyms: []\n")
+    assert cgb.main(args + ["--strict", "--source", "genereviews"]) == 0
+    assert "no synonyms;" not in capsys.readouterr().out
+
+    entry.write_text(
+        "name: Dandy-Walker Syndrome\nsynonyms:\n- Dandy-Walker malformation\n"
+    )
+    assert cgb.main(args + ["--strict", "--source", "genereviews"]) == 0
+    assert "no synonyms" not in capsys.readouterr().out
 
 
 # -- the committed index ----------------------------------------------------

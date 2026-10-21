@@ -153,3 +153,105 @@ def test_tsv_json_and_needs_review_via_main(tmp_path: Path, capsys) -> None:
 
 def test_missing_research_dir_is_an_error(tmp_path: Path) -> None:
     assert census.main(["--research-dir", str(tmp_path / "nope")]) == 2
+
+
+# -- needs_review absent although a trigger fired (dismech #11794) -------------
+
+
+def _block(body: str) -> str:
+    return "reference_validation:\n" + "".join(f"  {line}\n" for line in body.strip().splitlines())
+
+
+def test_review_triggers_are_read_from_the_block_itself(tmp_path: Path) -> None:
+    cases = {
+        # quotes 0/4 with every identifier resolved: confabulation_rate 0.0 and no key.
+        "Quotes-deep-research-claude_code.md": (
+            "total_references: 48\nverified: 48\nnot_found: 0\nquotes_checked: 4\nquotes_valid: 0\n",
+            ("quote_mismatch",),
+        ),
+        "Unresolved-deep-research-perplexity.md": (
+            "total_references: 13\nnot_found: 1\nunresolved_references:\n- PMID:31629386\n",
+            ("unresolved",),
+        ),
+        "OffTopic-deep-research-falcon.md": (
+            "total_references: 5\noff_topic: 1\noff_topic_references:\n- PMID:1\n",
+            ("off_topic",),
+        ),
+        # Upstream omits keys with nothing to report: no quotes_valid means none were checked.
+        "Clean-deep-research-falcon.md": ("total_references: 5\nverified: 5\nnot_found: 0\n", ()),
+        # The undecided relevance band is not a trigger.
+        "Undecided-deep-research-falcon.md": ("relevance_assessed: 10\non_topic: 6\n", ()),
+    }
+    for name, (block, _) in cases.items():
+        _write(tmp_path / name, _block(block), "# report\n")
+    _write(
+        tmp_path / "Flagged-deep-research-falcon.md",
+        _block("not_found: 2\nquotes_checked: 3\nquotes_valid: 2\nneeds_review: true\n"),
+        "# report\n",
+    )
+
+    rows = {row.path: row for row in census.collect(tmp_path)}
+    for name, (_, expected) in cases.items():
+        assert rows[name].review_triggers == expected, name
+        assert rows[name].needs_review_missing is bool(expected), name
+    flagged = rows["Flagged-deep-research-falcon.md"]
+    assert flagged.review_triggers == ("unresolved", "quote_mismatch")
+    assert flagged.needs_review and not flagged.needs_review_missing
+
+    overall, _ = census.summarize(list(rows.values()))
+    assert (overall.needs_review, overall.needs_review_missing) == (1, 3)
+
+
+def test_missing_key_is_reported_by_every_output(tmp_path: Path, capsys) -> None:
+    _write(
+        tmp_path / "Quotes-deep-research-claude_code.md",
+        _block("total_references: 4\nverified: 4\nquotes_checked: 4\nquotes_valid: 0\n"),
+        "# report\n",
+    )
+    assert census.main(["--research-dir", str(tmp_path), "--needs-review"]) == 0
+    text = capsys.readouterr().out
+    assert "1 report(s) meet a needs_review trigger but omit the key" in text
+    assert "[quote_mismatch]  Quotes-deep-research-claude_code.md" in text
+    assert "quotes_valid=0/4" in text
+
+    assert census.main(["--research-dir", str(tmp_path)]) == 0
+    assert "trigger met, key absent: 1" in capsys.readouterr().out
+
+    assert census.main(["--research-dir", str(tmp_path), "--format", "tsv"]) == 0
+    header, row = capsys.readouterr().out.splitlines()
+    fields = dict(zip(header.split("\t"), row.split("\t")))
+    assert fields["needs_review"] == "False"
+    assert fields["needs_review_missing"] == "True"
+    assert fields["review_triggers"] == "quote_mismatch"
+
+
+#: Committed reports whose block meets a needs_review trigger but omits the key,
+#: as found in #11794. Upstream decides whether to write the key, so these are
+#: not hand-edited. Remove a line when its report is regenerated with the key.
+KNOWN_MISSING_NEEDS_REVIEW = frozenset(
+    {
+        "Appendiceal_Neoplasm-deep-research-perplexity.md",
+        "Aromatase_Excess_Syndrome-deep-research-claude_code.md",
+        "Bailey-Bloch_Congenital_Myopathy-deep-research-claude_code.md",
+        "Bone_Giant_Cell_Tumor-deep-research-claude_code.md",
+        "Brody_Myopathy-deep-research-claude_code.md",
+        "CHILD_Syndrome-deep-research-claude_code.md",
+        "Dihydropyrimidine_Dehydrogenase_Deficiency-deep-research-claude_code.md",
+        "Neurodevelopmental_Disorder_with_Hearing_Loss_and_Spasticity-deep-research-falcon.md",
+        "Pulmonary_Alveolar_Microlithiasis-deep-research-claude_code.md",
+    }
+)
+
+
+def test_committed_reports_that_omit_needs_review_are_known() -> None:
+    research_dir = Path(__file__).resolve().parents[1] / "research"
+    missing = {row.path for row in census.collect(research_dir) if row.needs_review_missing}
+    new = sorted(missing - KNOWN_MISSING_NEEDS_REVIEW)
+    assert not new, (
+        "These reports meet a needs_review trigger (unresolved references, mismatched "
+        "quotes or an off-topic reference) but their reference_validation block does not "
+        "say needs_review: true, so a reader would take them as clean. Regenerate them, or "
+        f"add them to KNOWN_MISSING_NEEDS_REVIEW if upstream still omits the key: {new}"
+    )
+    gone = sorted(KNOWN_MISSING_NEEDS_REVIEW - missing)
+    assert not gone, f"Now carry needs_review or were removed; drop them from the list: {gone}"

@@ -93,7 +93,7 @@ pairs as unassessed. No KB files are changed.
 
 ## Queue reviews for the curation agent
 
-The `Jev Recuration Issues` workflow reads the latest overall queue on
+The `Evidence–Claim Mismatch Issues` workflow reads the latest overall queue on
 dismech-evals `main` and opens up to five issues each Tuesday. Manual dispatch
 can preview or create up to 25 issues. Its schedule follows the repository's
 cron profiles, including the `off` switch.
@@ -103,20 +103,39 @@ just plan-eval-issues 5       # Preview; no GitHub writes or model calls
 just enqueue-eval-issues 5    # Create the issues
 ```
 
-Issues carry `curation` and `jev-recuration`, so the existing ai4c-agent
-curation scanner can pick them up. Their titles use the disease filename,
-for example `Jev evidence review: Asthma.yaml`. A small HTML comment in the
-body preserves that identity if the title is edited. Every run lists both
-open and closed labelled issues through GitHub's paginated issues API;
-previously queued diseases are skipped. Reopen the existing issue when a
-second review is wanted. Keep its `jev-recuration` label.
+Issues carry `curation` and `evidence-claim-mismatch`. The ai4c-agent curation
+scanner has a dedicated `evidence_review` job for these issues and their PRs;
+all general effort jobs exclude the task label. On each scanner run, the evidence
+job reviews one eligible issue or PR using the evidence-claim-mismatch skill.
+Corrections produce a validated PR with both labels and `Closes #<issue>`.
+Existing open PRs prevent duplicate issue work, and assigned items are skipped.
+See [scanner routing](agent-config.md#the-curation-scanner-matrix).
+
+Issue titles use the disease filename,
+for example `Review evidence–claim mismatches: Asthma.yaml`. A small HTML comment
+in the body preserves that identity if the title is edited. Every run lists both
+open and closed issues with the task label or the legacy `jev-recuration` label
+through GitHub's paginated issues API; previously queued diseases are skipped.
+The hidden `jev-recuration:<file>` marker remains stable across label changes.
+Reopen the existing issue when a second review is wanted. Keep its task label.
+On an apply run, the intake adds the task label to legacy issues and removes
+their `jev-recuration` label, preserving other labels and issue state. Preview
+runs do not change labels. During rollout, existing issues keep both labels
+until the updated intake runs, so the version still on `main` can also find them.
 
 The intake accepts delayed or incomplete evaluation results. It skips files
 that are no longer in the current KB and asks the agent to compare the saved
 findings with current content before editing. It does not require matching
 revisions. Issues link to the current YAML, dashboard and full assessment
-history, with a few example findings. Jev's flags request review; they do not
-instruct the agent to make a change where the content is already correct.
+history. Up to five examples inline the evaluated claim (including disease and
+inherited context), selected snippet, reference, and flagged aspect labels as
+YAML. These are saved evaluation inputs, not a reconstruction from the current
+KB. Whole examples are omitted if needed to fit the issue-body limit; quotations
+and claims are never cut short. Rendering makes no model calls.
+
+The [evidence-claim-mismatch skill](../.claude/skills/evidence-claim-mismatch/SKILL.md)
+contains the reusable review instructions. Jev's flags request review; they do
+not instruct the agent to change content that is already correct.
 
 Only the latest published overall top-25 queue is considered. If fewer than
 N entries remain after duplicate and missing-file checks, fewer issues are

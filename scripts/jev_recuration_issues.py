@@ -8,11 +8,15 @@ from urllib.parse import quote
 
 import click
 import httpx
+import yaml
 
 REPO = "monarch-initiative/dismech"
 EVALS = "monarch-initiative/dismech-evals"
-LABEL = "jev-recuration"
-TITLE_PREFIX = "Jev evidence review: "
+LABEL = "evidence-claim-mismatch"
+LEGACY_LABEL = "jev-recuration"
+TITLE_PREFIX = "Review evidence–claim mismatches: "
+LEGACY_TITLE_PREFIX = "Jev evidence review: "
+MAX_BODY_LENGTH = 60000
 QUEUE_URL = (
     f"https://raw.githubusercontent.com/{EVALS}/main/"
     "reports/latest/recuration/top.jsonl"
@@ -37,16 +41,24 @@ def gh(*args, payload=None):
 
 def existing_issues():
     """List all labelled issues, including closed ones, without search-index lag."""
-    pages = gh(
-        f"repos/{REPO}/issues?state=all&labels={LABEL}&per_page=100",
-        "--paginate",
-        "--slurp",
-    )
-    return [issue for page in pages for issue in page if "pull_request" not in issue]
+    issues = {}
+    for label in (LABEL, LEGACY_LABEL):
+        pages = gh(
+            f"repos/{REPO}/issues?state=all&labels={label}&per_page=100",
+            "--paginate",
+            "--slurp",
+        )
+        for page in pages:
+            for issue in page:
+                if "pull_request" not in issue:
+                    issues[issue["number"]] = issue
+    return list(issues.values())
 
 
 def marker(file):
-    return f"<!-- {LABEL}:{file} -->"
+    # This hidden identity is permanent; changing the display label must not
+    # make a previously reviewed disease eligible for duplicate intake.
+    return f"<!-- {LEGACY_LABEL}:{file} -->"
 
 
 def title(file):
@@ -55,7 +67,8 @@ def title(file):
 
 def already_queued(file, issues):
     return any(
-        issue["title"] == title(file) or marker(file) in (issue.get("body") or "")
+        issue["title"] in {title(file), LEGACY_TITLE_PREFIX + Path(file).name}
+        or marker(file) in (issue.get("body") or "")
         for issue in issues
     )
 
@@ -79,6 +92,28 @@ def read_queue():
     return rows
 
 
+def finding_yaml(finding):
+    """Render the evaluated values, never attach old verdicts to today's YAML."""
+    data = {
+        "evidence_path": finding.get("evidence_path"),
+        "reference": finding.get("reference"),
+        "claim": finding.get("claim"),
+        "flagged_aspects": {
+            path: answer["label"]
+            for path, answer in finding.get("answers", {}).items()
+            if answer.get("label") in {"MISMATCH", "PARTIAL"}
+        },
+    }
+    if data["claim"] is None:
+        data["claim"] = "Not included in this queue; see the saved assessments."
+    content = yaml.safe_dump(data, sort_keys=False, allow_unicode=True, width=88)
+    # A snippet can itself contain Markdown. Keep it inside the code block.
+    fence = "`" * max(
+        3, 1 + max((len(m) for m in re.findall(r"`+", content)), default=0)
+    )
+    return f"{fence}yaml\n{content}{fence}\n"
+
+
 def issue_body(row):
     file = row["file"]
     slug = Path(file).stem
@@ -95,72 +130,46 @@ def issue_body(row):
     lines = [
         marker(file),
         (
-            "Review the claim–snippet relationships flagged by Jev in "
-            f"[{Path(file).name}]({source}). Improve the evidence or assertion where "
-            "the finding holds up against the current entry."
+            f"Find and fix evidence–claim mismatches in [{Path(file).name}]({source}). "
+            "Expand the literature search to include more papers if necessary."
         ),
         "",
         (
             f"The available evaluation reports {metrics.get('mismatch_assertions', 0)} "
             "distinct assertions with MISMATCH and "
             f"{metrics.get('partial_assertions', 0)} with PARTIAL. Counts can overlap. "
-            "These are model review signals; PARTIAL is not a confirmed error."
+            "These are Jev review signals, not confirmed errors."
         ),
         "",
         (
-            f"[Dashboard]({dashboard}) · [Assessment history]({history}) · "
-            f"[Latest queue](https://github.com/{EVALS}/blob/main/"
-            "reports/latest/recuration/top.jsonl)"
+            f"[Dashboard]({dashboard}) · [All saved assessments]({history}) · "
+            f"[Curation skill](https://github.com/{REPO}/blob/main/"
+            ".claude/skills/evidence-claim-mismatch/SKILL.md)"
         ),
         "",
-        "### Review instructions",
+        "### Examples to check",
         "",
         (
-            "- Check the current disease YAML first. The evaluation may lag behind "
-            "recent edits; skip findings that have already been resolved or no longer apply."
+            "The YAML below contains the evaluated claims and selected snippets. "
+            "It is a saved snapshot; check the current entry before editing. "
+            "`flagged_aspects` identifies the fields to review, with `/` meaning the whole claim."
         ),
-        (
-            "- Evaluate whether the selected snippet supports the whole assertion "
-            "and the flagged aspects, including disease/subtype context, support/refutation "
-            "and directness. Consult the cited reference and other evidence on the assertion."
-        ),
-        (
-            "- Extend or replace snippets, or revise assertions, only where justified. "
-            "Do not change correct content merely to agree with Jev. Record a short "
-            "explanation when a flagged claim should stay as it is."
-        ),
-        (
-            "- Follow CLAUDE.md, validate changes, and link the resulting PR to this issue. "
-            "If no change is needed, explain why and close the issue. This is review of "
-            "an existing entry, not a request to create a new disease."
-        ),
-        "",
-        "### Example findings",
         "",
     ]
-    # A short handoff; the complete saved judgments remain in dismech-evals.
+    shown = 0
     for finding in row["findings"][:5]:
-        flagged = [
-            f"`{path}`: **{answer['label']}**"
-            for path, answer in finding.get("answers", {}).items()
-            if answer.get("label") in {"MISMATCH", "PARTIAL"}
-        ]
-        lines += [
-            f"- Evidence at `{finding.get('evidence_path')}` "
-            f"({finding.get('reference') or 'reference not recorded'}): "
-            + "; ".join(flagged[:8]),
-        ]
+        block = finding_yaml(finding)
+        # Omit whole examples rather than cutting off a claim or quotation.
+        # Leave room for the footer under GitHub's issue-body size limit.
+        if len("\n".join(lines)) + len(block) > MAX_BODY_LENGTH - 1000:
+            continue
+        lines += [block]
+        shown += 1
     lines += [
         "",
         (
-            "These examples are a subset of the available findings. Follow the "
-            "assessment-history link for the saved claims, snippets and remaining aspects."
-        ),
-        "",
-        (
-            "Automatically queued by the deterministic Jev recuration intake. "
-            "An existing open or closed issue suppresses repeat intake for this disease; "
-            "reopen this issue if another review is wanted."
+            f"Examples shown: {shown}. The saved assessments contain the full review list. "
+            "Generated deterministically from the evaluation queue."
         ),
     ]
     return "\n".join(lines) + "\n"
@@ -174,15 +183,31 @@ def ensure_label():
             payload={
                 "name": LABEL,
                 "color": "1D7666",
-                "description": "Review existing disease evidence flagged by Jev",
+                "description": "Find and fix mismatches between disease claims and their evidence",
             },
         )
+
+
+def migrate_issue_labels(issues):
+    """Retire the legacy label once this version of the intake is deployed."""
+    for issue in issues:
+        labels = {label["name"] for label in issue.get("labels", [])}
+        if LEGACY_LABEL not in labels:
+            continue
+        endpoint = f"repos/{REPO}/issues/{issue['number']}/labels"
+        # Separate label operations preserve concurrent assignments of other
+        # labels. Add the new identity before dropping the old one.
+        if LABEL not in labels:
+            gh(endpoint, payload={"labels": [LABEL]})
+        gh(f"{endpoint}/{LEGACY_LABEL}", "--method", "DELETE")
 
 
 @click.command()
 @click.option("--limit", type=click.IntRange(1, 25), default=5, show_default=True)
 @click.option(
-    "--apply", is_flag=True, help="Create issues; default is a read-only preview."
+    "--apply",
+    is_flag=True,
+    help="Create issues and migrate legacy labels; default is a read-only preview.",
 )
 def main(limit, apply):
     """Queue up to LIMIT previously unqueued diseases from the latest Jev results."""
@@ -202,8 +227,9 @@ def main(limit, apply):
             selected.append((title(file), issue_body(row)))
             if len(selected) == limit:
                 break
-        if apply and selected:
+        if apply and (selected or issues):
             ensure_label()
+            migrate_issue_labels(issues)
         for issue_title, body in selected:
             if apply:
                 # Do not retry a failed POST: its outcome may be uncertain.

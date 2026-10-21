@@ -125,6 +125,12 @@ class ReferenceCacheFrontmatter(BaseModel):
     xml_extraction_version: int | None = None
     html_full_text_version: int | None = None
     absent_content_version: int | None = None
+    # Added by upstream #98 (released in 0.3.0), which re-extracts `url:` entries
+    # written before URLSource sanitized its HTML and recovered PDF titles. Found
+    # by test_the_contract_accepts_every_key_the_validator_emits rather than by a
+    # failing cache file, which is the fourth time this contract has had to grow
+    # and the first time a test caught it first.
+    url_source_version: int | None = None
     full_text_declined: str | None = None
     full_text_access_type: str | None = None
     full_text_source_item_id: str | None = None
@@ -135,6 +141,14 @@ class ReferenceCacheFrontmatter(BaseModel):
     # read time; an upstream FR is tracked to mirror it on
     # ``ReferenceContent``.
     database: str | None = None
+    # Local extension (dismech): provenance of a structured-source cache file,
+    # written by src/dismech/structured_sources/ -- the export's own date
+    # (ClinGen's ``FILE CREATED:`` header) and the sha256 of the file parsed.
+    # Before #13575 the only stamp was the manifest's pin date, which could be
+    # newer or older than the data actually read, so it could not answer which
+    # release a quoted row came from (#12464). Absent on files built earlier.
+    source_snapshot: str | None = None
+    source_sha256: str | None = None
 
 
 @dataclass(frozen=True)
