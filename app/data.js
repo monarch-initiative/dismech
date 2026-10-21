@@ -10839,7 +10839,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 0,
     "num_treatments": 6,
-    "causal_graph_edges": "36",
+    "causal_graph_edges": "37",
     "causal_graph_longest_path": "7"
   },
   {
@@ -83383,23 +83383,29 @@ window.searchData = [
       "HP:0002277"
     ],
     "frequencies": [],
-    "genes": [],
+    "genes": [
+      "COL3A1",
+      "FBN1",
+      "PHACTR1"
+    ],
     "treatments": [
       "Antithrombotic Therapy",
       "Aspirin Therapy",
       "Intravenous Thrombolysis for Acute Ischemic Stroke",
       "Mechanical Thrombectomy"
     ],
-    "environmental": [],
+    "environmental": [
+      "Cervical Trauma and Mechanical Neck Strain"
+    ],
     "biochemical": [],
     "source_file": "Cervical_Artery_Dissection.yaml",
     "page_url": "../pages/disorders/Cervical_Artery_Dissection.html",
     "num_phenotypes": 5,
     "num_pathophysiology": 4,
-    "num_genes": 0,
+    "num_genes": 3,
     "num_treatments": 4,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Cervical Cancer",
@@ -106333,8 +106339,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 3,
     "num_treatments": 6,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Congenital Renal Artery Stenosis",
@@ -140322,6 +140328,101 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Escherichia coli meningitis",
+    "disease_id": "MONDO:0006753",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial meningitis"
+    ],
+    "creation_date": "2026-09-30T03:26:55Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Escherichia coli meningitis is neonatal-predominant Gram-negative bacterial meningitis caused chiefly by invasive, often K1-encapsulated E. coli lineages that enter neonatal blood from maternal or nosocomial sources, use serum resistance to sustain bacteremia, invade brain microvascular endothelium through OmpA-, CNF1-, and IbeA-linked receptor pathways, seed cerebrospinal fluid, and provoke neutrophilic meningeal inflammation with endothelial death, blood-brain-barrier disruption, and neonatal brain injury.",
+    "pathophysiology": [
+      "Maternal or Nosocomial NMEC Acquisition",
+      "K1 and O18 Serum Resistance",
+      "High-Grade Neonatal E. coli Bacteremia",
+      "OmpA- and CNF1-Driven HBMEC Invasion Signaling",
+      "IbeA-Vimentin HBMEC Invasion Signaling",
+      "Low-Iron CsiR/IlvB HBMEC Invasion Signaling",
+      "E. coli Transcytosis Into CSF",
+      "E. coli CSF Replication",
+      "IbeA-Driven PMN Transmigration",
+      "RIPK1-Linked BMEC Death",
+      "Neonatal Neuroinflammation and Brain Injury"
+    ],
+    "cell_types": [
+      "brain microvascular endothelial cell",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:2000044",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "Rho protein signal transduction",
+      "actin cytoskeleton organization",
+      "transcytosis",
+      "leukocyte migration",
+      "canonical NF-kappaB signal transduction",
+      "apoptotic process",
+      "necroptotic process",
+      "pyroptotic inflammatory response",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Seizure",
+      "Bulging fontanelle",
+      "Coma",
+      "Nuchal rigidity",
+      "Sensorineural hearing impairment",
+      "Global developmental delay",
+      "Brain abscess",
+      "Ventriculitis",
+      "Ischemo-haemorrhagic cerebral lesions"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0001250",
+      "HP:6000647",
+      "HP:0001259",
+      "HP:0031179",
+      "HP:0000407",
+      "HP:0001263",
+      "HP:0030049"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Early Cefotaxime-Based Antimicrobial Therapy",
+      "Meropenem for Third-Generation Cephalosporin Resistance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Escherichia_Coli_Meningitis.yaml",
+    "page_url": "../pages/disorders/Escherichia_coli_meningitis.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 11,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Esophageal Adenocarcinoma",
     "disease_id": "MONDO:0005028",
     "category": "",
@@ -152945,19 +153046,18 @@ window.searchData = [
     ],
     "phenotypes": [
       "Activity-related knee pain",
-      "Joint swelling",
       "Mechanical symptoms and restricted motion",
       "Secondary osteoarthritis"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Musculoskeletal"
+    ],
     "phenotype_hpo_categories": [
       "Constitutional",
-      "Metabolism",
       "Musculoskeletal"
     ],
     "phenotype_ids": [
       "HP:0030839",
-      "HP:0001386",
       "HP:0001376",
       "HP:0002758"
     ],
@@ -152973,12 +153073,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Focal_Articular_Cartilage_Defect_of_the_Knee.yaml",
     "page_url": "../pages/disorders/Focal_Articular_Cartilage_Defect_of_the_Knee.html",
-    "num_phenotypes": 4,
+    "num_phenotypes": 3,
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Focal Cortical Dysplasia Type II",
@@ -221808,8 +221908,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Lane Hamilton Syndrome",
@@ -330031,7 +330131,7 @@ window.searchData = [
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0001250",
+      "HP:0007359",
       "HP:0033721",
       "HP:0011098",
       "HP:0007301",
@@ -330056,7 +330156,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "5"
   },
   {
@@ -388250,7 +388350,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 8,
     "num_treatments": 4,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "6",
     "causal_graph_longest_path": "3"
   },
   {
@@ -388453,17 +388553,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3599,
+  "total_disorder_pages": 3600,
   "total_subtypes": 4822,
-  "total_disorders_and_subtypes": 8421,
-  "total_unique_evidence_sources": 53747,
-  "total_unique_publications": 50168,
+  "total_disorders_and_subtypes": 8422,
+  "total_unique_evidence_sources": 53768,
+  "total_unique_publications": 50188,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3596,
-  "total_unique_pathological_events": 23772,
+  "total_pathographs": 3597,
+  "total_unique_pathological_events": 23783,
   "total_modules": 196,
-  "total_research_reports": 3726,
+  "total_research_reports": 3727,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 119

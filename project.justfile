@@ -1088,6 +1088,41 @@ qc-deep-research-strict:
 environmental-term-audit *args="":
     uv run python scripts/environmental_exposure_term_audit.py {{args}}
 
+# For one drug or environmental factor: which diseases carry it, in which role
+# (therapy, exposure, mechanism node, analyte, ...), and which pathograph nodes
+# it acts on, with direction and link type. Also reports whether it acts as both
+# a drug and an exposure, asked across the KB and within a single entry -- the
+# two bind different CURIEs, so "both" is usually true of the term and false of
+# any one entry. Report-only, exits 0.
+# See docs/searching_drugs_and_exposures_in_dismech.md.
+#   just drug-exposure-query --term levodopa
+#   just drug-exposure-query --term levodopa --curie CHEBI:15765 --curie NCIT:C611
+#   just drug-exposure-query --term levodopa --format tsv --out /tmp/levodopa.tsv
+[group('QC')]
+drug-exposure-query *args="":
+    uv run python scripts/drug_exposure_query.py {{args}}
+
+# Inventory of every nested ontology binding in the KB by schema path, role and
+# prefix: which terms are multi-role, and a reverse lookup from CURIE to the
+# entries binding it. Cover all the vocabularies, since a chemical absent from
+# one is not absent from the KB. Does not read the exposure_classifications enum
+# axes, which carry no CURIE. Report-only, exits 0.
+#   just chemical-binding-inventory --prefix CHEBI --prefix NCIT --prefix ECTO
+#   just chemical-binding-inventory --prefix ECTO --curie ECTO:0000530
+[group('QC')]
+chemical-binding-inventory *args="":
+    uv run python scripts/chemical_binding_inventory.py {{args}}
+
+# For a named entity, the schema path of every string match, whether the holding
+# object carries a bound term, and whether the mention is identity, prose or
+# citation metadata. Run it when grep finds a name that drug-exposure-query does
+# not, to tell a real binding from prose in a description or a citation title.
+# Report-only, exits 0.
+#   just entity-path-locator --term levodopa --term trifluralin
+[group('QC')]
+entity-path-locator *args="":
+    uv run python scripts/entity_path_locator.py {{args}}
+
 # Census of KNOWLEDGE_GAP discussion completeness: unanchored gaps, missing
 # status, proposed experiments with no way to tell a supporting result from a
 # refuting one, and bare-name experiment targets that no other check sees.
