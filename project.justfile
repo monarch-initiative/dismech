@@ -1649,6 +1649,31 @@ list-hypothesis-links:
 aop-chain-census *args:
     uv run python scripts/aop_chain_census.py "$@"
 
+# Taxonomic census of animal models: which entries are modelled only in
+# mammals. `species` on AnimalModel is free text, so this normalises it into
+# clades rather than grepping. Generates the `existing_models` and
+# `mechanism_nodes` blocks of an alternative-model research prompt, so run this
+# rather than trusting a report's figures, which move with every curation PR.
+# Report-only, exits 0.
+# Example: just model-taxon-census --entry Testicular_Dysgenesis_Syndrome
+[group('QC')]
+model-taxon-census *args:
+    uv run python scripts/model_taxon_census.py "$@"
+
+# Check that a deep-research report's block quotes are verbatim in the abstracts
+# they cite: it catches a paraphrase presented as a quote, or a quote attributed
+# to the wrong PMID. Reads abstracts only, so a quote taken from a full text
+# shows as NOT_IN_ABSTRACT rather than as a failure, and the default run reports
+# without exiting non-zero. `--strict` makes it a gate, failing on a quote with
+# no PMID or an unresolvable one. `just validate-research-reference` asks the
+# same question with full text behind it; this one is fast and needs no cache.
+# Examples:
+#   just check-report-quotes research/Some_Entry-alternative-models-deep-research-openscientist.md
+#   just check-report-quotes research/Some_Entry-alternative-models-deep-research-openscientist.md --strict
+[group('QC')]
+check-report-quotes *args:
+    uv run python scripts/check_report_quotes.py "$@"
+
 # Census of toxicokinetic (ADME) pathophysiology nodes: where exposures land,
 # what binds an absorption/distribution/metabolism/excretion node, and which
 # sit at ORGANISM scale on a molecular term. Backs the toxicokinetic sections
@@ -2767,6 +2792,61 @@ research-datasets provider disorder *args="":
         --var "disease_name=$disease_name" \
         --var "mondo_id=$mondo_id" \
         --var "category=$category" \
+        $provider_arg \
+        --output "$staged_file" \
+        --separate-citations "$staged_file.citations.md" \
+        {{dr_validation}} \
+        {{dr_term_validation}} \
+        {{dr_fallback}} \
+        {{args}} || dr_status=$?
+    if [ -f "$staged_file" ]; then
+        {{dr_stamp}} "$staged_file"
+        {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
+    fi
+    rmdir "$staging_dir" 2>/dev/null || true
+    exit ${dr_status:-0}
+
+# Print the prompt `just alternative-models-research` would send for one use
+# case in templates/alternative_models/, and stop. Rendered through the client's
+# own template processor, so the preview cannot drift from what a run sends.
+# Print it first: the prompt is the whole experiment, and a run costs real time
+# and credit.
+# Example: just alternative-models-prompt mdd_alternative_systems
+[group('Research')]
+alternative-models-prompt slug:
+    uv run python scripts/alternative_models_vars.py {{slug}} --format prompt
+
+# Deep research on which model systems, beyond the ones already curated, could
+# support an entry's pathograph nodes. The use case is one YAML in
+# templates/alternative_models/: four of the prompt's variables are the search
+# plan written there by hand, and existing_models and mechanism_nodes are
+# generated from the entry by model_taxon_census.py, so the prompt states the
+# record's real current state rather than a remembered one.
+# Examples:
+#   just alternative-models-prompt mdd_alternative_systems
+#   just alternative-models-research openscientist mdd_alternative_systems
+[group('Research')]
+alternative-models-research provider slug *args="":
+    #!/usr/bin/env bash
+    set -e
+    entry=$(uv run python scripts/alternative_models_vars.py {{slug}} --format entry)
+    output_file="{{research_dir}}/$entry-alternative-models-deep-research-{{provider}}.md"
+    requested_provider="{{provider}}"
+    staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+    staged_file="$staging_dir/$(basename "$output_file")"
+    # The variable values are multi-line, so they go through a NUL-separated
+    # file: command substitution would drop the separators.
+    uv run python scripts/alternative_models_vars.py {{slug}} --format null > "$staging_dir/vars"
+    var_args=()
+    while IFS= read -r -d '' record; do
+        var_args+=(--var "$record")
+    done < "$staging_dir/vars"
+    rm -f "$staging_dir/vars"
+    echo "Alternative models: $entry [{{slug}}] ({{provider}}) -> $output_file"
+    provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
+    {{dr_client}} research \
+        --template {{templates_dir}}/disease_alternative_models_research.md \
+        "${var_args[@]}" \
         $provider_arg \
         --output "$staged_file" \
         --separate-citations "$staged_file.citations.md" \
