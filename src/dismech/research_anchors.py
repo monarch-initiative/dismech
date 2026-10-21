@@ -172,8 +172,8 @@ def genes_from_entry(entry: dict) -> tuple[str, ...]:
     The last resort, for a curated disease whose stub is gone when the MONDO
     build is absent. ``relationship_type: CAUSATIVE`` rows win: a risk or
     modifier gene is not the gene that says which disease this is. Many
-    monogenic entries leave ``relationship_type`` unset (``Marfan_Syndrome``'s
-    FBN1 row), so when no row is ``CAUSATIVE`` an untyped row is used, but only
+    monogenic entries leave ``relationship_type`` unset (``Cystic_Fibrosis``'s
+    CFTR row), so when no row is ``CAUSATIVE`` an untyped row is used, but only
     if the untyped rows name exactly one gene. Several untyped genes are as
     likely to be somatic drivers or a differential as causes, and naming the
     wrong one would steer the provider the way this anchor exists to prevent.

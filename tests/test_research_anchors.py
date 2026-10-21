@@ -166,14 +166,14 @@ def _row(symbol, hgnc, relationship_type=None):
 def test_a_single_untyped_gene_stands_in_when_no_row_is_causative(
     tmp_path, monkeypatch
 ):
-    """Monogenic entries often leave relationship_type unset (Marfan's FBN1 row)."""
+    """Monogenic entries often leave relationship_type unset (Cystic_Fibrosis's CFTR row)."""
     monkeypatch.setattr(research_anchors, "_open_local_mondo", lambda: None)
     entry = {
-        "name": "Marfan Syndrome",
-        "genetic": [_row("FBN1", "hgnc:3603"), _row("APOE", "hgnc:613", "MODIFIER")],
+        "name": "Cystic Fibrosis",
+        "genetic": [_row("CFTR", "hgnc:1884"), _row("APOE", "hgnc:613", "MODIFIER")],
     }
-    anchors = collect_anchors(entry, "MONDO:0007947", stubs_dir=tmp_path)
-    assert anchors.causal_genes == ("FBN1",)
+    anchors = collect_anchors(entry, "MONDO:0009061", stubs_dir=tmp_path)
+    assert anchors.causal_genes == ("CFTR",)
     assert anchors.gene_source == "entry"
 
 
