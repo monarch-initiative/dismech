@@ -92482,7 +92482,8 @@ window.searchData = [
       "Anemia",
       "Metabolic Acidosis",
       "Fatigue",
-      "Peripheral Edema"
+      "Peripheral Edema",
+      "Atherosclerotic Cardiovascular Disease"
     ],
     "phenotype_categories": [
       "Renal",
@@ -92505,7 +92506,8 @@ window.searchData = [
       "HP:0001903",
       "HP:0001942",
       "HP:0012378",
-      "HP:0012398"
+      "HP:0012398",
+      "HP:0002621"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -92525,7 +92527,9 @@ window.searchData = [
       "Phosphate Binders",
       "Dialysis",
       "Kidney Transplantation",
-      "AAV-Mediated Klotho Gene Therapy"
+      "AAV-Mediated Klotho Gene Therapy",
+      "Statin-Based Lipid-Lowering Therapy",
+      "PCSK9 Inhibitor Therapy"
     ],
     "environmental": [
       "Diabetes",
@@ -92546,11 +92550,11 @@ window.searchData = [
     ],
     "source_file": "Chronic_Kidney_Disease.yaml",
     "page_url": "../pages/disorders/Chronic_Kidney_Disease.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 8,
     "num_pathophysiology": 7,
     "num_genes": 3,
-    "num_treatments": 9,
-    "causal_graph_edges": "24",
+    "num_treatments": 11,
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "6"
   },
   {
@@ -286534,9 +286538,9 @@ window.searchData = [
     "creation_date": "2026-04-13T04:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "PCWH syndrome is a severe SOX10-related neurocristopathy whose name reflects the characteristic combination of peripheral demyelinating neuropathy, central dysmyelinating leukodystrophy, Waardenburg syndrome features, and Hirschsprung disease. The disorder results from disruption of SOX10-dependent neural crest and glial development, producing enteric nervous system failure, pigmentary abnormalities, hearing impairment, and diffuse myelin defects. PCWH is especially associated with truncating SOX10 variants that escape nonsense-mediated decay, allowing production of a mutant protein with dominant-negative or toxic altered-function effects.",
+    "description": "PCWH syndrome is a severe SOX10-related neurocristopathy whose name reflects the characteristic combination of peripheral demyelinating neuropathy, central dysmyelinating leukodystrophy, Waardenburg syndrome features, and Hirschsprung disease (or variant enteric neuropathy such as hypoganglionosis or chronic intestinal pseudo-obstruction). When Hirschsprung disease is absent, the overlapping clinical spectrum is termed PCW. The disorder results from disruption of SOX10-dependent neural crest and extraneural crest (inner ear and oligodendrocyte) development, producing enteric nervous system failure, pigmentary abnormalities, sensorineural hearing impairment with semicircular canal dysplasia, and diffuse central and peripheral myelin defects. PCWH is most classically associated with truncating SOX10 variants in the last coding exon or terminal 45 nucleotides of the penultimate exon that escape nonsense-mediated decay, as well as C-terminal extension (non-stop) variants, specific missense mutations in the HMG or dimerization domains, and 22q13.1 duplications encompassing SOX10.",
     "pathophysiology": [
-      "NMD-escaping truncated SOX10 protein",
+      "NMD-escaping or altered-function SOX10 variant",
       "SOX10 developmental dysfunction",
       "Abnormal myelinating glial development",
       "Enteric nervous system developmental failure",
@@ -286550,54 +286554,79 @@ window.searchData = [
       "Schwann cell",
       "oligodendrocyte",
       "enteric neuron",
-      "melanocyte",
-      "sensory hair cell"
+      "melanocyte"
     ],
     "cell_type_ids": [
       "CL:0002573",
       "CL:0000128",
       "CL:0007011",
-      "CL:0000148",
-      "CL:0000855"
+      "CL:0000148"
     ],
     "biological_processes": [
       "myelination",
       "enteric nervous system development",
-      "pigmentation",
+      "melanocyte differentiation",
       "inner ear development"
     ],
     "phenotypes": [
       "Sensorineural hearing impairment",
+      "Abnormal inner ear morphology",
+      "Abnormal semicircular canal morphology",
       "Hypotonia",
       "Global developmental delay",
+      "Spasticity",
+      "Ataxia",
+      "Nystagmus",
+      "Hyporeflexia",
       "Aganglionic megacolon",
+      "Intestinal pseudo-obstruction",
+      "Enterocolitis",
       "Peripheral neuropathy",
       "Hypopigmentation of the skin",
-      "Iris hypopigmentation"
+      "Iris hypopigmentation",
+      "Hypopigmentation of hair",
+      "Anosmia",
+      "Hypogonadotropic hypogonadism"
     ],
     "phenotype_categories": [
       "Otolaryngologic",
       "Neurologic",
+      "Ophthalmic",
       "Gastrointestinal",
       "Dermatologic",
-      "Ophthalmic"
+      "Endocrine"
     ],
     "phenotype_hpo_categories": [
       "Digestive",
       "Ear",
+      "Endocrine",
       "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
       "Integument",
       "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0000407",
+      "HP:0011390",
+      "HP:0011380",
       "HP:0001252",
       "HP:0001263",
+      "HP:0001257",
+      "HP:0001251",
+      "HP:0000639",
+      "HP:0001265",
       "HP:0002251",
+      "HP:0004389",
+      "HP:0004387",
       "HP:0009830",
       "HP:0001010",
-      "HP:0007730"
+      "HP:0007730",
+      "HP:0005599",
+      "HP:0000458",
+      "HP:0000044"
     ],
     "frequencies": [],
     "genes": [
@@ -286611,12 +286640,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "PCWH_syndrome.yaml",
     "page_url": "../pages/disorders/PCWH_syndrome.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 18,
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "PDE6A-Related Retinopathy",
@@ -296183,6 +296212,85 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Periprosthetic Joint Infection",
+    "disease_id": "MONDO:0800179",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial arthritis"
+    ],
+    "creation_date": "2026-09-30T09:32:58Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Periprosthetic joint infection is a bacterial infection of an implanted joint arthroplasty in which perioperative contamination, contiguous spread, or hematogenous seeding lets staphylococci and other bacteria attach to prosthesis-associated surfaces, form biofilm, evade local clearance, and drive chronic inflammatory implant failure.",
+    "pathophysiology": [
+      "Bacterial Seeding of Arthroplasty Hardware",
+      "Prosthesis Biofilm Formation",
+      "Biofilm-Driven Monocyte Pro-Inflammatory Activation",
+      "Biofilm-Driven Monocyte Immunosuppressive Programming",
+      "Chronic Periprosthetic Inflammation",
+      "Osteoclast-Mediated Periprosthetic Osteolysis",
+      "Periprosthetic Implant Loosening",
+      "Painful Prosthesis Failure"
+    ],
+    "cell_types": [
+      "monocyte",
+      "osteoclast"
+    ],
+    "cell_type_ids": [
+      "CL:0000576",
+      "CL:0000092"
+    ],
+    "biological_processes": [
+      "biofilm formation",
+      "inflammatory response",
+      "negative regulation of T cell activation",
+      "bone resorption"
+    ],
+    "phenotypes": [
+      "Arthralgia",
+      "Joint Swelling",
+      "Fever",
+      "Sepsis",
+      "Sinus tract",
+      "Implant loosening"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002829",
+      "HP:0001386",
+      "HP:0001945",
+      "HP:0100806",
+      "HP:6000095"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Debridement, Antibiotics, and Implant Retention",
+      "Vancomycin and Rifampicin-Based Anti-Staphylococcal Therapy",
+      "Two-stage exchange arthroplasty"
+    ],
+    "environmental": [
+      "Implanted joint arthroplasty hardware",
+      "Persistent wound drainage after arthroplasty"
+    ],
+    "biochemical": [],
+    "source_file": "Periprosthetic_Joint_Infection.yaml",
+    "page_url": "../pages/disorders/Periprosthetic_Joint_Infection.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Perivascular Epithelioid Cell Neoplasm",
@@ -326465,7 +326573,7 @@ window.searchData = [
     "creation_date": "2026-07-02T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Short-chain acyl-CoA dehydrogenase (SCAD) deficiency is an autosomal recessive disorder of mitochondrial fatty acid beta-oxidation caused by biallelic variants in ACADS, which encodes the FAD-dependent flavoprotein that catalyzes the first, dehydrogenation step of the beta-oxidation spiral for short-chain (C4-C6) acyl-CoA substrates, principally butyryl-CoA. Loss of SCAD activity blocks butyryl-CoA dehydrogenation, causing accumulation of butyryl-CoA and its byproducts: elevated butyrylcarnitine (C4 acylcarnitine) in blood and increased ethylmalonic acid, methylsuccinic acid, and butyrylglycine in urine, the biochemical hallmarks used for detection on tandem mass spectrometry newborn screening. In marked contrast to medium-chain (MCAD) and long-chain fatty acid oxidation disorders, SCADD does not typically produce hypoketotic hypoglycemia, rhabdomyolysis, or cardiomyopathy, and its clinical significance is debated: most individuals identified by newborn screening remain asymptomatic, and reported features in symptomatic cases (developmental delay, hypotonia, seizures, feeding difficulties, failure to thrive, behavioral disturbance) are nonspecific, often transient, and not correlated with genotype. Two common ACADS variants, c.511C>T (p.Arg147Trp) and c.625G>A (p.Gly185Ser), impair folding and stability and are regarded as susceptibility/variant alleles of uncertain clinical significance rather than fully penetrant pathogenic mutations.\n",
+    "description": "Short-chain acyl-CoA dehydrogenase (SCAD) deficiency is an autosomal recessive disorder of mitochondrial fatty acid beta-oxidation caused by biallelic variants in ACADS, which encodes the FAD-dependent flavoprotein that catalyzes the first, dehydrogenation step of the beta-oxidation spiral for short-chain (C4-C6) acyl-CoA substrates, principally butyryl-CoA. Loss of SCAD activity blocks butyryl-CoA dehydrogenation, causing accumulation of butyryl-CoA and its byproducts: elevated butyrylcarnitine (C4 acylcarnitine) in blood and increased ethylmalonic acid, methylsuccinic acid, and butyrylglycine in urine, the biochemical hallmarks used for detection on tandem mass spectrometry newborn screening. In marked contrast to medium-chain (MCAD) and long-chain fatty acid oxidation disorders, SCADD does not typically produce hypoketotic hypoglycemia, rhabdomyolysis, or cardiomyopathy, and its clinical significance is debated: most individuals identified by newborn screening remain asymptomatic, and reported features in symptomatic cases (developmental delay, hypotonia, seizures, feeding difficulties, failure to thrive, behavioral disturbance) are nonspecific, often transient, and not correlated with genotype. Two common ACADS variants, c.511C>T (p.Arg147Trp) and c.625G>A (p.Gly185Ser), impair folding and stability and are regarded as susceptibility/variant alleles of uncertain clinical significance rather than fully penetrant pathogenic mutations.",
     "pathophysiology": [
       "ACADS molecular function deficiency",
       "Impaired short-chain fatty acid beta-oxidation",
@@ -326519,7 +326627,7 @@ window.searchData = [
       "OCCASIONAL"
     ],
     "genes": [
-      "ACADS gene variants"
+      "ACADS"
     ],
     "treatments": [
       "No specific treatment (biochemical phenotype)",
@@ -326539,7 +326647,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "5"
   },
   {
@@ -327326,7 +327434,9 @@ window.searchData = [
     "name": "SETBP1 Haploinsufficiency Disorder",
     "disease_id": "MONDO:0014482",
     "category": "Mendelian",
-    "parents": [],
+    "parents": [
+      "Syndromic Intellectual Disability"
+    ],
     "creation_date": "2026-06-04T12:00:00Z",
     "updated_date": null,
     "subtypes": [],
@@ -327407,8 +327517,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "SETD1A-Related Early-Onset Epilepsy",
@@ -368081,6 +368191,64 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Tick-Borne Relapsing Fever",
+    "disease_id": "MONDO:0001621",
+    "category": "Infectious Disease",
+    "parents": [
+      "Relapsing Fever"
+    ],
+    "creation_date": "2026-09-30T01:09:45Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Tick-borne relapsing fever is a zoonotic relapsing-fever borreliosis caused by Borrelia species maintained in small-mammal and Ornithodoros soft-tick cycles, where tick-bite acquisition, complement evasion, and variable major protein antigenic switching drive recurrent spirochetemic febrile episodes.",
+    "pathophysiology": [
+      "Soft-Tick Borrelia Acquisition",
+      "FhbA-Mediated Complement Evasion",
+      "Spirochetemic Dissemination",
+      "Vmp Antigenic Switching",
+      "B1b-cell IgM Clearance of Bacteremic Waves",
+      "Recurrent Spirochetemic Febrile Episodes",
+      "Jarisch-Herxheimer Reaction"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "complement activation",
+      "antigenic variation"
+    ],
+    "phenotypes": [
+      "Recurrent fever",
+      "Anemia",
+      "Thrombocytopenia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0001954",
+      "HP:0001903",
+      "HP:0001873"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Antibiotic therapy",
+      "Doxycycline post-exposure prophylaxis"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Tick_Borne_Relapsing_Fever.yaml",
+    "page_url": "../pages/disorders/Tick-Borne_Relapsing_Fever.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Timothy Syndrome",
     "disease_id": "MONDO:0010979",
     "category": "Mendelian",
@@ -390289,17 +390457,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3617,
+  "total_disorder_pages": 3619,
   "total_subtypes": 4827,
-  "total_disorders_and_subtypes": 8444,
-  "total_unique_evidence_sources": 53971,
-  "total_unique_publications": 50388,
+  "total_disorders_and_subtypes": 8446,
+  "total_unique_evidence_sources": 53989,
+  "total_unique_publications": 50406,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3614,
-  "total_unique_pathological_events": 23871,
+  "total_pathographs": 3616,
+  "total_unique_pathological_events": 23887,
   "total_modules": 196,
-  "total_research_reports": 3745,
+  "total_research_reports": 3746,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 119
