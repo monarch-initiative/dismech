@@ -850,15 +850,17 @@ def pair_gene_curies(text: str, lexicon=None, prefixes=GENE_CURIE_PREFIXES):
                 elif char == ")" and opened:
                     opened.pop()
             group = opened[-1] if opened else None
+            slot = None
             if group is not None:
-                groups.setdefault(group, []).append(curie)
-            placed.append((position, curie, group))
-        for position, curie, group in placed:
+                slot = len(groups.setdefault(group, []))
+                groups[group].append(curie)
+            placed.append((position, curie, group, slot))
+        for position, curie, group, slot in placed:
             members = groups.get(group, []) if group is not None else []
             if len(members) > 1:
                 listed = _symbol_list_before(line, symbols, group, len(members))
                 if listed:
-                    yield number, curie, listed[members.index(curie)]
+                    yield number, curie, listed[slot]
                 continue
             before = [sym for start, _end, sym in symbols if start < position]
             if group is not None:

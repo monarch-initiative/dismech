@@ -1254,3 +1254,12 @@ def test_curies_sharing_a_parenthesis_pair_in_order_with_the_listed_genes():
 def test_curies_sharing_a_parenthesis_are_not_guessed_without_a_matching_list():
     line = "JAK2 signalling (HGNC:6190, HGNC:6192) in Reed-Sternberg cells"
     assert list(P.pair_gene_curies(line)) == []
+
+
+def test_a_repeated_curie_in_a_shared_parenthesis_pairs_by_position():
+    """One ID written for two genes: the second must still pair with its own gene."""
+    line = "JAK1, JAK2 (HGNC:6190, HGNC:6190)"
+    assert list(P.pair_gene_curies(line)) == [
+        (1, "HGNC:6190", "JAK1"),
+        (1, "HGNC:6190", "JAK2"),
+    ]
