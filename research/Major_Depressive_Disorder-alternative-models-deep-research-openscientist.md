@@ -5,7 +5,8 @@ cached: false
 start_time: '2026-10-20T15:49:53.701315'
 end_time: '2026-10-20T16:13:37.658405'
 duration_seconds: 1423.96
-template_file: research/Major_Depressive_Disorder-alternative-models-deep-research-openscientist.prompt.md
+template_file: templates/disease_alternative_models_research.md
+template_sha: "fd383b2d1a33daa300c57674e5947cf02e77e337"
 provider_config:
   timeout: 3600
   max_retries: 3
