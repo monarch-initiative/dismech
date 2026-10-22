@@ -48031,6 +48031,117 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "BEST1-related Vitreoretinochoroidopathy",
+    "disease_id": "MONDO:0700240",
+    "category": "Mendelian",
+    "parents": [
+      "Bestrophinopathy",
+      "Vitreoretinal degeneration"
+    ],
+    "creation_date": "2026-10-22T09:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "BEST1-related vitreoretinochoroidopathy (autosomal dominant vitreoretinochoroidopathy, ADVIRC) is a rare dominant bestrophinopathy in which degeneration begins in the peripheral rather than the macular retina. Its hallmark is a 360-degree band of chorioretinal pigmentary change between the equator and the ora serrata, with a sharp posterior border, accompanied by fibrillar vitreous condensation and, in many families, developmental anomalies of the anterior eye: nanophthalmos, microcornea, shallow anterior chamber, angle-closure glaucoma, iris dysgenesis and early cataract. Expressivity is highly variable within families; the band can be absent, and advanced disease with generalized photoreceptor loss can be mistaken for retinitis pigmentosa. It is caused by a small set of heterozygous BEST1 variants clustered in a few regions of bestrophin-1, the calcium-activated chloride channel of the retinal pigment epithelium (RPE). How these alleles cause disease is unresolved. Minigene assays showed exon skipping, but splicing was normal in RPE derived from patients' own stem cells, which instead show increased BEST1 anion permeability, consistent with a gain of channel function that sets ADVIRC apart from the loss-of-function bestrophinopathies. Histopathology shows widespread RPE loss with RPE migration into the retina. Visual impairment is usually mild until late macular atrophy, though onset in early childhood occurs.",
+    "pathophysiology": [
+      "BEST1 Heterozygous ADVIRC Variant",
+      "Increased BEST1 Anion Conductance in RPE",
+      "Aberrant BEST1 Pre-mRNA Splicing",
+      "Abnormal Ocular Growth and Anterior Segment Development",
+      "Peripheral RPE Degeneration and Migration",
+      "Photoreceptor Degeneration"
+    ],
+    "cell_types": [
+      "retinal pigment epithelial cell",
+      "photoreceptor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002586",
+      "CL:0000210"
+    ],
+    "biological_processes": [
+      "BEST1 pre-mRNA splicing",
+      "camera-type eye development"
+    ],
+    "phenotypes": [
+      "Peripheral Circumferential Pigmentary Band",
+      "Vitreous Fibrillar Condensation",
+      "Nanophthalmos",
+      "Microcornea",
+      "Shallow Anterior Chamber",
+      "Angle Closure Glaucoma",
+      "Cataract",
+      "Iris Dysgenesis",
+      "Optic Nerve Dysplasia",
+      "Hypermetropia",
+      "Myopia",
+      "Reduced Electroretinogram Amplitude",
+      "Abnormal Electrooculogram",
+      "Nyctalopia",
+      "Constriction of Peripheral Visual Field",
+      "Macular Atrophy",
+      "Cystoid Macular Edema",
+      "Retinal Neovascularization",
+      "Choriocapillaris Atrophy",
+      "Vitreous Hemorrhage",
+      "Rhegmatogenous Retinal Detachment",
+      "Nystagmus"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0007769",
+      "HP:0030832",
+      "HP:0000568",
+      "HP:0000482",
+      "HP:0000594",
+      "HP:0012109",
+      "HP:0000518",
+      "HP:0000525",
+      "HP:0001093",
+      "HP:0000540",
+      "HP:0000545",
+      "HP:0000654",
+      "HP:0008179",
+      "HP:0000662",
+      "HP:0001133",
+      "HP:0007401",
+      "HP:0011505",
+      "HP:0030666",
+      "HP:0030491",
+      "HP:0007902",
+      "HP:0012230",
+      "HP:0000639"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "BEST1"
+    ],
+    "treatments": [
+      "Low Vision Rehabilitation",
+      "Topical Dorzolamide for Cystoid Macular Edema",
+      "Vitrectomy for Vitreous Traction",
+      "Cataract Surgery"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "BEST1-related_Vitreoretinochoroidopathy.yaml",
+    "page_url": "../pages/disorders/BEST1-related_Vitreoretinochoroidopathy.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "BEST1 Bestrophinopathies",
     "disease_id": null,
     "category": "Genetic",
@@ -147696,10 +147807,16 @@ window.searchData = [
     ],
     "creation_date": "2026-05-10T18:43:00Z",
     "updated_date": null,
-    "subtypes": [],
-    "description": "Familial focal epilepsy with variable foci is an autosomal dominant genetic focal epilepsy syndrome in which affected relatives have seizures that arise from different cortical regions, while each person's semiology is usually consistent. The best-established molecular mechanism is loss of GATOR1 complex function through DEPDC5, NPRL2, or NPRL3 variants, causing impaired restraint of mTORC1 signaling. Presentations range from nonlesional focal epilepsy with normal structural MRI to drug-resistant focal epilepsy associated with focal cortical dysplasia.",
+    "subtypes": [
+      "FFEVF1",
+      "FFEVF2",
+      "FFEVF3",
+      "FFEVF4"
+    ],
+    "description": "Familial focal epilepsy with variable foci is an autosomal dominant genetic focal epilepsy syndrome in which affected relatives have seizures that arise from different cortical regions, while each person's semiology is usually consistent. The best-established molecular mechanism is loss of GATOR1 complex function through DEPDC5, NPRL2, or NPRL3 variants, causing impaired restraint of mTORC1 signaling. Presentations range from nonlesional focal epilepsy with normal structural MRI to drug-resistant focal epilepsy associated with focal cortical dysplasia. MONDO and OMIM also define a fourth, SCN3A-linked form (FFEVF4) on much thinner evidence from unrelated children with sodium channel variants.",
     "pathophysiology": [
       "GATOR1 Complex Loss and mTORC1 Disinhibition",
+      "Nav1.3 Ramp and Persistent Sodium Current Gain",
       "DEPDC5-Associated Focal Cortical Dysplasia"
     ],
     "cell_types": [
@@ -147735,7 +147852,8 @@ window.searchData = [
     "genes": [
       "DEPDC5",
       "NPRL2",
-      "NPRL3"
+      "NPRL3",
+      "SCN3A"
     ],
     "treatments": [
       "Antiseizure Medication Therapy",
@@ -147747,10 +147865,10 @@ window.searchData = [
     "source_file": "Familial_Focal_Epilepsy_With_Variable_Foci.yaml",
     "page_url": "../pages/disorders/Familial_Focal_Epilepsy_With_Variable_Foci.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 2,
-    "num_genes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 4,
     "num_treatments": 3,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "2"
   },
   {
@@ -155589,7 +155707,8 @@ window.searchData = [
       "Genetic Counseling",
       "Alpha-Adrenergic Agonists",
       "Antipsychotics",
-      "Minocycline"
+      "Minocycline",
+      "FMR1 Gene Therapy (AAV, preclinical)"
     ],
     "environmental": [],
     "biochemical": [
@@ -155600,8 +155719,8 @@ window.searchData = [
     "num_phenotypes": 34,
     "num_pathophysiology": 9,
     "num_genes": 1,
-    "num_treatments": 8,
-    "causal_graph_edges": "29",
+    "num_treatments": 9,
+    "causal_graph_edges": "31",
     "causal_graph_longest_path": "8"
   },
   {
@@ -216962,6 +217081,70 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "KPNA7-related Preimplantation Embryonic Arrest",
+    "disease_id": "MONDO:0957220",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "female reproductive system disease"
+    ],
+    "creation_date": "2026-10-22T14:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "KPNA7-related preimplantation embryonic arrest (oocyte/zygote/embryo maturation arrest 17) is an autosomal-recessive form of primary female infertility caused by biallelic variants in KPNA7, which encodes karyopherin subunit alpha-7 (importin alpha-8). KPNA7 is the most abundant importin alpha in human oocytes and early embryos and is nearly absent from somatic tissues. Affected women have regular menstrual cycles and normal sex hormones. Their IVF/ICSI cycles yield morphologically normal oocytes that fertilize and cleave, but the embryos arrest after the first cleavage divisions and fail to reach the blastocyst stage, or the few that do fail to establish a pregnancy. Patient variants lower KPNA7 protein, weaken binding to classical nuclear localization signals and to the oocyte substrate RSL1D1, and reduce nuclear import. In the mouse, Kpna2 rather than Kpna7 fills this role, and Kpna2 knockout females (ICR background) produce embryos that arrest at the 2-cell stage with defective zygotic genome activation, a defect rescued by human KPNA7 cRNA. The entity rests on one cohort of ten Chinese women.",
+    "pathophysiology": [
+      "Biallelic KPNA7 Loss of Function in the Oocyte",
+      "Impaired Nuclear Import of RSL1D1 and Other Maternal NLS Cargo",
+      "Defective Zygotic Genome Activation"
+    ],
+    "cell_types": [
+      "oocyte",
+      "zygote"
+    ],
+    "cell_type_ids": [
+      "CL:0000023",
+      "CL:0010017"
+    ],
+    "biological_processes": [
+      "protein import into nucleus",
+      "zygotic genome activation"
+    ],
+    "phenotypes": [
+      "Embryo developmental arrest",
+      "Repeated implantation failure",
+      "Female infertility"
+    ],
+    "phenotype_categories": [
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0020003",
+      "HP:0033712",
+      "HP:0008222"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KPNA7"
+    ],
+    "treatments": [
+      "KPNA7 cRNA injection into zygotes (preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "KPNA7-related_Preimplantation_Embryonic_Arrest.yaml",
+    "page_url": "../pages/disorders/KPNA7-related_Preimplantation_Embryonic_Arrest.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "KRAS G12C-Mutant Non-Small Cell Lung Cancer",
     "disease_id": "MONDO:0005061",
     "category": "",
@@ -268016,6 +268199,8 @@ window.searchData = [
       "MYCN-Driven Proliferation",
       "Polyamine Biosynthesis Dependence",
       "ALK Signaling Activation",
+      "GD2 Surface Antigen Expression",
+      "Anti-GD2 Antibody-Mediated Tumor Cell Killing",
       "Telomerase Activation",
       "Reduced ATRX/DAXX Complex Abundance",
       "Alternative Lengthening of Telomeres",
@@ -268039,6 +268224,8 @@ window.searchData = [
       "cell population proliferation",
       "polyamine biosynthetic process",
       "MAPK cascade",
+      "antibody-dependent cellular cytotoxicity against neuroblastoma cells",
+      "complement-dependent cytotoxicity against neuroblastoma cells",
       "telomere maintenance via telomerase",
       "telomere maintenance via recombination",
       "reversible switching between two tumour cell identities",
@@ -268112,6 +268299,7 @@ window.searchData = [
       "MYCN Amplification",
       "ALK Mutations",
       "Segmental Chromosomal Aberrations",
+      "Chromothripsis",
       "TERT Rearrangement",
       "ATRX Mutation",
       "PHOX2B"
@@ -268122,6 +268310,7 @@ window.searchData = [
       "Autologous Stem Cell Transplant",
       "Radiation Therapy",
       "Anti-GD2 Immunotherapy",
+      "Naxitamab with GM-CSF",
       "ALK Inhibitor Therapy",
       "Isotretinoin (Retinoic Acid)",
       "Eflornithine (DFMO) Maintenance Therapy"
@@ -268134,10 +268323,10 @@ window.searchData = [
     "source_file": "Neuroblastoma.yaml",
     "page_url": "../pages/disorders/Neuroblastoma.html",
     "num_phenotypes": 15,
-    "num_pathophysiology": 12,
-    "num_genes": 6,
-    "num_treatments": 8,
-    "causal_graph_edges": "19",
+    "num_pathophysiology": 14,
+    "num_genes": 7,
+    "num_treatments": 9,
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "4"
   },
   {
@@ -269861,6 +270050,146 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "23",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Neurodevelopmental Disorder With Seizures And Gingival Overgrowth",
+    "disease_id": "MONDO:0859148",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-10-19T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Neurodevelopmental disorder with seizures and gingival overgrowth (NEDSGO) is an autosomal recessive disorder caused by biallelic loss-of-function variants in TBC1D2B, which encodes a TBC-domain RAB GTPase-activating protein. It was defined in 2020 in three unrelated individuals and has since been reported in roughly 20 affected individuals from about a dozen families. Gingival overgrowth usually starts in early childhood, and most patients develop seizures, with onset anywhere from infancy to the fourth decade. Early development may be normal or delayed. In about half of the reported patients the disease is progressive: mental deterioration with gait ataxia and slurred speech begins between about 5 and 20 years, with cerebellar and/or cerebral atrophy, movement disorders (tremor, dystonia, myoclonus), flexion contractures, visual loss and, at the severe end, loss of ambulation, respiratory failure needing ventilation and death in early adulthood. The jaw is often abnormal, with mandibular prognathia and, in a few patients, fibrous dysplasia of the mandible or maxilla diagnosed as cherubism. Low blood counts, hearing loss and facial freckling have been reported in some patients.\nDisease alleles are nonsense, frameshift, splice and one missense variant; patient fibroblasts show absent or reduced TBC1D2B protein. TBC1D2B is a GAP for RAB7 recruited by RAB31 and RAB22A, localises to RAB5-positive early endocytic vesicles, binds LC3/GABARAP proteins, and promotes autophagy initiation. TBC1D2B-knockout HeLa cells internalise less epidermal growth factor and die more readily under serum starvation. How these cellular defects produce the neurodegeneration, the seizures and the gingival and jaw overgrowth has not been studied in neurons, gingiva, bone or an animal model, so every edge beyond the cell-line findings is recorded as inferred. Treatment is symptomatic: antiseizure medication and gingivectomy.\n",
+    "pathophysiology": [
+      "Biallelic TBC1D2B Loss of Function",
+      "Impaired Early Endocytosis",
+      "Dysregulated RAB7-Dependent Endolysosomal Trafficking",
+      "Impaired Autophagy Initiation",
+      "Reduced Cell Survival Under Stress",
+      "CNS Neuronal Dysfunction and Degeneration",
+      "Gingival Epithelial E-cadherin Loss"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "receptor internalization",
+      "endosomal transport",
+      "autophagosome assembly",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Gingival overgrowth",
+      "Seizure",
+      "EEG abnormality",
+      "Global developmental delay",
+      "Intellectual disability",
+      "Mental deterioration",
+      "Gait ataxia",
+      "Slurred speech",
+      "Absent speech",
+      "Tremor",
+      "Dystonia",
+      "Myoclonus",
+      "Gaze-evoked nystagmus",
+      "Cerebellar atrophy",
+      "Cerebral atrophy",
+      "Lateral ventricle dilatation",
+      "Atypical behavior",
+      "Respiratory failure requiring assisted ventilation",
+      "Mandibular prognathia",
+      "Fibrous dysplasia of the mandible",
+      "Coarse facial features",
+      "Visual loss",
+      "Pigmentary retinopathy",
+      "Hearing impairment",
+      "Flexion contracture",
+      "Pancytopenia",
+      "Thrombocytopenia",
+      "Leukopenia",
+      "Numerous pigmented freckles",
+      "Growth delay"
+    ],
+    "phenotype_categories": [
+      "Oral",
+      "Neurological",
+      "Behavioral",
+      "Respiratory",
+      "Craniofacial",
+      "Eye",
+      "Ear",
+      "Musculoskeletal",
+      "Hematological",
+      "Skin",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000212",
+      "HP:0001250",
+      "HP:0002353",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001268",
+      "HP:0002066",
+      "HP:0001350",
+      "HP:0001344",
+      "HP:0001337",
+      "HP:0001332",
+      "HP:0001336",
+      "HP:0000640",
+      "HP:0001272",
+      "HP:0002059",
+      "HP:0006956",
+      "HP:0000708",
+      "HP:0004887",
+      "HP:0000303",
+      "HP:0010734",
+      "HP:0000280",
+      "HP:0000572",
+      "HP:0000580",
+      "HP:0000365",
+      "HP:0001371",
+      "HP:0001876",
+      "HP:0001873",
+      "HP:0001882",
+      "HP:0007587",
+      "HP:0001510"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "TBC1D2B"
+    ],
+    "treatments": [
+      "Antiseizure medication",
+      "Gingivectomy",
+      "Tracheostomy and assisted ventilation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Seizures_And_Gingival_Overgrowth.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Seizures_And_Gingival_Overgrowth.html",
+    "num_phenotypes": 30,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Neurodevelopmental Disorder with Seizures, Microcephaly, and Brain Abnormalities",
@@ -343394,7 +343723,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "18",
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "5"
   },
   {
@@ -350150,6 +350479,65 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Spermatogenic Failure 72",
+    "disease_id": "MONDO:0030809",
+    "category": "Mendelian",
+    "parents": [
+      "Spermatogenic Failure",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-10-22T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spermatogenic failure 72 (SPGF72) is autosomal recessive male infertility with asthenoteratozoospermia and multiple morphological abnormalities of the sperm flagella (MMAF), caused by a biallelic variant in WDR19. WDR19 encodes IFT144, a core subunit of the intraflagellar transport complex A (IFT-A) that drives retrograde transport in cilia and flagella. Biallelic WDR19 variants more often cause syndromic ciliopathies (cranioectodermal dysplasia, Jeune syndrome, nephronophthisis), but the single reported SPGF72 proband, from a consanguineous Chinese family, carried a homozygous missense variant (p.Lys1271Glu) and had no skeletal, renal, hepatic or retinal involvement on systematic examination. His sperm had no progressive motility, the flagellar ultrastructure was destroyed, WDR19 was absent from the sperm neck and flagellum, and the IFT proteins IFT140 and IFT88 were mislocalized. Intracytoplasmic sperm injection (ICSI) led to a clinical pregnancy.",
+    "pathophysiology": [
+      "WDR19 Deficiency in Sperm",
+      "Impaired Intraflagellar Transport",
+      "Defective Sperm Flagellum Assembly"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "intraciliary retrograde transport",
+      "sperm flagellum assembly"
+    ],
+    "phenotypes": [
+      "Male infertility",
+      "Multiple morphological abnormalities of the sperm flagella",
+      "Abnormal sperm axoneme morphology",
+      "Absent progressive sperm motility"
+    ],
+    "phenotype_categories": [
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary"
+    ],
+    "phenotype_ids": [
+      "HP:0003251",
+      "HP:0012868",
+      "HP:0033524",
+      "HP:0034011"
+    ],
+    "frequencies": [],
+    "genes": [
+      "WDR19"
+    ],
+    "treatments": [
+      "Intracytoplasmic Sperm Injection"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spermatogenic_Failure_72.yaml",
+    "page_url": "../pages/disorders/Spermatogenic_Failure_72.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Spermatogenic Failure 84",
     "disease_id": "MONDO:0957301",
     "category": "Mendelian",
@@ -356032,6 +356420,73 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Spongiform Encephalopathy With Neuropsychiatric Features",
+    "disease_id": "MONDO:0011703",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-22T03:46:16Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spongiform encephalopathy with neuropsychiatric features (OMIM 606688) is a very rare, autosomal dominant genetic prion disease caused by the PRNP threonine-to-alanine missense variant at codon 183 (T183A). It was first described in a large Brazilian kindred (Nitrini et al., 1997) and is set apart from the classic inherited prion phenotypes by its presentation: an early-onset (mean mid-40s) dementia with prominent frontotemporal-type behavioural and personality change and parkinsonism, so that most affected individuals are first seen by psychiatrists and the clinical picture closely resembles frontotemporal dementia with parkinsonism (FTDP-17) rather than rapidly progressive Creutzfeldt-Jakob disease. Neuropathology shows severe spongiform change and neuronal loss concentrated in the deep neocortical layers and the putamen with conspicuously minimal gliosis, and PrP immunoreactivity in the putamen and cerebellum. Mechanistically T183A is a double lesion on the prion protein: the substitution removes one of the two N-linked glycosylation sequons of PrP and abolishes a gatekeeper hydrogen bond (Y162-T183) that stabilizes the native globular fold, producing the strongest native-state destabilization of any TSE-associated PrP variant and a strong propensity to misfold and aggregate. Like all prion diseases it is progressive and fatal, and no disease-modifying therapy exists.",
+    "pathophysiology": [
+      "PRNP T183A Germline Missense Variant",
+      "Destabilization of the PrP-C Native Fold",
+      "Loss of an N-Linked Glycosylation Site on PrP",
+      "Intracellular Retention of Mutant PrP",
+      "Enhanced PrP Misfolding and Aggregation",
+      "Striatal and Neocortical Spongiform Degeneration"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "protein destabilization",
+      "protein N-linked glycosylation",
+      "amyloid fibril formation"
+    ],
+    "phenotypes": [
+      "Frontotemporal dementia",
+      "Behavioral abnormality",
+      "Parkinsonism",
+      "Dementia",
+      "Cerebral atrophy",
+      "Cerebellar ataxia"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002145",
+      "HP:0000708",
+      "HP:0001300",
+      "HP:0000726",
+      "HP:0002059",
+      "HP:0001251"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "PRNP T183A"
+    ],
+    "treatments": [
+      "Supportive and multidisciplinary care",
+      "Genetic counseling and predictive testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spongiform_Encephalopathy_With_Neuropsychiatric_Features.yaml",
+    "page_url": "../pages/disorders/Spongiform_Encephalopathy_With_Neuropsychiatric_Features.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Spotted fever rickettsiosis",
     "disease_id": "MONDO:0001195",
     "category": "Infectious Disease",
@@ -360634,6 +361089,130 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "18",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Systemic Monochloroacetate Poisoning",
+    "disease_id": "MONDO:0019545",
+    "category": "Environmental",
+    "parents": [],
+    "creation_date": "2026-10-22T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Systemic monochloroacetate poisoning is a rare, life-threatening intoxication caused by dermal, oral, or inhalational exposure to monochloroacetic acid (chloroacetic acid; MCAA), a strong corrosive haloacetic acid used widely as a chemical-synthesis intermediate. The agent is doubly dangerous: it produces a corrosive chemical burn at the contact site and, once absorbed, acts as a systemic metabolic poison. Dermal contact is the most important route because the acid penetrates skin rapidly and extensively, so contamination of a modest body-surface area can deliver a lethal systemic dose. A characteristic latent interval of roughly one to three and a half hours separates a seemingly survivable burn from systemic collapse. Intracellularly, monochloroacetate is a reactive sulfhydryl-alkylating electrophile that inactivates thiol-dependent enzymes of energy metabolism; the best-characterised target is glyceraldehyde-3-phosphate dehydrogenase (GAPDH), whose inactivation blocks glycolysis and gluconeogenesis and produces severe hypoglycemia together with lactate and pyruvate accumulation and a profound lactic/metabolic acidosis. The resulting bioenergetic failure injures the organs most dependent on aerobic metabolism \u2014 the heart (myocardial depression and shock), the central nervous system (disorientation, convulsions, coma and cerebral edema), the kidneys (acute injury), skeletal muscle (rhabdomyolysis), the lungs (acute lung injury) and the liver. There is no widely licensed specific antidote; management is early decontamination, correction of acidosis, hypoglycemia and shock, organ support including renal replacement, and surgical burn care.",
+    "pathophysiology": [
+      "Systemic absorption of monochloroacetic acid",
+      "Corrosive chemical injury at the contact site",
+      "Alkylation of thiol-dependent metabolic enzymes",
+      "Inactivation of glyceraldehyde-3-phosphate dehydrogenase",
+      "Impaired hepatic gluconeogenesis",
+      "Cellular ATP depletion and bioenergetic failure",
+      "Lactate and pyruvate accumulation",
+      "Myocardial bioenergetic injury",
+      "Central nervous system injury and cerebral edema",
+      "Acute tubular injury",
+      "Skeletal muscle injury",
+      "Acute lung injury",
+      "Hepatocellular mitochondrial injury"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "cardiac muscle cell",
+      "epithelial cell of proximal tubule"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000746",
+      "CL:0002306"
+    ],
+    "biological_processes": [
+      "gluconeogenesis",
+      "ATP metabolic process"
+    ],
+    "phenotypes": [
+      "Skin burn",
+      "Metabolic acidosis",
+      "Hypoglycemia",
+      "Seizure",
+      "Coma",
+      "Delirium",
+      "Cerebral edema",
+      "Impaired myocardial contractility",
+      "Shock",
+      "Acute kidney injury",
+      "Rhabdomyolysis",
+      "Dyspnea",
+      "Elevated circulating hepatic transaminase concentration",
+      "Nausea",
+      "Vomiting",
+      "Lethargy",
+      "Hypoxemia"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Metabolic",
+      "Neurologic",
+      "Cardiovascular",
+      "Renal",
+      "Musculoskeletal",
+      "Respiratory",
+      "Hepatic",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:6001253",
+      "HP:0001942",
+      "HP:0001943",
+      "HP:0001250",
+      "HP:0001259",
+      "HP:0031258",
+      "HP:0002181",
+      "HP:0006670",
+      "HP:0031273",
+      "HP:0001919",
+      "HP:0003201",
+      "HP:0002094",
+      "HP:0002910",
+      "HP:0002018",
+      "HP:0002013",
+      "HP:0001254",
+      "HP:0012418"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Skin and eye decontamination",
+      "Supportive and intensive care",
+      "Burn wound surgical care",
+      "Dichloroacetate (candidate antidote)"
+    ],
+    "environmental": [
+      "Dermal exposure to monochloroacetic acid",
+      "Oral or inhalational exposure to monochloroacetic acid"
+    ],
+    "biochemical": [
+      "Creatine kinase",
+      "Cardiac troponin I",
+      "Alanine aminotransferase",
+      "Aspartate aminotransferase"
+    ],
+    "source_file": "Systemic_Monochloroacetate_Poisoning.yaml",
+    "page_url": "../pages/disorders/Systemic_Monochloroacetate_Poisoning.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 13,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Systemic Sclerosis",
@@ -391674,19 +392253,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3629,
-  "total_subtypes": 4835,
-  "total_disorders_and_subtypes": 8464,
-  "total_unique_evidence_sources": 54210,
-  "total_unique_publications": 50619,
+  "total_disorder_pages": 3635,
+  "total_subtypes": 4839,
+  "total_disorders_and_subtypes": 8474,
+  "total_unique_evidence_sources": 54288,
+  "total_unique_publications": 50697,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3626,
-  "total_unique_pathological_events": 23960,
+  "total_pathographs": 3632,
+  "total_unique_pathological_events": 23998,
   "total_modules": 197,
-  "total_research_reports": 3757,
+  "total_research_reports": 3763,
   "total_classifications": 21,
   "total_comorbidities": 51,
-  "total_groupings": 119
+  "total_groupings": 120
 };
 window.dispatchEvent(new Event('searchDataReady'));
