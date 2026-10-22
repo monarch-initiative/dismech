@@ -2725,6 +2725,90 @@
             flex-shrink: 0;
         }
 
+        /* Group-by control (#14539). Tinted while a grouping is applied, so a
+           collapsed graph is never mistaken for the whole graph. */
+        .pathograph-groupbar {
+            padding: 10px 16px;
+            background: #f9fafb;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.8rem;
+            color: #374151;
+        }
+
+        .pathograph-groupbar.is-active {
+            background: #eef2ff;
+            border-bottom-color: #c7d2fe;
+        }
+
+        .pg-groupbar-controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pg-groupbar-title {
+            font-weight: 600;
+            margin-right: 4px;
+        }
+
+        .pg-group-mode,
+        .pg-group-collapse {
+            font: inherit;
+            font-size: 0.76rem;
+            padding: 3px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 999px;
+            background: #fff;
+            color: #374151;
+            cursor: pointer;
+        }
+
+        .pg-group-mode.is-selected {
+            background: #4f46e5;
+            border-color: #4f46e5;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .pg-group-mode:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .pg-groupbar-status {
+            margin-top: 6px;
+            line-height: 1.45;
+        }
+
+        .pathograph-groupbar.is-active .pg-groupbar-status {
+            color: #3730a3;
+            font-weight: 500;
+        }
+
+        .pathograph-tooltip .tt-members {
+            list-style: none;
+            margin: 6px 0 0;
+            padding: 0;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+
+        .pathograph-tooltip .tt-members li {
+            margin: 2px 0;
+        }
+
+        .pathograph-tooltip .tt-member {
+            font: inherit;
+            color: #dbeafe;
+            background: none;
+            border: none;
+            padding: 0;
+            text-align: left;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
         .graph-note {
             margin-bottom: 12px;
             font-size: 0.84rem;
@@ -2839,6 +2923,385 @@
     </style>
     <script src="https://d3js.org/d3.v7.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js" integrity="sha384-2IH3T69EIKYC4c+RXZifZRvaH5SRUdacJW7j6HtE5rQbvLhKKdawxq6vpIzJ7j9M" crossorigin="anonymous"></script>
+    <script>
+    /* Pathograph "Group by" (#14539): collapse sets of nodes into super-nodes.
+
+   Collapsing happens here, in the client, on a copy of the payload. graph.py's
+   output is never changed, so every member node and its evidence stays one
+   expand away, and the exports (CX2, KGX) are unaffected.
+
+   This file is plain JavaScript with no Jinja syntax, so the page inlines it
+   with an include and tests/test_pathograph_grouping.py loads it under node. */
+var PathographGrouping = (function() {
+    /* Modes can be combined. They run in this order, each on the graph the
+       previous one left, so the treatment pass sees grouped phenotypes and
+       modules as single targets, and chains are found last among whatever
+       nodes no other mode took. */
+    var MODES = [
+        {key: "none", label: "None"},
+        {key: "phenotype_system", label: "Phenotype system"},
+        {key: "module", label: "Mechanism module"},
+        {key: "treatment_target", label: "Treatment target"},
+        {key: "chain", label: "Linear chains"}
+    ];
+
+    /* Predicates that explain a phenotype (qc_plugins.CAUSAL_PREDICATES). A
+       phenotype reached only by a treatment or readout edge is not explained. */
+    var CAUSAL_PREDICATES = {causes: true, leads_to: true, triggers: true, exacerbates: true};
+
+    /* A group needs at least two members, and grouping stops before the graph
+       shrinks below MIN_VISIBLE_NODES nodes or MIN_KEPT_FRACTION of its nodes,
+       so the main chains stay readable rather than folding into two boxes. The
+       mechanism backbone (pathophysiology nodes) is held to the same floor. */
+    var MIN_GROUP_SIZE = 2;
+    var MIN_VISIBLE_NODES = 3;
+    var MIN_KEPT_FRACTION = 1 / 3;
+    var GROUP_ID_PREFIX = "__group__:";
+
+    function modeLabel(mode) {
+        for (var i = 0; i < MODES.length; i++) {
+            if (MODES[i].key === mode) return MODES[i].label;
+        }
+        return mode;
+    }
+
+    /* Orphan targets signal a curation error, so they are never swallowed.
+       A box from an earlier pass is not regrouped either. */
+    function isGroupable(node) {
+        return !!node && !node.is_group && !node.is_orphan && node.node_type !== "orphan" && node.node_type !== "unknown";
+    }
+
+    function groupKeys(node) {
+        return (node && node.group_keys) || {};
+    }
+
+    function humanizeModule(stem) {
+        var text = String(stem).replace(/_/g, " ");
+        return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+
+    function neighbourSets(data) {
+        var preds = {}, succs = {};
+        data.nodes.forEach(function(n) { preds[n.id] = {}; succs[n.id] = {}; });
+        data.edges.forEach(function(e) {
+            if (succs[e.source]) succs[e.source][e.target] = true;
+            if (preds[e.target]) preds[e.target][e.source] = true;
+        });
+        return {preds: preds, succs: succs};
+    }
+
+    function explainedPhenotypes(data) {
+        var explained = {};
+        data.edges.forEach(function(e) {
+            /* A self-loop explains nothing, as in qc_plugins.causal_inlink_coverage. */
+            if (CAUSAL_PREDICATES[e.predicate] && e.source !== e.target) explained[e.target] = true;
+        });
+        return explained;
+    }
+
+    function bucket(nodes, keyFn) {
+        var buckets = {}, order = [];
+        nodes.forEach(function(n) {
+            var key = keyFn(n);
+            if (!key) return;
+            if (!buckets[key]) { buckets[key] = []; order.push(key); }
+            buckets[key].push(n.id);
+        });
+        return order.map(function(key) { return {key: key, members: buckets[key]}; });
+    }
+
+    function phenotypeSystemGroups(data) {
+        var phenotypes = data.nodes.filter(function(n) {
+            return n.node_type === "phenotype" && isGroupable(n);
+        });
+        return bucket(phenotypes, function(n) { return groupKeys(n).phenotype_system; })
+            .map(function(g) {
+                return {key: g.key, label: g.key + " phenotypes", members: g.members};
+            });
+    }
+
+    function treatmentTargetGroups(data) {
+        var nb = neighbourSets(data);
+        var byId = {};
+        data.nodes.forEach(function(n) { byId[n.id] = n; });
+        var treatments = data.nodes.filter(function(n) {
+            return n.node_type === "treatment" && isGroupable(n);
+        });
+        return bucket(treatments, function(n) {
+            var targets = Object.keys(nb.succs[n.id] || {}).sort();
+            return targets.length ? JSON.stringify(targets) : null;
+        }).map(function(g) {
+            /* A target may be a box from an earlier pass; name it by its label. */
+            var targets = JSON.parse(g.key).map(function(id) {
+                return byId[id] && byId[id].is_group ? byId[id].label : id;
+            });
+            var shown = targets.length > 2 ? targets.slice(0, 2).join(", ") + ", …" : targets.join(", ");
+            return {key: g.key, label: "Treatments → " + shown, members: g.members};
+        });
+    }
+
+    function moduleGroups(data) {
+        var mechanisms = data.nodes.filter(function(n) {
+            return n.node_type === "pathophysiology" && isGroupable(n);
+        });
+        return bucket(mechanisms, function(n) {
+            var modules = groupKeys(n).modules;
+            return modules && modules.length ? modules[0] : null;
+        }).map(function(g) {
+            return {key: g.key, label: humanizeModule(g.key) + " module", members: g.members};
+        });
+    }
+
+    /* Maximal runs of nodes with exactly one predecessor and one successor,
+       followed predecessor to successor. Branch points and the chain's ends stay
+       visible, so the collapsed run reads "A -> ... -> D (n steps)" in place. */
+    function chainGroups(data) {
+        var nb = neighbourSets(data);
+        var byId = {};
+        data.nodes.forEach(function(n) { byId[n.id] = n; });
+        function single(map) {
+            var keys = Object.keys(map);
+            return keys.length === 1 ? keys[0] : null;
+        }
+        function linear(id) {
+            var n = byId[id];
+            if (!isGroupable(n)) return false;
+            var p = single(nb.preds[id]), s = single(nb.succs[id]);
+            return !!p && !!s && p !== id && s !== id;
+        }
+        var used = {}, groups = [];
+        data.nodes.forEach(function(n) {
+            if (used[n.id] || !linear(n.id)) return;
+            /* Walk back to the start of the run; stop on a cycle. */
+            var start = n.id, seen = {};
+            seen[start] = true;
+            while (true) {
+                var p = single(nb.preds[start]);
+                if (!linear(p) || seen[p] || used[p]) break;
+                seen[p] = true;
+                start = p;
+            }
+            var run = [], cur = start, inRun = {};
+            while (cur && linear(cur) && !inRun[cur] && !used[cur]) {
+                run.push(cur);
+                inRun[cur] = true;
+                cur = single(nb.succs[cur]);
+            }
+            run.forEach(function(id) { used[id] = true; });
+            if (run.length >= MIN_GROUP_SIZE) {
+                groups.push({
+                    key: run[0],
+                    label: run[0] + " → … → " + run[run.length - 1] + " (" + run.length + " steps)",
+                    members: run
+                });
+            }
+        });
+        return groups;
+    }
+
+    function candidateGroups(data, mode) {
+        var groups;
+        if (mode === "phenotype_system") groups = phenotypeSystemGroups(data);
+        else if (mode === "treatment_target") groups = treatmentTargetGroups(data);
+        else if (mode === "module") groups = moduleGroups(data);
+        else if (mode === "chain") groups = chainGroups(data);
+        else groups = [];
+        groups = groups.filter(function(g) { return g.members.length >= MIN_GROUP_SIZE; });
+        groups.forEach(function(g) { g.id = GROUP_ID_PREFIX + mode + ":" + g.key; });
+        /* Largest first, so the floor below spends its budget on the biggest wins. */
+        groups.sort(function(a, b) {
+            return b.members.length - a.members.length || (a.label < b.label ? -1 : a.label > b.label ? 1 : 0);
+        });
+        return groups;
+    }
+
+    function edgeStyleKey(e) {
+        return [
+            e.predicate || "",
+            e.is_orphan ? "orphan" : "",
+            (e.hypothesis_groups || []).slice().sort().join(",")
+        ].join("|");
+    }
+
+    /* Selected modes in the fixed order they run in (MODES order). "none" and
+       unknown keys are dropped, so [] means grouping is off. */
+    function normalizeModes(modes) {
+        if (!modes) return [];
+        if (!Array.isArray(modes)) modes = [modes];
+        var wanted = {};
+        modes.forEach(function(m) { wanted[m] = true; });
+        return MODES.map(function(m) { return m.key; }).filter(function(k) {
+            return k !== "none" && wanted[k];
+        });
+    }
+
+    /* One pass: collapse `mode`'s groups in `graph`, the output of the
+       previous pass. A pass only groups original nodes, never an earlier
+       pass's box, but it sees the earlier boxes as neighbours, so treatments
+       aimed at different phenotypes of one system share a target once the
+       phenotypes are grouped. */
+    function groupingPass(graph, mode, ctx) {
+        var byId = {};
+        graph.nodes.forEach(function(n) { byId[n.id] = n; });
+        var applied = [];
+        candidateGroups(graph, mode).forEach(function(g) {
+            if (ctx.expanded[g.id]) { ctx.expandedGroups.push(g); return; }
+            var saved = g.members.length - 1;
+            var mechanismMembers = g.members.filter(function(id) { return byId[id].node_type === "pathophysiology"; }).length;
+            var mechanismSaved = mechanismMembers ? mechanismMembers - 1 : 0;
+            if (ctx.visible - saved < ctx.floor || ctx.visibleMechanisms - mechanismSaved < ctx.mechanismFloor) {
+                ctx.skipped.push(g);
+                return;
+            }
+            ctx.visible -= saved;
+            ctx.visibleMechanisms -= mechanismSaved;
+            applied.push(g);
+        });
+        if (!applied.length) return graph;
+
+        var repOf = {};
+        var groupNodes = applied.map(function(g) {
+            var members = g.members.map(function(id) { return byId[id]; });
+            var types = {};
+            members.forEach(function(m) { types[m.node_type] = true; repOf[m.id] = g.id; });
+            var first = members[0];
+            var unexplained = members.filter(function(m) {
+                return m.node_type === "phenotype" && !ctx.explained[m.id];
+            }).map(function(m) { return m.id; });
+            return {
+                id: g.id,
+                label: g.label,
+                node_type: Object.keys(types).length === 1 ? first.node_type : "pathophysiology",
+                color: first.color,
+                is_orphan: false,
+                is_group: true,
+                group_mode: mode,
+                members: members,
+                unexplained: unexplained,
+                internal_edges: 0
+            };
+        });
+        var groupById = {};
+        groupNodes.forEach(function(g) { groupById[g.id] = g; });
+
+        var nodes = graph.nodes.filter(function(n) { return !repOf[n.id]; }).concat(groupNodes);
+        var edges = [], merged = {};
+        graph.edges.forEach(function(e) {
+            var s = repOf[e.source] || e.source, t = repOf[e.target] || e.target;
+            var count = e.multiplicity || 1;
+            if (s === t && groupById[s]) { groupById[s].internal_edges += count; return; }
+            if (s === e.source && t === e.target) { edges.push(e); return; }
+            var key = s + "\u0000" + t + "\u0000" + edgeStyleKey(e);
+            var m = merged[key];
+            if (!m) {
+                m = {};
+                for (var k in e) { if (Object.prototype.hasOwnProperty.call(e, k)) m[k] = e[k]; }
+                m.source = s;
+                m.target = t;
+                m.multiplicity = 0;
+                m.merged = [];
+                merged[key] = m;
+                edges.push(m);
+            }
+            /* An edge merged in an earlier pass carries its originals along, so
+               the count and hover list always refer to graph.py's edges. */
+            m.multiplicity += count;
+            m.merged = m.merged.concat(e.merged || [e]);
+        });
+        ctx.groups = ctx.groups.concat(groupNodes);
+        return {nodes: nodes, edges: edges};
+    }
+
+    /* Build the drawn graph for a set of modes. `expanded` holds the ids of
+       groups the reader has opened. The floor below is shared by every pass,
+       so stacking modes can never fold a graph further than one mode could. */
+    function applyGrouping(data, modes, expanded) {
+        modes = normalizeModes(modes);
+        var total = data.nodes.length;
+        var mechanismTotal = data.nodes.filter(function(n) { return n.node_type === "pathophysiology"; }).length;
+        var ctx = {
+            expanded: expanded || {},
+            explained: explainedPhenotypes(data),
+            floor: Math.max(MIN_VISIBLE_NODES, Math.ceil(total * MIN_KEPT_FRACTION)),
+            mechanismFloor: Math.min(mechanismTotal, Math.max(MIN_VISIBLE_NODES, Math.ceil(mechanismTotal * MIN_KEPT_FRACTION))),
+            visible: total,
+            visibleMechanisms: mechanismTotal,
+            groups: [],
+            skipped: [],
+            expandedGroups: []
+        };
+        var graph = {nodes: data.nodes, edges: data.edges};
+        modes.forEach(function(mode) { graph = groupingPass(graph, mode, ctx); });
+        return {
+            modes: modes,
+            nodes: graph.nodes,
+            edges: graph.edges,
+            groups: ctx.groups,
+            skipped: ctx.skipped,
+            expanded: ctx.expandedGroups
+        };
+    }
+
+    /* Drawn-edge count is the complexity the reader sees; node count breaks ties. */
+    function complexity(view) {
+        return view.edges.length * 10000 + view.nodes.length;
+    }
+
+    /* Every non-empty combination of the grouping modes, fewest modes first. */
+    function modeCombinations() {
+        var keys = MODES.map(function(m) { return m.key; }).filter(function(k) { return k !== "none"; });
+        var combos = [];
+        for (var mask = 1; mask < (1 << keys.length); mask++) {
+            combos.push(keys.filter(function(k, i) { return mask & (1 << i); }));
+        }
+        combos.sort(function(a, b) { return a.length - b.length; });
+        return combos;
+    }
+
+    /* Which modes to show first. Off unless the graph has more edges than the
+       knowledge-base mean; then the combination that draws the fewest edges.
+       A mode that changes nothing is never added, because combinations are
+       tried smallest first and only a strictly better score replaces the best. */
+    function chooseDefaultModes(data, meanEdgeCount) {
+        if (meanEdgeCount == null || !(data.edges.length > meanEdgeCount)) return [];
+        var best = [], bestScore = complexity(data);
+        modeCombinations().forEach(function(combo) {
+            var view = applyGrouping(data, combo, {});
+            if (!view.groups.length) return;
+            var score = complexity(view);
+            if (score < bestScore) { best = combo; bestScore = score; }
+        });
+        return best;
+    }
+
+    /* A mode is worth offering if it groups something on its own, or as part
+       of the full combination (treatments that only share a target once their
+       phenotypes are grouped). */
+    function availableModes(data) {
+        var all = applyGrouping(data, modeCombinations().pop(), {});
+        var available = {};
+        all.groups.forEach(function(g) { available[g.group_mode] = true; });
+        MODES.forEach(function(m) {
+            if (m.key !== "none" && candidateGroups(data, m.key).length) available[m.key] = true;
+        });
+        return available;
+    }
+
+    return {
+        MODES: MODES,
+        CAUSAL_PREDICATES: CAUSAL_PREDICATES,
+        MIN_VISIBLE_NODES: MIN_VISIBLE_NODES,
+        modeLabel: modeLabel,
+        normalizeModes: normalizeModes,
+        candidateGroups: candidateGroups,
+        applyGrouping: applyGrouping,
+        chooseDefaultModes: chooseDefaultModes,
+        availableModes: availableModes
+    };
+})();
+
+if (typeof module !== "undefined" && module.exports) module.exports = PathographGrouping;
+    </script>
     <script>
     /* Pathograph: interactive D3.js causal mechanism network */
     var NODE_SHAPES = {
@@ -3051,40 +3514,27 @@
         var svgEl = document.getElementById(containerId + "-svg");
         var tooltipEl = document.getElementById(containerId + "-tooltip");
         var legendEl = document.getElementById(containerId + "-legend");
+        var groupbarEl = document.getElementById(containerId + "-groupbar");
         if (!data || !data.nodes || !data.nodes.length) return;
-
-        /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph({ multigraph: true });
-        g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
-        g.setDefaultEdgeLabel(function() { return {}; });
 
         /* Node id of the tooltip the user clicked (pinned), if any. */
         var pinnedNodeId = null;
 
         var nodeMap = {};
-        data.nodes.forEach(function(n) {
-            nodeMap[n.id] = n;
-            var labelLen = n.id.length;
-            var w = Math.max(120, Math.min(220, labelLen * 8 + 30));
-            var h = 44;
-            g.setNode(n.id, { width: w, height: h, label: n.id });
-        });
-        data.edges.forEach(function(e, edgeIndex) {
-            // Different roles may connect the same variant and gene.
-            g.setEdge(e.source, e.target, {}, String(edgeIndex));
-        });
-        dagre.layout(g);
+        data.nodes.forEach(function(n) { nodeMap[n.id] = n; });
 
-        var graphInfo = g.graph();
-        var totalW = graphInfo.width + 60;
-        var totalH = graphInfo.height + 60;
+        /* -- Group by (#14539) --
+           Collapsing is done client-side by PathographGrouping on a copy of the
+           payload. A graph with more edges than the knowledge-base mean opens
+           in whichever combination of modes draws the fewest edges. */
+        var grouping = data.grouping || {};
+        var defaultGroupModes = PathographGrouping.chooseDefaultModes(data, grouping.mean_edge_count);
+        var groupModes = defaultGroupModes.slice();
+        var expandedGroups = {};
+        var view = null;
 
         /* -- SVG setup with zoom -- */
-        var svg = d3.select(svgEl)
-            .attr("viewBox", "0 0 " + totalW + " " + totalH)
-            .attr("preserveAspectRatio", "xMidYMid meet")
-            .style("min-height", Math.min(totalH, 600) + "px");
-
+        var svg = d3.select(svgEl).attr("preserveAspectRatio", "xMidYMid meet");
         var rootG = svg.append("g").attr("class", "pathograph-root");
 
         var zoom = d3.zoom()
@@ -3177,25 +3627,8 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#7c3aed");
 
-        /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e, edgeIndex) {
-            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
-            if (!dagreEdge || !dagreEdge.points) return;
-            var pts = dagreEdge.points;
-            var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            var edgePath = edgesG.append("path")
-                .attr("d", line(pts))
-                .attr("fill", "none")
-                .attr("stroke", edgeStroke(e))
-                .attr("stroke-width", hasHypothesisGroups(e) ? 2.4 : 1.8)
-                .attr("stroke-dasharray", edgeDashArray(e))
-                .attr("marker-end", edgeMarker(e))
-                .attr("data-source", e.source)
-                .attr("data-target", e.target)
-                .attr("data-predicate", e.predicate);
-            edgePath.append("title").text(edgeTitle(e));
-        });
+        var nodesG = rootG.append("g").attr("class", "pg-nodes");
 
         /* -- Shape helpers -- */
         function drawNodeShape(sel, nodeData, w, h) {
@@ -3245,94 +3678,322 @@
             }
         }
 
-        /* -- Draw nodes -- */
-        var nodesG = rootG.append("g").attr("class", "pg-nodes");
-        data.nodes.forEach(function(n) {
-            var dagreNode = g.node(n.id);
-            if (!dagreNode) return;
-            var nw = dagreNode.width, nh = dagreNode.height;
-            var nodeG = nodesG.append("g")
-                .attr("transform", "translate(" + dagreNode.x + "," + dagreNode.y + ")")
-                .attr("data-node-type", n.node_type)
-                .attr("data-node-id", n.id)
-                .style("cursor", "pointer");
+        function nodeLabel(n) {
+            return n.is_group ? n.label : n.id;
+        }
 
-            drawNodeShape(nodeG, n, nw, nh);
+        function mergedEdgeTitle(e) {
+            var parts = [e.multiplicity + " edges merged"];
+            if (e.predicate) parts.push(humanizeEnum(e.predicate));
+            if (e.hypothesis_groups && e.hypothesis_groups.length) parts.push("hypotheses: " + e.hypothesis_groups.join(", "));
+            e.merged.slice(0, 8).forEach(function(m) { parts.push(m.source + " -> " + m.target); });
+            if (e.merged.length > 8) parts.push("... and " + (e.merged.length - 8) + " more");
+            return parts.join("\n");
+        }
 
-            /* Node-type icon badge */
-            var nodeIcon = getNodeIcon(n);
-            if (nodeIcon) {
-                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
-                var iconBadge = nodeG.append("g")
-                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
-                    .style("pointer-events", "none");
-                iconBadge.append("circle")
-                    .attr("r", 9)
-                    .attr("fill", "rgba(255,255,255,0.95)")
-                    .attr("stroke", iconStroke)
-                    .attr("stroke-width", 1.2);
-                iconBadge.append("text")
-                    .attr("text-anchor", "middle")
-                    .attr("dominant-baseline", "central")
-                    .attr("font-size", "10px")
-                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
-                    .text(nodeIcon);
-            }
+        /* -- Layout and draw the current view; re-run on every grouping change -- */
+        function layoutAndDraw() {
+            view = PathographGrouping.applyGrouping(data, groupModes, expandedGroups);
+            view.groups.forEach(function(gn) { nodeMap[gn.id] = gn; });
 
-            /* Label text */
-            var label = n.id;
-            var maxChars = Math.floor(nw / 7);
-            if (label.length > maxChars) label = label.substring(0, maxChars - 1) + "\u2026";
-            nodeG.append("text")
-                .attr("text-anchor", "middle")
-                .attr("dominant-baseline", "central")
-                .attr("font-size", "11px")
-                .attr("font-family", "system-ui, -apple-system, sans-serif")
-                .attr("fill", "#1f2937")
-                .text(label);
-
-            /* PDB structure badge */
-            var hasPdb = n.meta && n.meta.pdb_structures && n.meta.pdb_structures.length;
-            if (hasPdb) {
-                var badgeG = nodeG.append("g")
-                    .attr("transform", "translate(" + (nw/2 - 10) + "," + (-nh/2 - 6) + ")")
-                    .style("cursor", "pointer");
-                badgeG.append("circle")
-                    .attr("r", 9)
-                    .attr("fill", "#1e40af")
-                    .attr("stroke", "#fff")
-                    .attr("stroke-width", 1.5);
-                badgeG.append("text")
-                    .attr("text-anchor", "middle")
-                    .attr("dominant-baseline", "central")
-                    .attr("font-size", "9px")
-                    .attr("fill", "#fff")
-                    .text("3D");
-                badgeG.append("title").text(n.meta.pdb_structures.length + " PDB structure(s)");
-                badgeG.on("click", function(event) {
-                    event.stopPropagation();
-                    var pdbId = n.meta.pdb_structures[0].pdb_id;
-                    window.open("https://www.rcsb.org/3d-view/" + pdbId, "_blank");
-                });
-            }
-
-            /* Interaction: hover */
-            nodeG.on("mouseenter", function(event) {
-                /* A pinned tooltip stays put until the user dismisses it. */
-                if (pinnedNodeId && pinnedNodeId !== n.id) return;
-                highlightNode(n.id, true);
-                showTooltip(event, n);
-            }).on("mouseleave", function() {
-                if (pinnedNodeId) return;
-                highlightNode(n.id, false);
-                hideTooltip();
-            }).on("click", function(event) {
-                event.stopPropagation();
-                pinnedNodeId = n.id;
-                highlightNode(n.id, true);
-                showTooltip(event, n);
+            var g = new dagre.graphlib.Graph({ multigraph: true });
+            g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
+            g.setDefaultEdgeLabel(function() { return {}; });
+            view.nodes.forEach(function(n) {
+                var labelLen = nodeLabel(n).length;
+                var w = n.is_group
+                    ? Math.max(160, Math.min(260, labelLen * 7 + 40))
+                    : Math.max(120, Math.min(220, labelLen * 8 + 30));
+                g.setNode(n.id, { width: w, height: n.is_group ? 56 : 44, label: nodeLabel(n) });
             });
-        });
+            view.edges.forEach(function(e, edgeIndex) {
+                // Different roles may connect the same variant and gene.
+                g.setEdge(e.source, e.target, {}, String(edgeIndex));
+            });
+            dagre.layout(g);
+
+            var graphInfo = g.graph();
+            var totalW = graphInfo.width + 60;
+            var totalH = graphInfo.height + 60;
+            svg.attr("viewBox", "0 0 " + totalW + " " + totalH)
+                .style("min-height", Math.min(totalH, 600) + "px");
+            svg.call(zoom.transform, d3.zoomIdentity);
+
+            edgesG.selectAll("*").remove();
+            nodesG.selectAll("*").remove();
+
+            /* -- Draw edges -- */
+            view.edges.forEach(function(e, edgeIndex) {
+                var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
+                if (!dagreEdge || !dagreEdge.points) return;
+                var pts = dagreEdge.points;
+                var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
+                /* A merged edge keeps its members' style; width shows how many. */
+                var width = hasHypothesisGroups(e) ? 2.4 : 1.8;
+                if (e.multiplicity > 1) width += Math.min(3, (e.multiplicity - 1) * 0.6);
+                var edgePath = edgesG.append("path")
+                    .attr("d", line(pts))
+                    .attr("fill", "none")
+                    .attr("stroke", edgeStroke(e))
+                    .attr("stroke-width", width)
+                    .attr("stroke-dasharray", edgeDashArray(e))
+                    .attr("marker-end", edgeMarker(e))
+                    .attr("data-source", e.source)
+                    .attr("data-target", e.target)
+                    .attr("data-predicate", e.predicate);
+                edgePath.append("title").text(e.merged ? mergedEdgeTitle(e) : edgeTitle(e));
+            });
+
+            /* -- Draw nodes -- */
+            view.nodes.forEach(function(n) {
+                var dagreNode = g.node(n.id);
+                if (!dagreNode) return;
+                var nw = dagreNode.width, nh = dagreNode.height;
+                var nodeG = nodesG.append("g")
+                    .attr("transform", "translate(" + dagreNode.x + "," + dagreNode.y + ")")
+                    .attr("data-node-type", n.node_type)
+                    .attr("data-node-id", n.id)
+                    .attr("class", n.is_group ? "pg-group-node" : null)
+                    .style("cursor", "pointer");
+
+                /* A group is drawn as a stack: a second outline offset behind it. */
+                if (n.is_group) {
+                    var stackG = nodeG.append("g").attr("transform", "translate(5,-5)");
+                    drawNodeShape(stackG, {node_type: n.node_type, color: "#ffffff"}, nw, nh);
+                }
+                drawNodeShape(nodeG, n, nw, nh);
+
+                /* Node-type icon badge */
+                var nodeIcon = n.is_group ? NODE_TYPE_ICONS[n.node_type] : getNodeIcon(n);
+                if (nodeIcon) {
+                    var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                    var iconBadge = nodeG.append("g")
+                        .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                        .style("pointer-events", "none");
+                    iconBadge.append("circle")
+                        .attr("r", 9)
+                        .attr("fill", "rgba(255,255,255,0.95)")
+                        .attr("stroke", iconStroke)
+                        .attr("stroke-width", 1.2);
+                    iconBadge.append("text")
+                        .attr("text-anchor", "middle")
+                        .attr("dominant-baseline", "central")
+                        .attr("font-size", "10px")
+                        .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                        .text(nodeIcon);
+                }
+
+                /* Label text */
+                var label = nodeLabel(n);
+                var maxChars = Math.floor(nw / 7);
+                if (label.length > maxChars) label = label.substring(0, maxChars - 1) + "…";
+                nodeG.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("y", n.is_group ? -7 : 0)
+                    .attr("font-size", "11px")
+                    .attr("font-weight", n.is_group ? 600 : null)
+                    .attr("font-family", "system-ui, -apple-system, sans-serif")
+                    .attr("fill", "#1f2937")
+                    .text(label);
+
+                if (n.is_group) {
+                    /* Member count, plus how many phenotypes have no causal inlink,
+                       so connected and disconnected phenotypes stay distinguishable. */
+                    var sub = n.members.length + " nodes";
+                    if (n.unexplained.length) sub += " · " + n.unexplained.length + " not causally linked";
+                    nodeG.append("text")
+                        .attr("text-anchor", "middle")
+                        .attr("dominant-baseline", "central")
+                        .attr("y", 9)
+                        .attr("font-size", "10px")
+                        .attr("font-family", "system-ui, -apple-system, sans-serif")
+                        .attr("fill", n.unexplained.length ? "#92400e" : "#4b5563")
+                        .text(sub);
+                    var countG = nodeG.append("g")
+                        .attr("transform", "translate(" + (nw/2 - 4) + "," + (-nh/2 - 2) + ")")
+                        .style("pointer-events", "none");
+                    countG.append("circle")
+                        .attr("r", 10)
+                        .attr("fill", "#4f46e5")
+                        .attr("stroke", "#fff")
+                        .attr("stroke-width", 1.5);
+                    countG.append("text")
+                        .attr("text-anchor", "middle")
+                        .attr("dominant-baseline", "central")
+                        .attr("font-size", "9px")
+                        .attr("font-weight", 700)
+                        .attr("fill", "#fff")
+                        .text(n.members.length);
+                }
+
+                /* PDB structure badge */
+                var hasPdb = !n.is_group && n.meta && n.meta.pdb_structures && n.meta.pdb_structures.length;
+                if (hasPdb) {
+                    var badgeG = nodeG.append("g")
+                        .attr("transform", "translate(" + (nw/2 - 10) + "," + (-nh/2 - 6) + ")")
+                        .style("cursor", "pointer");
+                    badgeG.append("circle")
+                        .attr("r", 9)
+                        .attr("fill", "#1e40af")
+                        .attr("stroke", "#fff")
+                        .attr("stroke-width", 1.5);
+                    badgeG.append("text")
+                        .attr("text-anchor", "middle")
+                        .attr("dominant-baseline", "central")
+                        .attr("font-size", "9px")
+                        .attr("fill", "#fff")
+                        .text("3D");
+                    badgeG.append("title").text(n.meta.pdb_structures.length + " PDB structure(s)");
+                    badgeG.on("click", function(event) {
+                        event.stopPropagation();
+                        var pdbId = n.meta.pdb_structures[0].pdb_id;
+                        window.open("https://www.rcsb.org/3d-view/" + pdbId, "_blank");
+                    });
+                }
+
+                /* Interaction: hover */
+                nodeG.on("mouseenter", function(event) {
+                    /* A pinned tooltip stays put until the user dismisses it. */
+                    if (pinnedNodeId && pinnedNodeId !== n.id) return;
+                    highlightNode(n.id, true);
+                    showTooltip(event, n);
+                }).on("mouseleave", function() {
+                    if (pinnedNodeId) return;
+                    highlightNode(n.id, false);
+                    hideTooltip();
+                }).on("click", function(event) {
+                    event.stopPropagation();
+                    pinnedNodeId = n.id;
+                    highlightNode(n.id, true);
+                    showTooltip(event, n);
+                }).on("dblclick", function(event) {
+                    /* Stop d3.zoom's double-click zoom; on a group, expand it. */
+                    event.stopPropagation();
+                    event.preventDefault();
+                    if (n.is_group) expandGroup(n.id);
+                });
+            });
+
+            filterByType();
+            renderGroupbar();
+        }
+
+        function expandGroup(groupId) {
+            expandedGroups[groupId] = true;
+            unpinTooltip();
+            hideTooltip();
+            layoutAndDraw();
+        }
+
+        function setGroupModes(modes) {
+            groupModes = PathographGrouping.normalizeModes(modes);
+            expandedGroups = {};
+            unpinTooltip();
+            hideTooltip();
+            layoutAndDraw();
+        }
+
+        function sameModes(a, b) {
+            return a.join("|") === b.join("|");
+        }
+
+        function modesText(modes) {
+            return modes.map(PathographGrouping.modeLabel).join(" + ");
+        }
+
+        /* -- Group-by control: mode toggles plus a status line naming the
+           grouping currently applied, so a collapsed graph never passes for
+           the whole graph. Modes combine; None clears them all. -- */
+        var availableModes = PathographGrouping.availableModes(data);
+
+        function renderGroupbar() {
+            if (!groupbarEl) return;
+            groupbarEl.innerHTML = "";
+            groupbarEl.classList.toggle("is-active", groupModes.length > 0);
+
+            var controls = document.createElement("div");
+            controls.className = "pg-groupbar-controls";
+            controls.setAttribute("role", "group");
+            controls.setAttribute("aria-label", "Group pathograph nodes by");
+            var title = document.createElement("span");
+            title.className = "pg-groupbar-title";
+            title.textContent = "Group by";
+            controls.appendChild(title);
+            PathographGrouping.MODES.forEach(function(m) {
+                var isNone = m.key === "none";
+                var selected = isNone ? groupModes.length === 0 : groupModes.indexOf(m.key) !== -1;
+                var btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "pg-group-mode" + (selected ? " is-selected" : "");
+                btn.setAttribute("aria-pressed", selected ? "true" : "false");
+                btn.textContent = (isNone || !selected ? "" : "✓ ") + m.label;
+                if (!isNone && !availableModes[m.key]) {
+                    btn.disabled = true;
+                    btn.title = "Nothing in this graph groups this way";
+                }
+                btn.addEventListener("click", function() {
+                    if (isNone) {
+                        if (groupModes.length) setGroupModes([]);
+                    } else if (selected) {
+                        setGroupModes(groupModes.filter(function(k) { return k !== m.key; }));
+                    } else {
+                        setGroupModes(groupModes.concat([m.key]));
+                    }
+                });
+                controls.appendChild(btn);
+            });
+            if (defaultGroupModes.length && !sameModes(groupModes, defaultGroupModes)) {
+                var reset = document.createElement("button");
+                reset.type = "button";
+                reset.className = "pg-group-collapse";
+                reset.textContent = "Back to default";
+                reset.title = "Default for this graph: " + modesText(defaultGroupModes);
+                reset.addEventListener("click", function() { setGroupModes(defaultGroupModes); });
+                controls.appendChild(reset);
+            }
+            groupbarEl.appendChild(controls);
+
+            var status = document.createElement("div");
+            status.className = "pg-groupbar-status";
+            status.setAttribute("aria-live", "polite");
+            var text;
+            if (!groupModes.length) {
+                text = "Grouping: off. Showing all " + data.nodes.length + " nodes and " + data.edges.length + " edges.";
+            } else {
+                var grouped = 0;
+                view.groups.forEach(function(gn) { grouped += gn.members.length; });
+                text = "Grouping: " + modesText(groupModes) + ". ";
+                if (view.groups.length) {
+                    text += view.groups.length + (view.groups.length === 1 ? " group holds " : " groups hold ") + grouped +
+                        " of " + data.nodes.length + " nodes; " + data.edges.length + " edges are drawn as " + view.edges.length + ".";
+                } else if (view.expanded.length) {
+                    text += "Every group is expanded, so all " + data.nodes.length + " nodes are shown.";
+                } else {
+                    text += "Nothing in this graph groups this way, so all " + data.nodes.length + " nodes are shown.";
+                }
+                if (sameModes(groupModes, defaultGroupModes)) {
+                    text += " On by default: this graph has more edges than the knowledge-base average (" +
+                        grouping.mean_edge_count + "), and this combination draws the fewest.";
+                }
+                if (view.skipped.length) {
+                    text += " " + view.skipped.length + (view.skipped.length === 1 ? " group was" : " groups were") +
+                        " left open so the main chains stay readable.";
+                }
+                text += " Click a group to list its members; double-click it to expand.";
+            }
+            status.appendChild(document.createTextNode(text));
+            if (view.expanded.length) {
+                var collapseAll = document.createElement("button");
+                collapseAll.type = "button";
+                collapseAll.className = "pg-group-collapse";
+                collapseAll.textContent = "Collapse " + view.expanded.length + " expanded";
+                collapseAll.addEventListener("click", function() { setGroupModes(groupModes); });
+                status.appendChild(document.createTextNode(" "));
+                status.appendChild(collapseAll);
+            }
+            groupbarEl.appendChild(status);
+        }
 
         /* Click on background clears highlight */
         svg.on("click", function() {
@@ -3361,11 +4022,11 @@
             if (!on) { clearHighlight(); return; }
             /* Find connected edges */
             var connectedNodes = new Set([nodeId]);
-            data.edges.forEach(function(e) {
+            view.edges.forEach(function(e) {
                 if (e.source === nodeId) connectedNodes.add(e.target);
                 if (e.target === nodeId) connectedNodes.add(e.source);
             });
-            nodesG.selectAll("g").each(function() {
+            nodesG.selectAll("g[data-node-id]").each(function() {
                 var el = d3.select(this);
                 var nid = el.attr("data-node-id");
                 el.style("opacity", connectedNodes.has(nid) ? 1 : 0.2);
@@ -3378,12 +4039,13 @@
         }
 
         function clearHighlight() {
-            nodesG.selectAll("g").style("opacity", 1);
+            nodesG.selectAll("g[data-node-id]").style("opacity", 1);
             edgesG.selectAll("path").style("opacity", 1);
         }
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            if (n.is_group) { showGroupTooltip(event, n); return; }
             function formatHistopathologyTerm(term) {
                 var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
                 if (term.term_id && term.term_label && term.term_label !== display) {
@@ -3688,6 +4350,60 @@
             tooltipEl.style.opacity = "1";
             tooltipEl.classList.add("is-visible");
 
+            placeTooltip(event);
+        }
+
+        /* A group's tooltip lists its members, each still one click from its
+           card, so grouping never hides evidence. */
+        function showGroupTooltip(event, n) {
+            var isPinned = pinnedNodeId === n.id;
+            var html = [];
+            html.push('<div class="tt-title">' + escapeHtml((NODE_TYPE_ICONS[n.node_type] || "") + " " + n.label) + '</div>');
+            html.push('<div class="tt-type">Group \u00b7 ' + escapeHtml(PathographGrouping.modeLabel(n.group_mode)) + '</div>');
+            var metaParts = ['<span>' + n.members.length + ' nodes</span>'];
+            if (n.internal_edges) metaParts.push('<span>' + n.internal_edges + ' edges inside the group</span>');
+            if (n.unexplained.length) metaParts.push('<span>' + n.unexplained.length + ' phenotype(s) with no causal inlink, marked \u25cb</span>');
+            html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+            var unexplained = {};
+            n.unexplained.forEach(function(id) { unexplained[id] = true; });
+            html.push('<ul class="tt-members">');
+            n.members.forEach(function(m, i) {
+                var mark = unexplained[m.id] ? "\u25cb " : "";
+                var text = escapeHtml(mark + m.id);
+                if (isPinned && findCardForNode(m.id, m.node_type)) {
+                    html.push('<li><button type="button" class="tt-member" data-member="' + i + '">' + text + '</button></li>');
+                } else {
+                    html.push('<li>' + text + '</li>');
+                }
+            });
+            html.push('</ul>');
+            if (isPinned) {
+                html.push('<button type="button" class="tt-jump tt-expand">Expand group</button>');
+            } else {
+                html.push('<div class="tt-hint">Click to pin and jump to a member; double-click to expand</div>');
+            }
+            tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            Array.prototype.forEach.call(tooltipEl.querySelectorAll(".tt-member"), function(btn) {
+                btn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    var member = n.members[Number(btn.getAttribute("data-member"))];
+                    jumpToCard(member.id, member.node_type);
+                });
+            });
+            var expandBtn = tooltipEl.querySelector(".tt-expand");
+            if (expandBtn) {
+                expandBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    expandGroup(n.id);
+                });
+            }
+            tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
+            placeTooltip(event);
+        }
+
+        function placeTooltip(event) {
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
             var x = event.clientX - rect.left + 14;
@@ -3751,7 +4467,7 @@
         });
 
         function filterByType() {
-            nodesG.selectAll("g").each(function() {
+            nodesG.selectAll("g[data-node-id]").each(function() {
                 var el = d3.select(this);
                 var t = el.attr("data-node-type");
                 el.style("display", activeTypes.has(t) ? null : "none");
@@ -3765,6 +4481,8 @@
                 el.style("display", (sVis && tVis) ? null : "none");
             });
         }
+
+        layoutAndDraw();
     }
     </script>
 </head>
@@ -3984,6 +4702,7 @@
                     <summary>Data</summary>
                     <ul class="dm-nav-panel">
                         <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
                     </ul>
                 </details>
             </li>
@@ -4773,10 +5492,10 @@ This subtype is caused by variation in BSCL2 (hgnc:15832). hgnc:15832 is a gene 
 
                 </div>
 
-                <div class="evidence-snippet">"Most of the variants are null mutations and probably result in a severe disruption of the protein."</div>
+                <div class="evidence-snippet">"Sequence analysis of genes located in the 11q13 interval disclosed mutations in a gene homologous to the murine guanine nucleotide-binding protein (G protein), gamma3-linked gene (Gng3lg) in all BSCL2-linked families."</div>
 
 
-                <div class="evidence-explanation">Founding BSCL2 families; not every allele is null.</div>
+                <div class="evidence-explanation">The founding linkage study found mutations in the 11q13 gene, later named BSCL2/seipin, in every family linked to that locus, which defines the BSCL2-associated subtype.</div>
 
 
 
@@ -7637,9 +8356,10 @@ This pathophysiological event involves decreased insulin receptor signaling path
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
-            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            <div class="graph-note">Use <strong>Group by</strong> to collapse related nodes into one box. Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
 
             <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-groupbar" id="pathograph-groupbar"></div>
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Berardinelli-Seip Congenital Lipodystrophy</title>
@@ -7649,7 +8369,7 @@ This pathophysiological event involves decreased insulin receptor signaling path
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AGPAT2 acylglycerol synthesis defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of AGPAT2 impairs lysophosphatidic-acid acylation in adipocytes. This disrupts normal glycerolipid synthesis and adipogenesis. A global fall in phosphatidic acid is not assumed: compensatory hepatic pathways can increase particular phosphatidic-acid species in knockout mice.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adipocyte\"], \"biological_processes\": [\"triglyceride biosynthetic process\"], \"molecular_functions\": [\"lysophosphatidic acid acyltransferase activity\"], \"genes\": [\"AGPAT2\"], \"gene_terms\": [{\"label\": \"AGPAT2\", \"id\": \"hgnc:325\"}], \"subtypes\": [\"CGL1\"]}}, {\"id\": \"AGPAT2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"AGPAT2\"], \"gene_terms\": [{\"label\": \"AGPAT2\", \"id\": \"hgnc:325\"}], \"subtypes\": [\"CGL1\"], \"association\": \"Causative biallelic pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"Acanthosis nigricans\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acanthosis nigricans is a cutaneous manifestation of severe insulin resistance.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000956\"}}, {\"id\": \"Accelerated growth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Accelerated childhood growth is associated with marked appetite in the classic CGL phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001548\"}}, {\"id\": \"Adipose tissue loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Near-total metabolic fat loss is generally recognized at birth or in infancy; mechanical depots vary by genotype and CGL4 can lose fat progressively after birth.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008887\"}}, {\"id\": \"BSCL2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BSCL2\"], \"gene_terms\": [{\"label\": \"BSCL2\", \"id\": \"hgnc:15832\"}], \"subtypes\": [\"CGL2\"], \"association\": \"Causative biallelic pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"BSCL2 seipin lipid-droplet dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Seipin deficiency disrupts lipid-droplet organization at the endoplasmic reticulum. Cell models also show dysregulated lipolysis, recorded as a separate downstream event.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adipocyte\"], \"biological_processes\": [\"lipid droplet organization\"], \"genes\": [\"BSCL2\"], \"gene_terms\": [{\"label\": \"BSCL2\", \"id\": \"hgnc:15832\"}], \"subtypes\": [\"CGL2\"]}}, {\"id\": \"Biallelic AGPAT2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Null and missense AGPAT2 variants can reduce or abolish lysophosphatidic acid acyltransferase activity.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"AGPAT2\"], \"gene_terms\": [{\"label\": \"AGPAT2\", \"id\": \"hgnc:325\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Biallelic BSCL2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Null and missense BSCL2 variants disrupt seipin-dependent lipid-droplet regulation and adipocyte differentiation.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"BSCL2\"], \"gene_terms\": [{\"label\": \"BSCL2\", \"id\": \"hgnc:15832\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Bscl2 knockout mice\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model develops severe white-adipose lipodystrophy, insulin resistance and hepatic steatosis. Its fasting glucose and triglyceride behavior differs from human CGL2; reports of fasting reductions and postprandial hypertriglyceridemia should not be generalized to patients.\"}, {\"id\": \"Bscl2-deficient adipogenic cultures\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Knockout cultures retain early differentiation but fail terminal adipogenesis with excessive cAMP/PKA-dependent lipolysis. Lipolysis inhibitors largely rescue differentiation, whereas the tested PPARgamma agonist does not.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"CAV1 p.Glu38Ter\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous truncating allele in the founding patient, with loss of both caveolin-1 isoforms in fibroblasts.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"Nonsense variant\"}}, {\"id\": \"CAV1 p.His79GlnfsTer3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous frameshift in four related patients; nine heterozygous relatives in this family were clinically unaffected.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"Frameshift variant\"}}, {\"id\": \"CAV1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"CAV1\"], \"gene_terms\": [{\"label\": \"CAV1\", \"id\": \"hgnc:1527\"}], \"subtypes\": [\"CGL3\"], \"association\": \"Causative biallelic pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"CAV1-deficient patient fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Fibroblasts lack caveolae and caveolin-1, caveolin-2 and cavin-1 protein expression, with impaired insulin responses, oxidative stress and premature senescence.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"CAV1-dependent caveola loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic CAV1 loss disrupts caveola formation. Patient fibroblasts lack caveolae and caveolar proteins. Adipose storage and insulin-response effects are supported by these patient cells and experimental models; each tissue need not have identical changes. The adipocyte binding identifies the disease-relevant cell type; the directly cited caveola and insulin-response assays were performed in fibroblasts, not patient adipocytes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adipocyte\"], \"biological_processes\": [\"caveola assembly\"], \"genes\": [\"CAV1\"], \"gene_terms\": [{\"label\": \"CAV1\", \"id\": \"hgnc:1527\"}], \"subtypes\": [\"CGL3\"], \"experimental_models\": [{\"name\": \"CAV1-deficient patient fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\"}]}}, {\"id\": \"CAVIN1 c.160delG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Reported homozygous truncating allele in CGL4 families.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"Frameshift variant\"}}, {\"id\": \"CAVIN1 c.362dupT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Reported homozygous truncating allele in the UK CGL4 patient.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"Frameshift variant\"}}, {\"id\": \"CAVIN1 caveola biogenesis defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CAVIN1 deficiency markedly reduces caveolae in patient fibroblasts and skeletal muscle. Caveolin localization is abnormal; reported abundance differs between studies, with preserved caveolin-1/3 in one cohort and reduced protein in another.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adipocyte\"], \"biological_processes\": [\"caveola assembly\"], \"genes\": [\"CAVIN1\"], \"gene_terms\": [{\"label\": \"CAVIN1\", \"id\": \"hgnc:9688\"}], \"subtypes\": [\"CGL4\"], \"experimental_models\": [{\"name\": \"CAVIN1-deficient patient fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\"}]}}, {\"id\": \"CAVIN1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CAVIN1\"], \"gene_terms\": [{\"label\": \"CAVIN1\", \"id\": \"hgnc:9688\"}], \"subtypes\": [\"CGL4\"], \"association\": \"Causative biallelic pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"CAVIN1-deficient patient fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient fibroblasts had a greater than 97% reduction in caveolae. Wild-type CAVIN1 transfection restored peripheral punctate caveolar staining. The experiment supports cell-autonomous caveola formation, without demonstrating clinical rescue.\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"CGL3 achalasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Two of four newly reported related CAV1 patients developed achalasia in adolescence.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL3\"], \"term_id\": \"HP:0002571\"}}, {\"id\": \"CGL4 atlantoaxial instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cervical instability is reported in CAVIN1 disease; intervention is individualized.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL4\"], \"term_id\": \"HP:0003467\"}}, {\"id\": \"CGL4 cardiac arrhythmia risk\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"CAVIN1-associated disease can cause exercise-induced polymorphic ventricular tachycardia, prolonged QT, ventricular fibrillation and sudden death. Normal resting testing or absence of QT prolongation does not exclude exercise-related risk.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL4\"], \"term_id\": \"HP:0011675\"}}, {\"id\": \"CGL4 congenital myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"CAVIN1/PTRF-associated type 4 disease includes congenital myopathy as a subtype-distinguishing neuromuscular feature.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL4\"], \"term_id\": \"HP:0003198\"}}, {\"id\": \"CGL4 elevated creatine kinase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum creatine kinase accompanies the congenital myopathy reported in CAVIN1/PTRF-associated type 4 disease.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL4\"], \"reports_on\": [{\"target\": \"CAVIN1 caveola biogenesis defect\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"CAVIN1/PTRF-associated myopathy is accompanied by high serum creatine kinase.\"}], \"term_id\": \"HP:0003236\"}}, {\"id\": \"CGL4 muscle mounding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Percussion-induced local sustained contractions are characteristic; mounding may be electrically silent and is not equivalent to myotonia.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL4\"], \"term_id\": \"HP:0003719\"}}, {\"id\": \"CGL4 polymorphic ventricular tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Exercise-induced polymorphic ventricular tachycardia resembling CPVT was documented in two siblings; resting assessment may be unrevealing.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL4\"], \"term_id\": \"HP:0031677\"}}, {\"id\": \"CGL4 prolonged QT interval\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"QT prolongation occurs in some CAVIN1 families but was absent in the five-patient Shastry series despite exercise-induced arrhythmias.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL4\"], \"term_id\": \"HP:0001657\"}}, {\"id\": \"CGL4 pyloric stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pyloric stenosis can require surgery in CGL4.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL4\"], \"term_id\": \"HP:0002021\"}}, {\"id\": \"CGL4 specialist arrhythmia management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Specialist evaluation may include exercise-related rhythm assessment and beta-blockade. Nadolol was initiated in two affected siblings with exercise-induced polymorphic ventricular tachycardia; controlled efficacy was not reported. Implantable defibrillator or pacing decisions depend on individual risk.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Beta-Adrenergic Antagonist\"]}}, {\"id\": \"Circulating triglyceride excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced adipose lipid-storage capacity and metabolic dysregulation produce severe hypertriglyceridemia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cirrhosis is an occasional hepatic complication recorded in congenital generalized lipodystrophy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001394\"}}, {\"id\": \"Clitoromegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clitoral enlargement is reported in affected females.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008665\"}}, {\"id\": \"Diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diabetes usually follows progressive insulin resistance, often around puberty, but can occur earlier. Historical estimates differ by source and ascertainment: GeneReviews reported 25\\u201335% by ages 15\\u201320, whereas the 2015 review reported approximately 45% during puberty.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000819\"}}, {\"id\": \"Ectopic triglyceride accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inadequate adipose storage favors lipid deposition in liver and other nonadipose tissues. Hepatic lipid burden and insulin resistance are associated, but triglyceride itself is not assumed to be the sole toxic mediator. Muscle lipid excess is not universal across subtypes or samples.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"cell of skeletal muscle\"], \"locations\": [\"liver\", \"skeletal muscle tissue\"]}}, {\"id\": \"Eruptive xanthomas\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Eruptive xanthomas accompany severe triglyceride elevation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000991\"}}, {\"id\": \"Failure of terminal adipocyte differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early adipogenic differentiation can begin, but Bscl2-deficient cells fail to maintain terminal differentiation and adipocyte-specific transcription.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL2\"], \"experimental_models\": [{\"name\": \"Bscl2-deficient adipogenic cultures\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\"}]}}, {\"id\": \"Generalized adipose tissue loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Adipose triglyceride storage capacity is profoundly reduced. Metabolic and mechanical depot involvement differs by genotype, and CGL4 fat loss may be progressive in infancy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adipocyte\"], \"locations\": [\"adipose tissue\"], \"animal_models\": [{\"name\": \"Bscl2 knockout mice\", \"species\": \"Mus musculus\", \"genotype\": \"Bscl2 homozygous knockout\", \"relationship\": \"RECAPITULATES\"}]}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatic triglyceride deposition produces fatty liver and may contribute to hepatomegaly. The retired GeneReviews chapter described steatotic hepatomegaly in all affected individuals, reflecting the classic phenotype. This is not a universal frequency across newer molecular subtypes: the primary five-patient CGL4 series documented hepatic steatosis in two.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement is common and reflects hepatic lipid accumulation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hirsutism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Female hyperandrogenic features can include hirsutism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001007\"}}, {\"id\": \"Hyperinsulinemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"NCIT:C2271\", \"term_label\": \"Insulin\", \"readouts\": [{\"target\": \"Severe insulin resistance\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated circulating insulin reports compensation for severe insulin resistance.\"}]}}, {\"id\": \"Hyperphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased appetite contributes to excess energy intake despite minimal adipose storage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002591\"}}, {\"id\": \"Hypertriglyceridemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17855\", \"term_label\": \"triglyceride\", \"readouts\": [{\"target\": \"Circulating triglyceride excess\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Circulating triglycerides measure the systemic triglyceride excess, not the quantity stored in liver or muscle.\"}]}}, {\"id\": \"Increased appetite\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of leptin satiety signaling increases appetite and food intake.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Insulin resistance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe insulin resistance is a core metabolic manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000855\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual impairment is particularly associated with BSCL2-related disease. In a 70-patient study, the odds ratio for BSCL2 compared with other molecular groups was 17 (95% CI 3.6\\u201379); this is not an overall disease frequency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Irregular menstruation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Menstrual irregularity or amenorrhea can accompany reproductive dysfunction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000858\"}}, {\"id\": \"Leptin deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Markedly reduced adipose mass results in severe hypoleptinemia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lipodystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The disorder is a generalized lipodystrophy with abnormal adipose tissue morphology and distribution.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009125\"}}, {\"id\": \"Low leptin concentration\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"NCIT:C46081\", \"term_label\": \"Leptin\", \"readouts\": [{\"target\": \"Leptin deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"interpretation\": \"Low circulating leptin reports the hypoleptinemic metabolic branch caused by near-total adipose tissue loss.\"}]}}, {\"id\": \"Metformin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Metformin is a first-line conventional agent for insulin resistance and diabetes, alongside diet and disease-directed leptin treatment when appropriate.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"metformin\"]}}, {\"id\": \"Metreleptin replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Metreleptin with diet is a first-line therapy for metabolic and endocrine complications of generalized lipodystrophy. The final NIH open-label analysis included 45 congenital and 21 acquired cases; congenital-group changes at 12 months/last observation were \\u22121.8 percentage points in HbA1c and \\u221222.2% in triglycerides. Published NIH cohorts overlap. Treatment improves metabolism without restoring absent fat; pooled liver and glycemic effects are not CGL-specific estimates.\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"Metreleptin\"]}}, {\"id\": \"PPARG adipogenic nuclear receptor deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced PPARgamma transcriptional function compromises adipocyte differentiation. Rare biallelic cases have a severe generalized or CGL-like distribution; heterozygous alleles may themselves cause partial lipodystrophy. The generalized boundary remains qualified by the subtype evidence.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"adipocyte\"], \"biological_processes\": [\"preadipocyte differentiation into adipocytes\"], \"genes\": [\"PPARG\"], \"gene_terms\": [{\"label\": \"PPARG\", \"id\": \"hgnc:9236\"}], \"subtypes\": [\"CGL-PPARG\"]}}, {\"id\": \"PPARG pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PPARG\"], \"gene_terms\": [{\"label\": \"PPARG\", \"id\": \"hgnc:9236\"}], \"subtypes\": [\"CGL-PPARG\"], \"association\": \"Rare biallelic pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Pancreatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe hypertriglyceridemia can cause recurrent pancreatitis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001733\"}}, {\"id\": \"Polycystic ovaries\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Polycystic ovaries occur in some affected females; reproductive manifestations are not assigned whole-cohort frequencies.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000147\"}}, {\"id\": \"Prominent superficial veins\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prominent superficial veins are an occasional body-habitus manifestation of congenital generalized lipodystrophy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001015\"}}, {\"id\": \"Severe insulin resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insulin action is severely impaired. Compensatory hyperinsulinemia may initially preserve glucose tolerance; diabetes develops when compensation is inadequate. Lipid and leptin pathways contribute through incompletely resolved intermediates.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"insulin receptor signaling pathway\"]}}, {\"id\": \"Triglyceride-lowering therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fibrates and long-chain omega-3 fatty acids are used for severe hypertriglyceridemia. Their use in lipodystrophy is supported mainly by clinical experience. Consider myopathy risk, particularly in CGL4.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"omega-3 fatty acid\"]}}, {\"id\": \"Unrestrained adipocyte lipolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bscl2-deficient mouse-derived cells show excessive cAMP/PKA-dependent lipolysis during differentiation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL2\"], \"experimental_models\": [{\"name\": \"Bscl2-deficient adipogenic cultures\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\"}]}}], \"edges\": [{\"source\": \"AGPAT2 acylglycerol synthesis defect\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered glycerolipid handling compromises adipose development and storage capacity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"BSCL2 seipin lipid-droplet dysregulation\", \"target\": \"Unrestrained adipocyte lipolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Seipin loss permits excessive cAMP/PKA-driven lipolysis in the reported cell models.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"BSCL2 seipin lipid-droplet dysregulation\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BSCL2-associated disease is enriched for intellectual impairment through an unresolved neurological mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Unrestrained adipocyte lipolysis\", \"target\": \"Failure of terminal adipocyte differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive lipolysis disrupts completion of adipogenesis in this model.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of terminal adipocyte differentiation\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to form and maintain mature adipocytes contributes to loss of adipose tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAV1-dependent caveola loss\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CAV1 deficiency compromises adipose maintenance; the complete intervening sequence remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAV1-dependent caveola loss\", \"target\": \"CGL3 achalasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic CAV1 loss is associated with achalasia through an unresolved esophageal mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of caveolae impairs adipose maintenance.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"CGL4 congenital myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Caveolar disruption is associated with muscle dysfunction; tissue-specific intermediates remain incomplete.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"CGL4 cardiac arrhythmia risk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac electrophysiological consequences involve unresolved intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"CGL4 muscle mounding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Caveolar disease is associated with this subtype manifestation; detailed tissue-specific intermediates remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"CGL4 prolonged QT interval\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Caveolar disease is associated with this subtype manifestation; detailed tissue-specific intermediates remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"CGL4 polymorphic ventricular tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Caveolar disease is associated with this subtype manifestation; detailed tissue-specific intermediates remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"CGL4 pyloric stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Subtype-associated structural manifestation; the intervening developmental mechanism remains uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"CGL4 atlantoaxial instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Subtype-associated structural manifestation; the intervening developmental mechanism remains uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PPARG adipogenic nuclear receptor deficiency\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired adipogenesis underlies severe fat loss in rare biallelic cases.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Lipodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Near-total adipose loss clinically manifests as generalized lipodystrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of adipocytes produces the HPO adipose tissue loss phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Ectopic triglyceride accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inability to store triglyceride in adipose tissue diverts lipid to non-adipose organs.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Near-total adipose loss limits efficient storage of circulating triglycerides.\", \"Excess triglycerides spill over to liver and skeletal muscle.\"]}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Prominent superficial veins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Near-total subcutaneous adipose loss can make superficial veins conspicuous.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced subcutaneous fat coverage\"]}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Leptin deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of adipose endocrine tissue lowers leptin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Circulating triglyceride excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient adipose storage contributes to circulating lipid excess.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leptin deficiency\", \"target\": \"Increased appetite\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Leptin deficiency increases appetite.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Leptin deficiency\", \"target\": \"Severe insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Leptin has metabolic actions beyond appetite; their complete cellular route is not resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leptin deficiency\", \"target\": \"Low leptin concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The low serum measurement reflects deficient circulating leptin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased appetite\", \"target\": \"Ectopic triglyceride accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess intake adds to the lipid load that cannot be stored in adipose depots.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Increased appetite\", \"target\": \"Hyperphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased appetite manifests clinically as hyperphagia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased appetite\", \"target\": \"Accelerated growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High appetite is associated with accelerated childhood growth in the clinical synthesis; endocrine and nutritional intermediates are not fully specified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ectopic triglyceride accumulation\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ectopic triglyceride accumulation in hepatocytes produces hepatic steatosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ectopic triglyceride accumulation\", \"target\": \"Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic hepatic lipid injury in congenital generalized lipodystrophy can progress to cirrhosis in a subset of patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ectopic triglyceride accumulation\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic lipid accumulation contributes to liver enlargement.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Ectopic hepatic triglyceride accumulation causes hepatic steatosis.\", \"Hepatic steatosis can enlarge the liver.\"]}, {\"source\": \"Ectopic triglyceride accumulation\", \"target\": \"Severe insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic steatosis and intramyocellular lipid accumulation contribute to the severe insulin-resistance mechanism, although the intervening molecular steps remain incompletely defined.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Circulating triglyceride excess\", \"target\": \"Hypertriglyceridemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating triglyceride excess is the biochemical phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circulating triglyceride excess\", \"target\": \"Pancreatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extreme triglyceride elevation predisposes to pancreatic inflammation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Circulating triglyceride excess\", \"target\": \"Eruptive xanthomas\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe lipid excess causes cutaneous lipid deposition.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Severe insulin resistance\", \"target\": \"Insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mechanism directly produces the clinical insulin-resistance phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe insulin resistance\", \"target\": \"Hyperinsulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pancreatic compensation for insulin resistance increases circulating insulin.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Compensatory pancreatic beta-cell insulin secretion raises circulating insulin.\"]}, {\"source\": \"Severe insulin resistance\", \"target\": \"Diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe insulin resistance predisposes to diabetes mellitus.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Severe insulin resistance\", \"target\": \"Acanthosis nigricans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic insulin resistance can produce acanthosis nigricans.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Severe insulin resistance\", \"target\": \"Hirsutism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insulin resistance and hyperandrogenism contribute to female reproductive manifestations; the individual mediators are incompletely established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Severe insulin resistance\", \"target\": \"Clitoromegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insulin resistance and hyperandrogenism contribute to female reproductive manifestations; the individual mediators are incompletely established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Severe insulin resistance\", \"target\": \"Irregular menstruation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insulin resistance and hyperandrogenism contribute to female reproductive manifestations; the individual mediators are incompletely established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Severe insulin resistance\", \"target\": \"Polycystic ovaries\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insulin resistance and hyperandrogenism contribute to female reproductive manifestations; the individual mediators are incompletely established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Metreleptin replacement therapy\", \"target\": \"Leptin deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Metformin\", \"target\": \"Severe insulin resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Triglyceride-lowering therapy\", \"target\": \"Circulating triglyceride excess\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CGL4 specialist arrhythmia management\", \"target\": \"CGL4 cardiac arrhythmia risk\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CAVIN1-deficient patient fibroblasts\", \"target\": \"CAVIN1 caveola biogenesis defect\", \"predicate\": \"models\", \"is_orphan\": false, \"relationship\": \"RECAPITULATES\"}, {\"source\": \"CAV1-deficient patient fibroblasts\", \"target\": \"CAV1-dependent caveola loss\", \"predicate\": \"models\", \"is_orphan\": false, \"relationship\": \"RECAPITULATES\"}, {\"source\": \"Bscl2-deficient adipogenic cultures\", \"target\": \"Unrestrained adipocyte lipolysis\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"relationship\": \"PARTIALLY_RECAPITULATES\", \"limitations\": \"Mouse-derived cells, not direct human adipocyte measurements.\"}, {\"source\": \"Bscl2-deficient adipogenic cultures\", \"target\": \"Failure of terminal adipocyte differentiation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"relationship\": \"PARTIALLY_RECAPITULATES\", \"limitations\": \"The model resolves a cell-level sequence rather than all human subtype effects.\"}, {\"source\": \"Bscl2 knockout mice\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"models\", \"is_orphan\": false, \"relationship\": \"RECAPITULATES\"}, {\"source\": \"Circulating triglyceride excess\", \"target\": \"Hypertriglyceridemia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Circulating triglycerides measure the systemic triglyceride excess, not the quantity stored in liver or muscle.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Leptin deficiency\", \"target\": \"Low leptin concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low circulating leptin reports the hypoleptinemic metabolic branch caused by near-total adipose tissue loss.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\"}, {\"source\": \"Severe insulin resistance\", \"target\": \"Hyperinsulinemia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated circulating insulin reports compensation for severe insulin resistance.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"CGL4 elevated creatine kinase\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"CAVIN1/PTRF-associated myopathy is accompanied by high serum creatine kinase.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"AGPAT2 pathogenic variants\", \"target\": \"AGPAT2 acylglycerol synthesis defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BSCL2 pathogenic variants\", \"target\": \"BSCL2 seipin lipid-droplet dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CAV1 pathogenic variants\", \"target\": \"CAV1-dependent caveola loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CAVIN1 pathogenic variants\", \"target\": \"CAVIN1 caveola biogenesis defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPARG pathogenic variants\", \"target\": \"PPARG adipogenic nuclear receptor deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic AGPAT2 pathogenic variants\", \"target\": \"AGPAT2 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Biallelic BSCL2 pathogenic variants\", \"target\": \"BSCL2 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CAV1 p.Glu38Ter\", \"target\": \"CAV1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CAV1 p.His79GlnfsTer3\", \"target\": \"CAV1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CAVIN1 c.160delG\", \"target\": \"CAVIN1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CAVIN1 c.362dupT\", \"target\": \"CAVIN1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AGPAT2 acylglycerol synthesis defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of AGPAT2 impairs lysophosphatidic-acid acylation in adipocytes. This disrupts normal glycerolipid synthesis and adipogenesis. A global fall in phosphatidic acid is not assumed: compensatory hepatic pathways can increase particular phosphatidic-acid species in knockout mice.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adipocyte\"], \"biological_processes\": [\"triglyceride biosynthetic process\"], \"molecular_functions\": [\"lysophosphatidic acid acyltransferase activity\"], \"genes\": [\"AGPAT2\"], \"gene_terms\": [{\"label\": \"AGPAT2\", \"id\": \"hgnc:325\"}], \"subtypes\": [\"CGL1\"]}}, {\"id\": \"AGPAT2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"AGPAT2\"], \"gene_terms\": [{\"label\": \"AGPAT2\", \"id\": \"hgnc:325\"}], \"subtypes\": [\"CGL1\"], \"association\": \"Causative biallelic pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"Acanthosis nigricans\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acanthosis nigricans is a cutaneous manifestation of severe insulin resistance.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000956\"}, \"group_keys\": {\"phenotype_system\": \"Integument\"}}, {\"id\": \"Accelerated growth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Accelerated childhood growth is associated with marked appetite in the classic CGL phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001548\"}, \"group_keys\": {\"phenotype_system\": \"Growth\"}}, {\"id\": \"Adipose tissue loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Near-total metabolic fat loss is generally recognized at birth or in infancy; mechanical depots vary by genotype and CGL4 can lose fat progressively after birth.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008887\"}, \"group_keys\": {\"phenotype_system\": \"Musculoskeletal\"}}, {\"id\": \"BSCL2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"BSCL2\"], \"gene_terms\": [{\"label\": \"BSCL2\", \"id\": \"hgnc:15832\"}], \"subtypes\": [\"CGL2\"], \"association\": \"Causative biallelic pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"BSCL2 seipin lipid-droplet dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Seipin deficiency disrupts lipid-droplet organization at the endoplasmic reticulum. Cell models also show dysregulated lipolysis, recorded as a separate downstream event.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adipocyte\"], \"biological_processes\": [\"lipid droplet organization\"], \"genes\": [\"BSCL2\"], \"gene_terms\": [{\"label\": \"BSCL2\", \"id\": \"hgnc:15832\"}], \"subtypes\": [\"CGL2\"]}}, {\"id\": \"Biallelic AGPAT2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Null and missense AGPAT2 variants can reduce or abolish lysophosphatidic acid acyltransferase activity.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"AGPAT2\"], \"gene_terms\": [{\"label\": \"AGPAT2\", \"id\": \"hgnc:325\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Biallelic BSCL2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Null and missense BSCL2 variants disrupt seipin-dependent lipid-droplet regulation and adipocyte differentiation.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"BSCL2\"], \"gene_terms\": [{\"label\": \"BSCL2\", \"id\": \"hgnc:15832\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Bscl2 knockout mice\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model develops severe white-adipose lipodystrophy, insulin resistance and hepatic steatosis. Its fasting glucose and triglyceride behavior differs from human CGL2; reports of fasting reductions and postprandial hypertriglyceridemia should not be generalized to patients.\"}, {\"id\": \"Bscl2-deficient adipogenic cultures\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Knockout cultures retain early differentiation but fail terminal adipogenesis with excessive cAMP/PKA-dependent lipolysis. Lipolysis inhibitors largely rescue differentiation, whereas the tested PPARgamma agonist does not.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"CAV1 p.Glu38Ter\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous truncating allele in the founding patient, with loss of both caveolin-1 isoforms in fibroblasts.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"Nonsense variant\"}}, {\"id\": \"CAV1 p.His79GlnfsTer3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous frameshift in four related patients; nine heterozygous relatives in this family were clinically unaffected.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"Frameshift variant\"}}, {\"id\": \"CAV1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"CAV1\"], \"gene_terms\": [{\"label\": \"CAV1\", \"id\": \"hgnc:1527\"}], \"subtypes\": [\"CGL3\"], \"association\": \"Causative biallelic pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"CAV1-deficient patient fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Fibroblasts lack caveolae and caveolin-1, caveolin-2 and cavin-1 protein expression, with impaired insulin responses, oxidative stress and premature senescence.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"CAV1-dependent caveola loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic CAV1 loss disrupts caveola formation. Patient fibroblasts lack caveolae and caveolar proteins. Adipose storage and insulin-response effects are supported by these patient cells and experimental models; each tissue need not have identical changes. The adipocyte binding identifies the disease-relevant cell type; the directly cited caveola and insulin-response assays were performed in fibroblasts, not patient adipocytes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adipocyte\"], \"biological_processes\": [\"caveola assembly\"], \"genes\": [\"CAV1\"], \"gene_terms\": [{\"label\": \"CAV1\", \"id\": \"hgnc:1527\"}], \"subtypes\": [\"CGL3\"], \"experimental_models\": [{\"name\": \"CAV1-deficient patient fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\"}]}}, {\"id\": \"CAVIN1 c.160delG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Reported homozygous truncating allele in CGL4 families.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"Frameshift variant\"}}, {\"id\": \"CAVIN1 c.362dupT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Reported homozygous truncating allele in the UK CGL4 patient.\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"Frameshift variant\"}}, {\"id\": \"CAVIN1 caveola biogenesis defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CAVIN1 deficiency markedly reduces caveolae in patient fibroblasts and skeletal muscle. Caveolin localization is abnormal; reported abundance differs between studies, with preserved caveolin-1/3 in one cohort and reduced protein in another.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adipocyte\"], \"biological_processes\": [\"caveola assembly\"], \"genes\": [\"CAVIN1\"], \"gene_terms\": [{\"label\": \"CAVIN1\", \"id\": \"hgnc:9688\"}], \"subtypes\": [\"CGL4\"], \"experimental_models\": [{\"name\": \"CAVIN1-deficient patient fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\"}]}}, {\"id\": \"CAVIN1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CAVIN1\"], \"gene_terms\": [{\"label\": \"CAVIN1\", \"id\": \"hgnc:9688\"}], \"subtypes\": [\"CGL4\"], \"association\": \"Causative biallelic pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"CAVIN1-deficient patient fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient fibroblasts had a greater than 97% reduction in caveolae. Wild-type CAVIN1 transfection restored peripheral punctate caveolar staining. The experiment supports cell-autonomous caveola formation, without demonstrating clinical rescue.\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"CGL3 achalasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Two of four newly reported related CAV1 patients developed achalasia in adolescence.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL3\"], \"term_id\": \"HP:0002571\"}, \"group_keys\": {\"phenotype_system\": \"Digestive\"}}, {\"id\": \"CGL4 atlantoaxial instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cervical instability is reported in CAVIN1 disease; intervention is individualized.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL4\"], \"term_id\": \"HP:0003467\"}, \"group_keys\": {\"phenotype_system\": \"Musculoskeletal\"}}, {\"id\": \"CGL4 cardiac arrhythmia risk\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"CAVIN1-associated disease can cause exercise-induced polymorphic ventricular tachycardia, prolonged QT, ventricular fibrillation and sudden death. Normal resting testing or absence of QT prolongation does not exclude exercise-related risk.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL4\"], \"term_id\": \"HP:0011675\"}, \"group_keys\": {\"phenotype_system\": \"Cardiovascular\"}}, {\"id\": \"CGL4 congenital myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"CAVIN1/PTRF-associated type 4 disease includes congenital myopathy as a subtype-distinguishing neuromuscular feature.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL4\"], \"term_id\": \"HP:0003198\"}, \"group_keys\": {\"phenotype_system\": \"Musculoskeletal\"}}, {\"id\": \"CGL4 elevated creatine kinase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum creatine kinase accompanies the congenital myopathy reported in CAVIN1/PTRF-associated type 4 disease.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL4\"], \"reports_on\": [{\"target\": \"CAVIN1 caveola biogenesis defect\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"CAVIN1/PTRF-associated myopathy is accompanied by high serum creatine kinase.\"}], \"term_id\": \"HP:0003236\"}, \"group_keys\": {\"phenotype_system\": \"Metabolism\"}}, {\"id\": \"CGL4 muscle mounding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Percussion-induced local sustained contractions are characteristic; mounding may be electrically silent and is not equivalent to myotonia.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL4\"], \"term_id\": \"HP:0003719\"}, \"group_keys\": {\"phenotype_system\": \"Musculoskeletal\"}}, {\"id\": \"CGL4 polymorphic ventricular tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Exercise-induced polymorphic ventricular tachycardia resembling CPVT was documented in two siblings; resting assessment may be unrevealing.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL4\"], \"term_id\": \"HP:0031677\"}, \"group_keys\": {\"phenotype_system\": \"Cardiovascular\"}}, {\"id\": \"CGL4 prolonged QT interval\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"QT prolongation occurs in some CAVIN1 families but was absent in the five-patient Shastry series despite exercise-induced arrhythmias.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL4\"], \"term_id\": \"HP:0001657\"}, \"group_keys\": {\"phenotype_system\": \"Cardiovascular\"}}, {\"id\": \"CGL4 pyloric stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pyloric stenosis can require surgery in CGL4.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL4\"], \"term_id\": \"HP:0002021\"}, \"group_keys\": {\"phenotype_system\": \"Digestive\"}}, {\"id\": \"CGL4 specialist arrhythmia management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Specialist evaluation may include exercise-related rhythm assessment and beta-blockade. Nadolol was initiated in two affected siblings with exercise-induced polymorphic ventricular tachycardia; controlled efficacy was not reported. Implantable defibrillator or pacing decisions depend on individual risk.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Beta-Adrenergic Antagonist\"]}}, {\"id\": \"Circulating triglyceride excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced adipose lipid-storage capacity and metabolic dysregulation produce severe hypertriglyceridemia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cirrhosis is an occasional hepatic complication recorded in congenital generalized lipodystrophy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001394\"}, \"group_keys\": {\"phenotype_system\": \"Digestive\"}}, {\"id\": \"Clitoromegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clitoral enlargement is reported in affected females.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008665\"}, \"group_keys\": {\"phenotype_system\": \"Genitourinary\"}}, {\"id\": \"Diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diabetes usually follows progressive insulin resistance, often around puberty, but can occur earlier. Historical estimates differ by source and ascertainment: GeneReviews reported 25\\u201335% by ages 15\\u201320, whereas the 2015 review reported approximately 45% during puberty.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000819\"}, \"group_keys\": {\"phenotype_system\": \"Endocrine\"}}, {\"id\": \"Ectopic triglyceride accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inadequate adipose storage favors lipid deposition in liver and other nonadipose tissues. Hepatic lipid burden and insulin resistance are associated, but triglyceride itself is not assumed to be the sole toxic mediator. Muscle lipid excess is not universal across subtypes or samples.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"cell of skeletal muscle\"], \"locations\": [\"liver\", \"skeletal muscle tissue\"]}}, {\"id\": \"Eruptive xanthomas\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Eruptive xanthomas accompany severe triglyceride elevation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000991\"}, \"group_keys\": {\"phenotype_system\": \"Integument\"}}, {\"id\": \"Failure of terminal adipocyte differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early adipogenic differentiation can begin, but Bscl2-deficient cells fail to maintain terminal differentiation and adipocyte-specific transcription.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL2\"], \"experimental_models\": [{\"name\": \"Bscl2-deficient adipogenic cultures\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\"}]}}, {\"id\": \"Generalized adipose tissue loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Adipose triglyceride storage capacity is profoundly reduced. Metabolic and mechanical depot involvement differs by genotype, and CGL4 fat loss may be progressive in infancy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adipocyte\"], \"locations\": [\"adipose tissue\"], \"animal_models\": [{\"name\": \"Bscl2 knockout mice\", \"species\": \"Mus musculus\", \"genotype\": \"Bscl2 homozygous knockout\", \"relationship\": \"RECAPITULATES\"}]}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatic triglyceride deposition produces fatty liver and may contribute to hepatomegaly. The retired GeneReviews chapter described steatotic hepatomegaly in all affected individuals, reflecting the classic phenotype. This is not a universal frequency across newer molecular subtypes: the primary five-patient CGL4 series documented hepatic steatosis in two.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001397\"}, \"group_keys\": {\"phenotype_system\": \"Digestive\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement is common and reflects hepatic lipid accumulation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002240\"}, \"group_keys\": {\"phenotype_system\": \"Digestive\"}}, {\"id\": \"Hirsutism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Female hyperandrogenic features can include hirsutism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001007\"}, \"group_keys\": {\"phenotype_system\": \"Integument\"}}, {\"id\": \"Hyperinsulinemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"NCIT:C2271\", \"term_label\": \"Insulin\", \"readouts\": [{\"target\": \"Severe insulin resistance\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated circulating insulin reports compensation for severe insulin resistance.\"}]}}, {\"id\": \"Hyperphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased appetite contributes to excess energy intake despite minimal adipose storage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002591\"}, \"group_keys\": {\"phenotype_system\": \"Nervous System\"}}, {\"id\": \"Hypertriglyceridemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17855\", \"term_label\": \"triglyceride\", \"readouts\": [{\"target\": \"Circulating triglyceride excess\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Circulating triglycerides measure the systemic triglyceride excess, not the quantity stored in liver or muscle.\"}]}}, {\"id\": \"Increased appetite\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of leptin satiety signaling increases appetite and food intake.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Insulin resistance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe insulin resistance is a core metabolic manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000855\"}, \"group_keys\": {\"phenotype_system\": \"Metabolism\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual impairment is particularly associated with BSCL2-related disease. In a 70-patient study, the odds ratio for BSCL2 compared with other molecular groups was 17 (95% CI 3.6\\u201379); this is not an overall disease frequency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}, \"group_keys\": {\"phenotype_system\": \"Nervous System\"}}, {\"id\": \"Irregular menstruation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Menstrual irregularity or amenorrhea can accompany reproductive dysfunction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000858\"}, \"group_keys\": {\"phenotype_system\": \"Genitourinary\"}}, {\"id\": \"Leptin deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Markedly reduced adipose mass results in severe hypoleptinemia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lipodystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The disorder is a generalized lipodystrophy with abnormal adipose tissue morphology and distribution.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009125\"}, \"group_keys\": {\"phenotype_system\": \"Musculoskeletal\"}}, {\"id\": \"Low leptin concentration\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"NCIT:C46081\", \"term_label\": \"Leptin\", \"readouts\": [{\"target\": \"Leptin deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"interpretation\": \"Low circulating leptin reports the hypoleptinemic metabolic branch caused by near-total adipose tissue loss.\"}]}}, {\"id\": \"Metformin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Metformin is a first-line conventional agent for insulin resistance and diabetes, alongside diet and disease-directed leptin treatment when appropriate.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"metformin\"]}}, {\"id\": \"Metreleptin replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Metreleptin with diet is a first-line therapy for metabolic and endocrine complications of generalized lipodystrophy. The final NIH open-label analysis included 45 congenital and 21 acquired cases; congenital-group changes at 12 months/last observation were \\u22121.8 percentage points in HbA1c and \\u221222.2% in triglycerides. Published NIH cohorts overlap. Treatment improves metabolism without restoring absent fat; pooled liver and glycemic effects are not CGL-specific estimates.\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"Metreleptin\"]}}, {\"id\": \"PPARG adipogenic nuclear receptor deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced PPARgamma transcriptional function compromises adipocyte differentiation. Rare biallelic cases have a severe generalized or CGL-like distribution; heterozygous alleles may themselves cause partial lipodystrophy. The generalized boundary remains qualified by the subtype evidence.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"adipocyte\"], \"biological_processes\": [\"preadipocyte differentiation into adipocytes\"], \"genes\": [\"PPARG\"], \"gene_terms\": [{\"label\": \"PPARG\", \"id\": \"hgnc:9236\"}], \"subtypes\": [\"CGL-PPARG\"]}}, {\"id\": \"PPARG pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PPARG\"], \"gene_terms\": [{\"label\": \"PPARG\", \"id\": \"hgnc:9236\"}], \"subtypes\": [\"CGL-PPARG\"], \"association\": \"Rare biallelic pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Pancreatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe hypertriglyceridemia can cause recurrent pancreatitis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001733\"}, \"group_keys\": {\"phenotype_system\": \"Digestive\"}}, {\"id\": \"Polycystic ovaries\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Polycystic ovaries occur in some affected females; reproductive manifestations are not assigned whole-cohort frequencies.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000147\"}, \"group_keys\": {\"phenotype_system\": \"Genitourinary\"}}, {\"id\": \"Prominent superficial veins\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prominent superficial veins are an occasional body-habitus manifestation of congenital generalized lipodystrophy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001015\"}, \"group_keys\": {\"phenotype_system\": \"Cardiovascular\"}}, {\"id\": \"Severe insulin resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insulin action is severely impaired. Compensatory hyperinsulinemia may initially preserve glucose tolerance; diabetes develops when compensation is inadequate. Lipid and leptin pathways contribute through incompletely resolved intermediates.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"insulin receptor signaling pathway\"]}}, {\"id\": \"Triglyceride-lowering therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fibrates and long-chain omega-3 fatty acids are used for severe hypertriglyceridemia. Their use in lipodystrophy is supported mainly by clinical experience. Consider myopathy risk, particularly in CGL4.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"omega-3 fatty acid\"]}}, {\"id\": \"Unrestrained adipocyte lipolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bscl2-deficient mouse-derived cells show excessive cAMP/PKA-dependent lipolysis during differentiation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL2\"], \"experimental_models\": [{\"name\": \"Bscl2-deficient adipogenic cultures\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\"}]}}], \"edges\": [{\"source\": \"AGPAT2 acylglycerol synthesis defect\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered glycerolipid handling compromises adipose development and storage capacity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"BSCL2 seipin lipid-droplet dysregulation\", \"target\": \"Unrestrained adipocyte lipolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Seipin loss permits excessive cAMP/PKA-driven lipolysis in the reported cell models.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"BSCL2 seipin lipid-droplet dysregulation\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BSCL2-associated disease is enriched for intellectual impairment through an unresolved neurological mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Unrestrained adipocyte lipolysis\", \"target\": \"Failure of terminal adipocyte differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive lipolysis disrupts completion of adipogenesis in this model.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of terminal adipocyte differentiation\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to form and maintain mature adipocytes contributes to loss of adipose tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAV1-dependent caveola loss\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CAV1 deficiency compromises adipose maintenance; the complete intervening sequence remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAV1-dependent caveola loss\", \"target\": \"CGL3 achalasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic CAV1 loss is associated with achalasia through an unresolved esophageal mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of caveolae impairs adipose maintenance.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"CGL4 congenital myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Caveolar disruption is associated with muscle dysfunction; tissue-specific intermediates remain incomplete.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"CGL4 cardiac arrhythmia risk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac electrophysiological consequences involve unresolved intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"CGL4 muscle mounding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Caveolar disease is associated with this subtype manifestation; detailed tissue-specific intermediates remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"CGL4 prolonged QT interval\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Caveolar disease is associated with this subtype manifestation; detailed tissue-specific intermediates remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"CGL4 polymorphic ventricular tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Caveolar disease is associated with this subtype manifestation; detailed tissue-specific intermediates remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"CGL4 pyloric stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Subtype-associated structural manifestation; the intervening developmental mechanism remains uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"CGL4 atlantoaxial instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Subtype-associated structural manifestation; the intervening developmental mechanism remains uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PPARG adipogenic nuclear receptor deficiency\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired adipogenesis underlies severe fat loss in rare biallelic cases.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Lipodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Near-total adipose loss clinically manifests as generalized lipodystrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of adipocytes produces the HPO adipose tissue loss phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Ectopic triglyceride accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inability to store triglyceride in adipose tissue diverts lipid to non-adipose organs.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Near-total adipose loss limits efficient storage of circulating triglycerides.\", \"Excess triglycerides spill over to liver and skeletal muscle.\"]}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Prominent superficial veins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Near-total subcutaneous adipose loss can make superficial veins conspicuous.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced subcutaneous fat coverage\"]}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Leptin deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of adipose endocrine tissue lowers leptin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Circulating triglyceride excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient adipose storage contributes to circulating lipid excess.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leptin deficiency\", \"target\": \"Increased appetite\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Leptin deficiency increases appetite.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Leptin deficiency\", \"target\": \"Severe insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Leptin has metabolic actions beyond appetite; their complete cellular route is not resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Leptin deficiency\", \"target\": \"Low leptin concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The low serum measurement reflects deficient circulating leptin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased appetite\", \"target\": \"Ectopic triglyceride accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess intake adds to the lipid load that cannot be stored in adipose depots.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Increased appetite\", \"target\": \"Hyperphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased appetite manifests clinically as hyperphagia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased appetite\", \"target\": \"Accelerated growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High appetite is associated with accelerated childhood growth in the clinical synthesis; endocrine and nutritional intermediates are not fully specified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ectopic triglyceride accumulation\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ectopic triglyceride accumulation in hepatocytes produces hepatic steatosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ectopic triglyceride accumulation\", \"target\": \"Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic hepatic lipid injury in congenital generalized lipodystrophy can progress to cirrhosis in a subset of patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ectopic triglyceride accumulation\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic lipid accumulation contributes to liver enlargement.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Ectopic hepatic triglyceride accumulation causes hepatic steatosis.\", \"Hepatic steatosis can enlarge the liver.\"]}, {\"source\": \"Ectopic triglyceride accumulation\", \"target\": \"Severe insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic steatosis and intramyocellular lipid accumulation contribute to the severe insulin-resistance mechanism, although the intervening molecular steps remain incompletely defined.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Circulating triglyceride excess\", \"target\": \"Hypertriglyceridemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating triglyceride excess is the biochemical phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circulating triglyceride excess\", \"target\": \"Pancreatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extreme triglyceride elevation predisposes to pancreatic inflammation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Circulating triglyceride excess\", \"target\": \"Eruptive xanthomas\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe lipid excess causes cutaneous lipid deposition.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Severe insulin resistance\", \"target\": \"Insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mechanism directly produces the clinical insulin-resistance phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe insulin resistance\", \"target\": \"Hyperinsulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pancreatic compensation for insulin resistance increases circulating insulin.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Compensatory pancreatic beta-cell insulin secretion raises circulating insulin.\"]}, {\"source\": \"Severe insulin resistance\", \"target\": \"Diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe insulin resistance predisposes to diabetes mellitus.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Severe insulin resistance\", \"target\": \"Acanthosis nigricans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic insulin resistance can produce acanthosis nigricans.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Severe insulin resistance\", \"target\": \"Hirsutism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insulin resistance and hyperandrogenism contribute to female reproductive manifestations; the individual mediators are incompletely established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Severe insulin resistance\", \"target\": \"Clitoromegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insulin resistance and hyperandrogenism contribute to female reproductive manifestations; the individual mediators are incompletely established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Severe insulin resistance\", \"target\": \"Irregular menstruation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insulin resistance and hyperandrogenism contribute to female reproductive manifestations; the individual mediators are incompletely established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Severe insulin resistance\", \"target\": \"Polycystic ovaries\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insulin resistance and hyperandrogenism contribute to female reproductive manifestations; the individual mediators are incompletely established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Metreleptin replacement therapy\", \"target\": \"Leptin deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Metformin\", \"target\": \"Severe insulin resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Triglyceride-lowering therapy\", \"target\": \"Circulating triglyceride excess\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CGL4 specialist arrhythmia management\", \"target\": \"CGL4 cardiac arrhythmia risk\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CAVIN1-deficient patient fibroblasts\", \"target\": \"CAVIN1 caveola biogenesis defect\", \"predicate\": \"models\", \"is_orphan\": false, \"relationship\": \"RECAPITULATES\"}, {\"source\": \"CAV1-deficient patient fibroblasts\", \"target\": \"CAV1-dependent caveola loss\", \"predicate\": \"models\", \"is_orphan\": false, \"relationship\": \"RECAPITULATES\"}, {\"source\": \"Bscl2-deficient adipogenic cultures\", \"target\": \"Unrestrained adipocyte lipolysis\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"relationship\": \"PARTIALLY_RECAPITULATES\", \"limitations\": \"Mouse-derived cells, not direct human adipocyte measurements.\"}, {\"source\": \"Bscl2-deficient adipogenic cultures\", \"target\": \"Failure of terminal adipocyte differentiation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"relationship\": \"PARTIALLY_RECAPITULATES\", \"limitations\": \"The model resolves a cell-level sequence rather than all human subtype effects.\"}, {\"source\": \"Bscl2 knockout mice\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"models\", \"is_orphan\": false, \"relationship\": \"RECAPITULATES\"}, {\"source\": \"Circulating triglyceride excess\", \"target\": \"Hypertriglyceridemia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Circulating triglycerides measure the systemic triglyceride excess, not the quantity stored in liver or muscle.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Leptin deficiency\", \"target\": \"Low leptin concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low circulating leptin reports the hypoleptinemic metabolic branch caused by near-total adipose tissue loss.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\"}, {\"source\": \"Severe insulin resistance\", \"target\": \"Hyperinsulinemia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated circulating insulin reports compensation for severe insulin resistance.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"CGL4 elevated creatine kinase\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"CAVIN1/PTRF-associated myopathy is accompanied by high serum creatine kinase.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"AGPAT2 pathogenic variants\", \"target\": \"AGPAT2 acylglycerol synthesis defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BSCL2 pathogenic variants\", \"target\": \"BSCL2 seipin lipid-droplet dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CAV1 pathogenic variants\", \"target\": \"CAV1-dependent caveola loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CAVIN1 pathogenic variants\", \"target\": \"CAVIN1 caveola biogenesis defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPARG pathogenic variants\", \"target\": \"PPARG adipogenic nuclear receptor deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic AGPAT2 pathogenic variants\", \"target\": \"AGPAT2 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Biallelic BSCL2 pathogenic variants\", \"target\": \"BSCL2 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CAV1 p.Glu38Ter\", \"target\": \"CAV1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CAV1 p.His79GlnfsTer3\", \"target\": \"CAV1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CAVIN1 c.160delG\", \"target\": \"CAVIN1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CAVIN1 c.362dupT\", \"target\": \"CAVIN1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": [], \"grouping\": {\"mean_edge_count\": 23}}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -11836,9 +12556,36 @@ This disease-associated gene is BSCL2 (hgnc:15832). hgnc:15832 is a gene from th
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11479539" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11479539" target="_blank">PMID:11479539</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sequence analysis of genes located in the 11q13 interval disclosed mutations in a gene homologous to the murine guanine nucleotide-binding protein (G protein), gamma3-linked gene (Gng3lg) in all BSCL2-linked families."</div>
+
+
+                <div class="evidence-explanation">Mutations in the 11q13 gene (BSCL2/seipin) were found in every BSCL2-linked family, establishing the causative gene-disease relationship.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:11479539" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -11861,7 +12608,7 @@ This disease-associated gene is BSCL2 (hgnc:15832). hgnc:15832 is a gene from th
                 <div class="evidence-snippet">"Most of the variants are null mutations and probably result in a severe disruption of the protein."</div>
 
 
-                <div class="evidence-explanation">Founding BSCL2 families; not every allele is null.</div>
+                <div class="evidence-explanation">Characterizes the allele class in the founding BSCL2 families; not every allele is null.</div>
 
 
 
@@ -13916,7 +14663,7 @@ This treatment uses statin (CHEBI:87631). CHEBI:87631 is a therapeutic agent fro
                 <div class="evidence-snippet">"Statins and fibrates should be used with caution due to increased risk of myopathy, especially in the presence of known myositis or muscular dystrophy (68)."</div>
 
 
-                <div class="evidence-explanation">Multi-society clinical guidance; evidence is often consensus-based.</div>
+                <div class="evidence-explanation">Supports the caution about muscular adverse effects in the description; it is a safety qualification, not evidence of efficacy.</div>
 
 
 
@@ -15845,9 +16592,63 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24889630" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24889630" target="_blank">PMID:24889630</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified two unrelated patients with defects in the Kennedy pathway due to biallellic loss-of-function mutations in phosphate cytidylyltransferase 1 alpha (PCYT1A), the rate-limiting enzyme in this pathway."</div>
+
+
+                <div class="evidence-explanation">Establishes biallelic PCYT1A loss of function, a defect in phosphatidylcholine synthesis, in the two reported patients.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24889630" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24889630" target="_blank">PMID:24889630</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The phenotypic consequences include some features, such as severe fatty liver and low HDL cholesterol levels, that are predicted by the results of previously reported liver-specific deletion of murine Pcyt1a. Both patients also had lipodystrophy, severe insulin resistance, and diabetes"</div>
+
+
+                <div class="evidence-explanation">Both patients had severe fatty liver together with lipodystrophy, the overlap that places PCYT1A deficiency in the differential of CGL.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:24889630" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -15876,33 +16677,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24889630" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24889630" target="_blank">PMID:24889630</a>
-                    </span>
 
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Her retinal assessment was normal and the skeletal survey did not reveal any features of spondylometaphyseal dysplasia."</div>
-
-
-                <div class="evidence-explanation">Patient 1 was reassessed after recognition of the separate PCYT1A skeletal-retinal phenotype.</div>
-
-
-
-            </div>
-
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -15921,7 +16697,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
-                    Partial inherited lipodystrophy typically preserves or increases fat in some depots. PPARG monoallelic disease usually belongs to this spectrum; rare biallelic CGL-like cases are represented here with explicit scope qualifications.
+                    Familial partial lipodystrophy is a usually autosomal dominant group in which fat loss is regional, affecting the limbs, buttocks and hips, and typically becomes apparent around puberty. Monoallelic PPARG disease belongs to this group; the rare biallelic CGL-like PPARG cases are curated in this entry as the CGL-PPARG subtype, with the scope qualifications recorded there.
                 </div>
 
 
@@ -15940,9 +16716,38 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27710244" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27710244" target="_blank">PMID:27710244</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"FPLD is a group of usually autosomal dominant disorders characterized by loss of fat affecting the limbs, buttocks, and hips (10)."</div>
+
+
+                <div class="evidence-explanation">Defines FPLD by its inheritance and regional distribution of fat loss, in contrast to the near-total fat loss of CGL.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:27710244" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -15967,7 +16772,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="evidence-snippet">"Patients with FPLD have fat loss of the extremities typically occurring around puberty and can have a positive family history."</div>
 
 
-                <div class="evidence-explanation">Clinical diagnostic distinction.</div>
+                <div class="evidence-explanation">Supports the pubertal timing of regional fat loss that separates FPLD from the neonatal near-total fat loss of CGL.</div>
 
 
 
@@ -17173,9 +17978,12 @@ has_subtypes:
     evidence_source: HUMAN_CLINICAL
     directness: DIRECT
     snippet: &gt;-
-      Most of the variants are null mutations and probably result in a severe disruption of the protein.
+      Sequence analysis of genes located in the 11q13 interval disclosed mutations in a gene homologous to the
+      murine guanine nucleotide-binding protein (G protein), gamma3-linked gene (Gng3lg) in all BSCL2-linked
+      families.
     explanation: &gt;-
-      Founding BSCL2 families; not every allele is null.
+      The founding linkage study found mutations in the 11q13 gene, later named BSCL2/seipin, in every family
+      linked to that locus, which defines the BSCL2-associated subtype.
 - name: CGL3
   display_name: Type 3 (CAV1)
   description: &gt;-
@@ -18432,10 +19240,25 @@ pathophysiology:
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
-        Acanthosis nigricans develops during early childhood or after puberty, and can affect the neck, axillae
-        and groin regions, as well as other locations such as the trunk, hands, knees, elbows and ankles.
-      explanation: Review supports acanthosis nigricans as a cutaneous manifestation in the insulin-resistance phase.
+        Lipodystrophies are heterogeneous inherited or acquired disorders that are characterized by selective
+        loss of adipose tissue and a predisposition to developing insulin resistance and its associated complications,
+        such as diabetes mellitus, hypertriglyceridaemia, hepatic steatosis, polycystic ovary syndrome, acanthosis
+        nigricans and hypertension.
+      explanation: &gt;-
+        The review names acanthosis nigricans among the complications associated with insulin resistance in
+        lipodystrophy, which is the direction of this edge.
       directness: DIRECT
+      quote_role: REVIEW_SYNTHESIS
+    - reference: PMID:27710244
+      reference_title: &#39;The Diagnosis and Management of Lipodystrophy Syndromes: A Multi-Society Practice Guideline.&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Acanthosis nigricans is improved through successful treatment of insulin resistance (80, 81).
+      explanation: &gt;-
+        Improvement of acanthosis nigricans when insulin resistance is treated supports insulin resistance as
+        its driver; this is an inference from treatment response.
+      directness: INDIRECT
       quote_role: REVIEW_SYNTHESIS
   - target: Hirsutism
     description: &gt;-
@@ -19719,9 +20542,21 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     directness: DIRECT
     snippet: &gt;-
+      Sequence analysis of genes located in the 11q13 interval disclosed mutations in a gene homologous to the
+      murine guanine nucleotide-binding protein (G protein), gamma3-linked gene (Gng3lg) in all BSCL2-linked
+      families.
+    explanation: &gt;-
+      Mutations in the 11q13 gene (BSCL2/seipin) were found in every BSCL2-linked family, establishing the
+      causative gene-disease relationship.
+  - reference: PMID:11479539
+    reference_title: Identification of the gene altered in Berardinelli-Seip congenital lipodystrophy on chromosome 11q13.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    directness: DIRECT
+    snippet: &gt;-
       Most of the variants are null mutations and probably result in a severe disruption of the protein.
     explanation: &gt;-
-      Founding BSCL2 families; not every allele is null.
+      Characterizes the allele class in the founding BSCL2 families; not every allele is null.
   variants:
   - name: Biallelic BSCL2 pathogenic variants
     description: Null and missense BSCL2 variants disrupt seipin-dependent lipid-droplet regulation and adipocyte differentiation.
@@ -19968,7 +20803,8 @@ treatments:
       The US label for metreleptin carries a boxed warning that T-cell lymphoma has been reported in patients
       with acquired GL, in those both treated and untreated with metreleptin.
     explanation: &gt;-
-      Publication discusses the acquired-disease risk and causal uncertainty.
+      Supports the safety caveat in this treatment&#39;s notes: the lymphoma reports concern acquired generalized
+      lipodystrophy, in treated and untreated patients, and do not establish a CGL-specific effect of metreleptin.
     quote_role: BACKGROUND
   treatment_term:
     preferred_term: Pharmacotherapy
@@ -20236,7 +21072,8 @@ treatments:
       Statins and fibrates should be used with caution due to increased risk of myopathy, especially in the
       presence of known myositis or muscular dystrophy (68).
     explanation: &gt;-
-      Multi-society clinical guidance; evidence is often consensus-based.
+      Supports the caution about muscular adverse effects in the description; it is a safety qualification,
+      not evidence of efficacy.
     quote_role: REVIEW_SYNTHESIS
   treatment_term:
     preferred_term: Pharmacotherapy
@@ -20941,6 +21778,29 @@ differential_diagnoses:
     evidence_source: HUMAN_CLINICAL
     directness: DIRECT
     snippet: &gt;-
+      We identified two unrelated patients with defects in the Kennedy pathway due to biallellic loss-of-function
+      mutations in phosphate cytidylyltransferase 1 alpha (PCYT1A), the rate-limiting enzyme in this pathway.
+    explanation: &gt;-
+      Establishes biallelic PCYT1A loss of function, a defect in phosphatidylcholine synthesis, in the two
+      reported patients.
+  - reference: PMID:24889630
+    reference_title: Mutations disrupting the Kennedy phosphatidylcholine pathway in humans with congenital lipodystrophy and fatty liver disease.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    directness: DIRECT
+    snippet: &gt;-
+      The phenotypic consequences include some features, such as severe fatty liver and low HDL cholesterol
+      levels, that are predicted by the results of previously reported liver-specific deletion of murine Pcyt1a.
+      Both patients also had lipodystrophy, severe insulin resistance, and diabetes
+    explanation: &gt;-
+      Both patients had severe fatty liver together with lipodystrophy, the overlap that places PCYT1A deficiency
+      in the differential of CGL.
+  - reference: PMID:24889630
+    reference_title: Mutations disrupting the Kennedy phosphatidylcholine pathway in humans with congenital lipodystrophy and fatty liver disease.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    directness: DIRECT
+    snippet: &gt;-
       At age 9 y, progressive limb fat loss developed.
     explanation: &gt;-
       Patient 2 does not have the classic neonatal generalized fat-loss chronology.
@@ -20956,9 +21816,10 @@ differential_diagnoses:
       Patient 1 was reassessed after recognition of the separate PCYT1A skeletal-retinal phenotype.
 - name: Familial Partial Lipodystrophy
   description: &gt;-
-    Partial inherited lipodystrophy typically preserves or increases fat in some depots. PPARG monoallelic
-    disease usually belongs to this spectrum; rare biallelic CGL-like cases are represented here with explicit
-    scope qualifications.
+    Familial partial lipodystrophy is a usually autosomal dominant group in which fat loss is regional, affecting
+    the limbs, buttocks and hips, and typically becomes apparent around puberty. Monoallelic PPARG disease belongs
+    to this group; the rare biallelic CGL-like PPARG cases are curated in this entry as the CGL-PPARG subtype,
+    with the scope qualifications recorded there.
   distinguishing_features:
   - Regional rather than near-total fat loss, often apparent around puberty.
   evidence:
@@ -20968,10 +21829,23 @@ differential_diagnoses:
     evidence_source: HUMAN_CLINICAL
     directness: DIRECT
     snippet: &gt;-
+      FPLD is a group of usually autosomal dominant disorders characterized by loss of fat affecting the limbs,
+      buttocks, and hips (10).
+    explanation: &gt;-
+      Defines FPLD by its inheritance and regional distribution of fat loss, in contrast to the near-total
+      fat loss of CGL.
+    quote_role: REVIEW_SYNTHESIS
+  - reference: PMID:27710244
+    reference_title: &#39;The Diagnosis and Management of Lipodystrophy Syndromes: A Multi-Society Practice Guideline.&#39;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    directness: DIRECT
+    snippet: &gt;-
       Patients with FPLD have fat loss of the extremities typically occurring around puberty and can have a
       positive family history.
     explanation: &gt;-
-      Clinical diagnostic distinction.
+      Supports the pubertal timing of regional fat loss that separates FPLD from the neonatal near-total
+      fat loss of CGL.
     quote_role: REVIEW_SYNTHESIS
 - name: Acquired generalized lipodystrophy
   description: &gt;-
@@ -21336,7 +22210,7 @@ subtype-specific prognosis.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Berardinelli-Seip Congenital Lipodystrophy", "mondoId": "MONDO:0018883", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Berardinelli-Seip_Congenital_Lipodystrophy", "yamlRevision": "537c5ec3726b"};
+        const OS_CONFIG = {"diseaseName": "Berardinelli-Seip Congenital Lipodystrophy", "mondoId": "MONDO:0018883", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Berardinelli-Seip_Congenital_Lipodystrophy", "yamlRevision": "32c205b956e9"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
