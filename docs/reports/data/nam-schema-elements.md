@@ -77,7 +77,8 @@ Disease
             ├── quote_role                               QuoteRoleEnum: PRIMARY_RESULT | BACKGROUND |
             │                                            REVIEW_SYNTHESIS
             ├── snippet                                  exact quote from the reference
-            └── explanation                              string
+            ├── explanation                              string
+            └── images: [string]                         paths to supporting figures under research/
 ```
 
 ```text
