@@ -47,8 +47,10 @@ optional `logic` is a `LogicalCriterion` tree:
 - Branch nodes use `operator: AND`, `OR`, or `NOT` with `operands`.
 - Leaf nodes use `criterion_predicate` and the matching payload:
   `HAS_PHENOTYPE`, `HAS_GENE`, `CONFORMS_TO_MODULE`,
-  `HAS_BIOLOGICAL_PROCESS`, `HAS_CLASSIFICATION`, `HAS_INHERITANCE`,
-  `HAS_MAPPING`, or `OTHER`.
+  `HAS_BIOLOGICAL_PROCESS`, `HAS_MOLECULAR_FUNCTION`, `HAS_CLASSIFICATION`,
+  `HAS_INHERITANCE`, `HAS_MAPPING`, or `OTHER`. `Channelopathies` is the
+  worked `HAS_MOLECULAR_FUNCTION` example: a NECESSARY GO activity criterion
+  alongside a NECESSARY_AND_SUFFICIENT classification-tag criterion.
 - Use `negated: true` to negate a leaf when clearer than a `NOT` branch.
 
 Choose `criteria_semantics` deliberately:
