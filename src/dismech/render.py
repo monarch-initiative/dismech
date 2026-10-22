@@ -4129,10 +4129,11 @@ def _logic_view(node: dict | None) -> dict | None:
             chip = _term_chip(node.get(slot))
             if chip:
                 chips.append(chip)
-        for bp in node.get("biological_processes") or []:
-            chip = _term_chip(bp)
-            if chip:
-                chips.append(chip)
+        for slot in ("biological_processes", "molecular_functions"):
+            for descriptor in node.get(slot) or []:
+                chip = _term_chip(descriptor)
+                if chip:
+                    chips.append(chip)
         view["terms"] = chips
     return view
 
@@ -4185,10 +4186,11 @@ def _leaf_term_ids(node: dict) -> list[str]:
         chip = _term_chip(node.get(slot))
         if chip:
             ids.append(chip["id"])
-    for bp in node.get("biological_processes") or []:
-        chip = _term_chip(bp)
-        if chip:
-            ids.append(chip["id"])
+    for slot in ("biological_processes", "molecular_functions"):
+        for descriptor in node.get(slot) or []:
+            chip = _term_chip(descriptor)
+            if chip:
+                ids.append(chip["id"])
     return ids
 
 
