@@ -328,6 +328,13 @@ every cheap ontology feature (child count, synonym count, aggregator tags)
 correlates with being a grouping rather than with being worth curating
 (issue #8969).
 
+`next-stubs` and `next-unclaimed` leave out the stubs `tidy-stubs` would delete
+(`already_curated`, `obsolete_term`), so the pool never offers a disease the KB
+already holds by MONDO ID; `--include-stale` puts them back. Other `check-stubs`
+advisories, such as `possible_kb_duplicate`, keep the stub in the pool and are
+printed beside it, and in `--json` as `advisories`. The check reads every KB
+file, so the command takes about half a minute (#11616).
+
 **`entry_type` is the lump/split decision and is never pre-filled.** Seeded
 stubs are all `UNDECIDED`. Deciding is the curator's first job:
 
@@ -4001,6 +4008,8 @@ Non-negotiable rules:
 - `evidence_source` classifies the cited study, not the curator or claim.
 - Treat deep-research reports as leads. Read their reference-validation results
   and run `just preflight-dr <report> <MONDO_ID>` before using their content.
+  `confabulation_rate` covers only cited identifiers; `preflight-dr` also warns
+  on an HGNC identifier written beside the wrong gene (#9845).
 - Never create or hand-edit `references_cache/*.md`; generate or regenerate an
   entry with `just fetch-reference <ID>`.
 - **Re-derive the cited-PMID list immediately before pruning uncited caches.** A
@@ -4052,6 +4061,7 @@ a file path:
 
 ```bash
 just check-folded-hyphens
+just check-folded-yaml
 just check-snippet-length
 just check-title-snippets
 just check-snippet-grading
@@ -4064,7 +4074,8 @@ just check-qualifier-terms kb/disorders/MyDisease.yaml
 just check-source-defect-claims  # report-only
 ```
 
-They catch folded-scalar word corruption, non-propositional short snippets,
+They catch folded-scalar word corruption, evidence items swallowed into a
+block scalar, non-propositional short snippets,
 paper titles used as findings, one quoted sentence graded with two different
 `evidence_source` values in the same file, prose arguing for a retired
 `supports` grade, environmental claims without
@@ -4126,6 +4137,15 @@ this is now a much weaker effect than it used to be — retiring `PARTIAL` cut
 `supports` divergences from 8,285 to 353, against 715 for `evidence_source`, so
 most of that signal was the value's ambiguity rather than claim-relativity.
 Gating `supports` is worth revisiting.
+
+The same comparison now also runs **across files** (#11221): one sentence of one
+reference graded `HUMAN_CLINICAL` in one entry and `IN_VITRO`, `MODEL_ORGANISM`
+or `COMPUTATIONAL` in another fails, because one of the two files is wrong, and
+the fix may belong in the file you did not touch. Pairs involving `OTHER` are
+report-only until #10273 settles that convention (`just list-snippet-grading
+--cross-file`). Its limit is the per-file one: it compares one verbatim sentence.
+Two different sentences making the same claim are not compared, and nor are two
+sentences of one paper carrying different values, which is a correct split.
 
 **Why the entity-ref check is a CI step and not just a test.** The same rules
 run in `check_entity_ref_foreign_keys`, but CI selects pytest by changed path,
