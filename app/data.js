@@ -92899,7 +92899,8 @@ window.searchData = [
       "AIRE",
       "STAT3",
       "DOCK8",
-      "CLEC7A"
+      "CLEC7A",
+      "IL23R"
     ],
     "treatments": [
       "Systemic azole antifungal therapy",
@@ -92917,9 +92918,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Chronic_Mucocutaneous_Candidiasis.html",
     "num_phenotypes": 18,
     "num_pathophysiology": 14,
-    "num_genes": 11,
+    "num_genes": 12,
     "num_treatments": 4,
-    "causal_graph_edges": "47",
+    "causal_graph_edges": "48",
     "causal_graph_longest_path": "8"
   },
   {
@@ -158159,6 +158160,7 @@ window.searchData = [
     ],
     "biochemical": [
       "Hypoglycorrhachia",
+      "Absolute CSF Glucose",
       "CSF lactate",
       "Erythrocyte 3-O-methyl-D-glucose uptake",
       "Erythrocyte surface GLUT1 (METAglut1)"
@@ -160768,8 +160770,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Garg-Mishra Progeroid Syndrome",
@@ -169715,7 +169717,9 @@ window.searchData = [
     ],
     "biochemical": [
       "CSF Protein",
-      "Neurofilament Light Chain",
+      "CSF Cell Count",
+      "Plasma Neurofilament Light Chain",
+      "CSF Neurofilament Light Chain",
       "Antiganglioside Antibodies"
     ],
     "source_file": "Guillain_Barre_Syndrome.yaml",
@@ -274513,9 +274517,11 @@ window.searchData = [
     "biochemical": [
       "CSF Pleocytosis",
       "Elevated CSF Protein",
+      "CSF Lactate",
       "Elevated Soluble Interleukin-2 Receptor",
       "Angiotensin-Converting Enzyme",
-      "Elevated Neurofilament Light Chain"
+      "Elevated CSF Neurofilament Light Chain",
+      "Elevated Plasma Neurofilament Light Chain"
     ],
     "source_file": "Neurosarcoidosis.yaml",
     "page_url": "../pages/disorders/Neurosarcoidosis.html",
@@ -315797,6 +315803,7 @@ window.searchData = [
     "biochemical": [
       "Lactate",
       "Pyruvate",
+      "Blood Lactate:Pyruvate Ratio",
       "PDH complex enzyme activity"
     ],
     "source_file": "Pyruvate_Dehydrogenase_Deficiency.yaml",
@@ -391656,8 +391663,8 @@ window.searchMetrics = {
   "total_disorder_pages": 3629,
   "total_subtypes": 4835,
   "total_disorders_and_subtypes": 8464,
-  "total_unique_evidence_sources": 54188,
-  "total_unique_publications": 50597,
+  "total_unique_evidence_sources": 54190,
+  "total_unique_publications": 50599,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
   "total_pathographs": 3626,
