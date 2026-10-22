@@ -138596,8 +138596,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Eosinophilic granulomatosis with polyangiitis",
@@ -140404,23 +140404,41 @@ window.searchData = [
       "Retroperitoneal Fibrosis",
       "Fatigue",
       "Recurrent fever",
-      "Weight Loss"
+      "Weight Loss",
+      "Increased Bone Mineral Density",
+      "Xanthelasma",
+      "Hypogonadotropic Hypogonadism",
+      "Hydronephrosis",
+      "Abnormal Aortic Valve Morphology",
+      "Abdominal Pain",
+      "Joint Swelling",
+      "Ataxia"
     ],
     "phenotype_categories": [
       "Skeletal",
       "Ophthalmologic",
       "Endocrine",
       "Abdominal",
-      "Constitutional"
+      "Constitutional",
+      "Dermatologic",
+      "Renal",
+      "Cardiovascular",
+      "Musculoskeletal",
+      "Neurological"
     ],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
       "Constitutional",
       "Digestive",
       "Endocrine",
       "Eye",
+      "Genitourinary",
       "Growth",
+      "Head and Neck",
+      "Integument",
       "Metabolism",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0002653",
@@ -140429,14 +140447,24 @@ window.searchData = [
       "HP:0005200",
       "HP:0012378",
       "HP:0001954",
-      "HP:0001824"
+      "HP:0001824",
+      "HP:0011001",
+      "HP:0001114",
+      "HP:0000044",
+      "HP:0000126",
+      "HP:0001646",
+      "HP:0002027",
+      "HP:0001386",
+      "HP:0001251"
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [
-      "BRAF V600E"
+      "BRAF V600E",
+      "MAP2K1"
     ],
     "treatments": [
       "Vemurafenib",
@@ -140447,12 +140475,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Erdheim-Chester_Disease.yaml",
     "page_url": "../pages/disorders/Erdheim-Chester_Disease.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 15,
     "num_pathophysiology": 2,
-    "num_genes": 1,
+    "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Ergotism",
@@ -160435,6 +160463,97 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "21",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Ganglioneuroblastoma",
+    "disease_id": "MONDO:0005035",
+    "category": "",
+    "parents": [
+      "neuroblastic tumor"
+    ],
+    "creation_date": "2026-10-21T13:46:41Z",
+    "updated_date": null,
+    "subtypes": [
+      "Intermixed",
+      "Nodular"
+    ],
+    "description": "Ganglioneuroblastoma is a peripheral neuroblastic tumor of childhood, of sympathoadrenal (neural crest) lineage, composed of neoplastic neuroblasts, ganglion cells and Schwannian stroma and intermediate in differentiation between neuroblastoma and ganglioneuroma. The International Neuroblastoma Pathology Classification (INPC) divides peripheral neuroblastic tumors into four categories, two of which are ganglioneuroblastoma. Intermixed ganglioneuroblastoma is Schwannian stroma-rich and always of favorable histology. Nodular ganglioneuroblastoma is composite: one or more macroscopic, usually hemorrhagic, stroma-poor neuroblastomatous nodules sit in a stroma-rich or stroma-dominant background, the tumor is graded on its nodules, and patients are stratified with neuroblastoma risk criteria. Ganglioneuroblastoma has a malignant ICD-O-3 morphology code (9490/3, as MONDO and NCIT record it), and neither subtype is benign, although some clinical series call the intermixed subtype a benign variant (see notes). This entry covers peripheral ganglioneuroblastoma (MONDO:0005035) in both INPC categories. MONDO and NCIT define the class by a Schwannian stroma making up more than half of the tumor volume; in the INPC an over-half ganglioneuromatous component defines the intermixed category, while in a nodular tumor the proportion of neuroblastomatous nodule to intermixed or ganglioneuroma tissue varies from case to case. Central nervous system ganglioneuroblastoma (NCIT:C92629), a malignant CNS neoplasm defined without a Schwannian stroma criterion, and Hirschsprung disease-ganglioneuroblastoma syndrome (MONDO:0013082) are out of scope. MONDO and NCIT place ganglioneuroblastoma beside neuroblastoma under neuroblastic tumor, while HPO files HP:0006747 Ganglioneuroblastoma under HP:0003006 Neuroblastoma.",
+    "pathophysiology": [
+      "Neoplastic Neuroblast Population",
+      "Neuroblast-to-Ganglion Cell Maturation",
+      "Schwannian Stromal Development",
+      "Schwannian Stroma-Poor Neuroblastomatous Nodule"
+    ],
+    "cell_types": [
+      "neoplastic neuroblast",
+      "ganglion cell",
+      "Schwannian stromal cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002676",
+      "CL:0011103",
+      "CL:0002573"
+    ],
+    "biological_processes": [
+      "maturation of neuroblasts into ganglion cells",
+      "Schwann cell proliferation"
+    ],
+    "phenotypes": [
+      "Abdominal Mass",
+      "Posterior Mediastinal Mass",
+      "Distant Metastasis at Diagnosis",
+      "Congenital Horner Syndrome",
+      "Elevated Urinary Homovanillic Acid",
+      "Elevated Urinary Vanillylmandelic Acid"
+    ],
+    "phenotype_categories": [
+      "Abdominal",
+      "Thoracic",
+      "Neoplasm",
+      "Neurologic",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Metabolism",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0031500",
+      "HP:0033829",
+      "HP:0002664",
+      "HP:0006837",
+      "HP:0011977",
+      "HP:0011978"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "MYCN Amplification"
+    ],
+    "treatments": [
+      "Watchful Observation",
+      "Surgical Resection",
+      "Risk-Adapted Chemotherapy-Based Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Neuron-Specific Enolase",
+      "Serum Ferritin"
+    ],
+    "source_file": "Ganglioneuroblastoma.yaml",
+    "page_url": "../pages/disorders/Ganglioneuroblastoma.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Garg-Mishra Progeroid Syndrome",
@@ -222760,21 +222879,17 @@ window.searchData = [
       "Gluten-triggered intestinal autoimmunity in celiac disease",
       "Immune-mediated increase in pulmonary capillary permeability",
       "Alveolar hemorrhage and hemosiderin accumulation",
-      "Iron and heme-driven oxidative injury and chronic remodeling"
+      "Type II pneumocyte hyperplasia"
     ],
     "cell_types": [
       "T lymphocyte",
       "capillary endothelial cell",
-      "eosinophil",
-      "basophil",
       "alveolar macrophage",
       "pulmonary alveolar type 2 cell"
     ],
     "cell_type_ids": [
       "CL:0000084",
       "CL:0002144",
-      "CL:0000041",
-      "CL:0000767",
       "CL:0000583",
       "CL:0002063"
     ],
@@ -222785,9 +222900,7 @@ window.searchData = [
       "inflammatory response",
       "heme catabolic process",
       "iron ion homeostasis",
-      "response to oxidative stress",
-      "epithelium regeneration",
-      "reactive oxygen species metabolic process"
+      "epithelium regeneration"
     ],
     "phenotypes": [
       "Diffuse alveolar hemorrhage",
@@ -222795,7 +222908,8 @@ window.searchData = [
       "Iron-deficiency anemia",
       "Dyspnea",
       "Ground-glass opacities on chest imaging",
-      "Malabsorption"
+      "Malabsorption",
+      "Pulmonary fibrosis"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
@@ -222809,32 +222923,39 @@ window.searchData = [
       "HP:0002105",
       "HP:0001891",
       "HP:0002094",
-      "HP:0002024"
+      "HP:0025179",
+      "HP:0002024",
+      "HP:0002206"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
     "genes": [],
     "treatments": [
       "Gluten-free diet",
       "Corticosteroids",
       "Immunosuppressive therapy"
     ],
-    "environmental": [],
+    "environmental": [
+      "Dietary Gluten Exposure"
+    ],
     "biochemical": [
       "Serum Iron",
       "Serum Ferritin",
       "Hemoglobin/Hematocrit",
-      "Tissue Transglutaminase (tTG) Antibodies",
-      "Anti-endomysial Antibodies",
+      "Tissue Transglutaminase (tTG) and Celiac Autoantibodies",
       "Hemosiderin-laden Macrophages"
     ],
     "source_file": "Lane_Hamilton_Syndrome.yaml",
     "page_url": "../pages/disorders/Lane_Hamilton_Syndrome.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 7,
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Langer Mesomelic Dysplasia",
@@ -223288,7 +223409,7 @@ window.searchData = [
     "creation_date": "2026-03-04T19:58:20Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Larsen syndrome is an FLNB-associated autosomal dominant skeletal dysplasia characterized by congenital large-joint dislocations, craniofacial dysmorphism, and high-risk cervical spine deformity.\n",
+    "description": "Larsen syndrome is an FLNB-associated autosomal dominant skeletal dysplasia characterized by congenital large-joint dislocations, craniofacial dysmorphism, and high-risk cervical spine deformity.",
     "pathophysiology": [
       "FLNB Variant Clustering in Functional Protein Domains",
       "Gain-of-Function Actin-Binding Dysregulation",
@@ -223361,8 +223482,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Laryngeal Squamous Cell Carcinoma",
@@ -243028,8 +243149,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 8,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Measles",
@@ -258351,7 +258472,7 @@ window.searchData = [
     ],
     "frequencies": [],
     "genes": [
-      "KIF7 Mutation"
+      "KIF7"
     ],
     "treatments": [
       "Supportive and Multidisciplinary Care",
@@ -258366,8 +258487,8 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Multiple Epiphyseal Dysplasia, Beighton Type",
@@ -278643,8 +278764,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Oculocutaneous Albinism",
@@ -308329,7 +308450,11 @@ window.searchData = [
     "genes": [
       "JAK2 Structural Alteration",
       "SH2B3 Structural Alteration",
-      "CDKN2A/B Inactivation"
+      "CDKN2A/B Inactivation",
+      "JAK3 Gain-of-Function Mutation",
+      "STAT5B Gain-of-Function Mutation",
+      "STAT3 Missense Mutation",
+      "TP53 Inactivation"
     ],
     "treatments": [
       "Systemic Therapy",
@@ -308347,10 +308472,10 @@ window.searchData = [
     "page_url": "../pages/disorders/Primary_Cutaneous_Aggressive_Epidermotropic_CD8+_T-cell_Lymphoma.html",
     "num_phenotypes": 3,
     "num_pathophysiology": 3,
-    "num_genes": 3,
+    "num_genes": 7,
     "num_treatments": 6,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Primary Cutaneous Amyloidosis",
@@ -309468,18 +309593,26 @@ window.searchData = [
       "Prosodic",
       "Mixed"
     ],
-    "description": "Primary progressive apraxia of speech is a neurodegenerative syndrome in which progressive impairment of motor speech planning and programming is the dominant clinical feature.",
+    "description": "Primary progressive apraxia of speech (PPAOS) is a sporadic neurodegenerative syndrome characterized by insidious-onset, gradually progressive impairment of motor speech planning and programming as the sole or predominant initial clinical feature in the absence of aphasia or generalized cognitive decline. Neuroimaging demonstrates focal atrophy and hypometabolism of the superior lateral premotor cortex and supplementary motor area, and autopsy studies most commonly reveal an underlying 4-repeat tauopathy (progressive supranuclear palsy or corticobasal degeneration).",
     "pathophysiology": [
-      "Motor Speech Network Degeneration",
-      "Four-Repeat Tauopathy Association"
+      "Four-Repeat Tauopathy Neurodegeneration",
+      "Premotor and Supplementary Motor Cortex Degeneration",
+      "Subcortical, Brainstem, and Perisylvian Network Spread"
     ],
     "cell_types": [
+      "neuron",
+      "glial cell",
       "cerebral cortex neuron"
     ],
     "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000125",
       "CL:0010012"
     ],
-    "biological_processes": [],
+    "biological_processes": [
+      "inclusion body assembly",
+      "neuron apoptotic process"
+    ],
     "phenotypes": [
       "Speech Apraxia",
       "Dysarthria",
@@ -309501,7 +309634,12 @@ window.searchData = [
       "HP:0002071",
       "HP:0002015"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT"
+    ],
     "genes": [],
     "treatments": [
       "Speech-Language Therapy and Communication Support"
@@ -309511,11 +309649,11 @@ window.searchData = [
     "source_file": "Primary_Progressive_Apraxia_of_Speech.yaml",
     "page_url": "../pages/disorders/Primary_Progressive_Apraxia_of_Speech.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 2,
+    "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 1,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Primary Sclerosing Cholangitis",
@@ -335861,17 +335999,49 @@ window.searchData = [
     ],
     "creation_date": "2026-01-26T15:56:41Z",
     "updated_date": null,
-    "subtypes": [],
-    "description": "Scabies is a contagious parasitic skin disease caused by Sarcoptes scabiei infestation.",
-    "pathophysiology": [
-      "Mite infestation of the skin"
+    "subtypes": [
+      "Ordinary Scabies",
+      "Crusted Scabies"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
-    "biological_processes": [],
+    "description": "Scabies is a contagious parasitic skin disease caused by infestation of the stratum corneum by the burrowing ectoparasitic mite Sarcoptes scabiei var. hominis. Mite burrowing and release of antigenic metabolites trigger host innate and adaptive immune responses involving epidermal keratinocytes, dermal fibroblasts, T lymphocytes, eosinophils, and mast cells, with features of both type I and delayed type IV hypersensitivity, manifesting clinically as intense pruritus and an inflammatory papulovesicular skin rash in ordinary scabies or severe hyperkeratotic crusted plaques in crusted scabies.",
+    "pathophysiology": [
+      "Mite infestation of the skin",
+      "Keratinocyte and Fibroblast Cytokine and Keratinization Response",
+      "Dermal Leukocyte and Granulocyte Infiltration",
+      "JAK-STAT Signaling Pathway Activation",
+      "Type 2 Cytokine and IL-31 Pruritogenic Signaling"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "fibroblast",
+      "T cell",
+      "macrophage",
+      "eosinophil",
+      "mast cell",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000057",
+      "CL:0000084",
+      "CL:0000235",
+      "CL:0000771",
+      "CL:0000097",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "keratinization",
+      "inflammatory response",
+      "leukocyte chemotaxis",
+      "immune response",
+      "cell surface receptor signaling pathway via JAK-STAT",
+      "type I hypersensitivity"
+    ],
     "phenotypes": [
       "Pruritus",
-      "Skin rash"
+      "Skin rash",
+      "Hyperkeratosis",
+      "Recurrent bacterial skin infections"
     ],
     "phenotype_categories": [
       "Dermatologic"
@@ -335882,25 +336052,29 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0000989",
-      "HP:0000988"
+      "HP:0000988",
+      "HP:0000962",
+      "HP:0005406"
     ],
     "frequencies": [
+      "VERY_FREQUENT",
       "FREQUENT"
     ],
     "genes": [],
     "treatments": [
-      "Permethrin cream or ivermectin"
+      "Topical Permethrin",
+      "Oral Ivermectin"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Scabies.yaml",
     "page_url": "../pages/disorders/Scabies.html",
-    "num_phenotypes": 2,
-    "num_pathophysiology": 1,
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
     "num_genes": 0,
-    "num_treatments": 1,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 2,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Scapuloperoneal Spinal Muscular Atrophy",
@@ -336955,7 +337129,16 @@ window.searchData = [
       "HP:0001701",
       "HP:0011227"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "70.6%",
+      "94.1%",
+      "52.9%",
+      "41.2%",
+      "35.3%",
+      "23.5%"
+    ],
     "genes": [
       "MYD88 (somatic, hypothesized)"
     ],
@@ -336974,8 +337157,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Schnyder Corneal Dystrophy",
@@ -345999,57 +346182,92 @@ window.searchData = [
     ],
     "creation_date": "2026-01-26T16:06:17Z",
     "updated_date": null,
-    "subtypes": [],
-    "description": "Snakebite envenoming results from exposure to snake venom and can cause local tissue damage and life-threatening systemic effects.",
-    "pathophysiology": [
-      "Venom toxins with broad toxic actions",
-      "Local and systemic effects driven by venom variability"
+    "subtypes": [
+      "Neurotoxic snakebite envenoming",
+      "Hemotoxic and cytotoxic snakebite envenoming"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
-    "biological_processes": [],
+    "description": "Snakebite envenoming is an acute, life-threatening toxic injury and neglected tropical disease caused by the parenteral injection of complex proteinaceous snake venoms comprising neurotoxins, hemotoxins, cytotoxins, myotoxins, and metalloproteases. Depending on snake species and venom composition, envenoming produces a clinical spectrum ranging from severe local swelling and cutaneous/soft-tissue necrosis to systemic venom-induced consumption coagulopathy with spontaneous hemorrhage, presynaptic or postsynaptic neuromuscular paralysis, systemic rhabdomyolysis, and acute kidney injury.",
+    "pathophysiology": [
+      "Presynaptic phospholipase A2 neurotoxin blockade",
+      "Postsynaptic alpha-neurotoxin neuromuscular blockade",
+      "Venom-induced consumption coagulopathy",
+      "Venom metalloprotease and cytotoxin-mediated extracellular matrix degradation and local tissue necrosis",
+      "Venom myotoxin-mediated skeletal muscle damage",
+      "Venom-associated renal injury"
+    ],
+    "cell_types": [
+      "motor neuron",
+      "muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000100",
+      "CL:0000187"
+    ],
+    "biological_processes": [
+      "neuromuscular synaptic transmission",
+      "blood coagulation",
+      "extracellular matrix organization",
+      "proteolysis",
+      "renal filtration"
+    ],
     "phenotypes": [
       "Edema",
+      "Cutaneous necrosis",
       "Abnormal bleeding",
+      "Hypotension",
       "Paralysis",
+      "Respiratory failure",
+      "Rhabdomyolysis",
       "Acute kidney injury"
     ],
     "phenotype_categories": [
       "Dermatologic",
       "Hematologic",
+      "Cardiovascular",
       "Neurologic",
+      "Respiratory",
+      "Musculoskeletal",
       "Renal"
     ],
     "phenotype_hpo_categories": [
       "Blood",
+      "Cardiovascular",
       "Genitourinary",
+      "Integument",
       "Metabolism",
-      "Nervous System"
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0000969",
+      "HP:0033126",
       "HP:0001892",
+      "HP:0002615",
       "HP:0003470",
+      "HP:0002878",
+      "HP:0003201",
       "HP:0001919"
     ],
-    "frequencies": [
-      "FREQUENT",
-      "OCCASIONAL"
-    ],
+    "frequencies": [],
     "genes": [],
     "treatments": [
-      "Antivenom administration"
+      "Intravenous antivenom administration",
+      "Organ supportive care (ventilator support, fluid therapy, and hemodialysis)",
+      "Anticholinesterase ancillary therapy"
     ],
-    "environmental": [],
+    "environmental": [
+      "Snake venom exposure"
+    ],
     "biochemical": [],
     "source_file": "Snakebite_Envenoming.yaml",
     "page_url": "../pages/disorders/Snakebite_envenoming.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
     "num_genes": 0,
-    "num_treatments": 1,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 3,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Sneddon syndrome",
@@ -390919,17 +391137,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3624,
-  "total_subtypes": 4831,
-  "total_disorders_and_subtypes": 8455,
-  "total_unique_evidence_sources": 54120,
-  "total_unique_publications": 50536,
+  "total_disorder_pages": 3625,
+  "total_subtypes": 4837,
+  "total_disorders_and_subtypes": 8462,
+  "total_unique_evidence_sources": 54137,
+  "total_unique_publications": 50552,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3621,
-  "total_unique_pathological_events": 23909,
+  "total_pathographs": 3622,
+  "total_unique_pathological_events": 23922,
   "total_modules": 197,
-  "total_research_reports": 3752,
+  "total_research_reports": 3753,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 119
