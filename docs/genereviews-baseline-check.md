@@ -94,8 +94,11 @@ just check-genereviews --online FILE                 # also live PubMed title se
 just check-genereviews --format tsv > census.tsv     # machine-readable census
 ```
 
-`--online` adds a live `<name>[TI] AND genereviews[book]` search per name so a
-chapter published after the snapshot is caught. It needs network and is not
+`--online` adds a live `"<name>"[TI] AND genereviews[book]` search per name so a
+chapter published after the snapshot is caught. The name is quoted as a phrase:
+unquoted, PubMed drops the words it cannot match and searches what is left, so
+`mesiodens-cataract syndrome` became a search for "syndrome" (#14213). A search
+PubMed reports having rewritten anyway is skipped with a warning. It needs network and is not
 what the reviewer runs; a tagged PMID missing from the snapshot is still
 accepted when the cached record carries the Bookshelf citation form. A live
 hit is listed with match kind `ONLINE`, after every index match: PubMed's
