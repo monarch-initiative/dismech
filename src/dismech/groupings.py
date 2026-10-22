@@ -894,8 +894,9 @@ def _eval_leaf(
             )
     elif predicate in ("HAS_BIOLOGICAL_PROCESS", "HAS_MOLECULAR_FUNCTION"):
         # Both read facts.go_ids, which holds every GO term the entry curates.
-        # The GO branches are disjoint, so an MF criterion's closure can only
-        # match the entry's MF terms and a BP criterion's only its BP terms.
+        # The closure follows part_of as well as is_a, and GO makes some
+        # activities part_of a process (MAP kinase kinase activity is part_of
+        # MAPK cascade), so a BP criterion can be satisfied by an MF term.
         ids = _term_ids(node.get(PREDICATE_PAYLOAD[predicate]))
         if ids:
             # A match under any listed term satisfies; with no match, an
