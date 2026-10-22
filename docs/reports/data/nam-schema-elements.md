@@ -13,7 +13,7 @@ Disease
 │                                                     │  MOLECULAR | CELLULAR | TISSUE | ORGANISM
 │                                                     │  compared against the link's model_scale
 └── experimental_models: [ExperimentalModel]          │
-    ├── name                                          │  string, required; the NAM
+    ├── name                                          │  string, identifier; the NAM
     ├── experimental_model_type                       │  ExperimentalModelTypeEnum (optional)
     │                                                 │  ORGANOID | ORGAN_ON_CHIP | CELL_LINE |
     │                                                 │  IPSC_DERIVED_MODEL | PRIMARY_CELL_CULTURE |
