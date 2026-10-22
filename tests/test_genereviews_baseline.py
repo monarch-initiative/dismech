@@ -442,7 +442,7 @@ class _FakeNcbiClient:
     def call(self, endpoint: str, **params: str) -> dict:
         self.calls.append((endpoint, params))
         if endpoint == "esearch.fcgi":
-            hit = params["term"] == "DNASE2 Deficiency[TI] AND genereviews[book]"
+            hit = params["term"] == '"DNASE2 Deficiency"[TI] AND genereviews[book]'
             return {"esearchresult": {"idlist": [self.PMID] if hit else []}}
         assert endpoint == "esummary.fcgi" and params["id"] == self.PMID
         return {
@@ -494,6 +494,47 @@ def test_online_hit_missing_from_index_returns_a_verdict(
     assert cgb.main(args + ["--strict"]) == 0
     out = capsys.readouterr().out
     assert f"PMID:{_FakeNcbiClient.PMID} NBK999999" in out and "ONLINE via" in out
+
+
+class _RecordingNcbiClient:
+    """Records each esearch ``term`` and answers with a canned ``esearchresult``."""
+
+    def __init__(self, esearch: dict):
+        self.esearch = esearch
+        self.terms: list[str] = []
+
+    def call(self, endpoint: str, **params: str) -> dict:
+        assert endpoint == "esearch.fcgi", "no hit, so esummary is never called"
+        self.terms.append(params["term"])
+        return {"esearchresult": self.esearch}
+
+
+def _online(index, client) -> cgb.OnlineSearch:
+    online = cgb.OnlineSearch.__new__(cgb.OnlineSearch)
+    online.client, online.index, online.sources = client, index, ["genereviews"]
+    return online
+
+
+def test_online_search_quotes_the_name_as_a_phrase(index):
+    """Unquoted, PubMed searched ``mesiodens-cataract syndrome[TI]`` as "syndrome" (#14213)."""
+    client = _RecordingNcbiClient({"idlist": []})
+    online = _online(index, client)
+    assert online.search(["mesiodens-cataract syndrome", 'a "quoted" name', '""']) == []
+    assert client.terms == [
+        '"mesiodens-cataract syndrome"[TI] AND genereviews[book]',
+        '"a quoted name"[TI] AND genereviews[book]',
+    ]
+
+
+def test_online_search_skips_a_rewritten_query(index, capsys):
+    client = _RecordingNcbiClient(
+        {
+            "idlist": ["99999997"],
+            "querytranslation": '"syndrome"[Title] AND "genereviews"[Book]',
+        }
+    )
+    assert _online(index, client).search(["mesiodens-cataract syndrome"]) == []
+    assert "PubMed rewrote" in capsys.readouterr().err
 
 
 def test_online_hit_ranks_after_index_title_matches(tmp_path, index):
