@@ -81782,8 +81782,10 @@ window.searchData = [
     ],
     "environmental": [],
     "biochemical": [
-      "Alpha-Fetoprotein",
-      "Human Chorionic Gonadotropin",
+      "Serum Alpha-Fetoprotein",
+      "Cerebrospinal Fluid Alpha-Fetoprotein",
+      "Serum Human Chorionic Gonadotropin",
+      "Cerebrospinal Fluid Human Chorionic Gonadotropin",
       "Circulating miR-371a-3p",
       "Cerebrospinal Fluid Circulating Tumor DNA"
     ],
@@ -357740,7 +357742,8 @@ window.searchData = [
     ],
     "environmental": [],
     "biochemical": [
-      "Anti-GAD65 Antibodies",
+      "Serum Anti-GAD65 Antibodies",
+      "CSF Anti-GAD65 Antibodies",
       "Anti-Amphiphysin Antibodies",
       "Anti-Glycine Receptor Antibodies",
       "CSF GABA Levels",
@@ -367163,7 +367166,8 @@ window.searchData = [
     "biochemical": [
       "Hyperphenylalaninemia",
       "Urinary Pterin Profile",
-      "CSF Neurotransmitter Metabolites"
+      "CSF Homovanillic Acid",
+      "CSF 5-Hydroxyindoleacetic Acid"
     ],
     "source_file": "Tetrahydrobiopterin_Deficiency.yaml",
     "page_url": "../pages/disorders/Tetrahydrobiopterin_Deficiency.html",
@@ -367171,7 +367175,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 5,
     "num_treatments": 6,
-    "causal_graph_edges": "24",
+    "causal_graph_edges": "25",
     "causal_graph_longest_path": "6"
   },
   {
