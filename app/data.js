@@ -268014,24 +268014,37 @@ window.searchData = [
     "pathophysiology": [
       "Neural Crest Developmental Arrest",
       "MYCN-Driven Proliferation",
+      "Polyamine Biosynthesis Dependence",
       "ALK Signaling Activation",
       "Telomerase Activation",
       "Reduced ATRX/DAXX Complex Abundance",
       "Alternative Lengthening of Telomeres",
-      "Unlimited Replicative Potential"
+      "Unlimited Replicative Potential",
+      "Adrenergic and Mesenchymal Cell-State Plasticity",
+      "Mesenchymal-State Chemotherapy Resistance",
+      "ALK-Inhibitor Escape by Loss of Target Expression",
+      "Mesenchymal-State Immune Activation"
     ],
     "cell_types": [
-      "neural crest derived neuroblast"
+      "neural crest derived neuroblast",
+      "neural crest cell-like (mesenchymal) tumour cell state",
+      "adrenergic (noradrenergic) tumour cell state"
     ],
     "cell_type_ids": [
-      "CL:0002676"
+      "CL:0002676",
+      "CL:0011012"
     ],
     "biological_processes": [
       "cell differentiation",
       "cell population proliferation",
+      "polyamine biosynthetic process",
       "MAPK cascade",
       "telomere maintenance via telomerase",
-      "telomere maintenance via recombination"
+      "telomere maintenance via recombination",
+      "reversible switching between two tumour cell identities",
+      "chromatin remodelling accompanying the identity switch",
+      "immune response to tumour cells of the mesenchymal state",
+      "T cell recruitment into mesenchymal-state tumour tissue"
     ],
     "phenotypes": [
       "Abdominal Mass",
@@ -268110,7 +268123,8 @@ window.searchData = [
       "Radiation Therapy",
       "Anti-GD2 Immunotherapy",
       "ALK Inhibitor Therapy",
-      "Isotretinoin (Retinoic Acid)"
+      "Isotretinoin (Retinoic Acid)",
+      "Eflornithine (DFMO) Maintenance Therapy"
     ],
     "environmental": [],
     "biochemical": [
@@ -268120,10 +268134,10 @@ window.searchData = [
     "source_file": "Neuroblastoma.yaml",
     "page_url": "../pages/disorders/Neuroblastoma.html",
     "num_phenotypes": 15,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 12,
     "num_genes": 6,
-    "num_treatments": 7,
-    "causal_graph_edges": "13",
+    "num_treatments": 8,
+    "causal_graph_edges": "19",
     "causal_graph_longest_path": "4"
   },
   {
@@ -391663,12 +391677,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3629,
   "total_subtypes": 4835,
   "total_disorders_and_subtypes": 8464,
-  "total_unique_evidence_sources": 54190,
-  "total_unique_publications": 50599,
+  "total_unique_evidence_sources": 54210,
+  "total_unique_publications": 50619,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
   "total_pathographs": 3626,
-  "total_unique_pathological_events": 23955,
+  "total_unique_pathological_events": 23960,
   "total_modules": 197,
   "total_research_reports": 3757,
   "total_classifications": 21,
