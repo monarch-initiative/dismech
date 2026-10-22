@@ -89926,7 +89926,7 @@ window.searchData = [
     "num_pathophysiology": 19,
     "num_genes": 0,
     "num_treatments": 6,
-    "causal_graph_edges": "29",
+    "causal_graph_edges": "31",
     "causal_graph_longest_path": "9"
   },
   {
@@ -167110,6 +167110,194 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Glycosylphosphatidylinositol Biosynthesis Defect 18",
+    "disease_id": "MONDO:0029140",
+    "category": "Mendelian",
+    "parents": [
+      "Disorder of GPI Anchor Biosynthesis",
+      "Congenital Disorder of Glycosylation",
+      "Inborn Error of Metabolism",
+      "Epilepsy"
+    ],
+    "creation_date": "2026-10-19T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Glycosylphosphatidylinositol biosynthesis defect 18 (GPIBD18, also developmental and epileptic encephalopathy 95) is an autosomal recessive inherited GPI deficiency caused by biallelic variants in PIGS. PIGS is one of the five subunits of the GPI transamidase complex (PIGK, GPAA1, PIGS, PIGT, PIGU), which in the endoplasmic reticulum replaces the C-terminal GPI attachment signal of precursor proteins with the preassembled GPI anchor; loss of any one subunit abolishes the activity. Patient granulocytes, lymphocytes and amniocytes show reduced cell-surface GPI-anchored proteins, with CD16 and FLAER the most sensitive markers. The disorder is a severe developmental and epileptic encephalopathy: profound global developmental delay with absent speech, hypotonia, intractable epilepsy beginning in the first year of life, microcephaly, cerebellar and cerebral (frontotemporal predominant) atrophy, visual and hearing impairment and coarse facial features, with early death from neurological or respiratory complications in several patients. At the severe end, two fetuses had multiple joint contractures consistent with fetal akinesia. Seizures improved with pyridoxine in a few patients. Serum alkaline phosphatase is usually normal. About fourteen individuals from ten families have been published in four reports.",
+    "pathophysiology": [
+      "Biallelic PIGS Loss-of-Function Variants",
+      "Impaired GPI Anchor Attachment to Precursor Proteins",
+      "Reduced Cell-Surface GPI-Anchored Proteins",
+      "Impaired Neural GPI-Anchored Protein Function",
+      "Progressive Brain Atrophy",
+      "Disturbed Development of Non-Neural Tissues"
+    ],
+    "cell_types": [
+      "granulocyte",
+      "lymphocyte",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000094",
+      "CL:0000542",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "attachment of GPI anchor to protein"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Absent speech",
+      "Hypotonia",
+      "Muscle weakness",
+      "Ataxia",
+      "Seizure",
+      "Focal-onset seizure",
+      "Febrile seizure (within the age range of 3 months to 6 years)",
+      "Infantile spasms",
+      "Myoclonic seizure",
+      "Status epilepticus",
+      "Microcephaly",
+      "Cerebellar atrophy",
+      "Frontotemporal cerebral atrophy",
+      "Hypoplasia of the pons",
+      "Hypoplasia of the corpus callosum",
+      "Autistic behavior",
+      "Spasticity",
+      "Hyperreflexia",
+      "Hyporeflexia",
+      "Visual impairment",
+      "Nystagmus",
+      "Esotropia",
+      "Hearing impairment",
+      "Coarse facial features",
+      "Highly arched eyebrow",
+      "Almond-shaped palpebral fissure",
+      "Depressed nasal bridge",
+      "Deep philtrum",
+      "Thickened helices",
+      "Gingival overgrowth",
+      "Short distal phalanx of finger",
+      "Brachydactyly",
+      "Clinodactyly",
+      "Multiple joint contractures",
+      "Fetal akinesia sequence",
+      "Cystic hygroma",
+      "Increased nuchal translucency",
+      "Multiple glomerular cysts",
+      "Abnormal renal morphology",
+      "Ventricular septal defect",
+      "Umbilical hernia",
+      "Inguinal hernia",
+      "Cryptorchidism",
+      "Recurrent respiratory infections",
+      "Feeding difficulties"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Eye",
+      "Ear",
+      "Craniofacial",
+      "Skeletal",
+      "Prenatal",
+      "Renal",
+      "Cardiovascular",
+      "Abdominal",
+      "Genitourinary",
+      "Respiratory",
+      "Digestive"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001344",
+      "HP:0001252",
+      "HP:0001324",
+      "HP:0001251",
+      "HP:0001250",
+      "HP:0007359",
+      "HP:0002373",
+      "HP:0012469",
+      "HP:0032794",
+      "HP:0002133",
+      "HP:0000252",
+      "HP:0001272",
+      "HP:0006892",
+      "HP:0012110",
+      "HP:0002079",
+      "HP:0000729",
+      "HP:0001257",
+      "HP:0001347",
+      "HP:0001265",
+      "HP:0000505",
+      "HP:0000639",
+      "HP:0000565",
+      "HP:0000365",
+      "HP:0000280",
+      "HP:0002553",
+      "HP:0007874",
+      "HP:0005280",
+      "HP:0002002",
+      "HP:0000391",
+      "HP:0000212",
+      "HP:0009882",
+      "HP:0001156",
+      "HP:0030084",
+      "HP:0002828",
+      "HP:0001989",
+      "HP:0000476",
+      "HP:0010880",
+      "HP:0100611",
+      "HP:0012210",
+      "HP:0001629",
+      "HP:0001537",
+      "HP:0000023",
+      "HP:0000028",
+      "HP:0002205",
+      "HP:0011968"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "PIGS"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "Pyridoxine Supplementation",
+      "Folinic Acid Supplementation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum alkaline phosphatase"
+    ],
+    "source_file": "Glycosylphosphatidylinositol_Biosynthesis_Defect_18.yaml",
+    "page_url": "../pages/disorders/Glycosylphosphatidylinositol_Biosynthesis_Defect_18.html",
+    "num_phenotypes": 47,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "54",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Gnathodiaphyseal Dysplasia",
     "disease_id": "MONDO:0008151",
     "category": "Mendelian",
@@ -208740,6 +208928,145 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "44",
     "causal_graph_longest_path": "9"
+  },
+  {
+    "name": "Intellectual Disability Autosomal Dominant 42",
+    "disease_id": "MONDO:0014855",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Epilepsy"
+    ],
+    "creation_date": "2026-10-22T13:25:13Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Intellectual disability, autosomal dominant 42 (GNB1 encephalopathy, GNB1-E) is a neurodevelopmental disorder caused by heterozygous, usually de novo, pathogenic variants in GNB1, which encodes the Gbeta1 subunit of heterotrimeric G proteins. It presents in infancy with moderate-to-severe global developmental delay and intellectual disability, hypotonia that often evolves into limb hypertonia or spasticity, seizures of several types, abnormal vision and eye movements, and structural brain abnormalities, with less common dystonia, growth delay, gastrointestinal and male genitourinary anomalies, and cutaneous mastocytosis. Most variants are missense changes at Gbeta interaction surfaces that impair Gbeta-gamma dimer or heterotrimer assembly, or alter Gbeta-gamma gating of GIRK (Kir3) potassium channels in a variant-specific direction; truncating and splice variants act through loss of function and are over-represented among patients with hyperphagia and obesity.",
+    "pathophysiology": [
+      "GNB1 Pathogenic Variant",
+      "Defective Gbeta-gamma Dimer and Heterotrimer Assembly",
+      "Dysregulated Gbeta-gamma Gating of GIRK Channels",
+      "Cortical Neuronal Network Hyperexcitability",
+      "Thalamocortical Spike-Wave Discharges",
+      "Disrupted Gbeta-gamma Signaling in Neurodevelopment"
+    ],
+    "cell_types": [
+      "cerebral cortex neuron",
+      "neural progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0010012",
+      "CL:0011020"
+    ],
+    "biological_processes": [
+      "G protein-coupled receptor signaling pathway",
+      "regulation of potassium ion transmembrane transport",
+      "neuronal action potential",
+      "neural precursor cell proliferation"
+    ],
+    "phenotypes": [
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Absent Speech",
+      "Inability to Walk",
+      "Hypotonia",
+      "Spasticity",
+      "Seizure",
+      "Absence Seizure",
+      "Epileptic Spasm",
+      "Abnormal Brain Morphology",
+      "Dystonia",
+      "Myoclonus",
+      "Ataxia",
+      "Chorea",
+      "Nystagmus",
+      "Strabismus",
+      "Cerebral Visual Impairment",
+      "Growth Delay",
+      "Feeding Difficulties",
+      "Gastrointestinal Anomalies",
+      "Genitourinary Anomalies in Males",
+      "Cutaneous Mastocytosis",
+      "Autistic Behavior",
+      "Attention Deficit Hyperactivity Disorder",
+      "Obesity",
+      "Polyphagia",
+      "Acute Encephalopathy"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Growth",
+      "Digestive",
+      "Genitourinary",
+      "Integumentary",
+      "Behavioral",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001344",
+      "HP:0002540",
+      "HP:0001252",
+      "HP:0001257",
+      "HP:0001250",
+      "HP:0002121",
+      "HP:0011097",
+      "HP:0012443",
+      "HP:0001332",
+      "HP:0001336",
+      "HP:0001251",
+      "HP:0002072",
+      "HP:0000639",
+      "HP:0000486",
+      "HP:0100704",
+      "HP:0001510",
+      "HP:0011968",
+      "HP:0011024",
+      "HP:0000119",
+      "HP:0200151",
+      "HP:0000729",
+      "HP:0007018",
+      "HP:0001513",
+      "HP:0002591",
+      "HP:0006846"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "GNB1"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "Ethosuximide (preclinical)",
+      "Deep Brain Stimulation",
+      "Intrathecal Baclofen",
+      "Physical and Occupational Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Disability_Autosomal_Dominant_42.yaml",
+    "page_url": "../pages/disorders/Intellectual_Disability_Autosomal_Dominant_42.html",
+    "num_phenotypes": 27,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Intellectual Disability, Autosomal Dominant 48",
@@ -307548,7 +307875,7 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "29",
+    "causal_graph_edges": "31",
     "causal_graph_longest_path": "11"
   },
   {
@@ -349671,6 +349998,78 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Spermatogenic Failure 32",
+    "disease_id": "MONDO:0020855",
+    "category": "Mendelian",
+    "parents": [
+      "Spermatogenic Failure",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-10-22T13:25:13Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spermatogenic failure 32 (SPGF32) is male infertility from impaired sperm production caused by variants in SOHLH1, a germ-cell-specific basic helix-loop-helix transcription factor that drives spermatogonial differentiation, in part by activating KIT. Nearly all reported men carry the same splice-acceptor allele, c.346-1G>A, which uses a cryptic acceptor in exon 4 and truncates the bHLH domain.\nThe disease was first described in two Korean and two Japanese men with non-obstructive azoospermia who were heterozygous for c.346-1G>A, and was catalogued as dominant. Later reports changed that reading. A man homozygous for the same allele had severe oligozoospermia with depleted, disordered germ cells and reduced testicular SOHLH1 protein, three heterozygous carriers had teratozoospermia with normal sperm counts, and a biallelic missense SOHLH1 variant was found in a consanguineous Pakistani family with azoospermia. The current evidence favours biallelic loss of function as the cause of quantitative spermatogenic failure, with the heterozygous allele's contribution unresolved. Sohlh1-null male mice are infertile because spermatogonia fail to differentiate into spermatocytes. ICSI with ejaculated sperm has produced pregnancies in carriers of either genotype.",
+    "pathophysiology": [
+      "SOHLH1 Transcription Factor Loss of Function",
+      "Reduced KIT Transcriptional Activation",
+      "Failure of Spermatogonial Differentiation",
+      "Germ Cell Depletion of the Seminiferous Epithelium"
+    ],
+    "cell_types": [
+      "spermatogonium",
+      "spermatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000020",
+      "CL:0000017"
+    ],
+    "biological_processes": [
+      "KIT transcriptional activation",
+      "spermatogonial differentiation",
+      "spermatogenesis"
+    ],
+    "phenotypes": [
+      "Male Infertility",
+      "Non-Obstructive Azoospermia",
+      "Severe Oligozoospermia",
+      "Hypospermatogenesis",
+      "Reduced Sperm Motility",
+      "Abnormal Sperm Morphology"
+    ],
+    "phenotype_categories": [
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary"
+    ],
+    "phenotype_ids": [
+      "HP:0003251",
+      "HP:0011961",
+      "HP:0034818",
+      "HP:0034813",
+      "HP:0012207",
+      "HP:0012864"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SOHLH1"
+    ],
+    "treatments": [
+      "Intracytoplasmic Sperm Injection",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spermatogenic_Failure_32.yaml",
+    "page_url": "../pages/disorders/Spermatogenic_Failure_32.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Spermatogenic Failure 33",
     "disease_id": "MONDO:0029147",
     "category": "Mendelian",
@@ -350198,6 +350597,71 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "14",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Spermatogenic Failure 47",
+    "disease_id": "MONDO:0030844",
+    "category": "Mendelian",
+    "parents": [
+      "Spermatogenic Failure",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-10-21T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spermatogenic failure 47 (SPGF47) is autosomal recessive male infertility caused by biallelic DZIP1 variants. DZIP1 (DAZ interacting zinc finger protein 1) is a centrosomal and basal-body protein that is needed at the start of cilium assembly. With CBY and FAM92 it forms a complex at the ciliary base that docks the basal body to the membrane and begins transition-zone assembly.\nAffected men have asthenoteratozoospermia with a severe form of multiple morphological abnormalities of the sperm flagella (MMAF). More than 90% of sperm have no flagellum at all, the rest have short flagella, and no sperm are motile. Sperm counts are also reduced. Electron microscopy shows absent or very short axonemes, and patient sperm carry abnormal numbers of centrioles. This pattern differs from most MMAF genes, where short and coiled flagella with visible but disorganized axonemes predominate. The defect is therefore placed at the basal body, before the axoneme grows. A Dzip1 knockout mouse reproduces the phenotype. Only two patients, from two consanguineous Han Chinese families, have been reported.",
+    "pathophysiology": [
+      "Loss of DZIP1 Protein",
+      "Defective Basal Body Maturation and Membrane Docking",
+      "Arrest of Sperm Axoneme Outgrowth"
+    ],
+    "cell_types": [
+      "Spermatid",
+      "Sperm"
+    ],
+    "cell_type_ids": [
+      "CL:0000018",
+      "CL:0000019"
+    ],
+    "biological_processes": [
+      "Intraciliary transport",
+      "Sperm flagellum assembly"
+    ],
+    "phenotypes": [
+      "Male infertility",
+      "Absent sperm flagella",
+      "Short sperm flagella",
+      "Immotile sperm",
+      "Oligozoospermia"
+    ],
+    "phenotype_categories": [
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary"
+    ],
+    "phenotype_ids": [
+      "HP:0003251",
+      "HP:0032558",
+      "HP:0032559",
+      "HP:0012208",
+      "HP:0000798"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DZIP1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spermatogenic_Failure_47.yaml",
+    "page_url": "../pages/disorders/Spermatogenic_Failure_47.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Spermatogenic failure 48",
@@ -360362,6 +360826,84 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "11",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Symphalangism Proximal 1B",
+    "disease_id": "MONDO:0014125",
+    "category": "Mendelian",
+    "parents": [
+      "Joint Disorders",
+      "Limb Development Disorders"
+    ],
+    "creation_date": "2026-10-22T13:25:13Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Proximal symphalangism 1B (SYM1B) is the autosomal dominant disorder of joint formation caused by heterozygous activating missense variants in GDF5, which encodes growth and differentiation factor 5, a BMP-family ligand expressed at sites of future joints. The proximal interphalangeal joints, most often of the ring and little fingers, fail to form, so the proximal and middle phalanges are fused and the fingers cannot bend and lack flexion creases. Tarsal coalitions, absence of the cuboid and flat feet are reported, and in one family the painful, fixed planovalgus feet caused more disability than the hands. Expression varies within families. The variants increase GDF5 activity, by changing which type I BMP receptor it binds (p.Arg438Leu) or by increasing processing of the precursor (p.Leu373Arg), so BMP signalling is excessive where a joint interzone should form. The same gene causes proximal symphalangism, multiple synostoses syndrome 2 and, through loss-of-function alleles, brachydactyly types A2 and C, depending on how the variant changes GDF5 activity.",
+    "pathophysiology": [
+      "GDF5 Gain of Function",
+      "Excess BMP Signaling at Prospective Joint Sites",
+      "Failure of Joint Interzone Formation"
+    ],
+    "cell_types": [
+      "chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "BMP signaling pathway",
+      "SMAD protein signal transduction",
+      "chondrocyte differentiation",
+      "embryonic skeletal joint development"
+    ],
+    "phenotypes": [
+      "Proximal Symphalangism",
+      "Limited Mobility of Proximal Interphalangeal Joints",
+      "Absent Proximal Finger Flexion Creases",
+      "Brachydactyly",
+      "Tarsal Synostosis",
+      "Absent Cuboid Bone",
+      "Pes Planus",
+      "Foot Pain",
+      "Subtalar Osteoarthritis"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0100264",
+      "HP:0006217",
+      "HP:0006077",
+      "HP:0001156",
+      "HP:0008368",
+      "HP:0010509",
+      "HP:0001763",
+      "HP:0025238",
+      "HP:0002758"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GDF5"
+    ],
+    "treatments": [
+      "Foot Orthoses",
+      "Subtalar Joint Fusion"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Symphalangism_Proximal_1B.yaml",
+    "page_url": "../pages/disorders/Symphalangism_Proximal_1B.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Syndromic X-linked Intellectual Disability 94",
@@ -392253,17 +392795,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3635,
+  "total_disorder_pages": 3640,
   "total_subtypes": 4839,
-  "total_disorders_and_subtypes": 8474,
-  "total_unique_evidence_sources": 54288,
-  "total_unique_publications": 50697,
+  "total_disorders_and_subtypes": 8479,
+  "total_unique_evidence_sources": 54326,
+  "total_unique_publications": 50733,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3632,
-  "total_unique_pathological_events": 23998,
+  "total_pathographs": 3637,
+  "total_unique_pathological_events": 24015,
   "total_modules": 197,
-  "total_research_reports": 3763,
+  "total_research_reports": 3768,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 120
