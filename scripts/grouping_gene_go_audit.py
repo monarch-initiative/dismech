@@ -27,6 +27,12 @@ annotations (``NOT`` annotations are reported, never counted):
   ELECTRONIC     IEA only
   NONE           no annotation under any root
 
+A ``member_type: SUBTYPE`` row names its parent entry, so the parent's genes
+would rate it by its siblings' genes. A subtype is instead checked against the
+genes its own row names in ``differentiating_mechanisms[].gene``, and reported
+as ``SUBTYPE_UNSCOPED`` (no lookup) when the row names none, including a
+subtype reached through a nested grouping.
+
 A member is ``SUPPORTED`` when at least one causal gene has a verdict above
 NONE, ``UNSUPPORTED`` when every causal gene is NONE, and ``NO_CAUSAL_GENE``
 when the entry binds no causal HGNC gene at all. For a NO_CAUSAL_GENE member
@@ -163,6 +169,13 @@ class MemberVerdict:
     disease: str
     via: str | None
     genes: list[GeneVerdict] = field(default_factory=list)
+    # display_name of a SUBTYPE row; None for a whole-entry member.
+    subtype: str | None = None
+    unscoped: bool = False
+
+    @property
+    def label(self) -> str:
+        return f"{self.disease} [subtype: {self.subtype}]" if self.subtype else self.disease
 
     @property
     def causal_genes(self) -> list[GeneVerdict]:
@@ -170,6 +183,8 @@ class MemberVerdict:
 
     @property
     def verdict(self) -> str:
+        if self.unscoped:
+            return "SUBTYPE_UNSCOPED"
         if not self.causal_genes:
             return "NO_CAUSAL_GENE"
         verdicts = {g.verdict for g in self.causal_genes}
@@ -185,6 +200,7 @@ class GroupingVerdict:
     grouping: str
     roots: list[str]
     members: list[MemberVerdict] = field(default_factory=list)
+    review_lookup_failed: bool = False
 
     def by_verdict(self, verdict: str) -> list[MemberVerdict]:
         return [m for m in self.members if m.verdict == verdict]
@@ -295,8 +311,12 @@ def _get_json(url: str) -> dict:
         return json.load(resp)
 
 
-def uniprot_for_hgnc(hgnc: str, *, pause: float) -> str | None:
-    """Reviewed human UniProt accession cross-referenced to an HGNC id."""
+def uniprot_for_hgnc(hgnc: str, *, pause: float) -> tuple[str | None, bool]:
+    """Reviewed human UniProt accession cross-referenced to an HGNC id.
+
+    Returns ``(accession, failed)``: a lookup that errors is ``(None, True)``,
+    so the gene is reported as LOOKUP_FAILED rather than as having no entry.
+    """
     query = f"xref:hgnc-{hgnc.split(':', 1)[1]} AND organism_id:9606 AND reviewed:true"
     url = f"{UNIPROT_SEARCH}?" + urllib.parse.urlencode(
         {"query": query, "fields": "accession", "format": "json", "size": 1}
@@ -304,11 +324,33 @@ def uniprot_for_hgnc(hgnc: str, *, pause: float) -> str | None:
     try:
         results = _get_json(url).get("results") or []
     except (urllib.error.URLError, TimeoutError, ValueError):
-        return None
+        print(f"WARNING: UniProt lookup failed for {hgnc}", file=sys.stderr)
+        return None, True
     finally:
         if pause:
             time.sleep(pause)
-    return results[0]["primaryAccession"] if results else None
+    return (results[0]["primaryAccession"] if results else None), False
+
+
+def subtype_rows(grouping: dict) -> list[dict]:
+    """Direct ``member_type: SUBTYPE`` rows, each kept separately."""
+    return [
+        m for m in grouping.get("members") or []
+        if isinstance(m, dict) and m.get("member") and m.get("member_type") == "SUBTYPE"
+    ]
+
+
+def subtype_scope(row: dict) -> list[tuple[str, str]]:
+    """``(hgnc_id, symbol)`` named by a SUBTYPE row's differentiating mechanisms."""
+    out: list[tuple[str, str]] = []
+    for mech in row.get("differentiating_mechanisms") or []:
+        term = (((mech or {}).get("gene") or {}).get("term")) or {}
+        tid = term.get("id")
+        if isinstance(tid, str) and tid.lower().startswith("hgnc:"):
+            hgnc = "hgnc:" + tid.split(":", 1)[1]
+            if hgnc not in {h for h, _ in out}:
+                out.append((hgnc, str(term.get("label") or hgnc)))
+    return out
 
 
 def fetch_annotations(
@@ -373,7 +415,31 @@ def build_verdicts(only: str | None = None, *, pause: float = 0.2) -> list[Group
         if not roots:
             continue
         gv = GroupingVerdict(name, roots)
-        for disease, _mtype, via in iter_disease_targets(data, groupings):
+
+        def add_gene(mv: MemberVerdict, hgnc: str, symbol: str, rel: str | None) -> None:
+            acc, failed = uniprot_of.get(hgnc), False
+            if acc is None:
+                acc, failed = uniprot_for_hgnc(hgnc, pause=pause)
+            mv.genes.append(GeneVerdict(hgnc, symbol, acc, rel, lookup_failed=failed))
+
+        # Each SUBTYPE row is its own member, scoped to the genes it names;
+        # iter_disease_targets would collapse it into the parent entry.
+        for row in subtype_rows(data):
+            mv = MemberVerdict(str(row["member"]), None,
+                               subtype=str(row.get("display_name") or row["member"]))
+            scope = subtype_scope(row)
+            mv.unscoped = not scope
+            for hgnc, symbol in scope:
+                add_gene(mv, hgnc, symbol, None)
+            gv.members.append(mv)
+
+        direct_subtypes = {str(r["member"]) for r in subtype_rows(data)}
+        for disease, mtype, via in iter_disease_targets(data, groupings):
+            if mtype == "SUBTYPE":
+                if via is None and disease in direct_subtypes:
+                    continue
+                gv.members.append(MemberVerdict(disease, via, subtype=disease, unscoped=True))
+                continue
             mv = MemberVerdict(disease, via)
             genes = entry_genes(diseases.get(disease) or {})
             has_causal = any(rel in CAUSAL_RELATIONSHIPS for _h, _s, rel in genes)
@@ -382,8 +448,7 @@ def build_verdicts(only: str | None = None, *, pause: float = 0.2) -> list[Group
                 # the entry has; alongside a causal gene they are noise.
                 if has_causal and rel not in CAUSAL_RELATIONSHIPS:
                     continue
-                acc = uniprot_of.get(hgnc) or uniprot_for_hgnc(hgnc, pause=pause)
-                mv.genes.append(GeneVerdict(hgnc, symbol, acc, rel))
+                add_gene(mv, hgnc, symbol, rel)
             gv.members.append(mv)
 
         genes = [g for m in gv.members for g in m.genes if g.uniprot]
@@ -398,6 +463,13 @@ def build_verdicts(only: str | None = None, *, pause: float = 0.2) -> list[Group
         all_genes = [g for m in gv.members for g in m.genes]
         candidate_terms = sorted({t for g in all_genes for t in review_terms.get(g.hgnc, [])})
         under = terms_under_roots(candidate_terms, roots, pause=pause) if candidate_terms else set()
+        if under is None:
+            gv.review_lookup_failed = True
+            print(
+                f"WARNING: QuickGO ancestor lookup failed for {name}; the ai-gene-review "
+                "column is empty for this grouping, not absent.",
+                file=sys.stderr,
+            )
         for g in all_genes:
             g.review_terms = [t for t in review_terms.get(g.hgnc, []) if under and t in under]
         out.append(gv)
@@ -419,8 +491,11 @@ def _print_summary(verdicts: list[GroupingVerdict]) -> None:
     for v in verdicts:
         print(f"\n=== {v.grouping}")
         print(f"    roots: {', '.join(v.roots)}")
-        counts = {k: len(v.by_verdict(k)) for k in ("SUPPORTED", "UNSUPPORTED", "UNRESOLVED", "NO_CAUSAL_GENE")}
-        print("    " + "  ".join(f"{k}={n}" for k, n in counts.items()))
+        kinds = ("SUPPORTED", "UNSUPPORTED", "UNRESOLVED", "NO_CAUSAL_GENE", "SUBTYPE_UNSCOPED")
+        counts = {k: len(v.by_verdict(k)) for k in kinds}
+        print("    " + "  ".join(f"{k}={n}" for k, n in counts.items() if n or k != "SUBTYPE_UNSCOPED"))
+        if v.review_lookup_failed:
+            print("    NOTE: the ai-gene-review lookup failed; that column is empty, not absent.")
         weakest = [
             m for m in v.by_verdict("SUPPORTED")
             if all(g.verdict in ("ELECTRONIC", "NONE", "NO_UNIPROT", "LOOKUP_FAILED") for g in m.causal_genes)
@@ -431,13 +506,15 @@ def _print_summary(verdicts: list[GroupingVerdict]) -> None:
             ("NO_CAUSAL_GENE (no causal HGNC gene; the genes it does bind are listed)",
              v.by_verdict("NO_CAUSAL_GENE")),
             ("SUPPORTED by electronic (IEA) annotation only", weakest),
+            ("SUBTYPE_UNSCOPED (subtype row names no gene; not assessed)",
+             v.by_verdict("SUBTYPE_UNSCOPED")),
         ):
             if not rows:
                 continue
             print(f"\n    {label}:")
             for m in rows:
                 via = f" (via {m.via})" if m.via else ""
-                print(f"      {m.disease}{via}")
+                print(f"      {m.label}{via}")
                 for g in m.genes:
                     print(f"        {_gene_line(g)}")
         mixed = [
@@ -447,13 +524,13 @@ def _print_summary(verdicts: list[GroupingVerdict]) -> None:
             print("\n    Causal genes with no annotation under a root, in otherwise SUPPORTED members:")
             for m, g in mixed:
                 review = f"  ai-gene-review core: {', '.join(g.review_terms)}" if g.review_terms else ""
-                print(f"      {m.disease}: {g.symbol} ({g.uniprot}){review}")
+                print(f"      {m.label}: {g.symbol} ({g.uniprot}){review}")
         gaps = [(m, g) for m in v.members for g in m.genes if g.verdict == "NONE" and g.review_terms]
         if gaps:
             print("\n    Candidate GO annotation gaps (GO has nothing under a root; the ai-gene-review")
             print("    core function does):")
             for m, g in gaps:
-                print(f"      {g.symbol} ({g.uniprot}) in {m.disease}: {', '.join(g.review_terms)}")
+                print(f"      {g.symbol} ({g.uniprot}) in {m.label}: {', '.join(g.review_terms)}")
 
     print("\n" + "-" * 72)
     print(
@@ -473,11 +550,11 @@ def _print_tsv(verdicts: list[GroupingVerdict]) -> None:
             rows = m.genes or [None]
             for g in rows:
                 if g is None:
-                    print(f"{v.grouping}\t{m.disease}\t{m.via or ''}\t{m.verdict}" + "\t" * 8)
+                    print(f"{v.grouping}\t{m.label}\t{m.via or ''}\t{m.verdict}" + "\t" * 8)
                     continue
                 neg = ",".join(sorted({a.go_id for a in g.negated}))
                 print(
-                    f"{v.grouping}\t{m.disease}\t{m.via or ''}\t{m.verdict}\t{g.hgnc}\t"
+                    f"{v.grouping}\t{m.label}\t{m.via or ''}\t{m.verdict}\t{g.hgnc}\t"
                     f"{g.symbol}\t{g.relationship or ''}\t{g.uniprot or ''}\t{g.verdict}\t"
                     f"{','.join(g.go_ids)}\t{neg}\t{','.join(g.review_terms)}"
                 )

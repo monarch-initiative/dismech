@@ -69,7 +69,7 @@ def _setup(
     monkeypatch.setattr(audit, "GROUPINGS_DIR", str(gdir))
     monkeypatch.setattr(audit, "DISORDERS_DIR", str(ddir))
     monkeypatch.setattr(audit, "hgnc_uniprot_index", lambda: dict(uniprot))
-    monkeypatch.setattr(audit, "uniprot_for_hgnc", lambda hgnc, *, pause: None)
+    monkeypatch.setattr(audit, "uniprot_for_hgnc", lambda hgnc, *, pause: (None, False))
     monkeypatch.setattr(
         audit,
         "fetch_annotations",
@@ -236,3 +236,76 @@ def test_strict_exits_one_only_on_unsupported(tmp_path, monkeypatch, capsys):
     assert audit.main(["--strict"]) == 1
     assert audit.main([]) == 0
     assert "Kappa" in capsys.readouterr().out
+
+
+def test_subtype_row_is_scoped_to_the_genes_it_names(tmp_path, monkeypatch):
+    gdir = tmp_path / "groupings"
+    ddir = tmp_path / "disorders"
+    grouping = _grouping("G", [])
+    grouping["members"] = [
+        {
+            "member": "Parent",
+            "member_type": "SUBTYPE",
+            "display_name": "Type A",
+            "differentiating_mechanisms": [
+                {"description": "A", "gene": {"term": {"id": "hgnc:20", "label": "ENZ20"}}}
+            ],
+        },
+        {"member": "Parent", "member_type": "SUBTYPE", "display_name": "Type B"},
+    ]
+    _write_yaml(gdir / "G.yaml", grouping)
+    # The parent's other subtype carries a channel gene; it must not rescue Type A.
+    _write_yaml(ddir / "Parent.yaml", {"name": "Parent", "genetic": [
+        _gene("hgnc:20", "ENZ20"), _gene("hgnc:21", "CHAN21"),
+    ]})
+    monkeypatch.setattr(audit, "GROUPINGS_DIR", str(gdir))
+    monkeypatch.setattr(audit, "DISORDERS_DIR", str(ddir))
+    monkeypatch.setattr(audit, "hgnc_uniprot_index", lambda: {"hgnc:20": "P00020", "hgnc:21": "P00021"})
+    monkeypatch.setattr(
+        audit, "fetch_annotations",
+        lambda accs, roots, *, pause: {
+            a: ([audit.Annotation("GO:0005248", "IDA", False)] if a == "P00021" else [])
+            for a in accs
+        },
+    )
+    monkeypatch.setattr(audit, "review_mf_terms", dict)
+    (v,) = audit.build_verdicts(pause=0)
+    by_label = {m.label: m for m in v.members}
+    assert set(by_label) == {"Parent [subtype: Type A]", "Parent [subtype: Type B]"}
+    type_a = by_label["Parent [subtype: Type A]"]
+    assert [g.symbol for g in type_a.genes] == ["ENZ20"]
+    assert type_a.verdict == "UNSUPPORTED"
+    assert by_label["Parent [subtype: Type B]"].verdict == "SUBTYPE_UNSCOPED"
+
+
+def test_failed_uniprot_fallback_is_lookup_failed_not_no_uniprot(tmp_path, monkeypatch):
+    gdir = tmp_path / "groupings"
+    ddir = tmp_path / "disorders"
+    _write_yaml(gdir / "G.yaml", _grouping("G", ["Lambda"]))
+    _write_yaml(ddir / "Lambda.yaml", {"name": "Lambda", "genetic": [_gene("hgnc:30", "CHAN30")]})
+    monkeypatch.setattr(audit, "GROUPINGS_DIR", str(gdir))
+    monkeypatch.setattr(audit, "DISORDERS_DIR", str(ddir))
+    monkeypatch.setattr(audit, "hgnc_uniprot_index", dict)
+    monkeypatch.setattr(audit, "uniprot_for_hgnc", lambda hgnc, *, pause: (None, True))
+    monkeypatch.setattr(audit, "fetch_annotations", lambda accs, roots, *, pause: {})
+    monkeypatch.setattr(audit, "review_mf_terms", dict)
+    (v,) = audit.build_verdicts(pause=0)
+    member = _member(v, "Lambda")
+    assert member.genes[0].verdict == "LOOKUP_FAILED"
+    assert member.verdict == "UNRESOLVED"
+
+
+def test_failed_review_ancestor_lookup_is_flagged(tmp_path, monkeypatch):
+    gdir = tmp_path / "groupings"
+    ddir = tmp_path / "disorders"
+    _write_yaml(gdir / "G.yaml", _grouping("G", ["Mu"]))
+    _write_yaml(ddir / "Mu.yaml", {"name": "Mu", "genetic": [_gene("hgnc:40", "REG40")]})
+    monkeypatch.setattr(audit, "GROUPINGS_DIR", str(gdir))
+    monkeypatch.setattr(audit, "DISORDERS_DIR", str(ddir))
+    monkeypatch.setattr(audit, "hgnc_uniprot_index", lambda: {"hgnc:40": "P00040"})
+    monkeypatch.setattr(audit, "fetch_annotations", lambda accs, roots, *, pause: {})
+    monkeypatch.setattr(audit, "review_mf_terms", lambda: {"hgnc:40": ["GO:0005246"]})
+    monkeypatch.setattr(audit, "terms_under_roots", lambda terms, roots, *, pause: None)
+    (v,) = audit.build_verdicts(pause=0)
+    assert v.review_lookup_failed is True
+    assert _member(v, "Mu").genes[0].review_terms == []
