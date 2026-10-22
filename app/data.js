@@ -133552,6 +133552,7 @@ window.searchData = [
       "Epigenetic Reprogramming and CIMP-High Phenotype",
       "PI3K-AKT Pathway Activation",
       "Tumor Suppressor Gene Silencing",
+      "ARID1A and BCOR Somatic Inactivation",
       "Uncontrolled Cell Proliferation",
       "9p24.1 Amplification and PD-L1/PD-L2 Overexpression"
     ],
@@ -133566,6 +133567,7 @@ window.searchData = [
       "DNA methylation",
       "signal transduction",
       "cell cycle checkpoint signaling",
+      "chromatin remodeling",
       "cell population proliferation",
       "negative regulation of T cell mediated immunity"
     ],
@@ -133623,11 +133625,11 @@ window.searchData = [
     "source_file": "EBV_Associated_Gastric_Cancer.yaml",
     "page_url": "../pages/disorders/EBV-Associated_Gastric_Cancer.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 7,
     "num_genes": 4,
     "num_treatments": 3,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "ECHS1 Deficiency",
@@ -261855,7 +261857,7 @@ window.searchData = [
     "subtypes": [],
     "description": "Mycoplasma pneumoniae pneumonia is an atypical (\"walking\") pneumonia caused by Mycoplasma pneumoniae, a leading cause of community-acquired pneumonia in school-aged children and young adults. M. pneumoniae adheres to and damages the respiratory epithelium and characteristically lacks a bacterial cell wall, which makes it intrinsically resistant to beta-lactam antibiotics and dictates treatment with protein-synthesis inhibitors (macrolides, tetracyclines) or fluoroquinolones. Acquired macrolide resistance is an increasing problem.\n",
     "pathophysiology": [
-      "Airway Epithelial Adherence and Atypical Pneumonia",
+      "Airway Epithelial Adherence and Mucosal Injury",
       "Cell-Wall Deficiency and Intrinsic Beta-Lactam Resistance",
       "Bacterial Ribosomal Translation (Macrolide Target)",
       "Acquired Macrolide Resistance"
@@ -261904,7 +261906,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 1,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "3"
   },
   {
@@ -276268,7 +276270,7 @@ window.searchData = [
   {
     "name": "Non-functional Pancreatic Neuroendocrine Tumor",
     "disease_id": "MONDO:0004334",
-    "category": "",
+    "category": "Cancer",
     "parents": [
       "pancreatic neuroendocrine tumor"
     ],
@@ -276335,15 +276337,17 @@ window.searchData = [
       "Peptide receptor radionuclide therapy"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Chromogranin A"
+    ],
     "source_file": "Non-functional_Pancreatic_Neuroendocrine_Tumor.yaml",
     "page_url": "../pages/disorders/Non-functional_Pancreatic_Neuroendocrine_Tumor.html",
     "num_phenotypes": 5,
     "num_pathophysiology": 4,
     "num_genes": 3,
     "num_treatments": 6,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Nonimmune Chronic Idiopathic Neutropenia of Adults",
@@ -317804,6 +317808,7 @@ window.searchData = [
       "Craniosynostosis",
       "Early-onset cerebellar ataxia",
       "Delayed closure of the anterior fontanelle",
+      "Calvarial skull defect",
       "Clavicular hypoplasia",
       "Anal malformation",
       "Genitourinary malformation",
@@ -317829,24 +317834,27 @@ window.searchData = [
       "HP:0001363",
       "HP:0001251",
       "HP:0001476",
+      "HP:0001362",
       "HP:0006710",
       "HP:0004378",
       "HP:0000119",
-      "HP:0000951"
+      "HP:0200044"
     ],
     "frequencies": [],
-    "genes": [],
+    "genes": [
+      "RNU12"
+    ],
     "treatments": [],
     "environmental": [],
     "biochemical": [],
     "source_file": "RNU12-related_Minor_Spliceopathy.yaml",
     "page_url": "../pages/disorders/RNU12-related_minor_spliceopathy.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 8,
     "num_pathophysiology": 2,
-    "num_genes": 0,
+    "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "ROS1-Rearranged Non-Small Cell Lung Cancer",
@@ -335833,7 +335841,7 @@ window.searchData = [
   {
     "name": "Sarcoma Of Cervix Uteri",
     "disease_id": "MONDO:0016280",
-    "category": "",
+    "category": "Cancer",
     "parents": [
       "cervical cancer",
       "sarcoma"
@@ -335918,7 +335926,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 3,
     "num_treatments": 4,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "4"
   },
   {
@@ -346818,7 +346826,7 @@ window.searchData = [
     "creation_date": "2026-04-16T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Snijders Blok-Campeau syndrome (SNIBCPS; OMIM 618205) is a rare autosomal dominant neurodevelopmental disorder caused by heterozygous pathogenic variants in CHD3 (chromodomain helicase DNA-binding protein 3) at chromosome 17p13.1. CHD3 encodes an ATP-dependent chromatin remodeler that is a catalytic subunit of the NuRD (Nucleosome Remodeling and Deacetylase) complex, which couples chromatin remodeling with histone deacetylation to regulate gene expression during brain development. The syndrome is characterized by global developmental delay, intellectual disability, severe speech and language impairment (including childhood apraxia of speech), macrocephaly, hypotonia, and a recognizable facial gestalt featuring frontal bossing, hypertelorism, broad nasal bridge, prominent forehead, deep-set eyes, and pointed chin. Inguinal hernias and a distinctive hypersociability/overfriendliness behavior \u2014 recapitulated in zebrafish chd3 knockouts \u2014 are additional features. SNIBCPS is grouped with CHD4-related Sifrim-Hitz-Weiss syndrome and GATAD2B-related GAND in the emerging \"NuRDopathy\" class of macrocephaly-associated neurodevelopmental disorders. Most pathogenic variants are de novo missense changes clustering in the catalytic ATPase/helicase domain (with a striking enrichment of arginine substitutions), but truncating variants and copy-number changes outside this domain produce an indistinguishable dominant phenotype, while rare biallelic variants cause a more severe neurocognitive syndrome. Variable expressivity has been documented, with some inherited variants present in mildly or unaffected parents. A first-in-human AAV base-editing gene therapy trial for the recurrent R1025W variant has entered Phase I (NCT06860672).\n",
+    "description": "Snijders Blok-Campeau syndrome (SNIBCPS; OMIM 618205) is a rare autosomal dominant neurodevelopmental disorder caused by heterozygous pathogenic variants in CHD3 (chromodomain helicase DNA-binding protein 3) at chromosome 17p13.1. CHD3 encodes an ATP-dependent chromatin remodeler that is a catalytic subunit of the NuRD (Nucleosome Remodeling and Deacetylase) complex, which couples chromatin remodeling with histone deacetylation to regulate gene expression during brain development. The syndrome is characterized by global developmental delay, intellectual disability, severe speech and language impairment (including childhood apraxia of speech), macrocephaly, hypotonia, and a recognizable facial gestalt featuring frontal bossing, hypertelorism, broad nasal bridge, prominent forehead, deep-set eyes, and pointed chin. Inguinal hernias and a distinctive hypersociability/overfriendliness behavior \u2014 recapitulated in zebrafish chd3 knockouts \u2014 are additional features. SNIBCPS is grouped with CHD4-related Sifrim-Hitz-Weiss syndrome and GATAD2B-related GAND in the emerging \"NuRDopathy\" class of macrocephaly-associated neurodevelopmental disorders. Most pathogenic variants are de novo missense changes clustering in the catalytic ATPase/helicase domain (with a striking enrichment of arginine substitutions), but truncating variants and copy-number changes outside this domain produce an indistinguishable dominant phenotype, while rare biallelic variants cause a more severe neurocognitive syndrome. Variable expressivity has been documented, with some inherited variants present in mildly or unaffected parents. A first-in-human AAV base-editing gene therapy trial for the recurrent R1025W variant has entered Phase I (NCT06860672).",
     "pathophysiology": [
       "CHD3-dependent NuRD chromatin remodeling defects",
       "Disrupted NuRD-dependent cortical layer specification",
@@ -346864,7 +346872,15 @@ window.searchData = [
       "Pain insensitivity",
       "Seizures",
       "Structural CNS abnormality",
-      "Congenital heart defects"
+      "Congenital heart defects",
+      "Deeply set eye",
+      "Narrow palpebral fissure",
+      "Sparse lateral eyebrow",
+      "Low-set ears",
+      "Full cheeks",
+      "Midface retrusion",
+      "Cryptorchidism",
+      "Hearing impairment"
     ],
     "phenotype_categories": [
       "Neurological",
@@ -346873,13 +346889,19 @@ window.searchData = [
       "Ophthalmologic",
       "Behavioral",
       "Other",
-      "Cardiovascular"
+      "Cardiovascular",
+      "Head and Neck",
+      "Genitourinary",
+      "Ear"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Digestive",
+      "Ear",
       "Eye",
+      "Genitourinary",
       "Head and Neck",
+      "Integument",
       "Musculoskeletal",
       "Nervous System"
     ],
@@ -346896,7 +346918,7 @@ window.searchData = [
       "HP:0000219",
       "HP:0000307",
       "HP:0000668",
-      "HP:0000478",
+      "HP:0000504",
       "HP:0000486",
       "HP:0000729",
       "HP:0011098",
@@ -346904,7 +346926,15 @@ window.searchData = [
       "HP:0007021",
       "HP:0001250",
       "HP:0002011",
-      "HP:0001627"
+      "HP:0001627",
+      "HP:0000490",
+      "HP:0045025",
+      "HP:0005338",
+      "HP:0000369",
+      "HP:0000293",
+      "HP:0011800",
+      "HP:0000028",
+      "HP:0000365"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -346926,12 +346956,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Snijders_Blok-Campeau_Syndrome.yaml",
     "page_url": "../pages/disorders/Snijders_Blok-Campeau_Syndrome.html",
-    "num_phenotypes": 21,
+    "num_phenotypes": 29,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "42",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Snyder-Robinson Syndrome",
@@ -347273,6 +347303,7 @@ window.searchData = [
     "phenotypes": [
       "Soft Tissue Mass",
       "Hypoglycemia",
+      "Distant Metastasis",
       "Dyspnea"
     ],
     "phenotype_categories": [
@@ -347291,7 +347322,9 @@ window.searchData = [
     "frequencies": [],
     "genes": [
       "NAB2-STAT6 fusion",
-      "NAB2 (NAB2-STAT6 fusion partner)"
+      "NAB2 (NAB2-STAT6 fusion partner)",
+      "TERT promoter mutation",
+      "TP53 alteration"
     ],
     "treatments": [
       "Surgical Resection",
@@ -347307,12 +347340,12 @@ window.searchData = [
     ],
     "source_file": "Solitary_Fibrous_Tumor.yaml",
     "page_url": "../pages/disorders/Solitary_Fibrous_Tumor.html",
-    "num_phenotypes": 3,
+    "num_phenotypes": 4,
     "num_pathophysiology": 6,
-    "num_genes": 2,
+    "num_genes": 4,
     "num_treatments": 4,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Sorbitol Dehydrogenase Deficiency",
@@ -391624,7 +391657,7 @@ window.searchMetrics = {
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
   "total_pathographs": 3626,
-  "total_unique_pathological_events": 23954,
+  "total_unique_pathological_events": 23955,
   "total_modules": 197,
   "total_research_reports": 3757,
   "total_classifications": 21,
