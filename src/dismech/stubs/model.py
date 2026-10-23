@@ -3,14 +3,22 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import logging
+import os
 import re
+import tempfile
+import time
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from dismech.compare.mondo_priority import iter_covered_mondo_ids
+from dismech.repo_root import repo_root
 from dismech.yaml_io import safe_load
+
+logger = logging.getLogger(__name__)
 
 MONDO_ID_PATTERN = re.compile(r"^MONDO:[0-9]{7}$")
 
@@ -299,35 +307,212 @@ def _grouping_mondo_ids(data: dict[str, Any]) -> list[str]:
     return out
 
 
-def build_coverage_index(kb_dirs: list[Path] | None = None) -> CoverageIndex:
+#: Version of the per-file records in the persistent coverage cache. Bump it
+#: whenever a change to `entry_label_strings`, `normalize_label`,
+#: `is_informative_label`, `_grouping_mondo_ids` or `iter_covered_mondo_ids`
+#: would derive different ids or labels from the same file: the cache is keyed
+#: on file content, so without a bump it keeps serving the old derivation.
+COVERAGE_CACHE_VERSION = 1
+
+#: Names the persistent coverage cache file, overriding the default under the
+#: checkout's gitignored `tmp/`. Tests point it at `tmp_path`.
+COVERAGE_CACHE_ENV = "DISMECH_STUB_COVERAGE_CACHE"
+
+#: A file whose mtime is this close to (or after) the start of the run that
+#: recorded it is hashed rather than trusted on `(mtime_ns, size)`: a rewrite
+#: landing inside the filesystem's timestamp granularity would otherwise look
+#: unchanged. Two seconds covers the coarsest common granularity (FAT). This is
+#: git's "racily clean" rule.
+_RACY_WINDOW_NS = 2_000_000_000
+
+
+def default_coverage_cache_path() -> Path:
+    override = os.environ.get(COVERAGE_CACHE_ENV)
+    if override:
+        return Path(override).expanduser()
+    return repo_root() / "tmp" / "stub_coverage_index.json"
+
+
+def _coverage_cache_enabled() -> bool:
+    """The `DISMECH_KB_CACHE` switch `dismech.kb_cache` reads, with its values."""
+    return os.environ.get("DISMECH_KB_CACHE", "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+
+
+def _digest(raw: bytes) -> str:
+    return hashlib.blake2b(raw, digest_size=16).hexdigest()
+
+
+def _derive_record(data: Any, *, is_grouping: bool, filename: str) -> dict:
+    """The part of one KB file the coverage index needs, in index order."""
+    ids: list[str] = []
+    labels: list[str] = []
+    if isinstance(data, dict):
+        for label in entry_label_strings(data):
+            normalized = normalize_label(label)
+            if is_informative_label(normalized):
+                labels.append(normalized)
+        if is_grouping:
+            ids = _grouping_mondo_ids(data)
+        else:
+            ids = [mondo_id for mondo_id, _ in iter_covered_mondo_ids(data, filename)]
+    return {"ids": ids, "labels": labels}
+
+
+def _read_coverage_cache(path: Path, dir_keys: list[str]) -> tuple[list[dict], int]:
+    """Per-directory file records and the start time of the run that wrote them.
+
+    Anything unusable -- missing, unparsable, another version, or built for
+    a different list of directories -- reads as an empty cache.
+    """
+    empty: list[dict] = [{} for _ in dir_keys]
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return empty, 0
+    if (
+        not isinstance(payload, dict)
+        or payload.get("version") != COVERAGE_CACHE_VERSION
+        or [d.get("path") for d in payload.get("dirs") or []] != dir_keys
+    ):
+        return empty, 0
+    return [d.get("files") or {} for d in payload["dirs"]], int(
+        payload.get("started_ns") or 0
+    )
+
+
+def _write_coverage_cache(
+    path: Path, dir_keys: list[str], records: list[dict], started_ns: int
+) -> None:
+    """Replace the cache file atomically, so a concurrent reader sees old or new."""
+    payload = {
+        "version": COVERAGE_CACHE_VERSION,
+        "started_ns": started_ns,
+        "dirs": [
+            {"path": key, "files": files}
+            for key, files in zip(dir_keys, records, strict=True)
+        ],
+    }
+    tmp_name = None
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            tmp_name = handle.name
+            json.dump(payload, handle, separators=(",", ":"))
+        os.replace(tmp_name, path)
+    except OSError as exc:
+        # The cache is an optimisation: an unwritable location costs the next
+        # run a cold build, not a wrong answer.
+        logger.warning("could not write stub coverage cache %s: %s", path, exc)
+        if tmp_name is not None:
+            Path(tmp_name).unlink(missing_ok=True)
+
+
+def _current_record(
+    path: Path, cached: dict | None, *, is_grouping: bool, trust_before_ns: int
+) -> tuple[dict, bool]:
+    """Return ``(record, changed)`` for one KB file, parsing only when needed.
+
+    Matching `(mtime_ns, size)` is trusted when the mtime is safely older than
+    the run that recorded it; otherwise the bytes are hashed, and only a
+    changed hash parses the file.
+    """
+    stat = path.stat()
+    if (
+        cached is not None
+        and cached.get("mtime_ns") == stat.st_mtime_ns
+        and cached.get("size") == stat.st_size
+        and stat.st_mtime_ns < trust_before_ns
+    ):
+        return cached, False
+    raw = path.read_bytes()
+    digest = _digest(raw)
+    if cached is not None and cached.get("digest") == digest:
+        derived = {"ids": cached.get("ids") or [], "labels": cached.get("labels") or []}
+    else:
+        derived = _derive_record(
+            safe_load(raw.decode("utf-8")), is_grouping=is_grouping, filename=path.name
+        )
+    record = {
+        "mtime_ns": stat.st_mtime_ns,
+        "size": stat.st_size,
+        "digest": digest,
+        **derived,
+    }
+    return record, True
+
+
+def build_coverage_index(
+    kb_dirs: list[Path] | None = None, *, cache_path: Path | None = None
+) -> CoverageIndex:
     """Index every MONDO ID a committed KB entry already covers.
 
     Reads `kb/disorders/` (root `disease_term`, `has_subtypes[].subtype_term`,
     and exact/narrow `mondo_mappings`) *and* `kb/groupings/` — a stub whose
     concept is already a grouping is finished work, not an open gap.
+
+    Parsing every entry takes about half a minute, and `next`, `check` and
+    `coverage` are one-shot processes, so the ids and labels each file
+    contributes are kept between runs in a small JSON file (default
+    `tmp/stub_coverage_index.json`, or `$DISMECH_STUB_COVERAGE_CACHE`). A file
+    is re-parsed only when its content hash changes, and only hashed when its
+    `(mtime_ns, size)` changes; deleted files drop out. The persistent cache is
+    used for the default KB directories or when ``cache_path`` is given, so an
+    ad hoc ``kb_dirs`` never overwrites the real one. ``DISMECH_KB_CACHE=0``
+    turns it off, as it does `dismech.kb_cache`.
     """
+    dirs = kb_dirs or default_kb_dirs()
+    persist = _coverage_cache_enabled() and (cache_path is not None or not kb_dirs)
+    store = (cache_path or default_coverage_cache_path()) if persist else None
+    dir_keys = [str(kb_dir.resolve()) for kb_dir in dirs]
+
+    started_ns = time.time_ns()
+    previous, previous_started_ns = (
+        _read_coverage_cache(store, dir_keys) if store else ([{} for _ in dirs], 0)
+    )
+    trust_before_ns = previous_started_ns - _RACY_WINDOW_NS
+    dirty = store is not None and previous_started_ns == 0
+
     index = CoverageIndex()
-    for kb_dir in kb_dirs or default_kb_dirs():
+    records: list[dict] = []
+    for kb_dir, old in zip(dirs, previous, strict=True):
+        current: dict[str, dict] = {}
+        records.append(current)
         if not kb_dir.is_dir():
+            dirty = dirty or bool(old)
             continue
         is_grouping = kb_dir.name == "groupings"
         for path in sorted(kb_dir.glob("*.yaml")):
             if path.name.endswith(".history.yaml"):
                 continue
-            data = safe_load(path.read_text(encoding="utf-8"))
-            if not isinstance(data, dict):
-                continue
+            record, changed = _current_record(
+                path,
+                old.get(path.name),
+                is_grouping=is_grouping,
+                trust_before_ns=trust_before_ns,
+            )
+            current[path.name] = record
+            dirty = dirty or changed
             rel = f"{kb_dir.name}/{path.name}"
-            for label in entry_label_strings(data):
-                normalized = normalize_label(label)
-                if is_informative_label(normalized):
-                    index.labels.setdefault(normalized, rel)
-            if is_grouping:
-                for mondo_id in _grouping_mondo_ids(data):
-                    index.ids.setdefault(mondo_id, rel)
-            else:
-                for mondo_id, _ in iter_covered_mondo_ids(data, path.name):
-                    index.ids.setdefault(mondo_id, rel)
+            for normalized in record["labels"]:
+                index.labels.setdefault(normalized, rel)
+            for mondo_id in record["ids"]:
+                index.ids.setdefault(mondo_id, rel)
+        dirty = dirty or bool(old.keys() - current.keys())
+
+    if store is not None and dirty:
+        _write_coverage_cache(store, dir_keys, records, started_ns)
     return index
 
 

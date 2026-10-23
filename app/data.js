@@ -110401,7 +110401,9 @@ window.searchData = [
       "Joint Hypermobility",
       "Ulnar Deviation of Hands",
       "Papillomata",
-      "Predisposition to Malignancy",
+      "Rhabdomyosarcoma",
+      "Neuroblastoma",
+      "Transitional Cell Carcinoma of the Bladder",
       "Generalized Hypotonia",
       "Curly or Sparse Hair",
       "Cutis Laxa",
@@ -110410,9 +110412,12 @@ window.searchData = [
       "Achilles Tendon Contracture",
       "Kyphoscoliosis"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Neoplasm"
+    ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Genitourinary",
       "Growth",
       "Head and Neck",
       "Integument",
@@ -110431,7 +110436,9 @@ window.searchData = [
       "HP:0001382",
       "HP:0001193",
       "HP:0012740",
-      "HP:0002664",
+      "HP:0002859",
+      "HP:0003006",
+      "HP:0006740",
       "HP:0001290",
       "HP:0002212",
       "HP:0000973",
@@ -110443,7 +110450,8 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "VERY_RARE"
     ],
     "genes": [
       "HRAS Mutations",
@@ -110458,11 +110466,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Costello_Syndrome.yaml",
     "page_url": "../pages/disorders/Costello_Syndrome.html",
-    "num_phenotypes": 17,
+    "num_phenotypes": 19,
     "num_pathophysiology": 9,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "20",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "5"
   },
   {
@@ -115427,6 +115435,122 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 2,
     "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "DDX17-related Neurodevelopmental Disorder",
+    "disease_id": "MONDO:0700368",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental disorder",
+      "Autosomal dominant disease"
+    ],
+    "creation_date": "2026-10-22T20:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DDX17-related neurodevelopmental disorder is a recently delineated autosomal dominant condition caused by heterozygous, de novo variants in DDX17, which encodes the DEAD-box RNA helicase DDX17 (also called p72/p82). The gene-disease relationship rests on a single international case series of 11 unrelated individuals (PMID:39405200), assembled through the 100,000 Genomes Project and GeneMatcher, with five predicted loss-of-function and six missense variants. The phenotype is a nonspecific neurodevelopmental disorder: mild to moderate intellectual disability, delayed speech and language, global developmental and motor delay, frequent attention deficit hyperactivity disorder, autistic features, stereotypies and hypotonia, with subtle and variable facial dysmorphism and occasional macrocephaly or nonspecific brain MRI changes. Severity did not differ between missense and truncating variants, which the authors read as haploinsufficiency. DDX17 and its paralogue DDX5 regulate transcription, alternative splicing and microRNA biogenesis, and DDX17 co-regulates the neuronal gene repressor REST. In model systems, reducing DDX17 delays cortical neuronal migration and shortens axons in mouse, reduces axon outgrowth and working memory in heterozygous Xenopus tropicalis tadpoles, and deregulates neurodevelopmental and axon-guidance genes in human neuroblastoma cells.",
+    "pathophysiology": [
+      "DDX17 Haploinsufficiency",
+      "Dysregulated Neurodevelopmental Gene Expression",
+      "Impaired Cortical Neuronal Migration",
+      "Impaired Axon Outgrowth",
+      "Disrupted Cortical Circuit Development"
+    ],
+    "cell_types": [
+      "neuron",
+      "callosal-projecting pyramidal neuron",
+      "cortical neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000598"
+    ],
+    "biological_processes": [
+      "regulation of gene expression",
+      "neuron migration",
+      "axon extension"
+    ],
+    "phenotypes": [
+      "Intellectual Disability",
+      "Delayed Speech and Language Development",
+      "Global Developmental Delay",
+      "Delayed Gross Motor Development",
+      "Delayed Fine Motor Development",
+      "Attention Deficit Hyperactivity Disorder",
+      "Autistic Behavior",
+      "Motor Stereotypy",
+      "Generalized Hypotonia",
+      "Macrocephaly",
+      "Synophrys",
+      "Upslanted Palpebral Fissure",
+      "Depressed Nasal Bridge",
+      "Posteriorly Rotated Ears",
+      "Telecanthus",
+      "Epicanthus",
+      "Strabismus",
+      "Clinodactyly of the 5th Finger",
+      "2-3 Toe Syndactyly",
+      "Talipes Equinovarus",
+      "Abnormal Cerebral White Matter Morphology"
+    ],
+    "phenotype_categories": [
+      "Nervous System",
+      "Behavioral",
+      "Growth",
+      "Craniofacial",
+      "Eye",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0001263",
+      "HP:0002194",
+      "HP:0010862",
+      "HP:0007018",
+      "HP:0000729",
+      "HP:0000733",
+      "HP:0001290",
+      "HP:0000256",
+      "HP:0000664",
+      "HP:0000582",
+      "HP:0005280",
+      "HP:0000358",
+      "HP:0000506",
+      "HP:0000286",
+      "HP:0000486",
+      "HP:0004209",
+      "HP:0004691",
+      "HP:0001762",
+      "HP:0002500"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "DDX17"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "DDX17-related_Neurodevelopmental_Disorder.yaml",
+    "page_url": "../pages/disorders/DDX17-related_Neurodevelopmental_Disorder.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "5"
   },
   {
@@ -269685,6 +269809,137 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Neurodevelopmental Disorder With Cerebellar Atrophy And Motor Dysfunction",
+    "disease_id": "MONDO:0859152",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary cerebellar ataxia",
+      "Mendelian neurodevelopmental disorder",
+      "Spliceosomopathy"
+    ],
+    "creation_date": "2026-10-22T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Infantile-onset severe",
+      "Late infantile-onset",
+      "Juvenile or adult-onset spastic ataxia"
+    ],
+    "description": "Neurodevelopmental disorder with cerebellar atrophy and motor dysfunction (NEDCAM, OMIM:619333) is an autosomal recessive disorder caused by biallelic loss-of-function variants in GEMIN5, the snRNA-binding component of the survival motor neuron (SMN) complex. Affected individuals present in the first two years of life with motor-predominant developmental delay, central hypotonia and cerebellar ataxia, and brain MRI shows cerebellar atrophy in essentially every reported patient. Cognitive and speech delay, appendicular spasticity with brisk reflexes, tremor, and less often epilepsy (including early-infantile developmental and epileptic encephalopathy with infantile spasms), nystagmus, strabismus and cataract complete the picture. Severity spans a severe infantile form with an SMA-like picture and early death, a late infantile developmental delay and ataxia syndrome, and a juvenile or adult-onset spastic ataxia; most patients have a static course, but some progress. Pathogenic variants reduce GEMIN5 protein levels, lower the levels of other SMN complex proteins, impair snRNP assembly and perturb pre-mRNA splicing in patient iPSC-derived neurons; variants in the dimerization domain also abolish GEMIN5 binding to ribosomes, a second, translational function of the protein whose contribution to disease is not yet established. NEDCAM is distinct from spinal muscular atrophy, which is caused by loss of SMN itself: its transcriptomic signature in patient neurons barely overlaps that of SMA neurons, and cerebellar involvement is its defining feature.",
+    "pathophysiology": [
+      "GEMIN5 Biallelic Loss of Function",
+      "Reduced SMN Complex Protein Levels",
+      "Impaired snRNP Assembly",
+      "Neuronal Pre-mRNA Splicing Dysregulation",
+      "Loss of GEMIN5 Ribosome Association",
+      "Cerebellar Degeneration",
+      "Pyramidal Tract Dysfunction",
+      "Peripheral Motor Nerve Involvement",
+      "Secondary Coenzyme Q10 Deficiency",
+      "Mitochondrial Respiratory Dysfunction"
+    ],
+    "cell_types": [
+      "neuron",
+      "skin fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0002620"
+    ],
+    "biological_processes": [
+      "spliceosomal snRNP assembly",
+      "regulation of alternative mRNA splicing, via spliceosome",
+      "regulation of translation",
+      "ubiquinone biosynthetic process",
+      "aerobic respiration"
+    ],
+    "phenotypes": [
+      "Cerebellar atrophy",
+      "Cerebellar hypoplasia",
+      "Motor delay",
+      "Global developmental delay",
+      "Hypotonia",
+      "Gait ataxia",
+      "Tremor",
+      "Spasticity",
+      "Hyperreflexia",
+      "Spastic paraparesis",
+      "Intellectual disability",
+      "Delayed speech and language development",
+      "Dysarthria",
+      "Seizure",
+      "Infantile spasms",
+      "EEG with burst suppression",
+      "Dysplastic corpus callosum",
+      "Cerebral atrophy",
+      "Dementia",
+      "Dysphagia",
+      "EMG neuropathic changes",
+      "Nystagmus",
+      "Strabismus",
+      "Cataract"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001272",
+      "HP:0001321",
+      "HP:0001270",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0002066",
+      "HP:0001337",
+      "HP:0001257",
+      "HP:0001347",
+      "HP:0002313",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0001260",
+      "HP:0001250",
+      "HP:0012469",
+      "HP:0010851",
+      "HP:0006989",
+      "HP:0002059",
+      "HP:0000726",
+      "HP:0002015",
+      "HP:0003445",
+      "HP:0000639",
+      "HP:0000486",
+      "HP:0000518"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "GEMIN5"
+    ],
+    "treatments": [
+      "Supportive Multidisciplinary Care",
+      "Physical Therapy",
+      "Coenzyme Q10 Supplementation",
+      "SMN Upregulation (Preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Cerebellar_Atrophy_And_Motor_Dysfunction.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Cerebellar_Atrophy_And_Motor_Dysfunction.html",
+    "num_phenotypes": 24,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "46",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Neurodevelopmental Disorder With Characteristic Facial And Ectodermal Features And Tetraparesis 1",
     "disease_id": "MONDO:0975745",
     "category": "Mendelian",
@@ -283869,7 +284124,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "2"
   },
   {
@@ -292704,6 +292959,121 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Pan-Chung-Bellen Syndrome",
+    "disease_id": "MONDO:0975953",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Multiple Congenital Anomalies Syndrome"
+    ],
+    "creation_date": "2026-10-22T20:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Pan-Chung-Bellen syndrome is an autosomal dominant neurodevelopmental disorder with multiple congenital anomalies caused by heterozygous, mostly de novo, loss-of-function variants in FRYL, a large Furry-family protein. The founding cohort of fourteen individuals showed developmental delay or intellectual disability in every assessable individual, frequent speech delay, behavioral differences, autism spectrum disorder, hypotonia and seizures, together with dysmorphic facial features and congenital anomalies of the heart (including heterotaxy), genitourinary tract, gastrointestinal tract and skeleton. Truncating variants, gnomAD loss-of-function intolerance, and Drosophila knock-in modelling of the missense variants point to FRYL haploinsufficiency. How reduced FRYL dosage disturbs neuronal and organ development in mammals is not known; the fly ortholog furry acts with the NDR kinase Tricornered in dendrite morphogenesis, and in human epithelial cells FRYL modulates YAP and Wnt signaling with Homer scaffolds, but neither route has been tested in neurons or developing organs.",
+    "pathophysiology": [
+      "FRYL Haploinsufficiency",
+      "Impaired Neuronal Development",
+      "Disrupted Organ Morphogenesis"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "dendrite morphogenesis",
+      "animal organ morphogenesis"
+    ],
+    "phenotypes": [
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Delayed Speech and Language Development",
+      "Autism Spectrum Disorder",
+      "Behavioral Differences",
+      "Hypotonia",
+      "Seizures",
+      "Facial Dysmorphism",
+      "Congenital Heart Defects",
+      "Heterotaxy",
+      "Cryptorchidism",
+      "Hypospadias",
+      "Congenital Diaphragmatic Hernia",
+      "Low Body Weight",
+      "Structural Brain Abnormalities",
+      "Jejunal Atresia",
+      "Microcolon",
+      "Sternal Anomalies",
+      "Vertebral Segmentation Defects",
+      "Horseshoe Kidney",
+      "Coagulopathy"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Craniofacial",
+      "Cardiovascular",
+      "Genitourinary",
+      "Respiratory",
+      "Growth",
+      "Gastrointestinal",
+      "Skeletal",
+      "Hematological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0000717",
+      "HP:0000708",
+      "HP:0001252",
+      "HP:0001250",
+      "HP:0001999",
+      "HP:0001627",
+      "HP:0030853",
+      "HP:0000028",
+      "HP:0000047",
+      "HP:0000776",
+      "HP:0004325",
+      "HP:0012443",
+      "HP:0005235",
+      "HP:0004388",
+      "HP:0000766",
+      "HP:0003422",
+      "HP:0000085",
+      "HP:0001928"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "FRYL"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Pan-Chung-Bellen_Syndrome.yaml",
+    "page_url": "../pages/disorders/Pan-Chung-Bellen_Syndrome.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Pancreatic Agenesis",
@@ -351846,6 +352216,75 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Spermatogenic Failure 88",
+    "disease_id": "MONDO:0957821",
+    "category": "Mendelian",
+    "parents": [
+      "Spermatogenic Failure",
+      "Male infertility",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-10-22T20:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spermatogenic failure 88 (SPGF88) is autosomal recessive male infertility with non-obstructive azoospermia caused by biallelic variants in KASH5 (formerly CCDC155). KASH5 is a germ-cell-specific KASH-domain protein of the outer nuclear membrane. With SUN1 in the inner nuclear membrane it forms the meiotic LINC complex, which couples the telomeres of prophase I chromosomes, across the nuclear envelope, to cytoplasmic dynein. KASH5 is itself a dynein activating adaptor. The resulting telomere-led chromosome movements bring homologous chromosomes together. Without KASH5, homologs fail to pair and synapse, meiotic DNA double-strand breaks stay unrepaired, and spermatocytes arrest at a zygotene-like stage before pachytene, so no post-meiotic germ cells or sperm are produced. Kash5-null mice reproduce the meiotic arrest. Reported families are consanguineous or carry two rare alleles, including frameshift, splice-site, missense and copy-number variants.",
+    "pathophysiology": [
+      "KASH5 Loss of Function",
+      "Uncoupling of Meiotic Telomeres from Cytoplasmic Dynein",
+      "Failed Homologous Chromosome Pairing and Synapsis",
+      "Persistent Unrepaired Meiotic DNA Double-Strand Breaks",
+      "Spermatocyte Arrest Before Pachytene and Germ Cell Apoptosis",
+      "Spermatogenic Arrest and Non-Obstructive Azoospermia"
+    ],
+    "cell_types": [
+      "Primary spermatocyte",
+      "Spermatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000656",
+      "CL:0000017"
+    ],
+    "biological_processes": [
+      "Meiotic telomere clustering",
+      "Homologous chromosome pairing at meiosis",
+      "Synaptonemal complex assembly",
+      "Reciprocal meiotic recombination",
+      "Apoptotic process",
+      "Male gamete generation"
+    ],
+    "phenotypes": [
+      "Male infertility",
+      "Non-obstructive azoospermia",
+      "Spermatocyte maturation arrest"
+    ],
+    "phenotype_categories": [
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary"
+    ],
+    "phenotype_ids": [
+      "HP:0003251",
+      "HP:0011961",
+      "HP:0031039"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KASH5"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spermatogenic_Failure_88.yaml",
+    "page_url": "../pages/disorders/Spermatogenic_Failure_88.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Spermatogenic Failure 95",
     "disease_id": "MONDO:0975747",
     "category": "Mendelian",
@@ -393784,17 +394223,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3648,
-  "total_subtypes": 4842,
-  "total_disorders_and_subtypes": 8490,
-  "total_unique_evidence_sources": 54410,
-  "total_unique_publications": 50816,
+  "total_disorder_pages": 3652,
+  "total_subtypes": 4845,
+  "total_disorders_and_subtypes": 8497,
+  "total_unique_evidence_sources": 54453,
+  "total_unique_publications": 50858,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3645,
-  "total_unique_pathological_events": 24062,
+  "total_pathographs": 3649,
+  "total_unique_pathological_events": 24081,
   "total_modules": 197,
-  "total_research_reports": 3776,
+  "total_research_reports": 3780,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 120
