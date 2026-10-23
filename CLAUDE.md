@@ -3994,6 +3994,13 @@ Non-negotiable rules:
   advocacy page can corroborate a claim, never carry it. Social-media citations
   fail `just check-social-media-references`; record a community signal you
   cannot cite in `discussions` as an unvalidated lead instead.
+- A reference first cached as an abstract stays `abstract_only` on later plain
+  fetches. To upgrade it, `just fetch-reference <ID> --force` (any `-`-prefixed
+  argument is passed to the validator rather than read as an ID, #13185). Use it
+  only when the content a claim needs, such as a phenotype table, is in the PMC
+  full text. A forced re-fetch rewrites the frontmatter and can add hundreds of
+  body lines (#10460, #10736), so stage only the `references_cache/` file you
+  meant to upgrade and re-run `just count-verified-snippets` afterwards.
 - **Re-derive the cited-PMID list immediately before pruning uncited caches.** A
   list built earlier in the session goes stale the moment you add a section, and
   pruning against it deletes a cache the entry now cites. CI does not catch this:
@@ -4851,6 +4858,19 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 - Never check out `main` in a worktree — `main` belongs to the primary checkout.
 - Never leave the primary checkout on a feature branch.
 - If `git checkout main` fails with "already checked out at …", find which worktree holds `main` (`git worktree list | grep '\[main\]'`), switch that worktree to a feature branch, then retry.
+
+**Which checkout a command reads and writes.** `dismech` commands find the
+repository from the working directory, not from where the package is installed
+(`src/dismech/repo_root.py`): the nearest directory at or above it holding a
+`justfile` and `kb/`. Set `DISMECH_ROOT=/path/to/checkout` to choose one
+explicitly; outside any checkout they fall back to the installed tree and warn
+once. This matters because one virtualenv shared across worktrees installs the
+package from the primary checkout, so a path built from `__file__` sent a
+worktree's reads and writes there (#15051, #15109). In `src/dismech/` and
+`src/phenoagent/`, use
+`repo_root()` (or `LazyRepoPaths` for a module-level constant) for checkout
+paths; `Path(__file__)` is only for resources inside the package, such as
+`schema/` and `templates/`. `tests/test_repo_root_sweep.py` enforces this.
 
 ### What to commit
 

@@ -3597,12 +3597,42 @@ index-research-artifacts:
     uv run python scripts/index_research_artifacts.py
 
 # Fetch and cache a reference by ID
-# This may be a PMID, DOI, or other supported identifier
+# This may be a PMID, DOI, or other supported identifier.
+#
+# Arguments starting with `-` are flags, not identifiers, and are passed to
+# `linkml-reference-validator cache reference` (#13185):
+#   just fetch-reference PMID:37711075 --force
+# `--force` re-fetches a reference that is already cached. Use it only to
+# upgrade an `abstract_only` record whose needed content (a phenotype table,
+# functional data) is in the PMC full text. A forced re-fetch rewrites the
+# frontmatter and can add hundreds of lines of body (#10460, #10736): stage
+# only the `references_cache/` file you meant to upgrade, and re-run
+# `just count-verified-snippets` afterwards. Structured-source prefixes
+# (CGGV:, ORPHA:, ICTRP:, ...) always rebuild, so flags do not apply to them.
 [group('Research')]
 fetch-reference +identifiers:
     #!/usr/bin/env bash
-    for identifier in {{identifiers}}; do
+    flags=()
+    ids=()
+    for arg in {{identifiers}}; do
+        case "$arg" in
+            -*) flags+=("$arg") ;;
+            *) ids+=("$arg") ;;
+        esac
+    done
+    if [ ${#ids[@]} -eq 0 ]; then
+        echo "No reference identifier given (flags: ${flags[*]})." >&2
+        exit 2
+    fi
+    for identifier in "${ids[@]}"; do
         echo "Fetching reference: $identifier"
+        case "$identifier" in
+            CIViC_EID:*|CIVIC_EID:*|civic_eid:*|CIViC_ASSERTION:*|CIVIC_ASSERTION:*|civic_assertion:*|ICTRP:*|ictrp:*|CGGV:*|CGDS:*|ORPHA:*|Orphanet:*|ICEES:*|NCIT:*)
+                if [ ${#flags[@]} -gt 0 ]; then
+                    echo "Note: ${flags[*]} ignored for $identifier; structured-source records are always rebuilt." >&2
+                fi
+                ;;
+        esac
         case "$identifier" in
             CIViC_EID:*|CIVIC_EID:*|civic_eid:*|CIViC_ASSERTION:*|CIVIC_ASSERTION:*|civic_assertion:*)
                 if [ ! -f data/civic/accepted_assertion_summaries.tsv ] || [ ! -f data/civic/accepted_clinical_evidence_summaries.tsv ]; then
@@ -3664,7 +3694,7 @@ fetch-reference +identifiers:
                 uv run python -m dismech.structured_sources.cli rebuild ncit --id "$identifier"
                 ;;
             *)
-                scripts/run_reference_validator.sh cache reference "$identifier"
+                scripts/run_reference_validator.sh cache reference "${flags[@]}" "$identifier"
                 ;;
         esac
     done
