@@ -115430,6 +115430,122 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "DDX17-related Neurodevelopmental Disorder",
+    "disease_id": "MONDO:0700368",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental disorder",
+      "Autosomal dominant disease"
+    ],
+    "creation_date": "2026-10-22T20:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DDX17-related neurodevelopmental disorder is a recently delineated autosomal dominant condition caused by heterozygous, de novo variants in DDX17, which encodes the DEAD-box RNA helicase DDX17 (also called p72/p82). The gene-disease relationship rests on a single international case series of 11 unrelated individuals (PMID:39405200), assembled through the 100,000 Genomes Project and GeneMatcher, with five predicted loss-of-function and six missense variants. The phenotype is a nonspecific neurodevelopmental disorder: mild to moderate intellectual disability, delayed speech and language, global developmental and motor delay, frequent attention deficit hyperactivity disorder, autistic features, stereotypies and hypotonia, with subtle and variable facial dysmorphism and occasional macrocephaly or nonspecific brain MRI changes. Severity did not differ between missense and truncating variants, which the authors read as haploinsufficiency. DDX17 and its paralogue DDX5 regulate transcription, alternative splicing and microRNA biogenesis, and DDX17 co-regulates the neuronal gene repressor REST. In model systems, reducing DDX17 delays cortical neuronal migration and shortens axons in mouse, reduces axon outgrowth and working memory in heterozygous Xenopus tropicalis tadpoles, and deregulates neurodevelopmental and axon-guidance genes in human neuroblastoma cells.",
+    "pathophysiology": [
+      "DDX17 Haploinsufficiency",
+      "Dysregulated Neurodevelopmental Gene Expression",
+      "Impaired Cortical Neuronal Migration",
+      "Impaired Axon Outgrowth",
+      "Disrupted Cortical Circuit Development"
+    ],
+    "cell_types": [
+      "neuron",
+      "callosal-projecting pyramidal neuron",
+      "cortical neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000598"
+    ],
+    "biological_processes": [
+      "regulation of gene expression",
+      "neuron migration",
+      "axon extension"
+    ],
+    "phenotypes": [
+      "Intellectual Disability",
+      "Delayed Speech and Language Development",
+      "Global Developmental Delay",
+      "Delayed Gross Motor Development",
+      "Delayed Fine Motor Development",
+      "Attention Deficit Hyperactivity Disorder",
+      "Autistic Behavior",
+      "Motor Stereotypy",
+      "Generalized Hypotonia",
+      "Macrocephaly",
+      "Synophrys",
+      "Upslanted Palpebral Fissure",
+      "Depressed Nasal Bridge",
+      "Posteriorly Rotated Ears",
+      "Telecanthus",
+      "Epicanthus",
+      "Strabismus",
+      "Clinodactyly of the 5th Finger",
+      "2-3 Toe Syndactyly",
+      "Talipes Equinovarus",
+      "Abnormal Cerebral White Matter Morphology"
+    ],
+    "phenotype_categories": [
+      "Nervous System",
+      "Behavioral",
+      "Growth",
+      "Craniofacial",
+      "Eye",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0001263",
+      "HP:0002194",
+      "HP:0010862",
+      "HP:0007018",
+      "HP:0000729",
+      "HP:0000733",
+      "HP:0001290",
+      "HP:0000256",
+      "HP:0000664",
+      "HP:0000582",
+      "HP:0005280",
+      "HP:0000358",
+      "HP:0000506",
+      "HP:0000286",
+      "HP:0000486",
+      "HP:0004209",
+      "HP:0004691",
+      "HP:0001762",
+      "HP:0002500"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "DDX17"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "DDX17-related_Neurodevelopmental_Disorder.yaml",
+    "page_url": "../pages/disorders/DDX17-related_Neurodevelopmental_Disorder.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "DDX41-related Hematologic Malignancy Predisposition Syndrome",
     "disease_id": "MONDO:0014809",
     "category": "Mendelian",
@@ -269685,6 +269801,137 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Neurodevelopmental Disorder With Cerebellar Atrophy And Motor Dysfunction",
+    "disease_id": "MONDO:0859152",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary cerebellar ataxia",
+      "Mendelian neurodevelopmental disorder",
+      "Spliceosomopathy"
+    ],
+    "creation_date": "2026-10-22T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Infantile-onset severe",
+      "Late infantile-onset",
+      "Juvenile or adult-onset spastic ataxia"
+    ],
+    "description": "Neurodevelopmental disorder with cerebellar atrophy and motor dysfunction (NEDCAM, OMIM:619333) is an autosomal recessive disorder caused by biallelic loss-of-function variants in GEMIN5, the snRNA-binding component of the survival motor neuron (SMN) complex. Affected individuals present in the first two years of life with motor-predominant developmental delay, central hypotonia and cerebellar ataxia, and brain MRI shows cerebellar atrophy in essentially every reported patient. Cognitive and speech delay, appendicular spasticity with brisk reflexes, tremor, and less often epilepsy (including early-infantile developmental and epileptic encephalopathy with infantile spasms), nystagmus, strabismus and cataract complete the picture. Severity spans a severe infantile form with an SMA-like picture and early death, a late infantile developmental delay and ataxia syndrome, and a juvenile or adult-onset spastic ataxia; most patients have a static course, but some progress. Pathogenic variants reduce GEMIN5 protein levels, lower the levels of other SMN complex proteins, impair snRNP assembly and perturb pre-mRNA splicing in patient iPSC-derived neurons; variants in the dimerization domain also abolish GEMIN5 binding to ribosomes, a second, translational function of the protein whose contribution to disease is not yet established. NEDCAM is distinct from spinal muscular atrophy, which is caused by loss of SMN itself: its transcriptomic signature in patient neurons barely overlaps that of SMA neurons, and cerebellar involvement is its defining feature.",
+    "pathophysiology": [
+      "GEMIN5 Biallelic Loss of Function",
+      "Reduced SMN Complex Protein Levels",
+      "Impaired snRNP Assembly",
+      "Neuronal Pre-mRNA Splicing Dysregulation",
+      "Loss of GEMIN5 Ribosome Association",
+      "Cerebellar Degeneration",
+      "Pyramidal Tract Dysfunction",
+      "Peripheral Motor Nerve Involvement",
+      "Secondary Coenzyme Q10 Deficiency",
+      "Mitochondrial Respiratory Dysfunction"
+    ],
+    "cell_types": [
+      "neuron",
+      "skin fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0002620"
+    ],
+    "biological_processes": [
+      "spliceosomal snRNP assembly",
+      "regulation of alternative mRNA splicing, via spliceosome",
+      "regulation of translation",
+      "ubiquinone biosynthetic process",
+      "aerobic respiration"
+    ],
+    "phenotypes": [
+      "Cerebellar atrophy",
+      "Cerebellar hypoplasia",
+      "Motor delay",
+      "Global developmental delay",
+      "Hypotonia",
+      "Gait ataxia",
+      "Tremor",
+      "Spasticity",
+      "Hyperreflexia",
+      "Spastic paraparesis",
+      "Intellectual disability",
+      "Delayed speech and language development",
+      "Dysarthria",
+      "Seizure",
+      "Infantile spasms",
+      "EEG with burst suppression",
+      "Dysplastic corpus callosum",
+      "Cerebral atrophy",
+      "Dementia",
+      "Dysphagia",
+      "EMG neuropathic changes",
+      "Nystagmus",
+      "Strabismus",
+      "Cataract"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001272",
+      "HP:0001321",
+      "HP:0001270",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0002066",
+      "HP:0001337",
+      "HP:0001257",
+      "HP:0001347",
+      "HP:0002313",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0001260",
+      "HP:0001250",
+      "HP:0012469",
+      "HP:0010851",
+      "HP:0006989",
+      "HP:0002059",
+      "HP:0000726",
+      "HP:0002015",
+      "HP:0003445",
+      "HP:0000639",
+      "HP:0000486",
+      "HP:0000518"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "GEMIN5"
+    ],
+    "treatments": [
+      "Supportive Multidisciplinary Care",
+      "Physical Therapy",
+      "Coenzyme Q10 Supplementation",
+      "SMN Upregulation (Preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Cerebellar_Atrophy_And_Motor_Dysfunction.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Cerebellar_Atrophy_And_Motor_Dysfunction.html",
+    "num_phenotypes": 24,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "46",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Neurodevelopmental Disorder With Characteristic Facial And Ectodermal Features And Tetraparesis 1",
     "disease_id": "MONDO:0975745",
     "category": "Mendelian",
@@ -283869,7 +284116,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "2"
   },
   {
@@ -393784,17 +394031,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3648,
-  "total_subtypes": 4842,
-  "total_disorders_and_subtypes": 8490,
-  "total_unique_evidence_sources": 54410,
-  "total_unique_publications": 50816,
+  "total_disorder_pages": 3650,
+  "total_subtypes": 4845,
+  "total_disorders_and_subtypes": 8495,
+  "total_unique_evidence_sources": 54434,
+  "total_unique_publications": 50839,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3645,
-  "total_unique_pathological_events": 24062,
+  "total_pathographs": 3647,
+  "total_unique_pathological_events": 24073,
   "total_modules": 197,
-  "total_research_reports": 3776,
+  "total_research_reports": 3778,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 120
