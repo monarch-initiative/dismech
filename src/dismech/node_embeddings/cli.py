@@ -43,8 +43,8 @@ def backends() -> None:
 
 
 def _label(node) -> str:
-    """One ground-truth label per node: its ``conforms_to`` references, joined."""
-    return " | ".join(node.conforms_to)
+    """One ground-truth label per node: its ``conforms_to`` references as a set."""
+    return " | ".join(sorted(node.conforms_to))
 
 
 @app.command("evaluate")

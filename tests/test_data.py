@@ -202,8 +202,10 @@ def _iter_conforms_to(node, path=""):
             child = f"{path}.{key}" if path else key
             if key == "conforms_to":
                 if isinstance(value, list):
-                    for index, ref in enumerate(normalize_conforms_to(value)):
-                        yield f"{child}[{index}]", ref
+                    # Number the raw list, so a path names the item as written.
+                    for index, item in enumerate(value):
+                        for ref in normalize_conforms_to(item):
+                            yield f"{child}[{index}]", ref
                 else:
                     for ref in normalize_conforms_to(value):
                         yield child, ref

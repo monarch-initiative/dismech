@@ -152,3 +152,20 @@ def test_module_map_walk_yields_every_reference():
         (MTORC1, "Node"),
         (NUTRIENT, "Node"),
     ]
+
+
+def test_list_paths_index_the_raw_list():
+    data = _disease([MTORC1, 3, NUTRIENT])
+    assert list(_iter_conforms_to(data))[-1] == (
+        "pathophysiology[0].conforms_to[2]",
+        NUTRIENT,
+    )
+
+
+def test_embedding_label_ignores_reference_order():
+    from dismech.node_embeddings.cli import _label
+    from dismech.node_embeddings.nodes import PathoNode
+
+    a = PathoNode("D", "x", (MTORC1, NUTRIENT), ())
+    b = PathoNode("D", "x", (NUTRIENT, MTORC1), ())
+    assert _label(a) == _label(b)
