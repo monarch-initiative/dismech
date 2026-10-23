@@ -332,8 +332,12 @@ correlates with being a grouping rather than with being worth curating
 (`already_curated`, `obsolete_term`), so the pool never offers a disease the KB
 already holds by MONDO ID; `--include-stale` puts them back. Other `check-stubs`
 advisories, such as `possible_kb_duplicate`, keep the stub in the pool and are
-printed beside it, and in `--json` as `advisories`. The check reads every KB
-file, so the command takes about half a minute (#11616).
+printed beside it, and in `--json` as `advisories`. The check needs every KB
+entry's MONDO IDs and labels; parsing them takes about half a minute, so the
+derived index persists in the gitignored `tmp/stub_coverage_index.json` and a
+warm run takes about a second and a half (#11616, #15116). Bump
+`COVERAGE_CACHE_VERSION` in `src/dismech/stubs/model.py` when the label or ID
+extraction changes; `DISMECH_KB_CACHE=0` turns the cache off.
 
 **`entry_type` is the lump/split decision and is never pre-filled.** Seeded
 stubs are all `UNDECIDED`. Deciding is the curator's first job:
@@ -4837,6 +4841,19 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 - Never check out `main` in a worktree — `main` belongs to the primary checkout.
 - Never leave the primary checkout on a feature branch.
 - If `git checkout main` fails with "already checked out at …", find which worktree holds `main` (`git worktree list | grep '\[main\]'`), switch that worktree to a feature branch, then retry.
+
+**Which checkout a command reads and writes.** `dismech` commands find the
+repository from the working directory, not from where the package is installed
+(`src/dismech/repo_root.py`): the nearest directory at or above it holding a
+`justfile` and `kb/`. Set `DISMECH_ROOT=/path/to/checkout` to choose one
+explicitly; outside any checkout they fall back to the installed tree and warn
+once. This matters because one virtualenv shared across worktrees installs the
+package from the primary checkout, so a path built from `__file__` sent a
+worktree's reads and writes there (#15051, #15109). In `src/dismech/` and
+`src/phenoagent/`, use
+`repo_root()` (or `LazyRepoPaths` for a module-level constant) for checkout
+paths; `Path(__file__)` is only for resources inside the package, such as
+`schema/` and `templates/`. `tests/test_repo_root_sweep.py` enforces this.
 
 ### What to commit
 
