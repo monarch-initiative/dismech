@@ -171,10 +171,14 @@ _RELATIVE_URL_ATTR_PATTERN = re.compile(
 _CATEGORY_ORDER = list(HPO_TOP_LEVEL_CATEGORIES.values())
 
 
-@lru_cache(maxsize=1)
 def _load_hpo_category_cache() -> dict[str, list[str]]:
     """Load the HP-term-to-category cache written by browser_export."""
-    cache_path = _PATHS.get("_HPO_CATEGORY_CACHE_PATH")
+    return _read_hpo_category_cache(_PATHS.get("_HPO_CATEGORY_CACHE_PATH"))
+
+
+@lru_cache(maxsize=8)
+def _read_hpo_category_cache(cache_path: Path) -> dict[str, list[str]]:
+    """Keyed on the resolved path, so a later checkout is not served the first one's file."""
     if cache_path.exists():
         return json.loads(cache_path.read_text())
     return {}

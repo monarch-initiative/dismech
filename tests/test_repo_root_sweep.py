@@ -68,6 +68,24 @@ def test_last_pass_reports_on_the_working_tree(tree: Path):
     assert [t.slug for t in report.targets] == ["Only_Entry"]
 
 
+def test_render_category_cache_follows_the_working_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """A memoised reader must not keep serving the first checkout's file."""
+    from dismech import render
+
+    monkeypatch.delenv(rr.ENV_VAR, raising=False)
+    monkeypatch.delitem(vars(render), "_HPO_CATEGORY_CACHE_PATH", raising=False)
+    for name, category in (("one", "Growth"), ("two", "Nervous System")):
+        root = _make_tree(tmp_path / name)
+        (root / "app").mkdir()
+        (root / "app" / "hpo_category_cache.json").write_text(
+            json.dumps({"HP:0001250": [category]}), encoding="utf-8"
+        )
+        monkeypatch.chdir(root)
+        assert render._load_hpo_category_cache() == {"HP:0001250": [category]}
+
+
 @pytest.mark.parametrize(
     ("module", "attribute", "relative"),
     [

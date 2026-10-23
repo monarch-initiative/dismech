@@ -4816,7 +4816,8 @@ repository from the working directory, not from where the package is installed
 explicitly; outside any checkout they fall back to the installed tree and warn
 once. This matters because one virtualenv shared across worktrees installs the
 package from the primary checkout, so a path built from `__file__` sent a
-worktree's reads and writes there (#15051, #15109). In `src/dismech/`, use
+worktree's reads and writes there (#15051, #15109). In `src/dismech/` and
+`src/phenoagent/`, use
 `repo_root()` (or `LazyRepoPaths` for a module-level constant) for checkout
 paths; `Path(__file__)` is only for resources inside the package, such as
 `schema/` and `templates/`. `tests/test_repo_root_sweep.py` enforces this.
