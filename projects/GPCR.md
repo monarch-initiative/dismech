@@ -44,6 +44,7 @@ modules:
 - mu_opioid_receptor_antagonism
 - beta_adrenergic_receptor_blockade
 - at1_receptor_blockade
+- glp1_receptor_agonism
 ---
 
 # GPCRs: Drug Mechanisms and Disease Modules
@@ -174,7 +175,7 @@ mechanism-level rather than disease-level.
 - [x] mu-opioid receptor agonism (first module; see above) — `mu_opioid_receptor_agonism` (#14453)
 - [x] mu-opioid receptor antagonism — `mu_opioid_receptor_antagonism` (#14456)
 - [x] beta-adrenergic receptor blockade — `beta_adrenergic_receptor_blockade` (#15087)
-- [ ] GLP-1 receptor agonism
+- [ ] GLP-1 receptor agonism — `glp1_receptor_agonism` (#15252, in review)
 - [ ] GPCR loss-of-function hormone resistance
 - [ ] GPCR constitutive activation
 
@@ -193,6 +194,10 @@ mechanism-level rather than disease-level.
         `Essential_Hypertension`'s ACE inhibitor is pointed at its own
         renin-angiotensin-aldosterone node instead, because an ACE inhibitor never
         occupies the receptor — see that module's scope notes
+  - [ ] Two incretin-treated entries, in #15252 (in review): `Type_2_Diabetes_Mellitus`
+        and `Obesity` against `glp1_receptor_agonism`, both at the receptor step. The
+        module names no dominant weight-loss arm, so conforming `Obesity` against one
+        would assert more than the evidence carries
 - [ ] Remaining Workstream A modules
   - [x] AT1 receptor blockade — `at1_receptor_blockade` (#15271)
 - [ ] Gs alpha defect module
