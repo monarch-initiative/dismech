@@ -1009,11 +1009,14 @@ next-stubs count="5" *args="":
 stub-stats:
     uv run dismech-stubs stats
 
+# Where `fetch-claims` writes the open claim issues and the recipes below read them.
+claims_file := "tmp/claims.json"
+
 # Fetch every open claim issue in one list-API call (immediately consistent,
 # unlike a search) and write it where the other recipes can read it.
 # Fetch the open curation claims
 [group('Curation')]
-fetch-claims out="tmp/claims.json":
+fetch-claims out=claims_file:
     #!/usr/bin/env bash
     set -euo pipefail
     if ! command -v gh >/dev/null 2>&1; then
@@ -1034,16 +1037,22 @@ fetch-claims out="tmp/claims.json":
 
 # Reports double-claims, claims with no MONDO ID in the title (they lock
 # nothing), and stale claims — old with no PR. An open PR is never stale.
+# The claims path is optional even before a flag: a first argument starting
+# with `--` is passed through as a flag and the default path is used, so
+# `just check-claims --stale-days 30` works (#10180).
 # Cross-check open claim issues against the stub queue
 [group('Curation')]
-check-claims claims="tmp/claims.json" *args="":
-    uv run dismech-stubs claims {{claims}} {{args}}
+check-claims claims=claims_file *args="":
+    uv run dismech-stubs claims {{ if claims =~ '^--' { claims_file + " " + claims } else { claims } }} {{args}}
 
 # The two-phase pick: open claim issues, then the stub queue.
+# As with check-claims, a flag in the claims position is passed through and
+# the default path is used, so `just next-unclaimed 20 --json` works (#10180);
+# `just next-unclaimed 20 path/to/claims.json --json` still names a file.
 # Show the next unclaimed stub(s) to curate
 [group('Curation')]
-next-unclaimed count="5" claims="tmp/claims.json" *args="":
-    uv run dismech-stubs next {{count}} --claims {{claims}} {{args}}
+next-unclaimed count="5" claims=claims_file *args="":
+    uv run dismech-stubs next {{count}} --claims {{ if claims =~ '^--' { claims_file + " " + claims } else { claims } }} {{args}}
 
 # Never overwrites an existing stub. Default source format is the Monarch
 # rare-disease-identification prioritised list.

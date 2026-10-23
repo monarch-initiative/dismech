@@ -208,7 +208,10 @@ do not remove a stub, because they need a person's call: a
 `possible_kb_duplicate` (an entry with the same name under a different MONDO
 ID), a scheduled obsoletion, or a merged term to repoint. They are printed under
 the stub, and listed as `advisories` in `--json` output, so the lump/split
-decision is made before the claim. Classifying the queue needs the MONDO IDs and
+decision is made before the claim. Each `--json` record also carries the
+stub's `mondo_parents`, `mondo_descendants`, `mondo_descendant_count`, `genes`
+and `synonyms` when it has them (an absent field is left out, not written as
+`null`). Classifying the queue needs the MONDO IDs and
 labels of every KB entry, and parsing them all takes about half a minute, so the
 derived index is kept between runs in the gitignored
 `tmp/stub_coverage_index.json` (#15116). The first run in a checkout is cold;
@@ -405,6 +408,7 @@ Other nomination lists can be added by writing a parser in
 ```bash
 just fetch-claims          # open claim issues -> tmp/claims.json (one API call)
 just next-unclaimed 5      # the two-phase pick: claims, then stubs
+just next-unclaimed 5 --json  # same, machine-readable (reads tmp/claims.json)
 just check-claims          # double-claims, unkeyed titles, stale claims
 just next-stubs 5          # stubs only, no claim filter
 just next-stubs 5 --json   # same, machine-readable
