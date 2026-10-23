@@ -93,8 +93,11 @@ Each needs a reading of the entry before a `conforms_to` is added:
   VLCFA-capture and tether functions of ACBD5 as separate branches, and its
   knowledge-gap discussion proposes separation-of-function alleles in patient
   iPSC-derived neural cells.
-- [ ] Queued stubs with contact-site genes: `Alkuraya-Kucinskas_Syndrome`
-  (BLTP1), `Cohen-Gibson_Syndrome`, `Chorea_Childhood-onset_With_Psychomotor_Retardation`.
+- [ ] Queued stub with a contact-site gene: `Alkuraya-Kucinskas_Syndrome`
+  (BLTP1). Two stubs with similar names are not contact-site diseases:
+  `Cohen-Gibson_Syndrome` is caused by EED (PRC2 chromatin), unlike Cohen
+  syndrome (VPS13B), and `Chorea_Childhood-onset_With_Psychomotor_Retardation`
+  by GPR88, a G-protein-coupled receptor.
 - [ ] Tether and transfer genes with no entry: ESYT1-3, STARD3, RMDN3
   (PTPIP51), ATG2A, MIGA2, GRAMD1A-C, SNX13. Check whether each has a Mendelian
   disease before nominating a stub.

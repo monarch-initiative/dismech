@@ -184,8 +184,11 @@ MONDO's cryopyrin-associated periodic syndrome).
 
   Excluded from the member list: lymphangioleiomyomatosis and perivascular
   epithelioid cell neoplasm (TSC-associated neoplasms that also occur
-  sporadically), Peutz-Jeghers polyp (a lesion, not a disease), focal epilepsy
-  (too broad). Boundary case: Peutz-Jeghers syndrome (STK11) acts through AMPK
+  sporadically) and Peutz-Jeghers polyp (a lesion, not a disease).
+  `DEPDC5-Related_Epilepsy` is also left out of the table, but only because its
+  dismech entry is anchored to the broad `MONDO:0005384 focal epilepsy`,
+  following ClinGen's lumping. It is a germline DEPDC5 disorder, so the GATOR1
+  arm is better supported than the table alone shows. Boundary case: Peutz-Jeghers syndrome (STK11) acts through AMPK
   on mTORC1, and its defining features are polyposis and cancer risk rather than
   the cortical phenotype, so it is listed as a candidate for review rather than a
   member.
@@ -244,6 +247,8 @@ MONDO's cryopyrin-associated periodic syndrome).
   Cohesin shapes chromatin architecture and the syndrome has an episignature, but
   it is also the founding member of the "cohesinopathies", which MONDO does not
   have either. It can stay here or seed a sibling class.
+- **Candidates not yet in dismech:** Cohen-Gibson syndrome (`MONDO:0060510`,
+  EED), a PRC2 disorder in the same family as Weaver syndrome.
 - **MONDO gap evidence:** "epigenetic machinery", "chromatinopathy", "chromatin
   regulator" and "chromatin modifier" return nothing in any pass.
 - **dismech provenance:**
