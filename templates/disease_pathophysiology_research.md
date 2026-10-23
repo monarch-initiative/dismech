@@ -3,7 +3,17 @@
 ## Target Disease
 - **Disease Name:** {disease_name}
 - **MONDO ID:** {mondo_id} (if available)
+- **Causal gene(s):** {causal_genes}
+- **OMIM:** {omim_id}
+- **Synonyms:** {synonyms}
 - **Category:** {category}
+
+Many disease names are serial numbers ("... autosomal dominant 64", "... 26") that
+do not say which gene the disease is about, and a similarly named disease with a
+different gene is easy to research by mistake. Research the disease with the MONDO
+ID and causal gene given above, and name its causal gene in your first paragraph.
+If the name seems to point to a different gene or OMIM entry, follow the
+identifiers above.
 
 ## Research Objectives
 

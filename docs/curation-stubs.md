@@ -199,6 +199,27 @@ like a recommendation for whatever family of diseases sorts first. Pick the
 disease you know something about rather than the first row. `--alpha` gives
 alphabetical order if you want it.
 
+The pool leaves out stubs that `just tidy-stubs` would delete: a disease the KB
+already covers by MONDO ID (as a `disease_term`, a `has_subtypes[].subtype_term`,
+or an exact/narrow MONDO mapping) and a term MONDO has retired with no
+replacement. Until a sweep removes them, nobody should claim one. Pass
+`--include-stale` to see them anyway. Other advisories from `just check-stubs`
+do not remove a stub, because they need a person's call: a
+`possible_kb_duplicate` (an entry with the same name under a different MONDO
+ID), a scheduled obsoletion, or a merged term to repoint. They are printed under
+the stub, and listed as `advisories` in `--json` output, so the lump/split
+decision is made before the claim. Classifying the queue needs the MONDO IDs and
+labels of every KB entry, and parsing them all takes about half a minute, so the
+derived index is kept between runs in the gitignored
+`tmp/stub_coverage_index.json` (#15116). The first run in a checkout is cold;
+after that `next-stubs` and `next-unclaimed` take about a second and a half, and
+an edited entry costs one re-parse. A file is re-read only when its size or
+mtime changes and re-parsed only when its content hash does; deleted entries
+drop out. `DISMECH_KB_CACHE=0` turns the cache off, and
+`DISMECH_STUB_COVERAGE_CACHE` moves it. Bump `COVERAGE_CACHE_VERSION` in
+`src/dismech/stubs/model.py` when a change to the label or ID extraction would
+derive something different from the same file.
+
 If you want a disease curated sooner, open a PR raising its `priority` and say
 why in `notes`. That is a reviewable claim other people can disagree with, which
 a weight in a YAML config file was not.
