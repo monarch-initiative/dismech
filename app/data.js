@@ -47950,6 +47950,123 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "BDV Syndrome",
+    "disease_id": "MONDO:0859150",
+    "category": "Mendelian",
+    "parents": [
+      "Prader-Willi-Like Syndrome",
+      "Monogenic Obesity"
+    ],
+    "creation_date": "2026-10-21T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "BDV (Blakemore-Durmaz-Vasileiou) syndrome is the autosomal recessive carboxypeptidase E (CPE) deficiency disorder, caused by biallelic loss-of-function variants in CPE. CPE is the main carboxypeptidase of the regulated secretory pathway of neuroendocrine cells: after a prohormone convertase cleaves a precursor at paired basic residues, CPE removes the remaining C-terminal lysine or arginine so the peptide can mature. Without it most neuropeptides and peptide hormones are made in reduced amounts and basic-residue-extended processing intermediates accumulate. The resulting phenotype resembles Prader-Willi syndrome: childhood-onset severe obesity with hyperphagia, intellectual disability and neurodevelopmental delay, hypogonadotropic hypogonadism, central hypothyroidism, and abnormal glucose homeostasis ranging from elevated proinsulin and glucose intolerance to type 2 diabetes. Central diabetes insipidus has been reported. Fewer than fifteen affected individuals from a handful of consanguineous families have been described. Much of the mechanistic picture comes from the Cpe fat/fat and Cpe null mouse, whose obesity, hyperproinsulinemia and infertility the human disease recapitulates. Management is supportive and replaces the deficient pituitary and endocrine axes.",
+    "pathophysiology": [
+      "CPE Loss of Function",
+      "Defective Prohormone C-Terminal Processing",
+      "Impaired Proinsulin Processing",
+      "Deficient Anorexigenic Neuropeptide Production",
+      "Impaired Pro-GnRH Processing",
+      "Impaired Pro-TRH Processing",
+      "Hippocampal Neurodegeneration"
+    ],
+    "cell_types": [
+      "neuroendocrine cell",
+      "pancreatic beta cell",
+      "hypothalamic gonadotropin-releasing hormone neuron",
+      "parvocellular neurosecretory cell of the paraventricular nucleus",
+      "hippocampal CA3 pyramidal neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000165",
+      "CL:0000169",
+      "CL:0011111",
+      "CL:1001505",
+      "CL:1001571"
+    ],
+    "biological_processes": [
+      "peptide hormone processing",
+      "neuropeptide processing",
+      "insulin processing",
+      "regulation of appetite",
+      "neuron apoptotic process"
+    ],
+    "phenotypes": [
+      "Obesity",
+      "Hyperphagia",
+      "Intellectual Disability",
+      "Global Developmental Delay",
+      "Speech Delay",
+      "Hypotonia",
+      "Hypogonadotropic Hypogonadism",
+      "Primary Amenorrhea",
+      "Micropenis",
+      "Cryptorchidism",
+      "Central Hypothyroidism",
+      "Elevated Circulating Proinsulin",
+      "Glucose Intolerance",
+      "Postprandial Hypoglycemia",
+      "Insulin Resistance",
+      "Type 2 Diabetes Mellitus",
+      "Central Diabetes Insipidus",
+      "Enuresis"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Behavioral",
+      "Neurological",
+      "Endocrine",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001513",
+      "HP:0002591",
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0001252",
+      "HP:0000044",
+      "HP:0000786",
+      "HP:0000054",
+      "HP:0000028",
+      "HP:0011787",
+      "HP:6000419",
+      "HP:0001952",
+      "HP:0012051",
+      "HP:0000855",
+      "HP:0005978",
+      "HP:0000863",
+      "HP:0000805"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "CPE"
+    ],
+    "treatments": [
+      "Desmopressin"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "BDV_Syndrome.yaml",
+    "page_url": "../pages/disorders/BDV_Syndrome.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "BEST1-Related Dominant Retinopathy",
     "disease_id": "MONDO:0700238",
     "category": "Mendelian",
@@ -149429,6 +149546,7 @@ window.searchData = [
       "Retinal dystrophy",
       "Iris coloboma",
       "Cataract",
+      "Photophobia",
       "Developmental glaucoma",
       "Abnormal light- and dark-adapted electroretinogram",
       "Reduced visual acuity"
@@ -149437,12 +149555,14 @@ window.searchData = [
       "Ophthalmologic"
     ],
     "phenotype_hpo_categories": [
-      "Eye"
+      "Eye",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0000556",
       "HP:0000612",
       "HP:0000518",
+      "HP:0000613",
       "HP:0001087",
       "HP:0008323",
       "HP:0007663"
@@ -149460,11 +149580,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Familial_Progressive_Retinal_Dystrophy-iris_Coloboma-congenital_Cataract_Syndrome.yaml",
     "page_url": "../pages/disorders/Familial_progressive_retinal_dystrophy-iris_coloboma-congenital_cataract_syndrome.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 7,
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "4"
   },
   {
@@ -198744,6 +198864,143 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 3,
     "causal_graph_edges": "29",
+    "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Immune Dysregulation, Neurodevelopmental Defects, And Colitis",
+    "disease_id": "MONDO:0980702",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn error of immunity",
+      "Monogenic very early onset inflammatory bowel disease",
+      "Mendelian neurodevelopmental disorder"
+    ],
+    "creation_date": "2026-10-22T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Immune dysregulation, neurodevelopmental defects, and colitis (OMIM 621375) is an ultra-rare autosomal recessive disorder caused by biallelic variants in ITGAV, the gene for the integrin alpha-V subunit that pairs with the beta1, beta3, beta5, beta6 and beta8 subunits. It was delineated in 2024 in three families: two liveborn patients and four fetuses from a third family. The reported variants act by loss of function, either through abnormal splicing and nonsense-mediated decay or through a missense change that prevents the integrin from reaching the cell surface. Partial loss of function produced very early onset, treatment-refractory colitis, atopy (atopic dermatitis, multiple allergies, raised IgE, eosinophilia, eosinophilic enteropathy), chronic infections, developmental delay, visual impairment with exudative vitreoretinopathy, seizures, and structural brain abnormalities including polymicrogyria, delayed myelination, white matter loss, calcifications and a dysplastic corpus callosum. Near-complete loss of function in the third family produced severe prenatal brain malformations (Dandy-Walker malformation, ventriculomegaly, corpus callosum agenesis) with cleft palate and abdominal wall defects. alphaV integrins are the principal activators of latent TGF-beta; patient cells and colon showed reduced SMAD3 signaling, and an itgav knockout zebrafish reproduced brain hemorrhage, retinal vascular defects, loss of microglia and colitis. The atopic and B-cell features may also reflect loss of alphaVbeta3-mediated restraint of Toll-like receptor signaling.",
+    "pathophysiology": [
+      "ITGAV Biallelic Loss of Function",
+      "Impaired Integrin-Mediated Latent TGF-beta Activation",
+      "Reduced SMAD3-Dependent TGF-beta Signaling",
+      "Defective Intestinal Immune Tolerance",
+      "Impaired Microglial Development",
+      "Defective Brain and Retinal Vascular Development",
+      "Loss of alphaVbeta3-Mediated Restraint of TLR Signaling"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "dendritic cell",
+      "macrophage",
+      "regulatory T cell",
+      "microglial cell",
+      "B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000451",
+      "CL:0000235",
+      "CL:0000815",
+      "CL:0000129",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "transforming growth factor beta receptor signaling pathway",
+      "SMAD protein signal transduction",
+      "regulatory T cell differentiation",
+      "inflammatory response",
+      "microglia differentiation",
+      "blood vessel development",
+      "negative regulation of toll-like receptor signaling pathway"
+    ],
+    "phenotypes": [
+      "Very early onset colitis",
+      "Gastrointestinal eosinophilia",
+      "Atopic dermatitis",
+      "Allergy",
+      "Increased circulating IgE concentration",
+      "Increased total eosinophil count",
+      "Chronic infection",
+      "Seizure",
+      "Global developmental delay",
+      "Microcephaly",
+      "Polymicrogyria",
+      "Delayed myelination",
+      "Cerebral white matter atrophy",
+      "Intracranial calcification",
+      "Abnormal corpus callosum morphology",
+      "Ventriculomegaly",
+      "Dandy-Walker malformation",
+      "Exudative vitreoretinopathy",
+      "Visual impairment",
+      "Bifid uvula",
+      "Cleft palate",
+      "Abdominal wall defect",
+      "Intrauterine growth retardation"
+    ],
+    "phenotype_categories": [
+      "Digestive",
+      "Immune",
+      "Neurological",
+      "Ophthalmological",
+      "Craniofacial",
+      "Abdominal",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002583",
+      "HP:0032064",
+      "HP:0001047",
+      "HP:0012393",
+      "HP:0003212",
+      "HP:0001880",
+      "HP:0031035",
+      "HP:0001250",
+      "HP:0001263",
+      "HP:0000252",
+      "HP:0002126",
+      "HP:0012448",
+      "HP:0012762",
+      "HP:0430048",
+      "HP:0001273",
+      "HP:0002119",
+      "HP:0001305",
+      "HP:0030490",
+      "HP:0000505",
+      "HP:0000193",
+      "HP:0000175",
+      "HP:0010866",
+      "HP:0001511"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ITGAV"
+    ],
+    "treatments": [
+      "Colectomy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Immune_Dysregulation_Neurodevelopmental_Defects_And_Colitis.yaml",
+    "page_url": "../pages/disorders/Immune_Dysregulation,_Neurodevelopmental_Defects,_And_Colitis.html",
+    "num_phenotypes": 23,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "21",
     "causal_graph_longest_path": "6"
   },
   {
@@ -269310,6 +269567,124 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Neurodevelopmental Disorder With Ataxia And Brain Abnormalities",
+    "disease_id": "MONDO:0978300",
+    "category": "Mendelian",
+    "parents": [
+      "Primary mitochondrial disease",
+      "Neurodevelopmental disorder"
+    ],
+    "creation_date": "2026-10-22T13:25:13Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive primary mitochondrial disease caused by biallelic variants in PTPMT1, the inner-mitochondrial-membrane phosphatase that dephosphorylates phosphatidylglycerophosphate to phosphatidylglycerol in de novo cardiolipin biosynthesis. Six individuals from three consanguineous families have been reported, homozygous for either the missense variant p.Tyr22Ser or the exon 2 splice-region variant c.255G>C. Onset is neonatal or infantile, with developmental delay (sometimes with regression), microcephaly, cerebellar ataxia, nystagmus, spasticity, epilepsy, sensorineural hearing loss, optic atrophy, bulbar dysfunction and facial dysmorphism. MRI shows a variable combination of corpus callosum thinning, cerebellar atrophy and white matter changes. Patient fibroblasts have reduced PTPMT1 protein and fragmented mitochondria that are rescued by wild-type PTPMT1; patient muscle and blood have reduced cardiolipin, and a ptpmt1 knockout zebrafish has small body and head size, reduced cardiolipin and complex I and IV deficiency. Management is supportive.",
+    "pathophysiology": [
+      "PTPMT1 Biallelic Loss of Function",
+      "Cardiolipin Deficiency",
+      "Mitochondrial Fragmentation",
+      "Impaired Oxidative Phosphorylation",
+      "Neural Precursor Bioenergetic Stress and Cell Cycle Arrest",
+      "Impaired Postnatal Cerebellar Development"
+    ],
+    "cell_types": [
+      "neural stem cell",
+      "Bergmann glial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000047",
+      "CL:0000644"
+    ],
+    "biological_processes": [
+      "cardiolipin biosynthetic process",
+      "mitochondrion organization",
+      "oxidative phosphorylation",
+      "cerebellum development"
+    ],
+    "phenotypes": [
+      "Global Developmental Delay",
+      "Developmental Regression",
+      "Intellectual Disability",
+      "Microcephaly",
+      "Cerebellar Ataxia",
+      "Nystagmus",
+      "Spasticity",
+      "Seizure",
+      "Sensorineural Hearing Impairment",
+      "Optic Atrophy",
+      "Bulbar Dysfunction",
+      "Facial Dysmorphism",
+      "Thin Corpus Callosum",
+      "Cerebellar Atrophy",
+      "Cerebral White Matter Abnormality",
+      "CNS Hypomyelination",
+      "Brainstem Atrophy",
+      "Cerebral Atrophy",
+      "Hepatomegaly",
+      "Elevated Transaminases",
+      "Vomiting",
+      "Increased Plasma Lactate"
+    ],
+    "phenotype_categories": [
+      "Neurodevelopmental",
+      "Neurological",
+      "Craniofacial",
+      "Gastrointestinal",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0002376",
+      "HP:0001249",
+      "HP:0000252",
+      "HP:0001251",
+      "HP:0000639",
+      "HP:0001257",
+      "HP:0001250",
+      "HP:0000407",
+      "HP:0000648",
+      "HP:0002483",
+      "HP:0001999",
+      "HP:0033725",
+      "HP:0001272",
+      "HP:0002500",
+      "HP:0003429",
+      "HP:0007366",
+      "HP:0002059",
+      "HP:0002240",
+      "HP:0002910",
+      "HP:0002013",
+      "HP:0002151"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PTPMT1"
+    ],
+    "treatments": [
+      "Antiseizure Medication"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Reduced total cardiolipin in dried blood spots"
+    ],
+    "source_file": "Neurodevelopmental_Disorder_With_Ataxia_And_Brain_Abnormalities.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Ataxia_And_Brain_Abnormalities.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Neurodevelopmental Disorder With Characteristic Facial And Ectodermal Features And Tetraparesis 1",
     "disease_id": "MONDO:0975745",
     "category": "Mendelian",
@@ -270074,6 +270449,95 @@ window.searchData = [
     "causal_graph_longest_path": "10"
   },
   {
+    "name": "Neurodevelopmental Disorder With Microcephaly And Structural Brain Anomalies",
+    "disease_id": "MONDO:0032779",
+    "category": "Mendelian",
+    "parents": [
+      "Syndromic microcephaly",
+      "Neurodevelopmental disorder"
+    ],
+    "creation_date": "2026-10-22T13:25:13Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive syndromic microcephaly caused by biallelic variants in DYNC1I2, which encodes an intermediate chain of the cytoplasmic dynein-1 motor complex. Five affected individuals from three families have been reported: three siblings of a consanguineous Pakistani family homozygous for the splice-donor variant c.607+1G>A, and two unrelated individuals carrying p.Tyr247Cys in trans with either a 374 kb deletion spanning DYNC1I2 or the nonsense variant p.Gln290Ter. The phenotype combines microcephaly, intellectual disability, simplified cerebral gyration, corpus callosum hypoplasia and dysmorphic facial features. In zebrafish, disrupting the ortholog dync1i2a reduces head size and alters craniofacial cartilage patterning, with abnormal mitotic spindles, prolonged mitosis and increased apoptosis; the patient missense allele attenuates gene function in a zebrafish complementation assay. Treatment is supportive.",
+    "pathophysiology": [
+      "DYNC1I2 Biallelic Loss of Function",
+      "Cytoplasmic Dynein-1 Complex Dysfunction",
+      "Abnormal Mitotic Spindle Morphology",
+      "Prolonged Mitosis",
+      "Increased Apoptosis in the Developing Head"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "dynein-mediated microtubule-based movement",
+      "mitotic spindle organization",
+      "mitotic progression",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Microcephaly",
+      "Intellectual Disability",
+      "Simplified Gyral Pattern",
+      "Corpus Callosum Hypoplasia",
+      "Global Developmental Delay",
+      "Delayed Speech and Language Development",
+      "Delayed Ability to Walk",
+      "Spasticity",
+      "Hyperreflexia",
+      "Seizures",
+      "Short Stature",
+      "Aggressive Behavior",
+      "Upslanted Palpebral Fissures",
+      "Anteverted Nares",
+      "Bulbous Nose"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Growth",
+      "Behavioral",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000252",
+      "HP:0001249",
+      "HP:0009879",
+      "HP:0002079",
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0031936",
+      "HP:0001257",
+      "HP:0001347",
+      "HP:0001250",
+      "HP:0004322",
+      "HP:0000718",
+      "HP:0000582",
+      "HP:0000463",
+      "HP:0000414"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DYNC1I2"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Microcephaly_And_Structural_Brain_Anomalies.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Microcephaly_And_Structural_Brain_Anomalies.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Neurodevelopmental Disorder With Microcephaly, Arthrogryposis, And Structural Brain Anomalies",
     "disease_id": "MONDO:0032838",
     "category": "Mendelian",
@@ -270233,6 +270697,133 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "27",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Neurodevelopmental Disorder With Microcephaly, Cataracts, And Renal Abnormalities",
+    "disease_id": "MONDO:0060664",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian neurodevelopmental disorder",
+      "Syndromic pediatric cataract",
+      "SMN complex disorder"
+    ],
+    "creation_date": "2026-10-22T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Neurodevelopmental disorder with microcephaly, cataracts, and renal abnormalities (NEDMCR, OMIM:617913) is an ultra-rare autosomal recessive syndrome caused by biallelic missense variants in GEMIN4 (17p13.3), which encodes a component of the survival motor neuron (SMN) complex that assembles Sm-class spliceosomal small nuclear ribonucleoproteins (snRNPs). All reported individuals come from consanguineous Saudi Arabian families. Global developmental delay is present in every reported patient, usually with infantile or congenital cataract, microcephaly, early-onset epilepsy (often infantile spasms with hypsarrhythmia), hypotonia evolving into spastic tetraplegia, and cerebellar and brainstem atrophy on brain MRI. Renal involvement (tubulopathy and nephrolithiasis) is variable, and skeletal features, dystonia, hearing and visual impairment, minor dysmorphism and recurrent aspiration pneumonia have been described. Two recurrent founder missense variants (p.Trp818Arg and p.Pro105Leu) account for most patients, and a third (p.His147Arg) has been reported in one sibship. How loss of GEMIN4 function produces the phenotype is not established: GEMIN4 is required for efficient Sm-core snRNP assembly in cultured cells and is essential for mouse embryonic viability, and neuronal knockdown of the fly orthologue causes developmental and motor defects, but no study has measured snRNP assembly, splicing, or microRNA function in patient cells.",
+    "pathophysiology": [
+      "Biallelic GEMIN4 Missense Variants",
+      "Impaired SMN Complex Sm-Core snRNP Assembly",
+      "Neuronal GEMIN4 Deficiency",
+      "Lens GEMIN4 Deficiency During Early Lens Development"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "spliceosomal snRNP assembly",
+      "lens development in camera-type eye"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Developmental regression",
+      "Microcephaly",
+      "Seizure",
+      "Infantile spasms",
+      "Hypsarrhythmia",
+      "Hypotonia",
+      "Spastic tetraplegia",
+      "Hyperreflexia",
+      "Dystonia",
+      "Cerebellar atrophy",
+      "Brainstem atrophy",
+      "Cerebellar vermis hypoplasia",
+      "Ventriculomegaly",
+      "Developmental cataract",
+      "Blindness",
+      "Hearing impairment",
+      "Renal tubular dysfunction",
+      "Nephrolithiasis",
+      "Osteopenia",
+      "Scoliosis",
+      "Dolichocephaly",
+      "High palate",
+      "Low-set ears",
+      "Aspiration",
+      "Recurrent pneumonia"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Ophthalmological",
+      "Otolaryngological",
+      "Renal",
+      "Skeletal",
+      "Craniofacial",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0002376",
+      "HP:0000252",
+      "HP:0001250",
+      "HP:0012469",
+      "HP:0002521",
+      "HP:0001252",
+      "HP:0002510",
+      "HP:0001347",
+      "HP:0001332",
+      "HP:0001272",
+      "HP:0007366",
+      "HP:0006817",
+      "HP:0002119",
+      "HP:0000519",
+      "HP:0000618",
+      "HP:0000365",
+      "HP:0000124",
+      "HP:0000787",
+      "HP:0000938",
+      "HP:0002650",
+      "HP:0000268",
+      "HP:0000218",
+      "HP:0000369",
+      "HP:0002835",
+      "HP:0006532"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "GEMIN4"
+    ],
+    "treatments": [
+      "Antiseizure medication",
+      "Cataract surgery",
+      "Enteral tube feeding",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Microcephaly_Cataracts_And_Renal_Abnormalities.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Microcephaly,_Cataracts,_And_Renal_Abnormalities.html",
+    "num_phenotypes": 26,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Neurodevelopmental Disorder With Poor Growth, Large Ears, And Dysmorphic Facies",
@@ -367196,6 +367787,156 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Teebi Hypertelorism Syndrome 2",
+    "disease_id": "MONDO:0030674",
+    "category": "Mendelian",
+    "parents": [
+      "Teebi Hypertelorism Syndrome",
+      "Craniofacial malformation syndrome"
+    ],
+    "creation_date": "2026-10-22T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Teebi hypertelorism syndrome 2 (TBHS2, OMIM 619736), also called CDH11-related Teebi hypertelorism syndrome, is a rare autosomal dominant craniofacial malformation syndrome caused by heterozygous missense variants in CDH11, which encodes the type II classical cadherin cadherin-11 (OB-cadherin). It was delineated in 2021 in 19 individuals from 9 families; one further de novo case was reported in 2024. Ocular hypertelorism is present in every reported individual, with a broad or high forehead (often with a large anterior fontanelle), thick or broad eyebrows, a short nose with a broad tip and, characteristically, a depressed nasal root, a thin upper lip, a small chin with a horizontal crease, and a high or cleft palate. Heart defects, umbilical defects and hypospadias occur in a subset, minor hand and foot anomalies in about half, and development is normal or only mildly delayed in most. All reported variants are missense changes in the extracellular cadherin (EC) repeats, at residues that mediate trans-homodimerization (EC1) or calcium binding in the inter-domain linkers. Tested variants reduce cadherin-11 trans adhesion in vitro, and patient fibroblasts show immature focal adhesions, absent stress fibres and accelerated migration; the authors favour a dominant-negative effect but do not exclude loss of function. The disorder is allelic to, and phenotypically distinct from, autosomal recessive Elsahy-Waters syndrome caused by biallelic truncating CDH11 variants, and is distinguished from the SPECC1L-associated Teebi hypertelorism syndrome 1 chiefly by the depressed rather than broad or high nasal root.",
+    "pathophysiology": [
+      "Heterozygous CDH11 Extracellular Missense Variant",
+      "Impaired Cadherin-11 Trans Adhesion",
+      "Abnormal Focal Adhesion and Actin Cytoskeleton Organization",
+      "Accelerated Mesenchymal Cell Migration",
+      "Dysregulated Cranial Neural Crest Cell Migration",
+      "Abnormal Craniofacial Morphogenesis",
+      "Abnormal Cardiac Morphogenesis"
+    ],
+    "cell_types": [
+      "patient dermal fibroblast",
+      "migratory cranial neural crest cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000008"
+    ],
+    "biological_processes": [
+      "cell-cell adhesion mediated by cadherin",
+      "focal adhesion assembly",
+      "stress fiber assembly",
+      "lamellipodium assembly (delayed)",
+      "fibroblast migration",
+      "neural crest cell migration",
+      "face morphogenesis",
+      "heart development"
+    ],
+    "phenotypes": [
+      "Hypertelorism",
+      "Broad forehead",
+      "Wide anterior fontanel",
+      "Thick eyebrow",
+      "Depressed nasal bridge",
+      "Broad nasal tip",
+      "Short nose",
+      "Thin upper lip vermilion",
+      "Small chin with horizontal crease",
+      "High or cleft palate",
+      "Proptosis",
+      "Ptosis",
+      "Everted lower lip vermilion",
+      "Microdontia",
+      "Delayed eruption of teeth",
+      "Upper eyelid coloboma",
+      "Strabismus",
+      "Abnormal heart morphology",
+      "Abnormal umbilicus morphology",
+      "Hypospadias",
+      "Shawl scrotum",
+      "Clinodactyly of the 5th finger",
+      "Broad thumb",
+      "Tapered finger",
+      "Cutaneous syndactyly",
+      "Pectus excavatum",
+      "Vertebral fusion",
+      "Neurodevelopmental delay",
+      "Delayed speech and language development",
+      "Autistic behavior",
+      "Attention deficit hyperactivity disorder"
+    ],
+    "phenotype_categories": [
+      "Craniofacial",
+      "Ocular",
+      "Dental",
+      "Cardiovascular",
+      "Abdominal",
+      "Genitourinary",
+      "Skeletal",
+      "Neurodevelopmental",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000316",
+      "HP:0000337",
+      "HP:0000260",
+      "HP:0000574",
+      "HP:0005280",
+      "HP:0000455",
+      "HP:0003196",
+      "HP:0000219",
+      "HP:0011823",
+      "HP:0000174",
+      "HP:0000520",
+      "HP:0000508",
+      "HP:0000232",
+      "HP:0000691",
+      "HP:0000684",
+      "HP:0000636",
+      "HP:0000486",
+      "HP:0001627",
+      "HP:0001551",
+      "HP:0000047",
+      "HP:0000049",
+      "HP:0004209",
+      "HP:0011304",
+      "HP:0001182",
+      "HP:0012725",
+      "HP:0000767",
+      "HP:0002948",
+      "HP:0012758",
+      "HP:0000750",
+      "HP:0000729",
+      "HP:0007018"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "CDH11"
+    ],
+    "treatments": [
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Teebi_Hypertelorism_Syndrome_2.yaml",
+    "page_url": "../pages/disorders/Teebi_Hypertelorism_Syndrome_2.html",
+    "num_phenotypes": 31,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Temple-Baraitser Syndrome",
     "disease_id": "MONDO:0012735",
     "category": "Mendelian",
@@ -392807,17 +393548,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3640,
+  "total_disorder_pages": 3646,
   "total_subtypes": 4839,
-  "total_disorders_and_subtypes": 8479,
-  "total_unique_evidence_sources": 54346,
-  "total_unique_publications": 50753,
+  "total_disorders_and_subtypes": 8485,
+  "total_unique_evidence_sources": 54392,
+  "total_unique_publications": 50798,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3637,
-  "total_unique_pathological_events": 24017,
+  "total_pathographs": 3643,
+  "total_unique_pathological_events": 24050,
   "total_modules": 197,
-  "total_research_reports": 3768,
+  "total_research_reports": 3774,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 120
