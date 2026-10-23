@@ -11,6 +11,8 @@ them to the structured-source rebuild instead; this pins that routing.
 from __future__ import annotations
 
 import re
+import subprocess
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -99,9 +101,6 @@ def _run_recipe(tmp_path: Path, *args: str):
     """Run the recipe body with `{{identifiers}}` substituted the way `just`
     does (space-joined, unquoted) against a stub validator that records its
     argv, so nothing is fetched."""
-    import subprocess
-    import textwrap
-
     body = textwrap.dedent(_fetch_reference_recipe())
     script = tmp_path / "recipe.sh"
     script.write_text(body.replace("{{identifiers}}", " ".join(args)))
@@ -110,7 +109,7 @@ def _run_recipe(tmp_path: Path, *args: str):
     stub.write_text('#!/usr/bin/env bash\necho "LRV: $*"\n')
     stub.chmod(0o755)
     return subprocess.run(
-        ["bash", str(script)], cwd=tmp_path, capture_output=True, text=True
+        ["bash", str(script)], check=False, cwd=tmp_path, capture_output=True, text=True
     )
 
 
