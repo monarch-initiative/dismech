@@ -106,9 +106,22 @@ PRODUCT1_XML = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 
+# The source refuses to build from product1 alone (#13941), so the other four
+# products are present but empty.
+EMPTY_PRODUCT_XML = '<?xml version="1.0" encoding="UTF-8"?>\n<JDBOR/>\n'
+OTHER_PRODUCTS = (
+    "en_product4.xml",
+    "en_product6.xml",
+    "en_product9_prev.xml",
+    "en_product9_ages.xml",
+)
+
+
 @pytest.fixture()
 def orphanet_source(tmp_path: Path) -> OrphanetSource:
     (tmp_path / "en_product1.xml").write_text(PRODUCT1_XML, encoding="utf-8")
+    for name in OTHER_PRODUCTS:
+        (tmp_path / name).write_text(EMPTY_PRODUCT_XML, encoding="utf-8")
     src = OrphanetSource(tmp_path)
     src.index()
     return src
