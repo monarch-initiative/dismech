@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from dismech.compare.mondo_priority import iter_covered_mondo_ids
+from dismech.repo_root import repo_root
 from dismech.yaml_io import safe_load
 
 MONDO_ID_PATTERN = re.compile(r"^MONDO:[0-9]{7}$")
@@ -93,7 +94,8 @@ def entry_label_strings(data: dict[str, Any]) -> list[str]:
 
 
 def default_repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    """The checkout the command runs in, not the one this file was loaded from (#15109)."""
+    return repo_root()
 
 
 def default_stub_dir() -> Path:
