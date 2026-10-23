@@ -34,9 +34,12 @@ app = typer.Typer(
     help="Inspect and maintain the curation stub queue under stubs/.",
 )
 
+# A factory, not a value, so the default is the checkout the command runs in
+# rather than whichever was current when this module was imported (#15109).
 _STUB_DIR_OPTION = typer.Option(
-    default_stub_dir(),
+    ...,
     "--stub-dir",
+    default_factory=default_stub_dir,
     file_okay=False,
     dir_okay=True,
     resolve_path=True,
@@ -105,6 +108,14 @@ def next_command(
         "--include-claimed",
         help="Do not filter out diseases with an open claim issue.",
     ),
+    include_stale: bool = typer.Option(
+        False,
+        "--include-stale",
+        help=(
+            "Do not filter out stale stubs (disease already curated, or MONDO "
+            "term retired with no replacement)."
+        ),
+    ),
     alpha: bool = typer.Option(
         False, "--alpha", help="Sort alphabetically within a band instead of by hash."
     ),
@@ -130,12 +141,31 @@ def next_command(
     spread — there is no computed score, and no ranking within a band. This is a
     pool to choose from, not a recommendation: pick the disease you actually
     know something about rather than the first row.
+
+    Stale stubs (`already_curated`, `obsolete_term`; see `STALE_KINDS`) are left
+    out, because `tidy` would delete them and nobody should claim one in the
+    meantime. Every other advisory `check` raises on a stub, such as
+    `possible_kb_duplicate`, keeps it in the pool and is printed beside it, so
+    the lump/split call is made before the claim rather than after.
     """
     stubs = [
         s
         for s in load_stubs(stub_dir)
         if s.status == "OPEN" and s.entry_type in {"UNDECIDED", "DISEASE"}
     ]
+
+    # Reuse `check`'s own classification rather than re-deriving staleness here,
+    # so `next` and `tidy` can never disagree about which stubs are stale.
+    advisories: dict[Path, list] = {}
+    for issue in check_stubs(stub_dir):
+        if issue.path is not None and issue.severity != "error":
+            advisories.setdefault(issue.path, []).append(issue)
+    if not include_stale:
+        stubs = [
+            s
+            for s in stubs
+            if not any(i.kind in STALE_KINDS for i in advisories.get(s.path, []))
+        ]
 
     claimed = _load_claim_index(claims_path)
     if claimed is not None and not include_claimed:
@@ -159,6 +189,10 @@ def next_command(
                         "stub_path": str(s.path.relative_to(Path.cwd()))
                         if s.path.is_relative_to(Path.cwd())
                         else str(s.path),
+                        "advisories": [
+                            {"kind": i.kind, "message": i.message}
+                            for i in advisories.get(s.path, [])
+                        ],
                     }
                     for s in picked
                 ],
@@ -173,6 +207,8 @@ def next_command(
     for stub in picked:
         typer.echo(f"{stub.priority:6s} {stub.mondo_id}  {stub.label}")
         typer.echo(f"       {stub.path.name}")
+        for issue in advisories.get(stub.path, []):
+            typer.echo(f"       [advisory] {issue.kind}: {issue.message}")
 
 
 def _read_json_arg(path: str | None):

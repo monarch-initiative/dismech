@@ -26,10 +26,8 @@ from dismech.entity_refs import (
     canonical_kind,
     section_items,
 )
-from dismech.export.browser_export import (
-    HPO_CATEGORY_CACHE_PATH,
-    HPO_TOP_LEVEL_CATEGORIES,
-)
+from dismech.export import browser_export
+from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.export.utils import RESEARCH_REPORT_PATTERN, slugify
 from dismech.graph import (
     animal_model_label,
@@ -47,6 +45,7 @@ from dismech.module_collections import (
 )
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
+from dismech.repo_root import LazyRepoPaths
 from dismech.research_reports import strip_run_suffix
 from dismech.term_labels import label_restates_title
 from dismech.term_tooltips import sample_type_descriptor, term_tooltip
@@ -126,11 +125,28 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     return env
 
 
-# Resolved from the package location rather than the working directory, and
-# shared with `browser_export`, which writes it. The exporter now reads it back
-# as its seed, so writer and both readers agree on one path.
-_HPO_CATEGORY_CACHE_PATH = HPO_CATEGORY_CACHE_PATH
-_PATHOGRAPH_STATS_PATH = pathograph_stats.PATHOGRAPH_STATS_PATH
+# Checkout paths, resolved through `dismech.repo_root` when read rather than
+# frozen at import (#15109): the checkout at or above the working directory,
+# falling back to the tree this package was loaded from, so rendering from a
+# directory outside any checkout behaves as it did when these were resolved
+# from `__file__`. The HPO category cache is shared with `browser_export`,
+# which writes it and reads it back as its seed, so writer and both readers
+# agree on one path; the pathograph statistics likewise come from
+# `pathograph_stats`. A value assigned onto the module (as tests do) wins.
+_PATHS = LazyRepoPaths(
+    __name__,
+    _HPO_CATEGORY_CACHE_PATH=lambda root: browser_export.HPO_CATEGORY_CACHE_PATH,
+    _PATHOGRAPH_STATS_PATH=lambda root: pathograph_stats.PATHOGRAPH_STATS_PATH,
+    #: Committed dismech-perturb run artifacts and the model folders.
+    MODEL_RUNS_DIR=lambda root: root / "exports" / "model_runs",
+    MODELS_ROOT=lambda root: root / "models",
+    # Anchored to the checkout rather than taken relative to the CWD: render is
+    # called from many working directories, and a CWD-relative path would
+    # silently drop every preprint badge (the OSError in
+    # `_reference_is_preprint` would swallow the miss).
+    _REFERENCES_CACHE_DIR=lambda root: root / "references_cache",
+)
+__getattr__ = _PATHS.module_getattr
 _FDA_SURROGATE_ENDPOINTS_RELATIVE_PATH = Path(
     "surrogate_endpoints/fda_surrogate_endpoints.yaml"
 )
@@ -155,11 +171,16 @@ _RELATIVE_URL_ATTR_PATTERN = re.compile(
 _CATEGORY_ORDER = list(HPO_TOP_LEVEL_CATEGORIES.values())
 
 
-@lru_cache(maxsize=1)
 def _load_hpo_category_cache() -> dict[str, list[str]]:
     """Load the HP-term-to-category cache written by browser_export."""
-    if _HPO_CATEGORY_CACHE_PATH.exists():
-        return json.loads(_HPO_CATEGORY_CACHE_PATH.read_text())
+    return _read_hpo_category_cache(_PATHS.get("_HPO_CATEGORY_CACHE_PATH"))
+
+
+@lru_cache(maxsize=8)
+def _read_hpo_category_cache(cache_path: Path) -> dict[str, list[str]]:
+    """Keyed on the resolved path, so a later checkout is not served the first one's file."""
+    if cache_path.exists():
+        return json.loads(cache_path.read_text())
     return {}
 
 
@@ -180,7 +201,7 @@ def _pathograph_mean_edge_count(disorders_dir: Path) -> int | None:
     causal graph. Only when that file is absent is the mean computed by walking
     ``disorders_dir``.
     """
-    stats = pathograph_stats.read_stats(_PATHOGRAPH_STATS_PATH)
+    stats = pathograph_stats.read_stats(_PATHS.get("_PATHOGRAPH_STATS_PATH"))
     if stats is not None and "mean_edge_count" in stats:
         return stats["mean_edge_count"]
     return pathograph_stats.compute_mean_edge_count(disorders_dir)
@@ -557,10 +578,7 @@ def _build_has_local_disorder_slug_filter(
     return _has_local_disorder_slug_page
 
 
-#: Committed dismech-perturb run artifacts, resolved from the package location
-#: so rendering does not depend on the working directory.
-MODEL_RUNS_DIR = Path(__file__).resolve().parents[2] / "exports" / "model_runs"
-MODELS_ROOT = Path(__file__).resolve().parents[2] / "models"
+# MODEL_RUNS_DIR and MODELS_ROOT are lazy module attributes; see `_PATHS` above.
 
 
 def _make_anchor_id(prefix: str, value: str) -> str:
@@ -1080,7 +1098,9 @@ def _annotate_model_links(
             model_id = model.get("model_id")
             authored = (
                 bool(model_id)
-                and (model_dir(str(model_id), MODELS_ROOT) / SPEC_NAME).is_file()
+                and (
+                    model_dir(str(model_id), _PATHS.get("MODELS_ROOT")) / SPEC_NAME
+                ).is_file()
             )
             for variable in model.get("variables") or []:
                 if not isinstance(variable, dict):
@@ -1098,16 +1118,20 @@ def _annotate_model_links(
             # they live in exports/model_runs/ rather than in the KB YAML.
             # A model whose files live in models/<model_id>/ has a generated page
             # of its own (pages/models/<model_id>.html, see dismech.model_pages).
-            if model_id and model_dir(str(model_id), MODELS_ROOT).is_dir():
+            if (
+                model_id
+                and model_dir(str(model_id), _PATHS.get("MODELS_ROOT")).is_dir()
+            ):
                 model["_model_page_href"] = f"../models/{model_id}.html"
                 model["_model_runs_in_browser"] = (
-                    model_dir(str(model_id), MODELS_ROOT) / BROWSER_RUNNER_NAME
+                    model_dir(str(model_id), _PATHS.get("MODELS_ROOT"))
+                    / BROWSER_RUNNER_NAME
                 ).is_file()
             # Anchored to the repo root, not the CWD: with a relative default,
             # rendering from anywhere else silently drops the results block
             # instead of failing.
             run_results = (
-                load_model_run_results(str(model_id), MODEL_RUNS_DIR)
+                load_model_run_results(str(model_id), _PATHS.get("MODEL_RUNS_DIR"))
                 if model_id
                 else None
             )
@@ -3453,11 +3477,7 @@ _PREPRINT_DOI_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
-# Anchor to the repo root, not the process CWD: render is imported and called
-# from many working directories, and a CWD-relative path would silently drop
-# every preprint badge (the OSError below would swallow the miss). Mirrors the
-# `_REPO_ROOT / "references_cache"` idiom in ictrp_audit.py.
-_REFERENCES_CACHE_DIR = Path(__file__).resolve().parents[2] / "references_cache"
+# _REFERENCES_CACHE_DIR is a lazy module attribute; see `_PATHS` near the top.
 
 #: Frontmatter key a research recipe writes to record which revision of the
 #: prompt produced a report (issue #10183).
@@ -3481,7 +3501,8 @@ def _reference_is_preprint(reference: str | None) -> bool:
     if prefix.upper() == "DOI" and _PREPRINT_DOI_RE.match(local):
         return True
     cache_path = (
-        _REFERENCES_CACHE_DIR / f"{prefix.upper()}_{local.replace('/', '_')}.md"
+        _PATHS.get("_REFERENCES_CACHE_DIR")
+        / f"{prefix.upper()}_{local.replace('/', '_')}.md"
     )
     try:
         with cache_path.open(encoding="utf-8") as handle:
@@ -4129,10 +4150,11 @@ def _logic_view(node: dict | None) -> dict | None:
             chip = _term_chip(node.get(slot))
             if chip:
                 chips.append(chip)
-        for bp in node.get("biological_processes") or []:
-            chip = _term_chip(bp)
-            if chip:
-                chips.append(chip)
+        for slot in ("biological_processes", "molecular_functions"):
+            for descriptor in node.get(slot) or []:
+                chip = _term_chip(descriptor)
+                if chip:
+                    chips.append(chip)
         view["terms"] = chips
     return view
 
@@ -4185,10 +4207,11 @@ def _leaf_term_ids(node: dict) -> list[str]:
         chip = _term_chip(node.get(slot))
         if chip:
             ids.append(chip["id"])
-    for bp in node.get("biological_processes") or []:
-        chip = _term_chip(bp)
-        if chip:
-            ids.append(chip["id"])
+    for slot in ("biological_processes", "molecular_functions"):
+        for descriptor in node.get(slot) or []:
+            chip = _term_chip(descriptor)
+            if chip:
+                ids.append(chip["id"])
     return ids
 
 

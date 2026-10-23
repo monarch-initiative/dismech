@@ -31,9 +31,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_DEFAULT_KB = _REPO_ROOT / "kb"
-_DEFAULT_CACHE = _REPO_ROOT / "references_cache"
+from dismech.repo_root import repo_root
 
 # Registry identifier shapes seen in the wild. EudraCT is included even though
 # ICTRP keys those records as ``EUCTR<number>-<country>``: curators write the
@@ -80,7 +78,7 @@ class Hit:
     @property
     def relative_path(self) -> str:
         try:
-            return str(self.path.relative_to(_REPO_ROOT))
+            return str(self.path.relative_to(repo_root()))
         except ValueError:
             return str(self.path)
 
@@ -199,14 +197,16 @@ def format_tsv(hits: list[Hit]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Resolved from the working directory, so a worktree audits its own KB (#15109).
+    root = repo_root()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
-        "--kb-dir", type=Path, default=_DEFAULT_KB, help="KB root to scan"
+        "--kb-dir", type=Path, default=root / "kb", help="KB root to scan"
     )
     parser.add_argument(
         "--cache-dir",
         type=Path,
-        default=_DEFAULT_CACHE,
+        default=root / "references_cache",
         help="references_cache directory",
     )
     parser.add_argument(
