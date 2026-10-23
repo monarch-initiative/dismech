@@ -26,8 +26,11 @@ Numbering continues from round 1 so that "proposal 3" always means the same clas
 The definition-text hits are single diseases whose definitions mention the
 mechanism; they are listed under each proposal and none is a class.
 
-Proposal 11 has a backing grouping, `kb/groupings/Membrane_Contact_Site_Disorders.yaml`,
-added with this document. Proposals 12 to 14 do not yet; see "Next steps".
+Each proposal has a backing dismech grouping, so membership can be audited with
+`just check-groupings` before anything goes to MONDO:
+`Membrane_Contact_Site_Disorders` (proposal 11), `mTORopathies` (12),
+`Mendelian_Disorders_of_the_Epigenetic_Machinery` (13) and
+`Hereditary_Desmosomopathies` (14).
 
 ## 1. Status of the round-1 proposals
 
@@ -196,7 +199,11 @@ MONDO's cryopyrin-associated periodic syndrome).
   "mTORC1" appears only in the definition of `MONDO:0976294 ragopathy`, a single
   syndrome under `MONDO:0002254 syndromic disease` with no children.
 - **dismech provenance:** `kb/modules/mtorc1_hyperactivation.yaml` (13
-  conforming files, 8 germline members). No backing grouping yet.
+  conforming files, 8 germline members) and
+  `kb/groupings/mTORopathies.yaml`. The grouping has 9 members: the 8 above plus
+  `DEPDC5-Related_Epilepsy`, whose broad MONDO anchor matters for a MONDO member
+  list but not for dismech. Sleep-related hypermotor epilepsy is listed as its
+  DEPDC5 subtype only.
 
 ### 3.3 Proposal 13: Mendelian disorder of the epigenetic machinery
 
@@ -253,7 +260,9 @@ MONDO's cryopyrin-associated periodic syndrome).
   regulator" and "chromatin modifier" return nothing in any pass.
 - **dismech provenance:**
   `kb/modules/epigenetic_machinery_neurodevelopmental_dysregulation.yaml`
-  (26 conforming files, all germline). No backing grouping yet.
+  (26 conforming files, all germline) and
+  `kb/groupings/Mendelian_Disorders_of_the_Epigenetic_Machinery.yaml` (26
+  members).
 
 ### 3.4 Proposal 14: hereditary desmosomopathy
 
@@ -289,8 +298,10 @@ MONDO's cryopyrin-associated periodic syndrome).
   overlap without being equivalent. "desmosom" appears only in the definitions
   of `MONDO:0008017` and `MONDO:0011581`.
 - **dismech provenance:** `kb/modules/desmosomal_adhesion_failure.yaml`
-  (13 conforming files, 7 germline). No backing grouping yet; it would need a
-  `HAS_GENE` or germline criterion to keep pemphigus out.
+  (13 conforming files, 7 germline) and
+  `kb/groupings/Hereditary_Desmosomopathies.yaml` (7 members). A second
+  `HAS_GENE` criterion over the desmosomal genes keeps the pemphigus and
+  calcium-pump conformers out.
 
 ### Runner-up: JAK-STAT gain-of-function inborn error of immunity
 
@@ -310,9 +321,8 @@ one of them a broad class, is too thin to propose yet.
    was never filed. A single batch to MONDO covering the strongest of both rounds
    (round-1 proposals 1 to 7 and proposals 11 to 13 here) would let MONDO weigh
    the mechanism axis as a whole rather than one class at a time.
-2. **Add backing groupings** for proposals 12, 13 and 14, so membership is
-   auditable with `just check-groupings` before anything goes upstream, as round
-   1 did. Proposal 14 needs a germline restriction in its criteria.
+2. **Backing groupings are in place** for proposals 11 to 14, so membership is
+   auditable with `just check-groupings`, as it was for round 1.
 3. **Settle the boundary cases:** Peutz-Jeghers syndrome in proposal 12, Cornelia
    de Lange syndrome in proposal 13, and MFN2-related Charcot-Marie-Tooth disease
    for proposal 11, which needs a contact-site node in its dismech entry first.
