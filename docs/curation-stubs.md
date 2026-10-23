@@ -208,8 +208,17 @@ do not remove a stub, because they need a person's call: a
 `possible_kb_duplicate` (an entry with the same name under a different MONDO
 ID), a scheduled obsoletion, or a merged term to repoint. They are printed under
 the stub, and listed as `advisories` in `--json` output, so the lump/split
-decision is made before the claim. Classifying the queue means reading every KB
-file, so `next-stubs` and `next-unclaimed` take about half a minute.
+decision is made before the claim. Classifying the queue needs the MONDO IDs and
+labels of every KB entry, and parsing them all takes about half a minute, so the
+derived index is kept between runs in the gitignored
+`tmp/stub_coverage_index.json` (#15116). The first run in a checkout is cold;
+after that `next-stubs` and `next-unclaimed` take about a second and a half, and
+an edited entry costs one re-parse. A file is re-read only when its size or
+mtime changes and re-parsed only when its content hash does; deleted entries
+drop out. `DISMECH_KB_CACHE=0` turns the cache off, and
+`DISMECH_STUB_COVERAGE_CACHE` moves it. Bump `COVERAGE_CACHE_VERSION` in
+`src/dismech/stubs/model.py` when a change to the label or ID extraction would
+derive something different from the same file.
 
 If you want a disease curated sooner, open a PR raising its `priority` and say
 why in `notes`. That is a reviewable claim other people can disagree with, which

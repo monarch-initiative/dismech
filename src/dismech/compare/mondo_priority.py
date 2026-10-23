@@ -242,6 +242,9 @@ def iter_covered_mondo_ids(
     listed as subtypes) are correctly identified as already covered. Broad,
     close, and related mappings are cross-references, not assertions that the
     mapped MONDO concept itself has been curated.
+
+    `dismech.stubs.model.build_coverage_index` persists what this returns per
+    file between runs; bump its `COVERAGE_CACHE_VERSION` when changing it.
     """
     pairs: list[tuple[str, str]] = []
 
