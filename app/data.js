@@ -52865,6 +52865,7 @@ window.searchData = [
     ],
     "treatments": [
       "Tumor surveillance (abdominal ultrasound and serum AFP)",
+      "Neuroblastoma surveillance (CDKN1C subgroup)",
       "Hyperinsulinism management",
       "Tongue reduction surgery",
       "Omphalocele repair",
@@ -52877,7 +52878,7 @@ window.searchData = [
     "num_phenotypes": 17,
     "num_pathophysiology": 4,
     "num_genes": 4,
-    "num_treatments": 5,
+    "num_treatments": 6,
     "causal_graph_edges": "29",
     "causal_graph_longest_path": "4"
   },
@@ -102760,7 +102761,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "13",
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "4"
   },
   {
@@ -268530,6 +268531,8 @@ window.searchData = [
       "Anti-GD2 Antibody-Mediated Tumor Cell Killing",
       "Telomerase Activation",
       "Reduced ATRX/DAXX Complex Abundance",
+      "Intratumoral Lymphoid Infiltration with Lymphoid Follicles",
+      "Cerebellar and Brainstem-Directed B- and T-Cell Autoimmunity",
       "Alternative Lengthening of Telomeres",
       "Unlimited Replicative Potential",
       "Adrenergic and Mesenchymal Cell-State Plasticity",
@@ -268539,11 +268542,15 @@ window.searchData = [
     ],
     "cell_types": [
       "neural crest derived neuroblast",
+      "B cell",
+      "T cell",
       "neural crest cell-like (mesenchymal) tumour cell state",
       "adrenergic (noradrenergic) tumour cell state"
     ],
     "cell_type_ids": [
       "CL:0002676",
+      "CL:0000236",
+      "CL:0000084",
       "CL:0011012"
     ],
     "biological_processes": [
@@ -268554,6 +268561,8 @@ window.searchData = [
       "antibody-dependent cellular cytotoxicity against neuroblastoma cells",
       "complement-dependent cytotoxicity against neuroblastoma cells",
       "telomere maintenance via telomerase",
+      "B cell activation",
+      "T cell activation",
       "telomere maintenance via recombination",
       "reversible switching between two tumour cell identities",
       "chromatin remodelling accompanying the identity switch",
@@ -268572,6 +268581,7 @@ window.searchData = [
       "Diarrhea",
       "Horner Syndrome",
       "Spinal Cord Compression",
+      "Opsoclonus-Myoclonus-Ataxia Syndrome",
       "Anemia",
       "Thrombocytopenia",
       "Hepatomegaly",
@@ -268613,6 +268623,7 @@ window.searchData = [
       "HP:0005208",
       "HP:0002277",
       "HP:0002176",
+      "MONDO:0015247",
       "HP:0001903",
       "HP:0001873",
       "HP:0002240",
@@ -268649,11 +268660,11 @@ window.searchData = [
     ],
     "source_file": "Neuroblastoma.yaml",
     "page_url": "../pages/disorders/Neuroblastoma.html",
-    "num_phenotypes": 15,
-    "num_pathophysiology": 14,
+    "num_phenotypes": 16,
+    "num_pathophysiology": 16,
     "num_genes": 7,
     "num_treatments": 9,
-    "causal_graph_edges": "22",
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "4"
   },
   {
@@ -384452,7 +384463,8 @@ window.searchData = [
       "HP:0003006"
     ],
     "frequencies": [
-      "VERY_FREQUENT"
+      "VERY_FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [
       "EZH2"
@@ -392798,12 +392810,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3640,
   "total_subtypes": 4839,
   "total_disorders_and_subtypes": 8479,
-  "total_unique_evidence_sources": 54326,
-  "total_unique_publications": 50733,
+  "total_unique_evidence_sources": 54346,
+  "total_unique_publications": 50753,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
   "total_pathographs": 3637,
-  "total_unique_pathological_events": 24015,
+  "total_unique_pathological_events": 24017,
   "total_modules": 197,
   "total_research_reports": 3768,
   "total_classifications": 21,
