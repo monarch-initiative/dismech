@@ -91,9 +91,15 @@ def test_last_pass_reports_on_the_working_tree(tree: Path):
     ],
 )
 def test_module_paths_follow_the_working_directory(
-    tree: Path, module: str, attribute: str, relative: str
+    tree: Path, module: str, attribute: str, relative: str, monkeypatch
 ):
-    value = getattr(importlib.import_module(module), attribute)
+    mod = importlib.import_module(module)
+    # An earlier test in the same worker that monkeypatched this constant leaves
+    # the restored value behind as a plain module attribute, which shadows the
+    # lazy lookup. Drop it for this test so the lazy path is what is checked.
+    if attribute in vars(mod):
+        monkeypatch.delitem(vars(mod), attribute)
+    value = getattr(mod, attribute)
     assert value == tree / relative
 
 
