@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import csv
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -72,26 +71,6 @@ from check_granularity import (
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "check_granularity.py"
 KB_DIR = ROOT / "kb" / "disorders"
-
-
-@pytest.fixture(autouse=True)
-def _restore_kb_cache_env():
-    """Keep ``main()``'s ``kb_cache.default_off()`` inside this test.
-
-    ``default_off()`` belongs in ``main()`` (CLAUDE.md), but it sets a
-    process-wide environment variable; without this the parsed-KB cache stays
-    disabled for every test that runs after this module in the same process.
-    Copied from ``tests/test_disconnected_phenotypes.py``.
-    """
-    sentinel = object()
-    before = os.environ.get("DISMECH_KB_CACHE", sentinel)
-    try:
-        yield
-    finally:
-        if before is sentinel:
-            os.environ.pop("DISMECH_KB_CACHE", None)
-        else:
-            os.environ["DISMECH_KB_CACHE"] = before
 
 
 # --------------------------------------------------------------------------
@@ -378,8 +357,15 @@ def test_undecided_lump_is_advisory_and_a_recorded_one_is_informational(corpus, 
         (WAIVER_LONG, True),
         (WAIVER_SHORT, False),
         ("Prose that merely mentions " + WAIVER_LONG, False),
+        # Both scalar styles must waive. A folded scalar (`>-`) renders a
+        # paragraph break as one newline and a literal scalar (`|-`) as two;
+        # the first implementation accepted only the latter, so an honest
+        # waiver written in the KB's dominant prose style was silently
+        # ignored and TAXON_LUMP kept firing with nothing to explain it.
         ("First paragraph.\n\n" + WAIVER_LONG, True),
-        ("First paragraph.\n" + WAIVER_LONG, False),
+        ("First paragraph.\n" + WAIVER_LONG, True),
+        # A folded scalar indents its continuation lines.
+        ("First paragraph.\n   " + WAIVER_LONG, True),
     ],
 )
 def test_lump_waiver_needs_the_sentinel_at_a_paragraph_start_and_reasoning_after_it(

@@ -18,7 +18,7 @@ import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from dismech import hierarchy_cache, kb_cache, oak_db
+from dismech import hierarchy_cache, kb_cache, oak_db, pathograph_stats
 from dismech.entity_refs import (
     DISEASE_KIND,
     SECTION_KEYS,
@@ -38,6 +38,8 @@ from dismech.graph import (
     graph_to_json,
     iter_variant_items,
 )
+from dismech.model_pages import render_all_model_pages
+from dismech.model_registry import BROWSER_RUNNER_NAME, SPEC_NAME, model_dir
 from dismech.module_collections import (
     build_module_collection_tree,
     load_module_collections,
@@ -45,6 +47,7 @@ from dismech.module_collections import (
 )
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
+from dismech.research_reports import strip_run_suffix
 from dismech.term_labels import label_restates_title
 from dismech.term_tooltips import sample_type_descriptor, term_tooltip
 from dismech.treatment_platform import treatment_platform_label
@@ -115,6 +118,11 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # into the template so the vocabulary and its prose stay in one place, the
     # same rule `module_categories` follows.
     env.globals["quote_role_tooltip"] = quote_role_tooltip
+    # File name of an evidence artifact image, for its caption. Registered here
+    # rather than by the disorder renderer because the evidence partial
+    # (_evidence.html.j2) is compiled into module pages too (#10329), and a
+    # missing filter fails at compile time even when no evidence has images.
+    env.filters["basename"] = lambda p: Path(p).name
     return env
 
 
@@ -122,6 +130,7 @@ def _get_shared_env(template_dir_str: str) -> Environment:
 # shared with `browser_export`, which writes it. The exporter now reads it back
 # as its seed, so writer and both readers agree on one path.
 _HPO_CATEGORY_CACHE_PATH = HPO_CATEGORY_CACHE_PATH
+_PATHOGRAPH_STATS_PATH = pathograph_stats.PATHOGRAPH_STATS_PATH
 _FDA_SURROGATE_ENDPOINTS_RELATIVE_PATH = Path(
     "surrogate_endpoints/fda_surrogate_endpoints.yaml"
 )
@@ -152,6 +161,70 @@ def _load_hpo_category_cache() -> dict[str, list[str]]:
     if _HPO_CATEGORY_CACHE_PATH.exists():
         return json.loads(_HPO_CATEGORY_CACHE_PATH.read_text())
     return {}
+
+
+def _phenotype_primary_category(hp_id: str | None) -> str | None:
+    """Return the HPO broad category a phenotype card is filed under, if any."""
+    if not hp_id:
+        return None
+    categories = _load_hpo_category_cache().get(hp_id) or []
+    return categories[0] if categories else None
+
+
+@lru_cache(maxsize=8)
+def _pathograph_mean_edge_count(disorders_dir: Path) -> int | None:
+    """Mean pathograph edge count the page compares itself against (#14539).
+
+    Read from the committed ``cache/pathograph_stats.json``, which the page
+    build rewrites, so a single-file render does not build every disorder's
+    causal graph. Only when that file is absent is the mean computed by walking
+    ``disorders_dir``.
+    """
+    stats = pathograph_stats.read_stats(_PATHOGRAPH_STATS_PATH)
+    if stats is not None and "mean_edge_count" in stats:
+        return stats["mean_edge_count"]
+    return pathograph_stats.compute_mean_edge_count(disorders_dir)
+
+
+def _add_pathograph_grouping_context(
+    pathograph_data: str, disorder: dict, mean_edge_count: int | None
+) -> str:
+    """Attach the keys the client-side "Group by" control groups on.
+
+    Each node gains ``group_keys`` (a phenotype's HPO broad category, the
+    module stems a pathophysiology node conforms to), and the payload gains
+    ``grouping.mean_edge_count``. Nothing is collapsed here: grouping happens
+    in the page script, so the node and edge lists stay as graph.py built them.
+    """
+    if not pathograph_data:
+        return pathograph_data
+    data = json.loads(pathograph_data)
+    modules_by_name: dict[str, list[str]] = {}
+    for item in disorder.get("pathophysiology") or []:
+        if not isinstance(item, dict) or not item.get("name"):
+            continue
+        refs = item.get("conforms_to") or []
+        if isinstance(refs, str):
+            refs = [refs]
+        stems = [str(ref).split("#", 1)[0] for ref in refs if ref]
+        if stems:
+            modules_by_name[item["name"]] = list(dict.fromkeys(stems))
+    for node in data.get("nodes", []):
+        keys: dict[str, object] = {}
+        if node.get("node_type") == "phenotype":
+            category = _phenotype_primary_category(
+                (node.get("meta") or {}).get("term_id")
+            )
+            if category:
+                keys["phenotype_system"] = category
+        elif (
+            node.get("node_type") == "pathophysiology" and node["id"] in modules_by_name
+        ):
+            keys["modules"] = modules_by_name[node["id"]]
+        if keys:
+            node["group_keys"] = keys
+    data["grouping"] = {"mean_edge_count": mean_edge_count}
+    return json.dumps(data)
 
 
 def _group_phenotypes_by_category(
@@ -405,6 +478,28 @@ def _build_dismech_page_url_filter(
     return _curie_to_dismech_url
 
 
+def _build_gene_page_url_filter(disorders_dir: Path) -> Callable[[str], str | None]:
+    """Resolve an HGNC CURIE to its ``pages/genes/`` page, if the gene has one.
+
+    Uses the gene-page rule itself (``dismech.genes.render.gene_page_ids``), so
+    a disorder page links exactly the genes the gene build writes pages for.
+    """
+    from dismech.genes.render import gene_page_ids, gene_page_name
+    from dismech.genes.slice import normalize_hgnc_id
+
+    kb_root = str(disorders_dir.resolve().parent)
+
+    def _gene_page_url(curie: str) -> str | None:
+        hgnc_id = normalize_hgnc_id(curie)
+        # Resolved on first use, not when the filter is built, so a page
+        # with no gene chip never pays for the KB walk. Memoised per KB root.
+        if hgnc_id is None or hgnc_id not in gene_page_ids(kb_root):
+            return None
+        return f"../genes/{gene_page_name(hgnc_id)}"
+
+    return _gene_page_url
+
+
 def _build_has_local_disorder_filter(
     disorders_dir: Path,
 ) -> Callable[[str], bool]:
@@ -465,6 +560,7 @@ def _build_has_local_disorder_slug_filter(
 #: Committed dismech-perturb run artifacts, resolved from the package location
 #: so rendering does not depend on the working directory.
 MODEL_RUNS_DIR = Path(__file__).resolve().parents[2] / "exports" / "model_runs"
+MODELS_ROOT = Path(__file__).resolve().parents[2] / "models"
 
 
 def _make_anchor_id(prefix: str, value: str) -> str:
@@ -854,8 +950,16 @@ def _annotate_internal_differential_links(
             diff["dismech_page_href"] = href
 
 
-def _annotate_model_links(disorder: dict) -> None:
-    """Attach in-page anchors and bidirectional model-to-pathophysiology links."""
+def _annotate_model_links(
+    disorder: dict, *, node_anchor_prefix: str = "pathophysiology"
+) -> None:
+    """Attach in-page anchors and bidirectional model-to-pathophysiology links.
+
+    Used for disorder and module pages alike, since both carry the same model
+    sections (#13123). ``node_anchor_prefix`` is the prefix the page uses for
+    its pathophysiology anchors: module pages anchor nodes as
+    ``module-pathophysiology-*`` so that a link resolves to the node's card.
+    """
     pathophysiology_items = disorder.get("pathophysiology") or []
     if not isinstance(pathophysiology_items, list):
         return
@@ -867,7 +971,7 @@ def _annotate_model_links(disorder: dict) -> None:
         name = item.get("name")
         if not name:
             continue
-        item["_anchor_id"] = _make_anchor_id("pathophysiology", name)
+        item["_anchor_id"] = _make_anchor_id(node_anchor_prefix, name)
         item["_experimental_model_links"] = []
         item["_animal_model_links"] = []
         item["_computational_model_links"] = []
@@ -970,19 +1074,35 @@ def _annotate_model_links(disorder: dict) -> None:
             # artifact publishes, so the template never re-derives the rule.
             # `below` thresholds are ratios of baseline, `above` are absolute
             # readings; the template renders the "x baseline" suffix off this.
+            # That is dismech-perturb's evaluation rule. A repository-authored
+            # model (models/<id>/spec.yaml) runs its own comparison, which is
+            # absolute in both directions, so the ratio suffix would misstate it.
+            model_id = model.get("model_id")
+            authored = (
+                bool(model_id)
+                and (model_dir(str(model_id), MODELS_ROOT) / SPEC_NAME).is_file()
+            )
             for variable in model.get("variables") or []:
                 if not isinstance(variable, dict):
                     continue
                 for mapping in variable.get("mappings_list") or []:
                     if isinstance(mapping, dict) and mapping.get("threshold_direction"):
-                        mapping["_threshold_kind"] = threshold_kind(
-                            str(mapping["threshold_direction"])
+                        mapping["_threshold_kind"] = (
+                            "absolute"
+                            if authored
+                            else threshold_kind(str(mapping["threshold_direction"]))
                         )
 
             # Attach the committed dismech-perturb run, when the model has one.
             # Results are derived (regenerated by `just gen-model-results`), so
             # they live in exports/model_runs/ rather than in the KB YAML.
-            model_id = model.get("model_id")
+            # A model whose files live in models/<model_id>/ has a generated page
+            # of its own (pages/models/<model_id>.html, see dismech.model_pages).
+            if model_id and model_dir(str(model_id), MODELS_ROOT).is_dir():
+                model["_model_page_href"] = f"../models/{model_id}.html"
+                model["_model_runs_in_browser"] = (
+                    model_dir(str(model_id), MODELS_ROOT) / BROWSER_RUNNER_NAME
+                ).is_file()
             # Anchored to the repo root, not the CWD: with a relative default,
             # rendering from anywhere else silently drops the results block
             # instead of failing.
@@ -1030,6 +1150,65 @@ def _annotate_model_links(disorder: dict) -> None:
                 )
 
             model["_modeled_mechanisms_resolved"] = resolved_links
+
+    _annotate_proposed_experiment_model_links(disorder, patho_by_name)
+
+
+def _annotate_proposed_experiment_model_links(
+    disorder: dict, patho_by_name: dict[str, dict]
+) -> None:
+    """Resolve pathograph-link anchors for model systems inside a *proposed* experiment.
+
+    A ``Discussion.proposed_experiments`` entry may declare ``model_systems``
+    with ``modeled_mechanisms``, carrying the same ``ModelMechanismLink`` — and
+    so the same ``fidelity``, ``model_scale``, ``limitations`` and typed
+    ``divergences`` — as a curated model. Without this, those caveats are in the
+    YAML and in the exports but invisible on the page, which makes recording a
+    limitation structurally *worse* for a reader than writing it as prose.
+
+    Deliberately resolves the anchor only, and does **not** append to the node's
+    ``_experimental_model_links``. That back-link draws the "models informing
+    this mechanism" crosslink on a pathophysiology card, and a model system that
+    exists solely inside a proposal has not informed anything: listing it there
+    would present a hypothetical as curated evidence. The experiment is reached
+    from the discussion that proposes it, which is the honest route to it.
+    """
+    discussions = disorder.get("discussions") or []
+    if not isinstance(discussions, list):
+        return
+
+    for discussion in discussions:
+        if not isinstance(discussion, dict):
+            continue
+        for experiment in discussion.get("proposed_experiments") or []:
+            if not isinstance(experiment, dict):
+                continue
+            # Controls carry their own model systems with the same shape.
+            model_holders = [experiment]
+            model_holders.extend(
+                control
+                for control in experiment.get("controls") or []
+                if isinstance(control, dict)
+            )
+            for holder in model_holders:
+                for model in holder.get("model_systems") or []:
+                    if not isinstance(model, dict):
+                        continue
+                    resolved_links: list[dict] = []
+                    for link in model.get("modeled_mechanisms") or []:
+                        if not isinstance(link, dict):
+                            continue
+                        target = link.get("target")
+                        if not target:
+                            continue
+                        target_item = patho_by_name.get(str(target))
+                        if target_item is None:
+                            continue
+                        resolved_link = dict(link)
+                        resolved_link["_target_anchor"] = target_item["_anchor_id"]
+                        resolved_links.append(resolved_link)
+                    if resolved_links:
+                        model["_modeled_mechanisms_resolved"] = resolved_links
 
 
 def _coerce_string_list(value: object) -> list[str]:
@@ -1627,14 +1806,12 @@ def _load_module_context(
 
     _annotate_module_usage(module, disorder_usage)
 
-    # Modules validate against the same Disease class, so they can carry
-    # computational_models too. Anchor them with the same scheme the disorder
-    # pages use, so the models browser can deep-link into a module page.
-    for model in module.get("computational_models") or []:
-        if isinstance(model, dict) and model.get("name"):
-            model["_anchor_id"] = _make_anchor_id(
-                "computational-model", str(model["name"])
-            )
+    # Modules validate against the same Disease class, so they carry the same
+    # model sections. Resolve them exactly as a disorder page does -- anchors in
+    # the scheme the models browser deep-links to, pathograph links, variable
+    # thresholds and any committed run -- so the module card is not a thinner
+    # copy of the disorder one (#13123).
+    _annotate_model_links(module, node_anchor_prefix="module-pathophysiology")
 
     module["_module_id"] = module_id
     module["_categories"] = _resolve_module_categories(module)
@@ -2555,7 +2732,6 @@ def render_disorder(
     env.filters["semantic_ref_href"] = lambda ref: (
         semantic_ref_index.get(str(ref), "") if ref is not None else ""
     )
-    env.filters["basename"] = lambda p: Path(p).name
     env.filters["dismech_page_url"] = _build_dismech_page_url_filter(
         yaml_path.parent,
         excluded_term_ids={current_term_id} if current_term_id else None,
@@ -2563,6 +2739,7 @@ def render_disorder(
     env.filters["has_local_disorder_page"] = _build_has_local_disorder_filter(
         yaml_path.parent,
     )
+    env.filters["gene_page_url"] = _build_gene_page_url_filter(yaml_path.parent)
 
     # Load and render template
     template = env.get_template(template_name)
@@ -2573,7 +2750,11 @@ def render_disorder(
     # Build causal graph and generate Mermaid code + pathograph JSON
     graph = build_causal_graph(disorder)
     mermaid_code = generate_mermaid(graph)
-    pathograph_data = graph_to_json(graph, disorder)
+    pathograph_data = _add_pathograph_grouping_context(
+        graph_to_json(graph, disorder),
+        disorder,
+        _pathograph_mean_edge_count(yaml_path.parent.resolve()),
+    )
     pathograph_node_count = len(
         {node_name for edge in graph.edges for node_name in (edge.source, edge.target)}
     )
@@ -2844,6 +3025,18 @@ def render_module(
         {node_name for edge in graph.edges for node_name in (edge.source, edge.target)}
     )
 
+    if output_path is None:
+        output_path = Path("pages/modules") / f"{yaml_path.stem}.html"
+    else:
+        output_path = Path(output_path)
+
+    # Evidence artifact images resolve against research/, as on disorder pages
+    # (render_disorder); the evidence partial is shared (#10329).
+    research_root = _resolve_nearby_dir(yaml_path.parent, "research")
+    research_root_rel = os.path.relpath(
+        research_root.resolve(), output_path.parent.resolve()
+    )
+
     html = template.render(
         module=module,
         module_id=yaml_path.stem,
@@ -2853,12 +3046,8 @@ def render_module(
         graph_issues=graph.integrity_issues,
         yaml_content=yaml_content,
         source_file=source_file,
+        research_root_rel=research_root_rel,
     )
-
-    if output_path is None:
-        output_path = Path("pages/modules") / f"{yaml_path.stem}.html"
-    else:
-        output_path = Path(output_path)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html)
@@ -3026,7 +3215,9 @@ def _scan_research_reports(
             continue
 
         slug = match.group("slug")
-        provider_raw = match.group("provider")
+        # A re-run beside an existing report carries the run date
+        # (`Foo-deep-research-falcon-2026-10-08.md`, #12700); it is still falcon.
+        provider_raw = strip_run_suffix(match.group("provider"))
         category = _display_name_from_provider(provider_raw)
         key = _normalize_provider_key(category)
         lookup = _normalize_disorder_lookup(_display_name_from_slug(slug))
@@ -3938,10 +4129,11 @@ def _logic_view(node: dict | None) -> dict | None:
             chip = _term_chip(node.get(slot))
             if chip:
                 chips.append(chip)
-        for bp in node.get("biological_processes") or []:
-            chip = _term_chip(bp)
-            if chip:
-                chips.append(chip)
+        for slot in ("biological_processes", "molecular_functions"):
+            for descriptor in node.get(slot) or []:
+                chip = _term_chip(descriptor)
+                if chip:
+                    chips.append(chip)
         view["terms"] = chips
     return view
 
@@ -3994,10 +4186,11 @@ def _leaf_term_ids(node: dict) -> list[str]:
         chip = _term_chip(node.get(slot))
         if chip:
             ids.append(chip["id"])
-    for bp in node.get("biological_processes") or []:
-        chip = _term_chip(bp)
-        if chip:
-            ids.append(chip["id"])
+    for slot in ("biological_processes", "molecular_functions"):
+        for descriptor in node.get(slot) or []:
+            chip = _term_chip(descriptor)
+            if chip:
+                ids.append(chip["id"])
     return ids
 
 
@@ -6129,6 +6322,10 @@ def render_all_disorders(
     output_dir.mkdir(parents=True, exist_ok=True)
     render_all_comorbidities()
     render_all_modules(disorders_dir=input_dir)
+    # One page per models/<model_id>/ folder (#13123). Cheap -- a handful of
+    # models and one walk the parse cache has usually already paid for -- so it
+    # runs on incremental builds too, like the module pages.
+    render_all_model_pages(disorders_dir=input_dir)
     if render_research:
         render_research_index_page(disorders_dir=input_dir)
 

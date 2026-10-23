@@ -8,6 +8,10 @@ Exposes operations to refresh bulk data and (re)build cache files.
     uv run python -m dismech.structured_sources.cli rebuild clingen --id CGGV:assertion_...
     uv run python -m dismech.structured_sources.cli rebuild clingen-dosage --id HGNC:25662
     uv run python -m dismech.structured_sources.cli rebuild civic --id CIVIC_EID:260
+
+``data/``, ``references_cache/`` and ``kb/disorders/`` default to the checkout
+containing the working directory, or to ``$DISMECH_ROOT`` when that is set
+(see ``dismech.repo_root``).
 """
 
 from __future__ import annotations
@@ -17,8 +21,10 @@ from pathlib import Path
 
 import typer
 
+from dismech.repo_root import is_in_working_tree, repo_root
 from dismech.structured_sources.base import (
     ChecksumMismatchError,
+    MissingBulkDataError,
     StructuredSource,
     repin_manifest,
 )
@@ -39,9 +45,32 @@ from dismech.structured_sources.strchive import StrchiveSource
 
 app = typer.Typer(help="dismech structured-database source utilities.")
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-_DEFAULT_DATA_DIR = _REPO_ROOT / "data"
-_DEFAULT_CACHE_DIR = _REPO_ROOT / "references_cache"
+
+# Resolved at call time from the working directory, never from this file's
+# location: with a virtualenv shared across git worktrees, ``__file__`` is in
+# the primary checkout, and every rebuild run in a worktree wrote there while
+# reporting success (#15051). See ``dismech.repo_root``.
+def _data_dir() -> Path:
+    return repo_root() / "data"
+
+
+def _cache_dir() -> Path:
+    return repo_root() / "references_cache"
+
+
+def _kb_dir() -> Path:
+    return repo_root() / "kb" / "disorders"
+
+
+def _warn_if_outside_working_tree(path: Path, what: str) -> None:
+    """Name the destination when a default directory is not in this tree."""
+    if not is_in_working_tree(path):
+        typer.echo(
+            f"warning: {what} {path} is outside the tree this command was run "
+            f"in ({Path.cwd()}); pass an explicit directory or unset DISMECH_ROOT "
+            "if that is not intended.",
+            err=True,
+        )
 
 
 _MANIFEST_DIRS: dict[str, str] = {
@@ -74,57 +103,58 @@ def _manifest_path(name: str) -> Path | None:
     subdir = _MANIFEST_DIRS.get(name.lower())
     if subdir is None:
         return None
-    path = _DEFAULT_DATA_DIR / subdir / "MANIFEST.yaml"
+    path = _data_dir() / subdir / "MANIFEST.yaml"
     return path if path.exists() else None
 
 
 def _get_source(name: str) -> StructuredSource:
     name = name.lower()
+    data_dir = _data_dir()
     if name in {"orphanet", "orpha"}:
-        manifest = _DEFAULT_DATA_DIR / "orphadata" / "MANIFEST.yaml"
+        manifest = data_dir / "orphadata" / "MANIFEST.yaml"
         if manifest.exists():
             OrphanetSource.load_manifest(manifest)
-        return OrphanetSource(_DEFAULT_DATA_DIR / "orphadata")
+        return OrphanetSource(data_dir / "orphadata")
     if name in {"clingen", "cggv"}:
-        manifest = _DEFAULT_DATA_DIR / "clingen" / "MANIFEST.yaml"
+        manifest = data_dir / "clingen" / "MANIFEST.yaml"
         if manifest.exists():
             ClinGenSource.load_manifest(manifest)
-        return ClinGenSource(_DEFAULT_DATA_DIR / "clingen")
+        return ClinGenSource(data_dir / "clingen")
     if name in {"clingen-dosage", "clingen_dosage", "cgds"}:
-        manifest = _DEFAULT_DATA_DIR / "clingen-dosage" / "MANIFEST.yaml"
+        manifest = data_dir / "clingen-dosage" / "MANIFEST.yaml"
         if manifest.exists():
             ClinGenDosageSource.load_manifest(manifest)
-        return ClinGenDosageSource(_DEFAULT_DATA_DIR / "clingen-dosage")
+        return ClinGenDosageSource(data_dir / "clingen-dosage")
     if name in {"civic", "civicdb"}:
-        manifest = _DEFAULT_DATA_DIR / "civic" / "MANIFEST.yaml"
+        manifest = data_dir / "civic" / "MANIFEST.yaml"
         if manifest.exists():
             CivicSource.load_manifest(manifest)
-        return CivicSource(_DEFAULT_DATA_DIR / "civic")
+        return CivicSource(data_dir / "civic")
     if name in {"mygeneset", "genesets", "geneset"}:
-        manifest = _DEFAULT_DATA_DIR / "genesets" / "MANIFEST.yaml"
+        manifest = data_dir / "genesets" / "MANIFEST.yaml"
         if manifest.exists():
             MyGenesetSource.load_manifest(manifest)
-        return MyGenesetSource(_DEFAULT_DATA_DIR / "genesets")
+        return MyGenesetSource(data_dir / "genesets")
     if name in {"icees", "icees-kg", "icees_kg"}:
-        manifest = _DEFAULT_DATA_DIR / "icees-kg" / "MANIFEST.yaml"
+        manifest = data_dir / "icees-kg" / "MANIFEST.yaml"
         if manifest.exists():
             ICEESSource.load_manifest(manifest)
-        return ICEESSource(_DEFAULT_DATA_DIR / "icees-kg")
+        return ICEESSource(data_dir / "icees-kg")
     if name in {"strchive", "str", "strchive-loci"}:
-        manifest = _DEFAULT_DATA_DIR / "strchive" / "MANIFEST.yaml"
+        manifest = data_dir / "strchive" / "MANIFEST.yaml"
         if manifest.exists():
             StrchiveSource.load_manifest(manifest)
-        return StrchiveSource(_DEFAULT_DATA_DIR / "strchive")
+        return StrchiveSource(data_dir / "strchive")
     if name in {"ictrp", "who-ictrp", "chictr"}:
         # No bulk file: ICTRP records are fetched per identifier on demand, so
         # the cache directory *is* the index of what this source knows about.
-        return ICTRPSource(_DEFAULT_DATA_DIR / "ictrp", cache_dir=_DEFAULT_CACHE_DIR)
+        return ICTRPSource(data_dir / "ictrp", cache_dir=_cache_dir())
     if name in {"ncit", "ncit-edges", "ncit_edges"}:
-        manifest = _DEFAULT_DATA_DIR / "ncit-edges" / "MANIFEST.yaml"
+        manifest = data_dir / "ncit-edges" / "MANIFEST.yaml"
         if not manifest.exists():
             raise typer.BadParameter(f"manifest not found: {manifest}")
         OntologyEdgeSource.load_manifest(manifest)
-        return OntologyEdgeSource(_DEFAULT_DATA_DIR / "ncit-edges")
+        return OntologyEdgeSource(data_dir / "ncit-edges")
     raise typer.BadParameter(f"unknown source: {name}")
 
 
@@ -150,6 +180,7 @@ def refresh_cmd(
     than a manual download-and-hand-edit.
     """
     logging.basicConfig(level=logging.INFO, format="%(message)s")
+    _warn_if_outside_working_tree(_data_dir(), "download directory")
     src = _get_source(source)
     try:
         changes = src.refresh(force=force, repin=repin)
@@ -187,6 +218,31 @@ def refresh_cmd(
     typer.echo(f"refreshed {source}")
 
 
+def _rebuild(
+    src: StructuredSource,
+    id_: list[str] | None,
+    source: str,
+    cache_dir: Path,
+    progress_every: int,
+) -> tuple[int, list[str], list[str]]:
+    """Write cache files; return (written, skipped ids, targets)."""
+    targets = list(id_) if id_ else list(src.identifiers())
+    typer.echo(f"rebuilding {len(targets)} {source} entries → {cache_dir}")
+    written = 0
+    skipped: list[str] = []
+    for ident in targets:
+        try:
+            src.write_cache_file(ident, cache_dir)
+        except KeyError as exc:
+            typer.echo(f"  skipped {ident}: {exc}", err=True)
+            skipped.append(ident)
+            continue
+        written += 1
+        if written % progress_every == 0:
+            typer.echo(f"  ... {written}/{len(targets)}")
+    return written, skipped, targets
+
+
 @app.command("rebuild")
 def rebuild_cmd(
     source: str = typer.Argument(..., help="Source name"),
@@ -198,36 +254,58 @@ def rebuild_cmd(
         "--include-report-text/--csv-only",
         help="For ClinGen sources, include narrative text scraped from reports",
     ),
-    cache_dir: Path = typer.Option(
-        _DEFAULT_CACHE_DIR, "--cache-dir", help="Output directory"
+    cache_dir: Path | None = typer.Option(
+        None,
+        "--cache-dir",
+        help="Output directory (default: references_cache/ in this checkout)",
     ),
     progress_every: int = typer.Option(
         500, "--progress-every", help="Log every N entries"
+    ),
+    csv: Path | None = typer.Option(
+        None,
+        "--csv",
+        help=(
+            "ClinGen gene validity only: read this export instead of "
+            "data/clingen/gene_validity.csv (or the committed fallback). The "
+            "cache file is stamped with this file's own date and sha256."
+        ),
     ),
 ) -> None:
     """Regenerate cache files for a source from current bulk data."""
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    if cache_dir is None:
+        cache_dir = _cache_dir()
+        _warn_if_outside_working_tree(cache_dir, "cache directory")
     src = _get_source(source)
     if isinstance(src, (ClinGenSource, ClinGenDosageSource)):
         src.include_report_text = include_report_text
+    if csv is not None:
+        if not isinstance(src, ClinGenSource):
+            raise typer.BadParameter("--csv is only supported for the clingen source")
+        src.csv_path = csv
     cache_dir.mkdir(parents=True, exist_ok=True)
-    if id_:
-        targets = list(id_)
-    else:
-        targets = list(src.identifiers())
-    typer.echo(f"rebuilding {len(targets)} {source} entries → {cache_dir}")
-    written = 0
-    for ident in targets:
-        try:
-            src.write_cache_file(ident, cache_dir)
-        except KeyError as exc:
-            typer.echo(f"  skipped {ident}: {exc}", err=True)
-            continue
-        written += 1
-        if written % progress_every == 0:
-            typer.echo(f"  ... {written}/{len(targets)}")
+    try:
+        written, skipped, targets = _rebuild(
+            src, id_, source, cache_dir, progress_every
+        )
+    except MissingBulkDataError as exc:
+        # The message names the refresh command; a traceback buries it (#13941).
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
     typer.echo(f"wrote {written} cache files")
+    if id_ and skipped:
+        # An explicitly requested id that is not in the export is a failure,
+        # not a quiet skip: `just fetch-reference` routes here, agents read its
+        # exit code, and a typo or a withdrawn assertion must not look like
+        # success (review on #13766). The ids that did resolve are written.
+        typer.echo(
+            f"{len(skipped)} of {len(targets)} requested id(s) not found in the "
+            f"{source} export: " + ", ".join(skipped),
+            err=True,
+        )
+        raise typer.Exit(code=1)
 
 
 @app.command("list")
@@ -237,7 +315,11 @@ def list_cmd(
 ) -> None:
     """List the first N identifiers a source can serialize."""
     src = _get_source(source)
-    ids = list(src.identifiers())
+    try:
+        ids = list(src.identifiers())
+    except MissingBulkDataError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
     typer.echo(f"{len(ids)} identifiers in {source}")
     for ident in ids[:limit]:
         typer.echo(f"  {ident}")
@@ -249,11 +331,15 @@ def align_cmd(
     gene_set: str = typer.Argument(
         ..., help="Gene set id, e.g. KEGG_ASTHMA or MYGENESET:KEGG_ASTHMA"
     ),
-    kb_dir: Path = typer.Option(
-        _REPO_ROOT / "kb" / "disorders", "--kb-dir", help="Disorder YAML directory"
+    kb_dir: Path | None = typer.Option(
+        None,
+        "--kb-dir",
+        help="Disorder YAML directory (default: kb/disorders/ in this checkout)",
     ),
-    cache_dir: Path = typer.Option(
-        _DEFAULT_CACHE_DIR, "--cache-dir", help="Reference cache directory"
+    cache_dir: Path | None = typer.Option(
+        None,
+        "--cache-dir",
+        help="Reference cache directory (default: references_cache/ in this checkout)",
     ),
     no_hierarchy: bool = typer.Option(
         False, "--no-hierarchy", help="Exact GO-id match only (skip the OAK GO adapter)"
@@ -261,6 +347,9 @@ def align_cmd(
 ) -> None:
     """Align a gene set's curated BPs to a disorder's pathograph BPs."""
     from dismech import genesets_align as ga
+
+    kb_dir = kb_dir or _kb_dir()
+    cache_dir = cache_dir or _cache_dir()
 
     # Resolve the disorder file (accept a name or a path).
     disease_path = Path(disease)
@@ -301,11 +390,15 @@ def ga_local_id(gene_set: str) -> str:
 
 @app.command("align-all")
 def align_all_cmd(
-    kb_dir: Path = typer.Option(
-        _REPO_ROOT / "kb" / "disorders", "--kb-dir", help="Disorder YAML directory"
+    kb_dir: Path | None = typer.Option(
+        None,
+        "--kb-dir",
+        help="Disorder YAML directory (default: kb/disorders/ in this checkout)",
     ),
-    cache_dir: Path = typer.Option(
-        _DEFAULT_CACHE_DIR, "--cache-dir", help="Reference cache directory"
+    cache_dir: Path | None = typer.Option(
+        None,
+        "--cache-dir",
+        help="Reference cache directory (default: references_cache/ in this checkout)",
     ),
     no_hierarchy: bool = typer.Option(
         False, "--no-hierarchy", help="Exact GO-id match only (skip the OAK GO adapter)"
@@ -313,6 +406,9 @@ def align_all_cmd(
 ) -> None:
     """Align every disease-context gene set to its dismech disorder (by MONDO)."""
     from dismech import genesets_align as ga
+
+    kb_dir = kb_dir or _kb_dir()
+    cache_dir = cache_dir or _cache_dir()
 
     adapter = None
     if not no_hierarchy:
@@ -329,18 +425,21 @@ def align_all_cmd(
 
 @app.command("clingen-audit-yaml")
 def clingen_audit_yaml_cmd(
-    kb_dir: Path = typer.Option(
-        _REPO_ROOT / "kb" / "disorders",
+    kb_dir: Path | None = typer.Option(
+        None,
         "--kb-dir",
-        help="Directory containing disorder YAML files",
+        help="Directory containing disorder YAML files (default: kb/disorders/)",
     ),
-    data_dir: Path = typer.Option(
-        _DEFAULT_DATA_DIR / "clingen",
+    data_dir: Path | None = typer.Option(
+        None,
         "--data-dir",
-        help="Directory containing ClinGen Gene-Disease Validity bulk data",
+        help=(
+            "Directory containing ClinGen Gene-Disease Validity bulk data "
+            "(default: data/clingen/)"
+        ),
     ),
-    cache_dir: Path = typer.Option(
-        _DEFAULT_CACHE_DIR,
+    cache_dir: Path | None = typer.Option(
+        None,
         "--cache-dir",
         help="Reference cache directory used to check CGGV snippets",
     ),
@@ -362,6 +461,9 @@ def clingen_audit_yaml_cmd(
 ) -> None:
     """Audit ClinGen Gene-Disease Validity coverage in disorder YAML."""
 
+    kb_dir = kb_dir or _kb_dir()
+    data_dir = data_dir or _data_dir() / "clingen"
+    cache_dir = cache_dir or _cache_dir()
     manifest = data_dir / "MANIFEST.yaml"
     if manifest.exists():
         ClinGenSource.load_manifest(manifest)

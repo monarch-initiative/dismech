@@ -1158,7 +1158,7 @@ Nakashima, M., Hayashi, S., et al., 2022. Spinocerebellar ataxia type 17-digenic
 TBP/STUB1 disease: neuropathologic features of an autopsied patient. Acta
 Neuropathol. Commun. 10, 177 .
 Schisler, J.C., Patterson, C., Willis, M.S., 2016. Skeletal muscle mitochondrial alterations
-in carboxyl terminus of HSC70 interacting protein (CHIP)   /   mice. Afr. J. Cell
+in carboxyl terminus of HSC70 interacting protein (CHIP) � / � mice. Afr. J. Cell
 Pathol. 6, 28 – 36 .
 Sha, Y., Rao, L., Settembre, C., Ballabio, A., Eissa, N.T., 2017. STUB1 regulates TFEB-
 induced autophagy-lysosome pathway. EMBO J. 36, 2544 – 2552 .

@@ -1,7 +1,8 @@
 """The upstream behaviours dismech's reference gate relies on.
 
 These assertions used to live in ``tests/test_reference_validator_patch.py`` and
-tested ``dismech.patch_reference_validator``, a 650-line runtime monkeypatch over
+tested ``dismech.patch_reference_validator``, a runtime monkeypatch that at its
+peak replaced twelve private methods of
 five private ``linkml-reference-validator`` methods. Every defect it worked
 around is now fixed upstream, so the patch is gone (dismech#11849) and these
 tests target the **behaviour** instead.
@@ -32,7 +33,6 @@ transport behaviour with nothing deterministic to assert offline.
 from __future__ import annotations
 
 import os
-import re
 import subprocess
 from pathlib import Path
 
@@ -361,51 +361,50 @@ def test_reference_validator_wrapper_treats_warning_only_exit_as_advisory(
     assert "[WARNING] transient reference fetch failed" in result.stdout
 
 
-def test_every_surviving_monkeypatch_cites_an_upstream_issue():
-    """Ten of the twelve patches are retired; each survivor must justify itself.
+def test_dismech_does_not_patch_the_reference_validator():
+    """There is no patch module, and nothing may reintroduce one quietly.
 
-    The rule (dismech#11849, and the ``dismech-references`` skill) is that a
-    patch over the validator's internals is temporary and tracked upstream.
-    This is the mechanical half: every class attribute the module replaces must
-    be one of the known survivors, and each must name the upstream issue that
-    deletes it.
+    dismech patched twelve private methods of ``linkml-reference-validator`` at
+    its peak. All twelve are now fixed upstream -- #66-74, #85, #87, #88, and
+    finally #92 and #93, which closed the URLSource HTML sanitization and the
+    PDF-URL title. The module is deleted.
 
-    The budget is not a style preference. Two of the twelve arrived in curation
-    PRs while this branch was in review -- one of them fetching full text from
-    non-open-access articles by retrying past a browser check -- and neither was
-    noticed until a rebase. A thirteenth fails here rather than in a rebase six
-    weeks later.
+    This test is the mechanical half of the rule in the ``dismech-references``
+    skill: a patch over another project's internals needs an upstream issue and
+    an exit. It asserts the module is absent and that no script or source file
+    imports it, so a thirteenth patch fails here rather than in a rebase weeks
+    later -- which is how two of the twelve arrived, added by curation PRs while
+    the retirement was in review.
 
-    Survivors, both gaps upstream has not closed:
-
-    * ``_wrap_url_fetch`` -- ``URLSource`` caches the response body verbatim,
-      and this repository commits its cache to a public git repository
-      (linkml/linkml-reference-validator#92).
-    * ``_wrap_jstage_pdf_title`` -- a PDF URL is cached with the URL as its
-      title, which is either a blocked title check or a URL copied into the KB
-      as the paper's name (linkml/linkml-reference-validator#93).
+    What dismech relies on instead is the behaviour pinned by the rest of this
+    file, which names the upstream issue each assertion covers.
     """
     module = Path("src/dismech/patch_reference_validator.py")
-    source = module.read_text(encoding="utf-8")
-
-    patched = sorted(
-        set(re.findall(r"^\s+([A-Z]\w+)\.(\w+) = ", source, re.MULTILINE))
-        - {(cls, attr) for cls, attr in re.findall(r"^\s+([A-Z]\w+)\.(\w+) = ", source, re.MULTILINE)
-           if attr.endswith("_applied")}
-    )
-    assert patched == [("URLSource", "fetch")], (
-        "retire a patch, or file an upstream issue and add it here. "
-        f"Currently patching: {patched}"
+    assert not module.exists(), (
+        "the patch module is back. If a patch is genuinely needed, file the "
+        "upstream issue first, name it at the patch site, and test the "
+        "behaviour rather than the patch -- see the dismech-references skill."
     )
 
-    for issue in ("linkml/linkml-reference-validator#92",
-                  "linkml/linkml-reference-validator#93"):
-        assert issue in source, f"a surviving patch must name {issue}"
+    def imports_it(path: Path) -> bool:
+        # A real import, not a comment recording that the module used to exist.
+        return any(
+            "import dismech.patch_reference_validator" in line
+            and not line.lstrip().startswith("#")
+            for line in path.read_text(encoding="utf-8").splitlines()
+        )
 
-    wrappers = set(re.findall(r"^def (_wrap_\w+)\(", source, re.MULTILINE))
-    assert wrappers == {"_wrap_url_fetch", "_wrap_jstage_pdf_title"}, (
-        f"unexpected patch wrappers, each needs an upstream issue: {sorted(wrappers)}"
-    )
+    offenders = [
+        path
+        for path in (
+            *Path("scripts").rglob("*.py"),
+            *Path("scripts").rglob("*.sh"),
+            *Path("src").rglob("*.py"),
+            *Path("tests").rglob("*.py"),
+        )
+        if path.name != "test_upstream_validator_behaviours.py" and imports_it(path)
+    ]
+    assert not offenders, f"still importing the deleted patch module: {offenders}"
 
 
 def test_retired_patches_are_not_reimported():

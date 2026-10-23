@@ -72,6 +72,13 @@ ANNOTATION_BY_AEID_PATH = "bioactivity/assay/search/by-aeid/{aeid}"
 ANNOTATIONS_FILE = "assay_annotations.json"
 MANIFEST_FILE = "MANIFEST.yaml"
 
+#: The value of ``gene[].organismId`` on a human gene. The API publishes no key
+#: for this identifier, so it is read off the data. Of the 434 distinct gene
+#: objects carrying it, 433 have an Entrez id that HGNC lists as an ``ncbigene:``
+#: xref, and the exception is the composite ``FOS|JUN``; none of the 126 gene
+#: objects carrying another value does.
+HUMAN_GENE_ORGANISM_ID = 1
+
 
 class MissingAPIKey(RuntimeError):
     """Raised when no CTX API key is available."""
@@ -112,6 +119,17 @@ class GeneTarget:
     full_name: str = ""
     entrez_gene_id: int | None = None
     uniprot_accession: str = ""
+
+    #: EPA's own identifier for the species the *gene* belongs to. This is not
+    #: the endpoint's ``organismId`` (an NCBI taxon such as 9606) and need not
+    #: agree with the endpoint's ``organism``, which names the system the assay
+    #: ran in: ``ATG_zfER1_XSP1`` runs in human cells and targets zebrafish
+    #: ``esr1``. See :data:`HUMAN_GENE_ORGANISM_ID`.
+    organism_id: int | None = None
+
+    @property
+    def is_human(self) -> bool:
+        return self.organism_id == HUMAN_GENE_ORGANISM_ID
 
 
 @dataclass(frozen=True)
@@ -201,8 +219,9 @@ class AnnotationSnapshot:
         """Endpoints grouped by upper-cased gene symbol.
 
         Upper-casing merges species orthologs onto one key, so ``AR`` collects
-        human, rat and other endpoints together. Read ``is_human`` on each
-        before treating one as a human measurement.
+        human, rat and other endpoints together. An endpoint's ``is_human``
+        says the assay ran in a human system; whether the *target* is the human
+        gene is :attr:`GeneTarget.is_human`, and the two can differ.
         """
         out: dict[str, list[AssayEndpoint]] = {}
         for endpoint in self.endpoints.values():
@@ -228,11 +247,13 @@ def parse_gene(raw: dict) -> GeneTarget | None:
     if not symbol:
         return None
     entrez = raw.get("entrezGeneId")
+    organism = raw.get("organismId")
     return GeneTarget(
         symbol=symbol,
         full_name=_text(raw.get("officialFullName")) or _text(raw.get("geneName")),
         entrez_gene_id=int(entrez) if isinstance(entrez, (int, float)) else None,
         uniprot_accession=_text(raw.get("uniprotAccessionNumber")),
+        organism_id=int(organism) if isinstance(organism, (int, float)) else None,
     )
 
 

@@ -60,6 +60,7 @@ file under the repository.
 just toxcast-refresh            # cache all endpoint annotations under data/toxcast/
 just toxcast-refresh --summary  # describe what is already cached
 just toxcast-refresh --force    # refetch
+just toxcast-coverage           # endpoints whose gene target a pathograph node names
 ```
 
 The cache is gitignored; `data/toxcast/MANIFEST.yaml` is committed and records
@@ -68,6 +69,10 @@ the retrieval date. Read it in code through
 `AssayEndpoint` objects. That module is deliberately **not** a
 `StructuredSource`: it emits no `references_cache/` files because nothing it
 caches is citable evidence.
+
+`just toxcast-coverage` joins the cached annotations to `kb/` by gene and counts
+the result by node, by gene and by disease. What it counts are candidates, never
+mappings; `projects/TOXCAST.md` says why.
 
 ## Endpoint map
 
@@ -158,15 +163,36 @@ one, and `OT_ER_ERaERb_0480` names both `ESR1` and `ESR2`, so a hit there does
 not isolate one receptor.
 
 **The symbol is species-specific.** Endpoint 725 is `NVS_NR_mERa` and its gene is
-mouse `Esr1`, Entrez 13982, not human `ESR1`. The `organism` field says which:
-1,324 endpoints are human, 135 rat, 46 zebrafish. Matching on an upper-cased
-symbol merges orthologs, which is what a coverage count wants and not what a
+mouse `Esr1`, Entrez 13982, not human `ESR1`. Matching on an upper-cased symbol
+merges orthologs, which is what a coverage count wants and not what a
 species-specific claim wants.
+
+**The endpoint's `organism` does not say which species the gene is.** It names
+the system the assay ran in: 1,324 endpoints are human, 135 rat, 46 zebrafish.
+The gene's species is on the gene object, as its own `organismId`, and the two
+disagree in both directions. `ATG_zfER1_XSP1` (endpoint 1925) runs in human
+cells and targets zebrafish `esr1`, Entrez 259252; 55 human-system endpoints
+name a non-human gene this way. Going the other way, 18 endpoints run in a
+non-human system and carry the human gene: `TOX21_TR_LUC_GH3_Agonist` is a rat
+pituitary line annotated with human `THRA` and `THRB`.
+
+The two `organismId` fields are different identifier spaces. On the endpoint it
+is an NCBI taxon, 9606 for human. On a gene object it is EPA's own number, and
+the API publishes no key for it. 1 is human, read off the data: of the 434
+distinct gene objects carrying it, 433 have an Entrez id that HGNC lists as an
+`ncbigene:` xref, and none of the 126 carrying another value does. In code,
+`GeneTarget.is_human` answers for the gene and `AssayEndpoint.is_human` for the
+assay system.
 
 Each gene object carries `geneSymbol`, `officialSymbol`, `officialFullName`,
 `entrezGeneId` and `uniprotAccessionNumber`. Prefer an identifier over the
 symbol. Note dismech binds genes to HGNC, which neither identifier is, so a
 mapping step is needed rather than a copy.
+
+**Four human symbols are not HGNC's.** `H2AFX`, `H3F3A` and `PPP2R4` have been
+replaced by `H2AX`, `H3-3A` and `PTPA`, and endpoint 1846 names `FOS|JUN` as a
+single gene object. `just toxcast-coverage --check-symbols` lists any symbol
+that has since gone the same way.
 
 ## Licence
 

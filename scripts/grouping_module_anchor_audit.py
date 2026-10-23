@@ -47,7 +47,7 @@ from dismech.groupings import (
     GROUPINGS_DIR,
     evaluate_grouping,
     load_disease_index,
-    set_closure_enabled,
+    set_live_lookup_enabled,
 )
 from dismech.yaml_io import safe_load
 
@@ -96,13 +96,14 @@ def main(argv: list[str] | None = None) -> int:
         "--closure",
         action="store_true",
         help=(
-            "Evaluate term-valued leaves over the ontology subsumption closure. "
-            "Requires ontology adapters; slower and non-offline."
+            "Also fetch the closure of any HP/GO criterion term missing from the "
+            "committed cache/closure/ files. Without it the audit is offline and "
+            "an uncached term evaluates to UNKNOWN."
         ),
     )
     args = parser.parse_args(argv)
 
-    set_closure_enabled(args.closure)
+    set_live_lookup_enabled(args.closure)
     paths = args.paths or sorted(glob.glob(str(GROUPINGS_DIR / "*.yaml")))
     leaf_rows, block_rows = collect(paths)
 
