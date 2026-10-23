@@ -5,7 +5,8 @@ installed from. With one virtualenv shared across git worktrees that is the
 primary checkout, so a command run in a worktree read and wrote the primary
 checkout and reported success (#15051). These tests run converted readers and
 writers from a throwaway tree and check they stay in it, and keep new
-``__file__``-relative checkout paths out of ``src/dismech/``.
+``__file__``-relative checkout paths out of ``src/dismech/`` and
+``src/phenoagent/``.
 """
 
 from __future__ import annotations
@@ -22,6 +23,8 @@ from dismech import repo_root as rr
 
 SRC_DIR = Path(rr.__file__).resolve().parent
 MODULE_TREE = SRC_DIR.parents[1]
+#: Every package under src/ the lint scans. Each may resolve paths inside itself.
+LINTED_PACKAGES = (SRC_DIR, SRC_DIR.parent / "phenoagent")
 
 
 def _make_tree(root: Path) -> Path:
@@ -151,18 +154,21 @@ _ALLOWED_OUTSIDE_PACKAGE = {
 }
 
 
-def _file_relative_targets() -> list[tuple[str, int, Path]]:
+def _file_relative_targets() -> list[tuple[Path, str, int, Path]]:
     hits = []
-    for path in sorted(SRC_DIR.rglob("*.py")):
-        resolved = path.resolve()
-        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-            for match in _FILE_RELATIVE.finditer(line):
-                if match.group("index") is not None:
-                    depth = int(match.group("index"))
-                else:
-                    depth = match.group("chain").count(".parent") - 1
-                rel = path.relative_to(SRC_DIR).as_posix()
-                hits.append((rel, lineno, resolved.parents[depth]))
+    for package in LINTED_PACKAGES:
+        for path in sorted(package.rglob("*.py")):
+            resolved = path.resolve()
+            for lineno, line in enumerate(
+                path.read_text(encoding="utf-8").splitlines(), 1
+            ):
+                for match in _FILE_RELATIVE.finditer(line):
+                    if match.group("index") is not None:
+                        depth = int(match.group("index"))
+                    else:
+                        depth = match.group("chain").count(".parent") - 1
+                    rel = path.relative_to(package).as_posix()
+                    hits.append((package, rel, lineno, resolved.parents[depth]))
     return hits
 
 
@@ -177,15 +183,16 @@ def test_no_module_resolves_the_checkout_from_its_own_file():
 
     Package-internal resources (``schema/``, ``templates/``) ship with the
     package, so locating them from ``__file__`` is right. A path that climbs
-    out of ``src/dismech/`` is reaching for the checkout, and must go through
-    ``dismech.repo_root`` instead.
+    out of its package (``src/dismech/``, ``src/phenoagent/``) is reaching for
+    the checkout, and must go through ``dismech.repo_root`` instead.
     """
     hits = _file_relative_targets()
     assert hits, "the lint found no __file__-relative paths at all; is it broken?"
     offenders = [
-        f"src/dismech/{rel}:{lineno} -> {target}"
-        for rel, lineno, target in hits
-        if not target.is_relative_to(SRC_DIR) and rel not in _ALLOWED_OUTSIDE_PACKAGE
+        f"src/{package.name}/{rel}:{lineno} -> {target}"
+        for package, rel, lineno, target in hits
+        if not target.is_relative_to(package)
+        and not (package == SRC_DIR and rel in _ALLOWED_OUTSIDE_PACKAGE)
     ]
     assert not offenders, (
         "These resolve a checkout path from the module's own location, which is "
