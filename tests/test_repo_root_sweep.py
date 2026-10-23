@@ -73,9 +73,13 @@ def test_render_category_cache_follows_the_working_directory(
 ):
     """A memoised reader must not keep serving the first checkout's file."""
     from dismech import render
+    from dismech.export import browser_export
 
     monkeypatch.delenv(rr.ENV_VAR, raising=False)
+    # render resolves this path through browser_export, so a value an earlier
+    # test's monkeypatch left on either module would shadow the lazy lookup.
     monkeypatch.delitem(vars(render), "_HPO_CATEGORY_CACHE_PATH", raising=False)
+    monkeypatch.delitem(vars(browser_export), "HPO_CATEGORY_CACHE_PATH", raising=False)
     for name, category in (("one", "Growth"), ("two", "Nervous System")):
         root = _make_tree(tmp_path / name)
         (root / "app").mkdir()
