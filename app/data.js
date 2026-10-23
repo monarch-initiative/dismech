@@ -110401,7 +110401,9 @@ window.searchData = [
       "Joint Hypermobility",
       "Ulnar Deviation of Hands",
       "Papillomata",
-      "Predisposition to Malignancy",
+      "Rhabdomyosarcoma",
+      "Neuroblastoma",
+      "Transitional Cell Carcinoma of the Bladder",
       "Generalized Hypotonia",
       "Curly or Sparse Hair",
       "Cutis Laxa",
@@ -110410,9 +110412,12 @@ window.searchData = [
       "Achilles Tendon Contracture",
       "Kyphoscoliosis"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Neoplasm"
+    ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Genitourinary",
       "Growth",
       "Head and Neck",
       "Integument",
@@ -110431,7 +110436,9 @@ window.searchData = [
       "HP:0001382",
       "HP:0001193",
       "HP:0012740",
-      "HP:0002664",
+      "HP:0002859",
+      "HP:0003006",
+      "HP:0006740",
       "HP:0001290",
       "HP:0002212",
       "HP:0000973",
@@ -110443,7 +110450,8 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "VERY_RARE"
     ],
     "genes": [
       "HRAS Mutations",
@@ -110458,11 +110466,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Costello_Syndrome.yaml",
     "page_url": "../pages/disorders/Costello_Syndrome.html",
-    "num_phenotypes": 17,
+    "num_phenotypes": 19,
     "num_pathophysiology": 9,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "20",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "5"
   },
   {
@@ -394218,8 +394226,8 @@ window.searchMetrics = {
   "total_disorder_pages": 3652,
   "total_subtypes": 4845,
   "total_disorders_and_subtypes": 8497,
-  "total_unique_evidence_sources": 54452,
-  "total_unique_publications": 50857,
+  "total_unique_evidence_sources": 54453,
+  "total_unique_publications": 50858,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
   "total_pathographs": 3649,
