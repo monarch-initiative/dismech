@@ -32,6 +32,9 @@ diseases:
 - Pseudohypoparathyroidism
 - Familial_Glucocorticoid_Deficiency
 - Kallmann_Syndrome
+- Bipolar_Disorder
+- Cannabis_Hyperemesis_Syndrome
+- Subacute_Delirium
 modules:
 - cardiac_camp_pka_calcium_handling
 - somatotroph_camp_pka_overactivation
@@ -42,6 +45,7 @@ modules:
 - mu_opioid_receptor_agonism
 - mu_opioid_receptor_antagonism
 - beta_adrenergic_receptor_blockade
+- d2_receptor_antagonism
 ---
 
 # GPCRs: Drug Mechanisms and Disease Modules
@@ -104,7 +108,7 @@ conform:
 | beta-adrenergic receptor blockade | ADRB1, ADRB2 | beta-blockers | Heart_Failure, Essential_Hypertension, Atrial_Fibrillation (Glaucoma and Migraine were assessed and rejected; see the module's scope notes) |
 | AT1 receptor blockade | AGTR1 | sartans | Essential_Hypertension, Heart_Failure, diabetic kidney disease |
 | mu-opioid receptor agonism | OPRM1 | opioid analgesics; antagonists/partial agonists for OUD | Opioid_Use_Disorder, Acute_Opioid_Poisoning |
-| D2 receptor antagonism | DRD2 | antipsychotics, antiemetics | Schizophrenia; toxicity arm to drug-induced parkinsonism |
+| D2 receptor antagonism | DRD2 | antipsychotics, antiemetics | Schizophrenia, Bipolar_Disorder, Cannabis_Hyperemesis_Syndrome, Subacute_Delirium. The extrapyramidal arm is modelled inside the module rather than as a drug-induced parkinsonism conformer; tardive dyskinesia is deliberately out of scope — see the module's scope notes |
 | dopamine receptor agonism | DRD2, DRD3 | dopamine agonists | Parkinsons_Disease, hyperprolactinemia |
 | GLP-1 / GIP receptor agonism | GLP1R, GIPR | incretin mimetics | Type_2_Diabetes_Mellitus, Obesity |
 | 5-HT1B/1D agonism and CGRP receptor antagonism | HTR1B, HTR1D, CALCRL/RAMP1 | triptans, gepants | Migraine, Migraine_with_Aura |
@@ -186,7 +190,14 @@ mechanism-level rather than disease-level.
         `Essential_Hypertension` and `Atrial_Fibrillation` against
         `beta_adrenergic_receptor_blockade`. `Migraine` and `Glaucoma` are deliberately
         not wired — see that module's scope notes
+  - [x] Four antipsychotic-treated entries, in #15299: `Schizophrenia`, `Bipolar_Disorder`,
+        `Cannabis_Hyperemesis_Syndrome` and `Subacute_Delirium` against
+        `d2_receptor_antagonism`. The four span three indications — psychosis, antiemesis
+        and agitation — which is the point: one receptor action, three reasons to prescribe.
+        `Schizophrenia` keeps its dopamine-dysregulation target alongside the receptor node,
+        because D2 blockade acts downstream of that presynaptic abnormality
 - [ ] Remaining Workstream A modules
+  - [x] D2 receptor antagonism — `d2_receptor_antagonism` (#15299)
 - [ ] Gs alpha defect module
 
 ## Decisions
