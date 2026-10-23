@@ -46,6 +46,7 @@ modules:
 - mu_opioid_receptor_antagonism
 - beta_adrenergic_receptor_blockade
 - d2_receptor_antagonism
+- glp1_receptor_agonism
 ---
 
 # GPCRs: Drug Mechanisms and Disease Modules
@@ -176,7 +177,7 @@ mechanism-level rather than disease-level.
 - [x] mu-opioid receptor agonism (first module; see above) — `mu_opioid_receptor_agonism` (#14453)
 - [x] mu-opioid receptor antagonism — `mu_opioid_receptor_antagonism` (#14456)
 - [x] beta-adrenergic receptor blockade — `beta_adrenergic_receptor_blockade` (#15087)
-- [ ] GLP-1 receptor agonism
+- [ ] GLP-1 receptor agonism — `glp1_receptor_agonism` (#15252, in review)
 - [ ] GPCR loss-of-function hormone resistance
 - [ ] GPCR constitutive activation
 
@@ -192,10 +193,14 @@ mechanism-level rather than disease-level.
         not wired — see that module's scope notes
   - [x] Four antipsychotic-treated entries, in #15299: `Schizophrenia`, `Bipolar_Disorder`,
         `Cannabis_Hyperemesis_Syndrome` and `Subacute_Delirium` against
-        `d2_receptor_antagonism`. The four span three indications — psychosis, antiemesis
+        `d2_receptor_antagonism`. The four span three indications — psychosis/mania, antiemesis
         and agitation — which is the point: one receptor action, three reasons to prescribe.
         `Schizophrenia` keeps its dopamine-dysregulation target alongside the receptor node,
         because D2 blockade acts downstream of that presynaptic abnormality
+  - [ ] Two incretin-treated entries, in #15252 (in review): `Type_2_Diabetes_Mellitus`
+        and `Obesity` against `glp1_receptor_agonism`, both at the receptor step. The
+        module names no dominant weight-loss arm, so conforming `Obesity` against one
+        would assert more than the evidence carries
 - [ ] Remaining Workstream A modules
   - [x] D2 receptor antagonism — `d2_receptor_antagonism` (#15299)
 - [ ] Gs alpha defect module
