@@ -92,6 +92,7 @@ from dismech.bookshelf import (
     Chapter,
     Match,
     entry_names,
+    kind_rank,
     source_from_cache_text,
 )
 
@@ -352,7 +353,7 @@ def assess_source(
     for match in sorted(matches, key=lambda m: (m.rank, int(m.chapter.pmid))):
         pmid = match.chapter.pmid
         if pmid in rows:
-            if not rows[pmid].kind or match.rank < _rank(rows[pmid].kind):
+            if not rows[pmid].kind or match.rank < kind_rank(rows[pmid].kind):
                 rows[pmid].kind, rows[pmid].name = match.kind, match.name
             continue
         cited_as = _cited_as(match.chapter, cited_pmids, cited_nbks)
@@ -369,7 +370,7 @@ def assess_source(
         )
 
     report.chapters = sorted(
-        rows.values(), key=lambda r: (not r.tagged, _rank(r.kind), int(r.pmid))
+        rows.values(), key=lambda r: (not r.tagged, kind_rank(r.kind), int(r.pmid))
     )
 
     if any(p.problem == "MISTAGGED" for p in report.tag_problems):
@@ -393,18 +394,6 @@ def _cited_as(chapter: Chapter, cited_pmids: set[str], cited_nbks: set[str]) -> 
     if chapter.nbk and chapter.nbk in cited_nbks:
         return "NBK"
     return ""
-
-
-def _rank(kind: str) -> int:
-    order = {
-        "EXACT": 0,
-        "ONLINE": 0,
-        "CONTAINS": 1,
-        "TITLE_IN_NAME": 2,
-        "NEAR": 3,
-        "": 9,
-    }
-    return order.get(kind, 9)
 
 
 def assess_entry(
@@ -451,7 +440,14 @@ def assess_entry(
 
 
 class OnlineSearch:
-    """Live ``<name>[TI] AND <source>[book]`` searches, for chapters newer than the snapshot."""
+    """Live ``"<name>"[TI] AND <source>[book]`` searches, for chapters newer than the snapshot.
+
+    The name is quoted as a phrase. Unquoted, PubMed drops every word it cannot
+    match and applies ``[TI]`` to what is left, so ``mesiodens-cataract
+    syndrome[TI]`` searched for "syndrome" alone and listed unrelated chapters
+    (#14213). A result whose ``querytranslation`` no longer carries the quoted
+    phrase is skipped with a warning, for the same reason.
+    """
 
     def __init__(self, index: BookshelfIndex, sources: list[str]):
         from build_bookshelf_index import (
@@ -466,17 +462,31 @@ class OnlineSearch:
         found: list[Match] = []
         for source in self.sources:
             for name in names:
-                term = f"{name}[TI] AND {source}[book]"
+                phrase = " ".join(name.replace('"', " ").split())
+                if not phrase:
+                    continue
+                term = f'"{phrase}"[TI] AND {source}[book]'
                 try:
-                    ids = self.client.call("esearch.fcgi", db="pubmed", term=term)[
+                    result = self.client.call("esearch.fcgi", db="pubmed", term=term)[
                         "esearchresult"
-                    ].get("idlist", [])
+                    ]
                 except Exception as exc:  # network is optional; say so and move on
                     print(
                         f"warning: online search failed for {term!r}: {exc}",
                         file=sys.stderr,
                     )
                     continue
+                translation = result.get("querytranslation")
+                if translation is not None and f'"{phrase.lower()}"' not in (
+                    translation.lower()
+                ):
+                    print(
+                        f"warning: PubMed rewrote {term!r} as {translation!r}; "
+                        "skipping its results",
+                        file=sys.stderr,
+                    )
+                    continue
+                ids = result.get("idlist", [])
                 new = [pmid for pmid in ids if pmid not in self.index.by_pmid]
                 if not new:
                     continue

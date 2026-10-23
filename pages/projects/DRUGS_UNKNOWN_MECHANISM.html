@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drugs With Unknown or Contested Mechanisms of Action - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+        a.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; text-decoration: none; }
+        a.tag-nih:hover { background: #dfeaff; }
+        span.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html" class="active" aria-current="true">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Drugs With Unknown or Contested Mechanisms of Action</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                <span class="tag">AUDIT</span><span class="tag">TREATMENTS</span><span class="tag">PHARMACOLOGY</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Drugs With Unknown or Contested Mechanisms of Action</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (12)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Bipolar_Disorder.html">Bipolar Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Major_Depressive_Disorder.html">Major Depressive Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Post-Traumatic_Stress_Disorder.html">Post-Traumatic Stress Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Type_2_Diabetes_Mellitus.html">Type 2 Diabetes Mellitus</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Idiopathic_Hypersomnia.html">Idiopathic Hypersomnia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/pseudotumor_cerebri.html">pseudotumor cerebri</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/BRPF1-Related_Intellectual_Disability.html">BRPF1-Related Intellectual Disability</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Li-Ghorbani-Weisz-Hubshman_Syndrome.html">Li-Ghorbani-Weisz-Hubshman Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Immunodeficiency_64.html">Immunodeficiency 64</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Lafora_Disease.html">Lafora Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Maple_Syrup_Urine_Disease.html">Maple Syrup Urine Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Dravet_syndrome.html">Dravet syndrome</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Modules (6)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../modules/deregulated_nutrient_sensing.html">deregulated nutrient sensing</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/disabled_macroautophagy.html">disabled macroautophagy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/gut_dysbiosis.html">gut dysbiosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/inflammaging.html">inflammaging</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/mitochondrial_dysfunction.html">mitochondrial dysfunction</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/stem_cell_exhaustion.html">stem cell exhaustion</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/DRUGS_UNKNOWN_MECHANISM.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="drugs-with-unknown-or-contested-mechanisms-of-action">Drugs With Unknown or Contested Mechanisms of Action</h1>
+<h2 id="why-this-matters-for-dismech">Why this matters for dismech</h2>
+<p>A <code>treatments[].target_mechanisms</code> edge says <em>this drug acts on this node of the
+causal graph</em>. For most drugs that is a well-characterized claim. For a set of
+widely used drugs (valproate, lamotrigine, topiramate, metformin, lithium,
+ketamine, cannabidiol, paracetamol, modafinil, riluzole) the mechanism that
+produces the therapeutic effect is still unknown or disputed, even though the
+clinical effect is not. On those, a <code>target_mechanisms</code> edge can state a
+mechanism more confidently than its source does, and the schema has no way to
+record that the mechanism is open.</p>
+<h2 id="source-list">Source list</h2>
+<p>Wikipedia's
+<a href="https://en.wikipedia.org/wiki/Category:Drugs_with_unknown_mechanisms_of_action">Category:Drugs with unknown mechanisms of action</a>
+(154 pages and a <em>General anesthetics</em> subcategory, read 2026-10-12) is the
+seed list. It is a <strong>lead, not a ruling</strong>:</p>
+<ul>
+<li>Membership is editor-assigned and goes stale. Lenalidomide is listed, although
+  cereblon-dependent degradation of IKZF1/IKZF3 is now the accepted mechanism.
+  Clavulanic acid is listed, although it is a beta-lactamase inhibitor.</li>
+<li>"Unknown" refers to the drug's best-known use. Ethanol is listed for its
+  psychoactive effects. As a toxic-alcohol antidote, competitive saturation of
+  alcohol dehydrogenase is well understood.</li>
+<li>Most of the 154 pages are research compounds, racetams, and modafinil
+  analogues that the KB does not use.</li>
+</ul>
+<h2 id="overlap-with-the-kb">Overlap with the KB</h2>
+<p>String matching on treatment <code>name</code> and <code>treatment_term</code> (agents included)
+across <code>kb/disorders</code>, <code>kb/modules</code> and <code>kb/comorbidities</code> found <strong>25 of the
+listed drugs in 248 treatment records across 193 entries</strong>. 113 of those
+records carry <code>target_mechanisms</code> (in 93 entries). The full table is
+<a href="DRUGS_UNKNOWN_MECHANISM/kb_treatment_overlap.tsv"><code>DRUGS_UNKNOWN_MECHANISM/kb_treatment_overlap.tsv</code></a>;
+the discussions already attached to each record are in
+<a href="DRUGS_UNKNOWN_MECHANISM/kb_treatment_discussions.tsv"><code>kb_treatment_discussions.tsv</code></a>.
+Matching is lexical, so a multi-drug treatment ("Valproate with lamotrigine")
+is counted once per drug.</p>
+<table>
+<thead>
+<tr>
+<th>Drug</th>
+<th style="text-align: right;">Treatment records</th>
+<th style="text-align: right;">With <code>target_mechanisms</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Valproate</td>
+<td style="text-align: right;">81</td>
+<td style="text-align: right;">33</td>
+</tr>
+<tr>
+<td>Lamotrigine</td>
+<td style="text-align: right;">29</td>
+<td style="text-align: right;">10</td>
+</tr>
+<tr>
+<td>Topiramate</td>
+<td style="text-align: right;">28</td>
+<td style="text-align: right;">13</td>
+</tr>
+<tr>
+<td>Metformin</td>
+<td style="text-align: right;">25</td>
+<td style="text-align: right;">18</td>
+</tr>
+<tr>
+<td>Cannabidiol</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">6</td>
+</tr>
+<tr>
+<td>Ketamine</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">6</td>
+</tr>
+<tr>
+<td>Memantine</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">5</td>
+</tr>
+<tr>
+<td>Riluzole</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">3</td>
+</tr>
+<tr>
+<td>Lenalidomide</td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;">2</td>
+</tr>
+<tr>
+<td>Paracetamol</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">2</td>
+</tr>
+<tr>
+<td>Lithium</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">3</td>
+</tr>
+<tr>
+<td>Ethanol</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">4</td>
+</tr>
+<tr>
+<td>Modafinil</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">1</td>
+</tr>
+<tr>
+<td>Amantadine</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr>
+<td>Mesalazine</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">1</td>
+</tr>
+<tr>
+<td>Selegiline</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">2</td>
+</tr>
+<tr>
+<td>Edaravone</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">1</td>
+</tr>
+<tr>
+<td>Anagrelide</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr>
+<td>Rasagiline, Piracetam, Medroxyprogesterone acetate, Hydralazine, Clavulanic acid, Armodafinil, Acamprosate</td>
+<td style="text-align: right;">1 each</td>
+<td style="text-align: right;">4 total</td>
+</tr>
+</tbody>
+</table>
+<h2 id="triage">Triage</h2>
+<p>The 113 linked records fall into three groups. Only the third needs review.</p>
+<ol>
+<li><strong>Symptomatic targets make no mechanism claim.</strong> An antiseizure medication
+   targeting <code>Seizures</code> or <code>Cortical Network Hyperexcitability</code> says the drug
+   suppresses the phenotype, which is the documented clinical effect. The
+   schema explicitly allows this. Most valproate, lamotrigine, topiramate and
+   cannabidiol records are here. No action needed.</li>
+<li><strong>The mechanism in this use is known, despite the Wikipedia listing.</strong>
+   Ethanol as an ADH-competing antidote (<code>Ethylene_Glycol_Poisoning</code>,
+   <code>Methanol_Poisoning</code>, <code>Diethylene_Glycol_Poisoning</code>,
+   <code>toxic_alcohol_adh_bioactivation</code>); selegiline and rasagiline as MAO-B
+   inhibitors in <code>Parkinsons_Disease</code>; memantine as an NMDA channel blocker on
+   GRIN gain-of-function nodes; clavulanic acid in <code>Pasteurellosis</code>. No action
+   needed beyond checking the evidence.</li>
+<li><strong>A specific molecular mechanism is asserted for a drug whose therapeutic
+   mechanism is contested.</strong> These are the worklist:
+   - <strong>Metformin, six aging modules.</strong> Each module asserts a different
+     mechanism: AMPK/mTORC1 (<code>deregulated_nutrient_sensing</code>), autophagic flux
+     (<code>disabled_macroautophagy</code>), microbiome (<code>gut_dysbiosis</code>),
+     anti-inflammatory (<code>inflammaging</code>), mitochondrial
+     (<code>mitochondrial_dysfunction</code>), stem-cell (<code>stem_cell_exhaustion</code>).
+     These may all be true, but read together they show that no single
+     mechanism has been established. Also check <code>Type_2_Diabetes_Mellitus</code>
+     (hepatic glucose output, where the molecular route is contested),
+     <code>Lafora_Disease</code>, <code>Maple_Syrup_Urine_Disease</code>, <code>Li-Fraumeni_Syndrome</code>
+     (already covered by a gap, see below),
+     <code>Classic_Familial_Adenomatous_Polyposis</code>,
+     <code>Oral_Cavity_Squamous_Cell_Carcinoma</code>.
+   - <strong>Lithium in <code>Bipolar_Disorder</code>.</strong> Four parallel targets (GSK-3β,
+     phosphoinositide, circadian, neuroplasticity). These are the competing
+     hypotheses, not an established mechanism. They are a candidate for
+     <code>mechanistic_hypotheses</code> groups.
+   - <strong>Valproate as an HDAC inhibitor</strong> (<code>BRPF1-Related_Intellectual_Disability</code>,
+     and <code>Li-Ghorbani-Weisz-Hubshman_Syndrome</code>, which is already covered by a
+     gap) and on mitochondrial nodes
+     (<code>Autosomal_Recessive_Spinocerebellar_Ataxia_20</code>). HDAC inhibition is a
+     real property of valproate, so check that the evidence shows it acting
+     through that route <em>in this disease</em>.
+   - <strong>Ketamine</strong> in <code>Major_Depressive_Disorder</code> and
+     <code>Post-Traumatic_Stress_Disorder</code> (the antidepressant mechanism beyond NMDA
+     block is disputed), <strong>modafinil</strong> in <code>Idiopathic_Hypersomnia</code>,
+     <strong>topiramate</strong> in <code>pseudotumor_cerebri</code> (CSF hypersecretion),
+     <strong>lenalidomide</strong> in <code>Immunodeficiency_64</code> (already covered by a gap),
+     <strong>paracetamol</strong> in
+     <code>Patent_Ductus_Arteriosus</code>, <strong>riluzole</strong> in <code>Friedreich_Ataxia</code> and
+     <code>Spinocerebellar_Ataxia_Type_1</code>, <strong>edaravone</strong> in
+     <code>Amyotrophic_Lateral_Sclerosis</code>.</li>
+</ol>
+<p>For each record in group 3, the review is:</p>
+<ul>
+<li>Read the <code>target_mechanisms[].evidence</code>. If the quote shows a clinical
+  response and the mechanism is inferred from it, mark the item
+  <code>directness: INDIRECT</code>. That is what <code>INDIRECT</code> means: a therapeutic
+  response cited as validation of the mechanism it targets.</li>
+<li>If the entry carries competing mechanisms for one drug, consider expressing
+  them as <code>mechanistic_hypotheses</code> with <code>hypothesis_groups</code> on the edges
+  rather than as parallel settled edges.</li>
+<li>If no evidence supports the specific node, retarget the edge to the
+  phenotype the drug treats, or remove it. Do not add evidence in order to
+  keep the edge.</li>
+<li>Record the open mechanism as a <code>KNOWLEDGE_GAP</code> discussion (next section).</li>
+</ul>
+<h2 id="recording-an-unknown-mechanism-a-knowledge-gap-on-the-treatment">Recording an unknown mechanism: a knowledge gap on the treatment</h2>
+<p>No new slot is needed. A <code>discussions</code> entry with <code>kind: KNOWLEDGE_GAP</code> whose
+<code>attaches_to</code> names both the treatment and the node its edge targets says
+exactly this: the drug works, and how it works here is not established. The
+<code>prompt</code> states the question, the <code>rationale</code> says which candidate mechanisms
+the evidence cannot tell apart, and <code>proposed_experiments</code> can say how they
+could be.</p>
+<p>Three entries already do this and are the pattern to copy:</p>
+<table>
+<thead>
+<tr>
+<th>Entry</th>
+<th>Discussion</th>
+<th>Drug</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Li-Fraumeni_Syndrome</code></td>
+<td><code>lfs_metformin_mechanism_unresolved</code></td>
+<td>Metformin. The MILI trial protocol itself calls the mechanism unclear.</td>
+</tr>
+<tr>
+<td><code>Li-Ghorbani-Weisz-Hubshman_Syndrome</code></td>
+<td><code>kat8_valproate_mechanism_untested</code></td>
+<td>Valproate. HDAC inhibition vs. generic anticonvulsant effect; histone acetylation has not been measured in a treated patient.</td>
+</tr>
+<tr>
+<td><code>Immunodeficiency_64</code></td>
+<td><code>rasgrp1_lenalidomide_translational_gap</code></td>
+<td>Lenalidomide</td>
+</tr>
+</tbody>
+</table>
+<p><code>HNRNPU-Related_Developmental_and_Epileptic_Encephalopathy</code> asks a similar
+question about valproate (<code>gap_valproate_efficacy_mechanism</code>) but is not the
+pattern: it is an <code>OPEN_QUESTION</code> attached only to
+<code>pathophysiology#Recurrent Seizures</code>, not to a treatment.</p>
+<h3 id="coverage">Coverage</h3>
+<p>Of the 113 linked records, 47 have some discussion attached to the treatment
+or to a node it targets. Almost all of those discussions are about the node,
+for example whether a biomarker tracks aging. They are not about the drug.
+<strong>Apart from the three pattern entries above (<code>Li-Fraumeni_Syndrome</code>,
+<code>Li-Ghorbani-Weisz-Hubshman_Syndrome</code>, <code>Immunodeficiency_64</code>), none of the
+group 3 records had a gap about the drug's own mechanism</strong> when this page was
+written. That included the metformin module edges, lithium in
+<code>Bipolar_Disorder</code> and both ketamine psychiatric entries. Adding one per
+record, attached to the treatment and its target, is the main deliverable of
+this project.</p>
+<p>Rules for writing them:</p>
+<ul>
+<li>One discussion per entry and drug, attached to every node the drug targets
+  there. Do not create one per edge.</li>
+<li>The <code>rationale</code> names the candidate mechanisms and says why the cited
+  evidence does not discriminate between them. It needs its own evidence, and
+  ideally a source that says the mechanism is unclear in so many words, as the
+  MILI protocol does for Li-Fraumeni. A Wikipedia category listing does not
+  count.</li>
+<li>A gap does not replace fixing an edge that overstates its evidence. Do both:
+  set <code>directness: INDIRECT</code> where the mechanism is inferred from a clinical
+  response, and record the gap.</li>
+<li>Where the literature argues for two or more specific models (lithium), a
+  <code>CONTROVERSY</code> discussion or <code>mechanistic_hypotheses</code> groups may fit better
+  than <code>KNOWLEDGE_GAP</code>. Use <code>KNOWLEDGE_GAP</code> when the honest answer is that
+  nobody has tested it.</li>
+</ul>
+<h3 id="progress">Progress</h3>
+<p><strong>Everything listed as done below is in PR #14110 and is not on <code>main</code> until
+that PR merges.</strong></p>
+<p>Done (one <code>KNOWLEDGE_GAP</code> each, attached to the treatment and its targets):
+<code>deregulated_nutrient_sensing</code>, <code>disabled_macroautophagy</code>, <code>gut_dysbiosis</code>,
+<code>inflammaging</code>, <code>mitochondrial_dysfunction</code> (metformin) and <code>Bipolar_Disorder</code>
+(lithium, <code>gap_bipolar_lithium_therapeutic_mechanism</code>).</p>
+<p><strong>Not done, on purpose: <code>stem_cell_exhaustion</code>.</strong> The study behind that
+metformin edge (<code>PMID:33524231</code>) tested the mechanism: siRNA knockdown of AMPKα
+abolished metformin's effect on NF-κB activation and the senescence-associated
+secretory phenotype in cultured CKD mesenchymal stem cells. The mechanism in
+that system is therefore supported, and an "unknown mechanism" gap would be
+false. What remains open is whether ex vivo preconditioning says anything about
+systemic metformin and resident stem cells in aging tissue. That is a
+translational question, not this project's.</p>
+<p>Done with an OpenScientist report behind each (<code>just research-drug-mechanism</code>,
+reports in <code>research/drug_mechanism/</code>). Every quote used was re-checked against
+<code>references_cache/</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Entry</th>
+<th>Drug</th>
+<th>Report verdict</th>
+<th>Gap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Major_Depressive_Disorder</code></td>
+<td>ketamine</td>
+<td>several competing candidates</td>
+<td><code>gap_mdd_ketamine_therapeutic_mechanism</code></td>
+</tr>
+<tr>
+<td><code>Type_2_Diabetes_Mellitus</code></td>
+<td>metformin</td>
+<td>physiological effect established, molecular route unknown</td>
+<td><code>gap_t2d_metformin_molecular_mechanism</code></td>
+</tr>
+<tr>
+<td><code>pseudotumor_cerebri</code></td>
+<td>topiramate</td>
+<td>not established</td>
+<td><code>gap_iih_topiramate_mechanism</code></td>
+</tr>
+<tr>
+<td><code>Idiopathic_Hypersomnia</code></td>
+<td>modafinil</td>
+<td>unknown</td>
+<td><code>gap_ih_modafinil_mechanism</code></td>
+</tr>
+</tbody>
+</table>
+<p>The reports are leads, not evidence. Two of their claims did not survive
+checking against the cited source and were left out (see the history records).
+OpenScientist jobs can exceed the client's default one-hour timeout; pass
+<code>--param timeout=7000</code>.</p>
+<p>Still pending for all ten records: the <code>directness: INDIRECT</code> check on the
+existing edge evidence. The gaps were added without changing any edge, and
+several edges carry no evidence of their own, including every metformin
+module edge and the lithium circadian edge.</p>
+<p>The knowledge gaps and research reports themselves are in PR #14110; this
+page, the recipe and the template are kept separate because the curation
+scope check does not allow tooling in a KB PR.</p>
+<p>Remaining: the other group 3 records above.</p>
+<p>A schema change, such as a treatment-level "mechanism unknown" flag, would
+duplicate this and is not proposed.</p>
+<h2 id="reproducing-the-overlap">Reproducing the overlap</h2>
+<p>The table was built by matching drug names (with common synonyms:
+acetaminophen, mesalamine, valproic, dipyrone) against each treatment's <code>name</code>
+and <code>treatment_term</code>, excluding evidence text. It is not a gate and should not
+become one. Membership in the Wikipedia category is not a property of a KB
+treatment.</p>
+        </article>
+    </div>
+</body>
+</html>

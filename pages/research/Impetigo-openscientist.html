@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Impetigo · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Impetigo</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Impetigo</h1>
+                
+                <p class="report-subtitle">Impetigo (MONDO:0004592): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-29</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0004592" target="_blank" rel="noopener noreferrer">MONDO:0004592</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">31 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Impetigo (<a href="http://purl.obolibrary.org/obo/MONDO_0004592" target="_blank" rel="noopener noreferrer">MONDO:0004592</a>): A Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Impetigo | <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0004592" target="_blank" rel="noopener noreferrer">MONDO:0004592</a> | <strong>Category:</strong> Infectious Disease
+<strong>Report date:</strong> 2026-09-29 | Evidence base: PubMed primary literature, Cochrane, GBD, clinical guidelines</p>
+<h2>Summary</h2>
+<p><strong>Impetigo is a common, highly contagious, superficial bacterial infection of the epidermis caused predominantly by <em>Staphylococcus aureus</em> and <em>Streptococcus pyogenes</em> (group A streptococcus, GAS).</strong> It presents in two clinical forms: nonbullous impetigo (~70% of cases), caused by both <em>S. aureus</em> and <em>S. pyogenes</em>, and bullous impetigo (~30%), caused specifically by exfoliative-toxin-producing <em>S. aureus</em> strains. The disease is diagnosed clinically by its characteristic evolution of erythematous papules into vesicles or bullae over 4–6 days, forming pathognomonic honey-colored crusts. It is an <strong>acquired, non-genetic infectious disease</strong> — there are no causal human genes — although host factors such as skin-barrier and antimicrobial-peptide deficiency (as in atopic dermatitis and filaggrin insufficiency) create a permissive substrate for <em>S. aureus</em> colonization and subsequent infection.</p>
+<p>Impetigo is overwhelmingly a disease of childhood and of poverty. More than <strong>162 million children</strong> are affected globally at any one time, with a median childhood prevalence of 12.3%, concentrated in tropical, resource-poor, and marginalized communities. The Global Burden of Disease (GBD) 2019 analysis places pyoderma/impetigo as the dominant bacterial skin disease burden (~0.41 million DALYs), with the heaviest impact in low-middle sociodemographic index (SDI) regions. Although usually mild and self-limited, streptococcal impetigo can trigger serious post-infectious sequelae — acute post-streptococcal glomerulonephritis (APSGN) and acute rheumatic fever (ARF) — which occur at the highest documented rates in the world in remote Aboriginal Australian communities.</p>
+<p>The mechanistic centerpiece of bullous impetigo (and its severe systemic counterpart, staphylococcal scalded skin syndrome) is the cleavage of <strong>desmoglein-1 (Dsg1)</strong>, a desmosomal keratinocyte adhesion molecule, by glutamate-specific serine protease exfoliative toxins (ETA, ETB, ETD). Removal of the amino-terminal extracellular domains of Dsg1 is sufficient to initiate intraepidermal blister formation. Treatment is stratified by severity: topical antibiotics (mupirocin, retapamulin, ozenoxacin) for limited disease and oral antibiotics (dicloxacillin, cephalexin) for extensive/bullous/outbreak disease. Rising antimicrobial resistance — exemplified by the epidemic European fusidic-acid-resistant impetigo clone (EEFIC) and its emergent mupirocin-resistant variant — is a growing threat. At the community level, ivermectin-based mass drug administration (MDA) for scabies substantially reduces impetigo prevalence and its bacterial complications.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — Impetigo is a superficial bacterial infection in two clinical forms</h3>
+<p>Impetigo is a common superficial bacterial infection of the skin with a global disease burden exceeding 140 million cases. It manifests in two forms with distinct proportions and microbiology. <strong>Nonbullous impetigo (~70%)</strong> is caused by both <em>S. aureus</em> and <em>S. pyogenes</em> (group A streptococcus) and is the classic "school-sores" presentation. <strong>Bullous impetigo (~30%)</strong> is caused exclusively by exfoliative-toxin-producing <em>S. aureus</em> strains. Diagnosis is clinical: erythematous papules progress to vesicles or bullae over 4–6 days, ultimately rupturing and drying into the characteristic honey-colored crusts.</p>
+<blockquote>
+<p><em>"Impetigo can be nonbullous (70%) or bullous (30%) and is most commonly caused by group A streptococcus and Staphylococcus aureus."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41839109/">PMID: 41839109</a></p>
+<p><em>"Impetigo is a common superficial bacterial infection of the skin, with a global disease burden of greater than 140 million."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/33105179/">PMID: 33105179</a></p>
+</blockquote>
+<p><strong>Ontology anchors:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0004592" target="_blank" rel="noopener noreferrer">MONDO:0004592</a> (impetigo); ICD-10 L01; ICD-11 1B72; <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> (skin of body), <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" rel="noopener noreferrer">UBERON:0001003</a> (skin epidermis); NCBITaxon:1280 (<em>S. aureus</em>), NCBITaxon:1314 (<em>S. pyogenes</em>).</p>
+<h3>Finding 2 — Bullous impetigo pathogenesis: exfoliative toxins cleave desmoglein-1</h3>
+<p>The molecular mechanism of bullous impetigo is now precisely defined. <em>S. aureus</em> produces three isoforms of exfoliative toxin — <strong>ETA, ETB, and ETD</strong> — which are <strong>glutamate-specific serine proteases</strong> that cleave a single peptide bond in extracellular domains 3–4 of <strong>desmoglein-1 (Dsg1)</strong>, a desmosomal cell–cell adhesion molecule expressed by keratinocytes in the superficial epidermis. This proteolysis disrupts intercellular adhesion within the granular layer, producing the superficial intraepidermal split characteristic of the disease.</p>
+<blockquote>
+<p><em>"the three isoforms of ETs, i.e., ETA, ETB, and ETD, are glutamate-specific serine proteases that specifically and efficiently cleave a single peptide bond in the extracellular region of human and mouse desmoglein 1 (Dsg1), a desmosomal intercellular adhesion molecule"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/17582744/">PMID: 17582744</a></p>
+</blockquote>
+<p>Critically, removal of the amino-terminal extracellular domains of Dsg1 is <strong>sufficient</strong> to initiate blister formation, demonstrated as early as 60 minutes after ETA injection in neonatal mice — establishing Dsg1 cleavage as the direct, proximate cause rather than a downstream correlate.</p>
+<blockquote>
+<p><em>"the removal of amino-terminal extracellular domains of Dsg1 by ETs is sufficient to initiate ep[idermal blister formation]"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/20728315/">PMID: 20728315</a></p>
+</blockquote>
+<p>The toxin genes have distinct genetic bases: <strong>ETA is phage-encoded</strong>, whereas <strong>ETB is plasmid-encoded</strong>, informing strain epidemiology and horizontal transfer of virulence.</p>
+<blockquote>
+<p><em>"ETA is encoded on a phage genome and ETB is enocded on a large plasmid"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/21282415/">PMID: 21282415</a></p>
+</blockquote>
+<p>The same molecular target (Dsg1) is shared across bullous impetigo, staphylococcal scalded skin syndrome (SSSS, the disseminated toxin-mediated form), and the autoimmune blistering disease pemphigus foliaceus — a striking example of convergent pathology at a single adhesion molecule.</p>
+<p><strong>Ontology anchors:</strong> HGNC gene DSG1 (desmoglein-1); <a href="http://purl.obolibrary.org/obo/GO_0007156" target="_blank" rel="noopener noreferrer">GO:0007156</a> (homophilic cell adhesion via plasma membrane adhesion molecules), <a href="http://purl.obolibrary.org/obo/GO_0030057" target="_blank" rel="noopener noreferrer">GO:0030057</a> (desmosome), <a href="http://purl.obolibrary.org/obo/GO_0008233" target="_blank" rel="noopener noreferrer">GO:0008233</a> (peptidase activity); <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a> (keratinocyte); <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" rel="noopener noreferrer">HP:0008066</a> (abnormal blistering of the skin).</p>
+<h3>Finding 3 — Global burden exceeds 162 million children, concentrated in the tropics and poverty</h3>
+<p>A systematic review of 89 studies encompassing 145,028 children established a <strong>median childhood prevalence of 12.3% (IQR 4.2–19.4%)</strong>. The burden is highly unequal: low and low-middle income countries showed median prevalences of 8.4–14.5%, but the highest burden was paradoxically in underprivileged children within high-income countries (median 19.4%, IQR 3.9–43.3%). Extrapolating these prevalences yields an estimate of <strong>more than 162 million children affected at any one time</strong>, predominantly in tropical, resource-poor contexts.</p>
+<blockquote>
+<p><em>"we estimate the global population of children suffering from impetigo at any one time to be in excess of 162 million, predominantly in tropical, resource-poor contexts"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26317533/">PMID: 26317533</a></p>
+<p><em>"Median childhood prevalence was 12·3% (IQR 4·2-19·4%)"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26317533/">PMID: 26317533</a></p>
+</blockquote>
+<h3>Finding 4 — Streptococcal impetigo drives post-infectious sequelae (APSGN and ARF)</h3>
+<p>Group A streptococcal impetigo is not merely a nuisance skin infection; it is an antecedent of serious immune-mediated sequelae. Skin infection with GAS can trigger <strong>acute post-streptococcal glomerulonephritis (APSGN)</strong>, and GAS pharyngitis or impetigo can precede <strong>acute rheumatic fever (ARF)</strong> and its long-term consequence, rheumatic heart disease. In remote Australian Aboriginal communities, the combination of scabies, impetigo, and these post-infectious complications occurs at the highest documented rates in the world.</p>
+<blockquote>
+<p><em>"associated with serious long term sequelae, including invasive infection and post-infectious complications, such as acute post-streptococcal glomerulonephritis and acute rheumatic fever, which occurs at the highest documented rates in the world in remote Aboriginal communities"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/31630410/">PMID: 31630410</a></p>
+<p><em>"Acute rheumatic fever (ARF) is an autoimmune disorder resulting from Group A Streptococcus (GAS) pharyngitis or impetigo in children and adolescents"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40484016/">PMID: 40484016</a></p>
+</blockquote>
+<p><strong>Ontology anchors:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0001366" target="_blank" rel="noopener noreferrer">MONDO:0001366</a> (post-streptococcal glomerulonephritis); <a href="http://purl.obolibrary.org/obo/MONDO_0005295" target="_blank" rel="noopener noreferrer">MONDO:0005295</a> (rheumatic fever); <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" rel="noopener noreferrer">HP:0000790</a> (hematuria), <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" rel="noopener noreferrer">HP:0000093</a> (proteinuria).</p>
+<h3>Finding 5 — Treatment is severity-stratified; topical antibiotics are effective first-line</h3>
+<p>The evidence base for impetigo treatment is substantial. A Cochrane systematic review incorporated <strong>68 randomized controlled trials with 5,578 participants</strong> reporting on 50 different treatments. Pooled analysis showed topical antibiotics were markedly superior to placebo (<strong>pooled OR 6.49, 95% CI 3.93–10.73</strong>), with topical mupirocin superior to oral erythromycin and no significant difference between mupirocin and fusidic acid.</p>
+<blockquote>
+<p><em>"The total number of included trials was, thus, 68, with 5578 participants, reporting on 50 different treatments"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/22258953/">PMID: 22258953</a></p>
+<p><em>"Topical antibiotics showed better cure rates than placebo (pooled odds ratio (OR) 6.49, 95% confidence interval (CI) 3.93 to 10.73)"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/15106198/">PMID: 15106198</a></p>
+</blockquote>
+<p>Current guidance recommends <strong>topical mupirocin 2% or retapamulin 1%</strong> for mild nonbullous and bullous disease, reserving oral agents (dicloxacillin, cephalexin) targeting both GAS and <em>S. aureus</em> for extensive, bullous, or outbreak disease.</p>
+<blockquote>
+<p><em>"Topical mupirocin 2% ointment or retapamulin 1% ointment are the recommended initial treatments for mild, nonbullous and bullous impetigo."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41839109/">PMID: 41839109</a></p>
+</blockquote>
+<p>A newer non-fluorinated quinolone, <strong>ozenoxacin 1% cream</strong>, has demonstrated efficacy in randomized trials with rapid clinical and microbiological response, including activity against both MSSA and MRSA (see Evidence Base).</p>
+<p><strong>Ontology anchors:</strong> NCIT / <a href="http://purl.obolibrary.org/obo/CHEBI_7025" target="_blank" rel="noopener noreferrer">CHEBI:7025</a> (mupirocin), retapamulin, ozenoxacin, <a href="http://purl.obolibrary.org/obo/CHEBI_4508" target="_blank" rel="noopener noreferrer">CHEBI:4508</a> (dicloxacillin), cephalexin.</p>
+<h3>Finding 6 — Ivermectin mass drug administration substantially reduces community impetigo</h3>
+<p>Because impetigo frequently follows scabies infestation (excoriation breaches the skin barrier), community-level scabies control translates into impetigo reduction. Multiple trials confirm this across settings:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Intervention</th>
+<th>Key result</th>
+<th>PMID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fiji (cluster RCT, n=2,051)</td>
+<td>Ivermectin MDA</td>
+<td>Scabies 32.1%→1.9% (RR 94%, 95% CI 83–100); impetigo declined most in ivermectin arm</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26650152/">26650152</a></td>
+</tr>
+<tr>
+<td>Solomon Islands (AIM trial, Choiseul, ~26,000 people)</td>
+<td>Ivermectin + azithromycin MDA</td>
+<td>Scabies 18.7%→2.3% (RR 88%), impetigo 24.8%→6.4% (RR 74%)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30956111/">30956111</a></td>
+</tr>
+<tr>
+<td>Northern India (single-arm, moderate prevalence)</td>
+<td>Ivermectin MDA</td>
+<td>Impetigo 1.2%→0.4% (RRR 66.1%, 95% CI 7.0–87); scabies RRR 87.7%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39431149/">39431149</a></td>
+</tr>
+<tr>
+<td>Fiji (before-after, n=131,914)</td>
+<td>Population MDA</td>
+<td>SSTI hospitalisations 17% lower (IRR 0.83, 95% CI 0.74–0.94)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35345391/">35345391</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p><em>"The prevalence declined from 32.1% to 1.9% in the ivermectin group (relative reduction, 94%; 95% confidence interval [CI], 83 to 100)"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26650152/">PMID: 26650152</a></p>
+<p><em>"The incidence of hospitalisations with skin and soft tissue infections was 17% lower after the intervention compared to baseline (388 vs 467 per 100,000 person-years; incidence rate ratio 0.83, 95% CI, 0.74 to 0.94"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/35345391/">PMID: 35345391</a></p>
+<p><em>"5 had impetigo (0.4%; relative risk reduction, 66.1%; 95% CI, 7.0%-87[%])"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/39431149/">PMID: 39431149</a></p>
+</blockquote>
+<h3>Finding 7 — Antimicrobial-resistant <em>S. aureus</em> impetigo clones are emerging</h3>
+<p>Resistance to first-line topical agents is escalating. The <strong>epidemic European fusidic acid-resistant impetigo clone (EEFIC)</strong> persists in Belgium: among community-onset skin/soft-tissue <em>S. aureus</em> isolates, 16.2% were fusidic-acid-resistant, of which 48.1% belonged to the EEFIC, disproportionately from young impetigo patients with a late-summer seasonal peak.</p>
+<blockquote>
+<p><em>"Of these, 79 (16.2%) were resistant to fusidic acid, of which 38 (48.1%) belonged to the EEFIC. EEFIC isolates were mostly isolated from young patients with impetigo and showed a seasonal late summer peak."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/37358399/">PMID: 37358399</a></p>
+</blockquote>
+<p>A <strong>mupirocin-resistant variant</strong> of this clone has since emerged and spread, threatening a second first-line topical agent:</p>
+<blockquote>
+<p><em>"Emergence and spread of a mupirocin-resistant variant of the European epidemic fusidic acid-resistant impetigo clone"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/38726693/">PMID: 38726693</a></p>
+</blockquote>
+<p>Clones resistant to both mupirocin and fusidic acid and carrying exotoxin genes are increasingly causing skin infections (<a href="https://pubmed.ncbi.nlm.nih.gov/28592549/">PMID: 28592549</a>), and community MRSA impetigo outbreaks have been reported (e.g., the Netherlands, <a href="https://pubmed.ncbi.nlm.nih.gov/36695440/">PMID: 36695440</a>).</p>
+<h3>Finding 8 — Host skin-barrier and innate-immune dysfunction predispose to impetigo</h3>
+<p>Impetigo begins with <em>S. aureus</em> colonization, which is strongly modulated by host skin integrity. Keratinocytes are the principal epidermal cell orchestrating innate defense against <em>S. aureus</em>, which is rarely found on healthy skin but frequently colonizes atopic dermatitis (AD) skin.</p>
+<blockquote>
+<p><em>"Staphylococcus aureus is only rarely found on healthy human skin, but frequently colonizes the skin of atopic dermatitis (AD) patients"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/28655473/">PMID: 28655473</a></p>
+</blockquote>
+<p>AD promotes colonization through three converging mechanisms — barrier dysfunction, increased extracellular-matrix adhesins, and defective innate immunity from decreased antimicrobial peptides (AMPs):</p>
+<blockquote>
+<p><em>"The mechanisms that allergic skin inflammation of AD promotes the increase of S. aureus colonization include skin barrier dysfunction, increased synthesis of the extracellular matrix adhesins for S. aureus, and defective innate immune responses due to decreased production of endogenous antimicrobial peptides"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/18163223/">PMID: 18163223</a></p>
+</blockquote>
+<p>The relevant AMPs whose deficiency impairs cutaneous antibacterial defense are named explicitly:</p>
+<blockquote>
+<p><em>"low production of the antimicrobial peptides cathelicidin LL-37 and human β-defensins"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/31836943/">PMID: 31836943</a></p>
+</blockquote>
+<p>A <strong>filaggrin (FLG) Pro478Ser polymorphism</strong> associates with AD severity and <em>S. aureus</em> colonization (<a href="https://pubmed.ncbi.nlm.nih.gov/27012026/">PMID: 27012026</a>). Clinically, in a series of children with disseminated bullous impetigo, <strong>92% had severe AD</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/31755570/">PMID: 31755570</a>) — powerful convergent evidence that barrier compromise is an upstream host-susceptibility axis.</p>
+<p><strong>Ontology anchors:</strong> HGNC gene FLG (filaggrin); CAMP (cathelicidin/LL-37), DEFB (β-defensins); <a href="http://purl.obolibrary.org/obo/GO_0019730" target="_blank" rel="noopener noreferrer">GO:0019730</a> (antimicrobial humoral response), <a href="http://purl.obolibrary.org/obo/GO_0061436" target="_blank" rel="noopener noreferrer">GO:0061436</a> (establishment of skin barrier); <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a> (keratinocyte); <a href="http://purl.obolibrary.org/obo/MONDO_0004980" target="_blank" rel="noopener noreferrer">MONDO:0004980</a> (atopic dermatitis).</p>
+<h3>Finding 9 — GBD 2019: pyoderma/impetigo is the dominant bacterial skin disease burden</h3>
+<p>The GBD 2019 analysis of bacterial skin diseases (BSD) quantified an age-standardized incidence of <strong>169.72 million [165.28–175.44]</strong> and <strong>0.41 million DALYs [0.33–0.48]</strong>. Of the two main BSD categories, pyoderma causes a significantly heavier burden than cellulitis, with the highest burden in low-middle SDI areas and the lowest in high-middle SDI regions.</p>
+<blockquote>
+<p><em>"Of the two main BSD, pyoderma cause significantly much heavier burden than cellulitis. The highest burden was in the low-middle sociodemographic index (SDI) area"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/35547219/">PMID: 35547219</a></p>
+<p><em>"The age-standardized incidence and age-standardized DALYs rate of BSD are: 169.72 million [165.28-175.44] and 0.41 million [0.33-0.48]"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/35547219/">PMID: 35547219</a></p>
+</blockquote>
+<p>Trend analysis (1990–2019) shows <strong>rising</strong> age-standardized incidence and mortality rates for pyoderma/impetigo, with burden concentrated in children under 5 and the elderly and inversely related to socioeconomic development (<a href="https://pubmed.ncbi.nlm.nih.gov/39805883/">PMID: 39805883</a>).</p>
+<hr />
+<h2>Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p>Impetigo is a highly contagious, superficial bacterial infection of the epidermis, and one of the most common skin infections of childhood worldwide. <strong>Key identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0004592" target="_blank" rel="noopener noreferrer">MONDO:0004592</a>; ICD-10 <strong>L01</strong> (L01.0 impetigo, L01.1 impetiginization of other dermatoses); ICD-11 <strong>1B72</strong>; MeSH D007169 ("Impetigo"); SNOMED CT 48277006. There is no OMIM entry because impetigo is not a Mendelian genetic disorder, and it is not a rare disease with a dedicated Orphanet entry. <strong>Synonyms/alternative names:</strong> impetigo contagiosa, "school sores," pyoderma (a broader term encompassing impetigo), non-bullous impetigo (impetigo vulgaris/crusted impetigo), bullous impetigo, and ecthyma (the deeper, ulcerative variant). The information in this report is derived from <strong>aggregated disease-level resources</strong> — systematic reviews, GBD modeling, and clinical cohorts — rather than from individual EHR patient records.</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factors:</strong> Impetigo is an <strong>infectious disease</strong> caused by Gram-positive bacteria — predominantly <em>Staphylococcus aureus</em> (NCBITaxon:1280) and <em>Streptococcus pyogenes</em> (group A streptococcus; NCBITaxon:1314). Bullous impetigo is specifically caused by exfoliative-toxin-producing <em>S. aureus</em> (Finding 2).</p>
+<p><strong>Environmental/lifestyle risk factors:</strong> warm humid tropical climate, crowding, poverty, poor hygiene and limited access to water, and — importantly — <strong>antecedent skin trauma or infestation</strong> (scabies, insect bites, minor abrasions, atopic dermatitis) that breaches the epidermal barrier. Young age (2–5 years) is the strongest demographic risk factor. <strong>Genetic risk:</strong> There are no causal or susceptibility loci for impetigo itself; however, host genetic factors influencing barrier and innate immunity — notably <strong>filaggrin (FLG)</strong> loss-of-function and the Pro478Ser polymorphism — modulate <em>S. aureus</em> colonization and thereby indirect risk (Finding 8).</p>
+<p><strong>Protective factors:</strong> intact skin barrier, adequate cutaneous antimicrobial peptide production (cathelicidin LL-37, β-defensins), good hygiene, and — at the community scale — scabies control via ivermectin MDA (Finding 6).</p>
+<p><strong>Gene–environment interaction:</strong> The clearest example is filaggrin deficiency (genetic) combined with environmental <em>S. aureus</em> exposure and AD inflammation, which together amplify colonization and infection risk (Finding 8, <a href="https://pubmed.ncbi.nlm.nih.gov/18163223/">PMID: 18163223</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/27012026/">PMID: 27012026</a>).</p>
+<h3>3. Phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Characteristics</th>
+<th>Suggested HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Honey-colored crusted lesions</td>
+<td>Clinical sign</td>
+<td>Childhood onset; mild-moderate; classic nonbullous form</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011368" target="_blank" rel="noopener noreferrer">HP:0011368</a> (epidermal thickening/crusting); <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" rel="noopener noreferrer">HP:0200042</a> (skin ulcer)</td>
+</tr>
+<tr>
+<td>Vesicles/pustules</td>
+<td>Physical manifestation</td>
+<td>Precede crusting; rupture over 4–6 days</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200037" target="_blank" rel="noopener noreferrer">HP:0200037</a> (vesicle)</td>
+</tr>
+<tr>
+<td>Flaccid bullae (bullous form)</td>
+<td>Physical manifestation</td>
+<td>~30% of cases; Dsg1-mediated; neonates/infants</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" rel="noopener noreferrer">HP:0008066</a> (abnormal blistering of the skin)</td>
+</tr>
+<tr>
+<td>Pruritus</td>
+<td>Symptom</td>
+<td>Common; promotes autoinoculation/spread</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" rel="noopener noreferrer">HP:0000989</a> (pruritus)</td>
+</tr>
+<tr>
+<td>Regional lymphadenopathy</td>
+<td>Clinical sign</td>
+<td>More common with streptococcal disease</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a> (lymphadenopathy)</td>
+</tr>
+<tr>
+<td>Erythema</td>
+<td>Clinical sign</td>
+<td>Surrounds lesions</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a> (skin rash)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Onset:</strong> predominantly childhood (peak 2–5 years); neonatal for bullous forms. <strong>Severity:</strong> usually mild and localized; occasionally extensive/disseminated. <strong>Progression:</strong> acute and self-limited over days to a few weeks; episodic recurrences occur with re-exposure. <strong>Quality-of-life impact:</strong> generally modest and transient (discomfort, pruritus, cosmetic and social stigma, school exclusion), but recurrent or disseminated disease and post-infectious sequelae impose substantial morbidity in endemic settings.</p>
+<h3>4. Genetic/Molecular Information</h3>
+<p><strong>Impetigo has no causal human genes</strong> — it is an acquired infection, so there are no pathogenic germline variants, modifier genes, or chromosomal abnormalities in the classical Mendelian sense. The relevant molecular players are: (a) the <strong>bacterial virulence genes</strong> — <em>eta</em> (phage-encoded), <em>etb</em> (plasmid-encoded), and <em>etd</em> exfoliative toxin genes of <em>S. aureus</em> (Finding 2); and (b) the <strong>host target and susceptibility genes</strong> — <strong>DSG1</strong> (desmoglein-1, the toxin substrate) and barrier/innate-immunity genes <strong>FLG</strong> (filaggrin), <strong>CAMP</strong> (cathelicidin), and <em>DEFB</em> (β-defensins) whose deficiency predisposes to colonization (Finding 8). The FLG Pro478Ser polymorphism is a documented modifier of colonization risk (<a href="https://pubmed.ncbi.nlm.nih.gov/27012026/">PMID: 27012026</a>). Epigenetic and chromosomal-abnormality data are <strong>not applicable</strong> to this infectious disease.</p>
+<h3>5. Environmental Information</h3>
+<p><strong>Infectious agents:</strong> <em>S. aureus</em> (including MRSA and MSSA) and <em>S. pyogenes</em> are the etiologic organisms; the exfoliative-toxin-producing <em>S. aureus</em> strains cause bullous disease. <strong>Environmental/lifestyle factors:</strong> heat, humidity, crowding, poor sanitation, and limited water access drive transmission; skin trauma, insect bites, and scabies infestation provide the portal of entry. There is no known role for chemical toxins, radiation, or occupational exposures. Impetigo is transmitted person-to-person by direct contact and via fomites; autoinoculation spreads lesions on the same host.</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (bullous impetigo):</strong></p>
+<ol>
+<li>Host skin-barrier/innate-immune compromise (e.g., atopic dermatitis, filaggrin deficiency, reduced LL-37/β-defensins) → <strong>permits</strong> <em>S. aureus</em> colonization of the skin. <em>(inferred host-susceptibility step; supported by AD/FLG data)</em></li>
+<li>Breach of the epidermis (trauma, scabies, insect bite) → <strong>allows</strong> bacterial entry and superficial proliferation.</li>
+<li>Toxigenic <em>S. aureus</em> expresses exfoliative toxins ETA/ETB/ETD → <strong>secretes</strong> glutamate-specific serine proteases into the superficial epidermis.</li>
+<li>Exfoliative toxins cleave a single peptide bond in extracellular domains 3–4 of <strong>desmoglein-1</strong> → <strong>abolish</strong> Dsg1-mediated keratinocyte adhesion in the granular layer.</li>
+<li>Loss of Dsg1 adhesion → <strong>results in</strong> intraepidermal acantholysis and a superficial blister split (demonstrated: Dsg1 domain removal is sufficient, blistering within 60 min in neonatal mice).</li>
+<li>Superficial blister roof ruptures → <strong>produces</strong> erosions that dry into honey-colored crusts (clinical manifestation).</li>
+</ol>
+<p><strong>Branch — nonbullous streptococcal impetigo:</strong></p>
+<p>3b. <em>S. pyogenes</em> (± <em>S. aureus</em>) colonizes traumatized skin → local pyogenic inflammation, pustule and crust formation without Dsg1 cleavage.
+4b. In susceptible hosts, nephritogenic GAS strains → <strong>trigger</strong> immune-complex-mediated APSGN; rheumatogenic strains → <strong>can trigger</strong> ARF via molecular mimicry. <em>(downstream, immune-mediated)</em></p>
+<p><strong>Molecular/cellular detail:</strong> The upstream lesion is bacterial colonization gated by host innate immunity (keratinocytes as sensors, <a href="https://pubmed.ncbi.nlm.nih.gov/28655473/">PMID: 28655473</a>); the proximate mechanism is <strong>proteolytic destruction of a desmosomal adhesion molecule</strong> (protein loss-of-function of Dsg1 via extracellular cleavage). The downstream clinical event is intraepidermal blistering; the downstream systemic events (APSGN, ARF) are host immune responses to streptococcal antigens. <strong>Cell types:</strong> keratinocytes (<a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>), neutrophils (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>). <strong>Biological processes:</strong> <a href="http://purl.obolibrary.org/obo/GO_0007156" target="_blank" rel="noopener noreferrer">GO:0007156</a> (cell–cell adhesion), <a href="http://purl.obolibrary.org/obo/GO_0030057" target="_blank" rel="noopener noreferrer">GO:0030057</a> (desmosome), <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" rel="noopener noreferrer">GO:0006508</a> (proteolysis), <a href="http://purl.obolibrary.org/obo/GO_0019730" target="_blank" rel="noopener noreferrer">GO:0019730</a> (antimicrobial humoral response), <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response). <strong>Subcellular compartments:</strong> desmosome/plasma membrane (<a href="http://purl.obolibrary.org/obo/GO_0030057" target="_blank" rel="noopener noreferrer">GO:0030057</a>), extracellular space (<a href="http://purl.obolibrary.org/obo/GO_0005615" target="_blank" rel="noopener noreferrer">GO:0005615</a>).</p>
+<h3>7. Anatomical Structures Affected</h3>
+<p><strong>Primary organ:</strong> skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>), specifically the <strong>epidermis</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" rel="noopener noreferrer">UBERON:0001003</a>) and its superficial <strong>stratum granulosum</strong>, where Dsg1 is concentrated. <strong>Tissue:</strong> keratinized stratified squamous epithelium. <strong>Cell populations:</strong> keratinocytes (<a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>) are the direct target; neutrophils (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>) infiltrate lesions. <strong>Common sites:</strong> exposed skin — face (especially perioral and perinasal), extremities; bullous disease favors intertriginous areas and, in neonates, the diaper region and trunk. <strong>Lateralization:</strong> typically bilateral/multifocal and asymmetric, spreading by autoinoculation. <strong>Secondary organ involvement:</strong> kidney (glomerulus) in APSGN; heart/joints/CNS in ARF; rarely deeper soft tissue (ecthyma) or systemic (SSSS, sepsis). <strong>Subcellular level:</strong> the desmosome (<a href="http://purl.obolibrary.org/obo/GO_0030057" target="_blank" rel="noopener noreferrer">GO:0030057</a>) at the keratinocyte plasma membrane.</p>
+<h3>8. Temporal Development</h3>
+<p><strong>Onset:</strong> acute; predominantly pediatric (peak 2–5 years), neonatal for bullous forms. <strong>Course:</strong> self-limited; individual lesions evolve over 4–6 days and resolve within ~2–3 weeks even without treatment, though treatment shortens the course and reduces spread. <strong>Progression:</strong> usually stable/localized but can be episodic and recurrent with re-exposure; disseminated bullous impetigo occurs in barrier-compromised (AD) children. <strong>Remission:</strong> spontaneous or treatment-induced; complete without scarring in uncomplicated disease. <strong>Critical periods:</strong> early antibiotic treatment prevents dissemination and reduces transmission; treatment does <strong>not</strong> reliably prevent APSGN (a key public-health caveat).</p>
+<h3>9. Inheritance and Population</h3>
+<p><strong>Epidemiology:</strong> Median childhood prevalence 12.3% (IQR 4.2–19.4%); &gt;162 million children affected globally at any one time (<a href="https://pubmed.ncbi.nlm.nih.gov/26317533/">PMID: 26317533</a>); GBD 2019 age-standardized BSD incidence 169.72 million and 0.41 million DALYs, pyoderma-dominant (<a href="https://pubmed.ncbi.nlm.nih.gov/35547219/">PMID: 35547219</a>). <strong>Inheritance:</strong> not applicable (non-genetic infectious disease); no penetrance/expressivity/anticipation/founder-effect/carrier-frequency parameters apply. <strong>Population demographics:</strong> highest burden in tropical, low-middle-SDI regions and in marginalized populations of high-income countries (e.g., remote Aboriginal Australian communities, <a href="https://pubmed.ncbi.nlm.nih.gov/31630410/">PMID: 31630410</a>); children under 5 and the elderly are most affected (<a href="https://pubmed.ncbi.nlm.nih.gov/39805883/">PMID: 39805883</a>). Sex ratio is approximately equal. Geographic and seasonal patterns exist (warm/humid seasons; late-summer peaks for the EEFIC clone).</p>
+<h3>10. Diagnostics</h3>
+<p>Diagnosis is <strong>primarily clinical</strong>, based on the characteristic honey-colored crusts (nonbullous) or flaccid bullae (bullous) (<a href="https://pubmed.ncbi.nlm.nih.gov/41839109/">PMID: 41839109</a>). <strong>Laboratory/microbiology:</strong> Gram stain and bacterial culture with antibiotic sensitivity testing are recommended when MRSA is suspected, when disease is recurrent/extensive, or during outbreaks, to guide therapy and detect resistant clones (EEFIC, MRSA). Wound swab of the crust base or bulla fluid is the standard specimen. Anti-DNase B and anti-streptolysin O (ASO) titers can retrospectively confirm streptococcal infection (more reliably anti-DNase B for skin GAS) in suspected APSGN. <strong>Histopathology</strong> (rarely needed): subcorneal/granular-layer split with acantholysis and neutrophils in bullous disease. <strong>Genetic and omics-based diagnostics are not applicable.</strong> <strong>Differential diagnosis:</strong> atopic dermatitis flare (frequently confused — 67% of disseminated bullous impetigo cases were initially misdiagnosed as AD flares, <a href="https://pubmed.ncbi.nlm.nih.gov/31755570/">PMID: 31755570</a>), herpes simplex/eczema herpeticum, varicella, scabies, contact dermatitis, tinea, and — for bullous forms — SSSS, bullous pemphigoid, and pemphigus foliaceus (which shares the Dsg1 target).</p>
+<h3>11. Outcome / Prognosis</h3>
+<p>Prognosis is <strong>excellent</strong> for uncomplicated impetigo: self-limited, resolving without scarring, with high cure rates on topical therapy (Finding 5). Direct mortality is very low but non-zero at population scale (GBD records rising age-standardized pyoderma mortality, driven by resource-poor settings and complications, <a href="https://pubmed.ncbi.nlm.nih.gov/39805883/">PMID: 39805883</a>). <strong>Morbidity</strong> derives chiefly from: (1) transmission and recurrence; (2) local complications — ecthyma, cellulitis, abscess, lymphangitis; and (3) serious post-infectious sequelae — <strong>APSGN and ARF/rheumatic heart disease</strong> — which dominate the long-term burden in endemic communities (Finding 4). <strong>Prognostic factors:</strong> streptococcal (vs staphylococcal-only) etiology raises sequela risk; host barrier compromise (AD) predisposes to dissemination; antimicrobial resistance (EEFIC, MRSA) predicts treatment failure. Quality-of-life impact is generally transient for individuals but substantial cumulatively in high-burden populations.</p>
+<h3>12. Treatment</h3>
+<p><strong>Pharmacotherapy — topical (limited disease):</strong> mupirocin 2% (targets <em>S. aureus</em> incl. MRSA), retapamulin 1% (pleuromutilin; MSSA and <em>S. pyogenes</em>), and ozenoxacin 1% (non-fluorinated quinolone; MSSA, MRSA, <em>S. pyogenes</em>) — all superior to vehicle in RCTs (Finding 5; ozenoxacin <a href="https://pubmed.ncbi.nlm.nih.gov/29898217/">PMID: 29898217</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/25340832/">PMID: 25340832</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/30365584/">PMID: 30365584</a>). Fusidic acid is used outside the US but faces rising resistance. <strong>Oral (extensive/bullous/outbreak disease):</strong> dicloxacillin or cephalexin (cover both GAS and <em>S. aureus</em>); cephalosporins are recommended for disseminated bullous impetigo given high clindamycin resistance (<a href="https://pubmed.ncbi.nlm.nih.gov/31755570/">PMID: 31755570</a>); MRSA-directed agents (e.g., clindamycin, trimethoprim-sulfamethoxazole, doxycycline) per local sensitivities. <strong>Treatment strategy</strong> follows a severity- and resistance-aware algorithm (<a href="https://pubmed.ncbi.nlm.nih.gov/33538559/">PMID: 33538559</a>): localized disease (&lt;10 lesions, &lt;36 cm²) → topical; widespread/epidemic → oral, guided by local resistance trends. <strong>Advanced/experimental/surgical therapies, pharmacogenomics, and personalized medicine are not applicable</strong> to this common bacterial infection. <strong>Adverse events</strong> are minimal for topical agents (mainly application-site pruritus). <strong>Suggested NCIT anchors:</strong> mupirocin, retapamulin, ozenoxacin, cephalexin, dicloxacillin (antibacterial-agent class terms).</p>
+<h3>13. Prevention</h3>
+<p><strong>Primary prevention:</strong> hygiene (handwashing, wound care), reducing crowding, treating predisposing skin conditions (scabies, AD), and — at the community scale — <strong>ivermectin-based MDA for scabies</strong>, which robustly lowers impetigo prevalence and SSTI hospitalisations (Finding 6). <strong>Secondary prevention:</strong> early diagnosis and treatment to limit spread and, in endemic settings, surveillance for APSGN/ARF. <strong>Tertiary prevention:</strong> management of established sequelae (nephritis, rheumatic heart disease). <strong>Public-health interventions:</strong> improved water/sanitation/hygiene (WASH), health education, and integrated NTD control programs. <strong>Immunization:</strong> no impetigo vaccine exists, but a <strong>group A streptococcal vaccine</strong> is in active development and could provide primordial prevention of GAS impetigo and its sequelae (<a href="https://pubmed.ncbi.nlm.nih.gov/38164699/">PMID: 38164699</a>). Genetic screening/counseling is not applicable.</p>
+<h3>14. Other Species / Natural Disease</h3>
+<p>Impetigo as clinically defined is a <strong>human disease</strong> (<em>Homo sapiens</em>, NCBITaxon:9606). However, the causative organisms and mechanisms have cross-species relevance: exfoliative toxins cleave <strong>both human and mouse Dsg1</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/17582744/">PMID: 17582744</a>), and <em>S. aureus</em> causes pyoderma and impetigo-like superficial pyoderma in companion animals (dogs, via <em>Staphylococcus pseudintermedius</em>), giving veterinary relevance. Orthologous <strong>Dsg1</strong> genes exist across mammals, and the mouse <em>Dsg1</em> ortholog underpins neonatal-mouse toxin models (Finding 2). Zoonotic transmission is not a primary feature of human impetigo, though <em>S. aureus</em> strains can move between humans and animals.</p>
+<h3>15. Model Organisms</h3>
+<p>The principal experimental model is the <strong>neonatal mouse</strong> (<em>Mus musculus</em>, NCBITaxon:10090), in which subcutaneous or intraperitoneal injection of purified exfoliative toxin (ETA) reproduces the superficial intraepidermal split within ~60 minutes, and Dsg1 domain-removal experiments established sufficiency of Dsg1 cleavage for blistering (<a href="https://pubmed.ncbi.nlm.nih.gov/20728315/">PMID: 20728315</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/17582744/">PMID: 17582744</a>). This model faithfully recapitulates the <strong>molecular mechanism</strong> of bullous impetigo/SSSS (Dsg1 proteolysis → superficial blister) but does not capture the full contagious, colonization-driven natural history or the streptococcal post-infectious sequelae. Murine AD models (e.g., <a href="https://pubmed.ncbi.nlm.nih.gov/32438777/">PMID: 32438777</a>) and the EL4 lymphoma model (<a href="https://pubmed.ncbi.nlm.nih.gov/41795941/">PMID: 41795941</a>) are used to study the barrier-dysfunction/<em>S. aureus</em>-colonization axis relevant to impetigo susceptibility. <strong>In vitro</strong> keratinocyte cultures are used to study Dsg1 cleavage and cytokine-driven barrier-protein repression.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>UPSTREAM (host susceptibility)                     PROXIMATE MECHANISM                    CLINICAL OUTCOME
+--------------------------------                   --------------------                    ----------------
+Barrier/innate-immune deficit                      Toxigenic S. aureus                     Bullous impetigo
+(AD, FLG deficiency, low LL-37/                    secretes ETA/ETB/ETD  ── cleaves ──►    (superficial blisters,
+ β-defensins)                                      (glutamate-specific     Dsg1 ECD3-4      honey crusts)
+│                                           serine proteases)          │
+▼                                                                      ▼
+  S. aureus colonization ──► skin breach ──►  ┌── toxigenic S. aureus ──► Dsg1 loss ──► intraepidermal split
+  (trauma, scabies,          (portal of       │
+   insect bite)               entry)          └── S. pyogenes / non-toxigenic S. aureus
+                                        │
+                                        ▼
+                                  Nonbullous impetigo (pustules, crusts)
+                                        │
+                                        ├──► nephritogenic GAS ──► APSGN
+                                        └──► rheumatogenic GAS ──► ARF / RHD
+                                             (immune-mediated, downstream)
+</code></pre>
+<p>The unifying narrative is a two-tier causal architecture. <strong>Tier 1 (host susceptibility, upstream):</strong> the epidermal barrier and cutaneous antimicrobial-peptide system normally exclude <em>S. aureus</em>; when these fail — genetically (filaggrin), inflammatorily (atopic dermatitis), or mechanically (scabies, trauma) — colonization and infection follow. <strong>Tier 2 (pathogen effector, proximate):</strong> the pathology diverges by organism. Toxigenic <em>S. aureus</em> executes a precise proteolytic attack on a single adhesion molecule (Dsg1) to produce bullae; streptococci and non-toxigenic staphylococci produce nonbullous pyoderma. A distinct <strong>downstream immune tier</strong> converts streptococcal skin infection into systemic sequelae (APSGN, ARF). This model explains why interventions at different tiers all work: barrier/scabies control (upstream, MDA), antibiotics (proximate, killing the organism), and future GAS vaccines (blocking the downstream sequela pathway).</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Role in report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41839109/">41839109</a></td>
+<td><em>Impetigo: Rapid Evidence Review</em></td>
+<td>Forms/proportions, causative pathogens, first-line topical therapy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33105179/">33105179</a></td>
+<td><em>Impetigo</em></td>
+<td>Superficial bacterial etiology, &gt;140M global burden</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17582744/">17582744</a></td>
+<td><em>Staphylococcal exfoliative toxins: "molecular scissors"</em></td>
+<td>ET isoforms as Dsg1-cleaving serine proteases</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20728315/">20728315</a></td>
+<td><em>Removal of N-terminal Dsg1 domains…</em></td>
+<td>Dsg1 cleavage is sufficient for blistering</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21282415/">21282415</a></td>
+<td><em>Regulatory mechanism for ET production</em></td>
+<td>ETA phage-encoded, ETB plasmid-encoded</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26317533/">26317533</a></td>
+<td><em>Global Epidemiology of Impetigo</em></td>
+<td>12.3% prevalence, &gt;162M children</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31630410/">31630410</a></td>
+<td><em>Skin infections in Australian Aboriginal children</em></td>
+<td>APSGN/ARF sequelae, highest documented rates</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40484016/">40484016</a></td>
+<td><em>Acute rheumatic fever</em></td>
+<td>Impetigo as ARF antecedent</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15106198/">15106198</a></td>
+<td><em>Interventions for impetigo (Cochrane)</em></td>
+<td>Topical antibiotics OR 6.49 vs placebo</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22258953/">22258953</a></td>
+<td><em>Interventions for impetigo (Cochrane, 68 RCTs)</em></td>
+<td>Scale of evidence base</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26650152/">26650152</a></td>
+<td><em>MDA for Scabies Control (Fiji)</em></td>
+<td>Scabies 94% reduction; impetigo declined most</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30956111/">30956111</a></td>
+<td><em>AIM trial (Solomon Islands)</em></td>
+<td>Large-scale MDA: impetigo 74% reduction</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39431149/">39431149</a></td>
+<td><em>Ivermectin MDA (Northern India)</em></td>
+<td>Impetigo RRR 66.1% in moderate-prevalence setting</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35345391/">35345391</a></td>
+<td><em>Prevention of bacterial complications (Fiji)</em></td>
+<td>SSTI hospitalisations 17% lower post-MDA</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37358399/">37358399</a></td>
+<td><em>Persistence of EEFIC (Belgium)</em></td>
+<td>Fusidic-acid-resistant impetigo clone</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38726693/">38726693</a></td>
+<td><em>Mupirocin-resistant EEFIC variant</em></td>
+<td>Resistance to second first-line agent</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28592549/">28592549</a></td>
+<td><em>S. aureus clone resistant to mupirocin+fusidic acid</em></td>
+<td>Dual-resistant exotoxin-carrying clone</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28655473/">28655473</a></td>
+<td><em>Keratinocytes as sensors vs S. aureus</em></td>
+<td>S. aureus rarely on healthy skin, colonizes AD</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18163223/">18163223</a></td>
+<td><em>Role of bacterial pathogens in AD</em></td>
+<td>Barrier + adhesin + AMP mechanisms</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31836943/">31836943</a></td>
+<td><em>Eczema Herpeticum</em></td>
+<td>Names LL-37, β-defensins deficiency</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27012026/">27012026</a></td>
+<td><em>Filaggrin Pro478Ser</em></td>
+<td>FLG variant ↔ AD severity + S. aureus colonization</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31755570/">31755570</a></td>
+<td><em>Disseminated bullous impetigo + AD</em></td>
+<td>92% severe AD; misdiagnosis; cephalosporin recommendation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35547219/">35547219</a></td>
+<td><em>Global Burden of Bacterial Skin Diseases</em></td>
+<td>GBD 2019 incidence/DALYs, pyoderma-dominant</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39805883/">39805883</a></td>
+<td><em>Burden of bacterial pyoderma 1990–2019</em></td>
+<td>Rising ASIR/ASMR, SDI gradient</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29898217/">29898217</a></td>
+<td><em>Ozenoxacin RCT</em></td>
+<td>Ozenoxacin superior to vehicle</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33538559/">33538559</a></td>
+<td><em>Treatment algorithm</em></td>
+<td>Resistance-aware localized-vs-widespread algorithm</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38164699/">38164699</a></td>
+<td><em>Streptococcal vaccine development workshop</em></td>
+<td>GAS vaccine as primordial prevention</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Evidence source types:</strong> human clinical (systematic reviews, RCTs, cohorts, GBD modeling) dominate; the Dsg1 mechanism is supported by model-organism (neonatal mouse) and in vitro work.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No molecular profiling of impetigo lesions.</strong> Transcriptomic, proteomic, metabolomic, and single-cell data specific to human impetigo lesions were not identified; the mechanistic model relies on toxin biochemistry and AD-colonization literature rather than direct lesional omics.</li>
+<li><strong>Prevalence heterogeneity.</strong> The 12.3% median prevalence has a wide IQR (4.2–19.4%) and derives from heterogeneous study designs and diagnostic definitions, limiting precision.</li>
+<li><strong>Sequela causation is population-level.</strong> The link from streptococcal impetigo to APSGN/ARF is epidemiologically robust but strain-specific (nephritogenic/rheumatogenic emm types); individual-level predictive markers remain incompletely defined, and antibiotic treatment does not reliably prevent APSGN.</li>
+<li><strong>Resistance surveillance is geographically patchy.</strong> EEFIC and MRSA data concentrate in a few high-income countries; the true global resistance landscape (especially in high-burden low-SDI regions) is under-characterized.</li>
+<li><strong>Host-susceptibility genetics unproven for impetigo per se.</strong> FLG/AMP associations are established for <em>S. aureus</em> colonization and AD, and are inferred (not directly demonstrated) as impetigo risk modifiers.</li>
+<li><strong>One treatment claim relies on a related source.</strong> The Cochrane trial-count snippet (<a href="https://pubmed.ncbi.nlm.nih.gov/22258953/" target="_blank" rel="noopener noreferrer">PMID 22258953</a>) remained unverified in the knowledge state; the efficacy figure (OR 6.49) rests on the related Cochrane review (<a href="https://pubmed.ncbi.nlm.nih.gov/15106198/" target="_blank" rel="noopener noreferrer">PMID 15106198</a>).</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Lesional multi-omics:</strong> Perform single-cell RNA-seq and spatial transcriptomics on nonbullous vs bullous impetigo lesions to map keratinocyte, neutrophil, and immune responses and validate the two-tier model directly in human tissue.</li>
+<li><strong>Prospective resistance surveillance:</strong> Establish standardized <em>S. aureus</em> impetigo isolate surveillance (mupirocin, fusidic acid, retapamulin, ozenoxacin MICs; EEFIC/MRSA genotyping) in high-burden low-SDI settings, not just Europe.</li>
+<li><strong>Host-genetics cohort:</strong> Test whether FLG loss-of-function and AMP-gene variants independently predict impetigo incidence (not just colonization) in a prospective pediatric cohort with genotyping.</li>
+<li><strong>GAS vaccine impact modeling:</strong> Model the projected reduction in impetigo and downstream APSGN/ARF burden achievable with a group A streptococcal vaccine, integrating GBD and MDA-trial data.</li>
+<li><strong>Integrated NTD control trials:</strong> Evaluate combined WASH + ivermectin MDA + targeted topical therapy for durability of impetigo control and sequela reduction in endemic communities, extending the Fiji/Solomon Islands model to larger non-island populations.</li>
+<li><strong>Ozenoxacin real-world evidence:</strong> Assess ozenoxacin's role against resistant clones (EEFIC, MRSA) in pragmatic post-marketing studies to define its niche within resistance-aware treatment algorithms.</li>
+</ol>
+<hr />
+<p><em>Report compiled from a 5-iteration autonomous investigation: 9 confirmed findings, 44 papers reviewed. Evidence spans human systematic reviews, RCTs, GBD modeling, and mechanistic model-organism/in vitro studies.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Impetigo-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Impetigo-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc3.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>32</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>5</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0001366</code> (1 mention) - the report calls it "post-streptococcal glomerulonephritis"; MONDO calls it <strong>splenic sequestration</strong></li>
+<li><code>MONDO:0005295</code> (1 mention) - the report calls it "rheumatic fever"; MONDO calls it <strong>intermittent vascular claudication</strong></li>
+<li><code>CHEBI:4508</code> (1 mention) - the report calls it "dicloxacillin"; CHEBI calls it <strong>diclofenac potassium</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0005615</code> (obsolete extracellular space) (1 mention) - replaced by <code>GO:0005576</code></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>UBERON:0001003</code> (2 mentions) - the report calls it "skin epidermis", "epidermis"; UBERON calls it <strong>skin epidermis</strong>, and lists "epidermis" among its other names</li>
+<li><code>NCBITaxon:1280</code> (2 mentions) - the report calls it "S. aureus", "Staphylococcus aureus"; NCBITaxon calls it <strong>Staphylococcus aureus</strong>, and lists "Micrococcus aureus" among its other names</li>
+<li><code>NCBITaxon:1314</code> (2 mentions) - the report calls it "S. pyogenes"; NCBITaxon calls it <strong>Streptococcus pyogenes</strong></li>
+<li><code>GO:0007156</code> (2 mentions) - the report calls it "homophilic cell adhesion via plasma membrane adhesion molecules", "cell–cell adhesion"; GO calls it <strong>homophilic cell-cell adhesion</strong></li>
+<li><code>HP:0200037</code> (1 mention) - the report calls it "vesicle"; HP calls it <strong>Skin vesicle</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>UBERON:0001003</code> - called "skin epidermis", "epidermis"</li>
+<li><code>NCBITaxon:1280</code> - called "S. aureus", "Staphylococcus aureus"</li>
+<li><code>GO:0007156</code> - called "homophilic cell adhesion via plasma membrane adhesion molecules", "cell–cell adhesion"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Immunoskeletal_Dysplasia_with_Neurodevelopmental_Abnormalities-falcon.html">← Immunoskeletal Dysplasia with Neurodevelopmental Abnormalities (Falcon)</a>
+                
+                
+                <a href="Inborn_Disorder_of_Bile_Acid_Synthesis-falcon.html">Inborn Disorder of Bile Acid Synthesis (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Impetigo.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Impetigo-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
