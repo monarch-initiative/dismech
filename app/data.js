@@ -130329,7 +130329,7 @@ window.searchData = [
   },
   {
     "name": "Dorsalgia",
-    "disease_id": "MONDO:0000001",
+    "disease_id": null,
     "category": "Complex",
     "parents": [
       "Musculoskeletal disorder",
@@ -244671,7 +244671,7 @@ window.searchData = [
   },
   {
     "name": "Mediator Complex Neurodevelopmental Disorder",
-    "disease_id": "MONDO:0002320",
+    "disease_id": "MONDO:1060233",
     "category": "Genetic",
     "parents": [
       "Neurodevelopmental Disorder",
@@ -289084,7 +289084,7 @@ window.searchData = [
   },
   {
     "name": "PGM2L1 Deficiency",
-    "disease_id": "MONDO:0700092",
+    "disease_id": null,
     "category": "Mendelian",
     "parents": [
       "Inborn Error of Metabolism",
@@ -329447,6 +329447,169 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "SEC61A1 Deficiency",
+    "disease_id": "MONDO:0100337",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Dominant Tubulointerstitial Kidney Disease",
+      "Inborn Error of Immunity",
+      "Severe Congenital Neutropenia"
+    ],
+    "creation_date": "2026-10-22T20:30:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "ADTKD-SEC61A1",
+      "CVID15",
+      "SCN11"
+    ],
+    "description": "SEC61A1 deficiency is an autosomal dominant disorder caused by heterozygous, often de novo, variants in SEC61A1, which encodes the pore-forming alpha subunit of the Sec61 translocon in the endoplasmic reticulum membrane. The Sec61 channel moves nascent secretory and membrane proteins into the endoplasmic reticulum and also acts as a passive calcium leak channel. Reported variants reduce protein abundance, impair cotranslational translocation, and disturb endoplasmic reticulum calcium homeostasis, which pushes highly secretory cells into a terminal unfolded protein response. Three clinical presentations have been described, sometimes overlapping within a family or a patient: autosomal dominant tubulointerstitial kidney disease with glomerular cysts, hyperuricemia and congenital anemia (ADTKD-SEC61A1, also familial juvenile hyperuricemic nephropathy type 4); a primary antibody deficiency with an intrinsic failure of B cells to become plasma cells (common variable immunodeficiency 15); and severe congenital neutropenia with maturation arrest of granulopoiesis. Neutropenia, growth retardation, cleft palate and cognitive impairment have been reported with the kidney form. A single family with polycystic liver disease carries a further missense variant, and one child had epilepsy, microcephaly and hypomagnesemia. Fewer than thirty patients have been published.",
+    "pathophysiology": [
+      "Heterozygous SEC61A1 Variants",
+      "Defective Sec61 Cotranslational Protein Translocation",
+      "Increased Endoplasmic Reticulum Calcium Leak",
+      "Endoplasmic Reticulum Stress and Terminal Unfolded Protein Response",
+      "Impaired Plasma Cell Differentiation and Survival",
+      "Granulocytic Maturation Arrest",
+      "Impaired Renin Biosynthesis in Juxtaglomerular Cells",
+      "Tubulointerstitial and Glomerulocystic Kidney Injury"
+    ],
+    "cell_types": [
+      "B cell",
+      "plasma cell",
+      "promyelocyte",
+      "neutrophil",
+      "kidney granular cell",
+      "epithelial cell of nephron"
+    ],
+    "cell_type_ids": [
+      "CL:0000236",
+      "CL:0000786",
+      "CL:0000836",
+      "CL:0000775",
+      "CL:0000648",
+      "CL:1000449"
+    ],
+    "biological_processes": [
+      "SRP-dependent cotranslational protein targeting to membrane, translocation",
+      "endoplasmic reticulum calcium ion homeostasis",
+      "endoplasmic reticulum unfolded protein response",
+      "PERK-mediated unfolded protein response",
+      "plasma cell differentiation",
+      "neutrophil differentiation",
+      "renin secretion into blood stream"
+    ],
+    "phenotypes": [
+      "Chronic kidney disease",
+      "Renal tubular atrophy",
+      "Multiple glomerular cysts",
+      "Renal cyst",
+      "Renal dysplasia",
+      "Hyperuricemia",
+      "Gout",
+      "Normocytic anemia",
+      "Decreased total neutrophil count",
+      "Congenital agranulocytosis",
+      "Recurrent abscess formation",
+      "Decreased circulating immunoglobulin concentration",
+      "Decreased circulating IgG concentration",
+      "Decreased circulating IgA concentration",
+      "Decreased circulating IgM concentration",
+      "Recurrent respiratory infections",
+      "Recurrent bacterial infections",
+      "Decreased circulating renin concentration",
+      "Decreased circulating aldosterone concentration",
+      "Hyperkalemia",
+      "Hypotension",
+      "Intrauterine growth retardation",
+      "Postnatal growth retardation",
+      "Cleft palate",
+      "Cognitive impairment",
+      "Hypomagnesemia",
+      "Seizure",
+      "Microcephaly",
+      "Polycystic liver disease"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Metabolic",
+      "Musculoskeletal",
+      "Hematologic",
+      "Immunologic",
+      "Endocrine",
+      "Cardiovascular",
+      "Growth",
+      "Craniofacial",
+      "Neurological",
+      "Hepatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0012622",
+      "HP:0000092",
+      "HP:0100611",
+      "HP:0000107",
+      "HP:0000110",
+      "HP:0002149",
+      "HP:0001997",
+      "HP:0001897",
+      "HP:0001875",
+      "HP:0005541",
+      "HP:0002722",
+      "HP:0004313",
+      "HP:0004315",
+      "HP:0002720",
+      "HP:0002850",
+      "HP:0002205",
+      "HP:0002718",
+      "HP:0003351",
+      "HP:0004319",
+      "HP:0002153",
+      "HP:0002615",
+      "HP:0001511",
+      "HP:0008897",
+      "HP:0000175",
+      "HP:0100543",
+      "HP:0002917",
+      "HP:0001250",
+      "HP:0000252",
+      "HP:0006557"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SEC61A1"
+    ],
+    "treatments": [
+      "Immunoglobulin replacement therapy",
+      "Granulocyte colony-stimulating factor",
+      "Fludrocortisone",
+      "Kidney transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SEC61A1_Deficiency.yaml",
+    "page_url": "../pages/disorders/SEC61A1_Deficiency.html",
+    "num_phenotypes": 29,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "39",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "SECISBP2 Deficiency",
@@ -370422,6 +370585,79 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Thrombocytopenia 9",
+    "disease_id": "MONDO:0957572",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited thrombocytopenia"
+    ],
+    "creation_date": "2026-10-22T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Thrombocytopenia 9 (THC9, OMIM 620478) is a mild autosomal dominant inherited thrombocytopenia caused by monoallelic loss-of-function variants in THPO, the gene for thrombopoietin, the hepatocyte-derived cytokine that drives megakaryocyte development through its receptor MPL. The defining report identified frameshift and missense THPO variants that impair intracellular trafficking and secretion of thrombopoietin; carriers had a modestly reduced platelet count (about 100 to 145 x 10^9/L), platelet anisocytosis with some large platelets, occasional mild mucocutaneous bleeding, and a serum thrombopoietin level lower than expected for the platelet count, with no abnormality of other blood lineages. Heterozygous parents and siblings of patients with biallelic THPO disease show the same mild thrombocytopenia, but penetrance is incomplete and some carriers have normal counts. THC9 is one end of an allelic series: biallelic THPO loss of function causes congenital amegakaryocytic thrombocytopenia 2 with trilineage marrow failure, and gain-of-function THPO variants cause thrombocythemia 1.",
+    "pathophysiology": [
+      "THPO Monoallelic Loss of Function",
+      "Reduced Thrombopoietin Secretion",
+      "Reduced Thrombopoietin-MPL Signaling",
+      "Reduced Megakaryopoiesis"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "megakaryocyte progenitor cell",
+      "megakaryocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000553",
+      "CL:0000556"
+    ],
+    "biological_processes": [
+      "protein secretion",
+      "thrombopoietin-mediated signaling pathway",
+      "megakaryocyte differentiation"
+    ],
+    "phenotypes": [
+      "Thrombocytopenia",
+      "Increased mean platelet volume",
+      "Platelet anisocytosis",
+      "Abnormal bleeding",
+      "Decreased circulating thrombopoietin concentration"
+    ],
+    "phenotype_categories": [
+      "Hematological",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Endocrine"
+    ],
+    "phenotype_ids": [
+      "HP:0001873",
+      "HP:0011877",
+      "HP:0032438",
+      "HP:0001892",
+      "HP:6000021"
+    ],
+    "frequencies": [],
+    "genes": [
+      "THPO"
+    ],
+    "treatments": [
+      "Platelet Transfusion",
+      "Thrombopoietin Receptor Agonist"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Thrombocytopenia_9.yaml",
+    "page_url": "../pages/disorders/Thrombocytopenia_9.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Thrombophilia",
     "disease_id": "MONDO:0002305",
     "category": "Complex",
@@ -393548,17 +393784,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3646,
-  "total_subtypes": 4839,
-  "total_disorders_and_subtypes": 8485,
-  "total_unique_evidence_sources": 54392,
-  "total_unique_publications": 50798,
+  "total_disorder_pages": 3648,
+  "total_subtypes": 4842,
+  "total_disorders_and_subtypes": 8490,
+  "total_unique_evidence_sources": 54410,
+  "total_unique_publications": 50816,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3643,
-  "total_unique_pathological_events": 24050,
+  "total_pathographs": 3645,
+  "total_unique_pathological_events": 24062,
   "total_modules": 197,
-  "total_research_reports": 3774,
+  "total_research_reports": 3776,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 120
