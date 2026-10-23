@@ -142434,7 +142434,8 @@ window.searchData = [
       "Sympathetic Nervous System Overactivity",
       "Immune and Inflammatory Activation",
       "Oxidative Stress",
-      "Beta-Adrenergic Receptor Blockade (Beta-Blocker Target)"
+      "Beta-Adrenergic Receptor Blockade (Beta-Blocker Target)",
+      "AT1 Receptor Blockade (Angiotensin Receptor Blocker Target)"
     ],
     "cell_types": [
       "Vascular Smooth Muscle Cell",
@@ -142508,10 +142509,10 @@ window.searchData = [
     "source_file": "Essential_Hypertension.yaml",
     "page_url": "../pages/disorders/Essential_Hypertension.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 7,
     "num_genes": 3,
     "num_treatments": 6,
-    "causal_graph_edges": "3",
+    "causal_graph_edges": "5",
     "causal_graph_longest_path": "1"
   },
   {
@@ -175777,7 +175778,8 @@ window.searchData = [
       "Postmenopausal Oestrogen Withdrawal",
       "Loss of Myocardial Oestrogen Receptor Signalling",
       "Lipoprotein(a)-Driven Coronary Microvascular Dysfunction",
-      "Beta-Adrenergic Receptor Blockade (Beta-Blocker Target)"
+      "Beta-Adrenergic Receptor Blockade (Beta-Blocker Target)",
+      "AT1 Receptor Blockade (Angiotensin Receptor Blocker Target)"
     ],
     "cell_types": [
       "Cardiomyocyte",
@@ -175865,10 +175867,10 @@ window.searchData = [
     "source_file": "Heart_Failure.yaml",
     "page_url": "../pages/disorders/Heart_Failure.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 11,
     "num_genes": 3,
     "num_treatments": 8,
-    "causal_graph_edges": "33",
+    "causal_graph_edges": "35",
     "causal_graph_longest_path": "7"
   },
   {
@@ -198681,7 +198683,8 @@ window.searchData = [
       "Mesangial immune complex deposition and complement activation",
       "Mesangial proliferation and inflammatory amplification",
       "Podocyte damage and filtration barrier failure",
-      "Chronic complement-linked progression and kidney failure risk"
+      "Chronic complement-linked progression and kidney failure risk",
+      "AT1 Receptor Blockade (Angiotensin Receptor Blocker Target)"
     ],
     "cell_types": [
       "B cell",
@@ -198773,10 +198776,10 @@ window.searchData = [
     "source_file": "IgA_Nephropathy.yaml",
     "page_url": "../pages/disorders/IgA_Nephropathy.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 10,
     "num_genes": 3,
     "num_treatments": 5,
-    "causal_graph_edges": "22",
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "10"
   },
   {
@@ -265042,6 +265045,71 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Myopia 24, Autosomal Dominant",
+    "disease_id": "MONDO:0014411",
+    "category": "Mendelian",
+    "parents": [
+      "High Myopia"
+    ],
+    "creation_date": "2026-10-22T20:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Nonsyndromic early-onset high myopia inherited as an autosomal dominant trait and caused by heterozygous loss-of-function variants in SLC39A5, which encodes the zinc transporter ZIP5. The founding family carried a nonsense variant and showed myopia before 10 years of age, refractive errors down to -25 diopters, axial lengths above 26 mm and myopic fundus changes. Later Chinese high myopia cohorts found further rare truncating and missense SLC39A5 variants in a small fraction of probands. Cell studies suggest that loss of ZIP5 lowers intracellular zinc, destabilizes Smad proteins and reduces TGF-beta-driven extracellular matrix synthesis, a plausible route to scleral weakening and axial elongation, but no animal model of the eye phenotype has been reported.",
+    "pathophysiology": [
+      "SLC39A5 Loss of Function",
+      "Reduced Intracellular Zinc",
+      "Impaired TGF-beta Smad Signaling",
+      "Reduced Extracellular Matrix Synthesis",
+      "Scleral Extracellular Matrix Weakening"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "zinc ion import across plasma membrane",
+      "TGF-beta receptor signaling pathway",
+      "collagen biosynthetic process"
+    ],
+    "phenotypes": [
+      "Increased Axial Length of the Globe",
+      "High Myopia",
+      "Tigroid Fundus",
+      "Chorioretinal Atrophy"
+    ],
+    "phenotype_categories": [
+      "Eye"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0007800",
+      "HP:0011003",
+      "HP:6001439",
+      "HP:0000533"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "SLC39A5"
+    ],
+    "treatments": [
+      "Low-dose atropine eye drops",
+      "Myopia-control spectacle lenses",
+      "Orthokeratology"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Myopia_24_Autosomal_Dominant.yaml",
+    "page_url": "../pages/disorders/Myopia_24,_Autosomal_Dominant.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Myotonic Dystrophy Type 1",
     "disease_id": "MONDO:0008056",
     "category": "Mendelian",
@@ -269506,6 +269574,7 @@ window.searchData = [
     "description": "Neuroblastoma is the most common extracranial solid tumor of childhood, arising from neural crest-derived sympathetic nervous system precursors. It demonstrates remarkable clinical heterogeneity, ranging from spontaneous regression in infants to highly aggressive metastatic disease in older children. MYCN amplification, present in approximately 20% of cases, is among the most powerful adverse genomic prognostic markers and drives aggressive tumor behavior. Risk stratification in the INRG system combines stage, age, histologic category and grade of differentiation, MYCN status, chromosome 11q status, and DNA ploidy to guide treatment intensity. A distinct axis of neuroblastoma biology is the mechanism of telomere maintenance: telomerase is activated through TERT rearrangement, MYCN amplification or high TERT expression without either alteration, while alternative lengthening of telomeres (ALT), often with ATRX alteration, maintains telomeres without telomerase. The two mechanisms are almost mutually exclusive. ATRX-altered disease is enriched in older children, adolescents and young adults and often runs a slow but progressive course, with poor response to induction chemotherapy reported for large ATRX deletions and truncating mutations. Low-risk neuroblastoma may require only observation, while high-risk disease requires intensive multimodal therapy with immunotherapy.",
     "pathophysiology": [
       "Neural Crest Developmental Arrest",
+      "Norepinephrine Transporter (NET/SLC6A2) Expression",
       "MYCN-Driven Proliferation",
       "Extrachromosomal MYCN Amplicon Architecture",
       "ecDNA Oncogene Dosage Heterogeneity",
@@ -269514,6 +269583,10 @@ window.searchData = [
       "ALK Signaling Activation",
       "GD2 Surface Antigen Expression",
       "Anti-GD2 Antibody-Mediated Tumor Cell Killing",
+      "Low Tumor Mutation Burden",
+      "Low Tumor-Cell MHC Class I Expression",
+      "T-Cell-Poor Tumor Microenvironment",
+      "Tumor-Associated Macrophage Infiltration",
       "Telomerase Activation",
       "Reduced ATRX/DAXX Complex Abundance",
       "Intratumoral Lymphoid Infiltration with Lymphoid Follicles",
@@ -269527,6 +269600,8 @@ window.searchData = [
     ],
     "cell_types": [
       "neural crest derived neuroblast",
+      "tumour-infiltrating T cell",
+      "tumour-associated macrophage",
       "B cell",
       "T cell",
       "neural crest cell-like (mesenchymal) tumour cell state",
@@ -269534,18 +269609,21 @@ window.searchData = [
     ],
     "cell_type_ids": [
       "CL:0002676",
-      "CL:0000236",
       "CL:0000084",
+      "CL:0000235",
+      "CL:0000236",
       "CL:0011012"
     ],
     "biological_processes": [
       "cell differentiation",
+      "norepinephrine uptake",
       "cell population proliferation",
       "MYC gene expression",
       "polyamine biosynthetic process",
       "MAPK cascade",
       "antibody-dependent cellular cytotoxicity against neuroblastoma cells",
       "complement-dependent cytotoxicity against neuroblastoma cells",
+      "antigen processing and presentation of endogenous peptide antigen via MHC class I on tumour cells",
       "telomere maintenance via telomerase",
       "B cell activation",
       "T cell activation",
@@ -269636,9 +269714,11 @@ window.searchData = [
       "Radiation Therapy",
       "Anti-GD2 Immunotherapy",
       "Naxitamab with GM-CSF",
-      "ALK Inhibitor Therapy",
+      "Crizotinib",
+      "Lorlatinib",
       "Isotretinoin (Retinoic Acid)",
-      "Eflornithine (DFMO) Maintenance Therapy"
+      "Eflornithine (DFMO) Maintenance Therapy",
+      "131I-MIBG Therapy"
     ],
     "environmental": [],
     "biochemical": [
@@ -269648,10 +269728,10 @@ window.searchData = [
     "source_file": "Neuroblastoma.yaml",
     "page_url": "../pages/disorders/Neuroblastoma.html",
     "num_phenotypes": 16,
-    "num_pathophysiology": 19,
+    "num_pathophysiology": 24,
     "num_genes": 8,
-    "num_treatments": 9,
-    "causal_graph_edges": "29",
+    "num_treatments": 11,
+    "causal_graph_edges": "33",
     "causal_graph_longest_path": "4"
   },
   {
@@ -280593,7 +280673,8 @@ window.searchData = [
       "Depletion of Mucosal Symbiont Akkermansia muciniphila",
       "Intestinal Barrier Dysfunction and Metabolic Endotoxemia",
       "Efficient Intestinal Energy Harvest",
-      "Post-Weight-Loss Weight Regain"
+      "Post-Weight-Loss Weight Regain",
+      "GLP-1 Receptor Engagement (Incretin Mimetic Target)"
     ],
     "cell_types": [
       "Adipocyte",
@@ -280688,10 +280769,10 @@ window.searchData = [
     "source_file": "Obesity.yaml",
     "page_url": "../pages/disorders/Obesity.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 10,
     "num_genes": 5,
     "num_treatments": 8,
-    "causal_graph_edges": "24",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "2"
   },
   {
@@ -352901,6 +352982,63 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Spermatogenic Failure 67",
+    "disease_id": "MONDO:0030718",
+    "category": "Mendelian",
+    "parents": [
+      "Spermatogenic Failure",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-10-23T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spermatogenic failure 67 (SPGF67) is autosomal recessive male infertility attributed to biallelic loss-of-function variants in CCDC62 (coiled-coil domain containing 62). CCDC62 is expressed most highly in the testis, where it localises to the cytoplasm and the developing acrosome of spermatids and to the acrosome of mature sperm. It interacts with GOPC (Golgi-associated PDZ and coiled-coil motif-containing protein), and this interaction is implicated in acrosome formation.\nThe human phenotype is globozoospermia: round-headed sperm that lack a normal acrosome, causing infertility (poor motility is documented in the mouse model, not in the reported human proband). The gene-disease link was established in a repro29 ENU-mutant mouse and a CRISPR Ccdc62 knockout, both of which are infertile with deformed, poorly motile sperm; a single human patient carrying a homozygous CCDC62 nonsense variant was then identified in an exome-sequencing study of unexplained globozoospermia. Human evidence therefore rests on one proband with strong model-organism support, and the authors call for further functional follow-up.",
+    "pathophysiology": [
+      "Loss of CCDC62 Protein",
+      "Impaired Acrosome Biogenesis"
+    ],
+    "cell_types": [
+      "spermatid"
+    ],
+    "cell_type_ids": [
+      "CL:0000018"
+    ],
+    "biological_processes": [
+      "acrosome assembly"
+    ],
+    "phenotypes": [
+      "Male infertility",
+      "Globozoospermia"
+    ],
+    "phenotype_categories": [
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary"
+    ],
+    "phenotype_ids": [
+      "HP:0003251",
+      "HP:0012205"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CCDC62"
+    ],
+    "treatments": [
+      "ICSI with artificial oocyte activation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spermatogenic_Failure_67.yaml",
+    "page_url": "../pages/disorders/Spermatogenic_Failure_67.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Spermatogenic Failure 72",
     "disease_id": "MONDO:0030809",
     "category": "Mendelian",
@@ -374384,6 +374522,137 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "Transient Neonatal Hyperparathyroidism",
+    "disease_id": "MONDO:0032591",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia",
+      "Disorder of Calcium Metabolism"
+    ],
+    "creation_date": "2026-10-13T09:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Transient neonatal hyperparathyroidism is an autosomal recessive disorder of maternal-to-fetal calcium supply caused by biallelic loss-of-function variants in TRPV6, the calcium-selective epithelial channel that provides apical calcium entry in the placental syncytiotrophoblast. Without that entry route, transplacental calcium transport in the third trimester - when fetal skeletal mineralisation peaks - is insufficient, the fetus mounts a secondary hyperparathyroid response, and PTH-driven bone resorption produces a severely undermineralised skeleton with intrauterine fractures, short and deformed long bones and a narrow, bell-shaped thorax. Most affected neonates present with respiratory distress from thoracic insufficiency and require ventilatory support; PTH is elevated in every reported case, with or without hypocalcaemia, and alkaline phosphatase is usually raised. Because enteral calcium absorption after birth does not depend on the placental route, the biochemical and radiographic abnormalities regress over months under oral calcium, phosphate and vitamin D supplementation - the feature the name records - though skeletal recovery can take up to two years and some infants need prolonged ventilation. Fewer than twenty cases have been reported. A single monoallelic case with a dominant-negative variant has been described, and heterozygous TRPV6 variants that reduce channel permeability are separately associated with non-alcoholic chronic pancreatitis.",
+    "pathophysiology": [
+      "TRPV6 Channel Loss of Function",
+      "Impaired Transplacental Calcium Transport",
+      "Placental Protease Upregulation and Extracellular Matrix Remodelling",
+      "Fetal Hypocalcaemia",
+      "Secondary Fetal Hyperparathyroidism",
+      "PTH-Driven Fetal Bone Resorption",
+      "Fetal Skeletal Undermineralisation",
+      "Thoracic Insufficiency",
+      "Postnatal Enteral Calcium Supply Bypasses the Placental Defect"
+    ],
+    "cell_types": [
+      "placental syncytiotrophoblast",
+      "placental trophoblast",
+      "parathyroid chief cell",
+      "osteoclast",
+      "intestinal enterocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000525",
+      "CL:0000351",
+      "CL:0000446",
+      "CL:0000092",
+      "CL:0000584"
+    ],
+    "biological_processes": [
+      "transcellular calcium transport across the syncytiotrophoblast",
+      "parathyroid hormone secretion",
+      "bone resorption",
+      "bone mineralization",
+      "intestinal calcium absorption"
+    ],
+    "phenotypes": [
+      "Secondary hyperparathyroidism",
+      "Elevated circulating alkaline phosphatase concentration",
+      "Hypocalcemia",
+      "Hypophosphatemia",
+      "Decreased circulating vitamin D concentration",
+      "Neonatal respiratory distress",
+      "Multiple prenatal fractures",
+      "Multiple rib fractures",
+      "Reduced bone mineral density",
+      "Bell-shaped thorax",
+      "Short ribs",
+      "Short long bone",
+      "Periosteal thickening of long tubular bones",
+      "Rickets",
+      "Small for gestational age",
+      "Polyhydramnios",
+      "Cataract"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Metabolic",
+      "Respiratory",
+      "Skeletal",
+      "Growth",
+      "Prenatal",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Eye",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000867",
+      "HP:0003155",
+      "HP:0002901",
+      "HP:0002148",
+      "HP:0100512",
+      "HP:0002643",
+      "HP:0005855",
+      "HP:0006640",
+      "HP:0004349",
+      "HP:0001591",
+      "HP:0000773",
+      "HP:0003026",
+      "HP:0006465",
+      "HP:0002748",
+      "HP:0001518",
+      "HP:0001561",
+      "HP:0000518"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "TRPV6"
+    ],
+    "treatments": [
+      "Oral calcium, phosphate and vitamin D supplementation",
+      "Intravenous calcium infusion",
+      "Non-invasive and invasive respiratory support",
+      "Genetic counselling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Intact parathyroid hormone",
+      "Serum total and ionised calcium",
+      "Serum alkaline phosphatase"
+    ],
+    "source_file": "Transient_Neonatal_Hyperparathyroidism.yaml",
+    "page_url": "../pages/disorders/Transient_Neonatal_Hyperparathyroidism.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Transient Neonatal Pustular Melanosis",
     "disease_id": null,
     "category": "Skin Disorder",
@@ -377271,7 +377540,8 @@ window.searchData = [
       "Diacylglycerol Accumulation",
       "Islet Amyloid Polypeptide Oligomer Proteotoxicity",
       "Incretin Axis Dysfunction",
-      "Chronic Hyperglycemia"
+      "Chronic Hyperglycemia",
+      "GLP-1 Receptor Engagement (Incretin Mimetic Target)"
     ],
     "cell_types": [
       "White Adipocyte",
@@ -377382,10 +377652,10 @@ window.searchData = [
     "source_file": "Type_2_Diabetes_Mellitus.yaml",
     "page_url": "../pages/disorders/Type_2_Diabetes_Mellitus.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 12,
+    "num_pathophysiology": 13,
     "num_genes": 6,
     "num_treatments": 6,
-    "causal_graph_edges": "38",
+    "causal_graph_edges": "40",
     "causal_graph_longest_path": "4"
   },
   {
@@ -388808,7 +389078,10 @@ window.searchData = [
     ],
     "creation_date": "2026-05-04T03:26:57Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Classic WAS",
+      "XLT"
+    ],
     "description": "Wiskott-Aldrich syndrome is an X-linked primary immunodeficiency caused by pathogenic variants in WAS, which encodes the hematopoietic actin regulator WASp. Loss or dysfunction of WASp disrupts actin cytoskeleton remodeling in leukocytes and platelets, impairing immune-cell migration, antigen-driven activation, immune synapse function, host defense, and platelet production or morphology. The disease is characterized by microthrombocytopenia, bleeding, eczema, recurrent infections, immune dysregulation with autoimmunity and inflammation, and increased risk of lymphoid malignancy.\n",
     "pathophysiology": [
       "WAS gene disruption",
@@ -395146,17 +395419,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3661,
-  "total_subtypes": 4845,
-  "total_disorders_and_subtypes": 8506,
-  "total_unique_evidence_sources": 54545,
-  "total_unique_publications": 50947,
+  "total_disorder_pages": 3664,
+  "total_subtypes": 4847,
+  "total_disorders_and_subtypes": 8511,
+  "total_unique_evidence_sources": 54618,
+  "total_unique_publications": 51020,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3658,
-  "total_unique_pathological_events": 24123,
-  "total_modules": 197,
-  "total_research_reports": 3789,
+  "total_pathographs": 3661,
+  "total_unique_pathological_events": 24146,
+  "total_modules": 199,
+  "total_research_reports": 3792,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 120
