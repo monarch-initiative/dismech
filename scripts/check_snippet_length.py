@@ -80,7 +80,7 @@ import sys
 import tarfile
 import tempfile
 from collections import Counter
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -152,10 +152,10 @@ def is_structured_row(snippet: str) -> bool:
 def _record_line(text: str) -> str:
     """*text* with whitespace collapsed and any leading ``- `` bullet dropped."""
     line = " ".join(text.split())
-    return line[2:] if line.startswith("- ") else line
+    return line.removeprefix("- ")
 
 
-@lru_cache(maxsize=None)
+@cache
 def _record_lines(cache_file: Path) -> frozenset[str]:
     """Every non-empty body line of a cached structured record, normalized."""
     try:
