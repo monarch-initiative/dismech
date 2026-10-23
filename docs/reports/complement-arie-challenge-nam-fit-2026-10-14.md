@@ -82,7 +82,7 @@ challenge summary.
 | 16 | Organoid Intelligence (Smirnova, JHU) | PMID:40819006, learning and memory building blocks in neural organoids | none | `IPSC_DERIVED_MODEL` / `namo:Organoid` | No disease | Does not fit |
 | 17 | Organoid Modeling of RA Joints (Rao, Brigham and Women's) | None found | `Rheumatoid_Arthritis` (0) | `ORGANOID` / `namo:Organoid` | Carries the lesion (patient cells, per the proposal) | No paper yet |
 | 18 | Population Diversity in Vaccine Responses (Pompano, UVA) | PMID:39661075, a multi-compartment chip with murine lymph node slices; no brain or adipose compartment, no infection | none | `OTHER` (ex vivo slice) / none | No disease | Does not fit yet |
-| 19 | Pregnancy on Chip (Menon, UTMB) | PMID:33112317, four-chamber feto-maternal interface organ-on-chip (decidua, chorion, amnion) with LPS as ascending infection. Also PMID:41106448, environmental chemicals linked to preterm birth | `Chorioamnionitis` (0) or `Preterm_Premature_Rupture_of_the_Membranes` (0) | `ORGAN_ON_CHIP` / `namo:OrganOnChip` | Exposure that causes the disease (LPS for infection); risk-factor exposure for the chemicals paper | Fits |
+| 19 | Pregnancy on Chip (Menon, UTMB) | PMID:33112317, four-chamber feto-maternal interface organ-on-chip (decidua, chorion, amnion) with LPS as ascending infection; PMID:37249377, same chip with cigarette smoke extract as oxidative stress. Also PMID:41106448, environmental chemicals linked to preterm birth. Curated in #14227 | `Chorioamnionitis` (1, LPS paper) and `Preterm_Premature_Rupture_of_the_Membranes` (1, oxidative-stress paper) | `ORGAN_ON_CHIP` / `namo:OrganOnChip` | Exposure that causes the disease (LPS for infection); risk-factor exposure for the chemicals paper | Fits |
 | 20 | Pulse of the Future: AI-human MEHC (Yang, North Texas) | Only the image-analysis software (PMID:37672553, Organalysis) and a cardiomyocyte micropattern study (PMID:38699629). No disease model found | none | `IPSC_DERIVED_MODEL` / none | No disease | Does not fit yet |
 
 ## Notes on individual rows
@@ -102,11 +102,12 @@ plate in [the NAMO vocabulary gaps note](data/namo-vocabulary-gaps-2026-10-13.md
 `namo:CoCulture` is the closest binding. The abstract does not say whether the
 cells are human, which the curator will need from the full text.
 
-**The pregnancy chip has two candidate entries.** LPS on the decidua side
-models ascending infection, which is the cause of chorioamnionitis and a cause
-of membrane rupture. There is no Preterm Birth entry. Whichever entry is chosen,
-the chip's readouts are inflammatory cytokines by layer, so the target nodes
-should be inflammation nodes rather than the rupture itself.
+**The pregnancy chip is split across two entries.** LPS on the decidua side
+models ascending infection and is attached to `Chorioamnionitis`; cigarette smoke
+extract models oxidative stress and is attached to
+`Preterm_Premature_Rupture_of_the_Membranes`. There is no Preterm Birth entry.
+Neither paper measures rupture, so the links target inflammation, senescence and
+oxidative-stress nodes rather than the rupture itself (#14227).
 
 **Two published models are not the proposed model.** In row 4 the team
 published a leukaemia chip, not the pancreatic cancer organoid chip they
@@ -151,8 +152,8 @@ named entry with `modeled_mechanisms` links and quoted evidence:
 1. `Osteoarthritis`: the miniJoint (PMID:35436042, PMID:36830751) and the
    cartilage explants (PMID:42011976).
 2. `Cleft_Lip_Palate`: the orofacial microplate (PMID:33634122).
-3. `Chorioamnionitis` or `Preterm_Premature_Rupture_of_the_Membranes`: the
-   feto-maternal interface chip (PMID:33112317).
+3. [x] `Chorioamnionitis` and `Preterm_Premature_Rupture_of_the_Membranes`: the
+   feto-maternal interface chip (PMID:33112317, PMID:37249377), #14227.
 4. After a full-text check of the cancer type: ABMACT (PMID:41673469) and the
    leukaemia trial-on-chip (PMID:40595437).
 
