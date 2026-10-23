@@ -26,6 +26,7 @@ diseases:
 - Parkinsons_Disease
 - Optic_Atrophy_14
 - Peroxisome_Biogenesis_Disorder
+- ACBD5_Deficiency
 ---
 
 # Membrane Contact Sites: Organelle Communication in Disease
@@ -59,6 +60,7 @@ module now gives them a shared chain:
 | Intellectual_Developmental_Disorder_With_Autism_And_Dysmorphic_Facies | ER-mitochondria, ER-lysosome | PDZD8 | calcium transfer |
 | Autosomal_Recessive_Spinocerebellar_Ataxia_20 | ER-lipid droplet | SNX14 | organelle morphology |
 | Intellectual_Disability_Autosomal_Dominant_34 | ER-Golgi | CERT1 (gain of function) | lipid transfer |
+| ACBD5_Deficiency | ER-peroxisome | ACBD5 | trigger; lipid imbalance (plasmalogens); organelle morphology |
 
 ## Candidates not yet conformed
 
@@ -78,12 +80,12 @@ Each needs a reading of the entry before a `conforms_to` is added:
 
 ## Curation gaps
 
-- [ ] **ACBD5 deficiency (retinal dystrophy with leukodystrophy).** ACBD5 is
-  the peroxisome-side partner of VAPA/VAPB and the clearest human disease of a
-  contact-site tether; loss of the contact lowers plasmalogen synthesis. Two
-  stubs exist for one disease: `stubs/acyl-CoA_Binding_Domain_Containing_Protein_5_Deficiency.yaml`
-  (MONDO:0100112) and `stubs/Retinal_Dystrophy_With_Leukodystrophy.yaml`
-  (MONDO:0030026). Decide which MONDO term is the entry before curating.
+- [x] **ACBD5 deficiency (retinal dystrophy with leukodystrophy)** curated as
+  `ACBD5_Deficiency`, bound to MONDO:0100112 with MONDO:0030026 mapped as an
+  exact match (ClinGen lumped the two). Both stubs removed. The entry keeps the
+  VLCFA-capture and tether functions of ACBD5 as separate branches, and its
+  knowledge-gap discussion proposes separation-of-function alleles in patient
+  iPSC-derived neural cells.
 - [ ] Queued stubs with contact-site genes: `Alkuraya-Kucinskas_Syndrome`
   (BLTP1), `Cohen-Gibson_Syndrome`, `Chorea_Childhood-onset_With_Psychomotor_Retardation`.
 - [ ] Tether and transfer genes with no entry: ESYT1-3, STARD3, RMDN3
