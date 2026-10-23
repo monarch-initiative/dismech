@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Internal Hordeolum · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Internal Hordeolum</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Internal Hordeolum</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-09-29</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0004917" target="_blank" rel="noopener noreferrer">MONDO:0004917</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">27 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Internal hordeolum is an acute, purulent inflammation of the eyelid margin caused by obstruction and bacterial infection of a meibomian (tarsal) gland. As stated in the acupuncture Cochrane review: <em>"When the meibomian gland in the tarsal plate is affected, internal hordeolum occurs, while when the glands of Zeis or Moll associated with eyelash follicles are affected, external hordeolum, or stye occurs"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28181687/">PMID: 28181687</a>). It is <em>"a common, painful inflammation of the eyelid margin that is usually caused by a bacterial infection... The infection affects oil glands of the eyelid and can be either internal or external"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28068454/">PMID: 28068454</a>).</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0004917" target="_blank" rel="noopener noreferrer">MONDO:0004917</a></td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>D006726 (Hordeolum)</td>
+</tr>
+<tr>
+<td>ICD-10-CM</td>
+<td>H00.0 (Hordeolum and other deep inflammation of eyelid); H00.03x internal hordeolum</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>9A02.1 (Hordeolum)</td>
+</tr>
+<tr>
+<td>SNOMED CT</td>
+<td>Hordeolum (disorder)</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>Not applicable (not a Mendelian disorder)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>Not applicable (common acquired condition, not a rare disease)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names:</strong> internal stye, meibomian stye, acute meibomianitis / meibomian abscess, acute internal hordeolum.</p>
+<p><strong>Data provenance:</strong> Information derives from aggregated disease-level clinical resources (clinical reviews, Cochrane systematic reviews), case reports/series, and EHR/insurance-claims-based epidemiological studies. For example, the Japanese nationwide study used <em>"the National Database of Health Insurance Claims and Specific Health Checkups Open Data Japan"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41675090/">PMID: 41675090</a>). There is no genetic patient registry for this condition.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause — infectious/mechanistic.</strong> Internal hordeolum results from bacterial infection, predominantly <em>Staphylococcus aureus</em> (MSSA, and increasingly MRSA), superimposed on obstruction of a meibomian gland orifice. In a meibomian gland dysfunction microbiome study (n=157), <em>"The incidence of Staphylococcus aureus was higher than anticipated across all severity groups"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27473509/">PMID: 27473509</a>). Importantly, the underlying chronic gland disease is often not primarily infectious: <em>"Primary meibomitis appears not to be a primarily infectious entity but to represent a facet of generalized sebaceous gland dysfunction and to be found in association with seborrheic dermatitis or acne rosacea"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/6218459/">PMID: 6218459</a>).</p>
+<p><strong>Genetic risk factors.</strong> None established. There is no causal gene, susceptibility locus, chromosomal abnormality, or Mendelian inheritance pattern described for internal hordeolum. It is a multifactorial, acquired condition.</p>
+<p><strong>Environmental / acquired risk factors.</strong>
+- <strong>Blepharitis and meibomian gland dysfunction (MGD):</strong> Hordeolum and chalazion <em>"can occur in association with underlying diseases causing Meibomian gland dysfunction and/or chronic blepharitis"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34379160/">PMID: 34379160</a>).
+- <strong>Ocular/acne rosacea and seborrhea:</strong> generalized sebaceous gland dysfunction (<a href="https://pubmed.ncbi.nlm.nih.gov/6218459/">PMID: 6218459</a>); ocular rosacea can present with <em>"multiple recurrent chalazion on both eyelids"</em> with immunohistochemistry <em>"positive for LL-37"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/38898849/">PMID: 38898849</a>). Blepharitis dominates pediatric ocular rosacea: <em>"Blepharitis was the most common eyelid manifestation (98.4%)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42757848/">PMID: 42757848</a>).
+- <strong><em>Demodex</em> infestation</strong> (see Section 5).
+- <strong>Systemic drugs:</strong> GLP-1/GIP receptor agonists (tirzepatide) and CFTR modulators (elexacaftor-tezacaftor-ivacaftor) — an emerging iatrogenic trigger via meibomian gland obstruction (<a href="https://pubmed.ncbi.nlm.nih.gov/42756500/">PMID: 42756500</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41967150/">PMID: 41967150</a>).
+- <strong>Age/sex:</strong> bimodal age peaks; slight female predominance in youth (see Section 9).</p>
+<p><strong>Protective factors.</strong> No genetic protective variants are described. Environmental/behavioral protective measures are essentially preventive hygiene: lid hygiene, warm compresses, and treatment of underlying MGD/rosacea reduce recurrence frequency; IPL reduces hordeolum frequency (<a href="https://pubmed.ncbi.nlm.nih.gov/34629862/">PMID: 34629862</a>).</p>
+<p><strong>Gene–environment interactions.</strong> Not applicable in a Mendelian sense. The relevant "host–environment" interaction is the interplay between host sebaceous-gland biology (rosacea/seborrhea/innate immune dysregulation via cathelicidin LL-37), commensal/pathogenic bacteria (<em>S. aureus</em>), ectoparasites (<em>Demodex</em>), and gland-altering systemic drugs.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p><strong>Core clinical phenotype:</strong> An acute-onset, usually unilateral, painful, tender, red, swollen localized eyelid-margin nodule (abscess) pointing toward the conjunctival (inner) surface. Patients present <em>"with symptoms such as redness, swelling, tearing, itchiness, or a foreign body sensation"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32622681/">PMID: 32622681</a>), and the lesion is fundamentally <em>"a common, painful inflammation of the eyelid margin"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28068454/">PMID: 28068454</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Characteristics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Painful eyelid nodule/swelling</td>
+<td>Symptom + physical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000498" target="_blank" rel="noopener noreferrer">HP:0000498</a> (Abnormality of the eyelid)</td>
+<td>Acute onset (1–3 d); mild–moderate; localized</td>
+</tr>
+<tr>
+<td>Eyelid erythema</td>
+<td>Clinical sign</td>
+<td>HP (eyelid erythema)</td>
+<td>Acute; resolves ~1 wk</td>
+</tr>
+<tr>
+<td>Eyelid edema/swelling</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100539" target="_blank" rel="noopener noreferrer">HP:0100539</a> (Periorbital edema)-adjacent</td>
+<td>Localized, unilateral</td>
+</tr>
+<tr>
+<td>Epiphora (tearing)</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009926" target="_blank" rel="noopener noreferrer">HP:0009926</a> (Epiphora)</td>
+<td>Mild</td>
+</tr>
+<tr>
+<td>Foreign-body sensation / ocular discomfort</td>
+<td>Symptom</td>
+<td>HP (ocular discomfort)</td>
+<td>Mild–moderate</td>
+</tr>
+<tr>
+<td>Eyelid pain/tenderness</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200026" target="_blank" rel="noopener noreferrer">HP:0200026</a> (Ocular pain)-adjacent</td>
+<td>Moderate; localized</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Onset:</strong> any age, acute (see Section 8). <strong>Severity:</strong> typically mild–moderate; occasionally severe with spread. <strong>Progression:</strong> episodic/self-limited (~1 week), frequently recurrent. <strong>Frequency among affected:</strong> pain and eyelid-margin swelling are essentially universal defining features; tearing, itch, and foreign-body sensation are common.</p>
+<p><strong>Quality of life impact:</strong> Generally modest and transient; discomfort, cosmetic concern, and interference with vision if large. Chalazion/hordeolum-spectrum lesions can induce corneal astigmatism and higher-order aberrations when sizeable, affecting vision (<a href="https://pubmed.ncbi.nlm.nih.gov/41884092/">PMID: 41884092</a>). IPL studies used the Ocular Surface Disease Index (OSDI) as a QoL/symptom instrument (<a href="https://pubmed.ncbi.nlm.nih.gov/41731784/">PMID: 41731784</a>).</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Not applicable.</strong> Internal hordeolum is an acquired infectious/inflammatory condition with <strong>no causal genes, no pathogenic variants, no modifier genes, no established disease-specific epigenetic signature, and no chromosomal abnormalities.</strong> There is no OMIM entry. There are no ClinVar/HGMD variants, no gnomAD allele frequencies, and no somatic/germline mutation profile associated with the disease itself.</p>
+<p>The only molecularly-characterized host contributor identified is the innate-immune peptide <strong>cathelicidin LL-37</strong> in the setting of rosacea-associated recurrent eyelid lesions: immunohistochemistry was <em>"positive for LL-37"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/38898849/">PMID: 38898849</a>). This is a downstream inflammatory mediator of the predisposing rosacea diathesis, not a causal genetic variant of hordeolum.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p><strong>Environmental factors.</strong> No toxins, radiation, or occupational exposures are established as direct causes. The dominant modifiable exposures are pharmacological (see below) and microbial.</p>
+<p><strong>Lifestyle factors.</strong> Lid hygiene practices modulate risk/recurrence. Poor lid hygiene and chronic lid-margin inflammation predispose; conversely, warm compresses and lid hygiene are preventive.</p>
+<p><strong>Infectious agents.</strong>
+- <strong><em>Staphylococcus aureus</em></strong> — the principal bacterial pathogen (NCBI Taxonomy: <em>Staphylococcus aureus</em>, txid1280); MSSA and MRSA. Elevated on lid margins in MGD (<a href="https://pubmed.ncbi.nlm.nih.gov/27473509/">PMID: 27473509</a>). Bacterial lipases contribute to inflammation: <em>"the production of bacterial lypolytic exoenzymes that split neutral lipids, resulting in an increased level of free fatty acids in the tears"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/6218459/">PMID: 6218459</a>).
+- <strong><em>Demodex folliculorum</em> and *Demodex brevis</strong><em> (ectoparasitic mites) — commonly infest eyelids and drive blepharitis/MGD that predisposes to hordeolum. In squamous blepharitis, </em>"The overall Demodex detection rate was 92% (92/100) in this study"<em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42426675/">PMID: 42426675</a>), and </em>"In Demodex blepharitis, abnormal or reduced lipid production from the Zeis and/or meibomian glands may contribute to DED"* (<a href="https://pubmed.ncbi.nlm.nih.gov/42387805/">PMID: 42387805</a>).</p>
+<p><strong>Pharmacological environmental triggers (iatrogenic).</strong> Tirzepatide (dual GLP-1/GIP receptor agonist) caused simultaneous/recurrent internal hordeola with a positive dechallenge/rechallenge: <em>"lesions lessened after tirzepatide discontinuation and worsened upon rechallenge, a positive rechallenge providing strong evidence of causality"</em> and <em>"Both patients lacked classic infectious blepharitis signs despite active lesions, supporting a sterile, obstructive meibomian gland process rather than infection"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42756500/">PMID: 42756500</a>). CFTR modulators are similarly implicated in children with cystic fibrosis (<a href="https://pubmed.ncbi.nlm.nih.gov/41967150/">PMID: 41967150</a>).</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Predisposing sebaceous/meibomian gland dysfunction</strong> (blepharitis, ocular/acne rosacea, seborrhea, <em>Demodex</em>, or altered meibum from systemic drugs) <strong>leads to</strong> →</li>
+<li><strong>Obstruction of the meibomian gland duct/orifice</strong> within the tarsal plate <em>(inferred from meibomian gland biology)</em> <strong>which results in</strong> →</li>
+<li><strong>Stasis and retention of sebaceous secretions (meibum)</strong> <em>(inferred)</em> <strong>which promotes</strong> →</li>
+<li><strong>Bacterial overgrowth/infection</strong>, predominantly <em>Staphylococcus aureus</em>, whose lipases split neutral lipids into pro-inflammatory free fatty acids <em>(demonstrated by microbiology/biochemistry)</em> <strong>which triggers</strong> →</li>
+<li><strong>Acute neutrophilic suppurative inflammation</strong> (abscess/pus formation) within the gland <em>(demonstrated histopathologically)</em> <strong>which produces</strong> →</li>
+<li><strong>The clinical painful, red, swollen eyelid-margin nodule.</strong></li>
+</ol>
+<p><strong>Branches from step 5/6:</strong>
+- <strong>Branch A (resolution):</strong> spontaneous drainage → resolution in ~1 week.
+- <strong>Branch B (chronic/sterile):</strong> unresolved lipogranulomatous organization → chalazion (sterile chronic granuloma).
+- <strong>Branch C (spread):</strong> extension → preseptal cellulitis → (rarely) orbital cellulitis / necrotizing fasciitis.</p>
+<pre><code>Sebaceous/meibomian gland          [Rosacea, seborrhea, blepharitis,
+dysfunction  ─────────────────►     Demodex, GLP-1/GIP &amp; CFTR drugs]
+      │
+      ▼
+Duct/orifice OBSTRUCTION (inferred)
+      │
+      ▼
+Meibum STASIS &amp; retention (inferred)
+      │
+      ▼
+Bacterial overgrowth (S. aureus) + lipase-generated free fatty acids
+      │
+      ▼
+Acute neutrophilic SUPPURATION (abscess)
+      │
+      ▼
+Painful red swollen eyelid-margin NODULE
+      │
+      ├──► (A) Spontaneous drainage → RESOLUTION (~1 wk)
+      ├──► (B) Lipogranuloma → CHALAZION (sterile)
+      └──► (C) Spread → PRESEPTAL → ORBITAL CELLULITIS / NECROTIZING FASCIITIS (rare)
+</code></pre>
+<h3>Supporting detail</h3>
+<ul>
+<li><strong>Initiating lesion:</strong> <em>"Hordeolum is an acute, purulent inflammation of the eyelid margin usually caused by obstructed orifices of the sebaceous glands of the eyelid"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28181687/">PMID: 28181687</a>).</li>
+<li><strong>Biochemical inflammatory step:</strong> bacterial lipolytic exoenzymes generate irritant free fatty acids (<a href="https://pubmed.ncbi.nlm.nih.gov/6218459/">PMID: 6218459</a>).</li>
+<li><strong>Sterile-obstructive upstream branch:</strong> distinct non-infectious mechanism supported by drug-induced cases <em>"supporting a sterile, obstructive meibomian gland process rather than infection"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42756500/">PMID: 42756500</a>).</li>
+<li><strong>Innate-immune amplification (rosacea):</strong> cathelicidin <strong>LL-37</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/38898849/">PMID: 38898849</a>).</li>
+</ul>
+<p><strong>Steps 2–3</strong> are mechanistically inferred from meibomian gland biology; <strong>steps 4–6</strong> are demonstrated by microbiology and histopathology.</p>
+<p><strong>Molecular pathways / cellular processes:</strong> acute inflammation, neutrophil recruitment and degranulation, innate immune antimicrobial peptide (cathelicidin) activation, lipid metabolism disturbance (holocrine sebaceous secretion). Granulomatous organization occurs if the lesion becomes chronic (chalazion).</p>
+<p><strong>Suggested ontology terms.</strong>
+- GO biological processes: <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response); <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" rel="noopener noreferrer">GO:0006909</a> (phagocytosis); <a href="http://purl.obolibrary.org/obo/GO_0042742" target="_blank" rel="noopener noreferrer">GO:0042742</a> (defense response to bacterium); <a href="http://purl.obolibrary.org/obo/GO_0006629" target="_blank" rel="noopener noreferrer">GO:0006629</a> (lipid metabolic process).
+- CL cell types: <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> (neutrophil); <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage); sebaceous gland cell / meibocyte; <a href="http://purl.obolibrary.org/obo/CL_0000738" target="_blank" rel="noopener noreferrer">CL:0000738</a> (leukocyte).
+- CHEBI: <a href="http://purl.obolibrary.org/obo/CHEBI_35366" target="_blank" rel="noopener noreferrer">CHEBI:35366</a> (fatty acid) / free fatty acids; neutral lipids/triglycerides.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ/tissue level.</strong> The primary structure is the <strong>meibomian (tarsal) gland</strong>, a holocrine sebaceous gland embedded in the <strong>tarsal plate</strong> of the eyelid, on the <strong>posterior lamella</strong>, with the lesion pointing toward the <strong>conjunctival (inner) surface</strong>: <em>"When the meibomian gland in the tarsal plate is affected, internal hordeolum occurs"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28181687/">PMID: 28181687</a>). This contrasts with external hordeolum, which affects glands of Zeis/Moll on the anterior lamella at the lash line.</p>
+<p><strong>Body system:</strong> visual/ocular adnexal system (eyelid). <strong>Laterality:</strong> usually <strong>unilateral</strong> and localized. <strong>Secondary involvement:</strong> periorbital soft tissue (preseptal space) and, rarely, the orbit; hordeolum is a leading predisposing factor for preseptal cellulitis (15.5–24.8% of cases) (<a href="https://pubmed.ncbi.nlm.nih.gov/34607790/">PMID: 34607790</a>).</p>
+<p><strong>Tissue and cell level:</strong> glandular (sebaceous) epithelium of the meibomian gland (meibocytes); infiltrating neutrophils and, in chronic phase, macrophages/lipogranuloma.</p>
+<p><strong>Subcellular level:</strong> holocrine secretion involves whole-cell disintegration; relevant GO cellular components include lipid droplet (<a href="http://purl.obolibrary.org/obo/GO_0005811" target="_blank" rel="noopener noreferrer">GO:0005811</a>) and the secretory apparatus.</p>
+<p><strong>Suggested ontology terms.</strong> UBERON: <a href="http://purl.obolibrary.org/obo/UBERON_0001711" target="_blank" rel="noopener noreferrer">UBERON:0001711</a> (eyelid); <a href="http://purl.obolibrary.org/obo/UBERON_0004841" target="_blank" rel="noopener noreferrer">UBERON:0004841</a> (tarsal gland / meibomian gland); <a href="http://purl.obolibrary.org/obo/UBERON_0001801" target="_blank" rel="noopener noreferrer">UBERON:0001801</a> (palpebral conjunctiva). CL: meibocyte/sebaceous gland cell.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset.</strong> Acute, developing over ~1–3 days, at <strong>any age</strong>, with bimodal peaks in childhood/adolescence (10–14 y) and mid-adulthood (30–39 y): <em>"Invasive treatments for hordeolum showed bimodal peaks in males (age 10-14 years: 82.9; age 35-39 years: 72.1) and females (age 10-14 years: 102.4; age 30-34 years: 78.3)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41675090/">PMID: 41675090</a>). There is no congenital form.</p>
+<p><strong>Progression / course.</strong> Short and self-limited: <em>"The onset of hordeolum is usually self limited, and may resolve in about a week with spontaneous drainage of the abscess. When the condition is severe, it can spread to adjacent glands and tissues. Recurrences are very common"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28181687/">PMID: 28181687</a>). The course is <strong>episodic/recurrent</strong> rather than steadily progressive. There is no staged progression system. Unresolved lesions transition to chronic chalazion.</p>
+<p><strong>Patterns.</strong> Remission is typically <strong>spontaneous</strong> (drainage) or treatment-facilitated. The main "critical period" for intervention is early warm-compress/lid-hygiene use and, for spreading disease, prompt antibiotics to prevent cellulitis.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology.</strong> Internal hordeolum is common. Japanese nationwide claims data (2014–2022, 638,699 invasive hordeolum procedures) reported an average invasive treatment rate of <strong>56.2 per 100,000 person-years</strong>: <em>"The annual average rates were 40.9 for ITC and 56.2 for ITH per 100 000 person-years. Sex differences were prominent in younger groups: the overall female-to-male ratio was 1.1:1 for ITC and 1.0:1 for ITH, with a greater female predominance in youth"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41675090/">PMID: 41675090</a>). Note that invasive-treatment rates capture only the subset requiring procedures; true incidence (including conservatively-managed cases) is higher. In a Korean military teleophthalmology cohort, hordeolum/chalazion together were the single most common diagnosis: <em>"The most common diagnoses were hordeolum/chalazion (39.3%) and viral conjunctivitis (20.3%)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42299138/">PMID: 42299138</a>).</p>
+<p><strong>Genetic etiology.</strong> Not applicable — no inheritance pattern, penetrance, expressivity, anticipation, mosaicism, founder effect, consanguinity role, or carrier frequency, because there is no causal gene.</p>
+<p><strong>Population demographics.</strong>
+- <strong>Sex ratio:</strong> approximately 1.0:1 overall for hordeolum, with a greater female predominance in youth (<a href="https://pubmed.ncbi.nlm.nih.gov/41675090/">PMID: 41675090</a>).
+- <strong>Age distribution:</strong> bimodal (10–14 y and 30–39 y).
+- <strong>Geographic distribution:</strong> cosmopolitan; no endemic pattern. No population-specific variants (none exist).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Invasive-treatment rate (hordeolum)</td>
+<td>56.2 / 100,000 person-years</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41675090/">PMID: 41675090</a></td>
+</tr>
+<tr>
+<td>Female:male (overall)</td>
+<td>~1.0:1</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41675090/">PMID: 41675090</a></td>
+</tr>
+<tr>
+<td>Male age peaks</td>
+<td>10–14 y (82.9); 35–39 y (72.1)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41675090/">PMID: 41675090</a></td>
+</tr>
+<tr>
+<td>Female age peaks</td>
+<td>10–14 y (102.4); 30–34 y (78.3)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41675090/">PMID: 41675090</a></td>
+</tr>
+<tr>
+<td>Share of ophthalmic consults (hordeolum/chalazion)</td>
+<td>39.3%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42299138/">PMID: 42299138</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical diagnosis is standard.</strong> <em>"Due to the typical morphological features and clinical course, the diagnosis can mostly be clinically established"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34379160/">PMID: 34379160</a>). Diagnosis rests on inspection of the eyelid margin revealing a tender, localized, erythematous nodule.</p>
+<p><strong>Laboratory tests / microbiology:</strong> not routinely required; culture (e.g., for <em>S. aureus</em>/MRSA) is reserved for severe, atypical, or recurrent cases or when complications supervene.</p>
+<p><strong>Biopsy / histopathology — critical safety rule:</strong> Persistent, recurrent, or clinically atypical lesions require excisional biopsy to exclude malignancy, especially <strong>sebaceous gland carcinoma</strong>: <em>"In persistent, recurrent or clinically atypical cases malignant tumors must be excluded as a differential diagnosis by excisional biopsy and histopathological assessment"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34379160/">PMID: 34379160</a>). Real cases of malignancy masquerading as hordeolum include metastatic invasive lobular breast carcinoma—<em>"She was initially managed for presumed hordeolum and preseptal cellulitis without response over 4 months"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42552075/">PMID: 42552075</a>)—and apocrine/sebaceous carcinomas (<a href="https://pubmed.ncbi.nlm.nih.gov/40531581/">PMID: 40531581</a>).</p>
+<p><strong>Genetic / omics diagnostics:</strong> Not applicable — no genetic testing, gene panels, karyotyping, CMA, or disease-specific transcriptomic/proteomic/metabolomic signature.</p>
+<p><strong>Differential diagnosis:</strong> chalazion (chronic, non-tender granuloma), external hordeolum (stye at lash line), preseptal/orbital cellulitis, sebaceous gland carcinoma, apocrine carcinoma of the glands of Moll, molluscum, and other eyelid tumors. In children, eyelid cutaneous horns are frequently <em>"preceded by a hordeolum or chalazion"</em> and follow a benign course (<a href="https://pubmed.ncbi.nlm.nih.gov/39393420/">PMID: 39393420</a>).</p>
+<p><strong>Screening:</strong> No population screening applies (not a genetic or preventable-by-screening disease).</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<p><strong>Excellent prognosis.</strong> Internal hordeolum is benign and self-limited, usually resolving in ~1 week with spontaneous drainage (<a href="https://pubmed.ncbi.nlm.nih.gov/28181687/">PMID: 28181687</a>). <strong>Mortality is essentially nil</strong>, occurring only via exceedingly rare complications such as necrotizing fasciitis: <em>"We report an unusual case of periorbital NF caused by methicillin-sensitive Staphylococcus aureus (MSSA) in a previously healthy 48-year-old woman, originating from a neglected, recurrent hordeolum-an otherwise benign eyelid condition"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41787906/">PMID: 41787906</a>).</p>
+<p><strong>Morbidity.</strong> The main burdens are <strong>recurrence</strong> (very common), transient discomfort/cosmetic effect, and chronic sequelae. Unresolved lesions evolve into chalazion, which can cause <strong>meibomian gland loss/dropout</strong>: a pediatric chalazion cohort demonstrated <em>"Chalazion can lead to meibomian gland loss"</em> with significant gland dropout versus controls (meiboscores 0.78–0.89 vs 0.40, P&lt;.05) (<a href="https://pubmed.ncbi.nlm.nih.gov/42116414/">PMID: 42116414</a>). Larger lesions can transiently induce corneal astigmatism/higher-order aberrations (<a href="https://pubmed.ncbi.nlm.nih.gov/41884092/">PMID: 41884092</a>).</p>
+<p><strong>Complications:</strong> chalazion; preseptal cellulitis (hordeolum accounts for 15.5–24.8% of adult preseptal cellulitis predisposing factors, <a href="https://pubmed.ncbi.nlm.nih.gov/34607790/">PMID: 34607790</a>); rarely orbital cellulitis and necrotizing fasciitis.</p>
+<p><strong>Prognostic factors:</strong> severity, promptness of drainage/treatment, and control of underlying MGD/rosacea/Demodex determine recurrence risk. No molecular prognostic biomarkers exist.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Evidence caveat.</strong> The treatment evidence base is weak. The Cochrane review's stated objective was <em>"to investigate the effectiveness, and when possible, the safety, of non-surgical treatments for acute internal hordeola compared with observation or placebo"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28068454/">PMID: 28068454</a>) — and no eligible randomized trials were found. Acupuncture is likewise unproven: <em>"it is unclear if acupuncture is an effective and safe treatment for acute hordeolum"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28181687/">PMID: 28181687</a>).</p>
+<p><strong>Treatment ladder.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Intervention</th>
+<th>Evidence / notes</th>
+<th>NCIT suggestion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>First-line</td>
+<td>Warm compresses; lid hygiene/scrubs</td>
+<td>Standard conservative care; most resolve spontaneously. Warming masks raise eyelid temperature to therapeutic range (<a href="https://pubmed.ncbi.nlm.nih.gov/42361717/">PMID: 42361717</a>)</td>
+<td>NCIT:C15277 (Supportive Care)</td>
+</tr>
+<tr>
+<td>Second-line</td>
+<td>Topical/systemic antibiotics</td>
+<td>For spreading infection (anti-staphylococcal)</td>
+<td>NCIT:C258 (Antibiotic)</td>
+</tr>
+<tr>
+<td>Procedural</td>
+<td>Incision &amp; curettage (I&amp;C)</td>
+<td>For persistent lesions</td>
+<td>NCIT (surgery/incision-drainage)</td>
+</tr>
+<tr>
+<td>Emerging</td>
+<td>Intense pulsed light (IPL)</td>
+<td>Prospective cohort: <em>"the IPL group exhibited a statistically significant reduction in OSDI scores following treatment"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41731784/">PMID: 41731784</a>); BBL-IPL <em>"has shown to reduce hordeolum and blepharitis frequency"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34629862/">PMID: 34629862</a>)</td>
+<td>NCIT (phototherapy)</td>
+</tr>
+<tr>
+<td>Emerging</td>
+<td>Intralesional diluted 5-fluorouracil</td>
+<td><em>"Local injection of 6-fold diluted 5-fluorouracil may represent a potential minimally invasive option for selected patients with persistent eyelid inflammatory nodules"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42367702/">PMID: 42367702</a>)</td>
+<td>NCIT:C505 (Fluorouracil)</td>
+</tr>
+<tr>
+<td>Underlying disease</td>
+<td>Oral doxycycline/azithromycin (rosacea); lotilaner (Demodex)</td>
+<td>Rosacea chalazia resolved with <em>"oral administration of doxycycline and azithromycin"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/38898849/">PMID: 38898849</a>); lotilaner 0.25% for Demodex blepharitis (<a href="https://pubmed.ncbi.nlm.nih.gov/42371506/">PMID: 42371506</a>)</td>
+<td>NCIT:C303 (Doxycycline)</td>
+</tr>
+<tr>
+<td>Iatrogenic</td>
+<td>Discontinue/adjust offending drug</td>
+<td>Positive dechallenge for tirzepatide (<a href="https://pubmed.ncbi.nlm.nih.gov/42756500/">PMID: 42756500</a>)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Pediatric procedural management (chalazion I&amp;C) under general anesthesia is common and safe (n=4,616 series; chalazion I&amp;C = 62.89% of pediatric ophthalmic day surgery, <a href="https://pubmed.ncbi.nlm.nih.gov/39115475/">PMID: 39115475</a>).</p>
+<p><strong>Pharmacogenomics / advanced (gene/cell/RNA) therapies:</strong> Not applicable.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> lid hygiene, warm compresses, control of blepharitis/MGD; avoiding/managing gland-obstructing systemic drugs where feasible.</li>
+<li><strong>Secondary prevention:</strong> early warm compress/lid hygiene at symptom onset; prompt antibiotics if spreading to avert cellulitis.</li>
+<li><strong>Tertiary prevention:</strong> treat underlying rosacea (doxycycline/azithromycin, <a href="https://pubmed.ncbi.nlm.nih.gov/38898849/">PMID: 38898849</a>) and <em>Demodex</em> (lotilaner, <a href="https://pubmed.ncbi.nlm.nih.gov/42371506/">PMID: 42371506</a>); IPL reduces recurrence frequency (<a href="https://pubmed.ncbi.nlm.nih.gov/34629862/">PMID: 34629862</a>).</li>
+<li><strong>Immunization / genetic screening / counseling:</strong> Not applicable (no vaccine, no genetic basis).</li>
+<li><strong>Public health:</strong> general eye-hygiene education.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy of affected host:</strong> <em>Homo sapiens</em> (NCBI:txid9606). The causative pathogen is <em>Staphylococcus aureus</em> (NCBI:txid1280); ectoparasites <em>Demodex folliculorum</em>/<em>D. brevis</em>.</li>
+<li><strong>Comparative biology:</strong> Meibomian (tarsal) glands are <strong>holocrine sebaceous glands conserved across mammals</strong>, so an anatomical substrate exists in animals. However, <strong>no established rodent/zebrafish/Drosophila genetic model of "internal hordeolum" exists</strong>, and formal veterinary "hordeolum" literature is minimal. Analogous eyelid gland conditions in animals are described as chalazia/meibomian adenitis rather than "internal hordeolum."</li>
+<li><strong>Zoonosis:</strong> Not applicable — hordeolum itself is not transmissible; <em>S. aureus</em> can colonize multiple hosts but the disease is not classically zoonotic.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Not applicable / none established.</strong> There is no dedicated genetic or induced animal model of internal hordeolum (no knockout, knock-in, transgenic, conditional, or humanized model). Related meibomian gland dysfunction can be studied in mammalian models of MGD/dry eye, but these do not specifically recapitulate the acute suppurative internal hordeolum phenotype. Consequently, phenotype recapitulation, model limitations, and model databases (MGI, RGD, ZFIN, etc.) are <strong>not applicable</strong> for this specific disease entity.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>Internal hordeolum is best understood as the <strong>acute suppurative endpoint of a chronically primed eyelid oil-gland system</strong>. The upstream soil is meibomian gland dysfunction—driven by rosacea/seborrhea (with innate-immune LL-37 involvement), <em>Demodex</em> infestation, or drug-altered meibum. This soil predisposes to duct obstruction and meibum stasis (inferred steps), which provides a lipid-rich niche for <em>S. aureus</em>, whose lipases liberate pro-inflammatory free fatty acids. The resulting neutrophilic abscess is the clinically visible lesion. The system has three exits: spontaneous drainage (the common, benign outcome), sterile granulomatous organization into a chalazion, or bacterial spread into the preseptal/orbital compartments. This model explains the disease's key clinical features: its acuity (infection), its self-limitation (drainage), its recurrence (persistent underlying MGD soil), and its therapeutic logic (treat the abscess acutely, but prevent recurrence by remediating the gland dysfunction).</p>
+<p>The <strong>"two-hit" framing</strong>—chronic obstructive/sterile predisposition plus acute bacterial infection—reconciles two literatures that might otherwise seem contradictory: the observation that primary meibomitis is "not a primarily infectious entity" (<a href="https://pubmed.ncbi.nlm.nih.gov/6218459/">PMID: 6218459</a>) and drug-induced "sterile obstructive" hordeola (<a href="https://pubmed.ncbi.nlm.nih.gov/42756500/">PMID: 42756500</a>) on one hand, versus the demonstrable role of <em>S. aureus</em> on the other.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Role in this report</th>
+<th>Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28181687/">28181687</a></td>
+<td>Core definition, anatomy, self-limited course, obstruction mechanism</td>
+<td>Cochrane review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28068454/">28068454</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/20824865/">20824865</a></td>
+<td>Definition; treatment evidence gap</td>
+<td>Cochrane review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/6218459/">6218459</a></td>
+<td>Sebaceous dysfunction etiology; bacterial lipase → free fatty acids</td>
+<td>Clinical/mechanistic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27473509/">27473509</a></td>
+<td>Elevated <em>S. aureus</em> in MGD</td>
+<td>Microbiome study</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41675090/">41675090</a></td>
+<td>Epidemiology, incidence, bimodal age, sex ratio</td>
+<td>Nationwide claims</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42299138/">42299138</a></td>
+<td>High prevalence in real-world cohort</td>
+<td>Teleophthalmology review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34379160/">34379160</a></td>
+<td>Clinical diagnosis; biopsy for atypical/recurrent; MGD/blepharitis risk</td>
+<td>Clinical review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42756500/">42756500</a></td>
+<td>Tirzepatide-induced sterile obstructive hordeola; rechallenge causality</td>
+<td>Case series</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41967150/">41967150</a></td>
+<td>CFTR modulator association</td>
+<td>Case report</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38898849/">38898849</a></td>
+<td>Rosacea, LL-37; doxycycline/azithromycin treatment</td>
+<td>Case report</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42757848/">42757848</a></td>
+<td>Pediatric ocular rosacea, blepharitis 98.4%</td>
+<td>Case series</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42426675/">42426675</a></td>
+<td><em>Demodex</em> 92% in blepharitis</td>
+<td>Clinical study</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42387805/">42387805</a></td>
+<td><em>Demodex</em> → Zeis/meibomian lipid dysfunction</td>
+<td>Clinical study</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41787906/">41787906</a></td>
+<td>Necrotizing fasciitis complication</td>
+<td>Case report</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34607790/">34607790</a></td>
+<td>Hordeolum as preseptal cellulitis predisposing factor</td>
+<td>Retrospective</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42116414/">42116414</a></td>
+<td>Chalazion → meibomian gland loss</td>
+<td>Observational</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42552075/">42552075</a></td>
+<td>Malignancy masquerading as hordeolum</td>
+<td>Case report</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41731784/">41731784</a></td>
+<td>IPL improves OSDI</td>
+<td>Prospective cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34629862/">34629862</a></td>
+<td>BBL-IPL reduces hordeolum frequency</td>
+<td>Clinical study</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42367702/">42367702</a></td>
+<td>Intralesional 5-FU</td>
+<td>Case series</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42371506/">42371506</a></td>
+<td>Lotilaner for Demodex blepharitis</td>
+<td>Case report</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32622681/">32622681</a></td>
+<td>Presenting symptoms of eyelid infection</td>
+<td>Clinical review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42361717/">42361717</a></td>
+<td>Warming mask eyelid temperature</td>
+<td>Experimental</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39115475/">39115475</a></td>
+<td>Pediatric I&amp;C safety</td>
+<td>Retrospective</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39393420/">39393420</a></td>
+<td>Cutaneous horn preceded by hordeolum/chalazion</td>
+<td>Case series</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41884092/">41884092</a></td>
+<td>Lesion-induced astigmatism/HOAs</td>
+<td>Review</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No randomized-controlled-trial evidence</strong> exists for non-surgical treatment of acute internal hordeolum; practice is guided by expert opinion and observational data (<a href="https://pubmed.ncbi.nlm.nih.gov/28068454/">PMID: 28068454</a>).</li>
+<li><strong>Incidence figures are procedure-based</strong> (invasive treatments), so the 56.2/100,000 rate underestimates true incidence, which includes conservatively-managed and self-resolving cases.</li>
+<li><strong>Mechanistic steps 2–3 (obstruction, stasis) are inferred</strong> from meibomian gland biology rather than directly demonstrated in hordeolum tissue.</li>
+<li><strong>No molecular/omics characterization</strong> specific to internal hordeolum (no transcriptomic, proteomic, metabolomic, or single-cell studies of the lesion itself).</li>
+<li><strong>No animal model</strong>, limiting mechanistic dissection.</li>
+<li><strong>Emerging drug associations</strong> (GLP-1/GIP agonists, CFTR modulators) rest on small case series; magnitude of risk is unquantified.</li>
+<li><strong>IPL and intralesional 5-FU evidence</strong> comes from small, mostly uncontrolled or single-center studies.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Conduct a pragmatic RCT</strong> of warm compress ± topical antibiotic vs. observation for acute internal hordeolum, using standardized outcomes (time-to-resolution, recurrence, OSDI) to close the Cochrane-identified evidence gap.</li>
+<li><strong>Pharmacovigilance analysis</strong> (FAERS/pharmacoepidemiology) to quantify hordeolum/chalazion risk with GLP-1/GIP agonists and CFTR modulators, establishing incidence and dose relationship.</li>
+<li><strong>Microbiome + host-response profiling</strong> of drained hordeolum contents (16S/metagenomics + neutrophil/LL-37 markers) to confirm the two-hit infectious/sterile model and stratify infectious vs. sterile lesions.</li>
+<li><strong>Prospective imaging cohort</strong> (meibography) to test whether recurrent hordeola predict long-term meibomian gland dropout, extending the pediatric chalazion findings (<a href="https://pubmed.ncbi.nlm.nih.gov/42116414/">PMID: 42116414</a>).</li>
+<li><strong>Controlled trial of IPL</strong> for recurrence prevention in high-risk (rosacea/MGD/Demodex) patients, with meibomian gland function endpoints.</li>
+<li><strong>Prospective study of biopsy yield</strong> in non-resolving eyelid nodules to refine the threshold/timing for excluding sebaceous carcinoma.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 16 confirmed findings across 5 investigation iterations and 34 reviewed papers. Evidence types span human clinical reviews, Cochrane systematic reviews, nationwide claims/EHR studies, case series, and case reports. No model-organism, in vitro, or computational disease-specific data were available for this entity.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Internal_Hordeolum-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Internal_Hordeolum-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc3.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>28</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:6218459</code> <em>(abstract only)</em>: "not a primarily infectious entity"</li>
+<li>closest text in source: "Primary meibomitis appears not to be a primarily infectious entity but to represent a facet of generalized sebaceous gland dysfunction and to be found in association with seborrheic dermatitis or acne rosacea"</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0004917</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>internal hordeolum</strong></li>
+<li><code>UBERON:0001801</code> (1 mention) - the report calls it "palpebral conjunctiva"; UBERON calls it <strong>anterior segment of eyeball</strong></li>
+<li><code>NCIT:C15277</code> (1 mention) - the report calls it "Supportive Care"; NCIT calls it <strong>Mastectomy</strong></li>
+<li><code>NCIT:C303</code> (1 mention) - the report calls it "Doxycycline"; NCIT calls it <strong>Betamethasone</strong></li>
+</ul>
+<h3>Unresolved terms</h3>
+<p>These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:</p>
+<ul>
+<li><code>UBERON:0004841</code> (1 mention), reported as "tarsal gland / meibomian gland" - UBERON does not contain this term</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0000498</code> (1 mention) - the report calls it "Abnormality of the eyelid"; HP calls it <strong>Blepharitis</strong>, and lists "Inflammation of eyelids" among its other names</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Intermittent_Explosive_Disorder-openscientist.html">← Intermittent Explosive Disorder (OpenScientist)</a>
+                
+                
+                <a href="Interstitial_Lung_Disease_1-perplexity.html">Interstitial Lung Disease 1 (Perplexity) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Internal_Hordeolum.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Internal_Hordeolum-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

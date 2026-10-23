@@ -1288,20 +1288,29 @@ def _collect_computational_model_links(
 def _collect_histopathology_links(
     disorder: dict[str, Any],
 ) -> dict[str, list[dict[str, Any]]]:
-    """Collect histopathology term mappings keyed by normalized lookup values."""
+    """Collect histopathology term mappings keyed by normalized lookup values.
+
+    A finding left deliberately unbound (no ``finding_term.term``) still
+    attaches to a node by its ``name``; it just carries no term id/label
+    (dismech#13083).
+    """
     links_by_key: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
     for finding in disorder.get("histopathology", []) or []:
         if not isinstance(finding, dict):
             continue
 
+        keys = set()
+        name_key = _normalize_lookup_key(finding.get("name"))
+        if name_key:
+            keys.add(name_key)
+
         finding_term = finding.get("finding_term")
         if not isinstance(finding_term, dict):
-            continue
-
+            finding_term = {}
         term = finding_term.get("term")
         if not isinstance(term, dict):
-            continue
+            term = {}
 
         link_data: dict[str, Any] = {}
         if finding.get("name"):
@@ -1316,11 +1325,8 @@ def _collect_histopathology_links(
         if not link_data:
             continue
 
-        keys = set()
-        name_key = _normalize_lookup_key(finding.get("name"))
-        if name_key:
-            keys.add(name_key)
-        keys.update(_descriptor_lookup_keys(finding_term))
+        if term:
+            keys.update(_descriptor_lookup_keys(finding_term))
 
         for key in keys:
             if link_data not in links_by_key[key]:

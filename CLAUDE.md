@@ -328,6 +328,13 @@ every cheap ontology feature (child count, synonym count, aggregator tags)
 correlates with being a grouping rather than with being worth curating
 (issue #8969).
 
+`next-stubs` and `next-unclaimed` leave out the stubs `tidy-stubs` would delete
+(`already_curated`, `obsolete_term`), so the pool never offers a disease the KB
+already holds by MONDO ID; `--include-stale` puts them back. Other `check-stubs`
+advisories, such as `possible_kb_duplicate`, keep the stub in the pool and are
+printed beside it, and in `--json` as `advisories`. The check reads every KB
+file, so the command takes about half a minute (#11616).
+
 **`entry_type` is the lump/split decision and is never pre-filled.** Seeded
 stubs are all `UNDECIDED`. Deciding is the curator's first job:
 
@@ -1411,6 +1418,7 @@ just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
 just validate-grouping-batch kb/groupings/Mucopolysaccharidoses.yaml   # what CI runs
 just grouping-nesting-audit          # declared tree + undeclared containments
 just grouping-mondo-consistency      # does each MONDO predicate survive its own members?
+just grouping-gene-go-audit          # do members' causal genes carry the GO activity in GO itself?
 ```
 
 Membership criteria are audited over the HP/GO closure committed in
@@ -2369,6 +2377,15 @@ For MONDO coverage and epic-checklist synchronization, an entry's primary
 `skos:exactMatch` or `skos:narrowMatch`; `broadMatch`, `closeMatch`, and
 `relatedMatch` are cross-references and must not retire the mapped concept from
 the curation queue.
+
+**Two disorder entries may share a `disease_term` only if both say how.** Each
+records that CURIE in `mappings.mondo_mappings` as `skos:exactMatch` (at most
+one entry: the one that is the class) or `skos:narrowMatch` (a narrower entry,
+such as a promoted cancer stratum under design decisions §3a). If your new entry
+lands on a term another entry already holds and is not narrower than it, it is
+probably a duplicate. `just check-shared-disease-terms` gates this (in `just qc`,
+ungated in CI) and `just list-shared-disease-terms` is the worklist for the
+grandfathered groups (#10113). See `docs/quality-control.md`.
 
 ### Coarse Phenotype Bindings Must Say Why
 
@@ -3962,6 +3979,8 @@ Non-negotiable rules:
 - `evidence_source` classifies the cited study, not the curator or claim.
 - Treat deep-research reports as leads. Read their reference-validation results
   and run `just preflight-dr <report> <MONDO_ID>` before using their content.
+  `confabulation_rate` covers only cited identifiers; `preflight-dr` also warns
+  on an HGNC identifier written beside the wrong gene (#9845).
 - Never create or hand-edit `references_cache/*.md`; generate or regenerate an
   entry with `just fetch-reference <ID>`.
 - **Re-derive the cited-PMID list immediately before pruning uncited caches.** A
@@ -4013,6 +4032,7 @@ a file path:
 
 ```bash
 just check-folded-hyphens
+just check-folded-yaml
 just check-snippet-length
 just check-title-snippets
 just check-snippet-grading
@@ -4025,7 +4045,8 @@ just check-qualifier-terms kb/disorders/MyDisease.yaml
 just check-source-defect-claims  # report-only
 ```
 
-They catch folded-scalar word corruption, non-propositional short snippets,
+They catch folded-scalar word corruption, evidence items swallowed into a
+block scalar, non-propositional short snippets,
 paper titles used as findings, one quoted sentence graded with two different
 `evidence_source` values in the same file, prose arguing for a retired
 `supports` grade, environmental claims without
@@ -4087,6 +4108,15 @@ this is now a much weaker effect than it used to be — retiring `PARTIAL` cut
 `supports` divergences from 8,285 to 353, against 715 for `evidence_source`, so
 most of that signal was the value's ambiguity rather than claim-relativity.
 Gating `supports` is worth revisiting.
+
+The same comparison now also runs **across files** (#11221): one sentence of one
+reference graded `HUMAN_CLINICAL` in one entry and `IN_VITRO`, `MODEL_ORGANISM`
+or `COMPUTATIONAL` in another fails, because one of the two files is wrong, and
+the fix may belong in the file you did not touch. Pairs involving `OTHER` are
+report-only until #10273 settles that convention (`just list-snippet-grading
+--cross-file`). Its limit is the per-file one: it compares one verbatim sentence.
+Two different sentences making the same claim are not compared, and nor are two
+sentences of one paper carrying different values, which is a correct split.
 
 **Why the entity-ref check is a CI step and not just a test.** The same rules
 run in `check_entity_ref_foreign_keys`, but CI selects pytest by changed path,
@@ -4700,6 +4730,16 @@ routes to this rebuild, as it does for `CGDS:`, `ORPHA:`, `ICEES:` and `NCIT:`
 ids, so the AGENTS.md instruction to regenerate any cache file with
 `fetch-reference` holds for structured prefixes too.
 
+**An Orphanet record needs all five Orphadata products** (#13941). The rebuild
+refuses to run with any of them missing and names `just refresh-orphadata`,
+because a record built without, say, `en_product4.xml` simply has no
+`## Phenotypes` block and nothing says it was dropped. `just fetch-reference
+ORPHA:…` downloads the set when a file is absent. A drifted pin still fails the
+refresh, but every file is downloaded before it fails, so the rebuild runs; its
+`Source` line then carries the release date from `en_product1.xml`, not the
+manifest's `snapshot_date`, and a warning says so. While the files match the
+pin the stamp is the manifest date, as before.
+
 `data/orphadata/*.xml` is gitignored; `data/orphadata/MANIFEST.yaml` is
 committed and pins the snapshot date + sha256 of each bulk file. To verify
 no drift has occurred, run `just structured-rebuild-orphanet` locally and
@@ -4794,13 +4834,15 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `exports/sedml/*.omex` | NO | Derived — a byte-for-byte zip of the committed `exports/sedml/<model_id>/` directory; rebuild with `just sedml-export --omex` |
 | `app/models/data.js` | NO | Derived — the computational-models browser index, rebuilt from every `computational_models` block in `kb/` by `just gen-models-data`. **Never commit it from a curation PR**: it is regenerated wholesale, so two model PRs that both commit it conflict on it and nothing else (#9804) |
 | `app/hpo_category_cache.json` | NO | Derived — the HP-term-to-broad-category map, written by `just gen-browser-data` beside `app/data.js` and committed by the same workflow (#11299). Both `render` and `browser_export` read it |
+| `cache/pathograph_stats.json` | NO | Derived — the KB-wide mean pathograph edge count a disorder page compares against to decide whether to open grouped (#14539). Written by `just gen-pathograph-stats` in the page build and read by `render`, so a single-file render does not build every causal graph |
 | `cache/dataset_accessions.json` | **NEVER** | Deleted and ignored. Superseded by `references_cache/GEO_*.md`; keep it deleted when resolving old PRs |
 
 **Scope of the "derived" rule:** it governs *hand-authored* PRs — never commit
 these paths alongside a curation or code change. The derived artifacts do live in
 git, but only the `generate-pages` workflow writes them, in its own
 `auto/generate-pages` PR (`pages/`, `app/data.js`, `app/models/data.js`,
-`app/hpo_category_cache.json`, `pathographs/`, `dashboard/`, `elements/`).
+`app/hpo_category_cache.json`, `cache/pathograph_stats.json`, `pathographs/`,
+`dashboard/`, `elements/`).
 Such a bot PR is not a policy violation. See
 [`docs/page-build.md`](docs/page-build.md).
 
@@ -4939,10 +4981,15 @@ had approved three other PRs, and acting on it removed a blocking review.
 Failed review Actions are recovered separately by `pr-shepherd`'s independent
 `retry-reviews` job (`scripts/retry_failed_reviews.py`). It reruns existing failed
 jobs after a 1/6/24-hour backoff, regardless of PR author, assignee or draft
-status. It checks for newer/running reviews and existing current-commit verdicts
-before retrying. The default budget is five retries per sweep; `dry_run`,
+status. It checks for newer/running reviews before retrying, and for an existing
+current-commit verdict on manual- and comment-triggered runs. A verdict does not
+block retrying a failed PR-event check on the current head, because a manual or
+comment review cannot turn that check green. The default budget is five retries per sweep; `dry_run`,
 `pr_number`, `review_retry_delay_hours` and `max_review_retries` are available in
-the manual trigger. See [review recovery](docs/explanation/automation-and-agents.md#recovering-failed-review-actions).
+the manual trigger. The same job reruns failed issue triage, summarize and
+dedupe runs, keyed by the issue number in each run's name (`Triage issue #N`),
+because `issues: opened` cannot fire again for an existing issue (#13150); all
+three also accept a manual `issue_number` dispatch. See [review recovery](docs/explanation/automation-and-agents.md#recovering-failed-review-actions).
 
 ### Inactive PR assignments
 

@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visceral Heterotaxy 8 · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Visceral Heterotaxy 8</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Visceral Heterotaxy 8</h1>
+                
+                <p class="report-subtitle">Visceral Heterotaxy 8 (HTX8) — Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-10-20</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0014967" target="_blank" rel="noopener noreferrer">MONDO:0014967</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Visceral Heterotaxy 8 (HTX8) — Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Visceral Heterotaxy 8 (HTX8) · <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0014967" target="_blank" rel="noopener noreferrer">MONDO:0014967</a> · <strong>Gene:</strong> <em>PKD1L1</em> · <strong>Category:</strong> Mendelian (autosomal recessive)
+<strong>Report date:</strong> 2026-10-20 · Evidence base: human clinical case reports, model-organism genetics, in-vitro/biochemical, and computational/database sources.</p>
+<blockquote>
+<p><strong>Summary answer.</strong> Visceral Heterotaxy 8 (HTX8; OMIM #617205) is a rare autosomal-recessive laterality (left–right patterning) disorder caused by biallelic loss-of-function or damaging variants in <em>PKD1L1</em> (polycystin-1-like 1, chr 7p12.3). PKD1L1 partners with PKD2 (polycystin-2/TRPP2) on motile cilia of the embryonic node/Kupffer's vesicle to sense leftward "nodal flow"; its loss disrupts the earliest left-biased Ca²⁺/Nodal signal, randomizing or bilateralizing organ situs and producing a spectrum from situs inversus totalis to situs ambiguus (heterotaxy) with frequent complex congenital heart disease and splenic anomalies (including asplenia). There is no gene-specific therapy; management is anatomy-driven (cardiac surgery, infection prophylaxis for asplenia), and prognosis is governed mainly by the severity of congenital heart disease.</p>
+</blockquote>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> HTX8 is a Mendelian subtype of visceral heterotaxy — a congenital disorder of left–right (L-R) body-axis determination in which thoracic and abdominal organs are abnormally arranged across the midline. Clinically it ranges from <strong>situs inversus totalis (SIT)</strong> (complete mirror-image reversal) to <strong>situs ambiguus / heterotaxy</strong> (discordant, randomized organ positioning), typically with congenital heart disease (CHD). "Disruption of the establishment of left-right (L-R) asymmetry leads to situs anomalies ranging from situs inversus totalis (SIT) to situs ambiguus (heterotaxy)" (<a href="https://pubmed.ncbi.nlm.nih.gov/27616478/" target="_blank" rel="noopener noreferrer">PMID 27616478</a>).</p>
+<p><strong>Key identifiers.</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0014967" target="_blank" rel="noopener noreferrer">MONDO:0014967</a> (Visceral heterotaxy 8)
+- <strong>OMIM:</strong> #617205 (phenotype, HTX8, autosomal recessive); gene <em>PKD1L1</em> *609721
+- <strong>Gene/HGNC:</strong> <em>PKD1L1</em>, <a href="https://bioregistry.io/HGNC:18053" target="_blank" rel="noopener noreferrer">HGNC:18053</a>; Ensembl ENSG00000158683; NCBI Gene 168507; UniProt Q8TDX9
+- <strong>Orphanet:</strong> broad entry <a href="https://bioregistry.io/ORPHA:450" target="_blank" rel="noopener noreferrer">ORPHA:450</a> (Heterotaxia); no PKD1L1-specific ORPHA code
+- <strong>MeSH:</strong> D059446 (Heterotaxy Syndrome)
+- <strong>ICD-10:</strong> Q89.3 (Situs inversus); <strong>ICD-11:</strong> LB01.1 (Situs ambiguous / heterotaxy)
+- <strong>HPO anchor:</strong> <a href="http://purl.obolibrary.org/obo/HP_0004935" target="_blank" rel="noopener noreferrer">HP:0004935</a> (Visceral heterotaxy)</p>
+<p><strong>Synonyms / alternative names.</strong> Heterotaxy, visceral, 8, autosomal recessive; HTX8; PKD1L1-related heterotaxy/laterality defect; situs ambiguus/situs inversus due to <em>PKD1L1</em>.</p>
+<p><strong>Information source type.</strong> Derived from <strong>aggregated disease-level resources</strong> (OMIM, Orphanet, ClinVar, UniProt, gnomAD) combined with <strong>individual patient case reports</strong> (small families); not from large EHR cohorts.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause — genetic.</strong> Biallelic (homozygous or compound-heterozygous) pathogenic variants in <em>PKD1L1</em>. Whole-exome sequencing "identified homozygous mutations in PKD1L1 from three affected individuals in two unrelated families" (<a href="https://pubmed.ncbi.nlm.nih.gov/27616478/" target="_blank" rel="noopener noreferrer">PMID 27616478</a>). This is a <strong>monogenic, recessive developmental disorder</strong>; it is not infectious and has no established acquired cause.</p>
+<p><strong>Genetic risk factors.</strong>
+- <strong>Causal variants:</strong> loss-of-function (splice, nonsense) and damaging missense alleles in <em>PKD1L1</em> (see §4).
+- <strong>Consanguinity</strong> is a key risk context — reported probands are homozygous, consistent with autosomal-recessive inheritance and increased in consanguineous or founder settings.
+- <strong>Carrier status:</strong> heterozygotes are unaffected (gene is not haploinsufficient; gnomAD pLI≈0).</p>
+<p><strong>Environmental risk factors.</strong> None established specifically for HTX8. For heterotaxy broadly, <strong>maternal pregestational diabetes mellitus</strong> is associated with laterality/abdominal-situs phenotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/41974186/" target="_blank" rel="noopener noreferrer">PMID 41974186</a>) and is a recognized teratogenic risk factor for L-R defects; this is a disease-level association, not demonstrated for PKD1L1 cases.</p>
+<p><strong>Protective factors.</strong> None identified (genetic or environmental). A single wild-type <em>PKD1L1</em> allele is "protective" in the Mendelian sense (carriers are healthy).</p>
+<p><strong>Gene–environment interactions.</strong> Not specifically characterized for <em>PKD1L1</em>. Laterality determination is a threshold/stochastic developmental process; modifier/background effects are plausible (variable expressivity between SIT and heterotaxy even within families) but unproven.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>All manifestations are <strong>congenital (prenatal/neonatal onset)</strong>, structural/physical, lifelong, and non-progressive as malformations (clinical course is driven by complications). Frequencies below are qualitative given the very small reported cohort.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO term</th>
+<th>Notes / frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Visceral heterotaxy / situs ambiguus</td>
+<td>Physical malformation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004935" target="_blank" rel="noopener noreferrer">HP:0004935</a></td>
+<td>Core feature</td>
+</tr>
+<tr>
+<td>Situs inversus totalis</td>
+<td>Physical malformation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001696" target="_blank" rel="noopener noreferrer">HP:0001696</a></td>
+<td>Reported (p.Cys1691Ser family)</td>
+</tr>
+<tr>
+<td>Complex congenital heart disease</td>
+<td>Clinical sign/structural</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" rel="noopener noreferrer">HP:0001627</a> (Abnormal heart morphology)</td>
+<td>Very frequent; often lethal</td>
+</tr>
+<tr>
+<td>Dextrocardia / abnormal cardiac position</td>
+<td>Physical</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001651" target="_blank" rel="noopener noreferrer">HP:0001651</a></td>
+<td>Common in situs defects</td>
+</tr>
+<tr>
+<td>Atrioventricular septal defect, DORV, TAPVC, transposition</td>
+<td>Structural</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0006695" target="_blank" rel="noopener noreferrer">HP:0006695</a> / <a href="http://purl.obolibrary.org/obo/HP_0011565" target="_blank" rel="noopener noreferrer">HP:0011565</a> etc.</td>
+<td>Seen across heterotaxy spectrum</td>
+</tr>
+<tr>
+<td>Asplenia</td>
+<td>Physical/laboratory</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001746" target="_blank" rel="noopener noreferrer">HP:0001746</a></td>
+<td>Reported (p.Gln463*); confers infection risk</td>
+</tr>
+<tr>
+<td>Polysplenia / abnormal spleen</td>
+<td>Physical</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001748" target="_blank" rel="noopener noreferrer">HP:0001748</a> / <a href="http://purl.obolibrary.org/obo/HP_0025059" target="_blank" rel="noopener noreferrer">HP:0025059</a></td>
+<td>Part of spectrum</td>
+</tr>
+<tr>
+<td>Intestinal malrotation</td>
+<td>Physical</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002566" target="_blank" rel="noopener noreferrer">HP:0002566</a></td>
+<td>Common heterotaxy complication</td>
+</tr>
+<tr>
+<td>Abnormal inferior vena cava / vascular laterality</td>
+<td>Structural</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0005301" target="_blank" rel="noopener noreferrer">HP:0005301</a></td>
+<td>Interrupted IVC in left isomerism</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Onset:</strong> neonatal/congenital (often detected prenatally). <strong>Severity:</strong> variable — from isolated SIT (potentially mild) to lethal complex CHD. <strong>Progression:</strong> stable malformation; secondary deterioration from cardiac failure, arrhythmia, or infection. <strong>Quality of life:</strong> dominated by cardiac disease burden (surgeries, heart failure, arrhythmia) and, in asplenia, lifelong infection vigilance; no disease-specific QoL instruments exist — generic pediatric CHD tools (PedsQL, PROMIS) apply.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <em>PKD1L1</em> (polycystin-1-like 1), <a href="https://bioregistry.io/HGNC:18053" target="_blank" rel="noopener noreferrer">HGNC:18053</a>, Ensembl ENSG00000158683, gene OMIM *609721, GRCh38 chr7:47,740,202–47,948,466 (7p12.3), canonical transcript ENST00000289672; protein UniProt Q8TDX9, 2849 aa.</p>
+<p><strong>Protein architecture (UniProt Q8TDX9).</strong> 11-transmembrane polycystin-1-family receptor with a large extracellular N-terminus (res. 1–1748): two <strong>PKD domains</strong> (508–590; 592–673), a large <strong>REJ</strong> (receptor-for-egg-jelly) domain (674–1571), a <strong>GAIN-B</strong> domain (1587–1735) containing the <strong>GPS</strong> autoproteolysis motif (1691–1735), and a cytoplasmic <strong>PLAT/LH2</strong> domain (1796–1913); ~20 N-glycosylation sites and disulfide bonding.</p>
+<p><strong>Reported pathogenic variants (germline).</strong>
+| Variant (cDNA) | Protein | Class | Consequence | Phenotype | PMID |
+|---|---|---|---|---|---|
+| c.6473+2_6473+3delTG | splice-donor, intron 42 | Splice-site, LoF | Loss of function | Heterotaxy + complex CHD | 27616478 |
+| c.5072G&gt;C | p.Cys1691Ser | Missense (GPS motif) | Disrupts GPS disulfide, folding/autoproteolysis | SIT + CHD | 27616478 |
+| c.1387C&gt;T | p.Gln463* | Nonsense, LoF | Truncation (loss of REJ/TM/channel region) | Heterotaxy + congenital asplenia | 35691949 |</p>
+<p>"the p.Cys1691Ser substitution affects a highly conserved cysteine residue and is predicted by molecular modeling to disrupt a disulfide bridge essential for the proper folding of the … (GPS) motif" (<a href="https://pubmed.ncbi.nlm.nih.gov/27616478/" target="_blank" rel="noopener noreferrer">PMID 27616478</a>).</p>
+<p><strong>Variant classification &amp; frequency.</strong> ClinVar lists ~1,417 <em>PKD1L1</em> variants, the large majority <strong>variants of uncertain significance (VUS)</strong> (~1,157 VUS vs ~170 pathogenic / ~72 likely pathogenic), reflecting limited functional/segregation data. Pathogenic HTX8 alleles are individually rare/absent in population databases (gnomAD). <strong>Origin:</strong> germline. <strong>Functional consequence:</strong> <strong>loss of function</strong> (recessive); no gain-of-function or dominant-negative mechanism established.</p>
+<p><strong>Population constraint (gnomAD).</strong> pLI ≈ 0, oe_lof = 0.73 (90% CI 0.66–0.81), missense oe = 0.95, mis_z = 1.35. The gene is <strong>not haploinsufficient</strong>, consistent with asymptomatic heterozygous carriers and recessive disease.</p>
+<p><strong>Modifier genes.</strong> None proven. Variable expressivity (SIT vs heterotaxy) suggests modifiers/stochastic effects. In mouse genetics, <em>Pkd1l1</em> acts as an <strong>upstream repressor of <em>Pkd2</em></strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/27272319/" target="_blank" rel="noopener noreferrer">PMID 27272319</a>), so dosage of polycystin-pathway genes is biologically relevant.</p>
+<p><strong>Epigenetics / chromosomal abnormalities.</strong> No HTX8-specific epigenetic signature reported. HTX8 is caused by point/small variants, not large chromosomal rearrangements; however, CNVs in body-patterning pathways (NODAL/BMP/WNT, e.g., <em>NIPBL, TBX6, FGF12, RBFOX1</em>) contribute to the broader heterotaxy population (<a href="https://pubmed.ncbi.nlm.nih.gov/27637763/" target="_blank" rel="noopener noreferrer">PMID 27637763</a>).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors / toxins / infectious agents:</strong> none causal for HTX8 (purely genetic).</li>
+<li><strong>Lifestyle factors:</strong> not applicable to disease causation.</li>
+<li><strong>Disease-level association:</strong> maternal <strong>pregestational diabetes</strong> correlates with laterality-spectrum phenotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/41974186/" target="_blank" rel="noopener noreferrer">PMID 41974186</a>) — relevant to heterotaxy broadly, not to monogenic PKD1L1 cases.</li>
+<li><strong>Infectious agents:</strong> not causal, but <strong>secondary infection risk is central</strong> in patients with asplenia (see §11/§13).</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<ol>
+<li><strong>Biallelic <em>PKD1L1</em> loss-of-function/damaging variant</strong> → results in absent or misfolded PKD1L1 protein (truncation; GPS-motif disulfide disruption for p.Cys1691Ser). <em>[demonstrated: human genetics + molecular modeling]</em></li>
+<li><strong>Loss of functional PKD1L1</strong> → prevents assembly of the PKD1L1–PKD2 (polycystin-1-like-1 / polycystin-2) receptor–channel complex on cilia of the embryonic node / Kupffer's vesicle. <em>[demonstrated: co-localization + physical interaction, mouse &amp; medaka]</em></li>
+<li><strong>Motile node cilia still generate normal leftward "nodal flow"</strong> (cilia motility is intact) → but the flow <strong>cannot be interpreted</strong> without the PKD1L1–PKD2 sensor. <em>[demonstrated: normal flow/cilia in mutants]</em></li>
+<li><strong>Flow normally transfers PKD1L1-containing fibrous strands leftward</strong>, facilitating a <strong>left-dominant intracellular Ca²⁺ elevation</strong> at the left node margin (FGFR/Shh-dependent) → in mutants this earliest left-biased signal fails. <em>[demonstrated in mouse; Tanaka 2023]</em></li>
+<li><strong>Failed/symmetric Ca²⁺ signaling</strong> → loss of left-restricted repression such that the <strong>Nodal–Lefty–Pitx2 cascade is not confined to the left</strong> (becomes absent, bilateral, or randomized) in the lateral plate mesoderm. <em>[demonstrated: PKD1L1 restricts Nodal to the left; Pkd1l1 mutant activates Nodal bilaterally]</em></li>
+<li><strong>Loss of asymmetric Pitx2 patterning</strong> → randomized/discordant morphogenesis and looping of heart, gut, spleen, lungs and great vessels. <em>[inferred from conserved L-R pathway]</em></li>
+<li><strong>Abnormal situs</strong> → <strong>situs inversus totalis OR situs ambiguus/heterotaxy with complex CHD, splenic anomalies, intestinal malrotation, vascular laterality defects</strong> → clinical disease. <em>[demonstrated: human phenotypes]</em></li>
+</ol>
+<p><strong>Branch point</strong> at step 5: depending on whether Nodal is lost, bilateral, or randomized, the organism develops SIT (coordinated reversal), left isomerism (polysplenia), or right isomerism (asplenia) — explaining the phenotypic spectrum, including the asplenia case (<a href="https://pubmed.ncbi.nlm.nih.gov/35691949/" target="_blank" rel="noopener noreferrer">PMID 35691949</a>).</p>
+<p><strong>Supporting detail by category.</strong>
+- <strong>Molecular pathways:</strong> Nodal/TGF-β signaling (Nodal–Lefty2–Pitx2), upstream FGFR and Sonic hedgehog (Shh) signaling, calcium signaling. Reactome "Nodal signaling"; KEGG TGF-β pathway.
+- <strong>Protein dysfunction:</strong> loss of function via truncation or GPS-domain misfolding; PKD1L1 normally undergoes GPS autoproteolysis and forms a Ca²⁺-permeable channel complex with PKD2/TRPP2. "PKD1L1 is sufficient to mediate a Ca2+ signaling response after flow stimulation … an extracellular PKD domain within PKD1L1 is crucial for PKD1L1 function" (<a href="https://pubmed.ncbi.nlm.nih.gov/27272319/" target="_blank" rel="noopener noreferrer">PMID 27272319</a>).
+- <strong>Cellular processes:</strong> ciliary mechanosensation/chemosensation and ciliary Ca²⁺ signaling; embryonic L-R symmetry breaking.
+- <strong>Biochemical abnormality:</strong> defective ciliary cation (Ca²⁺) channel/receptor complex.
+- <strong>Immune involvement:</strong> not primary; functional/anatomic <strong>asplenia</strong> causes secondary immunodeficiency to encapsulated bacteria.
+- <strong>Metabolic/epigenetic changes:</strong> none characteristic.</p>
+<p><strong>GO term suggestions:</strong> <a href="http://purl.obolibrary.org/obo/GO_0007368" target="_blank" rel="noopener noreferrer">GO:0007368</a> (determination of left/right symmetry); <a href="http://purl.obolibrary.org/obo/GO_0003351" target="_blank" rel="noopener noreferrer">GO:0003351</a> (epithelial cilium movement involved in determination of L/R asymmetry); <a href="http://purl.obolibrary.org/obo/GO_0060287" target="_blank" rel="noopener noreferrer">GO:0060287</a> (epithelial cilium / "nodal cilium"); <a href="http://purl.obolibrary.org/obo/GO_0060170" target="_blank" rel="noopener noreferrer">GO:0060170</a> (ciliary membrane); <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" rel="noopener noreferrer">GO:0005929</a> (cilium); <a href="http://purl.obolibrary.org/obo/GO_0072372" target="_blank" rel="noopener noreferrer">GO:0072372</a> (primary cilium assembly); <a href="http://purl.obolibrary.org/obo/GO_0005262" target="_blank" rel="noopener noreferrer">GO:0005262</a> (calcium channel activity); <a href="http://purl.obolibrary.org/obo/GO_0019228" target="_blank" rel="noopener noreferrer">GO:0019228</a>/<a href="http://purl.obolibrary.org/obo/GO_0070588" target="_blank" rel="noopener noreferrer">GO:0070588</a> (Ca²⁺ ion transmembrane transport).
+<strong>Cell Ontology (CL):</strong> node/pit cells &amp; crown cells of the embryonic organizer → <a href="http://purl.obolibrary.org/obo/CL_0000222" target="_blank" rel="noopener noreferrer">CL:0000222</a> (mesodermal cell), ciliated embryonic node cells; <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a> (fibroblast, LPM context). <strong>CHEBI:</strong> <a href="http://purl.obolibrary.org/obo/CHEBI_29108" target="_blank" rel="noopener noreferrer">CHEBI:29108</a> (calcium(2+)).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level (primary):</strong> heart and great vessels (cardiovascular), spleen (asplenia/polysplenia), stomach/intestine (malrotation), liver (midline/abnormal lobation), lungs (isomerism), inferior vena cava/systemic veins.
+<strong>Body systems:</strong> cardiovascular (primary), digestive, respiratory, lymphatic/immune (spleen), hepatobiliary.
+<strong>Secondary involvement:</strong> immune deficiency from asplenia; biliary atresia in some left-isomerism heterotaxy; pulmonary consequences of CHD.</p>
+<p><strong>Developmental origin (where the defect acts):</strong> the <strong>embryonic node / Kupffer's vesicle</strong> (midline left–right organizer) and <strong>lateral plate mesoderm</strong> — <a href="http://purl.obolibrary.org/obo/UBERON_0005725" target="_blank" rel="noopener noreferrer">UBERON:0005725</a> (ciliated embryonic node) / <a href="http://purl.obolibrary.org/obo/UBERON_0004341" target="_blank" rel="noopener noreferrer">UBERON:0004341</a> (node), <a href="http://purl.obolibrary.org/obo/UBERON_0003081" target="_blank" rel="noopener noreferrer">UBERON:0003081</a> (lateral plate mesoderm). Resulting organ UBERON terms: <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a> (heart), <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a> (spleen), <a href="http://purl.obolibrary.org/obo/UBERON_0000160" target="_blank" rel="noopener noreferrer">UBERON:0000160</a> (intestine), <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a> (lung), <a href="http://purl.obolibrary.org/obo/UBERON_0001072" target="_blank" rel="noopener noreferrer">UBERON:0001072</a> (inferior vena cava).</p>
+<p><strong>Tissue/cell level:</strong> ciliated epithelial cells of the node/KV; lateral-plate mesoderm; cardiac progenitor mesoderm. <strong>Subcellular (GO Cellular Component):</strong> primary/motile cilium (<a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" rel="noopener noreferrer">GO:0005929</a>), ciliary membrane (<a href="http://purl.obolibrary.org/obo/GO_0060170" target="_blank" rel="noopener noreferrer">GO:0060170</a>), plasma membrane.</p>
+<p><strong>Localization &amp; lateralization:</strong> defect is of <strong>body-axis laterality itself</strong> — manifestations are intrinsically bilateral/asymmetric/randomized (loss of normal left-right asymmetry; isomerism = loss of sidedness). HPO <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" rel="noopener noreferrer">HP:0001631</a> etc. for specific cardiac lesions.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> congenital; organ situs is specified in early embryogenesis (gastrulation/node stage, ~weeks 3–4 in humans). Frequently <strong>diagnosed prenatally</strong> by ultrasound/fetal echocardiography (heterotaxy has among the highest prenatal detection rates, ~91% in one series, <a href="https://pubmed.ncbi.nlm.nih.gov/42324491/" target="_blank" rel="noopener noreferrer">PMID 42324491</a>).</li>
+<li><strong>Onset pattern:</strong> structural malformation present at birth (not acute/subacute).</li>
+<li><strong>Progression:</strong> the malformation is <strong>stable</strong>; clinical course is <strong>non-progressive as a lesion</strong> but complicated by heart failure, arrhythmia (complete heart block), pulmonary venous obstruction, and infection.</li>
+<li><strong>Critical period:</strong> the <strong>node/LPM signaling window</strong> in early embryogenesis is the only period during which L-R situs can be set — there is <strong>no postnatal window to correct the primary patterning defect</strong>, only to palliate its consequences.</li>
+<li><strong>Duration:</strong> lifelong (chronic).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> <strong>autosomal recessive</strong> (biallelic <em>PKD1L1</em>). Heterozygous carriers unaffected.</li>
+<li><strong>Penetrance/expressivity:</strong> biallelic genotypes appear highly penetrant for a laterality phenotype, but <strong>expressivity is variable</strong> (SIT vs heterotaxy; differing CHD severity, including within the same family).</li>
+<li><strong>Consanguinity:</strong> relevant — reported probands are homozygous; recessive disease risk rises with consanguinity/founder effects.</li>
+<li><strong>Carrier frequency / founder effects:</strong> not precisely established; individual pathogenic alleles are rare; a Chinese nonsense allele (p.Gln463*) was the first reported in that population (<a href="https://pubmed.ncbi.nlm.nih.gov/35691949/" target="_blank" rel="noopener noreferrer">PMID 35691949</a>).</li>
+<li><strong>Anticipation / mitochondrial / germline mosaicism:</strong> not applicable / not reported.</li>
+</ul>
+<p><strong>Epidemiology.</strong>
+- <strong>HTX8 specifically:</strong> ultra-rare; only a handful of families reported worldwide — population prevalence <strong>unknown</strong>.
+- <strong>Heterotaxy / atrial isomerism (parent category):</strong> prevalence <strong>~1 in 10,000–20,000 live births</strong>, accounting for up to <strong>~4% of all cardiac malformations</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/34491249/" target="_blank" rel="noopener noreferrer">PMID 34491249</a>); heterotaxy represents a minority of laterality disorders (e.g., 249 HS among 566 fetal laterality cases over 721,562 deliveries, <a href="https://pubmed.ncbi.nlm.nih.gov/42110452/" target="_blank" rel="noopener noreferrer">PMID 42110452</a>).
+- <strong>Sex ratio / geography:</strong> no established PKD1L1-specific skew; general heterotaxy shows modest male predominance in some registries. Reported PKD1L1 cases span diverse ancestries (consistent with private recessive alleles).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Imaging (anatomic diagnosis, primary).</strong>
+- <strong>Fetal ultrasound + fetal echocardiography</strong> — mainstay prenatal detection (very high detection for heterotaxy, <a href="https://pubmed.ncbi.nlm.nih.gov/42324491/" target="_blank" rel="noopener noreferrer">PMID 42324491</a>).
+- <strong>Postnatal echocardiography</strong>, cardiac <strong>CT/MRI/angiography</strong> for segmental cardiac/vascular anatomy; <strong>abdominal ultrasound/CT</strong> for spleen, liver, gut malrotation; <strong>upper GI series</strong> for malrotation.
+<strong>Laboratory / functional.</strong>
+- <strong>Peripheral blood smear for Howell-Jolly bodies</strong> → screen for functional asplenia; pitted-RBC counts / spleen scintigraphy to assess splenic function.
+- ECG/Holter for <strong>complete heart block</strong> and arrhythmia.</p>
+<p><strong>Genetic testing (definitive molecular diagnosis).</strong>
+- <strong>Approach:</strong> because heterotaxy is highly heterogeneous ("pathogenic genetic lesions are found in less than 20% of HS patients," <a href="https://pubmed.ncbi.nlm.nih.gov/35691949/" target="_blank" rel="noopener noreferrer">PMID 35691949</a>), <strong>broad testing is preferred</strong>: multigene <strong>heterotaxy/CHD panels</strong> (including <em>PKD1L1, ZIC3, NODAL, CFC1, ACVR2B, LEFTY2, GDF1, MMP21, CCDC11/CFAP53, DNAH5</em>…), <strong>whole-exome (WES)</strong> or <strong>whole-genome sequencing (WGS)</strong>. WES identified the original PKD1L1 families (<a href="https://pubmed.ncbi.nlm.nih.gov/27616478/" target="_blank" rel="noopener noreferrer">PMID 27616478</a>).
+- <strong>Single-gene testing</strong> of <em>PKD1L1</em> is appropriate when a consistent phenotype or family variant is known; confirm <strong>biallelic</strong> status and parental phase (segregation).
+- <strong>Chromosomal microarray (CMA)/karyotype</strong> to exclude CNVs/aneuploidy contributing to heterotaxy (<a href="https://pubmed.ncbi.nlm.nih.gov/27637763/" target="_blank" rel="noopener noreferrer">PMID 27637763</a>).
+- <strong>Interpretation caveat:</strong> high <strong>VUS burden</strong> in <em>PKD1L1</em> — classification benefits from recessive segregation, consanguinity, GPS/LoF functional rationale, and ACMG/AMP criteria.</p>
+<p><strong>Clinical criteria / differential diagnosis.</strong> No disease-specific criteria; diagnosis = demonstrated situs anomaly + biallelic <em>PKD1L1</em> variants. <strong>Differential:</strong> other genetic heterotaxy (X-linked <em>ZIC3</em> = HTX1; <em>NODAL, CFC1, ACVR2B, GDF1, MMP21</em>, etc.), <strong>primary ciliary dyskinesia (PCD)</strong> with laterality defects (distinguished by chronic sinopulmonary disease, abnormal ciliary motility/ultrastructure, nasal nitric oxide — features <em>absent</em> in PKD1L1, whose cilia are motile), and syndromic/CNV causes.</p>
+<p><strong>Screening.</strong> No newborn screening for HTX8; <strong>cascade carrier testing</strong> of relatives and <strong>prenatal/preimplantation genetic testing</strong> are options once the familial variants are known.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Prognosis is driven by the cardiac phenotype.</strong> In a heterotaxy+CHD cohort (n=197), <strong>5- and 10-year survival ≈71% and ≈68%</strong>; <strong>left atrial isomerism had better survival than right atrial isomerism</strong>; <strong>complete heart block (CHB)</strong> and ventricular dysfunction predicted fetal demise, and <strong>pulmonary venous obstruction + CHB</strong> predicted postnatal mortality (<a href="https://pubmed.ncbi.nlm.nih.gov/42185088/" target="_blank" rel="noopener noreferrer">PMID 42185088</a>). "CHB and pulmonary venous obstruction remain significant predictors of postnatal mortality…" (<a href="https://pubmed.ncbi.nlm.nih.gov/42185088/" target="_blank" rel="noopener noreferrer">PMID 42185088</a>).</li>
+<li><strong>Infection/asplenia mortality:</strong> asplenia confers high risk of overwhelming bacteremia — in a systematic review, "There were 42 documented cases of bacteremia in 32 patients. Approximately, 79% of these had absence of a spleen" (<a href="https://pubmed.ncbi.nlm.nih.gov/27425254/" target="_blank" rel="noopener noreferrer">PMID 27425254</a>), mean age ~17 months, with high mortality.</li>
+<li><strong>Perinatal outcomes (laterality spectrum):</strong> major CHD drives termination, surgery and early mortality; live birth ~80%, with infant mortality concentrated in infancy (<a href="https://pubmed.ncbi.nlm.nih.gov/41974186/" target="_blank" rel="noopener noreferrer">PMID 41974186</a>).</li>
+<li><strong>Morbidity:</strong> multiple cardiac surgeries, arrhythmia/pacemaker dependence, heart failure, GI morbidity (malrotation/volvulus), feeding/growth problems; lifelong infection risk with asplenia.</li>
+<li><strong>Prognostic factors:</strong> type/severity of CHD, atrial isomerism subtype (RAI worse), CHB, pulmonary venous obstruction, splenic status. No molecular prognostic biomarker specific to PKD1L1.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>No disease-specific or gene-directed therapy exists.</strong> Management is <strong>symptomatic, anatomy-driven, and multidisciplinary</strong> (NCIT terms suggested).
+- <strong>Cardiac surgical/interventional:</strong> staged palliation (single-ventricle pathway: Norwood/Glenn/Fontan) or biventricular repair depending on anatomy; repair of AVSD, TAPVC, DORV; <strong>pacemaker</strong> for complete heart block (NCIT: C157809 Cardiac Surgery; C50106 Pacemaker; C98298 Fontan Procedure).
+- <strong>Gastrointestinal:</strong> <strong>Ladd procedure</strong> for intestinal malrotation/volvulus (NCIT: C157751 surgical procedure).
+- <strong>Asplenia management (critical):</strong> <strong>vaccination</strong> against encapsulated organisms — pneumococcal (PCV + PPSV23), <em>Haemophilus influenzae</em> type b, meningococcal (ACWY + B) — plus <strong>antibiotic prophylaxis</strong> (e.g., penicillin/amoxicillin) and immediate empiric antibiotics for febrile illness (NCIT: C15346 Vaccination; C154547 Antibiotic Therapy; C15431 Prophylaxis). Patient education and medical-alert measures improve adherence (<a href="https://pubmed.ncbi.nlm.nih.gov/32759171/" target="_blank" rel="noopener noreferrer">PMID 32759171</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/31937251/" target="_blank" rel="noopener noreferrer">PMID 31937251</a>).
+- <strong>Supportive:</strong> heart-failure pharmacotherapy (diuretics e.g. furosemide, afterload reduction, beta-blockade), nutritional support/gastrostomy, arrhythmia management (<a href="https://pubmed.ncbi.nlm.nih.gov/41049903/" target="_blank" rel="noopener noreferrer">PMID 41049903</a> case series).
+- <strong>Advanced/experimental therapeutics:</strong> <strong>none</strong> — no gene therapy, RNA therapy, cell therapy, or targeted/immunotherapy for PKD1L1-heterotaxy (the primary defect is prenatal/developmental and not correctable postnatally). No pharmacogenomic considerations specific to the gene.
+- <strong>Pharmacogenomics / personalized medicine:</strong> genotype confirms diagnosis and informs recurrence risk/reproductive counseling rather than drug selection.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> not possible for the genetic lesion. <strong>Preconception/prenatal genetic counseling</strong> for recessive 25% recurrence risk; <strong>carrier screening</strong> of partners in known families; <strong>PGT/prenatal diagnosis</strong> where familial variants are defined. Optimizing <strong>maternal glycemic control</strong> addresses a disease-level (not PKD1L1-specific) laterality risk factor (<a href="https://pubmed.ncbi.nlm.nih.gov/41974186/" target="_blank" rel="noopener noreferrer">PMID 41974186</a>).</li>
+<li><strong>Secondary prevention:</strong> <strong>prenatal detection</strong> (fetal echo/ultrasound) enabling planned delivery at a cardiac center and early intervention (<a href="https://pubmed.ncbi.nlm.nih.gov/42324491/" target="_blank" rel="noopener noreferrer">PMID 42324491</a>); early postnatal spleen-function assessment (Howell-Jolly bodies).</li>
+<li><strong>Tertiary prevention (prevent complications):</strong> the <strong>cornerstone</strong> — asplenia <strong>vaccination + antibiotic prophylaxis</strong> to prevent overwhelming post-splenectomy/asplenia sepsis (<a href="https://pubmed.ncbi.nlm.nih.gov/27425254/" target="_blank" rel="noopener noreferrer">PMID 27425254</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/31937251/" target="_blank" rel="noopener noreferrer">PMID 31937251</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32759171/" target="_blank" rel="noopener noreferrer">PMID 32759171</a>); arrhythmia surveillance/pacing; surgical correction of malrotation before volvulus; endocarditis prophylaxis per cardiac guidelines.</li>
+<li><strong>Genetic counseling:</strong> autosomal-recessive counseling; cascade testing; reproductive options.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Conservation:</strong> <em>PKD1L1</em>'s L-R role is <strong>highly conserved across vertebrates</strong>. Orthologs: <strong>mouse</strong> <em>Pkd1l1</em> (NCBI Gene 207225; MGI), <strong>medaka</strong> <em>pkd1l1</em> (ZFIN/medaka; the classic L-R mutant <strong>abecobe/abc</strong>), <strong>zebrafish</strong> <em>pkd1l1</em> (ZFIN). Taxa: <em>Mus musculus</em> (NCBI:txid10090), <em>Oryzias latipes</em> (medaka, NCBI:txid8090), <em>Danio rerio</em> (NCBI:txid7955).</li>
+<li><strong>Natural animal disease / veterinary:</strong> no well-characterized naturally occurring <em>PKD1L1</em> heterotaxy disease in companion animals is documented in OMIA for this gene; situs/laterality anomalies occur sporadically across species but are not established as a <em>PKD1L1</em> natural disease.</li>
+<li><strong>Comparative biology:</strong> mouse and fish models reproduce the human mechanism (node/KV flow-sensing), making them the key translational systems (see §15). <strong>Evolutionary note:</strong> the two-cilia/polycystin flow-sensing paradigm is conserved from fish to mammals.</li>
+<li><strong>Zoonotic potential:</strong> not applicable (non-infectious developmental disorder).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Mouse (<em>Mus musculus</em>) — primary mammalian model.</strong>
+- <strong>Types:</strong> <em>Pkd1l1</em> knockout (e.g., gene-trap/null line, Vogel 2010, <a href="https://pubmed.ncbi.nlm.nih.gov/20080492/" target="_blank" rel="noopener noreferrer">PMID 20080492</a>) and ENU/point mutants (e.g., <em>rks</em>); knock-in reporter <strong>KikGR-PKD1L1</strong> for live protein imaging (Tanaka 2023, <a href="https://pubmed.ncbi.nlm.nih.gov/37413993/" target="_blank" rel="noopener noreferrer">PMID 37413993</a>).
+- <strong>Phenotype recapitulation (strong):</strong> situs inversus/laterality defects; "both mutants fail to activate asymmetric gene expression at the node or in the lateral plate and exhibit right isomerism of the lungs" (<a href="https://pubmed.ncbi.nlm.nih.gov/21307093/" target="_blank" rel="noopener noreferrer">PMID 21307093</a>). Node morphology and cilia motility normal → defect is in <strong>flow interpretation</strong>, matching human mechanism.
+- <strong>Key insight:</strong> "the absence of respiratory tract lesions, hydrocephalus, and male infertility in Pkd1l1(-/-) mice … suggested that dysfunction of motile cilia was not involved" (<a href="https://pubmed.ncbi.nlm.nih.gov/20080492/" target="_blank" rel="noopener noreferrer">PMID 20080492</a>) — <strong>distinguishes HTX8 from PCD</strong>.
+- <strong>Limitation:</strong> high perinatal lethality of nulls; models the developmental patterning defect but not the postnatal human CHD surgical course.</p>
+<p><strong>Medaka (<em>Oryzias latipes<em>).</em><em> The L-R mutant </em><em>abecobe (abc) = </em>pkd1l1</em></strong>: "abecobe (abc) is defective for left-right asymmetric expression of southpaw, lefty and charon, but not for nodal flow" (<a href="https://pubmed.ncbi.nlm.nih.gov/21307098/" target="_blank" rel="noopener noreferrer">PMID 21307098</a>); PKD1L1 required in <strong>Kupffer's vesicle</strong> and colocalizes/interacts with Pkd2 on motile KV cilia.</p>
+<p><strong>Zebrafish (<em>Danio rerio</em>).</strong> <em>pkd1l1</em> expressed in KV; morpholino/mutant studies implicate polycystin signaling in L-R patterning (Kupffer's vesicle = node equivalent).</p>
+<p><strong>In-vitro / cellular.</strong> Cultured cells supplied <strong>artificial flow</strong> show PKD1L1 is "sufficient to mediate a Ca2+ signaling response after flow stimulation" (<a href="https://pubmed.ncbi.nlm.nih.gov/27272319/" target="_blank" rel="noopener noreferrer">PMID 27272319</a>); heterologous PKD1L1–PKD2 complexes used for biochemistry/channel studies.</p>
+<p><strong>Applications:</strong> dissecting node/KV flow sensing, polycystin complex assembly, Nodal cascade restriction, Ca²⁺ signaling, and variant functional testing. <strong>Resources:</strong> MGI, IMPC, ZFIN, Alliance of Genome Resources.</p>
+<hr />
+<h2>Supported vs. Refuted Hypotheses</h2>
+<p><strong>Supported.</strong>
+1. HTX8 is autosomal-recessive, caused by biallelic <em>PKD1L1</em> LoF/damaging variants (<a href="https://pubmed.ncbi.nlm.nih.gov/27616478/" target="_blank" rel="noopener noreferrer">PMID 27616478</a>, 35691949).
+2. PKD1L1–PKD2 ciliary complex is the nodal-flow sensor restricting Nodal to the left (<a href="https://pubmed.ncbi.nlm.nih.gov/21307093/" target="_blank" rel="noopener noreferrer">PMID 21307093</a>, 21307098, 27272319, 37413993).
+3. The pathology is a <strong>flow-interpretation (sensory) defect, not a ciliary-motility defect</strong> → mechanistically distinct from PCD (<a href="https://pubmed.ncbi.nlm.nih.gov/20080492/" target="_blank" rel="noopener noreferrer">PMID 20080492</a>).
+4. Prognosis is governed by CHD severity and asplenia-related infection risk (<a href="https://pubmed.ncbi.nlm.nih.gov/42185088/" target="_blank" rel="noopener noreferrer">PMID 42185088</a>, 27425254).</p>
+<p><strong>Refuted / not supported.</strong>
+- <em>PKD1L1</em> is <strong>not</strong> a dominant/haploinsufficient disease gene (gnomAD pLI≈0; carriers healthy).
+- HTX8 is <strong>not</strong> driven by motile-cilia dysfunction (no PCD airway/hydrocephalus phenotype in nulls).
+- No evidence for gain-of-function, somatic, infectious, or acquired/environmental primary causation.</p>
+<h2>Limitations and Future Directions</h2>
+<ul>
+<li><strong>Very small human evidence base</strong> (few families); PKD1L1-specific prevalence, penetrance, sex ratio, and natural history are not quantified — most clinical figures derive from the broader heterotaxy category.</li>
+<li><strong>High VUS burden</strong> limits molecular diagnosis; <strong>functional assays</strong> (flow-induced Ca²⁺, GPS autoproteolysis, PKD1L1–PKD2 trafficking) are needed to reclassify variants.</li>
+<li><strong>No structural model of the human PKD1L1–PKD2 complex</strong> at the variant level; cryo-EM would clarify GPS/PKD-domain variant effects.</li>
+<li><strong>No targeted therapy;</strong> research should define modifier genes, improve prenatal risk stratification, and standardize asplenia prophylaxis in this population.</li>
+</ul>
+<hr />
+<h3>Key references (PMIDs)</h3>
+<p>27616478 (Vetrini 2016, human biallelic PKD1L1); 35691949 (Gu 2022, nonsense + asplenia); 21307093 (Field 2011, mouse); 21307098 (Kamura 2011, medaka); 27272319 (Grimes 2016, epistasis/Ca²⁺); 37413993 (Tanaka 2023, flow transfers polycystin); 20080492 (Vogel 2010, Pkd1l1−/− mouse); 24756726 (TRPP/polycystin review); 42185088 (heterotaxy+CHD outcomes); 27425254 (bacteremia in heterotaxy); 34491249 (isomerism epidemiology); 42324491 (prenatal detection); 41974186 (laterality spectrum outcomes/PDM); 27637763 (heterotaxy CNVs); 38884744 (human genetics of situs); 32759171 / 31937251 (asplenia prophylaxis).</p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Visceral_Heterotaxy_8-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Visceral_Heterotaxy_8-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>3</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>17</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>1 of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:27616478</code>: "the p.Cys1691Ser substitution affects a highly conserved cysteine residue and is predicted by molecular modeling to disrupt a disulfide bridge essential for the proper folding of the … (GPS) motif"</li>
+<li>closest text in source: "The p.Cys1691Ser substitution affects a highly conserved cysteine residue and is predicted by molecular modeling to disrupt a disulfide bridge essential for the proper folding of the G protein-coupled receptor proteolytic site (GPS) motif"</li>
+<li><code>PMID:27272319</code>: "PKD1L1 is sufficient to mediate a Ca2+ signaling response after flow stimulation … an extracellular PKD domain within PKD1L1 is crucial for PKD1L1 function"</li>
+<li>closest text in source: "Finally, we show that an extracellular PKD domain within PKD1L1 is crucial for PKD1L1 function; as such, destabilizing the domain causes L-R defects in the mouse"</li>
+<li><code>PMID:20080492</code> <em>(abstract only)</em>: "the absence of respiratory tract lesions, hydrocephalus, and male infertility in Pkd1l1(-/-) mice … suggested that dysfunction of motile cilia was not involved"</li>
+<li>closest text in source: "In contrast, the absence of respiratory tract lesions, hydrocephalus, and male infertility in Pkd1l1(-/-) mice (for: polycystic kidney disease 1 like 1) suggested that dysfunction of motile cilia was not involved in the development of SI in this line"</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>35</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>26</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>4</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0004935</code> (2 mentions) - the report calls it "Visceral heterotaxy", "Physical malformation"; HP calls it <strong>Pulmonary artery atresia</strong></li>
+<li><code>HP:0001696</code> (1 mention) - the report calls it "Physical malformation"; HP calls it <strong>Situs inversus totalis</strong></li>
+<li><code>HP:0001651</code> (1 mention) - the report calls it "Physical"; HP calls it <strong>Dextrocardia</strong></li>
+<li><code>HP:0001746</code> (1 mention) - the report calls it "Physical/laboratory"; HP calls it <strong>Asplenia</strong></li>
+<li><code>HP:0002566</code> (1 mention) - the report calls it "Physical"; HP calls it <strong>Intestinal malrotation</strong></li>
+<li><code>HP:0005301</code> (1 mention) - the report calls it "Structural"; HP calls it <strong>Persistent left superior vena cava</strong></li>
+<li><code>GO:0060287</code> (1 mention) - the report calls it "epithelial cilium / "nodal cilium"; GO calls it <strong>epithelial cilium movement involved in determination of left/right asymmetry</strong></li>
+<li><code>GO:0072372</code> (1 mention) - the report calls it "primary cilium assembly"; GO calls it <strong>GO_0072372</strong></li>
+<li><code>UBERON:0005725</code> (1 mention) - the report calls it "ciliated embryonic node"; UBERON calls it <strong>olfactory system</strong></li>
+<li><code>UBERON:0004341</code> (1 mention) - the report calls it "node"; UBERON calls it <strong>primitive streak</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0072372</code> (GO_0072372) (1 mention) - replaced by <code>GO:0005929</code></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>MONDO:0014967</code> (2 mentions) - the report calls it "Visceral heterotaxy 8"; MONDO calls it <strong>heterotaxy, visceral, 8, autosomal</strong>, and lists "PKD1L1 visceral heterotaxy" among its other names</li>
+<li><code>GO:0003351</code> (1 mention) - the report calls it "epithelial cilium movement involved in determination of L/R asymmetry"; GO calls it <strong>epithelial cilium movement involved in extracellular fluid movement</strong></li>
+<li><code>GO:0070588</code> (1 mention) - the report calls it "Ca²⁺ ion transmembrane transport"; GO calls it <strong>calcium ion transmembrane transport</strong></li>
+<li><code>CL:0000057</code> (1 mention) - the report calls it "fibroblast, LPM context"; CL calls it <strong>fibroblast</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>HP:0004935</code> - called "Visceral heterotaxy", "Physical malformation"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Visceral_Heterotaxy_7-claude_code.html">← Visceral Heterotaxy 7 (Claude Code)</a>
+                
+                
+                <a href="Visceral_Heterotaxy_9-openscientist.html">Visceral Heterotaxy 9 (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Visceral_Heterotaxy_8.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Visceral_Heterotaxy_8-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

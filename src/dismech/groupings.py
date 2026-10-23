@@ -109,6 +109,7 @@ PREDICATE_PAYLOAD = {
     "HAS_GENE": "gene",
     "CONFORMS_TO_MODULE": "module",
     "HAS_BIOLOGICAL_PROCESS": "biological_processes",
+    "HAS_MOLECULAR_FUNCTION": "molecular_functions",
     "HAS_CLASSIFICATION": "classification",
     "HAS_INHERITANCE": None,
     "HAS_MAPPING": None,
@@ -390,6 +391,7 @@ def criterion_closure_terms(grouping: dict) -> set[str]:
             if tid:
                 terms.add(tid)
         terms |= _term_ids(leaf.get("biological_processes"))
+        terms |= _term_ids(leaf.get("molecular_functions"))
     return {t for t in terms if t.split(":", 1)[0] in CLOSURE_PREFIXES}
 
 
@@ -890,8 +892,12 @@ def _eval_leaf(
                 if gid.lower() in facts.gene_ids
                 else Satisfaction.NOT_SATISFIED
             )
-    elif predicate == "HAS_BIOLOGICAL_PROCESS":
-        ids = _term_ids(node.get("biological_processes"))
+    elif predicate in ("HAS_BIOLOGICAL_PROCESS", "HAS_MOLECULAR_FUNCTION"):
+        # Both read facts.go_ids, which holds every GO term the entry curates.
+        # The closure follows part_of as well as is_a, and GO makes some
+        # activities part_of a process (MAP kinase kinase activity is part_of
+        # MAPK cascade), so a BP criterion can be satisfied by an MF term.
+        ids = _term_ids(node.get(PREDICATE_PAYLOAD[predicate]))
         if ids:
             # A match under any listed term satisfies; with no match, an
             # unknown closure for any term leaves the verdict open.
