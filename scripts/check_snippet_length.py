@@ -157,7 +157,11 @@ def _record_line(text: str) -> str:
 
 @cache
 def _record_lines(cache_file: Path) -> frozenset[str]:
-    """Every non-empty body line of a cached structured record, normalized."""
+    """Every ``- `` bullet line in a cached structured record's body, normalized.
+
+    Only bullets are record fields. A heading (``## Inheritance``) or the title
+    line is also a whole line, but quoting one claims nothing (#15276 review).
+    """
     try:
         text = cache_file.read_text(encoding="utf-8")
     except OSError:
@@ -167,12 +171,16 @@ def _record_lines(cache_file: Path) -> frozenset[str]:
         _, _, rest = text[3:].partition("\n---")
         text = rest
     return frozenset(
-        line for line in (_record_line(raw) for raw in text.splitlines()) if line
+        line
+        for line in (
+            _record_line(raw) for raw in text.splitlines() if raw.lstrip().startswith("- ")
+        )
+        if line
     )
 
 
 def is_record_line(reference: str, snippet: str, cache_dir: Path = CACHE_DIR) -> bool:
-    """True when *snippet* is a whole line of a structured record it cites.
+    """True when *snippet* is a whole bullet line of a structured record it cites.
 
     Only :data:`RECORD_LINE_PREFIXES` qualify, and only against the record's
     own cache file, so the same words under a PMID are still a bare label.

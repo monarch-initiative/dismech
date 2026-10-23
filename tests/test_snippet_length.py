@@ -150,6 +150,12 @@ def test_frontmatter_lines_are_not_record_lines(tmp_path):
     assert _orpha_violations(tmp_path, 'title: "Marfan syndrome"')
 
 
+@pytest.mark.parametrize("snippet", ["## Inheritance", "Inheritance", "# ORPHA:558 Marfan syndrome"])
+def test_headings_and_title_are_not_record_lines(tmp_path, snippet):
+    # Whole lines, but not record fields: quoting a heading claims nothing.
+    assert _orpha_violations(tmp_path, snippet)
+
+
 def test_pipeless_short_snippet_is_not_exempt():
     assert not is_structured_row("Hearing loss")
     assert _violations(_entry("Hearing loss"))
