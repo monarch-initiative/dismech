@@ -34,9 +34,12 @@ app = typer.Typer(
     help="Inspect and maintain the curation stub queue under stubs/.",
 )
 
+# A factory, not a value, so the default is the checkout the command runs in
+# rather than whichever was current when this module was imported (#15109).
 _STUB_DIR_OPTION = typer.Option(
-    default_stub_dir(),
+    ...,
     "--stub-dir",
+    default_factory=default_stub_dir,
     file_okay=False,
     dir_okay=True,
     resolve_path=True,
