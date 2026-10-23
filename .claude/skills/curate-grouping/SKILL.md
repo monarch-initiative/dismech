@@ -51,6 +51,12 @@ optional `logic` is a `LogicalCriterion` tree:
   `HAS_INHERITANCE`, `HAS_MAPPING`, or `OTHER`. `Channelopathies` is the
   worked `HAS_MOLECULAR_FUNCTION` example: a NECESSARY GO activity criterion
   alongside a NECESSARY_AND_SUFFICIENT classification-tag criterion.
+  A `HAS_MOLECULAR_FUNCTION` criterion checks the GO terms each entry
+  curates, not the GO annotations of its causal genes. After adding or
+  editing one, run `just grouping-gene-go-audit --grouping <name>` (network,
+  report-only) to see whether each member's causal genes carry the activity
+  in GO itself. An `UNSUPPORTED` member is a lead: the member may not belong,
+  GO may lack the annotation, or the activity may sit on another gene.
 - Use `negated: true` to negate a leaf when clearer than a `NOT` branch.
 
 Choose `criteria_semantics` deliberately:
@@ -124,6 +130,7 @@ just validate-grouping kb/groupings/<Grouping>.yaml
 just check-groupings kb/groupings/<Grouping>.yaml
 just check-groupings --strict --offline kb/groupings/<Grouping>.yaml
 just build-grouping-closure-cache            # after adding an HP/GO criterion term
+just grouping-gene-go-audit --grouping <name>   # causal genes vs GO activity roots (network)
 just validate-grouping-batch kb/groupings/<Grouping>.yaml   # what CI runs
 just gen-grouping-page kb/groupings/<Grouping>.yaml
 ```
