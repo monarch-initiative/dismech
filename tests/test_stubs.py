@@ -691,7 +691,8 @@ def test_tidy_survives_a_stub_that_is_stale_twice_over(tmp_path):
 def next_cli(monkeypatch, coverage):
     """`dismech-stubs next` against the live KB, without re-indexing it per call.
 
-    `next` reuses `check_stubs`, which builds the coverage index from scratch
+    `next` reuses `check_stubs`, which builds the coverage index. The test
+    session's persistent cache starts empty, so the first build there is cold
     (about half a minute on the current corpus). The module-scoped `coverage`
     fixture is the same index, so injecting it keeps the classification real
     and the test fast.
