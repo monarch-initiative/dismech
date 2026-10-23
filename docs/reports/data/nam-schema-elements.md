@@ -175,9 +175,15 @@ Disease
     ├── term                  optional {id, label}
     │                         bound to the AssayTerm dynamic enum:
     │                         reachable_from OBI:0000070 "assay" (rdfs:subClassOf, indirect)
-    └── modifier · located_in · laterality · onset · temporality · severity · qualifiers
+    └── modifier · located_in · laterality · spatial_extent · onset · temporality ·
+        clinical_course · severity · qualifiers
                               inherited from Descriptor; rarely meaningful for an assay
 ```
+
+The schema also defines a class named `Assay`, with only `name` and
+`description`. No slot uses it as a range and no class inherits from it, so it
+plays no part in the routes above; `AssayDescriptor` is the class that carries
+assays.
 
 The `target` slots on `BiomarkerReadout` and `ModelMechanismLink` take the node's
 bare `name`; the slots under `discussions` take `pathophysiology#<name>`.
