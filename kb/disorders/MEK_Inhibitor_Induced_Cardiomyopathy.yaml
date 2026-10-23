@@ -25,10 +25,19 @@ description: >-
   a secondary innate immune response, curated as the
   mek_inhibition_cardiac_mitochondrial_injury module. Where combination
   BRAF-MEK inhibition is used, the cardiac effect appears to be driven by the
-  MEK inhibitor component. The defining open problem is prediction: no baseline
-  clinical, imaging or functional parameter identified so far distinguishes the
-  patients who will develop it, and the guideline risk tool imported from
-  anthracycline cardio-oncology performs poorly in this setting.
+  MEK inhibitor component. The defining open problem is prediction. The
+  guideline risk tool imported from anthracycline cardio-oncology stratifies
+  only coarsely here: it does appear to identify a low-risk group, in that no
+  patient rated low risk at baseline developed moderate or severe dysfunction
+  in the one prospective cohort, but most events occur in patients it rates low
+  or medium, and its authors call its utility limited in this setting. Several
+  individual baseline parameters differ significantly between affected and
+  unaffected patients - NT-proBNP, atrial fibrillation history, left
+  ventricular internal diameters, global longitudinal strain - but they do not
+  agree on a direction: strain was better, not worse, in those who went on to
+  develop dysfunction. So baseline cardiac reserve gives coarse stratification
+  and no reliable individual prediction, and no marker derived from the
+  mechanism has been tested at all.
 review_notes: >-
   Deliberately carries no prevalence block. Every published figure is a
   cumulative incidence among patients receiving the drug over a defined
@@ -60,17 +69,27 @@ review_notes: >-
   this concept from the curation queue. A MONDO term request is the right
   follow-up.
 
-  No biomarker_term is bound on the NT-proBNP record. Searched ols:ncit for
-  "l~Natriuretic Peptide"; the candidates are NCIT:C88522 Natriuretic Peptides
-  B, NCIT:C96610 N-Terminal ProB-type Natriuretic Peptide Measurement,
-  NCIT:C82032 ProB-Type Natriuretic Peptide Measurement and NCIT:C119205
-  Increase in B-type Natriuretic Peptide or N-terminal pro-B-type Natriuretic
-  Peptide. An inferred-ancestor walk on the two closest terms, NCIT:C88522 and
-  NCIT:C96610, returns no NCIT:C16342 Biomarker ancestor, so neither is in the
-  BiomarkerDescriptor enum and binding one would fail term validation. No LOINC
-  code is bound either: cache/loinc/terms.csv holds no natriuretic-peptide row,
-  and LOINC is not yet routed in conf/oak_config.yaml, so a label here could not
-  be sourced from a lookup.
+  The NT-proBNP record binds NCIT:C88524, the analyte itself, confirmed
+  admissible by running linkml-term-validator against the binding. The nearby
+  NCIT:C96610 N-Terminal ProB-type Natriuretic Peptide Measurement also
+  validates and is used that way elsewhere in kb/, but biomarker_term is
+  documented in the schema as taking the biomarker entity (proteins, genes,
+  fusion products) and dismech has a separate loinc_term slot for the
+  measurement, so the analyte term is the better fit here; it is also the
+  majority binding for this analyte in kb/.
+
+  Do not use an inferred-ancestor walk to decide whether a term is in its
+  dynamic enum. runoak -i ols:ncit ancestors -p i reports no NCIT:C25218
+  ancestor for NCIT:C15302 Physical Therapy and none for NCIT:C49236
+  Therapeutic Procedure, both of which are admissible TreatmentTerms and the
+  second of which this entry uses, so through the ols adapter that walk returns
+  nothing for anything and its empty result is silence rather than a negative
+  answer. The authoritative check is to bind the term and run
+  just validate-terms, which expands the enum from the ontology.
+
+  No LOINC code is bound: cache/loinc/terms.csv holds no natriuretic-peptide
+  row and LOINC is not yet routed in conf/oak_config.yaml, so a label here
+  could not be read from a lookup.
 
   Scope. This entry covers myocardial dysfunction. MEK inhibitors also cause
   retinopathy, rash, diarrhoea and ocular toxicity, and QTc effects have been
@@ -129,6 +148,50 @@ definitions:
       developed CTRCD: 24 (85.7%) mild, 3 (10.7%) moderate, and 1 (3.6%) severe.'
     explanation: The severity distribution that makes the case definition's
       inclusion of asymptomatic disease consequential.
+diagnosis:
+- name: Surveillance echocardiography
+  description: >-
+    Scheduled echocardiography is how this disease is found, because most cases
+    are asymptomatic and would not present clinically. Its intensity partly
+    determines the measured incidence, which is why the cohort figures in this
+    entry are reported with their surveillance schedules rather than pooled. The
+    prospective cohort concluded that guidelines should consider early
+    surveillance echocardiography for higher-risk patients; the trametinib
+    monotherapy trial recommended continuing it through the first year with less
+    frequent monitoring thereafter.
+  diagnosis_term:
+    preferred_term: surveillance echocardiography during MEK inhibitor therapy
+    term:
+      id: NCIT:C16525
+      label: Echocardiography Test
+  notes: >-
+    No LOINC measurement is bound for the ejection-fraction readout. LOINC is
+    not yet routed in conf/oak_config.yaml and cache/loinc/terms.csv has no
+    row for it, so a code and label here could not be read from a lookup; per
+    CLAUDE.md a LOINC label must never be typed from memory or copied from a
+    web page. Seeding the cache with just loinc-seed-cache is the follow-up.
+  evidence:
+  - reference: PMID:41864169
+    reference_title: 'Cardiotoxicity of trametinib monotherapy in adults with
+      neurofibromatosis type 1: Results from the TRAIN study.'
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: We recommend continuing echocardiography during the first year, with
+      consideration for less frequent monitoring thereafter based on clinical
+      findings.
+    explanation: The monitoring schedule recommended from the monotherapy trial.
+  - reference: PMID:41065626
+    reference_title: Prospective Evaluation of the Cardiovascular Effects of BRAF
+      and MEK Inhibitors in Patients With Melanoma.
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: Future guidelines should consider recommending early surveillance
+      echocardiography for higher risk patients.
+    explanation: The surveillance recommendation from the prospective cohort.
 pathophysiology:
 - name: MEK1/2 Inhibition and Loss of Cardioprotective ERK1/2 Signaling
   description: >-
@@ -505,6 +568,12 @@ phenotypes:
     deficit, and is a distinct adverse effect rather than a cause of the
     cardiomyopathy: in the prospective cohort that measured both, there was no
     robust association between hypertension and incident cardiac dysfunction.
+  notes: >-
+    Deliberately has no causal inlink and renders as an island beside the
+    pathograph. That is not a missing edge: this is a parallel effect of the
+    same drug with no modelled route to the contractile deficit, and the cohort
+    that measured both found no association between the two. Do not wire it to
+    the mechanism nodes to make the graph look connected.
   phenotype_term:
     preferred_term: Hypertension
     term:
@@ -542,6 +611,12 @@ phenotypes:
     longer follow-up. The high-grade risk was not separately raised. This is a
     vascular rather than myocardial effect and is recorded here because it comes
     from the same cardiovascular safety analyses that inform monitoring.
+  notes: >-
+    Deliberately has no causal inlink, for the same reason as the hypertension
+    phenotype: it is a parallel vascular effect of the drug with no modelled
+    route to the myocardial lesion this entry curates. Its time course differs
+    too - the pulmonary embolism signal rises with longer follow-up, whereas the
+    contractile deficit appears early.
   phenotype_term:
     preferred_term: Pulmonary embolism
     term:
@@ -573,11 +648,20 @@ phenotypes:
 biochemical:
 - name: N-terminal pro-B-type natriuretic peptide
   presence: INCREASED
+  biomarker_term:
+    preferred_term: NT-proBNP
+    term:
+      id: NCIT:C88524
+      label: N-Terminal Fragment Brain Natriuretic Protein
   notes: >-
     Baseline NT-proBNP was higher in the patients who went on to develop cancer
     therapy-related cardiac dysfunction in the one prospective cohort that
-    measured it, and is the only baseline measure with any reported signal in
-    this setting. Its on-treatment behaviour is different and weaker: in the
+    measured it. It is not the only baseline measure with a reported signal: the
+    same cohort found an association with atrial fibrillation history and a
+    significant difference in baseline global longitudinal strain, and a second
+    cohort found larger baseline left ventricular internal diameters in those
+    who developed moderate dysfunction. Its on-treatment behaviour is different
+    and weaker: in the
     trametinib monotherapy trial NT-proBNP stayed normal in six of the seven
     patients who developed dysfunction, rising only in the single severe case.
     So it has some value as a baseline stratifier and little as a rule-out
@@ -715,43 +799,6 @@ treatments:
     explanation: Records what was actually done for mild dysfunction in practice,
       and is the reason this entry does not claim a cardioprotective drug
       strategy.
-- name: Surveillance echocardiography
-  description: >-
-    Scheduled echocardiography is how this disease is found, because most cases
-    are asymptomatic. The prospective cohort concluded that guidelines should
-    consider early surveillance echocardiography for higher-risk patients, and
-    the trametinib monotherapy trial recommended continuing echocardiography
-    through the first year with less frequent monitoring thereafter. Note that
-    surveillance is detection, not treatment, and that its intensity partly
-    determines the measured incidence.
-  therapeutic_modality: OTHER
-  treatment_term:
-    preferred_term: cardiac surveillance imaging during MEK inhibitor therapy
-    term:
-      id: NCIT:C49236
-      label: Therapeutic Procedure
-  evidence:
-  - reference: PMID:41864169
-    reference_title: 'Cardiotoxicity of trametinib monotherapy in adults with
-      neurofibromatosis type 1: Results from the TRAIN study.'
-    supports: SUPPORT
-    directness: DIRECT
-    evidence_source: HUMAN_CLINICAL
-    quote_role: PRIMARY_RESULT
-    snippet: We recommend continuing echocardiography during the first year, with
-      consideration for less frequent monitoring thereafter based on clinical
-      findings.
-    explanation: The monitoring schedule recommended from the monotherapy trial.
-  - reference: PMID:41065626
-    reference_title: Prospective Evaluation of the Cardiovascular Effects of BRAF
-      and MEK Inhibitors in Patients With Melanoma.
-    supports: SUPPORT
-    directness: DIRECT
-    evidence_source: HUMAN_CLINICAL
-    quote_role: PRIMARY_RESULT
-    snippet: Future guidelines should consider recommending early surveillance
-      echocardiography for higher risk patients.
-    explanation: The surveillance recommendation from the prospective cohort.
 discussions:
 - discussion_id: mekicm_baseline_risk_prediction_failure
   kind: KNOWLEDGE_GAP
@@ -763,28 +810,42 @@ discussions:
     Which patients starting a MEK inhibitor will develop cancer therapy-related
     cardiac dysfunction?
   rationale: >-
-    Unanswered, and the negative results are unusually consistent. A prospective
-    melanoma cohort with echocardiography, stress perfusion cardiovascular
-    magnetic resonance and blood biomarkers found no robust association between
-    any imaging-derived myocardial or perfusion characteristic and incident
-    dysfunction. A retrospective cohort found baseline ejection fraction and
-    global longitudinal strain no different between those who developed moderate
-    dysfunction and those who did not, with most events occurring in patients
-    the guideline tool rated low or medium risk, and concluded better tools are
-    needed. The trametinib monotherapy trial found no baseline clinical or
-    cardiovascular parameter could predict it. A paediatric cohort found no
-    clinical or demographic difference between affected and unaffected patients.
-    The single positive signal is higher baseline NT-proBNP.
+    Partly answerable at the group level, not at the individual level, and
+    untested against the mechanism. State the positives first, because they are
+    easy to lose. The prospective melanoma cohort concluded that its results
+    reinforce the utility of baseline risk stratification; no patient it rated
+    low risk developed moderate or severe dysfunction, and everyone who did
+    reach moderate or worse was at least medium risk at baseline. That cohort
+    also found three baseline differences between affected and unaffected
+    patients: higher NT-proBNP, a history of atrial fibrillation, and lower
+    global longitudinal strain. A second cohort found larger baseline left
+    ventricular internal diameters in those who developed moderate dysfunction.
+    So it is not true that no baseline parameter discriminates.
 
-    The common feature of the tools that fail is that they measure cardiac
-    reserve - prior cardiovascular disease, baseline function, cumulative
+    What is true is weaker and more specific. The discrimination is coarse: the
+    tool is useful mainly for identifying a low-risk group to monitor less, and
+    the same cohort's authors recommend it for baseline stratification rather
+    than ongoing monitoring. Most events occur in patients rated low or medium
+    risk, and the retrospective cohort's authors say outright that the tool's
+    utility here is limited and better ones are needed. The individual signals
+    do not cohere into a mechanism: strain was *better* in those who went on to
+    develop dysfunction, not worse, which is the opposite of what a
+    cardiac-reserve model predicts, and the trametinib monotherapy trial and the
+    paediatric cohort each found no baseline parameter that predicted the
+    outcome in their populations. The null result for hypertension and for
+    cardiovascular magnetic resonance myocardial and perfusion characteristics
+    is real but narrow, and should not be read as a general negative.
+
+    The common feature of the tools that do only coarsely is that they measure
+    cardiac reserve - prior cardiovascular disease, baseline function, cumulative
     anthracycline dose - which is the right variable for anthracycline
     cardiotoxicity, where injury accumulates with dose. This disease is not like
     that: it is exposure-coupled, early, reversible and recurs on rechallenge,
     so what should determine susceptibility is how much mitochondrial oxidative
     reserve a given heart has and how briskly it mounts an innate immune
     response to mitochondrial damage. Neither has been measured at baseline
-    against outcome in this setting. The candidates the mechanism implies are
+    against outcome in this setting, and that is the part of this gap that is
+    squarely open rather than merely imprecise. The candidates the mechanism implies are
     circulating cell-free mitochondrial DNA, which rises in patients on drug; an
     interferon or inflammatory tone measure, since the cGAS-STING arm makes
     susceptibility time-varying rather than fixed; the neutrophil-to-lymphocyte
@@ -794,6 +855,68 @@ discussions:
     The mechanism-side version of this gap, with proposed experiments, is on the
     mek_inhibition_cardiac_mitochondrial_injury module.
   evidence:
+  - reference: PMID:41065626
+    reference_title: Prospective Evaluation of the Cardiovascular Effects of BRAF
+      and MEK Inhibitors in Patients With Melanoma.
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: The present results reinforce the utility of baseline cardiotoxicity
+      risk stratification, including assessment of N-terminal pro-B-type
+      natriuretic peptide.
+    explanation: Refutes any reading of this gap as "baseline stratification does
+      not work". The cohort's own conclusion is the opposite, and the gap is
+      framed around coarse discrimination and untested mechanism-derived markers
+      instead.
+  - reference: PMID:41065626
+    reference_title: Prospective Evaluation of the Cardiovascular Effects of BRAF
+      and MEK Inhibitors in Patients With Melanoma.
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: No patient at low baseline risk developed moderate or severe CTRCD.
+    explanation: The single most useful positive result in the literature, and a
+      genuine stratification success at the low-risk end.
+  - reference: PMID:41065626
+    reference_title: Prospective Evaluation of the Cardiovascular Effects of BRAF
+      and MEK Inhibitors in Patients With Melanoma.
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: A history of AF was associated with the development of any severity
+      of CTRCD
+    explanation: A baseline clinical variable that did discriminate, which the
+      gap must not be read as denying.
+  - reference: PMID:41065626
+    reference_title: Prospective Evaluation of the Cardiovascular Effects of BRAF
+      and MEK Inhibitors in Patients With Melanoma.
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: those who developed CTRCD had lower baseline GLS compared with those
+      who did not
+    explanation: A significant baseline difference whose direction contradicts a
+      cardiac-reserve model, since global longitudinal strain is negative and a
+      lower value is therefore better function. Supports the gap's claim that
+      the individual signals do not cohere, while refuting any claim that no
+      baseline parameter differs at all.
+  - reference: PMID:37969652
+    reference_title: 'Cardiotoxicity of BRAF/MEK Inhibitors: A Longitudinal Study
+      Incorporating Contemporary Definitions and Risk Scores.'
+    supports: REFUTE
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: Left ventricular internal diameters in diastole and systole were
+      larger in patients who developed moderate CTRCD compared with those who
+      did not
+    explanation: The continuation of the same RESULTS sentence this entry quotes
+      for the ejection-fraction and strain null, and a baseline echo parameter
+      that did discriminate in that cohort.
   - reference: PMID:37969652
     reference_title: 'Cardiotoxicity of BRAF/MEK Inhibitors: A Longitudinal Study
       Incorporating Contemporary Definitions and Risk Scores.'
@@ -925,7 +1048,7 @@ discussions:
   kind: KNOWLEDGE_GAP
   attaches_to:
   - phenotypes#Reduced left ventricular ejection fraction
-  - treatments#Surveillance echocardiography
+  - diagnosis#Surveillance echocardiography
   prompt: >-
     Does mild cancer therapy-related cardiac dysfunction on a MEK inhibitor
     matter?
