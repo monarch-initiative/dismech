@@ -292953,6 +292953,121 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Pan-Chung-Bellen Syndrome",
+    "disease_id": "MONDO:0975953",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Multiple Congenital Anomalies Syndrome"
+    ],
+    "creation_date": "2026-10-22T20:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Pan-Chung-Bellen syndrome is an autosomal dominant neurodevelopmental disorder with multiple congenital anomalies caused by heterozygous, mostly de novo, loss-of-function variants in FRYL, a large Furry-family protein. The founding cohort of fourteen individuals showed developmental delay or intellectual disability in every assessable individual, frequent speech delay, behavioral differences, autism spectrum disorder, hypotonia and seizures, together with dysmorphic facial features and congenital anomalies of the heart (including heterotaxy), genitourinary tract, gastrointestinal tract and skeleton. Truncating variants, gnomAD loss-of-function intolerance, and Drosophila knock-in modelling of the missense variants point to FRYL haploinsufficiency. How reduced FRYL dosage disturbs neuronal and organ development in mammals is not known; the fly ortholog furry acts with the NDR kinase Tricornered in dendrite morphogenesis, and in human epithelial cells FRYL modulates YAP and Wnt signaling with Homer scaffolds, but neither route has been tested in neurons or developing organs.",
+    "pathophysiology": [
+      "FRYL Haploinsufficiency",
+      "Impaired Neuronal Development",
+      "Disrupted Organ Morphogenesis"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "dendrite morphogenesis",
+      "animal organ morphogenesis"
+    ],
+    "phenotypes": [
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Delayed Speech and Language Development",
+      "Autism Spectrum Disorder",
+      "Behavioral Differences",
+      "Hypotonia",
+      "Seizures",
+      "Facial Dysmorphism",
+      "Congenital Heart Defects",
+      "Heterotaxy",
+      "Cryptorchidism",
+      "Hypospadias",
+      "Congenital Diaphragmatic Hernia",
+      "Low Body Weight",
+      "Structural Brain Abnormalities",
+      "Jejunal Atresia",
+      "Microcolon",
+      "Sternal Anomalies",
+      "Vertebral Segmentation Defects",
+      "Horseshoe Kidney",
+      "Coagulopathy"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Craniofacial",
+      "Cardiovascular",
+      "Genitourinary",
+      "Respiratory",
+      "Growth",
+      "Gastrointestinal",
+      "Skeletal",
+      "Hematological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0000717",
+      "HP:0000708",
+      "HP:0001252",
+      "HP:0001250",
+      "HP:0001999",
+      "HP:0001627",
+      "HP:0030853",
+      "HP:0000028",
+      "HP:0000047",
+      "HP:0000776",
+      "HP:0004325",
+      "HP:0012443",
+      "HP:0005235",
+      "HP:0004388",
+      "HP:0000766",
+      "HP:0003422",
+      "HP:0000085",
+      "HP:0001928"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "FRYL"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Pan-Chung-Bellen_Syndrome.yaml",
+    "page_url": "../pages/disorders/Pan-Chung-Bellen_Syndrome.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Pancreatic Agenesis",
     "disease_id": "MONDO:0009832",
     "category": "Mendelian",
@@ -352093,6 +352208,75 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Spermatogenic Failure 88",
+    "disease_id": "MONDO:0957821",
+    "category": "Mendelian",
+    "parents": [
+      "Spermatogenic Failure",
+      "Male infertility",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-10-22T20:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spermatogenic failure 88 (SPGF88) is autosomal recessive male infertility with non-obstructive azoospermia caused by biallelic variants in KASH5 (formerly CCDC155). KASH5 is a germ-cell-specific KASH-domain protein of the outer nuclear membrane. With SUN1 in the inner nuclear membrane it forms the meiotic LINC complex, which couples the telomeres of prophase I chromosomes, across the nuclear envelope, to cytoplasmic dynein. KASH5 is itself a dynein activating adaptor. The resulting telomere-led chromosome movements bring homologous chromosomes together. Without KASH5, homologs fail to pair and synapse, meiotic DNA double-strand breaks stay unrepaired, and spermatocytes arrest at a zygotene-like stage before pachytene, so no post-meiotic germ cells or sperm are produced. Kash5-null mice reproduce the meiotic arrest. Reported families are consanguineous or carry two rare alleles, including frameshift, splice-site, missense and copy-number variants.",
+    "pathophysiology": [
+      "KASH5 Loss of Function",
+      "Uncoupling of Meiotic Telomeres from Cytoplasmic Dynein",
+      "Failed Homologous Chromosome Pairing and Synapsis",
+      "Persistent Unrepaired Meiotic DNA Double-Strand Breaks",
+      "Spermatocyte Arrest Before Pachytene and Germ Cell Apoptosis",
+      "Spermatogenic Arrest and Non-Obstructive Azoospermia"
+    ],
+    "cell_types": [
+      "Primary spermatocyte",
+      "Spermatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000656",
+      "CL:0000017"
+    ],
+    "biological_processes": [
+      "Meiotic telomere clustering",
+      "Homologous chromosome pairing at meiosis",
+      "Synaptonemal complex assembly",
+      "Reciprocal meiotic recombination",
+      "Apoptotic process",
+      "Male gamete generation"
+    ],
+    "phenotypes": [
+      "Male infertility",
+      "Non-obstructive azoospermia",
+      "Spermatocyte maturation arrest"
+    ],
+    "phenotype_categories": [
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary"
+    ],
+    "phenotype_ids": [
+      "HP:0003251",
+      "HP:0011961",
+      "HP:0031039"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KASH5"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spermatogenic_Failure_88.yaml",
+    "page_url": "../pages/disorders/Spermatogenic_Failure_88.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Spermatogenic Failure 95",
     "disease_id": "MONDO:0975747",
     "category": "Mendelian",
@@ -394031,17 +394215,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3650,
+  "total_disorder_pages": 3652,
   "total_subtypes": 4845,
-  "total_disorders_and_subtypes": 8495,
-  "total_unique_evidence_sources": 54434,
-  "total_unique_publications": 50839,
+  "total_disorders_and_subtypes": 8497,
+  "total_unique_evidence_sources": 54452,
+  "total_unique_publications": 50857,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
-  "total_pathographs": 3647,
-  "total_unique_pathological_events": 24073,
+  "total_pathographs": 3649,
+  "total_unique_pathological_events": 24081,
   "total_modules": 197,
-  "total_research_reports": 3778,
+  "total_research_reports": 3780,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 120
