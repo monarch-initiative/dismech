@@ -1123,6 +1123,35 @@ drug-exposure-query *args="":
 chemical-binding-inventory *args="":
     uv run python scripts/chemical_binding_inventory.py {{args}}
 
+# Inventory of every assay in the KB by the route that reaches it: the five
+# `assays:` routes (dismech#15354), the distinct assay names, and a reverse
+# lookup from an assay name to the entries recording it. An assay on a proposed
+# experiment is a measurement somebody suggested, not one that was made, so the
+# routes are never summed into a single figure. Also reports names that differ
+# only mechanically, and separately flags names one of which contains the
+# other, which only a curator can resolve. Report-only, exits 0.
+#   just assay-inventory
+#   just assay-inventory --assay "multielectrode array recording"
+#   just assay-inventory --format tsv --out docs/reports/data/assays-<date>.tsv
+[group('QC')]
+assay-inventory *args="":
+    uv run python scripts/assay_inventory.py {{args}}
+
+# Inventory of the three model sections and every ModelMechanismLink reaching
+# the pathograph, counted by relationship, fidelity, model_scale and the detail
+# each link carries. Walks all four homes of a link through
+# `dismech.model_links`, including the model systems of a proposed experiment
+# (dismech#13427); `--curated-only` drops those. A missing fidelity or scale is
+# reported as not recorded, never as a verdict. For species normalised into
+# clades use `just model-taxon-census`, and for the scale comparison itself use
+# `just model-scale-audit`. Report-only, exits 0.
+#   just model-inventory
+#   just model-inventory --node "Neuronal Hyperexcitability"
+#   just model-inventory --format tsv --table models
+[group('QC')]
+model-inventory *args="":
+    uv run python scripts/model_inventory.py {{args}}
+
 # For a named entity, the schema path of every string match, whether the holding
 # object carries a bound term, and whether the mention is identity, prose or
 # citation metadata. Run it when grep finds a name that drug-exposure-query does
