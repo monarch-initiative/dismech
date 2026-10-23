@@ -19,6 +19,48 @@ def test_genetic_item_infers_mechanism_edges_respects_relationship_type() -> Non
     assert not _genetic_item_infers_mechanism_edges({"relationship_type": "PROTECTIVE"})
 
 
+def test_graph_variant_class_prefers_enum_and_preserves_legacy_detail() -> None:
+    disorder = {
+        "name": "Example Disease",
+        "genetic": [{"name": "SHH"}],
+        "variants": [
+            {
+                "name": "Structured allele",
+                "gene": {"preferred_term": "SHH"},
+                "variant_type": "duplication",
+                "type": "tandem enhancer duplication",
+                "genomic_contexts": ["intron", "intergenic region"],
+            },
+            {
+                "name": "Legacy allele",
+                "gene": {"preferred_term": "SHH"},
+                "type": "inframe_deletion",
+            },
+            {
+                "name": "Same classification",
+                "gene": {"preferred_term": "SHH"},
+                "variant_type": "single nucleotide variant",
+                "type": "SINGLE_NUCLEOTIDE_VARIANT",
+            },
+        ],
+    }
+    payload = json.loads(graph_to_json(build_causal_graph(disorder), disorder))
+    node_meta = {node["id"]: node.get("meta", {}) for node in payload["nodes"]}
+
+    assert node_meta["Structured allele"]["variant_type"] == "duplication"
+    assert (
+        node_meta["Structured allele"]["variant_type_detail"]
+        == "tandem enhancer duplication"
+    )
+    assert node_meta["Structured allele"]["genomic_contexts"] == [
+        "intron",
+        "intergenic region",
+    ]
+    assert node_meta["Legacy allele"]["variant_type"] == "inframe_deletion"
+    assert "genomic_contexts" not in node_meta["Legacy allele"]
+    assert "variant_type_detail" not in node_meta["Same classification"]
+
+
 def test_graph_to_json_includes_gene_ids_and_structured_genetic_metadata() -> None:
     disorder = {
         "name": "AIP example",
@@ -581,6 +623,66 @@ def test_graph_to_json_includes_matching_histopathology_terms() -> None:
             "term_label": "Fibrotic Stroma Formation",
         }
     ]
+
+
+def test_graph_to_json_attaches_unbound_histopathology_finding_by_name() -> None:
+    """An unbound finding still attaches to the node it is named after (#13083)."""
+    disorder = {
+        "name": "Example Disease",
+        "pathophysiology": [
+            {
+                "name": "Keratin Filament Network Collapse and Aggregation",
+                "downstream": [{"target": "Suprabasal Keratinocyte Cytolysis"}],
+            },
+            {"name": "Suprabasal Keratinocyte Cytolysis"},
+        ],
+        "histopathology": [
+            {
+                "name": "Keratin Filament Network Collapse and Aggregation",
+                "finding_term": {"preferred_term": "perinuclear tonofilament clumping"},
+            },
+            {"name": "Unrelated unbound finding"},
+        ],
+    }
+
+    graph = build_causal_graph(disorder)
+    data = json.loads(graph_to_json(graph, disorder))
+    nodes = {node["id"]: node for node in data["nodes"]}
+
+    assert nodes["Keratin Filament Network Collapse and Aggregation"]["meta"][
+        "histopathology_terms"
+    ] == [
+        {
+            "name": "Keratin Filament Network Collapse and Aggregation",
+            "preferred_term": "perinuclear tonofilament clumping",
+        }
+    ]
+    assert "histopathology_terms" not in nodes["Suprabasal Keratinocyte Cytolysis"].get(
+        "meta", {}
+    )
+
+
+def test_unbound_histopathology_finding_does_not_match_by_preferred_term() -> None:
+    """With no bound term, only the finding's name is a lookup key."""
+    disorder = {
+        "name": "Example Disease",
+        "pathophysiology": [
+            {"name": "Tonofilament Clumping", "downstream": [{"target": "Blistering"}]},
+            {"name": "Blistering"},
+        ],
+        "histopathology": [
+            {
+                "name": "Some other finding",
+                "finding_term": {"preferred_term": "Tonofilament Clumping"},
+            }
+        ],
+    }
+
+    graph = build_causal_graph(disorder)
+    data = json.loads(graph_to_json(graph, disorder))
+    node = next(node for node in data["nodes"] if node["id"] == "Tonofilament Clumping")
+
+    assert "histopathology_terms" not in node.get("meta", {})
 
 
 def test_build_causal_graph_includes_environmental_mechanism_links() -> None:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Guard the community-source corroboration rule across the whole KB.
 
-Design decision 6b: a reference tagged ``PatientOrganization`` may corroborate a
+Design decision 6d: a reference tagged ``PatientOrganization`` may corroborate a
 curated claim but may never be its sole support. The rule is invisible to every
 other gate -- LinkML validation, term validation and snippet verification all
 pass on a phenotype whose only citation is a patient-advocacy page, because that
@@ -116,7 +116,7 @@ def main() -> int:
         print("claim but may not be the only thing supporting it. Add a")
         print("literature, registry or structured-database reference to the")
         print("block, or move the claim to `discussions` as an explicitly")
-        print("unvalidated lead. See design decision 6b in")
+        print("unvalidated lead. See design decision 6d in")
         print("docs/explanation/design-decisions.md.\n")
         for path, error in findings:
             print(f"{_display(path)}: {error}")

@@ -33,8 +33,14 @@ Verdicts
     no genes could be found at all, or the canonical gene is mentioned fewer
     than ``min_signal`` times, or a lookup the verdict depends on failed. This
     is the Temtamy pattern (PR #3835): a single report mixing C12orf57 and
-    CHSY1 content. Sections about the rival entity must be excluded before
-    curating.
+    CHSY1 content. A mention count cannot tell that apart from a report on
+    the right disease that names the disease's own receptor, ligand, fusion
+    partner or modifier gene: in KDM1A-related adrenal hyperplasia (#9826)
+    the effector gene GIP reaches 0.44 of KDM1A, above the 0.40 the Temtamy
+    rival reached, so no ratio separates the two. Read the sections naming
+    the second gene and exclude them only if they are about another disease.
+    A gene identifier that names a different gene from the symbol written
+    beside it also gives ``WARN`` (#9845; see :func:`check_gene_identifiers`).
 ``PASS``
     The canonical gene dominates the report's gene mentions.
 ``SKIP``
@@ -61,13 +67,27 @@ bill of health and away from a spurious "discard the report":
   ``PASS``; ``min_signal`` applies to the expected gene as well as to rivals.
 * ``FAIL`` is only issued when nothing contradicts it. If a lookup failed
   (so the alias rescue that could have found the canonical gene never ran),
-  or if the report's OMIM IDs agree with the MONDO xref (an *independent*
-  identity anchor pointing at the right disease), the verdict is capped at
-  ``WARN``.
+  the verdict is capped at ``WARN``.
+
+What an OMIM match does and does not show
+-----------------------------------------
+A report that cites the OMIM number MONDO xrefs was pointed at the right
+identifier. It does not follow that its text is about the right gene: the
+immunodeficiency 97 report (#12166) cites OMIM 619802 and is about TBK1, never
+naming the canonical gene PIK3CG. So when the canonical gene is never
+mentioned, the matching OMIM number is reported as context and decides nothing
+on its own. What decides is :func:`find_rival_diseases`: if a gene the report
+does discuss is MONDO's ``RO:0004003`` cause of a *different* disease
+(TBK1 -> MONDO:0971173), the report's subject is identified and the verdict is
+``FAIL`` whatever the OMIM citation says. Only when no rival resolves to
+another disease does the OMIM match keep the verdict at ``WARN``: that is the
+report written throughout in a protein name the HGNC alias rescue does not
+cover (NHE1 for SLC9A1), which a mention count alone would bin.
 """
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import re
 from collections import Counter
@@ -109,6 +129,17 @@ OMIM_RE = re.compile(r"\b(?:OMIM|MIM)\s*[:#\s]\s*#?\s*(\d{6})\b", re.IGNORECASE)
 # the actual rival-gene signal.
 CURIE_RE = re.compile(r"\b[A-Za-z][A-Za-z0-9_]*\s*:\s*\d[\w.]*")
 
+# Ontology prefixes that are also HGNC symbols, or that the uppercase token
+# pattern picks up as one. CURIE_RE removes them when they carry a local ID,
+# but reports also name the ontology in prose ("HP calls it Optic atrophy",
+# "(HP terms)"), and 40 such bare mentions put haptoglobin among the top
+# "rival" genes of a correct ACO2 report (#9826). These are kept out of the
+# rival pool only: a disease whose own causal gene is HP still counts it.
+ONTOLOGY_PREFIX_TOKENS = frozenset({
+    "HP", "HPO", "GO", "CL", "MP", "SO", "MONDO", "PATO", "UBERON", "NCIT",
+    "CHEBI", "ECTO", "MAXO", "ORPHA", "OMIM", "HGNC",
+})
+
 # A gene needs at least this many mentions before it counts as "discussed
 # substantively". Below it, a symbol is usually an aside, a pathway member, or a
 # gene named once in a citation title -- not the subject of the report.
@@ -118,6 +149,11 @@ DEFAULT_MIN_SIGNAL = 3
 # marks the report as contaminated. Tuned against the Temtamy report, where the
 # wrong-entity gene CHSY1 (23) reaches 0.40 of C12orf57 (57).
 DEFAULT_RIVAL_RATIO = 0.25
+
+# How many of the most-mentioned rival genes are looked up for a MONDO disease
+# of their own. The first rival is not enough: in the #12166 report TNF (58)
+# out-ranks TBK1 (47), and only TBK1 is the recorded cause of a disease.
+MAX_RIVAL_LOOKUPS = 5
 
 PASS, WARN, FAIL, SKIP = "PASS", "WARN", "FAIL", "SKIP"
 
@@ -171,6 +207,31 @@ class MondoRecord:
     #: Human-readable descriptions of lookups that *failed* (as opposed to
     #: lookups that legitimately returned nothing). Never silently dropped.
     lookup_errors: tuple[str, ...] = ()
+    #: Resolved symbol -> the HGNC CURIE MONDO's ``RO:0004003`` edge points
+    #: at, kept so a report's own identifier for the gene can be compared
+    #: with it (#9845). :attr:`genes` keeps only the symbol.
+    gene_curies: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class GeneIdentifierFinding:
+    """A gene identifier in the report that names a different gene (#9845).
+
+    ``kind`` is ``canonical`` when the report's identifier for the intended
+    gene is not the one MONDO records, and ``symbol`` when an identifier
+    disagrees with the gene symbol written beside it.
+    """
+
+    kind: str
+    line: int
+    curie: str
+    #: The gene symbol the identifier was written beside.
+    symbol: str
+    #: What HGNC calls ``curie``; empty when it was not looked up or HGNC
+    #: does not know it.
+    curie_symbol: str = ""
+    #: The identifier the symbol should have carried, where known.
+    expected_curie: str = ""
 
 
 @dataclass
@@ -194,6 +255,22 @@ class PreflightResult:
     alias_mentions: dict[str, int] = field(default_factory=dict)
     #: Lookups that failed while assembling the comparison (see MondoRecord).
     lookup_errors: list[str] = field(default_factory=list)
+    #: Rival gene -> the ``(MONDO id, label)`` pairs MONDO records it as the
+    #: ``RO:0004003`` cause of, other than the intended entity. Filled only
+    #: when the canonical gene is never mentioned (see :func:`find_rival_diseases`).
+    rival_diseases: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
+    #: Gene identifiers in the report that name a different gene than the
+    #: symbol beside them (see :func:`check_gene_identifiers`).
+    gene_identifier_findings: list[GeneIdentifierFinding] = field(default_factory=list)
+
+    @property
+    def expected_absent(self) -> bool:
+        """True when no resolvable canonical gene is named even once.
+
+        Kept apart from a low count: ``PIK3CG=0`` means the report never
+        discusses the gene, ``PIK3CG=2`` means it does so in passing.
+        """
+        return bool(self.expected_mentions) and not any(self.expected_mentions.values())
 
     @property
     def ok(self) -> bool:
@@ -307,6 +384,28 @@ def strip_curies(text: str) -> str:
     return CURIE_RE.sub(" ", text)
 
 
+#: CURIE prefixes :func:`check_gene_identifiers` compares against the gene
+#: symbol written beside them. Deliberately an allowlist: :data:`CURIE_RE` is
+#: loose enough to match prose such as "Table 1: 5 patients", which is harmless
+#: when stripping and wrong when asserting.
+GENE_CURIE_PREFIXES = ("HGNC", "hgnc")
+
+
+def extract_curies(text: str, prefixes=GENE_CURIE_PREFIXES) -> list[str]:
+    """Return the CURIEs in ``text`` whose prefix is in ``prefixes``, in order.
+
+    Whitespace around the colon and a sentence-final full stop are removed, so
+    ``HGNC : 29316.`` comes back as ``HGNC:29316``.
+    """
+    found: list[str] = []
+    for match in CURIE_RE.finditer(text):
+        prefix, _, local = match.group(0).partition(":")
+        prefix = prefix.strip()
+        if prefix in prefixes:
+            found.append(f"{prefix}:{local.strip().rstrip('.')}")
+    return found
+
+
 def extract_gene_mentions(text: str, lexicon=None) -> Counter:
     """Count gene-symbol mentions in ``text``, most frequent first.
 
@@ -336,6 +435,42 @@ def _symbol_like(value: str) -> bool:
     return bool(match) and value.upper() not in NON_GENE_TOKENS
 
 
+MONDO_ADAPTER = "sqlite:obo:mondo"
+
+
+class MondoBuildUnavailable(RuntimeError):
+    """The local ``mondo.db`` build is absent, so the preflight cannot run.
+
+    Raised instead of opening the adapter, because opening it does not fail on a
+    missing build: semsql downloads ``mondo.db`` (232 MB compressed, 1.3 GB on
+    disk) with no prompt (#12687). Nor is an empty :class:`MondoRecord` an
+    acceptable answer, since it reads as "MONDO records no causal gene" and
+    turns into a ``SKIP`` verdict.
+    """
+
+
+def open_mondo_adapter():
+    """Open the local MONDO build, refusing to download it.
+
+    The build is fetched deliberately with ``just fetch-ontology-dbs mondo``.
+    ``conf/oak_config.yaml`` routes MONDO to ``ols:mondo`` for term validation,
+    but this check needs the ``RO:0004003`` causal-gene edges and OMIM xrefs,
+    which it reads from the local build.
+    """
+    from dismech.oak_db import local_build_path, local_build_present
+
+    if not local_build_present(MONDO_ADAPTER):
+        raise MondoBuildUnavailable(
+            f"the local MONDO build is not present at {local_build_path('mondo')}. "
+            "preflight-dr reads the MONDO causal gene and OMIM xrefs from it and "
+            "will not download it implicitly (about 1.3 GB on disk). Fetch it "
+            "with `just fetch-ontology-dbs mondo`, then re-run."
+        )
+    from oaklib import get_adapter
+
+    return get_adapter(MONDO_ADAPTER)
+
+
 def fetch_mondo_record(
     mondo_id: str, adapter=None, hgnc_adapter=None, *, use_hgnc: bool = True
 ) -> MondoRecord:
@@ -356,11 +491,13 @@ def fetch_mondo_record(
     ``use_hgnc=False`` keeps the whole function offline: HGNC is never opened,
     so ``--no-hgnc`` really is an offline mode rather than only a swap of the
     token lexicon.
+
+    With no ``adapter`` given, the local MONDO build must already be on disk:
+    :class:`MondoBuildUnavailable` is raised rather than letting semsql
+    download it (see :func:`open_mondo_adapter`).
     """
     if adapter is None:
-        from oaklib import get_adapter
-
-        adapter = get_adapter("sqlite:obo:mondo")
+        adapter = open_mondo_adapter()
 
     errors: list[str] = []
 
@@ -392,6 +529,7 @@ def fetch_mondo_record(
     genes: list[str] = []
     unresolved: list[str] = []
     aliases: dict[str, tuple[str, ...]] = {}
+    gene_curies: dict[str, str] = {}
     try:
         relationships = list(adapter.relationships([mondo_id]))
     except Exception as exc:
@@ -410,6 +548,7 @@ def fetch_mondo_record(
         if not resolved:
             unresolved.append(symbol)
             continue
+        gene_curies[symbol] = str(obj)
         gene_aliases = _gene_aliases(obj, symbol, _hgnc, errors)
         if gene_aliases:
             aliases[symbol] = gene_aliases
@@ -435,6 +574,7 @@ def fetch_mondo_record(
         unresolved_genes=tuple(unresolved),
         gene_aliases=aliases,
         lookup_errors=tuple(errors),
+        gene_curies=gene_curies,
     )
 
 
@@ -556,6 +696,300 @@ def _gene_aliases(curie, symbol: str, hgnc_getter, errors: list[str]) -> tuple[s
     return tuple(seen)
 
 
+def _hgnc_curies_for_symbol(symbol: str, adapter, hgnc_adapter=None) -> list[str]:
+    """HGNC CURIE(s) whose label is ``symbol``, asking MONDO first, then HGNC.
+
+    MONDO labels the HGNC objects of its ``RO:0004003`` edges, so a gene that
+    causes any MONDO disease is found there without opening the HGNC build.
+    """
+    for source in (adapter, hgnc_adapter):
+        if source is None:
+            continue
+        hits = [
+            str(c) for c in (source.curies_by_label(symbol) or [])
+            if str(c).lower().startswith("hgnc:")
+        ]
+        if hits:
+            return hits
+    return []
+
+
+def find_rival_diseases(
+    symbols, exclude: str, adapter, hgnc_adapter=None
+) -> tuple[dict[str, list[tuple[str, str]]], list[str]]:
+    """Which of ``symbols`` MONDO records as the cause of a disease other than ``exclude``.
+
+    This is the reverse of the ``RO:0004003`` lookup in
+    :func:`fetch_mondo_record`: from a gene the report discusses to the
+    disease(s) that gene causes. A hit means the report's subject is a disease
+    that exists and is not the one intended (#12166: TBK1 ->
+    MONDO:0971173 autoinflammation with arthritis and vasculitis).
+
+    Returns ``(found, errors)``. A symbol with no HGNC identifier, or one whose
+    gene causes no MONDO disease, is simply absent from ``found``; a lookup
+    that *raises* is recorded in ``errors`` instead, because "could not check"
+    is not "checked, nothing there".
+    """
+    found: dict[str, list[tuple[str, str]]] = {}
+    errors: list[str] = []
+    for symbol in symbols:
+        try:
+            curies = _hgnc_curies_for_symbol(symbol, adapter, hgnc_adapter)
+        except Exception as exc:
+            errors.append(f"HGNC identifier lookup for rival gene {symbol} failed: {exc}")
+            continue
+        diseases: dict[str, str] = {}
+        for curie in curies:
+            variants = _curie_variants(curie)
+            try:
+                edges = list(
+                    adapter.relationships(predicates=[GENE_RELATION], objects=list(variants))
+                )
+            except Exception as exc:
+                errors.append(
+                    f"reverse {GENE_RELATION} lookup for rival gene {symbol} ({curie}) "
+                    f"failed: {exc}"
+                )
+                continue
+            for subject, predicate, obj in edges:
+                subject = str(subject)
+                if (
+                    predicate != GENE_RELATION
+                    or str(obj) not in variants
+                    or subject == exclude
+                    or not subject.upper().startswith("MONDO:")
+                    or subject in diseases
+                ):
+                    continue
+                try:
+                    diseases[subject] = adapter.label(subject) or ""
+                except Exception:  # pragma: no cover - adapter variance
+                    diseases[subject] = ""
+        if diseases:
+            found[symbol] = sorted(diseases.items())
+    return found, errors
+
+
+def _default_rival_lookup(adapter, use_hgnc: bool):
+    """A lazy :func:`find_rival_diseases` for :func:`assess`.
+
+    Lazy because it is needed only when the canonical gene is never mentioned,
+    so a clean run never opens anything it did not open already. Neither
+    build is downloaded: MONDO goes through :func:`open_mondo_adapter`, and
+    HGNC, only a fallback for genes MONDO does not label, is skipped when its
+    build is absent.
+    """
+
+    def _lookup(symbols, exclude):
+        mondo = adapter if adapter is not None else open_mondo_adapter()
+        hgnc = None
+        if use_hgnc:
+            from dismech.oak_db import local_build_present
+
+            if local_build_present("sqlite:obo:hgnc"):
+                try:
+                    from oaklib import get_adapter
+
+                    hgnc = get_adapter("sqlite:obo:hgnc")
+                except Exception:  # pragma: no cover - install/network failure
+                    hgnc = None
+        return find_rival_diseases(symbols, exclude, mondo, hgnc)
+
+    return _lookup
+
+
+def _describe_rival_diseases(found: dict[str, list[tuple[str, str]]], counts: dict) -> str:
+    parts = []
+    for symbol, diseases in found.items():
+        named = "; ".join(f"{mid} {label}".rstrip() for mid, label in diseases)
+        parts.append(f"{symbol} ({counts.get(symbol, 0)} mentions) causes {named}")
+    return ", and ".join(parts)
+
+
+def pair_gene_curies(text: str, lexicon=None, prefixes=GENE_CURIE_PREFIXES):
+    """Yield ``(line_number, curie, symbol)`` for each gene CURIE in ``text``.
+
+    ``symbol`` is the gene symbol the CURIE was written beside: the nearest
+    one before it on the same line, or failing that the nearest one after it
+    (``| HGNC:29316 | ZMYND11 |``). A CURIE inside parentheses belongs to the
+    symbol in front of them, so ``*SLC35A1* (Golgi CMP-sialic acid
+    transporter; HGNC:10940)`` pairs with SLC35A1, not CMP. A CURIE with no
+    gene symbol on its line is not paired. Ontology prefixes (``HGNC``
+    itself, ``OMIM``) are never taken for the symbol.
+
+    Parentheses holding several CURIEs pair them in order with a list of as
+    many symbols written just before the ``(``: ``JAK1, JAK2 (HGNC:6190,
+    HGNC:6192)`` pairs JAK1 with the first. When no such list is there the
+    CURIEs in that group are not paired, since there is no telling which gene
+    each one is for.
+    """
+    lexicon = lexicon if lexicon is not None else HeuristicLexicon()
+    for number, line in enumerate(text.splitlines(), start=1):
+        curies = []
+        for match in CURIE_RE.finditer(line):
+            found = extract_curies(match.group(0), prefixes)
+            if found:
+                curies.append((match.start(), found[0]))
+        if not curies:
+            continue
+        # Blank every CURIE, keeping offsets, so "HGNC" in "HGNC:29316" is not
+        # read as a symbol.
+        blanked = CURIE_RE.sub(lambda m: " " * len(m.group(0)), line)
+        symbols = [
+            (m.start(), m.end(), m.group(0))
+            for m in GENE_TOKEN_RE.finditer(blanked)
+            if m.group(0) not in ONTOLOGY_PREFIX_TOKENS and m.group(0) in lexicon
+        ]
+        groups: dict[int, list[str]] = {}
+        placed = []
+        for position, curie in curies:
+            opened: list[int] = []
+            for index, char in enumerate(line[:position]):
+                if char == "(":
+                    opened.append(index)
+                elif char == ")" and opened:
+                    opened.pop()
+            group = opened[-1] if opened else None
+            slot = None
+            if group is not None:
+                slot = len(groups.setdefault(group, []))
+                groups[group].append(curie)
+            placed.append((position, curie, group, slot))
+        for position, curie, group, slot in placed:
+            members = groups.get(group, []) if group is not None else []
+            if len(members) > 1:
+                listed = _symbol_list_before(line, symbols, group, len(members))
+                if listed:
+                    yield number, curie, listed[slot]
+                continue
+            before = [sym for start, _end, sym in symbols if start < position]
+            if group is not None:
+                outside = [sym for start, _end, sym in symbols if start < group]
+                before = outside or before
+            after = [sym for start, _end, sym in symbols if start > position]
+            symbol = before[-1] if before else (after[0] if after else "")
+            if symbol:
+                yield number, curie, symbol
+
+
+_LIST_SEPARATOR_RE = re.compile(r"^[\s,;/*_]*(?:and|or|&)?[\s,;/*_]*$", re.IGNORECASE)
+_BEFORE_PAREN_RE = re.compile(r"^[\s*_]*$")
+
+
+def _symbol_list_before(line: str, symbols, paren: int, count: int) -> list[str]:
+    """The ``count`` symbols listed immediately before ``line[paren]``, or ``[]``.
+
+    "Immediately" means only list punctuation (commas, "and", emphasis marks)
+    sits between them and between the last of them and the parenthesis.
+    """
+    before = [(start, end, sym) for start, end, sym in symbols if end <= paren]
+    if len(before) < count:
+        return []
+    listed = before[-count:]
+    if not _BEFORE_PAREN_RE.match(line[listed[-1][1] : paren]):
+        return []
+    for (_s, end, _sym), (start, _e, _next) in itertools.pairwise(listed):
+        if not _LIST_SEPARATOR_RE.match(line[end:start]):
+            return []
+    return [sym for _start, _end, sym in listed]
+
+
+def _same_curie(left: str, right: str) -> bool:
+    return str(left).lower() in {v.lower() for v in _curie_variants(right)}
+
+
+def check_gene_identifiers(
+    text: str, record: MondoRecord, lexicon=None, hgnc_adapter=None
+) -> tuple[list[GeneIdentifierFinding], list[str]]:
+    """Find gene CURIEs that name a different gene from the symbol beside them.
+
+    Two comparisons, run on every CURIE :func:`pair_gene_curies` pairs with a
+    symbol (#9845):
+
+    * ``canonical``: the CURIE is written beside the intended gene (or one of
+      its aliases) and is not the CURIE MONDO's ``RO:0004003`` edge points at.
+      This is a string comparison and needs no HGNC lookup, so it runs under
+      ``--no-hgnc`` too.
+    * ``symbol``: HGNC gives the symbol a different identifier from the CURIE
+      beside it. Needs ``hgnc_adapter``; without one it is not run.
+
+    A legitimately named second gene with its correct identifier is not a
+    finding. Returns ``(findings, errors)``; a lookup that raises goes into
+    ``errors`` rather than counting as a clean result.
+    """
+    findings: list[GeneIdentifierFinding] = []
+    errors: list[str] = []
+    canonical: dict[str, str] = {}
+    for gene, curie in record.gene_curies.items():
+        canonical[gene] = curie
+        for alias in record.gene_aliases.get(gene, ()):
+            canonical.setdefault(alias, curie)
+
+    def _hgnc_symbol(curie: str) -> str:
+        if hgnc_adapter is None:
+            return ""
+        try:
+            for variant in _curie_variants(curie):
+                symbol = hgnc_adapter.label(variant)
+                if symbol:
+                    return str(symbol)
+        except Exception as exc:
+            errors.append(f"HGNC label lookup for {curie} failed: {exc}")
+        return ""
+
+    def _hgnc_curies(symbol: str) -> list[str]:
+        try:
+            return [
+                str(c) for c in (hgnc_adapter.curies_by_label(symbol) or [])
+                if str(c).lower().startswith("hgnc:")
+            ]
+        except Exception as exc:
+            errors.append(f"HGNC identifier lookup for {symbol} failed: {exc}")
+            return []
+
+    seen: set[tuple[int, str, str]] = set()
+    for number, curie, symbol in pair_gene_curies(text, lexicon):
+        if (number, curie, symbol) in seen:
+            continue
+        seen.add((number, curie, symbol))
+        expected = canonical.get(symbol)
+        if expected is not None:
+            if not _same_curie(curie, expected):
+                findings.append(GeneIdentifierFinding(
+                    kind="canonical",
+                    line=number,
+                    curie=curie,
+                    symbol=symbol,
+                    curie_symbol=_hgnc_symbol(curie),
+                    expected_curie=expected,
+                ))
+            continue
+        if hgnc_adapter is None:
+            continue
+        own = _hgnc_curies(symbol)
+        if not own or any(_same_curie(curie, c) for c in own):
+            continue
+        findings.append(GeneIdentifierFinding(
+            kind="symbol",
+            line=number,
+            curie=curie,
+            symbol=symbol,
+            curie_symbol=_hgnc_symbol(curie),
+            expected_curie=own[0],
+        ))
+    return findings, errors
+
+
+def _describe_gene_identifier(finding: GeneIdentifierFinding) -> str:
+    actual = f", which is {finding.curie_symbol}" if finding.curie_symbol else ""
+    expected = (
+        f"; {finding.symbol} is {finding.expected_curie}" if finding.expected_curie else ""
+    )
+    return (
+        f"line {finding.line}: {finding.curie} beside {finding.symbol}{actual}{expected}"
+    )
+
+
 def assess(
     record: MondoRecord,
     gene_counts: Counter,
@@ -566,8 +1000,67 @@ def assess(
     rival_ratio: float = DEFAULT_RIVAL_RATIO,
     lexicon_name: str = "hgnc",
     lexicon_note: str = "",
+    rival_disease_lookup=None,
+    gene_identifier_findings=(),
+    gene_identifier_errors=(),
 ) -> PreflightResult:
-    """Compare a report's gene mentions against a MONDO entity's canonical gene."""
+    """Compare a report's gene mentions against a MONDO entity's canonical gene.
+
+    ``rival_disease_lookup(symbols, exclude_mondo_id)`` returns what
+    :func:`find_rival_diseases` returns. It is called only when the canonical
+    gene is never mentioned; ``None`` skips the check, which then cannot turn
+    a ``WARN`` into a ``FAIL``.
+
+    ``gene_identifier_findings`` and ``gene_identifier_errors`` are what
+    :func:`check_gene_identifiers` returns. Either one caps a ``PASS`` or
+    ``SKIP`` at ``WARN``; neither can produce or remove a ``FAIL``.
+    """
+    result = _assess_gene_mentions(
+        record,
+        gene_counts,
+        report_omim,
+        report=report,
+        min_signal=min_signal,
+        rival_ratio=rival_ratio,
+        lexicon_name=lexicon_name,
+        lexicon_note=lexicon_note,
+        rival_disease_lookup=rival_disease_lookup,
+    )
+    findings = list(gene_identifier_findings)
+    errors = list(gene_identifier_errors)
+    if (findings or errors) and result.verdict in (PASS, SKIP):
+        result.verdict = WARN
+    if findings:
+        result.gene_identifier_findings = findings
+        result.reasons.append(
+            "The report gives a gene identifier that names a different gene from "
+            "the symbol beside it: "
+            + "; ".join(_describe_gene_identifier(f) for f in findings)
+            + ". Do not copy gene identifiers from this report; look each one up "
+            "in HGNC."
+        )
+    if errors:
+        result.lookup_errors.extend(errors)
+        result.reasons.append(
+            "Some gene identifiers in the report could not be checked: "
+            + "; ".join(errors)
+        )
+    return result
+
+
+def _assess_gene_mentions(
+    record: MondoRecord,
+    gene_counts: Counter,
+    report_omim: set[str] | None = None,
+    *,
+    report: str = "",
+    min_signal: int = DEFAULT_MIN_SIGNAL,
+    rival_ratio: float = DEFAULT_RIVAL_RATIO,
+    lexicon_name: str = "hgnc",
+    lexicon_note: str = "",
+    rival_disease_lookup=None,
+) -> PreflightResult:
+    """The gene-mention comparison behind :func:`assess`."""
     report_omim = report_omim or set()
     expected = list(record.genes)
     unresolved = set(record.unresolved_genes)
@@ -594,7 +1087,9 @@ def assess(
     rivals = [
         (sym, n)
         for sym, n in gene_counts.most_common()
-        if sym not in claimed and n >= min_signal
+        if sym not in claimed
+        and sym not in ONTOLOGY_PREFIX_TOKENS
+        and n >= min_signal
     ]
 
     result = PreflightResult(
@@ -649,38 +1144,99 @@ def assess(
 
     if expected_total == 0 and rivals:
         top_sym, top_n = rivals[0]
-        omim_agrees = bool(record.omim_ids and (set(record.omim_ids) & report_omim))
+        shared = ", ".join(sorted(set(record.omim_ids) & report_omim))
+        absent = (
+            f"Expected gene {expected_str} is never mentioned (zero mentions, not a "
+            "low count)"
+        )
         # FAIL is the tool's most destructive instruction ("discard the
         # report"), so it is issued only when nothing contradicts it. A lookup
         # that failed is exactly the lookup that could have found the expected
-        # gene under an alias, and an OMIM match is an *independent* identity
-        # anchor. Either one downgrades to WARN.
+        # gene under an alias, so it downgrades to WARN. An OMIM match does
+        # not: it shows the report was pointed at the right identifier, not
+        # that its text is about the right gene (#12166).
         if record.lookup_errors:
             result.verdict = WARN
             result.reasons.append(
-                f"Expected gene {expected_str} is never mentioned while {top_sym} is "
-                f"mentioned {top_n} times — but an ontology lookup failed, so alias "
-                "symbols could not be checked and the absence of the canonical symbol "
-                "is not conclusive. Verify the report's identity manually rather than "
-                "discarding it on this evidence."
-            )
-        elif omim_agrees:
-            result.verdict = WARN
-            shared = ", ".join(sorted(set(record.omim_ids) & report_omim))
-            result.reasons.append(
-                f"Expected gene {expected_str} is never mentioned while {top_sym} is "
-                f"mentioned {top_n} times, but the report cites OMIM {shared}, which "
-                f"matches the {record.id} xref. That independent identity anchor "
-                "contradicts the gene-frequency signal — reconcile the two manually "
-                "instead of discarding the report."
+                f"{absent} while {top_sym} is mentioned {top_n} times, but an "
+                "ontology lookup failed, so alias symbols could not be checked and "
+                "the absence of the canonical symbol is not conclusive. Verify the "
+                "report's identity manually rather than discarding it on this "
+                "evidence."
             )
         else:
-            result.verdict = FAIL
-            result.reasons.append(
-                f"Expected gene {expected_str} is never mentioned, but {top_sym} is "
-                f"mentioned {top_n} times. The report is most likely about a "
-                "different disease entity — discard it rather than cherry-picking."
+            found: dict[str, list[tuple[str, str]]] = {}
+            rival_errors: list[str] = []
+            # Only a real gene may decide a FAIL. "AR" (autosomal recessive)
+            # and "HR" (hazard ratio) are HGNC symbols too, and AR is the cause
+            # of Kennedy disease, so an abbreviation-heavy report on the right
+            # disease would otherwise be binned.
+            checked = [
+                sym for sym, _n in rivals if sym.upper() not in NON_GENE_TOKENS
+            ][:MAX_RIVAL_LOOKUPS]
+            if rival_disease_lookup is not None and checked:
+                try:
+                    found, rival_errors = rival_disease_lookup(checked, record.id)
+                except Exception as exc:
+                    rival_errors = [f"rival-gene disease lookup failed: {exc}"]
+                result.rival_diseases = dict(found)
+                result.lookup_errors.extend(rival_errors)
+            omim_note = (
+                f" The report does cite OMIM {shared}, which matches the {record.id} "
+                "xref; that shows it was pointed at the right identifier, not that "
+                f"its text is about {expected_str}, so it does not soften this verdict."
+                if shared
+                else ""
             )
+            if found:
+                result.verdict = FAIL
+                result.reasons.append(
+                    f"{absent}, and MONDO ({GENE_RELATION}) records genes the report "
+                    "does discuss as the cause of a different disease: "
+                    f"{_describe_rival_diseases(found, dict(gene_counts))}. The report "
+                    "is about a disease that exists and is not this one; discard it "
+                    f"rather than cherry-picking.{omim_note}"
+                )
+            elif shared:
+                result.verdict = WARN
+                if not checked:
+                    checked_note = (
+                        "Every rival symbol is a common abbreviation (such as AR for "
+                        "autosomal recessive), so none was looked up as a gene."
+                    )
+                elif rival_disease_lookup is None:
+                    checked_note = (
+                        "The rival genes were not checked for a MONDO disease of their "
+                        "own."
+                    )
+                elif rival_errors:
+                    checked_note = (
+                        "The rival-gene disease lookup did not complete, so it is "
+                        "unknown whether the rival genes cause another MONDO disease."
+                    )
+                else:
+                    checked_note = (
+                        "None of the rival genes checked "
+                        f"({', '.join(checked)}) is "
+                        "MONDO's recorded cause of another disease."
+                    )
+                result.reasons.append(
+                    f"{absent} while {top_sym} is mentioned {top_n} times. The report "
+                    f"cites OMIM {shared}, matching the {record.id} xref, but a "
+                    "matching identifier shows only that the report was pointed at the "
+                    f"right entry, not that its text is about {expected_str}. "
+                    f"{checked_note} The report may name {expected_str} only by a "
+                    "protein or legacy name the HGNC alias list does not carry. Search "
+                    "it for the gene under any name; if it is not there, discard the "
+                    "report."
+                )
+            else:
+                result.verdict = FAIL
+                result.reasons.append(
+                    f"{absent}, but {top_sym} is mentioned {top_n} times. The report "
+                    "is most likely about a different disease entity; discard it "
+                    "rather than cherry-picking."
+                )
         if result.lookup_errors:
             result.reasons.append(
                 "Some ontology lookups failed, so this verdict is incomplete: "
@@ -722,9 +1278,13 @@ def assess(
         result.verdict = WARN
         rival_sym, rival_n = rivals[0]
         result.reasons.append(
-            f"Rival gene {rival_sym} is mentioned {rival_n} times "
+            f"Second gene {rival_sym} is mentioned {rival_n} times "
             f"({rival_n / expected_total:.0%} of {expected_str}). The report may "
-            "mix in a second disease entity — exclude those sections before curating."
+            f"mix in a second disease entity, or {rival_sym} may be this disease's "
+            "own receptor, ligand, fusion partner, or modifier gene; a mention "
+            "count cannot tell the two apart. Read the sections naming "
+            f"{rival_sym} and decide which it is; exclude them only if they are "
+            "about a different disease."
         )
 
     if unresolved:
@@ -780,6 +1340,27 @@ def preflight(
         # counts and silently downgrades a FAIL to a WARN.
         lexicon = HeuristicLexicon(reason=str(exc))
         counts = extract_gene_mentions(text, lexicon)
+    # The symbol-beside-identifier comparison needs HGNC itself, so it runs
+    # only with the live lexicon; the comparison against MONDO's identifier
+    # for the intended gene needs nothing and always runs.
+    hgnc_adapter = None
+    open_adapter = getattr(lexicon, "_get_adapter", None) if use_hgnc else None
+    if open_adapter is not None:
+        # Opened explicitly: the lexicon opens its adapter lazily, so reading
+        # its attribute would depend on an earlier lookup having happened.
+        try:
+            hgnc_adapter = open_adapter()
+        except LexiconUnavailable:
+            hgnc_adapter = None
+    try:
+        findings, identifier_errors = check_gene_identifiers(
+            text, record, lexicon, hgnc_adapter
+        )
+    except LexiconUnavailable as exc:
+        findings, identifier_errors = check_gene_identifiers(
+            text, record, HeuristicLexicon(reason=str(exc))
+        )
+        identifier_errors.append(f"HGNC lexicon failed while checking gene identifiers: {exc}")
     return assess(
         record,
         counts,
@@ -789,6 +1370,9 @@ def preflight(
         rival_ratio=rival_ratio,
         lexicon_name=getattr(lexicon, "name", "custom"),
         lexicon_note=getattr(lexicon, "reason", ""),
+        rival_disease_lookup=_default_rival_lookup(adapter, use_hgnc),
+        gene_identifier_findings=findings,
+        gene_identifier_errors=identifier_errors,
     )
 
 
@@ -802,6 +1386,8 @@ def format_report(result: PreflightResult) -> str:
         mentions = ", ".join(
             f"{g}={n}" for g, n in sorted(result.expected_mentions.items())
         )
+        if result.expected_absent:
+            mentions += " (never named)"
         lines.append(f"  mentions        : {mentions}")
     if result.alias_mentions:
         aliases = ", ".join(f"{g}={n}" for g, n in sorted(result.alias_mentions.items()))
@@ -816,6 +1402,11 @@ def format_report(result: PreflightResult) -> str:
         lines.append(
             f"  OMIM (report)   : {', '.join(result.report_omim[:8]) or '-'}"
         )
+    for symbol, diseases in result.rival_diseases.items():
+        for mondo_id, label in diseases:
+            lines.append(f"  rival disease   : {symbol} -> {mondo_id} {label}".rstrip())
+    for finding in result.gene_identifier_findings:
+        lines.append(f"  gene identifier : {_describe_gene_identifier(finding)}")
     if result.lexicon != "hgnc":
         suffix = f" (HGNC unavailable: {result.lexicon_note})" if result.lexicon_note else ""
         lines.append(f"  lexicon         : {result.lexicon}{suffix}")
@@ -885,6 +1476,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.no_hgnc and args.require_hgnc:
         parser.error("--no-hgnc and --require-hgnc are mutually exclusive")
 
+    # Open MONDO first: without it there is no verdict to give, and failing
+    # here also stops the HGNC lexicon below from fetching its own build for a
+    # run that cannot finish.
+    try:
+        mondo_adapter = open_mondo_adapter()
+    except MondoBuildUnavailable as exc:
+        parser.exit(2, f"error: {exc}\n")
+
     if args.no_hgnc:
         lexicon = HeuristicLexicon()
     else:
@@ -896,6 +1495,7 @@ def main(argv: list[str] | None = None) -> int:
     result = preflight(
         args.report,
         mondo,
+        adapter=mondo_adapter,
         lexicon=lexicon,
         min_signal=args.min_signal,
         rival_ratio=args.rival_ratio,

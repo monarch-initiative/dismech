@@ -1,0 +1,42 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Vitamin_D-Dependent_Rickets_Type_3
+  path: kb/disorders/Vitamin_D-Dependent_Rickets_Type_3.yaml
+session:
+  id: 2026-09-28T032540Z-claude-code-0a9967
+  timestamp: '2026-09-28T03:25:40Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/9078
+  urls: []
+events:
+- type: REVIEW
+  outcome: no_change
+  summary: Diagnose the CI reference-fetch failure as a base-branch regression, now
+    fixed
+  details: |
+    CI was red with ConnectionError ('Connection reset by peer') raised inside just validate-disorders. The traceback ran through linkml_reference_validator/etl/sources/url.py, so a live HTTP fetch was attempted during validation.
+
+    The entry cites one url: reference, an ESPE 2022 abstract, from six evidence items:
+    url:https://abstracts.eurospe.org/hrp/0095/hrp0095p1-422
+
+    That reference is cached and committed. references_cache/url_https___abstracts.eurospe.org_hrp_0095_hrp0095p1-422.md has been tracked since 41efc2a653 on 2026-08-20, five weeks before the failing run, is not gitignored, and no skip-worktree entry hides it. So the failure was not a missing cache file, and nothing in the entry needed changing.
+
+    What produced it was a window on main. validate-disorders used to re-fetch a cache entry whose extractor stamp was missing or old, treating the fetch as a repair. Two commits closed that:
+
+      19dcfaed2a  2026-09-26 02:11:46Z  serve_stale_html_full_text (#12869)
+      ba7c44dedc  2026-09-26 07:20:18Z  trust_cached_entries      (#12883)
+
+    This PR's run was 2026-09-26 05:34-05:37Z, between them. At that point the validator still re-fetched the pre-stamp ESPE HTML entry, and the ESPE server reset the connection. #12883 removes the fetch entirely: a cache entry is served as it is on disk. Its own commit message records three other failures caused by the same re-fetch (#12672, #12867, #12879), so this is the fourth instance of one root cause, not a fault in this branch.
+
+    The remedy is therefore a base merge, which is what this round does. Verified on the merged tree: conf/reference_validator_config.yaml carries trust_cached_entries: true against linkml-reference-validator>=0.3.0rc3, and just validate-disorders reports 106/106 snippets and 106 titles with zero issues and no network fetch. The same command also passed on the pre-merge branch, which is consistent with the diagnosis -- this container reaches ESPE where the runner did not, so the pre-merge pass proves the cache is sound rather than proving the fetch is gone.
+
+    No entry content was changed. Also clean: check-duplicate-keys, check-entity-refs, check-causal-targets, check-enum-values, check-qualifier-terms, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-case-collisions, check-coarse-phenotypes.
+
+    Two notes in the PR description are now stale. The six case-colliding DOI cache paths it marked skip-worktree are gone from the tree (#11204), and no skip-worktree entry remains on this branch.

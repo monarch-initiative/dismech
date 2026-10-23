@@ -1,0 +1,83 @@
+---
+name: Verify merge integrity
+
+# Post-push detection for content-corrupting merges (#10168, #2034). For every
+# squash commit a push lands on main, recompute the tree that merging the PR's
+# head into the previous tip should have produced and compare it to what was
+# pushed. Passing tests are not evidence of correct history -- in the April
+# 2026 merge-queue incident, squash merges silently reverted other PRs'
+# changes and CI stayed green; GitHub learned of it from customer reports.
+# This is the local monitoring that closes that gap, and it also catches
+# non-queue merge anomalies. See scripts/verify_merge_integrity.py for what
+# is and is not verified.
+#
+# Deliberately no concurrency group: each run verifies exactly its own push's
+# before..after range, ranges are disjoint, and a cancelled run would be an
+# unverified push.
+
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          # Full history so merge-tree can find merge bases; blobless keeps
+          # the clone small and git lazily fetches blobs merge-tree touches
+          # (anonymous fetch suffices on a public repository).
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+
+      - name: Verify pushed commits against recomputed merge trees
+        id: verify
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 scripts/verify_merge_integrity.py \
+            --repo "${{ github.repository }}" \
+            --before "${{ github.event.before }}" \
+            --after "${{ github.event.after }}"
+
+      # A mismatch is a drop-everything signal, and a red check on a push to
+      # main is easy to miss at ~50 pushes/day -- so also open (or add to) a
+      # labelled issue. The label list endpoint is immediately consistent, so
+      # back-to-back mismatching pushes comment on one issue instead of
+      # opening fifty. Gated on the script's explicit mismatch output, not on
+      # the step failing: a verifier crash, a rate-limited lookup, or a
+      # verified-nothing run also exits nonzero (visible as a red run), and
+      # none of those may post a false "treat main as suspect" incident.
+      - name: Open or update the merge-integrity issue
+        if: failure() && steps.verify.outputs.mismatch == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RANGE: ${{ github.event.before }}..${{ github.event.after }}
+        run: |
+          set -euo pipefail
+          gh label create merge-integrity --force \
+            --color B60205 \
+            --description "A pushed merge commit does not match its recomputed tree"
+          existing=$(gh issue list --label merge-integrity --state open \
+            --json number --jq '.[0].number // empty')
+          body="Merge-integrity verification failed for push range \`${RANGE}\`.
+
+          A commit on \`main\` does not contain what merging its PR into the previous tip produces -- the #2034 incident signature, or another merge anomaly. **Treat \`main\` as suspect until a human has compared the trees.** Details: ${RUN_URL}
+
+          If a merge queue is enabled, consider pausing it (see the break-glass procedure in docs/explanation/automation-and-agents.md) while this is investigated."
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --label merge-integrity \
+              --title "Merge integrity mismatch on main" \
+              --body "$body"
+          fi

@@ -1,5 +1,6 @@
 ---
-reference_id: "clinicaltrials:NCT07270549"
+reference_id: clinicaltrials:NCT07270549
+extractor_version: 1
 title: "GAIN-CTNNB1: A Phase I/II Open-Label Trial To Evaluate the Safety, Tolerability, and Preliminary Efficacy of Intracerebroventricular Administration of an AAV9 Based Gene Replacement Therapy in Paediatric Patients With CTNNB1 Neurodevelopmental Syndrome"
 content_type: summary
 full_text_attempted: true

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fail any KB reference pointing at a user-generated social-media host.
 
-Design decision 6b: published patient-advocacy content is citable, user-generated
+Design decision 6d: published patient-advocacy content is citable, user-generated
 social-media content is not. Nothing else catches a forum citation -- the URL
 resolves, the snippet is a real quote from the page, and LinkML, term and
 reference validation all pass. The sibling corroboration gate does not cover it
@@ -89,7 +89,7 @@ def main() -> int:
     if findings:
         print("Social-media reference(s) cited in KB YAML.\n")
         print("Public forums and social platforms are not citable sources")
-        print("(design decision 6b). A patient-advocacy organization's published")
+        print("(design decision 6d). A patient-advocacy organization's published")
         print("page is; a forum thread is not. Where a community signal needs")
         print("quantifying, a national patient registry is the consented")
         print("substitute. If the signal has no citable source, record it in")

@@ -3,14 +3,22 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import logging
+import os
 import re
+import tempfile
+import time
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from dismech.compare.mondo_priority import iter_covered_mondo_ids
+from dismech.repo_root import repo_root
 from dismech.yaml_io import safe_load
+
+logger = logging.getLogger(__name__)
 
 MONDO_ID_PATTERN = re.compile(r"^MONDO:[0-9]{7}$")
 
@@ -18,6 +26,16 @@ MONDO_ID_PATTERN = re.compile(r"^MONDO:[0-9]{7}$")
 #: curation target under any reading, so a stub for one is an error rather than
 #: a judgement call. Same backstop the prioritizer config carries, for candidate
 #: exports that do not populate `is_obsolete`.
+#:
+#: This is the *fallback* signal, not the primary one. It only fires when the
+#: nominating export captured the label after MONDO prefixed it, which is the
+#: unusual case — a stub is normally seeded from a list that predates the
+#: retirement, so it keeps the clean label forever and this never matches. Zero
+#: of the 1,333 committed stubs match it (dismech#10785). The exact signal is
+#: MONDO's own `owl:deprecated` / `IAO:0100001`, written into the stub as
+#: `mondo_obsolete` / `mondo_replaced_by` by `just enrich-stubs`; see
+#: `dismech.stubs.obsolescence`. The heuristic is kept for stubs enriched before
+#: those fields existed, and for anyone working without the MONDO build.
 OBSOLETE_LABEL_PATTERN = re.compile(r"^\s*obsolete\b", re.IGNORECASE)
 
 #: A label or synonym has to carry some information before a collision with a KB
@@ -162,6 +180,34 @@ class Stub:
         return str(self.data.get("priority") or "NORMAL")
 
     @property
+    def mondo_obsolete(self) -> bool:
+        """Whether MONDO has retired this stub's term.
+
+        Written by `just enrich-stubs` from the ontology's own `owl:deprecated`
+        flag, so the check that reads it needs no ontology. Omitted rather than
+        written false on a live term — stating the default on 1,300-odd files
+        would be a line of noise in each — so absence means "not flagged", and
+        `check_stubs` keeps the label heuristic as its backstop.
+        """
+        return bool(self.data.get("mondo_obsolete"))
+
+    @property
+    def mondo_replaced_by(self) -> str:
+        """The live term that absorbed this one (`IAO:0100001`), if any."""
+        return str(self.data.get("mondo_replaced_by") or "")
+
+    @property
+    def mondo_obsoletion_candidate(self) -> str:
+        """MONDO's note about a retirement it has decided on but not yet made.
+
+        Free text, verbatim from MONDO: the scheduled-merge comment plus its
+        tracker issue. This fires months before `mondo_obsolete` does, because
+        the deprecation flag only appears in a release built after the merge
+        lands.
+        """
+        return str(self.data.get("mondo_obsoletion_candidate") or "")
+
+    @property
     def sort_key(self) -> tuple[int, str]:
         """Priority band, then a stable hash of the MONDO ID.
 
@@ -261,35 +307,212 @@ def _grouping_mondo_ids(data: dict[str, Any]) -> list[str]:
     return out
 
 
-def build_coverage_index(kb_dirs: list[Path] | None = None) -> CoverageIndex:
+#: Version of the per-file records in the persistent coverage cache. Bump it
+#: whenever a change to `entry_label_strings`, `normalize_label`,
+#: `is_informative_label`, `_grouping_mondo_ids` or `iter_covered_mondo_ids`
+#: would derive different ids or labels from the same file: the cache is keyed
+#: on file content, so without a bump it keeps serving the old derivation.
+COVERAGE_CACHE_VERSION = 1
+
+#: Names the persistent coverage cache file, overriding the default under the
+#: checkout's gitignored `tmp/`. Tests point it at `tmp_path`.
+COVERAGE_CACHE_ENV = "DISMECH_STUB_COVERAGE_CACHE"
+
+#: A file whose mtime is this close to (or after) the start of the run that
+#: recorded it is hashed rather than trusted on `(mtime_ns, size)`: a rewrite
+#: landing inside the filesystem's timestamp granularity would otherwise look
+#: unchanged. Two seconds covers the coarsest common granularity (FAT). This is
+#: git's "racily clean" rule.
+_RACY_WINDOW_NS = 2_000_000_000
+
+
+def default_coverage_cache_path() -> Path:
+    override = os.environ.get(COVERAGE_CACHE_ENV)
+    if override:
+        return Path(override).expanduser()
+    return repo_root() / "tmp" / "stub_coverage_index.json"
+
+
+def _coverage_cache_enabled() -> bool:
+    """The `DISMECH_KB_CACHE` switch `dismech.kb_cache` reads, with its values."""
+    return os.environ.get("DISMECH_KB_CACHE", "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+
+
+def _digest(raw: bytes) -> str:
+    return hashlib.blake2b(raw, digest_size=16).hexdigest()
+
+
+def _derive_record(data: Any, *, is_grouping: bool, filename: str) -> dict:
+    """The part of one KB file the coverage index needs, in index order."""
+    ids: list[str] = []
+    labels: list[str] = []
+    if isinstance(data, dict):
+        for label in entry_label_strings(data):
+            normalized = normalize_label(label)
+            if is_informative_label(normalized):
+                labels.append(normalized)
+        if is_grouping:
+            ids = _grouping_mondo_ids(data)
+        else:
+            ids = [mondo_id for mondo_id, _ in iter_covered_mondo_ids(data, filename)]
+    return {"ids": ids, "labels": labels}
+
+
+def _read_coverage_cache(path: Path, dir_keys: list[str]) -> tuple[list[dict], int]:
+    """Per-directory file records and the start time of the run that wrote them.
+
+    Anything unusable -- missing, unparsable, another version, or built for
+    a different list of directories -- reads as an empty cache.
+    """
+    empty: list[dict] = [{} for _ in dir_keys]
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return empty, 0
+    if (
+        not isinstance(payload, dict)
+        or payload.get("version") != COVERAGE_CACHE_VERSION
+        or [d.get("path") for d in payload.get("dirs") or []] != dir_keys
+    ):
+        return empty, 0
+    return [d.get("files") or {} for d in payload["dirs"]], int(
+        payload.get("started_ns") or 0
+    )
+
+
+def _write_coverage_cache(
+    path: Path, dir_keys: list[str], records: list[dict], started_ns: int
+) -> None:
+    """Replace the cache file atomically, so a concurrent reader sees old or new."""
+    payload = {
+        "version": COVERAGE_CACHE_VERSION,
+        "started_ns": started_ns,
+        "dirs": [
+            {"path": key, "files": files}
+            for key, files in zip(dir_keys, records, strict=True)
+        ],
+    }
+    tmp_name = None
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            tmp_name = handle.name
+            json.dump(payload, handle, separators=(",", ":"))
+        os.replace(tmp_name, path)
+    except OSError as exc:
+        # The cache is an optimisation: an unwritable location costs the next
+        # run a cold build, not a wrong answer.
+        logger.warning("could not write stub coverage cache %s: %s", path, exc)
+        if tmp_name is not None:
+            Path(tmp_name).unlink(missing_ok=True)
+
+
+def _current_record(
+    path: Path, cached: dict | None, *, is_grouping: bool, trust_before_ns: int
+) -> tuple[dict, bool]:
+    """Return ``(record, changed)`` for one KB file, parsing only when needed.
+
+    Matching `(mtime_ns, size)` is trusted when the mtime is safely older than
+    the run that recorded it; otherwise the bytes are hashed, and only a
+    changed hash parses the file.
+    """
+    stat = path.stat()
+    if (
+        cached is not None
+        and cached.get("mtime_ns") == stat.st_mtime_ns
+        and cached.get("size") == stat.st_size
+        and stat.st_mtime_ns < trust_before_ns
+    ):
+        return cached, False
+    raw = path.read_bytes()
+    digest = _digest(raw)
+    if cached is not None and cached.get("digest") == digest:
+        derived = {"ids": cached.get("ids") or [], "labels": cached.get("labels") or []}
+    else:
+        derived = _derive_record(
+            safe_load(raw.decode("utf-8")), is_grouping=is_grouping, filename=path.name
+        )
+    record = {
+        "mtime_ns": stat.st_mtime_ns,
+        "size": stat.st_size,
+        "digest": digest,
+        **derived,
+    }
+    return record, True
+
+
+def build_coverage_index(
+    kb_dirs: list[Path] | None = None, *, cache_path: Path | None = None
+) -> CoverageIndex:
     """Index every MONDO ID a committed KB entry already covers.
 
     Reads `kb/disorders/` (root `disease_term`, `has_subtypes[].subtype_term`,
     and exact/narrow `mondo_mappings`) *and* `kb/groupings/` — a stub whose
     concept is already a grouping is finished work, not an open gap.
+
+    Parsing every entry takes about half a minute, and `next`, `check` and
+    `coverage` are one-shot processes, so the ids and labels each file
+    contributes are kept between runs in a small JSON file (default
+    `tmp/stub_coverage_index.json`, or `$DISMECH_STUB_COVERAGE_CACHE`). A file
+    is re-parsed only when its content hash changes, and only hashed when its
+    `(mtime_ns, size)` changes; deleted files drop out. The persistent cache is
+    used for the default KB directories or when ``cache_path`` is given, so an
+    ad hoc ``kb_dirs`` never overwrites the real one. ``DISMECH_KB_CACHE=0``
+    turns it off, as it does `dismech.kb_cache`.
     """
+    dirs = kb_dirs or default_kb_dirs()
+    persist = _coverage_cache_enabled() and (cache_path is not None or not kb_dirs)
+    store = (cache_path or default_coverage_cache_path()) if persist else None
+    dir_keys = [str(kb_dir.resolve()) for kb_dir in dirs]
+
+    started_ns = time.time_ns()
+    previous, previous_started_ns = (
+        _read_coverage_cache(store, dir_keys) if store else ([{} for _ in dirs], 0)
+    )
+    trust_before_ns = previous_started_ns - _RACY_WINDOW_NS
+    dirty = store is not None and previous_started_ns == 0
+
     index = CoverageIndex()
-    for kb_dir in kb_dirs or default_kb_dirs():
+    records: list[dict] = []
+    for kb_dir, old in zip(dirs, previous, strict=True):
+        current: dict[str, dict] = {}
+        records.append(current)
         if not kb_dir.is_dir():
+            dirty = dirty or bool(old)
             continue
         is_grouping = kb_dir.name == "groupings"
         for path in sorted(kb_dir.glob("*.yaml")):
             if path.name.endswith(".history.yaml"):
                 continue
-            data = safe_load(path.read_text(encoding="utf-8"))
-            if not isinstance(data, dict):
-                continue
+            record, changed = _current_record(
+                path,
+                old.get(path.name),
+                is_grouping=is_grouping,
+                trust_before_ns=trust_before_ns,
+            )
+            current[path.name] = record
+            dirty = dirty or changed
             rel = f"{kb_dir.name}/{path.name}"
-            for label in entry_label_strings(data):
-                normalized = normalize_label(label)
-                if is_informative_label(normalized):
-                    index.labels.setdefault(normalized, rel)
-            if is_grouping:
-                for mondo_id in _grouping_mondo_ids(data):
-                    index.ids.setdefault(mondo_id, rel)
-            else:
-                for mondo_id, _ in iter_covered_mondo_ids(data, path.name):
-                    index.ids.setdefault(mondo_id, rel)
+            for normalized in record["labels"]:
+                index.labels.setdefault(normalized, rel)
+            for mondo_id in record["ids"]:
+                index.ids.setdefault(mondo_id, rel)
+        dirty = dirty or bool(old.keys() - current.keys())
+
+    if store is not None and dirty:
+        _write_coverage_cache(store, dir_keys, records, started_ns)
     return index
 
 
@@ -336,6 +559,75 @@ def load_stubs_reporting_errors(
     return stubs, issues
 
 
+def _obsolescence_issues(stub: Stub) -> list[StubIssue]:
+    """Advisories about MONDO having retired, or decided to retire, the term.
+
+    Three findings, deliberately kept apart because they call for three
+    different actions:
+
+    - `obsolete_term` — the term is gone and nothing replaced it. There is
+      nothing to curate under it, so this is stale and `tidy` deletes it.
+    - `obsolete_term_replaced` — the term was merged into a survivor. The
+      *disease* is still uncurated, so deleting the stub would drop real queue
+      content; the fix is to repoint `mondo_id` at the replacement. This is why
+      the kind is separate rather than a longer `obsolete_term` message: `tidy`
+      keys on the kind, and must not sweep these away.
+    - `obsoletion_candidate` — MONDO has decided to retire the term but has not
+      done so yet. The term is live, so nothing is stale; a curator picking it
+      up should know where it is going before writing an entry against it.
+
+    Read from the committed stub fields (`mondo_obsolete`, `mondo_replaced_by`,
+    `mondo_obsoletion_candidate`), so this is offline and free. Where they say
+    nothing the old label heuristic still runs, as a backstop for a stub the
+    enrichment pass has not reached.
+    """
+    path, mondo_id = stub.path, stub.mondo_id
+    if stub.mondo_obsolete:
+        if stub.mondo_replaced_by:
+            return [
+                StubIssue(
+                    path,
+                    "obsolete_term_replaced",
+                    f"{mondo_id} is obsolete; replaced by {stub.mondo_replaced_by} "
+                    "— repoint `mondo_id`, do not delete",
+                    severity="advisory",
+                )
+            ]
+        return [
+            StubIssue(
+                path,
+                "obsolete_term",
+                f"{mondo_id} is an obsolete MONDO term — stale, tidy up",
+                severity="advisory",
+            )
+        ]
+
+    issues = []
+    if stub.mondo_obsoletion_candidate:
+        issues.append(
+            StubIssue(
+                path,
+                "obsoletion_candidate",
+                f"{mondo_id} is scheduled for obsoletion by MONDO: "
+                f"{' '.join(stub.mondo_obsoletion_candidate.split())}",
+                severity="advisory",
+            )
+        )
+    # Backstop for a stub the enrichment pass has not reached — or reached with
+    # a MONDO release built before the retirement landed. Only consulted when
+    # the ontology-backed fields say nothing, so it can never contradict them.
+    elif OBSOLETE_LABEL_PATTERN.match(stub.label):
+        issues.append(
+            StubIssue(
+                path,
+                "obsolete_term",
+                f"{mondo_id} is an obsolete MONDO term — stale, tidy up",
+                severity="advisory",
+            )
+        )
+    return issues
+
+
 def check_stubs(
     stub_dir: Path | None = None,
     kb_dirs: list[Path] | None = None,
@@ -373,15 +665,7 @@ def check_stubs(
             )
         if not stub.label:
             issues.append(StubIssue(path, "missing_label", "no `label`"))
-        elif OBSOLETE_LABEL_PATTERN.match(stub.label):
-            issues.append(
-                StubIssue(
-                    path,
-                    "obsolete_term",
-                    f"{mondo_id} is an obsolete MONDO term — stale, tidy up",
-                    severity="advisory",
-                )
-            )
+        issues.extend(_obsolescence_issues(stub))
 
         if stub.status not in STATUSES:
             issues.append(

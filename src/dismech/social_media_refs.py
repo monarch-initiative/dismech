@@ -1,7 +1,7 @@
-"""Guard the social-media citation ban (design decision 6b).
+"""Guard the social-media citation ban (design decision 6d).
 
 Published patient-advocacy content is citable; user-generated social-media
-content is not. That half of 6b needs its own check because the corroboration
+content is not. That half of 6d needs its own check because the corroboration
 gate cannot carry it: the corroboration rule is opt-in by tagging, so an untagged
 forum URL is invisible to it, and every other gate passes a forum citation
 happily -- the URL resolves and the snippet is a real quote from the page.
@@ -19,7 +19,8 @@ do not weaken the host list to let one case through.
 
 from __future__ import annotations
 
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 from urllib.parse import urlparse
 
 # Hosts whose content is user-generated. Suffix-matched against the reference

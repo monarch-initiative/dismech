@@ -1,4 +1,4 @@
-"""Guard the community-source corroboration rule (design decision 6b).
+"""Guard the community-source corroboration rule (design decision 6d).
 
 A reference tagged ``PatientOrganization`` may corroborate a curated claim but
 may never be the only thing supporting it. A patient-advocacy symptom page is
@@ -27,11 +27,12 @@ other fetched URL.
 
 from __future__ import annotations
 
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 # ReferenceTagEnum values marking a reference as community-sourced. A set rather
 # than a single value because the sourcing class is the thing being gated, not
-# the one tag that currently names it -- if social media becomes citable (6b
+# the one tag that currently names it -- if social media becomes citable (6d
 # defers rather than settles it), its tag joins this set and the rule applies
 # unchanged.
 COMMUNITY_REFERENCE_TAGS = frozenset({"PatientOrganization"})

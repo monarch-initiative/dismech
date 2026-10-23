@@ -30,7 +30,7 @@ def ckd_disorder():
 @pytest.fixture
 def model_config(ckd_disorder):
     """Load the CKD-MBD model config with disorder YAML."""
-    config_path = Path("models/BIOMD0000000613.config.yaml")
+    config_path = Path("models/BIOMD0000000613/config.yaml")
     if not config_path.exists():
         pytest.skip("Model config not found")
     return load_model_config(config_path, disorder=ckd_disorder)
@@ -129,7 +129,7 @@ def test_extract_variables_from_yaml():
 def test_load_config_with_disorder_yaml():
     """Test that load_model_config with disorder YAML uses YAML variables."""
     yaml_path = Path("kb/disorders/CKD-Mineral_Bone_Disorder.yaml")
-    config_path = Path("models/BIOMD0000000613.config.yaml")
+    config_path = Path("models/BIOMD0000000613/config.yaml")
     if not yaml_path.exists() or not config_path.exists():
         pytest.skip("CKD-MBD files not found")
 
@@ -149,7 +149,7 @@ def test_run_baseline_with_yaml_variables():
     from dismech.perturb.simulate import run_perturbation
 
     yaml_path = Path("kb/disorders/CKD-Mineral_Bone_Disorder.yaml")
-    config_path = Path("models/BIOMD0000000613.config.yaml")
+    config_path = Path("models/BIOMD0000000613/config.yaml")
     if not yaml_path.exists() or not config_path.exists():
         pytest.skip("CKD-MBD files not found")
     disorder = safe_load_path(yaml_path)

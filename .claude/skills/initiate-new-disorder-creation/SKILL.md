@@ -74,7 +74,6 @@ kb/disorders/Foo_Bar.yaml:
 ```yaml
 name: Foo Bar
 creation_date: "2025-06-12T20:16:27Z"
-updated_date: "2025-06-12T20:16:27Z"
 category: Complex
 disease_term:
   term:
@@ -99,8 +98,11 @@ treatments:
 datasets:
 ```
 
-`creation_date` and `updated_date` must be ISO 8601/RFC 3339 datetime strings.
-When editing an existing file, preserve `creation_date` and bump `updated_date`.
+`creation_date` must be an ISO 8601/RFC 3339 datetime string. When editing an
+existing file, preserve `creation_date`. Do not add `updated_date`: the field is
+deprecated, git history is the authoritative change log, and entries that still
+carry it may keep it until a bulk cleanup (see CLAUDE.md and the schema's
+`updated_date` description).
 
 The objects must follow the LinkML schema in src/dismech/schema.
 
@@ -278,12 +280,18 @@ Two places to look:
 
 **What to do with it:**
 
-- **Read `needs_review` first.** It is the one key that cannot give you a false
-  all-clear: it is set when any identifier failed to resolve, *or* any quote
-  failed to match, *or* any reference looks off topic. Do **not** read
-  `confabulation_rate` as the whole-report signal — it measures identifier
-  resolution and nothing else, so a report whose every PMID exists but whose
-  quotes do not match still reports `0.0`.
+- **Read `needs_review` first.** It is set when any identifier failed to
+  resolve, *or* any quote failed to match, *or* any reference looks off topic.
+  Do **not** read `confabulation_rate` as the whole-report signal — it measures
+  identifier resolution and nothing else, so a report whose every PMID exists but
+  whose quotes do not match still reports `0.0`.
+- **An absent `needs_review` is not an all-clear on its own.** The key is written
+  only when true, and nine committed reports omit it although their own block
+  meets a trigger (`Bone_Giant_Cell_Tumor` has `quotes_valid: 0` of
+  `quotes_checked: 4`; #11794). When the key is absent, check the triggers
+  yourself: `not_found`, `unresolved_references`, `quotes_valid` against
+  `quotes_checked`, and `off_topic`. `just dr-validation-census --needs-review`
+  lists every report that meets a trigger, with or without the key.
 - Anything under `unresolved_references` — **do not cite it.** Either find a
   different source for the claim or drop the claim. Do not "verify it yourself"
   by fetching it again and moving on if it happens to work the second time
@@ -321,7 +329,15 @@ it catches Named Entity Confusion — run `just preflight-dr` as usual. **The
 relevance check is not a substitute for that**: references are scored against
 *the report's own* vocabulary, so a report built around the wrong disease has
 wrong-disease vocabulary too and scores all of its wrong-disease citations as
-on topic. See
+on topic. Term validation cannot see it either, because a wrong-disease
+report's identifiers are correct *for the disease it is actually about*. So a
+clean validation table does not tell you the report is about your disease.
+The first openscientist report for CMD2H (GET3/ASNA1) was about CMD2D
+(RPL3L). It mentioned RPL3L 44 times and GET3 never, yet it came back with
+19/19 references resolved and 0 off topic. One failed quote match was the only
+warning ([#10495](https://github.com/monarch-initiative/dismech/issues/10495)).
+Run `just preflight-dr`; do not assume it would pass because the table is
+clean. See
 [`docs/deep-research-reference-validation.md`](../../../docs/deep-research-reference-validation.md).
 
 #### Term validation
@@ -382,16 +398,36 @@ source.
 > coverage is unlikely, skip directly to Step 4 — the PubMed search below will
 > confirm either way.
 
-#### 1. Search PubMed for a GeneReviews article
+#### 1. Check for a GeneReviews chapter
+
+Once the YAML carries its `name`, `synonyms` and `disease_term`, run the offline
+check against the committed Bookshelf index (`--online` adds a live PubMed
+title search when you have network, for chapters newer than the snapshot):
+
+```bash
+just check-genereviews --online kb/disorders/<Entry>.yaml
+```
+
+`UNTAGGED_CHAPTER` or `CITED_UNTAGGED` on the `GeneReviews` line names the
+chapter (PMID and title); `CANDIDATE_CHAPTER` lists partial title matches for
+you to read; `NO_CHAPTER` means none names the disease. If the report adds
+`note: entry has no synonyms`, the check matched only the name and
+`disease_term`, so its `NO_CHAPTER` proves nothing yet: chapters are often
+titled by a synonym (#12075). Add the synonyms and re-run before writing that
+no chapter exists. If the disease has no synonyms anywhere, write
+`synonyms: []` to record that. The reviewer runs the
+same check, so its verdict is what the review will see. The `StatPearls` line
+is informational — a StatPearls chapter may be cited for orientation but is
+never the baseline (see `docs/genereviews-baseline-check.md`).
+
+Before the file exists, the same question can be put to PubMed directly with
+the `[book]` field, which selects GeneReviews chapters exactly:
 
 ```bash
 curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi" \
-  --data-urlencode "db=pubmed" \
-  --data-urlencode "retmode=json" \
-  --data-urlencode "term=<DISEASE_NAME>[TI] GeneReviews[TI]"
+  --data-urlencode "db=pubmed" --data-urlencode "retmode=json" \
+  --data-urlencode "term=<DISEASE_NAME>[TI] AND genereviews[book]"
 ```
-
-If no results, try a broader search: `<DISEASE_NAME> GeneReviews[All Fields]`
 
 #### 2. If a PMID is found, fetch and cache it
 
@@ -454,7 +490,8 @@ When frequency is ambiguous, **omit `frequency:`** rather than guessing.
 
 If no GeneReviews article exists for the disease, proceed to Step 4
 without this baseline. No action needed — the absence itself is not a
-problem.
+problem. A one-line `notes:` sentence recording it is still worth writing,
+and the reviewer's `just check-genereviews` run is what verifies it.
 
 ---
 
@@ -473,11 +510,158 @@ The `just fetch-reference` command can accept multiple identifiers of different 
 
 You can also find additional references relevant to individual assertions, on top of what is in the deep research.
 
+#### Which citations to take
+
+Work from the report's `.citations.md` companion file, not from whichever
+identifiers happened to appear in the prose you read most closely. The report
+body cites the same paper in several places and omits some of its sources from
+the narrative entirely, so reading the body alone gives you an arbitrary subset.
+
+Most reports have one; `--fallback` runs often do not. When the sidecar is
+missing, sweep the body for identifiers rather than reading linearly, so the set
+you work from is still the report's and not your reading path's:
+
+```bash
+grep -oE "PMIDs?:? ?[0-9]{6,9}\b" research/DISORDER-deep-research-PROVIDER.md \
+  | grep -oE "[0-9]{6,9}" | sort -u
+```
+
+The pattern accepts `PMID:123`, `PMID: 123`, `PMID 123` and `PMIDs 123`,
+because providers do not agree on a separator. `openscientist` report bodies
+write `PMID 23023331` with a space, so a colon-only pattern returns nothing on
+them, and that empty result looks exactly like a report with no PMIDs (#10979).
+Its sidecar, when there is one, uses the colon form, but it is not written on
+every run of the same command. So an empty result from the sidecar *or* from
+this sweep is not evidence that the report has no fetchable identifiers. Check
+the other one before concluding that.
+
+Two limits. In a list such as `(PMID 29112224, 23023331)` only the first number
+follows the word `PMID`, so only the first is caught; read the lines the sweep
+matched for trailing numbers. And the trailing `\b` drops a digit run longer
+than nine characters rather than truncating it into a plausible-looking PMID.
+
+That covers about nine in ten sidecar-less reports. Where it returns nothing,
+look for DOIs before giving up. `falcon` reports are the usual case: they cite
+by author-year key (`martelli2024clinicalspectrumof`), which is not a fetchable
+identifier, and the sidecar-less ones carry no PMID strings at all — but most
+do carry DOI links, which are fetchable.
+
+```bash
+grep -oE "doi\.org/10\.[^ ;|,)]+" research/DISORDER-deep-research-PROVIDER.md | sort -u
+```
+
+Fetch those with `just fetch-reference DOI:<id>`. Then look each one up in
+PubMed and cite the PMID in preference — a DOI-keyed item is not checked by the
+gating validator, so the PMID is worth the extra lookup. Only for keys with no
+DOI beside them do you have to search PubMed by author, year and title words.
+
+Re-running the report is the last resort, not the first: a sidecar-less report
+usually still names its sources, and a re-run costs a provider call for
+identifiers already sitting in the file.
+
+Let the *claims you are curating* choose the references, not a target count. Every
+assertion you write needs its own citation, so the number falls out of how much of
+the entry the report actually supports. If a well-covered report leaves you with
+two or three references, you have almost certainly dropped claims it supported.
+
+Two preferences that are not just taste:
+
+- **Prefer a PMID over a DOI for the same paper.** `DOI:` is in `skip_prefixes`
+  in `conf/reference_validator_config.yaml`, so a DOI-keyed evidence item is not
+  snippet-checked by the gating validator — CI will not catch a bad quote there.
+  Look the paper up and cite its PMID when it has one.
+
+  When there is genuinely no PubMed record, `DOI:` is fine, but check the quote
+  yourself rather than leaving it unverified. The body is cached like any other,
+  and the audit tool takes a flag for exactly this:
+
+  ```bash
+  just count-verified-snippets --unskip-prefix DOI kb/disorders/YourFile.yaml
+  ```
+
+  Say in the history record that you ran it, since the PR's own CI will not.
+- **Prefer the peer-reviewed version of a `PPR:` preprint** when one exists —
+  for a different reason: a preprint's text can differ from the published
+  paper's, so a quote taken from it may not survive. This is not a validation
+  gap; `PPR:` is *not* in `skip_prefixes` and its snippets are checked normally.
+  When only the preprint exists, cite it and say so in the `explanation`.
+- **Prefer the primary report over the review that cites it** for a specific
+  finding — a number, a cohort frequency, an experimental result. Reviews are
+  the right citation for a synthesis claim ("X is the dominant mechanism"), and
+  they are often the only place a pooled figure exists, in which case cite the
+  review and let the snippet say it is pooled.
+
+A citation the report listed but you could not use is worth a line in the history
+record when the reason is substantive — the paper turned out to be about a
+different disease, or reported a negative result the report read as positive.
+
 Note that a validated report (Step 3a) has already fetched most of these — its
 lookups are cached into the same `references_cache/` — so `just fetch-reference`
 on a reference the report resolved is a cache hit and returns immediately. Run it
 anyway rather than assuming; it costs nothing when the file is already there, and
 it is still required for any reference you found outside the report.
+
+#### Build the pathophysiology as a chain, not a list
+
+The research template asks for mechanism content by *category* — molecular
+pathways, cellular processes, protein dysfunction, tissue damage — so a report
+comes back sorted into those buckets. That grouping is an artifact of how the
+question was asked. It is not the structure the entry wants, and transcribing it
+one bucket to one node produces a flat list of disconnected mechanisms.
+
+The entry wants a causal chain. Read across the report's buckets and ask what
+causes what, then connect the nodes with `downstream`:
+
+```yaml
+pathophysiology:
+- name: FBN1 Haploinsufficiency
+  biological_scale: MOLECULAR
+  downstream:
+  - target: Excess TGF-beta Signaling
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:nnnnnnnn
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: "exact quote showing this step causes the next one"
+      explanation: Why this supports the edge, not merely either node.
+- name: Excess TGF-beta Signaling
+  biological_scale: CELLULAR
+  downstream:
+  - target: Medial Elastic Fiber Fragmentation
+- name: Medial Elastic Fiber Fragmentation
+  biological_scale: TISSUE
+```
+
+`target` is a foreign key to another node's `name` in the same file, so it must
+match exactly. A node may name several downstream targets where the mechanism
+genuinely branches.
+
+The `evidence` on an edge is a **different claim** from the evidence on either
+node it connects: the schema's own wording is "evidence that supports this
+specific edge (not just the parent node-level claim)". Two well-cited nodes do
+not establish that one causes the other, so cite the edge separately where a
+source actually makes the causal claim. It is not required, and an uncited edge
+the report clearly asserts is fine — but do not reach for a node's citation to
+paper over an edge you cannot source.
+
+The report usually states the causality even when its layout hides it — "leads
+to", "resulting in", "consequently", or a pathway described in order within one
+bucket. Where it does not, and you cannot source the link, leave the edge out
+rather than inventing it: an unconnected node is honest, a fabricated edge is
+not.
+
+Two failure modes to watch for while you do this:
+
+- **A node that would take two `biological_scale` values is bundling two
+  claims.** Split it and put an edge between the halves. That tag is
+  single-valued precisely so this shows up.
+- **A node with no upstream and no downstream** is either the initiating lesion,
+  a genuine gap, or a phenotype that wandered into the wrong section. Decide
+  which before leaving it.
+
+`just check-entity-refs kb/disorders/YourFile.yaml` verifies every `target`
+resolves. It does not check that the chain is complete — only a reader can.
 
 #### Including Images from Deep Research Artifacts
 
@@ -650,7 +834,8 @@ phenotypes:
   description: <Description from research>
   evidence:
   - reference: PMID:XXXXXXXX
-    supports: <SUPPORT | REFUTE | PARTIAL>
+    supports: <SUPPORT | REFUTE | NO_EVIDENCE>
+    directness: <DIRECT | INDIRECT>   # optional; omit unless actually assessed
     evidence_source: <HUMAN_CLINICAL | MODEL_ORGANISM | IN_VITRO | COMPUTATIONAL>
     snippet: "<Exact quote from abstract>"
     explanation: "<Why this supports the phenotype>"
@@ -664,11 +849,18 @@ The same generic `evidence` list schema is used for most types.
 
 Add term objects using ontology term IDs; for example, for a `pathophsyiology` object, it might look like this:
 
+The `downstream` and `biological_scale` lines below are the ones covered under
+"Build the pathophysiology as a chain, not a list" in Step 4 — that section says
+how to choose them; this one is only the shape.
+
 ```
 pathophysiology:
 - name: <Mechanism Name>
   description: >
     <Detailed mechanism description from research>
+  biological_scale: MOLECULAR | CELLULAR | TISSUE | ORGANISM
+  downstream:
+  - target: <name of the node this one causes>
   cell_types:
   - preferred_term: <Cell Type>
     term:
@@ -837,7 +1029,7 @@ All evidence items MUST:
 - The quoted text must be from the PMID's abstract
 - Fetch, then check against the cache: `just count-verified-snippets <file>` —
   seconds, offline, and it names each snippet it could not find
-- `just validate-references <file>` is the slow full check; use
+- `just validate-kb-references <file>` is the slow full check; use
   `--fix-threshold 0.80` there to auto-repair minor mismatches
 
 ### "Required field missing"
@@ -864,7 +1056,9 @@ When asked to address review comments on an existing PR:
    - Each reviewer issue and how you addressed it
    - Any issues you intentionally did NOT fix, with reasoning
    - Validation results after fixes
-5. **Use `supports: PARTIAL`** when evidence is indirect — don't overstate evidence strength
+5. **Use `directness: INDIRECT`** when the quote supports the claim through an inference
+   step rather than stating it — `supports` stays `SUPPORT`. If the quote instead supports
+   one part of the claim and contradicts another, that is two evidence items, not one
 6. **If evidence doesn't support a claim, find better evidence** rather than arguing about evidence_source classification
 7. **Verify ontology terms with OAK** when the reviewer questions them — don't assume
 

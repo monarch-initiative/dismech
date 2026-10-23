@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT07085039"
+reference_id: clinicaltrials:NCT07085039
 title: "A Phase II, Single-Arm Open-Label Multi-Center Study of Ruxolitinib in Previously Treated Idiopathic Multicentric Castleman Disease"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase II, Single-Arm Open-Label Multi-Center Study of Ruxolitinib in Previously Treated Idiopathic Multicentric Castleman Disease

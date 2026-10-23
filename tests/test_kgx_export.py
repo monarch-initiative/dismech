@@ -1,5 +1,7 @@
 """Tests for KGX edge and node exporter."""
 
+from pathlib import Path
+
 import pytest
 
 pytest.importorskip("biolink_model", reason="biolink-model not installed (install with: uv sync --group export)")
@@ -338,6 +340,69 @@ class TestGeneToEdge:
         assert gene_to_edge("MONDO:0004979", None) is None
 
 
+class TestModifierCurieMap:
+    """The qualifier vocabulary is derived from the schema, not invented here."""
+
+    def test_modifier_curies_match_schema_meanings(self):
+        """Every PATO CURIE in the map is the schema's own `meaning` (#9131).
+
+        The map is hardcoded for runtime simplicity, so this is what stops it
+        drifting from `ModifierEnum`. The generated datamodel cannot be used as
+        the source — it carries no `meaning:` and is missing two permissible
+        values — so the schema YAML is read directly.
+        """
+        import yaml
+
+        from dismech.export.kgx_export import MODIFIER_TO_CURIE
+
+        schema = yaml.safe_load(
+            (Path(__file__).parent.parent / "src/dismech/schema/dismech.yaml").read_text()
+        )
+        values = schema["enums"]["ModifierEnum"]["permissible_values"]
+
+        # every value is exported, none silently dropped
+        assert set(MODIFIER_TO_CURIE) == set(values)
+
+        for name, pv in values.items():
+            meaning = (pv or {}).get("meaning")
+            if meaning:
+                assert MODIFIER_TO_CURIE[name] == meaning, (
+                    f"{name} is bound to {meaning} in the schema"
+                )
+            else:
+                # no ontology term -> the dismech namespace, qualified by the
+                # enum so it cannot collide with a same-named value elsewhere
+                assert MODIFIER_TO_CURIE[name] == f"dismech:ModifierEnum#{name}"
+
+    def test_no_qualifier_is_a_bare_string(self):
+        """Biolink types `qualifiers` as `range: ontology class` (#9131).
+
+        A `direction:increased`-style entry claims a namespace that does not
+        exist, which is what this whole vocabulary change is about.
+        """
+        from dismech.export.kgx_export import MODIFIER_TO_CURIE
+
+        for value in MODIFIER_TO_CURIE.values():
+            prefix, _, local = value.partition(":")
+            assert local, f"{value} is not a CURIE"
+            assert prefix in {"PATO", "dismech"}, f"{prefix} is not a declared prefix"
+
+    def test_unbound_values_are_namespaced_by_their_enum(self):
+        """A flat `dismech:GAIN_OF_FUNCTION` would name two different concepts.
+
+        GAIN_OF_FUNCTION and LOSS_OF_FUNCTION are `FunctionalImpactEnum` values
+        too, where they describe a variant's consequence rather than a pathway's
+        activity state — CLAUDE.md keeps those apart, and they can co-occur on a
+        single node. 18 permissible-value names in the schema are shared this way.
+        """
+        from dismech.export.kgx_export import MODIFIER_TO_CURIE
+
+        for value in MODIFIER_TO_CURIE.values():
+            if value.startswith("dismech:"):
+                assert "#" in value, f"{value} is not qualified by its enum"
+                assert value.startswith("dismech:ModifierEnum#")
+
+
 class TestExposureToEdge:
     """Tests for exposure_to_edge function."""
 
@@ -449,6 +514,194 @@ class TestExposureToEdge:
         edge = exposure_to_edge("MONDO:0004979", environmental)
         assert edge.predicate == "biolink:contributes_to"
 
+    def test_disease_effect_outranks_mechanism_links(self):
+        """A declared disease_effect wins over the mechanism-link reading (#11112).
+
+        This is the case the unanimity rule could not decide: the exposure
+        protects against the disease while driving one of its mechanisms.
+        """
+        environmental = {
+            "exposure_term": {"term": {"id": "ECTO:0000001"}},
+            "disease_effect": "PROTECTS_AGAINST",
+            "influences_mechanisms": [
+                {"target": "Mechanism A", "environmental_effect": "TRIGGERS"},
+                {"target": "Mechanism B", "environmental_effect": "PROTECTS_AGAINST"},
+            ],
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.predicate == "biolink:associated_with_decreased_likelihood_of"
+
+    def test_disease_effect_outranks_protective_free_text(self):
+        """Declared direction beats prose that says the opposite (#11112)."""
+        environmental = {
+            "effect": "Reduces risk of flares.",
+            "exposure_term": {"term": {"id": "ECTO:0000001"}},
+            "disease_effect": "PREDISPOSES",
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.predicate == "biolink:predisposes_to_condition"
+
+    def test_disease_effect_alone_needs_no_mechanism_link(self):
+        """The shape this slot exists for: a risk claim that names no node (#11112)."""
+        environmental = {
+            "name": "Alcohol exposure",
+            "exposure_term": {"term": {"id": "ECTO:0001082"}},
+            "disease_effect": "PREDISPOSES",
+            "causal_role": "RISK_FACTOR",
+        }
+        edge = exposure_to_edge("MONDO:0007254", environmental)
+        assert edge.predicate == "biolink:predisposes_to_condition"
+
+    @pytest.mark.parametrize(
+        ("disease_effect", "predicate"),
+        [
+            ("TRIGGERS", "biolink:causes"),
+            ("EXACERBATES", "biolink:exacerbates_condition"),
+            ("PREDISPOSES", "biolink:predisposes_to_condition"),
+            ("PROTECTS_AGAINST", "biolink:associated_with_decreased_likelihood_of"),
+            ("MODULATES", "biolink:associated_with"),
+        ],
+    )
+    def test_each_disease_effect_has_its_own_predicate(self, disease_effect, predicate):
+        """Declared direction is exported at full resolution, not collapsed (#11112)."""
+        environmental = {
+            "exposure_term": {"term": {"id": "ECTO:0000001"}},
+            "disease_effect": disease_effect,
+        }
+        assert exposure_to_edge("MONDO:0004979", environmental).predicate == predicate
+
+    @pytest.mark.parametrize("disease_effect", ["TRIGGERS", "EXACERBATES", "PREDISPOSES", "MODULATES"])
+    def test_associated_only_causal_role_emits_no_causal_predicate(self, disease_effect):
+        """ASSOCIATED_ONLY disclaims causation, so the edge must not assert it (#11112)."""
+        environmental = {
+            "exposure_term": {"term": {"id": "ECTO:0000001"}},
+            "disease_effect": disease_effect,
+            "causal_role": "ASSOCIATED_ONLY",
+        }
+        assert exposure_to_edge("MONDO:0004979", environmental).predicate == "biolink:associated_with"
+
+    def test_associated_only_keeps_protective_direction(self):
+        """A protective association is already non-causal and keeps its direction."""
+        environmental = {
+            "exposure_term": {"term": {"id": "ECTO:0000001"}},
+            "disease_effect": "PROTECTS_AGAINST",
+            "causal_role": "ASSOCIATED_ONLY",
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.predicate == "biolink:associated_with_decreased_likelihood_of"
+
+    def test_absent_disease_effect_preserves_legacy_behaviour(self):
+        """Entries without the new slot must read exactly as before (#11112)."""
+        environmental = {
+            "effect": "Reduces risk of severe disease.",
+            "exposure_term": {"term": {"id": "ECTO:0000001"}},
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.predicate == "biolink:associated_with_decreased_likelihood_of"
+
+    def test_decreased_modifier_emits_pato_curie(self):
+        """A deficiency exposure must not export as plain exposure (#8468).
+
+        Reproduces the Anencephaly maternal-folate-deficiency entry: the ECTO
+        subject is "exposure to folic acid", but the curated claim is that
+        *low* folate triggers the defect. Without the qualifier the triple
+        asserts the opposite of the YAML.
+        """
+        environmental = {
+            "name": "Maternal Folate Deficiency",
+            "exposure_term": {
+                "preferred_term": "low maternal folic acid exposure",
+                "modifier": "DECREASED",
+                "term": {"id": "ECTO:9000123", "label": "exposure to folic acid"},
+            },
+            "influences_mechanisms": [
+                {
+                    "target": "Disrupted Folate One-Carbon Metabolism",
+                    "environmental_effect": "TRIGGERS",
+                }
+            ],
+        }
+        edge = exposure_to_edge("MONDO:0008742", environmental)
+        assert edge is not None
+        assert edge.subject == "ECTO:9000123"
+        assert edge.predicate == "biolink:contributes_to"
+        assert edge.qualifiers == ["PATO:0002301"]
+
+    def test_increased_modifier_emits_pato_curie(self):
+        """An INCREASED modifier is a fidelity gain, not an inversion (#8468)."""
+        environmental = {
+            "name": "High Sodium Diet",
+            "exposure_term": {
+                "modifier": "INCREASED",
+                "term": {"id": "ECTO:9001347", "label": "exposure to sodium chloride"},
+            },
+            "influences_mechanisms": [
+                {"target": "Sodium Retention", "environmental_effect": "TRIGGERS"}
+            ],
+        }
+        edge = exposure_to_edge("MONDO:0001134", environmental)
+        assert edge.qualifiers == ["PATO:0002300"]
+
+    def test_modifier_is_independent_of_predicate(self):
+        """Direction qualifies the subject; the predicate still reads the effect.
+
+        Periconceptional folate supplementation (Ventricular_Septal_Defect) is
+        an INCREASED exposure that PROTECTS_AGAINST — both signals must survive.
+        """
+        environmental = {
+            "name": "Periconceptional folic acid supplementation",
+            "exposure_term": {
+                "modifier": "INCREASED",
+                "term": {"id": "ECTO:9000123", "label": "exposure to folic acid"},
+            },
+            "influences_mechanisms": [
+                {"target": "Cardiac Septation", "environmental_effect": "PROTECTS_AGAINST"}
+            ],
+        }
+        edge = exposure_to_edge("MONDO:0002526", environmental)
+        assert edge.predicate == "biolink:associated_with_decreased_likelihood_of"
+        assert edge.qualifiers == ["PATO:0002300"]
+
+    def test_no_modifier_emits_no_qualifiers(self):
+        """An exposure without a modifier keeps qualifiers unset."""
+        environmental = {
+            "exposure_term": {"term": {"id": "ECTO:6000029"}},
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.qualifiers is None
+
+    @pytest.mark.parametrize(
+        "modifier,expected",
+        [
+            ("ABSENT", "PATO:0000462"),
+            ("ABNORMAL", "PATO:0000460"),
+            ("DYSREGULATED", "dismech:ModifierEnum#DYSREGULATED"),
+        ],
+    )
+    def test_every_modifier_exports_as_a_curie(self, modifier, expected):
+        """No ModifierEnum value is dropped, and none becomes a non-CURIE.
+
+        ABSENT needs no lossy projection onto "decreased" — PATO carries its own
+        `absent`. DYSREGULATED has no ontology term at all, so it takes the
+        dismech namespace rather than being silently discarded.
+        """
+        environmental = {
+            "exposure_term": {"modifier": modifier, "term": {"id": "ECTO:9000123"}},
+        }
+        edge = exposure_to_edge("MONDO:0000819", environmental)
+        assert edge.qualifiers == [expected]
+
+    def test_the_same_curie_is_used_on_a_disease_process_edge(self):
+        """One vocabulary across every edge type — no per-site variant (#9131).
+
+        The exposure edge qualifies its subject and this one its object, but the
+        CURIE is the same because the curated modifier is.
+        """
+        process = {"term": {"id": "GO:0016301"}, "modifier": "ABSENT"}
+        assert biological_process_to_edge("MONDO:0004979", process).qualifiers == [
+            "PATO:0000462"
+        ]
+
 
 class TestMolecularFunctionToEdge:
     """Tests for molecular_function_to_edge function."""
@@ -467,7 +720,7 @@ class TestMolecularFunctionToEdge:
         assert edge.object == "GO:0016301"
         assert edge.subject_category == "biolink:Disease"
         assert edge.object_category == "biolink:MolecularActivity"
-        assert "direction:increased" in edge.qualifiers
+        assert edge.qualifiers == ["PATO:0002300"]
 
     def test_missing_term_id(self):
         """Test with missing term.id."""
@@ -496,6 +749,19 @@ class TestCellularComponentToEdge:
         """Test with missing term.id."""
         component = {"preferred_term": "cilium"}
         assert cellular_component_to_edge("MONDO:0004979", component) is None
+
+    def test_cellular_component_carries_no_direction(self):
+        """This edge does not read `modifier`, and docs/kgx-export.md says so.
+
+        The direction-carrying edges are biological process, molecular function,
+        and pathway; a cellular component is a location rather than a level, so
+        there is nothing for a direction to qualify.
+        """
+        component = {
+            "term": {"id": "GO:0005929", "label": "cilium"},
+            "modifier": "DECREASED",
+        }
+        assert cellular_component_to_edge("MONDO:0004979", component).qualifiers is None
 
 
 class TestChemicalEntityToEdge:
@@ -538,7 +804,7 @@ class TestPathwayToEdge:
         assert edge.object == "GO:0016055"
         assert edge.subject_category == "biolink:Disease"
         assert edge.object_category == "biolink:Pathway"
-        assert "direction:decreased" in edge.qualifiers
+        assert edge.qualifiers == ["PATO:0002301"]
 
     def test_missing_term_id(self):
         """Test with missing term.id."""

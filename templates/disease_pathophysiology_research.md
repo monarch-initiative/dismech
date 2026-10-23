@@ -3,7 +3,17 @@
 ## Target Disease
 - **Disease Name:** {disease_name}
 - **MONDO ID:** {mondo_id} (if available)
+- **Causal gene(s):** {causal_genes}
+- **OMIM:** {omim_id}
+- **Synonyms:** {synonyms}
 - **Category:** {category}
+
+Many disease names are serial numbers ("... autosomal dominant 64", "... 26") that
+do not say which gene the disease is about, and a similarly named disease with a
+different gene is easy to research by mistake. Research the disease with the MONDO
+ID and causal gene given above, and name its causal gene in your first paragraph.
+If the name seems to point to a different gene or OMIM entry, follow the
+identifiers above.
 
 ## Research Objectives
 
@@ -87,6 +97,16 @@ For each phenotype, provide:
   > **Search first:** NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON
 
 ### 6. Mechanism / Pathophysiology
+
+**Present this section as an ordered causal chain first, then the detail below.**
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.
 
 - **Molecular Pathways**: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)
   > **Search first:** KEGG, Reactome, WikiPathways, PathBank, BioCyc

@@ -23,6 +23,7 @@ from scripts.check_snippet_length import (
     baseline_from_ref,
     count_words,
     find_violations,
+    is_record_line,
     is_structured_row,
     load_baseline,
     new_findings,
@@ -47,6 +48,7 @@ def _entry(snippet: str, reference: str = "PMID:1") -> dict:
     return {"evidence": [{"reference": reference, "snippet": snippet}]}
 
 
+@pytest.mark.ci_step_twin("scripts/check_snippet_length.py")
 def test_no_new_short_snippets():
     # resolve_baseline() grandfathers against origin/main when CI sets
     # SNIPPET_BASELINE_REF (so the base branch is green by construction and
@@ -86,6 +88,74 @@ def test_structured_source_table_row_is_exempt():
     assert not _violations(_entry(row, reference="ORPHA:558"))
 
 
+_ORPHA_RECORD = """---
+reference_id: "ORPHA:558"
+title: "Marfan syndrome"
+---
+
+# ORPHA:558  Marfan syndrome
+
+## Inheritance
+
+- Autosomal dominant
+
+## Natural history
+
+- Age of onset: Infancy
+
+## Definition
+
+A disease that is autosomal dominant in most families.
+"""
+
+
+def _orpha_violations(tmp_path, snippet, reference="ORPHA:558"):
+    (tmp_path / "ORPHA_558.md").write_text(_ORPHA_RECORD, encoding="utf-8")
+    return list(
+        find_violations(
+            Path("test.yaml"),
+            _entry(snippet, reference=reference),
+            EXCERPT_FIELDS,
+            REFERENCE_FIELDS,
+            cache_dir=tmp_path,
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    "snippet", ["Autosomal dominant", "- Autosomal dominant", "Age of onset: Infancy"]
+)
+def test_orpha_bullet_line_is_exempt(tmp_path, snippet):
+    # A one-line Orphanet field names one fact about one disease (#14443).
+    assert not _orpha_violations(tmp_path, snippet)
+
+
+def test_same_text_under_a_pmid_is_not_exempt(tmp_path):
+    assert _orpha_violations(tmp_path, "Autosomal dominant", reference="PMID:1")
+
+
+def test_fragment_of_a_record_line_is_not_exempt(tmp_path):
+    # "is autosomal dominant" sits inside the Definition sentence, not on its own.
+    assert _orpha_violations(tmp_path, "is autosomal dominant")
+    assert _orpha_violations(tmp_path, "Age of onset")
+
+
+def test_record_line_needs_the_cited_record(tmp_path):
+    # A line from ORPHA:558 does not exempt a quote citing a different record.
+    assert _orpha_violations(tmp_path, "Autosomal dominant", reference="ORPHA:999")
+    assert not is_record_line("ORPHA:558", "Autosomal dominant", cache_dir=tmp_path / "x")
+
+
+def test_frontmatter_lines_are_not_record_lines(tmp_path):
+    assert _orpha_violations(tmp_path, 'title: "Marfan syndrome"')
+
+
+@pytest.mark.parametrize("snippet", ["## Inheritance", "Inheritance", "# ORPHA:558 Marfan syndrome"])
+def test_headings_and_title_are_not_record_lines(tmp_path, snippet):
+    # Whole lines, but not record fields: quoting a heading claims nothing.
+    assert _orpha_violations(tmp_path, snippet)
+
+
 def test_pipeless_short_snippet_is_not_exempt():
     assert not is_structured_row("Hearing loss")
     assert _violations(_entry("Hearing loss"))
@@ -101,10 +171,30 @@ def test_pipeless_short_snippet_is_not_exempt():
         ("c.142G > A in MAP3K7", 4),
         ("   spaced   out   words  ", 3),
         ("--- ...", 0),
+        # Chinese and Japanese: one word per Han or kana character (#11530).
+        ("遗传性嘧啶5′核苷酸酶缺乏症是一种罕见的红细胞酶异常相关的溶血性贫血。", 33),
+        ("本症例は先天性溶血性貧血と診断された症例である。", 23),
+        # A Latin token inside CJK text counts once, beside its characters.
+        ("UGT1A1基因突变", 5),
+        # The katakana middle dot is punctuation, not a word.
+        ("・", 0),
+        # Korean spaces its words, so a Hangul token counts once.
+        ("유전성 빈혈", 2),
     ],
 )
 def test_word_counting(snippet, expected):
     assert count_words(snippet) == expected
+
+
+def test_a_cjk_sentence_is_not_flagged_as_a_bare_label():
+    """A full Chinese or Japanese sentence was 0-1 "words" and always failed."""
+    assert not _violations(_entry("遗传性嘧啶5′核苷酸酶缺乏症是一种罕见的红细胞酶异常相关的溶血性贫血。"))
+    assert not _violations(_entry("本症例は先天性溶血性貧血と診断された症例である。"))
+
+
+def test_a_short_korean_label_is_still_flagged():
+    """Hangul counts per spaced word, not per syllable, so a label stays short."""
+    assert _violations(_entry("유전성 용혈성 빈혈"))
 
 
 def test_snippet_without_a_reference_is_ignored():

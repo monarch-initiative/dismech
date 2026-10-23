@@ -23,6 +23,7 @@ from .model import (
     load_stubs,
     load_stubs_reporting_errors,
 )
+from .obsolescence import default_mondo_db, load_obsolescence
 from .seed import seed_stubs
 
 #: Must match the `--limit` in the `just fetch-claims` recipe.
@@ -104,6 +105,14 @@ def next_command(
         "--include-claimed",
         help="Do not filter out diseases with an open claim issue.",
     ),
+    include_stale: bool = typer.Option(
+        False,
+        "--include-stale",
+        help=(
+            "Do not filter out stale stubs (disease already curated, or MONDO "
+            "term retired with no replacement)."
+        ),
+    ),
     alpha: bool = typer.Option(
         False, "--alpha", help="Sort alphabetically within a band instead of by hash."
     ),
@@ -129,12 +138,31 @@ def next_command(
     spread — there is no computed score, and no ranking within a band. This is a
     pool to choose from, not a recommendation: pick the disease you actually
     know something about rather than the first row.
+
+    Stale stubs (`already_curated`, `obsolete_term`; see `STALE_KINDS`) are left
+    out, because `tidy` would delete them and nobody should claim one in the
+    meantime. Every other advisory `check` raises on a stub, such as
+    `possible_kb_duplicate`, keeps it in the pool and is printed beside it, so
+    the lump/split call is made before the claim rather than after.
     """
     stubs = [
         s
         for s in load_stubs(stub_dir)
         if s.status == "OPEN" and s.entry_type in {"UNDECIDED", "DISEASE"}
     ]
+
+    # Reuse `check`'s own classification rather than re-deriving staleness here,
+    # so `next` and `tidy` can never disagree about which stubs are stale.
+    advisories: dict[Path, list] = {}
+    for issue in check_stubs(stub_dir):
+        if issue.path is not None and issue.severity != "error":
+            advisories.setdefault(issue.path, []).append(issue)
+    if not include_stale:
+        stubs = [
+            s
+            for s in stubs
+            if not any(i.kind in STALE_KINDS for i in advisories.get(s.path, []))
+        ]
 
     claimed = _load_claim_index(claims_path)
     if claimed is not None and not include_claimed:
@@ -158,6 +186,10 @@ def next_command(
                         "stub_path": str(s.path.relative_to(Path.cwd()))
                         if s.path.is_relative_to(Path.cwd())
                         else str(s.path),
+                        "advisories": [
+                            {"kind": i.kind, "message": i.message}
+                            for i in advisories.get(s.path, [])
+                        ],
                     }
                     for s in picked
                 ],
@@ -172,6 +204,8 @@ def next_command(
     for stub in picked:
         typer.echo(f"{stub.priority:6s} {stub.mondo_id}  {stub.label}")
         typer.echo(f"       {stub.path.name}")
+        for issue in advisories.get(stub.path, []):
+            typer.echo(f"       [advisory] {issue.kind}: {issue.message}")
 
 
 def _read_json_arg(path: str | None):
@@ -265,7 +299,17 @@ def claims_command(
 
 #: Findings that mean "the queue drifted", not "this file is broken". These are
 #: what `tidy` clears and what `check` refuses to gate on.
+#:
+#: `obsolete_term_replaced` is deliberately NOT here. A merged term still names
+#: a disease nobody has curated — the identifier moved, the work did not — so
+#: deleting the stub would silently drop real queue content. Those are repointed
+#: at the replacement instead, and `tidy` lists them for a person rather than
+#: sweeping them. Nor is `obsoletion_candidate`: that term is still live.
 STALE_KINDS = ("already_curated", "obsolete_term")
+
+#: Advisories `tidy` reports but never acts on, because the remedy is an edit
+#: rather than a deletion.
+REPOINT_KINDS = ("obsolete_term_replaced", "obsoletion_candidate")
 
 
 @app.command("tidy")
@@ -282,7 +326,17 @@ def tidy_command(
     are informative, not curated content — so this is a periodic sweep rather
     than something a curator is ever asked to service mid-task.
     """
-    stale = [i for i in check_stubs(stub_dir) if i.kind in STALE_KINDS]
+    findings = check_stubs(stub_dir)
+    stale = [i for i in findings if i.kind in STALE_KINDS]
+    repoint = [i for i in findings if i.kind in REPOINT_KINDS]
+    if repoint:
+        typer.echo(
+            f"needs a repointed `mondo_id`, not deletion ({len(repoint)}) — "
+            "the disease is still uncurated:"
+        )
+        for issue in repoint:
+            typer.echo(f"  {issue.format()}")
+        typer.echo("")
     if not stale:
         typer.echo("Nothing stale.")
         return
@@ -301,6 +355,105 @@ def tidy_command(
     for path in paths:
         path.unlink()
     typer.echo(f"\nDeleted {len(paths)} stale stub(s).")
+
+
+@app.command("obsolescence")
+def obsolescence_command(
+    stub_dir: Path = _STUB_DIR_OPTION,
+    mondo_db: Path = typer.Option(
+        None,
+        "--mondo-db",
+        help="MONDO semantic-SQL build. Defaults to OAK's cache (mondo.db).",
+    ),
+    as_json: bool = typer.Option(False, "--json", help="Emit JSON instead of text."),
+) -> None:
+    """Ask MONDO which stub terms it has retired, or decided to retire.
+
+    The exact version of the obsolescence signal. `check` reads the answer out
+    of the committed stub fields, which is offline and free but only as fresh as
+    the last `just enrich-stubs`; this asks the ontology directly.
+
+    Two facts, and the second is the one that catches things. A term is
+    `owl:deprecated` only in a MONDO release built *after* the merge lands,
+    which can be months later — but MONDO puts the term in its
+    `obsoletion_candidate` subset the moment it decides, with a note saying what
+    the term will merge into. `MONDO:0859244` (dismech#10785) has carried that
+    note since 2026-04 and is still not deprecated in the pinned release.
+
+    Needs the MONDO build, which is a ~1.2 GB download. Absent, this reports
+    that and exits 0 — it is a census for a person, not a gate.
+    """
+    stubs = load_stubs(stub_dir)
+    by_id: dict[str, list] = {}
+    for stub in stubs:
+        if stub.mondo_id:
+            by_id.setdefault(stub.mondo_id, []).append(stub)
+
+    index = load_obsolescence(mondo_db, list(by_id))
+    if index is None:
+        where = mondo_db or default_mondo_db()
+        message = (
+            f"MONDO database not found at {where} — skipping the ontology check. "
+            "Fetch it with `just fetch-ontology-dbs mondo`, or read the committed "
+            "answer with `just check-stubs`."
+        )
+        typer.echo(
+            json.dumps({"available": False, "message": message}) if as_json else message
+        )
+        return
+
+    rows = []
+    for mondo_id, status in sorted(index.terms.items()):
+        for stub in by_id.get(mondo_id, []):
+            rows.append(
+                {
+                    "mondo_id": mondo_id,
+                    "label": stub.label,
+                    "stub": stub.path.name,
+                    "obsolete": status.obsolete,
+                    "replaced_by": status.replaced_by,
+                    "obsoletion_candidate": status.obsoletion_candidate,
+                    "proposed_replacement": status.proposed_replacement,
+                    "note": status.obsoletion_note,
+                    "summary": status.describe(),
+                }
+            )
+
+    if as_json:
+        typer.echo(
+            json.dumps(
+                {
+                    "available": True,
+                    "mondo_version": index.version,
+                    "stubs": len(stubs),
+                    "obsolete": sum(1 for r in rows if r["obsolete"]),
+                    "obsoletion_candidates": sum(
+                        1 for r in rows if r["obsoletion_candidate"]
+                    ),
+                    "findings": rows,
+                },
+                indent=2,
+            )
+        )
+        return
+
+    obsolete = [r for r in rows if r["obsolete"]]
+    candidates = [r for r in rows if r["obsoletion_candidate"]]
+    typer.echo(f"mondo: {index.version or 'unknown'}  stubs: {len(stubs)}")
+    typer.echo(
+        f"obsolete mondo_id: {len(obsolete)}  "
+        f"scheduled for obsoletion: {len(candidates)}"
+    )
+    for row in obsolete:
+        typer.echo(f"\n  {row['stub']}")
+        typer.echo(f"    {row['summary']}")
+    for row in candidates:
+        typer.echo(f"\n  {row['stub']}")
+        typer.echo(f"    {row['summary']}")
+        if row["note"]:
+            typer.echo(f"    MONDO: {' '.join(row['note'].split())}")
+    if not rows:
+        typer.echo("\nNo stub names a term MONDO has retired or scheduled.")
 
 
 @app.command("stats")

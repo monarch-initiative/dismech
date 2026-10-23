@@ -31,7 +31,6 @@ diseases:
   - Cervical_Cancer
   - Small_Cell_Lung_Cancer
   - Psoriasis
-  - Infectious_Disease
   - Ulcerative_Colitis
   - Non-Small_Cell_Lung_Cancer
   - Hepatitis_C
@@ -256,6 +255,9 @@ usable *citation*.
   before mining.
 - **Umbrella entries.** `Lymphoma` and `Infectious_Disease` match a very broad
   MeSH term; their counts overstate *specific* care relevance.
+  `Infectious_Disease` has since been retired as a rung-0 abstraction (design
+  decisions §3e, issue #10115) and is no longer a dismech entry, so its row in
+  the table above records the search only; there is no entry to mine for.
 - **Candidate list, not evidence.** Automatic Term Mapping favors recall. Every
   citation is a *lead* — spot-check that the top hits are actually about the
   intended disease.
@@ -359,7 +361,7 @@ than describe process.
 
 This is a **discovery** artifact. Any citation ultimately used as dismech
 evidence must still pass the standard snippet-verification workflow
-(`just fetch-reference PMID:…`, then `just validate-references`). Guideline
+(`just fetch-reference PMID:…`, then `just validate-kb-references`). Guideline
 provenance alone does **not** satisfy the dismech PMID + verified-snippet policy
 — the same discipline applied when the FA `.hpoa` (evidence code `TAS`) terms
 were each independently re-sourced.

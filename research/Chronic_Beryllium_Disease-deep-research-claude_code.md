@@ -730,3 +730,19 @@ Sources consulted: [Richeldi Science 1993](https://www.science.org/doi/10.1126/s
 **Bottom line for the curation entry:** the existing `Chronic_Beryllium_Disease.yaml` is already in genuinely good shape — the 9-node pathophysiology chain conforms correctly to `granuloma_formation`, the HLA-DPB1 susceptibility modeling is right, and the treatment/target_mechanisms links are sound. The main *gaps* I'd consider adding, if you want to push completeness: (1) a **BeLPT diagnostic** representation and the **CD4:CD8 BAL lymphocytosis**, (2) explicit **skin granuloma / beryllium ulcer** and **pulmonary hypertension/cor pulmonale** phenotypes, (3) a **prevalence** block (BeS 0.8–12%, CBD 0.1–8% in exposed cohorts; MEASURE_TYPE POINT_PREVALENCE, condition on exposed population in `notes`), (4) an **HLA-DP2 transgenic mouse** model/animal block with `evidence_source: MODEL_ORGANISM`, and (5) maybe a **HUMAN_MODEL_MISMATCH** discussion noting the transgene requirement and incomplete fibrosis in mice. Two small things to double-check mechanically: the **HGNC id for HLA-DPB1** (`hgnc:4940`) and the **hilar/mediastinal lymph node UBERON** term if you add anatomy — those are the kind of easy-to-transpose identifiers the term validator will catch.
 
 Want me to fold any of those additions into the YAML and run the validation stack, or keep this as a research reference for now?
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.2.1.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 18 |
+| Resolved | 18 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| References weighed for topical relevance | 18 |
+| On topic | 18 |
+| Off topic | 0 |
+
+All extracted references resolved successfully.
