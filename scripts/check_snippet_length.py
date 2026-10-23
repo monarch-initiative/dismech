@@ -34,6 +34,14 @@ ICEES, or NCIT cache file (``HP:0001987 | Hyperammonemia | Very frequent
 (99-80%)``) is short in words but fully propositional, and its pipe-delimited
 shape identifies it unambiguously.
 
+Orphanet records also carry short facts as one-line bullets rather than table
+rows -- ``- Autosomal dominant`` under ``## Inheritance``, ``- Age of onset:
+Infancy`` under ``## Natural history`` -- which have no pipe to key on. A snippet
+citing an ``ORPHA:`` reference is exempt when it equals a whole line of that
+record's cached body in ``references_cache/``, with or without the ``- ``
+bullet (issue #14443). The match is a whole line, never a substring, so a
+fragment of a longer sentence in the same record is still flagged.
+
 Baseline ratchet
 ----------------
 A large pre-existing backlog already lives in ``kb/``. To let this gate *new*
@@ -72,6 +80,7 @@ import sys
 import tarfile
 import tempfile
 from collections import Counter
+from functools import lru_cache
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -87,6 +96,7 @@ from dismech.reference_snippet_audit import (
 )
 
 SCAN_DIR = ROOT / "kb"
+CACHE_DIR = ROOT / "references_cache"
 BASELINE_PATH = ROOT / "tests" / "snippet_length_baseline.txt"
 
 # When set (CI sets it to ``origin/main``), the grandfather baseline is derived
@@ -119,6 +129,11 @@ _CJK_RE = re.compile(r"[\u3040-\u30fa\u30fd-\u30ff\u3400-\u4dbf\u4e00-\u9fff]")
 # A pipe-delimited row quoted out of a structured-source cache file.
 _TABLE_ROW_RE = re.compile(r"\S\s*\|\s*\S")
 
+# Structured prefixes whose records hold short facts as whole bullet lines.
+# CGGV/CGDS/ICEES/NCIT records are pipe tables throughout, so the row rule
+# above already covers them (issue #14443).
+RECORD_LINE_PREFIXES = frozenset({"ORPHA"})
+
 
 def count_words(snippet: str) -> int:
     """Number of word-like tokens in *snippet*.
@@ -134,11 +149,53 @@ def is_structured_row(snippet: str) -> bool:
     return bool(_TABLE_ROW_RE.search(snippet))
 
 
-def find_violations(path: Path, data, excerpt_fields, reference_fields):
+def _record_line(text: str) -> str:
+    """*text* with whitespace collapsed and any leading ``- `` bullet dropped."""
+    line = " ".join(text.split())
+    return line[2:] if line.startswith("- ") else line
+
+
+@lru_cache(maxsize=None)
+def _record_lines(cache_file: Path) -> frozenset[str]:
+    """Every non-empty body line of a cached structured record, normalized."""
+    try:
+        text = cache_file.read_text(encoding="utf-8")
+    except OSError:
+        return frozenset()
+    if text.startswith("---"):
+        # Drop the YAML frontmatter: its lines are metadata, not record fields.
+        _, _, rest = text[3:].partition("\n---")
+        text = rest
+    return frozenset(
+        line for line in (_record_line(raw) for raw in text.splitlines()) if line
+    )
+
+
+def is_record_line(reference: str, snippet: str, cache_dir: Path = CACHE_DIR) -> bool:
+    """True when *snippet* is a whole line of a structured record it cites.
+
+    Only :data:`RECORD_LINE_PREFIXES` qualify, and only against the record's
+    own cache file, so the same words under a PMID are still a bare label.
+    """
+    prefix, sep, local_id = reference.strip().partition(":")
+    if not sep or prefix.upper() not in RECORD_LINE_PREFIXES or not local_id:
+        return False
+    line = _record_line(snippet)
+    if not line:
+        return False
+    cache_file = cache_dir / f"{prefix.upper()}_{local_id}.md"
+    return line in _record_lines(cache_file)
+
+
+def find_violations(
+    path: Path, data, excerpt_fields, reference_fields, cache_dir: Path = CACHE_DIR
+):
     """Yield ``(location, words, snippet)`` for too-short snippets in *data*."""
     for pair in iter_snippet_pairs(path, data, excerpt_fields, reference_fields):
         snippet = pair.snippet.strip()
         if is_structured_row(snippet):
+            continue
+        if is_record_line(pair.reference_id, snippet, cache_dir):
             continue
         words = count_words(snippet)
         if words < MIN_SNIPPET_WORDS:
@@ -402,7 +459,8 @@ def main(argv=None) -> int:
         for rel, location, words, snippet in new:
             print(f"{rel}:{location}: {words} word(s): {snippet!r}")
         print(f"\n{len(new)} new finding(s). Pipe-delimited structured-source rows")
-        print("(ORPHA/ClinGen/ICEES/NCIT tables) are exempt.")
+        print("(ORPHA/ClinGen/ICEES/NCIT tables) are exempt, as is a whole line of")
+        print("a cited ORPHA record (`- Autosomal dominant`).")
         if args.against_ref or os.environ.get(BASELINE_REF_ENV):
             # A ref baseline (CI) never reads tests/snippet_length_baseline.txt,
             # so --update-baseline would pass locally, still fail CI, and commit
