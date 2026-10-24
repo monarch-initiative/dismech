@@ -156320,6 +156320,79 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Focal Facial Dermal Dysplasia Type IV",
+    "disease_id": "MONDO:0013997",
+    "category": "Mendelian",
+    "parents": [
+      "focal facial dermal dysplasia",
+      "ectodermal dysplasia syndrome"
+    ],
+    "creation_date": "2026-10-24T01:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Focal facial dermal dysplasia type IV (FFDD4) is a rare autosomal recessive developmental skin disorder in which infants are born with round or oval aplasia cutis-like lesions in the preauricular region and on the cheeks, arranged along an oblique line from the ear toward the corner of the mouth. This line corresponds to the embryonic fusion line of the maxillary and mandibular prominences of the first pharyngeal arch. Lesions can present as vesicles at birth and evolve into hypopigmented atrophic scar-like macules, sometimes ringed by a collar of hair. Unlike FFDD types I to III, which affect the temples, FFDD4 usually occurs without other facial dysmorphism, and development is typically normal. It is caused by biallelic loss-of-function variants in CYP26C1, which encodes a cytochrome P450 enzyme that hydroxylates and inactivates retinoic acid. Impaired retinoic acid clearance along the facial fusion line during embryogenesis is the proposed mechanism.",
+    "pathophysiology": [
+      "Biallelic CYP26C1 Loss of Function",
+      "Impaired Retinoic Acid Catabolism",
+      "Excess Retinoic Acid Exposure at the Maxillary-Mandibular Fusion Line",
+      "Defective Ectodermal Fusion of the Maxillary and Mandibular Prominences",
+      "Focal Dermal Hypoplasia of Preauricular Skin"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "retinoic acid catabolic process",
+      "retinoic acid receptor signaling pathway",
+      "face morphogenesis"
+    ],
+    "phenotypes": [
+      "Preauricular aplasia cutis-like lesions",
+      "Neonatal vesicular lesions",
+      "Hypopigmented atrophic scar-like macules",
+      "Hair collar sign",
+      "Buccal mucosa polyps",
+      "Cleft palate",
+      "Unilateral cleft lip",
+      "Cutaneous hemangioma"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Oral",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0001057",
+      "HP:0200037",
+      "HP:0001075",
+      "HP:3000019",
+      "HP:0000175",
+      "HP:0100333",
+      "HP:0001028"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CYP26C1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Focal_Facial_Dermal_Dysplasia_Type_IV.yaml",
+    "page_url": "../pages/disorders/Focal_Facial_Dermal_Dysplasia_Type_IV.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Focal Segmental Glomerulosclerosis",
     "disease_id": "MONDO:0100313",
     "category": "Complex",
@@ -156942,6 +157015,147 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "61",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Food Protein-Induced Enterocolitis Syndrome",
+    "disease_id": "MONDO:0100008",
+    "category": "Complex",
+    "parents": [
+      "Food Allergy",
+      "Non-IgE-Mediated Food Allergy",
+      "Gastrointestinal Disease"
+    ],
+    "creation_date": "2026-10-23T19:12:07Z",
+    "updated_date": null,
+    "subtypes": [
+      "Acute FPIES",
+      "Chronic FPIES",
+      "Atypical FPIES"
+    ],
+    "description": "Food protein-induced enterocolitis syndrome (FPIES) is a non-IgE-mediated gastrointestinal food allergy, usually beginning in infancy, in which ingestion of a trigger food is followed after a delay of 1 to 4 hours by repetitive, often projectile vomiting with lethargy and pallor, sometimes progressing to diarrhea, dehydration, hypotension and hypovolemic shock. Cow's milk protein is the most common trigger in infancy, followed by soy and solid foods such as rice and oat; fish and shellfish predominate in adult-onset disease. Chronic FPIES, with daily ingestion of the trigger (typically cow's milk or soy formula), presents with intermittent vomiting, diarrhea and failure to thrive. In contrast to IgE-mediated food allergy, skin and respiratory symptoms are absent and food-specific antibody responses to milk proteins, including the caseins, are weak or absent; a subset of patients with detectable food-specific IgE (atypical FPIES) has a more protracted course and can convert to IgE-mediated allergy. Acute reactions are accompanied by marked systemic innate immune activation (neutrophils, monocytes, natural killer cells and eosinophils) and neuroendocrine activation, but how the trigger food is specifically recognized remains unknown. Diagnosis rests on the 2017 international consensus clinical criteria, supported by oral food challenge; management is trigger avoidance, fluid resuscitation and ondansetron for acute reactions, and periodic supervised challenges to detect the resolution that occurs in most children.",
+    "pathophysiology": [
+      "Deficient Tolerogenic Response to Milk Proteins",
+      "Food Antigen-Responsive T-Cell Activation",
+      "Systemic Innate Immune Activation",
+      "Intestinal Inflammation with Increased Permeability",
+      "Enterochromaffin Serotonin Release and Emetic Signaling",
+      "Gut Microbial Dysbiosis",
+      "Intestinal Fluid Loss and Hypovolemia"
+    ],
+    "cell_types": [
+      "CD4-positive T cell",
+      "T cell",
+      "neutrophil",
+      "monocyte",
+      "natural killer cell",
+      "eosinophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000624",
+      "CL:0000084",
+      "CL:0000775",
+      "CL:0000576",
+      "CL:0000623",
+      "CL:0000771"
+    ],
+    "biological_processes": [
+      "transforming growth factor beta production",
+      "interleukin-10 production",
+      "T cell activation",
+      "innate immune response",
+      "neutrophil activation",
+      "monocyte activation",
+      "interleukin-17 production",
+      "serotonin secretion"
+    ],
+    "phenotypes": [
+      "Vomiting",
+      "Lethargy",
+      "Pallor",
+      "Diarrhea",
+      "Bloody diarrhea",
+      "Abdominal cramps",
+      "Dehydration",
+      "Hypotension",
+      "Hypovolemic shock",
+      "Hypothermia",
+      "Hypotonia",
+      "Metabolic acidosis",
+      "Methemoglobinemia",
+      "Increased total neutrophil count",
+      "Thrombocytosis",
+      "Increased total leukocyte count",
+      "Failure to thrive",
+      "Atopic dermatitis"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Neurological",
+      "Integumentary",
+      "Metabolic",
+      "Cardiovascular",
+      "Hematological",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002013",
+      "HP:0001254",
+      "HP:0000980",
+      "HP:0002014",
+      "HP:0025085",
+      "HP:0032155",
+      "HP:0001944",
+      "HP:0002615",
+      "HP:0031274",
+      "HP:0002045",
+      "HP:0001252",
+      "HP:0001942",
+      "HP:0012119",
+      "HP:0011897",
+      "HP:0001894",
+      "HP:0001974",
+      "HP:0001508",
+      "HP:0001047"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE",
+      "VERY_FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Trigger Food Avoidance",
+      "Hypoallergenic Infant Formula",
+      "Intravenous Fluid Resuscitation",
+      "Ondansetron",
+      "Intravenous Methylprednisolone"
+    ],
+    "environmental": [
+      "Cow's milk protein ingestion",
+      "Solid food protein ingestion"
+    ],
+    "biochemical": [],
+    "source_file": "Food_Protein-Induced_Enterocolitis_Syndrome.yaml",
+    "page_url": "../pages/disorders/Food_Protein-Induced_Enterocolitis_Syndrome.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Foodborne trematodiases",
@@ -296185,6 +296399,91 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Palmoplantar Keratoderma Nagashima Type",
+    "disease_id": "MONDO:0014272",
+    "category": "Mendelian",
+    "parents": [
+      "Diffuse Nonepidermolytic Palmoplantar Keratoderma",
+      "Hereditary Palmoplantar Keratoderma"
+    ],
+    "creation_date": "2026-10-24T02:24:13Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Nagashima-type palmoplantar keratosis (NPPK) is an autosomal recessive, non-syndromic, diffuse palmoplantar keratoderma caused by biallelic loss-of-function variants in SERPINB7, which encodes a cytoplasmic serpin of the upper epidermis. It is the most common hereditary palmoplantar keratoderma in East Asia, where founder variants such as c.796C>T (p.Arg266*) are frequent. From the first year of life, the palms and soles show well-demarcated redness with mild hyperkeratosis that extends onto the backs of the fingers, toes, hands and feet, the inner wrists and the Achilles tendon area (transgrediens). The lesions are not progressive, which separates NPPK from mal de Meleda. Lesional skin turns white and spongy within minutes of water exposure. Palmoplantar hyperhidrosis, a distinctive foot odor and recurrent tinea pedis are common. Loss of SERPINB7 releases its target protease legumain, which in keratinocyte and mouse studies impairs protein O-GalNAc glycosylation, tight junctions and cytoskeletal proteins and disrupts the epidermal barrier. How this barrier defect produces the erythema and hyperkeratosis is not known.",
+    "pathophysiology": [
+      "Biallelic SERPINB7 Loss-of-Function Variants",
+      "Loss of SERPINB7 Protease Inhibitory Activity",
+      "Legumain Overactivation",
+      "Impaired Keratinocyte Protein O-GalNAc Glycosylation",
+      "Keratinocyte Tight Junction Disruption",
+      "Weakened Keratinocyte Cytoskeletal Proteins",
+      "Reduced Epidermal Differentiation",
+      "Epidermal Barrier Defect",
+      "Plantar Bacterial Dysbiosis"
+    ],
+    "cell_types": [
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "protein O-linked glycosylation via N-acetylgalactosamine",
+      "Golgi organization",
+      "tight junction organization",
+      "cytoskeleton organization",
+      "keratinocyte differentiation",
+      "establishment of skin barrier"
+    ],
+    "phenotypes": [
+      "Diffuse palmoplantar hyperkeratosis",
+      "Palmoplantar erythema",
+      "Whitish spongy change after water exposure",
+      "Palmoplantar hyperhidrosis",
+      "Foot odor",
+      "Recurrent tinea pedis"
+    ],
+    "phenotype_categories": [
+      "Dermatological",
+      "Infectious"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Immune",
+      "Integument",
+      "Limbs"
+    ],
+    "phenotype_ids": [
+      "HP:0007447",
+      "HP:0025493",
+      "HP:0032007",
+      "HP:0007410",
+      "HP:0500001",
+      "HP:0025472"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "SERPINB7"
+    ],
+    "treatments": [
+      "Topical gentamicin ointment",
+      "Topical benzoyl peroxide"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Palmoplantar_Keratoderma_Nagashima_Type.yaml",
+    "page_url": "../pages/disorders/Palmoplantar_Keratoderma_Nagashima_Type.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Pan-Chung-Bellen Syndrome",
     "disease_id": "MONDO:0975953",
     "category": "Mendelian",
@@ -386271,6 +386570,120 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Vertebral, Cardiac, Tracheoesophageal, Renal, and Limb Defects",
+    "disease_id": "MONDO:0030987",
+    "category": "Mendelian",
+    "parents": [
+      "Multiple Congenital Anomalies Syndrome",
+      "Spliceosomopathy"
+    ],
+    "creation_date": "2026-10-23T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Vertebral, cardiac, tracheoesophageal, renal, and limb defects (VCTERL; OMIM:619227) is an autosomal dominant multiple congenital anomaly syndrome caused by heterozygous loss-of-function variants in WBP11, which encodes a spliceosome-associated pre-mRNA splicing factor (also called SIPP1). It was delineated in 2020 in seven unrelated families whose overlapping malformations fall within the VACTERL association spectrum, and about twenty affected individuals, including several fetuses, have been reported since. Vertebral segmentation defects (often cervical fusion of Klippel-Feil type) are the most frequent postnatal finding, accompanied variably by craniofacial, cardiac, tracheoesophageal or gastrointestinal, renal, limb and Sprengel anomalies; developmental delay, microcephaly, short stature, hearing impairment and ocular anomalies occur in a minority. Penetrance is incomplete and expressivity is highly variable, extending from multi-system VACTERL-like presentations to an isolated vertebral anomaly. Haploinsufficiency is supported by a Wbp11 heterozygous null mouse with axial skeletal, renal and esophageal defects and by a wbp11 knockdown zebrafish with cardiac, spinal, fin and renal defects. Loss of WBP11 causes widespread intron retention and exon skipping, but which mis-spliced targets produce the malformations is not known and is recorded here as a knowledge gap.",
+    "pathophysiology": [
+      "Heterozygous WBP11 Loss-of-Function Variants",
+      "WBP11 Haploinsufficiency",
+      "Pre-mRNA Splicing Defects",
+      "Impaired Centriole Duplication",
+      "Disrupted Multi-Organ Embryonic Morphogenesis"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "mRNA splicing, via spliceosome",
+      "centriole replication",
+      "skeletal system development",
+      "heart development",
+      "kidney development"
+    ],
+    "phenotypes": [
+      "Vertebral segmentation defects",
+      "Fused cervical vertebrae",
+      "Sprengel anomaly",
+      "Congenital heart defects",
+      "Ventricular septal defect",
+      "Craniofacial anomalies",
+      "Gastrointestinal malformations",
+      "Esophageal atresia and tracheoesophageal fistula",
+      "Renal agenesis or hypodysplasia",
+      "Limb anomalies",
+      "Global developmental delay",
+      "Microcephaly",
+      "Short stature",
+      "Intrauterine growth restriction",
+      "Hearing impairment",
+      "Cryptorchidism",
+      "Chorioretinal coloboma",
+      "Pigmentary retinopathy"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Cardiovascular",
+      "Craniofacial",
+      "Gastrointestinal",
+      "Renal",
+      "Neurologic",
+      "Growth",
+      "Otolaryngologic",
+      "Genitourinary",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003422",
+      "HP:0002949",
+      "HP:0000912",
+      "HP:0001627",
+      "HP:0001629",
+      "HP:0000271",
+      "HP:0011024",
+      "HP:0002032",
+      "HP:0008678",
+      "HP:0040064",
+      "HP:0001263",
+      "HP:0000252",
+      "HP:0004322",
+      "HP:0001511",
+      "HP:0000365",
+      "HP:0000028",
+      "HP:0000567",
+      "HP:0000580"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "WBP11"
+    ],
+    "treatments": [
+      "Surgical correction of congenital anomalies",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Vertebral_Cardiac_Tracheoesophageal_Renal_And_Limb_Defects.yaml",
+    "page_url": "../pages/disorders/Vertebral,_Cardiac,_Tracheoesophageal,_Renal,_and_Limb_Defects.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Vibrio Vulnificus Infectious Disease",
     "disease_id": "MONDO:0043297",
     "category": "Infectious Disease",
@@ -398489,17 +398902,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3692,
-  "total_subtypes": 4861,
-  "total_disorders_and_subtypes": 8553,
-  "total_unique_evidence_sources": 55068,
-  "total_unique_publications": 51452,
+  "total_disorder_pages": 3696,
+  "total_subtypes": 4864,
+  "total_disorders_and_subtypes": 8560,
+  "total_unique_evidence_sources": 55136,
+  "total_unique_publications": 51517,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 309,
-  "total_pathographs": 3689,
-  "total_unique_pathological_events": 24335,
+  "total_pathographs": 3693,
+  "total_unique_pathological_events": 24361,
   "total_modules": 203,
-  "total_research_reports": 3818,
+  "total_research_reports": 3822,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 120
