@@ -285,6 +285,46 @@ class TestAssayClustering:
         assert candidates == []
 
 
+class TestAssayReportOutputs:
+    def test_the_json_output_carries_the_clustering_the_markdown_truncates(self):
+        """Caught in review round 2 on #15393.
+
+        The markdown table caps the candidate rows, and its note told the reader
+        where to find the rest. There was nowhere: the JSON output dumped
+        `collect()`, which holds the assays but none of the clustering, and the
+        TSV is one row per assay. The note named an output that did not exist.
+        """
+        # Counts as the corpus has them: the containing name is the common one,
+        # so it sorts first. With equal counts the order falls back to the name.
+        names = ["immunostaining"] * 14 + ["centrosome immunostaining"] * 2
+        res = {
+            "assays": [
+                {
+                    "route": "pathophysiology",
+                    "name": name,
+                    "curie": "",
+                    "path": "pathophysiology[0].assays[0]",
+                    "entry": "E",
+                    "file": "f.yaml",
+                }
+                for name in names
+            ]
+        }
+        summary = assay_inventory.summarize(res)
+        assert summary["candidates"] == [
+            ["immunostaining", "centrosome immunostaining"]
+        ]
+        assert summary["total"] == 16
+        assert summary["distinct_names"] == 2
+
+    def test_the_markdown_cap_and_its_note_read_from_one_constant(self):
+        """Two literals would drift: a note promising 40 beside a table of 25."""
+        assert isinstance(assay_inventory.CANDIDATE_ROWS_SHOWN, int)
+        source = Path(assay_inventory.__file__).read_text(encoding="utf-8")
+        assert "candidates[:CANDIDATE_ROWS_SHOWN]" in source
+        assert "candidates[:40]" not in source
+
+
 class TestModelLinks:
     def test_all_four_homes_of_a_link_are_walked(self):
         """Three of the four was the dismech#13427 bug, and it was silent."""

@@ -77,6 +77,10 @@ ROUTES: dict[str, dict[str, object]] = {
     "proposed_experiment_readout": {"number": "4b", "realized": False},
 }
 
+#: How many candidate rows the markdown table shows. The full list is always in
+#: the JSON output, so this caps the reading, never the result.
+CANDIDATE_ROWS_SHOWN = 40
+
 #: Words that describe the *kind* of thing rather than which assay it is, so two
 #: names differing only by one of these are the same assay written twice. Kept
 #: deliberately short: a word that could name an assay on its own does not
@@ -408,15 +412,16 @@ def render_md(res: dict, focus: list[str]) -> str:
     ]
     if candidates:
         out += ["| Names |", "|---|"]
-        for group in candidates[:40]:
+        for group in candidates[:CANDIDATE_ROWS_SHOWN]:
             out.append(
                 "| " + " \\| ".join(f"{n} ({s['names'][n]})" for n in group) + " |"
             )
-        if len(candidates) > 40:
+        if len(candidates) > CANDIDATE_ROWS_SHOWN:
             out.append("")
             out.append(
-                f"Showing 40 of {len(candidates)}; `--format tsv` carries none "
-                "of this, so read the whole list here or re-run per glob."
+                f"Showing {CANDIDATE_ROWS_SHOWN} of {len(candidates)}. The full "
+                "list is in `--format json`, under `summary.candidates`; "
+                "`--format tsv` is one row per assay and carries none of this."
             )
     else:
         out.append("None.")
@@ -514,7 +519,10 @@ def main() -> int:
     elif args.format == "tsv":
         text = render_tsv(res)
     else:
-        text = json.dumps(res, indent=2)
+        summary = summarize(res)
+        text = json.dumps(
+            {**res, "summary": {**summary, "names": dict(summary["names"])}}, indent=2
+        )
 
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
