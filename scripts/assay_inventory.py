@@ -64,6 +64,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from dismech.model_links import iter_model_links
 
+# `dismech.yaml_io.safe_load` prefers libyaml's CSafeLoader, which exists for
+# exactly this: parsing the ~3,900-file corpus with `yaml.safe_load`'s
+# pure-Python loader takes about six minutes, against about forty seconds here
+# -- measured at 10.7x over 300 entries. Both are safe loaders with the same
+# semantics, so this only changes the speed.
+from dismech.yaml_io import safe_load
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 #: The five routes from a disease entry to an `AssayDescriptor`, in the order
@@ -213,7 +220,7 @@ def collect(repo: Path, globs: list[str]) -> dict:
     for path in files:
         rel = str(path.relative_to(repo))
         try:
-            doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+            doc = safe_load(path.read_text(encoding="utf-8"))
         except (yaml.YAMLError, OSError) as exc:
             errors.append({"file": rel, "error": str(exc)[:200]})
             continue

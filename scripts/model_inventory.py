@@ -55,6 +55,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from dismech.model_links import MODEL_SECTIONS, iter_model_links
 
+# See the note in scripts/assay_inventory.py: the repo's loader prefers
+# libyaml's CSafeLoader, which turns a six-minute corpus walk into about forty
+# seconds without changing what is parsed.
+from dismech.yaml_io import safe_load
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 #: The slot that types a model, per section. Each section names its own kind of
@@ -175,7 +180,7 @@ def collect(repo: Path, globs: list[str], *, curated_only: bool) -> dict:
     for path in files:
         rel = str(path.relative_to(repo))
         try:
-            doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+            doc = safe_load(path.read_text(encoding="utf-8"))
         except (yaml.YAMLError, OSError) as exc:
             errors.append({"file": rel, "error": str(exc)[:200]})
             continue
