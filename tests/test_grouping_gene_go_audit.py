@@ -198,7 +198,7 @@ def test_gene_without_uniprot_leaves_the_member_unresolved(tmp_path, monkeypatch
     assert member.genes[0].verdict == "NO_UNIPROT"
 
 
-def test_review_term_is_reported_without_changing_the_verdict(tmp_path, monkeypatch):
+def test_gene_review_core_function_supports_a_gene_go_does_not_annotate(tmp_path, monkeypatch):
     v = _setup(
         tmp_path, monkeypatch,
         {"Theta": [_gene("hgnc:10", "REG10")]},
@@ -208,8 +208,27 @@ def test_review_term_is_reported_without_changing_the_verdict(tmp_path, monkeypa
         under_roots={"GO:0005246"},
     )
     member = _member(v, "Theta")
-    assert member.verdict == "UNSUPPORTED"
-    assert member.genes[0].review_terms == ["GO:0005246"]
+    gene = member.genes[0]
+    assert gene.review_terms == ["GO:0005246"]
+    assert gene.verdict == "GENE_REVIEW"
+    assert not gene.go_supported
+    assert member.verdict == "SUPPORTED"
+
+
+def test_go_evidence_outranks_the_gene_review_but_iea_does_not():
+    gene = audit.GeneVerdict("hgnc:1", "X", "P1", review_terms=["GO:0005246"], annotations=[
+        audit.Annotation("GO:0005248", "IEA", False),
+    ])
+    assert gene.verdict == "GENE_REVIEW"
+    gene.annotations.append(audit.Annotation("GO:0005248", "IBA", False))
+    assert gene.verdict == "PHYLOGENETIC"
+
+
+def test_gene_review_stands_when_the_go_lookup_fails():
+    gene = audit.GeneVerdict("hgnc:1", "X", None, lookup_failed=True, review_terms=["GO:0005246"])
+    assert gene.verdict == "GENE_REVIEW"
+    gene.review_terms = []
+    assert gene.verdict == "LOOKUP_FAILED"
 
 
 def test_failed_annotation_lookup_is_unresolved_not_unsupported(tmp_path, monkeypatch):

@@ -822,10 +822,9 @@ grouping-mondo-consistency *args="":
 
 # For every grouping with a HAS_MOLECULAR_FUNCTION criterion, check that each
 # member's causal genes carry an activity under the criterion's GO roots in
-# GO's own annotations (QuickGO), not just in the entry's curated terms. Also
-# shows each gene's ai-gene-review core molecular-function terms, from the
-# pinned ingest table, as a lead. Needs network. Report-only; --strict exits 1
-# when a member has no causal gene annotated under a root.
+# GO's own annotations (QuickGO) or in the gene's ai-gene-review core functions
+# (pinned ingest table), not just in the entry's curated terms. Needs network.
+# Report-only; --strict exits 1 when no causal gene of a member is supported.
 [group('QC')]
 grouping-gene-go-audit *args="":
     uv run python scripts/grouping_gene_go_audit.py {{args}}
