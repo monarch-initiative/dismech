@@ -79,6 +79,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from dismech import kb_cache
+from dismech.conformance import iter_conforms_to
 
 #: Sections whose entries may carry ``conforms_to``.
 SCAN_DIRS = ("kb/disorders", "kb/comorbidities", "kb/modules")
@@ -156,12 +157,11 @@ def iter_links(paths: list[Path]):
         for node in doc.get("pathophysiology") or []:
             if not isinstance(node, dict):
                 continue
-            raw = node.get("conforms_to")
-            if not raw:
-                continue
-            anchors = raw if isinstance(raw, list) else [raw]
-            for anchor in anchors:
-                if isinstance(anchor, str) and "#" in anchor:
+            # Read through iter_conforms_to so the multivalued spelling
+            # (dismech#13923) is covered; an isinstance(..., str) check here
+            # would silently drop the list form.
+            for anchor in iter_conforms_to(node):
+                if "#" in anchor:
                     yield rel, node, anchor
 
 

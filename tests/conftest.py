@@ -202,6 +202,33 @@ def preserve_kb_cache_environment():
         _reset_kb_cache_env()
 
 
+@pytest.fixture(scope="session", autouse=True)
+def isolate_stub_coverage_cache(tmp_path_factory):
+    """Keep the persistent stub coverage cache out of the checkout's ``tmp/``.
+
+    ``build_coverage_index()`` keeps the ids and labels each KB file contributes
+    in a JSON file between runs (#15116). Its records are validated against
+    file content, so sharing the developer's copy would not give a wrong
+    answer, but a test run should neither depend on nor rewrite it. One file
+    per session (per worker under xdist), so the tests that index the live KB
+    still build it once and reuse it. Tests of the cache itself pass their own
+    ``cache_path``.
+    """
+    from dismech.stubs.model import COVERAGE_CACHE_ENV
+
+    previous = os.environ.get(COVERAGE_CACHE_ENV)
+    os.environ[COVERAGE_CACHE_ENV] = str(
+        tmp_path_factory.mktemp("stub_coverage") / "stub_coverage_index.json"
+    )
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop(COVERAGE_CACHE_ENV, None)
+        else:
+            os.environ[COVERAGE_CACHE_ENV] = previous
+
+
 # --- CI step twins ------------------------------------------------------------
 #
 # A few whole-repo gate tests run the same check as an ungated step in
