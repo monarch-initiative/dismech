@@ -15,6 +15,8 @@ import importlib
 import json
 import logging
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -140,15 +142,43 @@ def test_monkeypatch_undo_leaves_a_lazy_name_behind_until_cleared(
 
 
 def test_no_lazy_name_is_left_on_any_module_when_a_test_starts():
-    """The autouse fixture in ``conftest`` clears leftovers before each test.
-
-    Also catches a module that assigns a declared name at import, which would
-    make the lazy factory dead code.
-    """
+    """The autouse fixture in ``conftest`` clears leftovers before each test."""
     for paths in rr.LazyRepoPaths._instances:
         module = importlib.import_module(paths._module_name)
         leftover = set(paths._factories) & set(vars(module))
         assert not leftover, f"{paths._module_name}: {sorted(leftover)}"
+
+
+def test_no_module_assigns_a_lazy_name_at_import():
+    """A declared name assigned at import would make its factory dead code.
+
+    The autouse fixture pops such an assignment before every test, so this is
+    checked in a fresh interpreter that no fixture has touched.
+    """
+    modules = sorted(
+        ".".join(path.relative_to(SRC_DIR.parent).with_suffix("").parts)
+        for path in SRC_DIR.rglob("*.py")
+        if path.name != "repo_root.py"
+        and "LazyRepoPaths(" in path.read_text(encoding="utf-8")
+    )
+    assert modules, "no module declares LazyRepoPaths"
+    script = (
+        "import importlib, sys\n"
+        "from dismech.repo_root import LazyRepoPaths\n"
+        f"for name in {modules!r}:\n"
+        "    importlib.import_module(name)\n"
+        "for paths in LazyRepoPaths._instances:\n"
+        "    module = sys.modules[paths._module_name]\n"
+        "    for name in sorted(set(paths._factories) & set(vars(module))):\n"
+        "        print(f'{paths._module_name}.{name}')\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout == "", f"assigned at import:\n{result.stdout}"
 
 
 @pytest.mark.parametrize(
