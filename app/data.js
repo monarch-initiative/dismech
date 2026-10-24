@@ -62792,6 +62792,70 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Brucella Abortus Brucellosis",
+    "disease_id": "MONDO:0001973",
+    "category": "Infectious Disease",
+    "parents": [
+      "Brucellosis"
+    ],
+    "creation_date": "2026-09-30T00:39:21Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Brucella abortus brucellosis is a cattle-associated form of human brucellosis caused by the facultatively intracellular bacterium Brucella abortus after zoonotic exposure to infected bovine tissues, reproductive fluids, raw dairy products, or laboratory cultures.",
+    "pathophysiology": [
+      "Bovine-Associated Brucella abortus Acquisition",
+      "Intracellular Macrophage Survival",
+      "Persistent Reticuloendothelial Colonization",
+      "Requirement for Cell-Penetrant Antimicrobials"
+    ],
+    "cell_types": [
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "Response to Antibiotic"
+    ],
+    "phenotypes": [
+      "Undulant fever",
+      "Fatigue",
+      "Arthralgia",
+      "Sweating"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0012378",
+      "HP:0002829",
+      "HP:0000975"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Doxycycline-rifampicin combination therapy",
+      "Doxycycline-aminoglycoside combination therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Brucella_Abortus_Brucellosis.yaml",
+    "page_url": "../pages/disorders/Brucella_Abortus_Brucellosis.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Brucella Canis Brucellosis",
     "disease_id": "MONDO:0001857",
     "category": "Infectious Disease",
@@ -63053,6 +63117,7 @@ window.searchData = [
     "creation_date": "2026-05-08T13:18:32Z",
     "updated_date": null,
     "subtypes": [
+      "Brucella abortus brucellosis",
       "Brucella melitensis brucellosis",
       "Brucella canis brucellosis",
       "Brucella suis brucellosis"
@@ -399074,19 +399139,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3697,
-  "total_subtypes": 4864,
-  "total_disorders_and_subtypes": 8561,
-  "total_unique_evidence_sources": 55197,
-  "total_unique_publications": 51577,
+  "total_disorder_pages": 3698,
+  "total_subtypes": 4865,
+  "total_disorders_and_subtypes": 8563,
+  "total_unique_evidence_sources": 55207,
+  "total_unique_publications": 51582,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 309,
-  "total_pathographs": 3694,
-  "total_unique_pathological_events": 24379,
+  "total_pathographs": 3695,
+  "total_unique_pathological_events": 24381,
   "total_modules": 203,
   "total_research_reports": 3823,
   "total_classifications": 21,
   "total_comorbidities": 51,
-  "total_groupings": 120
+  "total_groupings": 121
 };
 window.dispatchEvent(new Event('searchDataReady'));
