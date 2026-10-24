@@ -202,6 +202,32 @@ def preserve_kb_cache_environment():
         _reset_kb_cache_env()
 
 
+@pytest.fixture(autouse=True)
+def clear_lazy_repo_path_overrides():
+    """Undo what ``monkeypatch`` leaves behind on a ``LazyRepoPaths`` name.
+
+    Patching a path constant served by a module ``__getattr__`` (such as
+    ``browser_export.HPO_CATEGORY_CACHE_PATH``) and then undoing the patch
+    writes the pre-patch value into the module's ``__dict__``, so for the rest
+    of the process that constant no longer follows the working directory. A
+    later test that changes directory then reads the repository's own file and
+    fails, but only when the two tests share a worker, which is how #15396
+    ejected PRs from the merge queue at random.
+
+    Cleared at setup as well as teardown, for the reason
+    ``preserve_kb_cache_environment`` gives: teardown runs after the test's own
+    ``monkeypatch`` undo only because of the order pytest happens to set
+    fixtures up in.
+    """
+    from dismech.repo_root import LazyRepoPaths
+
+    LazyRepoPaths.clear_all_overrides()
+    try:
+        yield
+    finally:
+        LazyRepoPaths.clear_all_overrides()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def isolate_stub_coverage_cache(tmp_path_factory):
     """Keep the persistent stub coverage cache out of the checkout's ``tmp/``.
