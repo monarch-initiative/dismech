@@ -19,6 +19,7 @@ import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from dismech import hierarchy_cache, kb_cache, oak_db, pathograph_stats
+from dismech.conformance import iter_conforms_to, module_stem
 from dismech.entity_refs import (
     DISEASE_KIND,
     SECTION_KEYS,
@@ -224,10 +225,7 @@ def _add_pathograph_grouping_context(
     for item in disorder.get("pathophysiology") or []:
         if not isinstance(item, dict) or not item.get("name"):
             continue
-        refs = item.get("conforms_to") or []
-        if isinstance(refs, str):
-            refs = [refs]
-        stems = [str(ref).split("#", 1)[0] for ref in refs if ref]
+        stems = [module_stem(ref) for ref in iter_conforms_to(item)]
         if stems:
             modules_by_name[item["name"]] = list(dict.fromkeys(stems))
     for node in data.get("nodes", []):
@@ -1729,23 +1727,24 @@ def _collect_module_usage(
             if not isinstance(patho, dict):
                 continue
 
-            parsed_reference = _parse_module_reference(patho.get("conforms_to"))
-            if parsed_reference is None:
-                continue
+            for reference in iter_conforms_to(patho):
+                parsed_reference = _parse_module_reference(reference)
+                if parsed_reference is None:
+                    continue
 
-            module_id, module_node_name = parsed_reference
-            disorder_node_name = str(patho.get("name") or module_node_name)
-            match_key = (module_node_name, disorder_node_name)
-            if match_key in seen_matches[module_id]:
-                continue
+                module_id, module_node_name = parsed_reference
+                disorder_node_name = str(patho.get("name") or module_node_name)
+                match_key = (module_node_name, disorder_node_name)
+                if match_key in seen_matches[module_id]:
+                    continue
 
-            seen_matches[module_id].add(match_key)
-            matches_by_module[module_id].append(
-                {
-                    "module_node_name": module_node_name,
-                    "disorder_node_name": disorder_node_name,
-                }
-            )
+                seen_matches[module_id].add(match_key)
+                matches_by_module[module_id].append(
+                    {
+                        "module_node_name": module_node_name,
+                        "disorder_node_name": disorder_node_name,
+                    }
+                )
 
         for module_id, matches in matches_by_module.items():
             usage_by_module[module_id].append(
