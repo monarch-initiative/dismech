@@ -101,7 +101,8 @@ def entry_label_strings(data: dict[str, Any]) -> list[str]:
 
 
 def default_repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    """The checkout the command runs in, not the one this file was loaded from (#15109)."""
+    return repo_root()
 
 
 def default_stub_dir() -> Path:

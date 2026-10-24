@@ -21,6 +21,7 @@ from dismech.export.utils import (
     slugify,
 )
 from dismech.graph import build_causal_graph
+from dismech.repo_root import LazyRepoPaths
 
 # Direct children of HP:0000118 (Phenotypic abnormality) — the broad phenotype categories.
 # Keys match PhenotypeCategoryEnum permissible_value keys in the schema.
@@ -53,14 +54,18 @@ _HPO_TOP_LEVEL_IDS = set(HPO_TOP_LEVEL_CATEGORIES.keys())
 
 HP_ADAPTER = "sqlite:obo:hp"
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-
 # The committed cache, read as a fallback when `sqlite:obo:hp` is not available.
 # `render` reads the same file (as `render._HPO_CATEGORY_CACHE_PATH`) to group
 # phenotypes by category, so the constant is shared rather than restated. Note
 # that a full export writes its result next to its own output, which is this
 # path only when exporting to `app/` -- as `just gen-browser-data` does.
-HPO_CATEGORY_CACHE_PATH = _REPO_ROOT / "app" / "hpo_category_cache.json"
+# Resolved from the working directory when read, so a worktree reads its own
+# copy (#15109).
+_PATHS = LazyRepoPaths(
+    __name__,
+    HPO_CATEGORY_CACHE_PATH=lambda root: root / "app" / "hpo_category_cache.json",
+)
+__getattr__ = _PATHS.module_getattr
 
 
 def _load_seed_categories() -> dict[str, list[str]]:
@@ -71,18 +76,19 @@ def _load_seed_categories() -> dict[str, list[str]]:
     not: that degrades every phenotype into "Other", which is exactly the kind
     of silent failure this module is being changed to stop having.
     """
-    if not HPO_CATEGORY_CACHE_PATH.is_file():
+    cache_path = _PATHS.get("HPO_CATEGORY_CACHE_PATH")
+    if not cache_path.is_file():
         return {}
     try:
-        data = json.loads(HPO_CATEGORY_CACHE_PATH.read_text())
+        data = json.loads(cache_path.read_text())
     except Exception as exc:
         print(
-            f"WARNING: could not read {HPO_CATEGORY_CACHE_PATH}: {exc}. "
+            f"WARNING: could not read {cache_path}: {exc}. "
             "HP terms will fall back to the ontology, or to no category."
         )
         return {}
     if not isinstance(data, dict):
-        print(f"WARNING: {HPO_CATEGORY_CACHE_PATH} is not a JSON object; ignoring it.")
+        print(f"WARNING: {cache_path} is not a JSON object; ignoring it.")
         return {}
     return {
         key: [str(v) for v in value]
