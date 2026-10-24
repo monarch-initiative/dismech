@@ -55798,7 +55798,8 @@ window.searchData = [
       "Neuroplasticity Alterations",
       "Neuroinflammation",
       "GSK-3\u03b2 Signaling Dysregulation",
-      "Phosphoinositide Signaling Dysregulation"
+      "Phosphoinositide Signaling Dysregulation",
+      "D2/3 Receptor Blockade (Antipsychotic Target)"
     ],
     "cell_types": [
       "Dopaminergic Neuron",
@@ -55890,10 +55891,10 @@ window.searchData = [
     "source_file": "Bipolar_Disorder.yaml",
     "page_url": "../pages/disorders/Bipolar_Disorder.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 10,
     "num_genes": 7,
     "num_treatments": 7,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "3"
   },
   {
@@ -76649,7 +76650,8 @@ window.searchData = [
       "Endocannabinoid System Dysregulation",
       "HPA Axis Disruption",
       "TRPV1 Receptor Dysregulation",
-      "Gastrointestinal Dysmotility"
+      "Gastrointestinal Dysmotility",
+      "D2/3 Receptor Blockade (Antipsychotic Target)"
     ],
     "cell_types": [
       "Neuron",
@@ -76721,10 +76723,10 @@ window.searchData = [
     "source_file": "Cannabis_Hyperemesis_Syndrome.yaml",
     "page_url": "../pages/disorders/Cannabis_Hyperemesis_Syndrome.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "8",
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "3"
   },
   {
@@ -330969,8 +330971,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "SEPSECS Deficiency",
@@ -340006,7 +340008,8 @@ window.searchData = [
       "Complement-Mediated Excessive Synaptic Pruning",
       "Oligodendrocyte and Myelin Dysfunction",
       "Mitochondrial Dysfunction and Oxidative Stress",
-      "Blood-Brain Barrier Dysfunction"
+      "Blood-Brain Barrier Dysfunction",
+      "D2/3 Receptor Blockade (Antipsychotic Target)"
     ],
     "cell_types": [
       "cortical neuron",
@@ -340105,10 +340108,10 @@ window.searchData = [
     "source_file": "Schizophrenia.yaml",
     "page_url": "../pages/disorders/Schizophrenia.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 11,
+    "num_pathophysiology": 12,
     "num_genes": 14,
     "num_treatments": 7,
-    "causal_graph_edges": "27",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "5"
   },
   {
@@ -361780,7 +361783,8 @@ window.searchData = [
       "Cholinergic-Dopaminergic Neurotransmitter Imbalance",
       "Cortical Feedback Connectivity Loss",
       "Neuronal and Astrocytic Injury",
-      "Protracted and Persistent Course"
+      "Protracted and Persistent Course",
+      "D2/3 Receptor Blockade (Antipsychotic Target)"
     ],
     "cell_types": [
       "microglial cell",
@@ -361847,10 +361851,10 @@ window.searchData = [
     "source_file": "Subacute_Delirium.yaml",
     "page_url": "../pages/disorders/Subacute_Delirium.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "7"
   },
   {
@@ -395422,13 +395426,13 @@ window.searchMetrics = {
   "total_disorder_pages": 3664,
   "total_subtypes": 4847,
   "total_disorders_and_subtypes": 8511,
-  "total_unique_evidence_sources": 54618,
-  "total_unique_publications": 51020,
+  "total_unique_evidence_sources": 54619,
+  "total_unique_publications": 51021,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 308,
   "total_pathographs": 3661,
-  "total_unique_pathological_events": 24146,
-  "total_modules": 199,
+  "total_unique_pathological_events": 24147,
+  "total_modules": 200,
   "total_research_reports": 3792,
   "total_classifications": 21,
   "total_comorbidities": 51,
