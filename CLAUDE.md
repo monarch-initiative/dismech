@@ -1222,6 +1222,58 @@ The sibling metric `genetic[].mechanism_outlink` (causal genes wired to a
 mechanism, currently 48.9%) is deliberately still advisory — same recipe,
 `--genes-fail-under` to check it ad hoc.
 
+### Logical Rules: A Node's Annotations Must Agree With Each Other
+
+Every other gate validates one binding at a time. `CL:0000057 fibroblast` is a
+real term, `GO:0001837 epithelial to mesenchymal transition` is a real term, and
+a pathophysiology node asserting both passes LinkML validation, term validation,
+reference validation and every test in `tests/`. It is still incoherent: a
+fibroblast is not epithelium, so it is not the cell that undergoes EMT.
+
+```bash
+just check-logical-rules                            # whole KB, report-only
+just check-logical-rules kb/disorders/Asthma.yaml
+just check-logical-rules --strict                   # exit 1 on findings
+just refresh-logical-rule-closures                  # only after editing the rules
+```
+
+Rules live in `conf/logical_rules.yaml`; each names a process and the cell
+classes that **disqualify** a node's cell annotation from being that process's
+substrate, and fires only when *every* annotated cell type is disqualifying.
+Both halves of that are load-bearing:
+
+- **Disqualifying, not required.** "EMT requires an epithelial cell" reports
+  `CL:0000646 basal cell` and `CL:0008036 extravillous trophoblast` — textbook
+  EMT substrates that CL does not assert under `CL:0000066` — as defects. Stating
+  what the cells *are* makes an ontology gap cost a missed finding rather than a
+  false accusation.
+- **Every, not any.** A node annotating both ends of a transition (the alveolar
+  epithelial cell that starts it, the myofibroblast it becomes) is good curation.
+
+**Report-only, like `check-source-defect-claims`.** A finding is a question, and
+it gets answered one of two ways: repair the annotation (`GO:0036446`
+myofibroblast differentiation, `GO:0140074` cardiac EndMT and `GO:0098609`
+decreased cell-cell adhesion are the usual right answers), **or** record why the
+pairing is correct in `review_notes` on the node:
+
+```yaml
+review_notes: >-
+  Logical rule waived: emt-without-epithelial-substrate. <at least 20 words
+  saying which biology or which ontology gap makes this pairing correct here.>
+```
+
+The sentinel must lead `review_notes`, name the rule id, and carry 20+ words —
+the same floor `check-environmental-evidence` uses, and for the same reason.
+`notes:` is disease content and cannot waive; a waiver naming another rule does
+not transfer. This is deliberately not a baseline file: a baseline records that a
+finding was seen, `review_notes` records why a curator decided it was fine, where
+the next curator reads it.
+
+Closures (`cache/rule_closure/*.csv`) are committed and regenerated through
+`conf/oak_config.yaml` adapters, so the check is offline and deterministic; do
+not hand-edit them, and re-run the refresher after changing a rule's roots. See
+[`docs/logical-rules.md`](docs/logical-rules.md) before adding a rule.
+
 ### Cancer Entry Granularity
 
 Somatic cancer entries follow the **granularity ladder** ratified in design
@@ -4056,6 +4108,7 @@ just check-block-scalar-comments kb/disorders/MyDisease.yaml
 just check-enum-values kb/disorders/MyDisease.yaml
 just check-delivery-system kb/disorders/MyDisease.yaml
 just check-entity-refs kb/disorders/MyDisease.yaml
+just check-logical-rules kb/disorders/MyDisease.yaml
 just check-causal-targets kb/disorders/MyDisease.yaml
 just check-shared-disease-terms
 just check-gene-activity-grounding
@@ -4220,6 +4273,12 @@ Treat committed CSVs under `cache/` as derived, authority-backed artifacts:
 - `cache/<prefix>/terms.csv` caches CURIE existence and canonical labels.
 - `cache/enums/*.csv` caches membership in schema dynamic enums. Presence in
   the label cache does not establish enum membership.
+- `cache/rule_closure/*.csv` caches the `is_a` closure of the roots named in
+  `conf/logical_rules.yaml`, so `just check-logical-rules` runs offline.
+  Regenerate with `just refresh-logical-rule-closures`, never by hand. This is
+  **not** `cache/closure/`, the grouping membership closure cache described
+  under *Disease Groupings*: different schema, different builder, deliberately
+  a different directory.
 - `cache/<prefix>/hierarchy.csv` caches the **ancestor path** the renderer draws
   as a mapping breadcrumb, for the strict-hierarchy prefixes only (ICD10CM,
   NCIT). It answers a different question from `terms.csv`: not "does this CURIE

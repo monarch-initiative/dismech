@@ -1073,7 +1073,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-logical-rules check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1608,6 +1608,27 @@ check-delivery-system *args:
 [group('QC')]
 check-entity-refs *files:
     uv run python scripts/check_entity_refs.py "$@"
+
+# Check that a pathophysiology node's cell types and biological processes are
+# consistent WITH EACH OTHER (#9905). Every other gate validates one binding at
+# a time, so `CL:0000057 fibroblast` alongside `GO:0001837 epithelial to
+# mesenchymal transition` is green everywhere while claiming a fibroblast --
+# which is not epithelium -- undergoes the epithelial transition.
+#
+# Report-only by default, like check-source-defect-claims: CL's is_a graph
+# cannot express every exception, so a finding is a question for a curator. A
+# node judged correct records why in `review_notes`, not in a baseline file.
+# Pass --strict to gate. ~25s over the whole KB, offline.
+[group('QC')]
+check-logical-rules *files:
+    uv run python scripts/check_logical_rules.py "$@"
+
+# Regenerate cache/rule_closure/*.csv, the committed is_a closures the rules read.
+# Network-bound (OLS, via conf/oak_config.yaml) and slow; run it only after
+# editing conf/logical_rules.yaml, and commit the diff.
+[group('QC')]
+refresh-logical-rule-closures *args:
+    uv run python scripts/refresh_logical_rule_closures.py "$@"
 
 # Resolve every BARE-name pathograph target in kb/ (#10112, #9697). Distinct from
 # check-entity-refs: `downstream[].target`, `sequelae[].target`,

@@ -1,0 +1,81 @@
+# Logical coherence rules for pathophysiology node annotations.
+#
+# A pathophysiology node carries a set of ontology-bound `cell_types` and a set
+# of ontology-bound `biological_processes`. Nothing in the schema stops those
+# two sets from contradicting each other, because LinkML validates each
+# binding in isolation: `CL:0000057 fibroblast` is a real CL term, `GO:0001837
+# epithelial to mesenchymal transition` is a real GO term, and a node asserting
+# both passes every gate in the repo. It is still incoherent -- a fibroblast is
+# not an epithelial cell, so it is not the cell that undergoes EMT.
+#
+# These rules are the missing check. Each one names a *process* and the cell
+# classes that disqualify a node's cell annotation from being that process's
+# substrate. The rule fires when EVERY annotated cell type on the node is
+# disqualifying, which is the case where the node is confidently making two
+# claims that do not fit together.
+#
+# Read `docs/logical-rules.md` before adding a rule. Two things about the
+# formulation there are load-bearing and are easy to get backwards:
+#
+#   1. Rules assert what the annotated cells ARE, never what they are not.
+#      The tempting formulation is "EMT requires an epithelial cell; flag a
+#      node with no epithelial cell". That fails *open* on the Cell Ontology's
+#      many thin is_a chains: `CL:0000646 basal cell` and `CL:0008036
+#      extravillous trophoblast` are not asserted subclasses of `CL:0000066
+#      epithelial cell`, so a requires-rule reports them as EMT defects when
+#      they are the textbook substrate. Naming the disqualifying classes makes
+#      an ontology gap cost a missed finding rather than a false accusation.
+#
+#   2. A rule fires only when EVERY cell type is disqualifying. A node
+#      annotating both ends of a transition -- the alveolar epithelial cell
+#      that starts it and the myofibroblast it becomes -- is well curated, not
+#      broken, and an any-match rule would flag it.
+#
+# Regenerate the closures these rules read after editing `closure_roots` or
+# `except_processes`:
+#
+#     just refresh-logical-rule-closures
+
+rules:
+- id: emt-without-epithelial-substrate
+  summary: >-
+    Epithelial-to-mesenchymal transition annotated on a node whose only cell
+    types are already mesenchymal, connective-tissue, muscle or endothelial
+    cells -- none of which is the epithelium that undergoes EMT.
+  processes:
+  - GO:0001837   # epithelial to mesenchymal transition
+  except_processes:
+  # GO's cardiac EMT subtree is deliberately exempt. `GO:0060317 cardiac
+  # epithelial to mesenchymal transition` and its five children (endocardial
+  # cushion, heart valve, coronary vasculature, cardiac fibroblast development)
+  # classify an *endocardial endothelial* substrate under EMT. That is GO's own
+  # placement, not a curation error, so a node bound to one of those terms is
+  # making the claim GO sanctions.
+  - GO:0060317   # cardiac epithelial to mesenchymal transition
+  disqualifying_cell_classes:
+  - CL:0002320   # connective tissue cell -- covers fibroblast and myofibroblast
+  - CL:0000115   # endothelial cell -- this is EndMT, a distinct process
+  - CL:0000187   # muscle cell
+  - CL:0008019   # mesenchymal cell
+  remediation: >-
+    Decide which claim the node is making. If the cells listed are the product
+    of the transition rather than its substrate, add the epithelial cell that
+    undergoes it. If the process is really endothelial-to-mesenchymal
+    transition, bind GO:0140074 (cardiac endothelial to mesenchymal transition)
+    or drop the process rather than reusing the epithelial term. If the node is
+    about fibroblast-to-myofibroblast conversion, GO:0036446 (myofibroblast
+    differentiation) is the process, not EMT.
+
+- id: met-without-mesenchymal-substrate
+  summary: >-
+    Mesenchymal-to-epithelial transition annotated on a node whose only cell
+    types are epithelial -- the product of the transition, not the mesenchyme
+    that undergoes it.
+  processes:
+  - GO:0060231   # mesenchymal to epithelial transition
+  disqualifying_cell_classes:
+  - CL:0000066   # epithelial cell
+  remediation: >-
+    Add the mesenchymal cell that undergoes the transition, or, if the node is
+    about the resulting epithelium rather than the transition itself, replace
+    the process with one describing that state.
