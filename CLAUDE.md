@@ -3987,6 +3987,13 @@ Non-negotiable rules:
   on an HGNC identifier written beside the wrong gene (#9845).
 - Never create or hand-edit `references_cache/*.md`; generate or regenerate an
   entry with `just fetch-reference <ID>`.
+- A reference first cached as an abstract stays `abstract_only` on later plain
+  fetches. To upgrade it, `just fetch-reference <ID> --force` (any `-`-prefixed
+  argument is passed to the validator rather than read as an ID, #13185). Use it
+  only when the content a claim needs, such as a phenotype table, is in the PMC
+  full text. A forced re-fetch rewrites the frontmatter and can add hundreds of
+  body lines (#10460, #10736), so stage only the `references_cache/` file you
+  meant to upgrade and re-run `just count-verified-snippets` afterwards.
 - **Re-derive the cited-PMID list immediately before pruning uncited caches.** A
   list built earlier in the session goes stale the moment you add a section, and
   pruning against it deletes a cache the entry now cites. CI does not catch this:
