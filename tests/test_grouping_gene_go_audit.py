@@ -328,3 +328,33 @@ def test_failed_review_ancestor_lookup_is_flagged(tmp_path, monkeypatch):
     (v,) = audit.build_verdicts(pause=0)
     assert v.review_lookup_failed is True
     assert _member(v, "Mu").genes[0].review_terms == []
+
+
+def test_failed_review_lookup_leaves_a_review_only_gene_unresolved(tmp_path, monkeypatch):
+    gdir = tmp_path / "groupings"
+    ddir = tmp_path / "disorders"
+    _write_yaml(gdir / "G.yaml", _grouping("G", ["Nu", "Xi"]))
+    _write_yaml(ddir / "Nu.yaml", {"name": "Nu", "genetic": [_gene("hgnc:50", "REG50")]})
+    _write_yaml(ddir / "Xi.yaml", {"name": "Xi", "genetic": [_gene("hgnc:51", "CHAN51")]})
+    monkeypatch.setattr(audit, "GROUPINGS_DIR", str(gdir))
+    monkeypatch.setattr(audit, "DISORDERS_DIR", str(ddir))
+    monkeypatch.setattr(audit, "hgnc_uniprot_index", lambda: {"hgnc:50": "P00050", "hgnc:51": "P00051"})
+    monkeypatch.setattr(
+        audit, "fetch_annotations",
+        lambda accs, roots, *, pause: {
+            a: ([audit.Annotation("GO:0005248", "IDA", False)] if a == "P00051" else [])
+            for a in accs
+        },
+    )
+    monkeypatch.setattr(
+        audit, "review_mf_terms",
+        lambda: {"hgnc:50": ["GO:0005246"], "hgnc:51": ["GO:0005248"]},
+    )
+    monkeypatch.setattr(audit, "terms_under_roots", lambda terms, roots, *, pause: None)
+    (v,) = audit.build_verdicts(pause=0)
+    review_only = _member(v, "Nu")
+    assert review_only.genes[0].verdict == "LOOKUP_FAILED"
+    assert review_only.verdict == "UNRESOLVED"
+    # A gene GO already supports is unaffected by the failed review lookup.
+    assert _member(v, "Xi").genes[0].verdict == "EXPERIMENTAL"
+    assert _member(v, "Xi").verdict == "SUPPORTED"

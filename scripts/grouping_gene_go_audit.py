@@ -34,9 +34,10 @@ A gene's verdict is the strongest class of support it has
   NONE           none of the above
 
 The gene review counts as support because it is this project's own curation
-of the gene's function. Where it states an activity GO's annotations lack, the
-review is the answer, so the report lists those genes separately rather than
-treating them as gaps. The ingest table is a snapshot (see
+of the gene's function. It is AI-generated and lives in a separate repository,
+so it ranks below every curated GO evidence class. Where it states an activity
+GO's annotations lack, the review is the answer, so the report lists those
+genes separately rather than treating them as gaps. The ingest table is a snapshot (see
 ``kb/genes/ingest/sources.json``), so a review newer than the pin is not seen
 until the ingest is refreshed (``just genes-ingest-refresh --repin`` then
 ``just genes-ingest-build``).
@@ -48,7 +49,7 @@ as ``SUBTYPE_UNSCOPED`` (no lookup) when the row names none, including a
 subtype reached through a nested grouping.
 
 A member is ``SUPPORTED`` when at least one causal gene has a verdict above
-NONE, ``UNSUPPORTED`` when every causal gene is NONE, and ``NO_CAUSAL_GENE``
+NONE (``GENE_REVIEW`` included), ``UNSUPPORTED`` when every causal gene is NONE, and ``NO_CAUSAL_GENE``
 when the entry binds no causal HGNC gene at all. For a NO_CAUSAL_GENE member
 the genes it does bind (``DISPUTED``, ``SUSCEPTIBILITY`` ...) are still looked
 up and listed with their relationship type, because a grouping member whose
@@ -477,9 +478,15 @@ def build_verdicts(only: str | None = None, *, pause: float = 0.2) -> list[Group
         under = terms_under_roots(candidate_terms, roots, pause=pause) if candidate_terms else set()
         if under is None:
             gv.review_lookup_failed = True
+            # The review now carries verdicts, so a gene it might have supported
+            # is unresolved, not unsupported, when the ancestor lookup fails.
+            for g in all_genes:
+                if review_terms.get(g.hgnc) and not g.go_supported:
+                    g.lookup_failed = True
             print(
-                f"WARNING: QuickGO ancestor lookup failed for {name}; the ai-gene-review "
-                "column is empty for this grouping, not absent.",
+                f"WARNING: QuickGO ancestor lookup failed for {name}; ai-gene-review "
+                "support could not be checked, so genes relying on it are reported "
+                "as LOOKUP_FAILED and their members as UNRESOLVED.",
                 file=sys.stderr,
             )
         for g in all_genes:
@@ -507,7 +514,7 @@ def _print_summary(verdicts: list[GroupingVerdict]) -> None:
         counts = {k: len(v.by_verdict(k)) for k in kinds}
         print("    " + "  ".join(f"{k}={n}" for k, n in counts.items() if n or k != "SUBTYPE_UNSCOPED"))
         if v.review_lookup_failed:
-            print("    NOTE: the ai-gene-review lookup failed; that column is empty, not absent.")
+            print("    NOTE: the ai-gene-review lookup failed; genes relying on it are LOOKUP_FAILED.")
         weakest = [
             m for m in v.by_verdict("SUPPORTED")
             if all(g.verdict in ("ELECTRONIC", "NONE", "NO_UNIPROT", "LOOKUP_FAILED") for g in m.causal_genes)
@@ -535,8 +542,7 @@ def _print_summary(verdicts: list[GroupingVerdict]) -> None:
         if mixed:
             print("\n    Causal genes with no annotation under a root, in otherwise SUPPORTED members:")
             for m, g in mixed:
-                review = f"  ai-gene-review core: {', '.join(g.review_terms)}" if g.review_terms else ""
-                print(f"      {m.label}: {g.symbol} ({g.uniprot}){review}")
+                print(f"      {m.label}: {g.symbol} ({g.uniprot})")
         review_only = [
             (m, g) for m in v.members for g in m.genes
             if g.review_terms and not g.go_supported
