@@ -150385,7 +150385,8 @@ window.searchData = [
       "PCSK9",
       "LDLRAP1",
       "APOE",
-      "Polygenic Hypercholesterolemia"
+      "Polygenic Hypercholesterolemia",
+      "IL34 Stop-Gain Variant and Cardiovascular Resilience"
     ],
     "treatments": [
       "High-Intensity Statin Therapy",
@@ -150425,9 +150426,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Familial_Hypercholesterolemia.html",
     "num_phenotypes": 18,
     "num_pathophysiology": 19,
-    "num_genes": 6,
+    "num_genes": 7,
     "num_treatments": 16,
-    "causal_graph_edges": "80",
+    "causal_graph_edges": "81",
     "causal_graph_longest_path": "13"
   },
   {
@@ -231783,7 +231784,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 5,
     "num_treatments": 3,
-    "causal_graph_edges": "29",
+    "causal_graph_edges": "34",
     "causal_graph_longest_path": "6"
   },
   {
@@ -243221,6 +243222,63 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 3,
     "causal_graph_edges": "35",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Macular Degeneration, Early-onset",
+    "disease_id": "MONDO:0014501",
+    "category": "Mendelian",
+    "parents": [
+      "Macular degeneration",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-10-24T05:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Early-onset macular degeneration (EOMD) is an autosomal dominant maculopathy attributed to heterozygous variants in FBN2, which encodes fibrillin-2, a glycoprotein of the elastic microfibrils of the extracellular matrix. The disease was defined in one two-generation family in which exome sequencing found the rare missense variant p.Glu1144Lys segregating with the maculopathy; further rare FBN2 variants predicted to disrupt function were found among 192 maculopathy patients. Fibrillin-2 localizes to Bruch's membrane, the elastin-rich layer between the retinal pigment epithelium and the choriocapillaris, and its expression appears reduced in aging and age-related macular degeneration eyes. A common FBN2 missense variant shows suggestive association with age-related macular degeneration, so the same gene is linked to Mendelian and complex forms of macular disease. How a heterozygous FBN2 variant damages the macula is not known; in mice, knocking down or blocking fibrillin-2 in the eye produces retinal degeneration. There is no disease-specific treatment.",
+    "pathophysiology": [
+      "FBN2 Heterozygous Missense Variant",
+      "Bruch's Membrane Elastic Microfibril Dysfunction",
+      "Outer Retinal Degeneration"
+    ],
+    "cell_types": [
+      "retinal pigment epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002586"
+    ],
+    "biological_processes": [
+      "elastic fiber assembly"
+    ],
+    "phenotypes": [
+      "Macular degeneration"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000608"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FBN2"
+    ],
+    "treatments": [
+      "Low-vision support",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Macular_Degeneration_Early-onset.yaml",
+    "page_url": "../pages/disorders/Macular_Degeneration,_Early-onset.html",
+    "num_phenotypes": 1,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "7",
     "causal_graph_longest_path": "5"
   },
   {
@@ -254820,7 +254878,8 @@ window.searchData = [
       "Vestibulo-Thalamo-Cortical Dysfunction",
       "Vestibulo-Cerebellar Integration Failure and Compensation",
       "Vestibular CGRP Signaling",
-      "PACAP Pathway"
+      "PACAP Pathway",
+      "Triptan Occupancy of Meningeal and Trigeminal 5-HT1B/1D Receptors"
     ],
     "cell_types": [],
     "cell_type_ids": [],
@@ -254902,10 +254961,10 @@ window.searchData = [
     "source_file": "Migraine.yaml",
     "page_url": "../pages/disorders/Migraine.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 10,
     "num_genes": 5,
     "num_treatments": 11,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "6"
   },
   {
@@ -254926,7 +254985,8 @@ window.searchData = [
       "Retinal microvascular perfusion abnormality",
       "K2P potassium channel (TRESK/TREK1/TREK2) dysfunction",
       "Hyperhomocysteinemia",
-      "Endothelial dysfunction"
+      "Endothelial dysfunction",
+      "Triptan Occupancy of Meningeal and Trigeminal 5-HT1B/1D Receptors"
     ],
     "cell_types": [
       "neuron",
@@ -254988,10 +255048,10 @@ window.searchData = [
     "source_file": "Migraine_with_Aura.yaml",
     "page_url": "../pages/disorders/Migraine_with_aura.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 8,
     "num_genes": 2,
     "num_treatments": 5,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
   },
   {
@@ -301770,6 +301830,7 @@ window.searchData = [
       "Dysbiotic Subgingival Biofilm Formation",
       "Keystone-Pathogen Remodelling and Complement Subversion",
       "Th17 Expansion and Neutrophil-Rich Periodontal Inflammation",
+      "Inflammasome-Dependent IL-1 Beta Release",
       "Osteoclast-Mediated Alveolar Bone Resorption",
       "Connective Tissue Attachment Loss and Pocket Formation",
       "Systemic Dissemination of Periodontal Pathogens and Inflammatory Mediators",
@@ -301783,6 +301844,7 @@ window.searchData = [
       "T-helper 17 cell",
       "neutrophil",
       "gingival epithelial cell",
+      "macrophage",
       "osteoclast",
       "colonic mononuclear phagocyte"
     ],
@@ -301790,8 +301852,8 @@ window.searchData = [
       "CL:0000899",
       "CL:0000775",
       "CL:0002621",
-      "CL:0000092",
-      "CL:0000235"
+      "CL:0000235",
+      "CL:0000092"
     ],
     "biological_processes": [
       "subgingival plaque biofilm formation",
@@ -301800,6 +301862,8 @@ window.searchData = [
       "interleukin-17 production",
       "neutrophil chemotaxis",
       "inflammatory response",
+      "inflammasome-mediated signaling",
+      "IL-1 beta production",
       "osteoclast differentiation",
       "bone resorption",
       "extracellular matrix disassembly"
@@ -301849,10 +301913,10 @@ window.searchData = [
     "source_file": "Periodontitis.yaml",
     "page_url": "../pages/disorders/Periodontitis.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 11,
+    "num_pathophysiology": 12,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "19",
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "8"
   },
   {
@@ -312988,29 +313052,51 @@ window.searchData = [
     "creation_date": "2025-12-04T16:57:31Z",
     "updated_date": "2026-09-05T02:16:09Z",
     "subtypes": [
+      "CILD1",
       "CILD2",
+      "CILD3",
       "CILD5",
       "CILD6",
       "CILD7",
       "CILD10",
+      "CILD11",
+      "CILD12",
       "CILD13",
       "CILD14",
+      "CILD15",
+      "CILD16",
       "CILD17",
       "CILD18",
       "CILD19",
       "CILD20",
       "CILD21",
+      "CILD22",
+      "CILD23",
       "CILD24",
       "CILD25",
       "CILD26",
+      "CILD27",
+      "CILD28",
       "CILD29",
+      "CILD32",
+      "CILD33",
+      "CILD34",
       "CILD35",
       "CILD36",
+      "CILD37",
+      "CILD38",
       "CILD39",
+      "CILD40",
+      "CILD42",
+      "CILD43",
       "CILD44",
       "CILD45",
       "CILD48",
+      "CILD49",
       "CILD50",
+      "CILD52",
+      "CILD53",
+      "CILD54",
       "CFAP46-related"
     ],
     "description": "Primary ciliary dyskinesia (PCD) is a genetically heterogeneous motile ciliopathy in which defective axonemal motors, regulatory structures or multiciliogenesis impair transport by respiratory cilia. Most forms are autosomal recessive; FOXJ1 and TUBB4B can cause dominant disease, and DNAAF6, OFD1 and RPGR can cause X-linked disease. Chronic wet cough, sino-otologic disease, recurrent infection and bronchiectasis follow impaired airway clearance. Nodal-cilia involvement causes genotype-dependent situs abnormalities, while reproductive cilia and sperm flagella contribute to subfertility. Normal ciliary ultrastructure, beat frequency or nasal nitric oxide do not individually exclude PCD. Clinical trajectories vary within and between genotypes; genotype associations and experimental epithelial mechanisms do not constitute validated individual severity tiers.",
@@ -313036,7 +313122,9 @@ window.searchData = [
       "Ciliary Oxidative Stress and Glutathione Response",
       "Cytoplasmic Dynein Arm Preassembly Failure",
       "Outer Dynein Arm Docking and Attachment Failure",
-      "Central Pair Apparatus Defect"
+      "Central Pair Apparatus Defect",
+      "Radial Spoke Defect",
+      "Nexin-Dynein Regulatory Complex Defect"
     ],
     "cell_types": [
       "respiratory tract multiciliated cell",
@@ -313062,7 +313150,9 @@ window.searchData = [
       "determination of left/right symmetry",
       "axonemal dynein complex assembly",
       "outer dynein arm assembly",
-      "axonemal central apparatus assembly"
+      "axonemal central apparatus assembly",
+      "radial spoke assembly",
+      "regulation of cilium beat frequency"
     ],
     "phenotypes": [
       "Chronic Cough",
@@ -313200,7 +313290,17 @@ window.searchData = [
       "DRC1",
       "ODAD4",
       "HYDIN",
-      "BRWD1"
+      "BRWD1",
+      "DNAL1",
+      "ZMYND10",
+      "ODAD2",
+      "DRC2",
+      "SPAG1",
+      "RSPH3",
+      "DRC4",
+      "DNAJB13",
+      "CFAP300",
+      "CLXN"
     ],
     "treatments": [
       "Airway Clearance Techniques",
@@ -313222,10 +313322,10 @@ window.searchData = [
     "source_file": "Primary_Ciliary_Dyskinesia.yaml",
     "page_url": "../pages/disorders/Primary_Ciliary_Dyskinesia.html",
     "num_phenotypes": 31,
-    "num_pathophysiology": 22,
-    "num_genes": 43,
+    "num_pathophysiology": 24,
+    "num_genes": 53,
     "num_treatments": 9,
-    "causal_graph_edges": "127",
+    "causal_graph_edges": "139",
     "causal_graph_longest_path": "8"
   },
   {
@@ -313437,7 +313537,7 @@ window.searchData = [
   },
   {
     "name": "Primary Ciliary Dyskinesia 37",
-    "disease_id": null,
+    "disease_id": "MONDO:0033204",
     "category": "Mendelian",
     "parents": [
       "Primary Ciliary Dyskinesia",
@@ -313719,7 +313819,7 @@ window.searchData = [
   },
   {
     "name": "Primary Ciliary Dyskinesia 50",
-    "disease_id": null,
+    "disease_id": "MONDO:0957252",
     "category": "Mendelian",
     "parents": [
       "Primary Ciliary Dyskinesia",
@@ -399139,17 +399239,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3698,
-  "total_subtypes": 4865,
-  "total_disorders_and_subtypes": 8563,
-  "total_unique_evidence_sources": 55207,
-  "total_unique_publications": 51582,
+  "total_disorder_pages": 3699,
+  "total_subtypes": 4887,
+  "total_disorders_and_subtypes": 8586,
+  "total_unique_evidence_sources": 55247,
+  "total_unique_publications": 51604,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 309,
-  "total_pathographs": 3695,
-  "total_unique_pathological_events": 24381,
-  "total_modules": 203,
-  "total_research_reports": 3823,
+  "total_pathographs": 3696,
+  "total_unique_pathological_events": 24388,
+  "total_modules": 204,
+  "total_research_reports": 3824,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 121
