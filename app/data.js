@@ -163916,6 +163916,64 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Gastrointestinal Tularemia",
+    "disease_id": "MONDO:0001916",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tularemia"
+    ],
+    "creation_date": "2026-09-29T23:19:27Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Gastrointestinal tularemia is the enteric form of Francisella tularensis infection in which ingestion of contaminated food or water exposes the gastrointestinal tract to the intracellular bacterium and produces inflammatory disease of the alimentary tract and its draining lymph nodes.",
+    "pathophysiology": [
+      "Ingested Francisella tularensis Exposure",
+      "Macrophage Phagosomal Escape and Cytosolic Replication",
+      "Enteric and Abdominal Nodal Inflammation"
+    ],
+    "cell_types": [
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "symbiont-mediated disruption of host phagosome",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Abdominal Lymphadenopathy",
+      "Fever"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0002716",
+      "HP:0001945"
+    ],
+    "frequencies": [
+      "RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Ciprofloxacin"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Gastrointestinal_Tularemia.yaml",
+    "page_url": "../pages/disorders/Gastrointestinal_Tularemia.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Gaucher Disease",
     "disease_id": "MONDO:0018150",
     "category": "Genetic",
@@ -380200,7 +380258,8 @@ window.searchData = [
       "Ulceroglandular",
       "Oculoglandular",
       "Pneumonic",
-      "Typhoidal"
+      "Typhoidal",
+      "Gastrointestinal"
     ],
     "description": "Tularemia is a highly infectious zoonotic disease caused by the intracellular Gram-negative bacterium Francisella tularensis. Humans acquire infection through arthropod (tick or mosquito) bites, direct contact with infected animals (especially rabbits, hares, and rodents), ingestion of contaminated food or water, or inhalation of infectious aerosols; person-to-person transmission has not been reported. After uptake by macrophages, F. tularensis escapes the phagosome into the cytosol via the Francisella Pathogenicity Island-encoded type VI secretion system, where it replicates and triggers caspase-1 inflammasome activation and granulomatous inflammation. The route of inoculation determines the clinical form: ulceroglandular, glandular, oculoglandular, oropharyngeal, pneumonic, and typhoidal tularemia. F. tularensis requires as few as 10 organisms to cause disease and is classified as a Category A bioterrorism agent.\n",
     "pathophysiology": [
@@ -398430,15 +398489,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3691,
-  "total_subtypes": 4860,
-  "total_disorders_and_subtypes": 8551,
-  "total_unique_evidence_sources": 55061,
-  "total_unique_publications": 51445,
+  "total_disorder_pages": 3692,
+  "total_subtypes": 4861,
+  "total_disorders_and_subtypes": 8553,
+  "total_unique_evidence_sources": 55068,
+  "total_unique_publications": 51452,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 309,
-  "total_pathographs": 3688,
-  "total_unique_pathological_events": 24333,
+  "total_pathographs": 3689,
+  "total_unique_pathological_events": 24335,
   "total_modules": 203,
   "total_research_reports": 3818,
   "total_classifications": 21,
