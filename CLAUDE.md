@@ -1423,7 +1423,7 @@ just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
 just validate-grouping-batch kb/groupings/Mucopolysaccharidoses.yaml   # what CI runs
 just grouping-nesting-audit          # declared tree + undeclared containments
 just grouping-mondo-consistency      # does each MONDO predicate survive its own members?
-just grouping-gene-go-audit          # do members' causal genes carry the GO activity in GO itself?
+just grouping-gene-go-audit          # do members' causal genes carry the GO activity (GO or ai-gene-review)?
 ```
 
 Membership criteria are audited over the HP/GO closure committed in

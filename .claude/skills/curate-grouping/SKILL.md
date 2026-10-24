@@ -54,9 +54,10 @@ optional `logic` is a `LogicalCriterion` tree:
   A `HAS_MOLECULAR_FUNCTION` criterion checks the GO terms each entry
   curates, not the GO annotations of its causal genes. After adding or
   editing one, run `just grouping-gene-go-audit --grouping <name>` (network,
-  report-only) to see whether each member's causal genes carry the activity
-  in GO itself. An `UNSUPPORTED` member is a lead: the member may not belong,
-  GO may lack the annotation, or the activity may sit on another gene.
+  report-only) to see whether each member's causal genes carry the activity,
+  either in GO's annotations or as a core function in their ai-gene-review
+  review. An `UNSUPPORTED` member is a lead: the member may not belong, its
+  gene may not be reviewed yet, or the activity may sit on another gene.
 - Use `negated: true` to negate a leaf when clearer than a `NOT` branch.
 
 Choose `criteria_semantics` deliberately:
