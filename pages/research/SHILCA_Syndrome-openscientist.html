@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHILCA Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>SHILCA Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>SHILCA Syndrome</h1>
+                
+                <p class="report-subtitle">SHILCA Syndrome: A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-10-21</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0031007" target="_blank" rel="noopener noreferrer">MONDO:0031007</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">17 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>SHILCA Syndrome: A Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> SHILCA Syndrome (Spondylo-epiphyseal dysplasia, sensorineural Hearing loss, Impaired Intellectual development, and Leber Congenital Amaurosis)
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0031007" target="_blank" rel="noopener noreferrer">MONDO:0031007</a> · <strong>OMIM:</strong> 619260 · <strong>Orphanet:</strong> 611207 · <strong>Category:</strong> Mendelian (autosomal recessive)
+<strong>Causal gene:</strong> <em>NMNAT1</em> (1p36.22; <a href="https://bioregistry.io/HGNC:17877" target="_blank" rel="noopener noreferrer">HGNC:17877</a>; NCBI Gene 64802)</p>
+<hr />
+<h2>Summary</h2>
+<p>SHILCA syndrome is an <strong>ultra-rare autosomal recessive multisystem disorder</strong> first delineated in 2020, defined by the tetrad of <strong>S</strong>pondylo-epiphyseal dysplasia, sensorineural <strong>H</strong>earing loss, <strong>I</strong>mpaired intellectual development (with brain MRI anomalies), and <strong>L</strong>eber <strong>C</strong>ongenital <strong>A</strong>maurosis (SHILCA). It is caused by <strong>biallelic hypomorphic (dosage-reducing) variants in <em>NMNAT1</em></strong>, the gene encoding the nuclear isoform of nicotinamide mononucleotide adenylyltransferase, the enzyme that catalyzes the terminal step of NAD⁺ biosynthesis. The archetypal mutation is an <strong>Alu-mediated intragenic partial duplication</strong> (c.299+526_<em>968dup) that reduces, but does not abolish, NMNAT1 expression — a critical point, because complete loss of NMNAT1 is embryonic-lethal in mice. The disorder is extraordinarily rare: only approximately </em><em>four patients from three families</em>* have been reported worldwide (<a href="https://pubmed.ncbi.nlm.nih.gov/32533184/">PMID: 32533184</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/33668384/">PMID: 33668384</a>).</p>
+<p>Mechanistically, reduced NMNAT1 function lowers <strong>nuclear NAD⁺</strong>, which compromises PARP1-dependent DNA repair and sirtuin (SIRT1)-dependent stress adaptation and redox buffering. In the best-studied tissue — the retina — this converges on the progressive accumulation of the oxidative DNA adduct <strong>8-oxo-dG</strong>, triggering apoptotic photoreceptor loss. The same NAD⁺-dependent vulnerability is inferred to extend to other metabolically demanding, long-lived cells: central neurons and oligodendrocytes (explaining intellectual disability, hypomyelinating leukoencephalopathy, and cerebellar hypoplasia), cochlear hair cells (sensorineural deafness), and chondrocytes (skeletal dysplasia). <em>NMNAT1</em> sits at the center of a broad <strong>allelic series</strong> that ranges from isolated non-syndromic Leber congenital amaurosis (LCA9) and cone/cone-rod dystrophy at the mild end, through hereditary spastic paraplegia, to the severe syndromic SHILCA phenotype.</p>
+<p>There is <strong>no approved disease-modifying therapy</strong>; management is entirely supportive and multidisciplinary (low-vision/blindness rehabilitation, cochlear implants, developmental/physical/occupational/speech therapy, orthopedic and dental care), coupled with autosomal-recessive genetic counseling (25% sibling recurrence risk). However, AAV-mediated <em>NMNAT1</em> gene augmentation preserves retinal structure and function in mouse models, and the oxidative-DNA-damage mechanism, NAD⁺-precursor supplementation, and SARM1 inhibition define rational, actively developing therapeutic avenues. A key diagnostic lesson is that SHILCA is a <strong>"WES-negative" structural/splice disorder</strong> that evades standard whole-exome sequencing and requires RNA-seq plus (ideally long-read) whole-genome sequencing to solve.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> SHILCA is a Mendelian, autosomal recessive, congenital multisystem syndrome combining a severe inherited retinal dystrophy (Leber congenital amaurosis) with sensorineural hearing loss, intellectual disability/brain anomalies, and a severe skeletal (spondylo-epiphyseal) dysplasia. It was first described by Bedoni et al. in 2020 in three children from two unrelated Italian families "presenting with a previously unrecognized autosomal recessive disorder that included a severe form of spondylo-epiphyseal dysplasia, sensorineural hearing loss, intellectual disability and Leber congenital amaurosis (SHILCA)" (<a href="https://pubmed.ncbi.nlm.nih.gov/32533184/">PMID: 32533184</a>).</p>
+<p><strong>Key identifiers (Finding F010).</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0031007" target="_blank" rel="noopener noreferrer">MONDO:0031007</a></td>
+</tr>
+<tr>
+<td>OMIM (disease)</td>
+<td>619260 (distinct from LCA9, OMIM 608553)</td>
+</tr>
+<tr>
+<td>OMIM (gene <em>NMNAT1</em>)</td>
+<td>608700</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><a href="https://bioregistry.io/ORPHA:611207" target="_blank" rel="noopener noreferrer">ORPHA:611207</a></td>
+</tr>
+<tr>
+<td>DOID</td>
+<td><a href="http://purl.obolibrary.org/obo/DOID_0112290" target="_blank" rel="noopener noreferrer">DOID:0112290</a></td>
+</tr>
+<tr>
+<td>GARD</td>
+<td>0018025</td>
+</tr>
+<tr>
+<td>MedGen</td>
+<td>C1780157</td>
+</tr>
+<tr>
+<td>UMLS</td>
+<td>C5543257</td>
+</tr>
+<tr>
+<td>ICD-10 / ICD-11</td>
+<td>No dedicated code (maps to generic hereditary retinal dystrophy H35.5 / 9B76)</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>None (ultra-rare)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms:</strong> "SHILCA syndrome"; "SHILCA"; full name "Spondyloepiphyseal dysplasia, sensorineural Hearing loss, Impaired intellectual development, and Leber Congenital Amaurosis."</p>
+<p><strong>Source of information.</strong> Knowledge of SHILCA is derived <strong>entirely from individual patient case reports</strong> and functional/model studies — aggregated disease-level resources are minimal, reflecting its ultra-rare Mendelian nature (F010).</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause (genetic).</strong> SHILCA is a monogenic disorder caused by <strong>biallelic (recessive) hypomorphic variants in <em>NMNAT1</em></strong>. There is no environmental, infectious, or multifactorial contribution. The original families carried an <strong>Alu-mediated partial duplication</strong> of <em>NMNAT1</em>: "Short- and long-read whole-genome sequencing highlighted a duplication involving 2 out of the 5 exons of NMNAT1 main isoform (NM_022787.3), leading to the production of aberrant mRNAs" (<a href="https://pubmed.ncbi.nlm.nih.gov/32533184/">PMID: 32533184</a>) (F001).</p>
+<p><strong>Genetic risk factors.</strong> The disease-defining variants are the <em>NMNAT1</em> alleles themselves. The second reported patient was compound heterozygous for a novel splice variant and the recurrent duplication: "two heterozygous pathogenic variants in nicotinamide mononucleotide adenylyltransferase 1 (NMNAT1)... c.439+5G&gt;T and c.299+526_<em>968dup" (<a href="https://pubmed.ncbi.nlm.nih.gov/33668384/">PMID: 33668384</a>) (F006). Because the phenotype requires </em><em>residual NMNAT1 activity</em>* (complete loss is lethal), the specific combination of hypomorphic alleles is itself the determinant of whether the syndromic (versus isolated ocular) phenotype emerges.</p>
+<p><strong>Environmental risk / protective factors.</strong> None established for the human disease. In mouse models, <strong>light exposure exacerbates</strong> photoreceptor degeneration in sensitized genotypes (compound heterozygous <em>Nmnat1^E257K/−</em>), suggesting phototoxic/oxidative stress can act as a gene–environment modifier of the ocular component (<a href="https://pubmed.ncbi.nlm.nih.gov/29674119/">PMID: 29674119</a>) (F007). No protective alleles or dietary/lifestyle protective factors are documented. Conceptually, <strong>NAD⁺-precursor availability</strong> is a candidate modifiable factor given the biochemical defect, but this is unproven in SHILCA.</p>
+<p><strong>Gene–environment interactions.</strong> The clearest example is the <strong>light-dependent exacerbation</strong> of retinal degeneration in hypomorphic <em>Nmnat1</em> mice (F007). The underlying oxidative DNA-damage mechanism (8-oxo-dG accumulation) implies that oxidative load — metabolic and photic — modulates tissue vulnerability (F003).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>SHILCA is a severe, congenital, multisystem phenotype. Orphanet classifies it as "a rare primary bone dysplasia" and expands the core tetrad with prominent CNS, neuromuscular, craniofacial, and dental features (F012).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO term</th>
+<th>Onset / course</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Leber congenital amaurosis</td>
+<td>Clinical sign (ophthalmic)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030512" target="_blank" rel="noopener noreferrer">HP:0030512</a></td>
+<td>Congenital; rapid progression → stabilizes ~age 4</td>
+<td>Universal (cardinal)</td>
+</tr>
+<tr>
+<td>Retinal degeneration</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000546" target="_blank" rel="noopener noreferrer">HP:0000546</a></td>
+<td>Congenital, progressive</td>
+<td>Universal</td>
+</tr>
+<tr>
+<td>Macular/central retinal atrophy</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007401" target="_blank" rel="noopener noreferrer">HP:0007401</a></td>
+<td>Coalesces into central scar by age 2</td>
+<td>Universal</td>
+</tr>
+<tr>
+<td>Optic atrophy</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" rel="noopener noreferrer">HP:0000648</a></td>
+<td>Early, progressive</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Nystagmus</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a></td>
+<td>Infantile</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Hyperopia</td>
+<td>Lab/refractive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000540" target="_blank" rel="noopener noreferrer">HP:0000540</a></td>
+<td>Congenital</td>
+<td>Universal in NMNAT1-LCA</td>
+</tr>
+<tr>
+<td>Sensorineural hearing impairment</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a></td>
+<td>Congenital/early</td>
+<td>Cardinal</td>
+</tr>
+<tr>
+<td>Intellectual disability</td>
+<td>Behavioral/cognitive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+<td>Developmental</td>
+<td>Cardinal</td>
+</tr>
+<tr>
+<td>Global developmental delay</td>
+<td>Behavioral/cognitive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a></td>
+<td>Infantile</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Spondylo-epiphyseal dysplasia / platyspondyly</td>
+<td>Physical/skeletal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002655" target="_blank" rel="noopener noreferrer">HP:0002655</a></td>
+<td>Congenital</td>
+<td>Cardinal</td>
+</tr>
+<tr>
+<td>Delayed CNS myelination</td>
+<td>Imaging/neurologic</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002188" target="_blank" rel="noopener noreferrer">HP:0002188</a></td>
+<td>Infantile</td>
+<td>Reported</td>
+</tr>
+<tr>
+<td>Leukoencephalopathy (hypomyelinating)</td>
+<td>Imaging/neurologic</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" rel="noopener noreferrer">HP:0002352</a></td>
+<td>Infantile</td>
+<td>Reported</td>
+</tr>
+<tr>
+<td>Cerebral hypoplasia</td>
+<td>Imaging</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0006872" target="_blank" rel="noopener noreferrer">HP:0006872</a></td>
+<td>Congenital</td>
+<td>Reported</td>
+</tr>
+<tr>
+<td>Cerebellar atrophy/hypoplasia</td>
+<td>Imaging</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" rel="noopener noreferrer">HP:0001272</a></td>
+<td>Infantile</td>
+<td>Reported</td>
+</tr>
+<tr>
+<td>Generalized hypotonia</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a></td>
+<td>Early</td>
+<td>Reported</td>
+</tr>
+<tr>
+<td>Ataxia</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" rel="noopener noreferrer">HP:0001251</a></td>
+<td>Childhood</td>
+<td>Reported</td>
+</tr>
+<tr>
+<td>Depressed nasal bridge</td>
+<td>Dysmorphic</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" rel="noopener noreferrer">HP:0005280</a></td>
+<td>Congenital</td>
+<td>Reported</td>
+</tr>
+<tr>
+<td>Wide mouth</td>
+<td>Dysmorphic</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000154" target="_blank" rel="noopener noreferrer">HP:0000154</a></td>
+<td>Congenital</td>
+<td>Reported</td>
+</tr>
+<tr>
+<td>Abnormal dentition</td>
+<td>Dental</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" rel="noopener noreferrer">HP:0000164</a></td>
+<td>Childhood</td>
+<td>Reported</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Ocular natural history (F008).</strong> The retinal phenotype follows a stereotyped course: "All patients exhibited early-onset, rapidly progressive bilateral retinal degeneration with pronounced central involvement. The condition was characterized by multiple atrophic lesions that coalesced into a large central retinal scar by age 2. The condition stabilized around 4 years of age" (<a href="https://pubmed.ncbi.nlm.nih.gov/39710161/">PMID: 39710161</a>). Patients are hyperopic with <strong>undetectable ERG and VEP</strong> responses; most retain light-perception vision or better with minimal acuity deterioration after age 2.</p>
+<p><strong>Quality of life impact.</strong> The combination produces <strong>deaf-blindness plus intellectual disability and skeletal/motor disability</strong> — among the most severe possible multi-domain impairments — with lifelong dependence and need for specialized education and rehabilitation (F015). No disease-specific EQ-5D/SF-36/PROMIS data exist given the tiny patient count.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <em>NMNAT1</em> (nicotinamide mononucleotide adenylyltransferase 1), chromosome <strong>1p36.22</strong>, ENSG00000173614, <strong><a href="https://bioregistry.io/HGNC:17877" target="_blank" rel="noopener noreferrer">HGNC:17877</a></strong>, OMIM gene 608700, transcript NM_022787. It encodes the <strong>nuclear</strong> NAD⁺-synthesizing enzyme (F002, F009, F011).</p>
+<p><strong>Pathogenic variants in SHILCA.</strong>
+- <strong>c.299+526_*968dup</strong> — recurrent Alu-mediated intragenic partial duplication (2 of 5 exons), producing aberrant mRNAs; reduces expression ~4-fold (hypomorphic, not null) (<a href="https://pubmed.ncbi.nlm.nih.gov/32533184/">PMID: 32533184</a>).
+- <strong>c.439+5G&gt;T</strong> — novel non-canonical splice variant producing aberrant transcripts (second patient, compound heterozygous with the duplication) (<a href="https://pubmed.ncbi.nlm.nih.gov/33668384/">PMID: 33668384</a>).</p>
+<p>All variants are <strong>germline</strong>, autosomal recessive, with a <strong>loss/reduction-of-function (hypomorphic)</strong> consequence — not gain of function (F009).</p>
+<p><strong>Broader <em>NMNAT1</em> allelic series (F004).</strong> <em>NMNAT1</em> exhibits a remarkable genotype–phenotype spectrum, with most pathogenic variants clustering in <strong>exon 5</strong>:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>cDNA</th>
+<th>Phenotype</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>p.Glu257Lys</td>
+<td>c.769G&gt;A</td>
+<td>Most common LCA9 hypomorph; incompletely penetrant</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24830548/">PMID: 24830548</a></td>
+</tr>
+<tr>
+<td>p.Val9Met</td>
+<td>c.25G&gt;A</td>
+<td>Classic LCA9 (homozygous siblings)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22842229/">PMID: 22842229</a></td>
+</tr>
+<tr>
+<td>p.Asn18Ser</td>
+<td>c.53A&gt;G</td>
+<td>Milder, later-onset retinal dystrophy (with E257K)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30004997/">PMID: 30004997</a></td>
+</tr>
+<tr>
+<td>p.Glu91Lys / E257K+N18S</td>
+<td>—</td>
+<td>Cone / cone-rod dystrophy with macular atrophy</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29184169/">PMID: 29184169</a></td>
+</tr>
+<tr>
+<td>p.E257K (homozygous)</td>
+<td>c.769G&gt;A</td>
+<td>Hereditary spastic paraplegia</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36871412/">PMID: 36871412</a></td>
+</tr>
+<tr>
+<td>Duplication + splice</td>
+<td>c.299+526_*968dup; c.439+5G&gt;T</td>
+<td>Syndromic SHILCA</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32533184/">PMID: 32533184</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/33668384/">PMID: 33668384</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The most common allele, <strong>p.Glu257Lys</strong>, "was observed in 38 of 106 alleles (35.8%)" and "is considered not fully penetrant" — it "was 80-fold less frequent in a homozygous state in patients... than predicted based on its heterozygosity frequency" (<a href="https://pubmed.ncbi.nlm.nih.gov/24830548/">PMID: 24830548</a>) (F004, F009).</p>
+<p><strong>Population allele frequencies (gnomAD v4; F009).</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>rsID</th>
+<th>Allele frequency</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>p.Glu257Lys</td>
+<td>rs150726175</td>
+<td>~1.03×10⁻³ (~0.1%; carrier ~1/485)</td>
+<td>Common but reduced-penetrance hypomorph</td>
+</tr>
+<tr>
+<td>p.Val9Met</td>
+<td>rs387907294</td>
+<td>~3.4×10⁻⁶</td>
+<td>Ultra-rare, deleterious</td>
+</tr>
+<tr>
+<td>p.Asn18Ser</td>
+<td>rs748902766</td>
+<td>~3.7×10⁻⁵</td>
+<td>Rare</td>
+</tr>
+<tr>
+<td>SHILCA duplication / splice</td>
+<td>—</td>
+<td>Not in gnomAD (private)</td>
+<td>Explains extreme rarity</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>This frequency structure — a common weak hypomorph alongside ultra-rare genuinely deleterious alleles — explains why isolated LCA9 is the predominant presentation while <strong>syndromic SHILCA is vanishingly rare</strong> (F009).</p>
+<p><strong>Modifier genes / epigenetics / chromosomal abnormalities.</strong> No specific modifier genes are established for SHILCA, though p.E257K has been proposed to act as a <strong>modifier allele</strong> in other LCA genetic subtypes (<a href="https://pubmed.ncbi.nlm.nih.gov/24940029/">PMID: 24940029</a>, supportive). No disease-specific DNA-methylation or histone-modification signature is defined. No large-scale chromosomal abnormality is involved — the lesion is a small <strong>intragenic structural (duplication) variant</strong> detectable only by WGS (F014).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>SHILCA is a <strong>purely genetic disorder</strong>; no environmental, lifestyle, or infectious etiology applies. The only environmental modifier with experimental support is <strong>light exposure</strong>, which exacerbates retinal degeneration in sensitized hypomorphic <em>Nmnat1</em> mouse models (F007, <a href="https://pubmed.ncbi.nlm.nih.gov/29674119/">PMID: 29674119</a>). No toxin, radiation, occupational exposure, dietary factor, or infectious agent is implicated.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Biallelic hypomorphic <em>NMNAT1</em> variants</strong> (Alu-mediated partial duplication ± splice variant) → <strong>reduced <em>NMNAT1</em> mRNA/protein</strong> (~4-fold downregulation in patient fibroblasts) — <em>demonstrated</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32533184/">PMID: 32533184</a>).</li>
+<li>Reduced NMNAT1 enzyme → <strong>decreased nuclear NAD⁺ biosynthesis</strong> (NMNAT1 catalyzes the terminal step, NMN + ATP → NAD⁺) — <em>demonstrated biochemically</em> (F011, F013).</li>
+<li>Lower nuclear NAD⁺ → <strong>impaired PARP1-dependent DNA repair and reduced SIRT1-dependent stress/redox adaptation</strong> — <em>inferred</em> from NMNAT1–PARP1 interaction and NAD⁺ biology (F011, F013).</li>
+<li>Impaired repair + redox buffering → <strong>accumulation of oxidative DNA damage (8-oxo-dG)</strong> in vulnerable post-mitotic cells — <em>demonstrated in photoreceptors</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41922335/">PMID: 41922335</a>) (F003).</li>
+<li>Oxidative DNA damage → <strong>apoptotic cell loss</strong> — <em>demonstrated in photoreceptors</em>; <em>inferred</em> for other tissues (F003).</li>
+<li><strong>Branch point — tissue-specific manifestations</strong> (driven by high metabolic/NAD⁺ demand and cell longevity):</li>
+<li>→ <strong>Photoreceptors</strong> degenerate → Leber congenital amaurosis (<em>demonstrated</em>).</li>
+<li>→ <strong>Central neurons / oligodendrocytes</strong> → intellectual disability, hypomyelinating leukoencephalopathy, cerebellar hypoplasia (<em>inferred</em>).</li>
+<li>→ <strong>Cochlear hair cells</strong> → sensorineural hearing loss (<em>inferred</em>).</li>
+<li>→ <strong>Chondrocytes / skeletal tissue</strong> → spondylo-epiphyseal dysplasia (<em>inferred</em>).</li>
+<li>Loss of NMNAT1's <strong>NAD⁺-independent chaperone/proteostasis function</strong> may additionally compromise neuronal maintenance — <em>inferred</em> from invertebrate/in-vitro data (F002, F013, F016).</li>
+</ol>
+<h3>Mechanistic detail</h3>
+<p><strong>Molecular pathway.</strong> NAD⁺ biosynthesis (KEGG hsa00760 nicotinamide/nicotinate metabolism; Reactome NAD biosynthesis): NMN/NaMN + ATP → NAD⁺, catalyzed by NMNAT1, feeding <strong>PARP1</strong> (DNA repair) and <strong>sirtuin/SIRT1</strong> signaling (F011, F013). NMNAT1 "catalyzes the final step in NAD+ biosynthesis and represents the major nuclear isoform of the mammalian NMNAT family," and NAD⁺ "supports redox reactions, DNA repair, chromatin regulation, stress adaptation, inflammation, and neuronal maintenance" (<a href="https://pubmed.ncbi.nlm.nih.gov/42646333/">PMID: 42646333</a>) (F013).</p>
+<p><strong>Protein dysfunction.</strong> NMNAT1 (UniProt Q9HAN9) is a <strong>279-amino-acid nuclear homohexameric enzyme</strong> (PDB 1KKU) that forms NAD⁺ from NMN + ATP (and deamido-NAD⁺ from NaMN), physically interacts with <strong>PARP1</strong>, and localizes to the nucleus (<a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>) (F011). Hypomorphic alleles reduce enzyme dosage rather than abolishing activity; NMNAT1 also "acts as a chaperone that protects against neuronal activity-induced degeneration" (<a href="https://pubmed.ncbi.nlm.nih.gov/22842229/">PMID: 22842229</a>).</p>
+<p><strong>Cellular processes &amp; tissue damage.</strong> The demonstrated process is <strong>oxidative DNA damage → apoptosis</strong>: "reduced NMNAT1 enzyme function due to the p.V9M mutation leads to DNA damage in PRs, characterized by the progressive accumulation of the oxidative DNA adduct 8-oxo-dG" preceding apoptotic photoreceptor loss (<a href="https://pubmed.ncbi.nlm.nih.gov/41922335/">PMID: 41922335</a>) (F003). NMNAT1 dysfunction is more broadly linked to "aging-associated genomic instability, neuroinflammation, synaptic impairment, retinal degeneration" (<a href="https://pubmed.ncbi.nlm.nih.gov/42646333/">PMID: 42646333</a>) (F013).</p>
+<p><strong>Why photoreceptors first?</strong> NMNAT1 is ubiquitously expressed, yet reduced function preferentially injures photoreceptors — implicating their exceptionally high metabolic and NAD⁺ demand and light-driven oxidative load (F003).</p>
+<h3>Ontology suggestions</h3>
+<ul>
+<li><strong>GO biological process:</strong> NAD biosynthetic process (<a href="http://purl.obolibrary.org/obo/GO_0009435" target="_blank" rel="noopener noreferrer">GO:0009435</a>); nicotinamide-nucleotide adenylyltransferase activity (<a href="http://purl.obolibrary.org/obo/GO_0000309" target="_blank" rel="noopener noreferrer">GO:0000309</a>); DNA repair; apoptotic process.</li>
+<li><strong>GO cellular component:</strong> nucleus (<a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>).</li>
+<li><strong>CL cell types:</strong> retinal photoreceptor cell (<a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" rel="noopener noreferrer">CL:0000210</a>); cochlear hair cell (<a href="http://purl.obolibrary.org/obo/CL_0000202" target="_blank" rel="noopener noreferrer">CL:0000202</a>); oligodendrocyte (<a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" rel="noopener noreferrer">CL:0000128</a>); chondrocyte (<a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a>); neuron (<a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a>).</li>
+<li><strong>CHEBI:</strong> NAD⁺ (<a href="http://purl.obolibrary.org/obo/CHEBI_57540" target="_blank" rel="noopener noreferrer">CHEBI:57540</a>); NMN (<a href="http://purl.obolibrary.org/obo/CHEBI_16171" target="_blank" rel="noopener noreferrer">CHEBI:16171</a>); ATP (<a href="http://purl.obolibrary.org/obo/CHEBI_30616" target="_blank" rel="noopener noreferrer">CHEBI:30616</a>); deamido-NAD⁺/NaAD (<a href="http://purl.obolibrary.org/obo/CHEBI_18304" target="_blank" rel="noopener noreferrer">CHEBI:18304</a>).</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level.</strong>
+- <strong>Primary:</strong> eye/retina, inner ear/cochlea, central nervous system (cerebrum, cerebellum, white matter), skeleton (vertebral column, long-bone epiphyses).
+- <strong>Body systems:</strong> nervous (CNS + special senses), musculoskeletal, sensory (visual, auditory).</p>
+<p><strong>Tissue and cell level (F012).</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Structure</th>
+<th>UBERON</th>
+<th>Affected cell type</th>
+<th>CL term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Retina / photoreceptor layer</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a></td>
+<td>Retinal photoreceptor cell</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" rel="noopener noreferrer">CL:0000210</a></td>
+</tr>
+<tr>
+<td>Cochlea / inner ear</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" rel="noopener noreferrer">UBERON:0001844</a></td>
+<td>Cochlear hair cell</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000202" target="_blank" rel="noopener noreferrer">CL:0000202</a></td>
+</tr>
+<tr>
+<td>Cerebral white matter</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" rel="noopener noreferrer">UBERON:0002316</a></td>
+<td>Oligodendrocyte</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" rel="noopener noreferrer">CL:0000128</a></td>
+</tr>
+<tr>
+<td>Cerebellum</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a></td>
+<td>Neuron</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a></td>
+</tr>
+<tr>
+<td>Vertebral column</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001130" target="_blank" rel="noopener noreferrer">UBERON:0001130</a></td>
+<td>Chondrocyte</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a></td>
+</tr>
+<tr>
+<td>Epiphysis of long bones</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0000958" target="_blank" rel="noopener noreferrer">UBERON:0000958</a></td>
+<td>Chondrocyte</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Subcellular level.</strong> The primary compartment is the <strong>nucleus (<a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>)</strong>, where NMNAT1 synthesizes NAD⁺ and interacts with PARP1 (F011). Downstream oxidative DNA damage affects <strong>nuclear genomic DNA</strong>.</p>
+<p><strong>Localization / lateralization.</strong> Retinal degeneration is <strong>bilateral</strong> with <strong>pronounced central (macular) involvement</strong>, coalescing into a central scar (<a href="https://pubmed.ncbi.nlm.nih.gov/39710161/">PMID: 39710161</a>) (F008). CNS involvement is diffuse/bilateral (leukoencephalopathy, cerebral/cerebellar hypoplasia); skeletal involvement is generalized/axial (platyspondyly, epiphyseal) (F012).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset.</strong> <strong>Congenital.</strong> The retinal phenotype is present at birth (Leber congenital amaurosis), and skeletal, auditory, and neurodevelopmental features manifest in infancy (F008, F012, F015).</p>
+<p><strong>Progression (ocular).</strong> A distinctive <strong>triphasic</strong> course: congenital severe deficit → rapid progression with atrophic lesions coalescing into a central scar by age 2 → <strong>stabilization around age 4</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/39710161/">PMID: 39710161</a>) (F008). This pattern distinguishes NMNAT1-LCA from many other LCA genotypes.</p>
+<p><strong>Progression (systemic).</strong> Intellectual disability, hearing loss, and skeletal dysplasia are <strong>chronic, lifelong, non-remitting</strong>. Hypomyelinating leukoencephalopathy and cerebellar hypoplasia imply ongoing neurological morbidity (F012, F015).</p>
+<p><strong>Patterns.</strong> No spontaneous or treatment-induced remission. The ocular <strong>critical window</strong> for intervention is the first years of life, before photoreceptor loss is complete — relevant to the stabilization-by-age-4 natural history and to gene-therapy timing (F008, F005).</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology.</strong> <strong>Ultra-rare.</strong> Approximately <strong>four patients from three families</strong> have been reported worldwide (three original Italian patients plus one Spanish patient) (F001, F006). No reliable prevalence/incidence figures exist; it is below Orphanet's reporting thresholds. The extreme rarity is explained by the requirement for two ultra-rare deleterious hypomorphic alleles (F009).</p>
+<p><strong>Inheritance.</strong> <strong>Autosomal recessive</strong>, with full penetrance for the biallelic genotypes described. Reported genotypes: homozygous partial duplication (consanguineous/shared-haplotype Italian families) and compound heterozygous duplication + splice variant (F001, F006). Recurrence risk for carrier couples is <strong>25% per pregnancy</strong> (F015).</p>
+<p><strong>Penetrance / expressivity.</strong> The syndromic SHILCA genotypes are penetrant. By contrast, the common <em>NMNAT1</em> allele <strong>p.E257K is incompletely penetrant</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/24830548/">PMID: 24830548</a>), and the overall allelic series shows <strong>wide expressivity</strong> (isolated LCA → cone-rod dystrophy → HSP → syndromic SHILCA), governed by residual enzyme activity (F004).</p>
+<p><strong>Founder effects / consanguinity.</strong> The original Italian families shared an identical haplotype across a 4.76 Mb autozygous region, consistent with a <strong>shared ancestral allele / consanguinity-related homozygosity</strong> (F001). No broad founder population is defined.</p>
+<p><strong>Carrier frequency.</strong> For deleterious SHILCA alleles, carrier frequency is essentially unmeasurable (private variants not in gnomAD). The common hypomorph p.E257K has a carrier frequency of ~1/485, but this allele alone does not cause SHILCA (F009).</p>
+<p><strong>Demographics.</strong> Reported patients are of European (Italian, Spanish) ancestry; no sex bias is evident (autosomal). Age at report was very young (~2 years) (F006, F015).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Key diagnostic lesson (F014).</strong> SHILCA is a <strong>WES-negative structural/splice disorder</strong>. In the index families, "whole-exome sequencing failed to identify any shared rare coding variants, in this region or elsewhere"; the diagnosis was reached only because "we then determined the transcriptome of patients' fibroblasts by RNA sequencing, followed by additional whole-genome sequencing experiments" (<a href="https://pubmed.ncbi.nlm.nih.gov/32533184/">PMID: 32533184</a>).</p>
+<p><strong>Recommended diagnostic pathway.</strong>
+1. <strong>Clinical gestalt</strong> — recognize the LCA + sensorineural hearing loss + skeletal dysplasia + intellectual disability combination.
+2. <strong>Ophthalmic workup</strong> — ERG/VEP (undetectable), OCT (outer-retinal disruption, RPE atrophy), fundus autofluorescence, fluorescein angiography (central hypofluorescence with visible choroidal vasculature) (<a href="https://pubmed.ncbi.nlm.nih.gov/39710161/">PMID: 39710161</a>) (F008).
+3. <strong>Brain MRI</strong> — hypomyelination/leukoencephalopathy, cerebellar hypoplasia (F012).
+4. <strong>Skeletal survey</strong> — spondylo-epiphyseal dysplasia, platyspondyly (F012).
+5. <strong>Molecular testing</strong> — <em>NMNAT1</em> sequencing / IRD gene panel first; <strong>if negative despite strong phenotype, escalate to WGS (short + long read) and/or fibroblast RNA-seq</strong> to detect structural/splice variants (F014).</p>
+<p><strong>Biomarkers.</strong> No validated circulating biomarker; research assays include reduced NMNAT1 transcript/protein and increased 8-oxo-dG (mechanistic, not clinical) (F003, F014).</p>
+<p><strong>Clinical criteria / differential diagnosis.</strong> No formal criteria exist. Differentials include other syndromic LCAs and other causes of deaf-blindness with skeletal dysplasia; the distinctive NMNAT1-LCA retinal natural history (central scar by age 2, stabilizing by age 4) plus the specific multisystem combination point to SHILCA.</p>
+<p><strong>NCIT terms:</strong> Whole Genome Sequencing (C101294); RNA Sequencing (C101295); Whole Exome Sequencing (C101293).</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Overall (F015).</strong> SHILCA is a congenital, chronic, non-remitting disorder producing <strong>lifelong severe multi-domain disability</strong>: profound early blindness, permanent sensorineural deafness, intellectual disability, and skeletal dysplasia (i.e., deaf-blindness plus ID plus motor/skeletal impairment).</p>
+<p><strong>Visual prognosis.</strong> Profound from birth; "most patients maintained light perception vision or better, with minimal deterioration of visual acuity after the age of 2" (<a href="https://pubmed.ncbi.nlm.nih.gov/39710161/">PMID: 39710161</a>) (F015). No meaningful spontaneous visual recovery.</p>
+<p><strong>Survival/mortality.</strong> Not quantifiable given ~4 reported patients; youngest described at ~age 2, no disease-specific mortality figure. Severe hypomyelinating leukoencephalopathy, hypotonia, and ataxia imply substantial morbidity (F015).</p>
+<p><strong>Morbidity / function.</strong> Combined sensory (vision + hearing), cognitive, and motor/skeletal disability; high lifelong care dependency.</p>
+<p><strong>Prognostic factors.</strong> Residual NMNAT1 activity (genotype severity) is the principal determinant of where a patient falls on the allelic spectrum (F004).</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Current standard — supportive only (F015).</strong> There is <strong>no approved disease-modifying therapy</strong>, and "no human trial has yet established efficacy for an NMNAT-1-directed neurological therapy" (<a href="https://pubmed.ncbi.nlm.nih.gov/42646333/">PMID: 42646333</a>) (F013). Management is multidisciplinary:
+- <strong>Sensorineural hearing loss:</strong> cochlear implants/hearing aids; auditory-verbal therapy (NCIT: Cochlear Implant C16623).
+- <strong>Vision:</strong> low-vision/blindness rehabilitation, special education.
+- <strong>Neurodevelopment / hypotonia / ataxia:</strong> developmental, physical, occupational, and speech therapy (NCIT: Physical Therapy C15415).
+- <strong>Skeletal dysplasia:</strong> orthopedic surveillance and management of spinal/joint disease.
+- <strong>Dental care</strong> for irregular dentition.
+- <strong>Genetic counseling</strong> (NCIT: Genetic Counseling C15671; Supportive Care C15346).</p>
+<p><strong>Advanced / experimental therapeutics (preclinical; F005).</strong>
+- <strong>AAV gene augmentation:</strong> "Gene Therapy Preserves Retinal Structure and Function in a Mouse Model" of NMNAT1-associated disease, where "no treatment is available" (<a href="https://pubmed.ncbi.nlm.nih.gov/32775493/">PMID: 32775493</a>). Photoreceptor-targeted expression is sufficient: "Expression of NMNAT1 in the photoreceptors is sufficient to prevent" degeneration (<a href="https://pubmed.ncbi.nlm.nih.gov/37214313/">PMID: 37214313</a>) — defining a photoreceptor-autonomous target.
+- <strong>Antioxidant / DNA-damage-targeted approaches:</strong> the 8-oxo-dG oxidative-DNA-damage mechanism was explicitly flagged as "a therapeutic opportunity" (<a href="https://pubmed.ncbi.nlm.nih.gov/41922335/">PMID: 41922335</a>).
+- <strong>NAD-pathway strategies:</strong> "Current therapeutic approaches include SARM1 inhibitors in clinical trials, gene therapy, and NAD precursor supplementation" (<a href="https://pubmed.ncbi.nlm.nih.gov/42341897/">PMID: 42341897</a>) (F005).</p>
+<p><strong>Pharmacogenomics.</strong> Not applicable (no disease-specific pharmacotherapy).</p>
+<hr />
+<h2>13. Prevention</h2>
+<p>Because SHILCA is <strong>purely genetic and congenital, primary prevention is not possible</strong> by lifestyle/environmental means (F015).</p>
+<ul>
+<li><strong>Genetic counseling (primary preventive tool):</strong> autosomal recessive counseling with <strong>25% sibling recurrence risk</strong>; cascade carrier testing once both familial <em>NMNAT1</em> alleles are identified.</li>
+<li><strong>Reproductive options:</strong> <strong>prenatal diagnosis</strong> and <strong>preimplantation genetic testing for monogenic disease (PGT-M)</strong> are available to known carrier couples (F015).</li>
+<li><strong>Secondary prevention:</strong> early ophthalmic, audiologic, neurodevelopmental, and skeletal surveillance to optimize supportive intervention (cochlear implantation, low-vision rehabilitation, early developmental therapy) within critical developmental windows.</li>
+<li><strong>Tertiary prevention:</strong> orthopedic monitoring to prevent/limit complications of spondylo-epiphyseal dysplasia; management of leukoencephalopathy-related morbidity.</li>
+<li><strong>Immunization / public-health / environmental interventions:</strong> not applicable.</li>
+</ul>
+<p><strong>NCIT:</strong> Genetic Counseling (C15671).</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p><strong>Taxonomy and orthologs (F016).</strong> <em>NMNAT1</em> is deeply conserved:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Species</th>
+<th>NCBI Taxon</th>
+<th>Gene</th>
+<th>NCBI Gene ID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Human</td>
+<td>9606</td>
+<td><em>NMNAT1</em></td>
+<td>64802</td>
+</tr>
+<tr>
+<td>Mouse</td>
+<td>10090</td>
+<td><em>Nmnat1</em></td>
+<td>66454</td>
+</tr>
+<tr>
+<td>Zebrafish</td>
+<td>7955</td>
+<td><em>nmnat1</em></td>
+<td>—</td>
+</tr>
+<tr>
+<td><em>Drosophila</em></td>
+<td>7227</td>
+<td><em>Nmnat</em>/CG13645</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The NMNAT enzyme family is conserved to yeast (F016).</p>
+<p><strong>Natural disease.</strong> <strong>No naturally occurring animal equivalent of SHILCA is cataloged in OMIA</strong> — all animal disease models are engineered (F016). No companion-animal or wildlife natural counterpart, and no zoonotic/cross-species transmission applies.</p>
+<p><strong>Comparative biology / conserved neuroprotection.</strong> NMNAT's neuroprotective role is evolutionarily conserved. In <em>Drosophila</em>, "in vivo neuronal expression of mutated nmnat shows that enzymatically inactive NMNAT protein retains strong neuroprotective effects and rescues the degeneration phenotype caused by loss of nmnat" (<a href="https://pubmed.ncbi.nlm.nih.gov/17132048/">PMID: 17132048</a>) — evidence for an NAD⁺-independent chaperone function. In mammals, the WldS fusion (Ube4b–Nmnat1) delays axon degeneration, and "increased Nmnat activity is responsible for the axon-sparing activity of the Wlds protein," with increased nuclear NAD biosynthesis and SIRT1 activation preventing axonal degeneration (<a href="https://pubmed.ncbi.nlm.nih.gov/15310905/">PMID: 15310905</a>) (F016).</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Mouse models (primary; F007).</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Phenotype</th>
+<th>Interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>Nmnat1</em> germline knockout</td>
+<td>Embryonic lethal</td>
+<td>Complete loss incompatible with life → SHILCA requires hypomorphic allele (F002)</td>
+</tr>
+<tr>
+<td><em>Nmnat1^E257K/E257K</em> knock-in</td>
+<td>No morphologic/functional retinal defect to 1 yr, even after light damage</td>
+<td>E257K is a weak, reduced-penetrance hypomorph (<a href="https://pubmed.ncbi.nlm.nih.gov/29674119/">PMID: 29674119</a>)</td>
+</tr>
+<tr>
+<td><em>Nmnat1^E257K/−</em> compound het</td>
+<td>Photoreceptor defects, exacerbated by light</td>
+<td>Demonstrates dosage-dependence &amp; gene–environment (light) interaction</td>
+</tr>
+<tr>
+<td>Retina-specific conditional KO</td>
+<td>Photoreceptor degeneration before terminal differentiation</td>
+<td>NMNAT1 needed for retinal development and maintenance</td>
+</tr>
+<tr>
+<td>AAV-<em>NMNAT1</em> gene therapy</td>
+<td>Preserves retinal structure/function</td>
+<td>Proof-of-concept therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/32775493/">PMID: 32775493</a>)</td>
+</tr>
+<tr>
+<td>Photoreceptor-specific NMNAT1 expression</td>
+<td>Prevents degeneration</td>
+<td>Photoreceptor-autonomous target (<a href="https://pubmed.ncbi.nlm.nih.gov/37214313/">PMID: 37214313</a>)</td>
+</tr>
+<tr>
+<td>p.V9M model</td>
+<td>8-oxo-dG accumulation → apoptosis</td>
+<td>Oxidative DNA-damage mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/41922335/">PMID: 41922335</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Invertebrate models.</strong> <em>Drosophila Nmnat</em> mutants cause rapid activity-dependent neurodegeneration; enzymatically inactive NMNAT still rescues, demonstrating a chaperone function (<a href="https://pubmed.ncbi.nlm.nih.gov/17132048/">PMID: 17132048</a>) (F016).</p>
+<p><strong>Model characteristics &amp; limitations.</strong> Mouse models <strong>recapitulate the retinal (ocular) component</strong> of SHILCA well and have validated both mechanism (oxidative DNA damage) and therapy (gene augmentation). However, <strong>no published model recapitulates the full multisystem SHILCA phenotype</strong> (skeletal dysplasia + hearing loss + leukoencephalopathy together); modeling to date has focused on the retina (F007, F016). Dosage is critical — null alleles are lethal, so SHILCA modeling requires hypomorphic/conditional strategies.</p>
+<p><strong>Resources:</strong> MGI (mouse <em>Nmnat1</em>, Gene 66454); FlyBase (<em>Nmnat</em>); ZFIN (<em>nmnat1</em>).</p>
+<hr />
+<h2>Mechanistic Model (Synthesis)</h2>
+<pre><code> Biallelic hypomorphic NMNAT1 variants
+ (Alu-mediated partial duplication ± splice variant; germline, AR)
+    │  demonstrated (RNA-seq ~4x downregulation; WGS)
+    ▼
+ Reduced NMNAT1 enzyme dosage  ──(residual activity preserved;
+    │                      complete loss = embryonic lethal)
+    ▼
+ Decreased NUCLEAR NAD+ biosynthesis (NMN + ATP → NAD+)
+    │  demonstrated biochemically
+    ▼
+ Impaired PARP1 DNA repair  +  reduced SIRT1 redox/stress adaptation   [inferred]
+    ▼
+ Accumulation of oxidative DNA damage (8-oxo-dG)   [demonstrated in photoreceptors]
+    ▼
+ Apoptosis of metabolically demanding, long-lived cells
+   ├── Photoreceptors ........ Leber congenital amaurosis   [demonstrated]
+   ├── Neurons/oligodendrocytes .. ID, leukoencephalopathy, cerebellar hypoplasia [inferred]
+   ├── Cochlear hair cells ... sensorineural hearing loss   [inferred]
+   └── Chondrocytes .......... spondylo-epiphyseal dysplasia [inferred]
+</code></pre>
+<p>The retinal arm of this chain is experimentally established end-to-end; the extra-ocular arms are mechanistically plausible extrapolations of the same NAD⁺-deficiency logic applied to cells with high metabolic demand and limited renewal.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32533184/">32533184</a></td>
+<td><em>Alu-mediated duplication in NMNAT1 causes SHILCA</em></td>
+<td><strong>Defines the disease</strong>; identifies the Alu-mediated partial duplication; establishes WES-negative, RNA-seq+WGS diagnosis (F001, F002, F014)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33668384/">33668384</a></td>
+<td><em>New insights on the genetic basis of SHILCA</em></td>
+<td><strong>Second independent patient</strong>; compound-het splice + duplication; replicates full phenotype (F006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22842229/">22842229</a></td>
+<td><em>NMNAT1 mutations cause LCA with macular/optic atrophy</em></td>
+<td>Establishes NMNAT1 as LCA9 gene; nuclear enzyme + chaperone role (F002, F011)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41922335/">41922335</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/40501637/">40501637</a></td>
+<td><em>Oxidative DNA damage drives apoptotic photoreceptor loss</em></td>
+<td><strong>Mechanism</strong>: 8-oxo-dG accumulation → apoptosis; therapeutic opportunity (F003)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24830548/">24830548</a></td>
+<td><em>Nonpenetrance of most frequent NMNAT1 LCA mutation</em></td>
+<td>p.E257K most common (35.8%), incompletely penetrant; allele-frequency logic (F004, F009)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36871412/">36871412</a></td>
+<td><em>NMNAT1 and hereditary spastic paraplegia</em></td>
+<td>Extends allelic series beyond retina (F004)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29184169/">29184169</a></td>
+<td><em>NMNAT1 variants cause cone/cone-rod dystrophy</em></td>
+<td>Broadens ocular allelic spectrum (F004)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30004997/">30004997</a></td>
+<td><em>Milder later-onset NMNAT1 retinopathy</em></td>
+<td>Milder end of spectrum; genotype–severity link (F004)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39710161/">39710161</a></td>
+<td><em>Natural history of NMNAT1-LCA</em></td>
+<td><strong>Ocular natural history</strong>: rapid progression → stabilizes ~age 4 (F008, F015)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29674119/">29674119</a></td>
+<td><em>NMNAT1 E257K mouse model</em></td>
+<td>Dosage-dependence; E257K homozygotes asymptomatic; light exacerbation (F007)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32775493/">32775493</a></td>
+<td><em>Gene therapy preserves retina in mouse model</em></td>
+<td>AAV gene augmentation proof-of-concept (F005)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37214313/">37214313</a></td>
+<td><em>NMNAT1 in photoreceptors sufficient to prevent degeneration</em></td>
+<td>Photoreceptor-autonomous therapeutic target (F005, F007)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42341897/">42341897</a></td>
+<td><em>Programmed axon degeneration gene variants</em></td>
+<td>NAD-pathway/SARM1 therapeutic landscape (F005)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42646333/">42646333</a></td>
+<td><em>NMNAT1 and NAD review (2026)</em></td>
+<td>NMNAT1 as terminal nuclear NAD+ enzyme; no proven human therapy (F013)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17132048/">17132048</a></td>
+<td><em>Drosophila NMNAT maintains neural integrity</em></td>
+<td>Conserved, NAD+-independent neuroprotection (F016)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15310905/">15310905</a></td>
+<td><em>Nuclear NAD biosynthesis + SIRT1 prevent axon degeneration</em></td>
+<td>Mammalian conservation of neuroprotective NAD+ mechanism (F016)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Evidence-type caveat.</strong> Several SHILCA/NMNAT1 citation snippets were flagged <code>[mismatch]</code> during validation (e.g., the exact variant-nomenclature quotes from <a href="https://pubmed.ncbi.nlm.nih.gov/33668384/" target="_blank" rel="noopener noreferrer">PMID 33668384</a> and the NMNAT1-review quotes from <a href="https://pubmed.ncbi.nlm.nih.gov/42646333/" target="_blank" rel="noopener noreferrer">PMID 42646333</a>). The underlying claims are consistent with the papers' reported findings, but the verbatim snippets should be re-verified against the published abstracts before being entered as exact quotes in a knowledge base.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Extreme rarity (n ≈ 4).</strong> All clinical knowledge derives from ~4 patients in 3 families. Penetrance, expressivity, full phenotypic range, prognosis, survival, and natural history of the extra-ocular features are essentially uncharacterized.</li>
+<li><strong>Extra-ocular mechanism is inferred, not demonstrated.</strong> The oxidative-DNA-damage → apoptosis chain is proven only in photoreceptors. Its application to chondrocytes, cochlear hair cells, and oligodendrocytes is a reasonable but untested extrapolation.</li>
+<li><strong>No multisystem model.</strong> All animal models capture the retinal phenotype; none recapitulates the skeletal, auditory, and leukoencephalopathy triad simultaneously.</li>
+<li><strong>No validated clinical biomarker</strong> or formal diagnostic criteria; diagnosis relies on expert gestalt plus escalated genomic testing.</li>
+<li><strong>No human therapeutic evidence.</strong> Gene therapy and NAD-pathway strategies are preclinical/retina-focused; none addresses the systemic disease.</li>
+<li><strong>Genotype–phenotype rules are incomplete.</strong> Why specific hypomorphic combinations yield syndromic SHILCA versus isolated LCA9 is not quantitatively defined (residual-activity thresholds are hypothesized, not measured per allele).</li>
+<li><strong>Citation-snippet mismatches</strong> (above) require manual verification.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>International patient registry / GeneMatcher outreach</strong> — aggregate additional SHILCA cases to define phenotype frequencies, natural history of extra-ocular features, and prognosis.</li>
+<li><strong>Allele-resolved enzymatic assays</strong> — quantify residual NMNAT1 activity/NAD⁺ output for each hypomorphic allele (duplication, splice, E257K, V9M) to test the residual-activity-threshold model of genotype–phenotype correlation.</li>
+<li><strong>Multisystem mouse model</strong> — generate hypomorphic/compound-heterozygous <em>Nmnat1</em> alleles matching patient genotypes (e.g., humanized duplication) and phenotype the skeleton, cochlea, and brain, not just the retina.</li>
+<li><strong>Mechanistic validation in extra-ocular cell types</strong> — measure nuclear NAD⁺, PARP1 activity, and 8-oxo-dG in patient-derived iPSC-chondrocytes, otic organoids, and oligodendrocytes to test whether the retinal mechanism generalizes.</li>
+<li><strong>Therapeutic testing of NAD⁺ precursors ± SARM1 inhibition</strong> — assess whether systemic NAD⁺ boosting (NR/NMN) or SARM1 inhibition mitigates extra-ocular degeneration in a multisystem model; the retina-focused AAV strategy cannot reach skeleton/CNS equally.</li>
+<li><strong>Diagnostic protocol dissemination</strong> — publish/endorse a tiered algorithm (IRD panel → WGS short+long read → fibroblast RNA-seq) so that WES-negative SHILCA cases are reliably solved.</li>
+<li><strong>Verify flagged citation snippets</strong> against source abstracts (<a href="https://pubmed.ncbi.nlm.nih.gov/33668384/" target="_blank" rel="noopener noreferrer">PMID 33668384</a>, 37214313, 42646333) before knowledge-base entry.</li>
+</ol>
+<hr />
+<p><em>Prepared from 16 confirmed findings across 5 investigation iterations and 39 reviewed papers. Evidence spans human clinical case reports, mouse/Drosophila model organism studies, in-vitro biochemistry, and computational/population-genetic data.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/SHILCA_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/SHILCA_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>18</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<ul>
+<li><code>PMID:41922335</code>: "a therapeutic opportunity"</li>
+<li>Text part not found as substring: 'a therapeutic opportunity'</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>41</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>39</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>35</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>9</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0031007</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>spondyloepiphyseal dysplasia, sensorineural hearing loss, impaired intellectual development, and leber congenital amaurosis</strong></li>
+<li><code>DOID:0112290</code> (1 mention) - the report calls it "DOID"; DOID calls it <strong>spondyloepiphyseal dysplasia, sensorineural hearing loss, intellectual developmental disorder, and Leber congenital amaurosis</strong></li>
+<li><code>HP:0030512</code> (1 mention) - the report calls it "Clinical sign (ophthalmic)"; HP calls it <strong>Difficulty adjusting to changes in luminance</strong></li>
+<li><code>HP:0000546</code> (1 mention) - the report calls it "Clinical sign"; HP calls it <strong>Retinal degeneration</strong></li>
+<li><code>HP:0007401</code> (1 mention) - the report calls it "Clinical sign"; HP calls it <strong>Macular atrophy</strong></li>
+<li><code>HP:0000648</code> (1 mention) - the report calls it "Clinical sign"; HP calls it <strong>Optic atrophy</strong></li>
+<li><code>HP:0000639</code> (1 mention) - the report calls it "Clinical sign"; HP calls it <strong>Nystagmus</strong></li>
+<li><code>HP:0000540</code> (1 mention) - the report calls it "Lab/refractive"; HP calls it <strong>Hypermetropia</strong></li>
+<li><code>HP:0000407</code> (1 mention) - the report calls it "Clinical sign"; HP calls it <strong>Sensorineural hearing impairment</strong></li>
+<li><code>HP:0001249</code> (1 mention) - the report calls it "Behavioral/cognitive"; HP calls it <strong>Intellectual disability</strong></li>
+<li><code>HP:0002655</code> (1 mention) - the report calls it "Physical/skeletal"; HP calls it <strong>Spondyloepiphyseal dysplasia</strong></li>
+<li><code>HP:0002188</code> (1 mention) - the report calls it "Imaging/neurologic"; HP calls it <strong>Delayed CNS myelination</strong></li>
+<li><code>HP:0002352</code> (1 mention) - the report calls it "Imaging/neurologic"; HP calls it <strong>Leukoencephalopathy</strong></li>
+<li><code>HP:0006872</code> (1 mention) - the report calls it "Imaging"; HP calls it <strong>Cerebral hypoplasia</strong></li>
+<li><code>HP:0001272</code> (1 mention) - the report calls it "Imaging"; HP calls it <strong>Cerebellar atrophy</strong></li>
+<li><code>HP:0001252</code> (1 mention) - the report calls it "Clinical sign"; HP calls it <strong>Hypotonia</strong></li>
+<li><code>HP:0001251</code> (1 mention) - the report calls it "Clinical sign"; HP calls it <strong>Ataxia</strong></li>
+<li><code>HP:0005280</code> (1 mention) - the report calls it "Dysmorphic"; HP calls it <strong>Depressed nasal bridge</strong></li>
+<li><code>HP:0000154</code> (1 mention) - the report calls it "Dysmorphic"; HP calls it <strong>Wide mouth</strong></li>
+<li><code>UBERON:0000966</code> (1 mention) - the report calls it "Retina / photoreceptor layer"; UBERON calls it <strong>retina</strong></li>
+<li><code>UBERON:0000958</code> (1 mention) - the report calls it "Epiphysis of long bones"; UBERON calls it <strong>medulla of organ</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0001263</code> (1 mention) - the report calls it "Behavioral/cognitive"; HP calls it <strong>Global developmental delay</strong>, and lists "Cognitive delay" among its other names</li>
+<li><code>HP:0000164</code> (1 mention) - the report calls it "Dental"; HP calls it <strong>Abnormality of the dentition</strong>, and lists "Dental problem" among its other names</li>
+<li><code>GO:0005634</code> (3 mentions) - the report calls it "GO cellular component:<strong> nucleus"; GO calls it </strong>nucleus**, and lists "cell nucleus" among its other names</li>
+<li><code>GO:0009435</code> (1 mention) - the report calls it "GO biological process:<strong> NAD biosynthetic process"; GO calls it </strong>NAD+ biosynthetic process**, and lists "oxidized NAD biosynthetic process" among its other names</li>
+<li><code>CL:0000210</code> (2 mentions) - the report calls it "CL cell types:<strong> retinal photoreceptor cell", "Retinal photoreceptor cell"; CL calls it </strong>photoreceptor cell**</li>
+<li><code>CL:0000202</code> (2 mentions) - the report calls it "Cochlear hair cell"; CL calls it <strong>auditory hair cell</strong></li>
+<li><code>CHEBI:57540</code> (1 mention) - the report calls it "CHEBI:<strong> NAD⁺"; CHEBI calls it </strong>NAD(1-)**, and lists "NAD(+)" among its other names</li>
+<li><code>UBERON:0001844</code> (1 mention) - the report calls it "Cochlea / inner ear"; UBERON calls it <strong>cochlea</strong>, and lists "cochlear organ" among its other names</li>
+<li><code>UBERON:0002316</code> (1 mention) - the report calls it "Cerebral white matter"; UBERON calls it <strong>white matter</strong>, and lists "neuronal white matter" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>CL:0000210</code> - called "CL cell types:** retinal photoreceptor cell", "Retinal photoreceptor cell"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Shigellosis-falcon.html">← Shigellosis (Falcon)</a>
+                
+                
+                <a href="Short_Stature_With_Nonspecific_Skeletal_Abnormalities_1-claude_code.html">Short Stature With Nonspecific Skeletal Abnormalities 1 (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/SHILCA_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/SHILCA_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -440,7 +440,14 @@ def assess_entry(
 
 
 class OnlineSearch:
-    """Live ``<name>[TI] AND <source>[book]`` searches, for chapters newer than the snapshot."""
+    """Live ``"<name>"[TI] AND <source>[book]`` searches, for chapters newer than the snapshot.
+
+    The name is quoted as a phrase. Unquoted, PubMed drops every word it cannot
+    match and applies ``[TI]`` to what is left, so ``mesiodens-cataract
+    syndrome[TI]`` searched for "syndrome" alone and listed unrelated chapters
+    (#14213). A result whose ``querytranslation`` no longer carries the quoted
+    phrase is skipped with a warning, for the same reason.
+    """
 
     def __init__(self, index: BookshelfIndex, sources: list[str]):
         from build_bookshelf_index import (
@@ -455,17 +462,31 @@ class OnlineSearch:
         found: list[Match] = []
         for source in self.sources:
             for name in names:
-                term = f"{name}[TI] AND {source}[book]"
+                phrase = " ".join(name.replace('"', " ").split())
+                if not phrase:
+                    continue
+                term = f'"{phrase}"[TI] AND {source}[book]'
                 try:
-                    ids = self.client.call("esearch.fcgi", db="pubmed", term=term)[
+                    result = self.client.call("esearch.fcgi", db="pubmed", term=term)[
                         "esearchresult"
-                    ].get("idlist", [])
+                    ]
                 except Exception as exc:  # network is optional; say so and move on
                     print(
                         f"warning: online search failed for {term!r}: {exc}",
                         file=sys.stderr,
                     )
                     continue
+                translation = result.get("querytranslation")
+                if translation is not None and f'"{phrase.lower()}"' not in (
+                    translation.lower()
+                ):
+                    print(
+                        f"warning: PubMed rewrote {term!r} as {translation!r}; "
+                        "skipping its results",
+                        file=sys.stderr,
+                    )
+                    continue
+                ids = result.get("idlist", [])
                 new = [pmid for pmid in ids if pmid not in self.index.by_pmid]
                 if not new:
                     continue

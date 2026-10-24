@@ -328,6 +328,17 @@ every cheap ontology feature (child count, synonym count, aggregator tags)
 correlates with being a grouping rather than with being worth curating
 (issue #8969).
 
+`next-stubs` and `next-unclaimed` leave out the stubs `tidy-stubs` would delete
+(`already_curated`, `obsolete_term`), so the pool never offers a disease the KB
+already holds by MONDO ID; `--include-stale` puts them back. Other `check-stubs`
+advisories, such as `possible_kb_duplicate`, keep the stub in the pool and are
+printed beside it, and in `--json` as `advisories`. The check needs every KB
+entry's MONDO IDs and labels; parsing them takes about half a minute, so the
+derived index persists in the gitignored `tmp/stub_coverage_index.json` and a
+warm run takes about a second and a half (#11616, #15116). Bump
+`COVERAGE_CACHE_VERSION` in `src/dismech/stubs/model.py` when the label or ID
+extraction changes; `DISMECH_KB_CACHE=0` turns the cache off.
+
 **`entry_type` is the lump/split decision and is never pre-filled.** Seeded
 stubs are all `UNDECIDED`. Deciding is the curator's first job:
 
@@ -1411,6 +1422,7 @@ just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
 just validate-grouping-batch kb/groupings/Mucopolysaccharidoses.yaml   # what CI runs
 just grouping-nesting-audit          # declared tree + undeclared containments
 just grouping-mondo-consistency      # does each MONDO predicate survive its own members?
+just grouping-gene-go-audit          # do members' causal genes carry the GO activity in GO itself?
 ```
 
 Membership criteria are audited over the HP/GO closure committed in
@@ -3971,8 +3983,17 @@ Non-negotiable rules:
 - `evidence_source` classifies the cited study, not the curator or claim.
 - Treat deep-research reports as leads. Read their reference-validation results
   and run `just preflight-dr <report> <MONDO_ID>` before using their content.
+  `confabulation_rate` covers only cited identifiers; `preflight-dr` also warns
+  on an HGNC identifier written beside the wrong gene (#9845).
 - Never create or hand-edit `references_cache/*.md`; generate or regenerate an
   entry with `just fetch-reference <ID>`.
+- A reference first cached as an abstract stays `abstract_only` on later plain
+  fetches. To upgrade it, `just fetch-reference <ID> --force` (any `-`-prefixed
+  argument is passed to the validator rather than read as an ID, #13185). Use it
+  only when the content a claim needs, such as a phenotype table, is in the PMC
+  full text. A forced re-fetch rewrites the frontmatter and can add hundreds of
+  body lines (#10460, #10736), so stage only the `references_cache/` file you
+  meant to upgrade and re-run `just count-verified-snippets` afterwards.
 - **Re-derive the cited-PMID list immediately before pruning uncited caches.** A
   list built earlier in the session goes stale the moment you add a section, and
   pruning against it deletes a cache the entry now cites. CI does not catch this:
@@ -4016,37 +4037,68 @@ just count-verified-snippets kb/disorders/MyDisease.yaml
 just validate-terms kb/disorders/MyDisease.yaml
 ```
 
-CI also runs these offline gates without changed-path filtering. Run them after
-a tranche of curation edits; only the duplicate-key and entity-ref checks accept
-a file path:
+CI also runs these offline gates without changed-path filtering, in the `Run
+whole-repo gates` step of `.github/workflows/main.yaml`, so they run on a
+`kb/`-only PR. Run them after a tranche of curation edits; the ones shown with
+a path also accept file paths, and the rest always scan the whole tree:
 
 ```bash
 just check-folded-hyphens
+just check-folded-yaml
 just check-snippet-length
 just check-title-snippets
-just check-snippet-grading
+just check-reference-titles
 just check-retired-support-prose
 just check-environmental-evidence
 just check-duplicate-keys kb/disorders/MyDisease.yaml
+just check-block-scalar-comments kb/disorders/MyDisease.yaml
+just check-enum-values kb/disorders/MyDisease.yaml
+just check-delivery-system kb/disorders/MyDisease.yaml
 just check-entity-refs kb/disorders/MyDisease.yaml
 just check-causal-targets kb/disorders/MyDisease.yaml
+just check-shared-disease-terms
+just check-gene-activity-grounding
+just check-coarse-phenotypes kb/disorders/MyDisease.yaml
 just check-qualifier-terms kb/disorders/MyDisease.yaml
 just check-source-defect-claims  # report-only
 ```
 
-They catch folded-scalar word corruption, non-propositional short snippets,
-paper titles used as findings, one quoted sentence graded with two different
-`evidence_source` values in the same file, prose arguing for a retired
+That is every `scripts/check_*` gate in that step that reads KB entries. The
+step also runs three that do not (`check-skill-files`, `check-case-collisions`,
+`check-reference-cache-nul-bytes`) and a few that are not `scripts/check_*`
+scripts, such as `compliance-connectivity`; the step itself is the
+authoritative list.
+
+**`just check-snippet-grading` is not in that list, because CI does not run it
+on a `kb/`-only PR.** It has no step of its own: it runs as
+`tests/test_snippet_grading.py` inside the `Run Python code/logic tests` step,
+which fires only when the `python` path filter matches (`src/`, `tests/`,
+workflows, the justfiles and a handful of named scripts, but no `kb/` path) or
+in the merge queue. A curation PR touches none of those paths, so
+a re-graded quote passes every check on the PR and is first caught when the
+merge queue runs the full suite and ejects it. This is the hazard described
+under *Why the entity-ref check is a CI step and not just a test* below. Run
+`just check-snippet-grading` yourself before pushing a curation PR.
+
+They catch folded-scalar word corruption, evidence items swallowed into a
+block scalar, non-propositional short snippets,
+paper titles used as findings, a `reference_title` that does not match the
+cached title, prose arguing for a retired
 `supports` grade, environmental claims without
-entry-level evidence, duplicate YAML keys, broken `<kind>#<name>` entity
-references, broken bare-name pathograph targets, and prose claims about
-defective sources that the cache contradicts. Five of them carry a committed
-baseline file grandfathering a pre-existing backlog -- `check-snippet-length`,
-`check-title-snippets`, `check-snippet-grading`, `check-retired-support-prose`
-and `check-causal-targets`. Three further gates that are in `just qc` but not
-in the list above do too: `check-reference-titles`, `check-coarse-phenotypes`
-and `check-gene-activity-grounding`. The formatter-spacing gate adds a ninth backlog (see YAML Formatter Safety),
-with its shrink-only updater on `check-block-scalar-comments --update-baseline`.
+entry-level evidence, duplicate YAML keys, formatter-spacing corruption inside
+block scalars, enum values a schema change has retired, inconsistent
+`delivery_system` records, broken `<kind>#<name>` entity
+references, broken bare-name pathograph targets, shared `disease_term`s that do
+not say how they are shared, genes landing on a node that names no molecular
+function, coarse HPO bindings with no stated basis, wrong qualifier ontology
+labels, and prose claims about
+defective sources that the cache contradicts. Nine of the gates in the list
+carry a committed baseline file grandfathering a pre-existing backlog:
+`check-snippet-length`, `check-title-snippets`, `check-reference-titles`,
+`check-retired-support-prose`, `check-block-scalar-comments` (shrink-only, see
+YAML Formatter Safety), `check-causal-targets`, `check-shared-disease-terms`,
+`check-gene-activity-grounding` and `check-coarse-phenotypes`.
+`check-snippet-grading` has one too.
 Inspect `tests/*_baseline.txt` for the current set. Do not update a baseline
 to admit a defect introduced by the current change.
 
@@ -4096,6 +4148,15 @@ this is now a much weaker effect than it used to be — retiring `PARTIAL` cut
 `supports` divergences from 8,285 to 353, against 715 for `evidence_source`, so
 most of that signal was the value's ambiguity rather than claim-relativity.
 Gating `supports` is worth revisiting.
+
+The same comparison now also runs **across files** (#11221): one sentence of one
+reference graded `HUMAN_CLINICAL` in one entry and `IN_VITRO`, `MODEL_ORGANISM`
+or `COMPUTATIONAL` in another fails, because one of the two files is wrong, and
+the fix may belong in the file you did not touch. Pairs involving `OTHER` are
+report-only until #10273 settles that convention (`just list-snippet-grading
+--cross-file`). Its limit is the per-file one: it compares one verbatim sentence.
+Two different sentences making the same claim are not compared, and nor are two
+sentences of one paper carrying different values, which is a correct split.
 
 **Why the entity-ref check is a CI step and not just a test.** The same rules
 run in `check_entity_ref_foreign_keys`, but CI selects pytest by changed path,
@@ -4788,6 +4849,19 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 - Never leave the primary checkout on a feature branch.
 - If `git checkout main` fails with "already checked out at …", find which worktree holds `main` (`git worktree list | grep '\[main\]'`), switch that worktree to a feature branch, then retry.
 
+**Which checkout a command reads and writes.** `dismech` commands find the
+repository from the working directory, not from where the package is installed
+(`src/dismech/repo_root.py`): the nearest directory at or above it holding a
+`justfile` and `kb/`. Set `DISMECH_ROOT=/path/to/checkout` to choose one
+explicitly; outside any checkout they fall back to the installed tree and warn
+once. This matters because one virtualenv shared across worktrees installs the
+package from the primary checkout, so a path built from `__file__` sent a
+worktree's reads and writes there (#15051, #15109). In `src/dismech/` and
+`src/phenoagent/`, use
+`repo_root()` (or `LazyRepoPaths` for a module-level constant) for checkout
+paths; `Path(__file__)` is only for resources inside the package, such as
+`schema/` and `templates/`. `tests/test_repo_root_sweep.py` enforces this.
+
 ### What to commit
 
 | Path | Commit? | Reason |
@@ -4813,13 +4887,15 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `exports/sedml/*.omex` | NO | Derived — a byte-for-byte zip of the committed `exports/sedml/<model_id>/` directory; rebuild with `just sedml-export --omex` |
 | `app/models/data.js` | NO | Derived — the computational-models browser index, rebuilt from every `computational_models` block in `kb/` by `just gen-models-data`. **Never commit it from a curation PR**: it is regenerated wholesale, so two model PRs that both commit it conflict on it and nothing else (#9804) |
 | `app/hpo_category_cache.json` | NO | Derived — the HP-term-to-broad-category map, written by `just gen-browser-data` beside `app/data.js` and committed by the same workflow (#11299). Both `render` and `browser_export` read it |
+| `cache/pathograph_stats.json` | NO | Derived — the KB-wide mean pathograph edge count a disorder page compares against to decide whether to open grouped (#14539). Written by `just gen-pathograph-stats` in the page build and read by `render`, so a single-file render does not build every causal graph |
 | `cache/dataset_accessions.json` | **NEVER** | Deleted and ignored. Superseded by `references_cache/GEO_*.md`; keep it deleted when resolving old PRs |
 
 **Scope of the "derived" rule:** it governs *hand-authored* PRs — never commit
 these paths alongside a curation or code change. The derived artifacts do live in
 git, but only the `generate-pages` workflow writes them, in its own
 `auto/generate-pages` PR (`pages/`, `app/data.js`, `app/models/data.js`,
-`app/hpo_category_cache.json`, `pathographs/`, `dashboard/`, `elements/`).
+`app/hpo_category_cache.json`, `cache/pathograph_stats.json`, `pathographs/`,
+`dashboard/`, `elements/`).
 Such a bot PR is not a policy violation. See
 [`docs/page-build.md`](docs/page-build.md).
 

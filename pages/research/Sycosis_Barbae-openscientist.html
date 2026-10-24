@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sycosis Barbae · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Sycosis Barbae</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Sycosis Barbae</h1>
+                
+                <p class="report-subtitle">Sycosis Barbae — Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-29</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_1050000" target="_blank" rel="noopener noreferrer">MONDO:1050000</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">19 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Sycosis Barbae — Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Sycosis Barbae (staphylococcal beard folliculitis)
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_1050000" target="_blank" rel="noopener noreferrer">MONDO:1050000</a> (as provided)
+<strong>Category:</strong> Infectious Disease
+<strong>Evidence base:</strong> 11 confirmed findings, 46 papers reviewed, 5 investigation iterations
+<strong>Report type:</strong> Literature-based disease knowledge-base entry. No primary datasets were provided; all content is derived from aggregated, disease-level resources (PubMed primary literature, ontologies, clinical references), not from individual patient/EHR data.</p>
+<hr />
+<h2>Summary</h2>
+<p><strong>Sycosis barbae is a chronic, deep-seated bacterial (staphylococcal) folliculitis and perifolliculitis of the bearded skin of adult men.</strong> It is caused by <em>Staphylococcus aureus</em> infecting terminal beard-hair follicles that have been rendered susceptible by shaving-induced follicular microtrauma. The disease lies on a severity continuum: it begins as a superficial folliculitis barbae (Bockhart impetigo), and if untreated deepens into sycosis barbae, then can progress to furuncles (boils) and coalescing carbuncles with occasional systemic upset. A chronic variant, <strong>lupoid sycosis</strong>, produces scarring (cicatricial) alopecia and permanent cosmetic disfigurement of the beard (<a href="https://pubmed.ncbi.nlm.nih.gov/25226722/">PMID: 25226722</a>).</p>
+<p>Mechanistically, the disease follows a well-defined causal chain drawn largely from murine <em>S. aureus</em> skin-infection models plus human genetics: shaving microtrauma and follicular <em>S. aureus</em> colonization → bacterial breach of the follicular epithelium → secreted toxins (phenol-soluble modulins, α-hemolysin) trigger innate immune sensing → MyD88/EGR1-dependent recruitment of neutrophils, amplified by T-cell-derived IL-17A and IL-22 → neutrophils wall bacteria into a perifollicular abscess (furuncle) → α-hemolysin-mediated dermonecrosis causes tissue damage. Failure of clearance—because of host neutrophil/immune defects or persistent nasal carriage—produces the chronic, relapsing course (<a href="https://pubmed.ncbi.nlm.nih.gov/34873293/">PMID: 34873293</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/26351278/">PMID: 26351278</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32946878/">PMID: 32946878</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/25681348/">PMID: 25681348</a>).</p>
+<p>Sycosis barbae is an <strong>acquired infection with no Mendelian/genetic basis and no available vaccine</strong>. Diagnosis is primarily clinical, supplemented by Gram stain and bacterial culture, with KOH/fungal culture and dermatophyte PCR used to exclude the principal infectious mimic, <strong>tinea barbae</strong>, and clinical judgment to exclude the non-infectious mimic <strong>pseudofolliculitis barbae</strong> and the viral mimic <strong>herpetic sycosis</strong>. Treatment combines anti-staphylococcal antibiotics (topical for limited disease, systemic for deep/extensive disease), incision and drainage of fluctuant lesions, <em>S. aureus</em> decolonization, and shaving modification. Prognosis is benign with respect to mortality but prone to chronicity and relapse while shaving and nasal carriage persist.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>F001 — Sycosis barbae is a deep-seated staphylococcal folliculitis of the beard</h3>
+<p>Sycosis barbae is defined as a chronic, deep, perifollicular bacterial infection of the bearded region, representing the deep progression of a superficial folliculitis barbae (Bockhart impetigo). The most common etiologic agent is <em>Staphylococcus aureus</em>, and the condition is precipitated and aggravated by shaving. Untreated superficial folliculitis can deepen into sycosis barbae, and coalescing perifollicular nodules (furuncles) can progress to carbuncles with systemic upset.</p>
+<blockquote>
+<p>"It most frequently presents as a superficial folliculitis, with fine pustules appearing at the opening of hair follicles in the beard area, often associated with shaving; known as Bockhart impetigo and usually due to infection caused by Staphylococcus aureus. If untreated, the infection and inflammation can progress, leading to a more deeply seated infection known as sycosis barbae." — <a href="https://pubmed.ncbi.nlm.nih.gov/25226722/">PMID: 25226722</a></p>
+</blockquote>
+<p>This establishes the core definition, the causative organism, the severity continuum, and the shaving trigger that organize the rest of this report.</p>
+<h3>F002 — Tinea barbae is the principal infectious mimic</h3>
+<p>Deep beard-area infections that resemble sycosis barbae or a carbuncle can also be caused by dermatophytes (<strong>tinea barbae</strong>), most often zoophilic <em>Trichophyton</em> species (e.g., <em>T. mentagrophytes</em>, <em>T. verrucosum</em>) acquired through animal/livestock contact, and occasionally anthropophilic species (<em>T. rubrum</em>, <em>T. tonsurans</em>—the latter transmissible via contaminated barbershop tools). Clues favoring tinea barbae over bacterial sycosis include close animal contact, lack of response to antibiotics, deep boggy nodules/pustules with adherent crusts, and regional lymphadenopathy. An intense inflammatory reaction can form a kerion. Diagnosis requires mycological culture, histology, and dermatophyte PCR; treatment is systemic antifungals (terbinafine/itraconazole) ± corticosteroids, and surgical incision is contraindicated.</p>
+<blockquote>
+<p>"Particularly in the context of a history of close animal contact or a lack of response to antibiotic treatment, a diagnosis of tinea barbae should be considered and investigated." — <a href="https://pubmed.ncbi.nlm.nih.gov/25226722/">PMID: 25226722</a></p>
+<p>"Often this leads to the initial suspected diagnosis of a bacterial folliculitis barbae or impetigo contagiosa." — <a href="https://pubmed.ncbi.nlm.nih.gov/31001659/">PMID: 31001659</a></p>
+</blockquote>
+<h3>F003 — Pseudofolliculitis barbae is the main non-infectious differential and has a genetic basis</h3>
+<p><strong>Pseudofolliculitis barbae (PFB)</strong> is a chronic inflammatory disorder of the beard caused by shaved curly hairs re-penetrating the skin (extrafollicular and transfollicular penetration), producing a foreign-body inflammatory reaction with papules, pustules, post-inflammatory hyperpigmentation, and sometimes keloidal scarring. It is far more common in men of African and Asian ancestry. Unlike infectious sycosis barbae, PFB is mechanical/foreign-body rather than infectious. A single-nucleotide substitution (A12T) in the hair-follicle companion-layer keratin gene <strong>K6hf (KRT75)</strong> confers roughly six-fold increased risk of PFB.</p>
+<blockquote>
+<p>"Individuals with the single nucleotide substitution in the hair follicle companion layer specific keratin gene (K6hf) have a six fold increased chance of developing PFB." — <a href="https://pubmed.ncbi.nlm.nih.gov/31354326/">PMID: 31354326</a></p>
+<p>"Pseudofolliculitis barbae (PFB) is an inflammatory condition of the beard area, with a high prevalence in men of subequatorial African ancestry" — <a href="https://pubmed.ncbi.nlm.nih.gov/27212468/">PMID: 27212468</a></p>
+</blockquote>
+<h3>F004 — S. aureus nasal carriage and host immune factors drive recurrent/chronic disease</h3>
+<p><em>S. aureus</em> is the dominant pathogen of pilosebaceous-unit infections (folliculitis, furunculosis, carbunculosis). Its invasiveness depends on numerous cellular and extracellular virulence factors whose expression varies with growth phase, environment, and infection site; host susceptibility reflects innate and acquired immune responses to colonization. Recurrent/chronic disease is associated with <em>S. aureus</em> reservoirs (notably the anterior nares) and with host defects—for example, documented recurrent furunculosis with defective neutrophil phagocytic (ingestion-phase) activity, in whom early antibiotics and intensified hygiene reduced abscess formation.</p>
+<blockquote>
+<p>"S. aureus produces a great variety of cellular and extracellular factors responsible for its invasiveness and ability to cause pathological lesions. Their expression depends on the growth phase, environmental factors, and location of the infection." — <a href="https://pubmed.ncbi.nlm.nih.gov/30995649/">PMID: 30995649</a></p>
+<p>"All laboratory tests were normal except for a decrease of the neutrophil phagocytic ingestion phase." — <a href="https://pubmed.ncbi.nlm.nih.gov/11269901/">PMID: 11269901</a></p>
+</blockquote>
+<h3>F005 — Management combines antibiotics with decolonization and shaving hygiene</h3>
+<p>First-line therapy for bacterial sycosis barbae targets <em>S. aureus</em>: topical antibiotics (e.g., mupirocin, fusidic acid) for limited disease and systemic anti-staphylococcal antibiotics for deeper/extensive disease, plus incision and drainage of fluctuant furuncles/carbuncles. Because colonization is an early, critical step and more than half of patients with staphylococcal skin and soft tissue infection (SSTI) experience recurrence (often clustering in households), recurrence prevention emphasizes <strong>decolonization</strong>: intranasal mupirocin plus antiseptic washes (chlorhexidine or dilute bleach baths) for the patient and household members, hygiene optimization, and avoiding shared personal items. Beard-specific measures include temporarily stopping shaving and not sharing razors. Importantly, decolonization reliably reduces colonization but has <strong>variable</strong> effect on recurrence, with sustained/periodic regimens showing the most benefit.</p>
+<blockquote>
+<p>"A recommended decolonization regimen includes application of intranasal mupirocin and antiseptic body washes with chlorhexidine or dilute bleach water baths." — <a href="https://pubmed.ncbi.nlm.nih.gov/30859379/">PMID: 30859379</a></p>
+<p>"More than half of patients experiencing SSTI will have at least one recurrent infection. These infections frequently cluster in households." — <a href="https://pubmed.ncbi.nlm.nih.gov/30859379/">PMID: 30859379</a></p>
+<p>"Despite successful decolonization, the rate of SSTI recurrence did not decrease." — <a href="https://pubmed.ncbi.nlm.nih.gov/27820584/">PMID: 27820584</a></p>
+</blockquote>
+<h3>F006 — Mechanistic causal chain: toxins → innate sensing → neutrophilic follicular abscess</h3>
+<p>The pathophysiology follows a defined causal chain (largely from mouse SSTI models plus human genetics), described in full in the Mechanistic Model section below. Key experimentally supported steps: phenol-soluble modulins (PSMs) directly recruit leukocytes via an EGR1-dependent "high-alert" mechanism; MyD88-dependent sensing by dermal macrophages escalates and terminates neutrophil recruitment; T-cell-derived IL-17A and IL-22 drive neutrophil infiltration and antimicrobial peptide production; neutrophils wall bacteria into a discrete abscess; and α-hemolysin causes dermonecrosis, with antibody neutralization plus early neutrophil recruitment limiting necrosis.</p>
+<blockquote>
+<p>"this early recruitment was dependent on the transcription factor EGR1 and contributed to the prevention of infection" — <a href="https://pubmed.ncbi.nlm.nih.gov/34873293/">PMID: 34873293</a></p>
+<p>"Neutralization of either IL-17A or IL-22 reduced T cell and neutrophil infiltration and host defense peptide elaboration in lesions. These events corresponded with increased abscess severity, MRSA viability, and CFU density in skin." — <a href="https://pubmed.ncbi.nlm.nih.gov/26351278/">PMID: 26351278</a></p>
+<p>"Protection was characterized by robust neutrophilic inflammation and compartmentalization of bacteria into discrete abscesses" — <a href="https://pubmed.ncbi.nlm.nih.gov/32946878/">PMID: 32946878</a></p>
+<p>"MyD88-dependent sensing of S. aureus by dermal macrophages (Mϕ) contributes to both timely escalation and termination of PML-mediated inflammation" — <a href="https://pubmed.ncbi.nlm.nih.gov/25681348/">PMID: 25681348</a></p>
+</blockquote>
+<h3>F007 — Comparative disease: staphylococcal superficial bacterial folliculitis in animals</h3>
+<p>An analogous staphylococcal folliculitis occurs naturally in other species. In dogs, <strong>superficial bacterial folliculitis (SBF)</strong> is the most common bacterial skin disease and is caused principally by <em>Staphylococcus pseudintermedius</em> (NCBI Taxonomy txid283734), with histology showing neutrophilic follicular/intracorneal pustules containing intracellular cocci within neutrophils—mirroring the neutrophilic follicular inflammation of human sycosis barbae. Methicillin-resistant <em>S. pseudintermedius</em> (MRSP) and MRSA are increasingly prevalent, driving reliance on culture-guided systemic antibiotics plus topical antiseptics (dilute sodium hypochlorite/bleach, chlorhexidine, benzoyl peroxide)—the same topical antiseptic principles used in human decolonization.</p>
+<blockquote>
+<p>"Superficial bacterial folliculitis (SBF) is more common in the dog than other mammalian species." — <a href="https://pubmed.ncbi.nlm.nih.gov/24345778/">PMID: 24345778</a></p>
+<p>"Cytology from the margins of collarettes identified neutrophils, extracellular and intracellular cocci within neutrophils" — <a href="https://pubmed.ncbi.nlm.nih.gov/27426474/">PMID: 27426474</a></p>
+<p>"methicillin resistant Staphylococcus pseudintermedius (MRSP) and Staphylococcus aureus (MRSA) are becoming more prevalent in canine SBF cases" — <a href="https://pubmed.ncbi.nlm.nih.gov/24345778/">PMID: 24345778</a></p>
+</blockquote>
+<h3>F011 — Herpetic sycosis (HSV) is a viral mimic requiring antivirals</h3>
+<p>A third important differential of beard folliculitis is <strong>herpetic sycosis</strong>—a follicular infection of the beard caused by herpes simplex virus (HSV-1 or HSV-2), a variant of herpetic folliculitis. It presents with acutely developing grouped papulovesicles/pustules, pain, crusting, and reactive cervical lymphadenopathy, and characteristically <strong>fails to respond to antibacterial and antifungal therapy</strong>. It occurs in immunocompromised and immunocompetent hosts and may be primary or recurrent/relapsing. Routine bacterial, mycological, and Tzanck tests may be negative; diagnosis is confirmed by Tzanck cytology, direct immunofluorescence, viral culture, or (most sensitively) HSV PCR. Treatment is systemic antivirals (aciclovir/valaciclovir), with rapid resolution.</p>
+<blockquote>
+<p>"We describe an otherwise healthy young adult male with extensive herpetic sycosis of the beard area, which is a variant of herpetic folliculitis." — <a href="https://pubmed.ncbi.nlm.nih.gov/11896419/">PMID: 11896419</a></p>
+<p>"The possibility of a herpetic sycosis of the beard must be considered in the case of non-response to antibiotic or antifungal treatment." — <a href="https://pubmed.ncbi.nlm.nih.gov/15118392/">PMID: 15118392</a></p>
+<p>"Bacteriological, mycological and Tzanck tests from the lesions were negative... nested PCR technique (nPCR) demonstrated the presence of herpes simplex virus type 2" — <a href="https://pubmed.ncbi.nlm.nih.gov/15564209/">PMID: 15564209</a></p>
+</blockquote>
+<hr />
+<h2>Report by Template Section</h2>
+<h3>1. Disease Information</h3>
+<p>Sycosis barbae is a chronic, deep-seated staphylococcal folliculitis and perifolliculitis of the bearded skin of the face and neck in adult men. It represents the deep progression of superficial folliculitis barbae (Bockhart impetigo) and can advance to furuncles and carbuncles (<a href="https://pubmed.ncbi.nlm.nih.gov/25226722/">PMID: 25226722</a>).</p>
+<p><strong>Key identifiers</strong> (aggregated ontology/terminology resources; to be verified against source browsers):
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_1050000" target="_blank" rel="noopener noreferrer">MONDO:1050000</a> (as provided)
+- <strong>ICD-10:</strong> L73.8 "Other specified follicular disorders" (sycosis barbae, non-parasitic sycosis)
+- <strong>ICD-9:</strong> 704.8
+- <strong>SNOMED CT:</strong> concept "Sycosis barbae"
+- <strong>MeSH:</strong> no dedicated descriptor; indexed under <em>Folliculitis</em> (D005499) / <em>Staphylococcal Skin Infections</em> (D013207)
+- <strong>OMIM:</strong> none (non-Mendelian, acquired infection)</p>
+<p><strong>Synonyms / alternative names:</strong> sycosis vulgaris, non-parasitic sycosis, staphylogenous sycosis, folliculitis barbae (staphylococcal), and the lay term "barber's itch" (note: "barber's itch" is also historically applied to tinea barbae, causing ambiguity).</p>
+<p><strong>Information source type:</strong> derived from aggregated disease-level clinical and textbook description, case reports, and mechanistic model-organism studies—not from individual-patient EHR datasets or disease registries.</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factors:</strong> Sycosis barbae is a multifactorial acquired infection. The necessary agent is <em>Staphylococcus aureus</em> (infectious; NCBI Taxonomy txid1280) acting on beard follicles primed by a mechanical trigger (shaving-induced follicular microtrauma). There is <strong>no Mendelian/causal gene</strong>; it is not heritable.</p>
+<p><strong>Risk factors (environmental/host):</strong> male sex with post-pubertal terminal beard hair; regular shaving (especially close/against-the-grain shaving, shared or contaminated razors); <em>S. aureus</em> nasal/skin carriage (anterior nares reservoir); coexisting pseudofolliculitis barbae or atopic dermatitis; immunosuppression/diabetes and neutrophil-function defects predisposing to recurrent staphylococcal disease (<a href="https://pubmed.ncbi.nlm.nih.gov/11269901/">PMID: 11269901</a>); warm humid climate and poor hygiene; barbershop exposure.</p>
+<p><strong>Genetic risk factors:</strong> none for bacterial sycosis barbae. (The related mechanical mimic PFB carries the KRT75/K6hf A12T variant conferring ~6-fold risk — <a href="https://pubmed.ncbi.nlm.nih.gov/31354326/">PMID: 31354326</a>.)</p>
+<p><strong>Protective factors (environmental/behavioral):</strong> growing a beard / cessation of shaving; single-use clean razors; pre-shave hydration and post-shave moisturization; good hygiene; <em>S. aureus</em> decolonization. No genetic protective variants are described.</p>
+<p><strong>Gene-environment interaction:</strong> No specific GxE is established for bacterial sycosis barbae. The closely related mechanical mimic PFB shows a clear GxE—a KRT75 (K6hf) A12T variant (curly-hair/follicle-curvature phenotype) combined with the environmental exposure of shaving produces ~6-fold risk; secondary <em>S. aureus</em> infection of PFB lesions links the two conditions (<a href="https://pubmed.ncbi.nlm.nih.gov/31354326/">PMID: 31354326</a>).</p>
+<h3>3. Phenotypes</h3>
+<p>Clinical signs and symptoms (from clinical description; <a href="https://pubmed.ncbi.nlm.nih.gov/25226722/">PMID: 25226722</a>):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Characteristics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Follicular papules/pustules centered on beard hairs</td>
+<td>Clinical sign</td>
+<td>Folliculitis (<a href="http://purl.obolibrary.org/obo/HP_0025084" target="_blank" rel="noopener noreferrer">HP:0025084</a>); Pustule (<a href="http://purl.obolibrary.org/obo/HP_0200037" target="_blank" rel="noopener noreferrer">HP:0200037</a>); Papule (<a href="http://purl.obolibrary.org/obo/HP_0200034" target="_blank" rel="noopener noreferrer">HP:0200034</a>)</td>
+<td>Adult-onset; mild–moderate; the defining lesion</td>
+</tr>
+<tr>
+<td>Perifollicular erythema, edema, crusting</td>
+<td>Clinical sign</td>
+<td>—</td>
+<td>Episodic/fluctuating with shaving</td>
+</tr>
+<tr>
+<td>Pruritus and burning/tenderness</td>
+<td>Symptom</td>
+<td>Pruritus (<a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" rel="noopener noreferrer">HP:0000989</a>)</td>
+<td>Common; affects daily comfort</td>
+</tr>
+<tr>
+<td>Deep nodules (furuncles) coalescing into carbuncles</td>
+<td>Physical manifestation</td>
+<td>—</td>
+<td>Moderate–severe; may cause systemic upset</td>
+</tr>
+<tr>
+<td>Sinus tracts / scarring / cicatricial alopecia (lupoid sycosis)</td>
+<td>Physical manifestation</td>
+<td>Alopecia (<a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" rel="noopener noreferrer">HP:0001596</a>)</td>
+<td>Chronic variant; permanent hair loss</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Age of onset:</strong> post-pubertal adult men (essentially absent prepubertally and in women). <strong>Severity:</strong> variable (mild superficial to severe deep/scarring). <strong>Progression:</strong> episodic/fluctuating while shaving continues; chronic and relapsing in lupoid sycosis. <strong>Quality of life:</strong> cosmetic disfigurement of the beard, psychosocial distress, and functional discomfort (pruritus, tenderness), particularly in the scarring lupoid variant.</p>
+<h3>4. Genetic/Molecular Information</h3>
+<p><strong>Not applicable as a genetic disease.</strong> Sycosis barbae has no causal gene, no pathogenic germline/somatic variants, no modifier genes, no disease-defining epigenetic changes, and no chromosomal abnormalities. It is an acquired bacterial infection. The relevant "molecular information" is microbial: <em>S. aureus</em> virulence factors (phenol-soluble modulins, α-hemolysin/Hla, and numerous growth-phase- and site-dependent factors) drive pathology (<a href="https://pubmed.ncbi.nlm.nih.gov/30995649/">PMID: 30995649</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/34873293/">PMID: 34873293</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32946878/">PMID: 32946878</a>). For completeness, the related mimic PFB has a host keratin variant, KRT75 (K6hf) A12T (<a href="https://pubmed.ncbi.nlm.nih.gov/31354326/">PMID: 31354326</a>).</p>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental/mechanical factors:</strong> shaving (follicular microtrauma), shared/contaminated razors and barbershop tools, warm humid climate.</li>
+<li><strong>Lifestyle factors:</strong> shaving practices and personal hygiene; barbershop attendance.</li>
+<li><strong>Infectious agents:</strong> <em>Staphylococcus aureus</em> (NCBI Taxonomy txid1280) is the primary agent. Mimics that must be distinguished are dermatophytes (tinea barbae: <em>Trichophyton mentagrophytes</em>, <em>T. verrucosum</em>, <em>T. rubrum</em>, <em>T. tonsurans</em>) and herpes simplex virus (herpetic sycosis) (<a href="https://pubmed.ncbi.nlm.nih.gov/25226722/">PMID: 25226722</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/11896419/">PMID: 11896419</a>).</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain</strong> (steps largely demonstrated in murine SSTI models plus human genetics; inferred steps flagged):</p>
+<ol>
+<li>Shaving produces follicular microtrauma <strong>and</strong> <em>S. aureus</em> colonizes the beard follicle → <strong>leads to</strong> bacterial breach of the follicular epithelium into the dermis (<em>inferred</em> for the beard specifically, extrapolated from SSTI biology).</li>
+<li>Secreted <strong>phenol-soluble modulins (PSMs)</strong> directly recruit circulating leukocytes via an <strong>EGR1-dependent</strong> "high-alert" mechanism → <strong>results in</strong> early neutrophil influx (<a href="https://pubmed.ncbi.nlm.nih.gov/34873293/">PMID: 34873293</a>).</li>
+<li><strong>MyD88-dependent sensing</strong> of <em>S. aureus</em> by resident dermal macrophages → <strong>escalates and later terminates</strong> polymorphonuclear leukocyte (neutrophil) recruitment (<a href="https://pubmed.ncbi.nlm.nih.gov/25681348/">PMID: 25681348</a>).</li>
+<li>T-cell-derived <strong>IL-17A and IL-22</strong> → <strong>drive</strong> neutrophil infiltration and antimicrobial host-defense-peptide production; their neutralization increases abscess severity and bacterial burden (<a href="https://pubmed.ncbi.nlm.nih.gov/26351278/">PMID: 26351278</a>).</li>
+<li>Neutrophils <strong>wall off</strong> bacteria into a discrete perifollicular abscess (furuncle) (<a href="https://pubmed.ncbi.nlm.nih.gov/32946878/">PMID: 32946878</a>).</li>
+<li>Pore-forming toxin <strong>α-hemolysin (Hla)</strong> → <strong>causes</strong> dermonecrosis and tissue damage; antibody neutralization of Hla plus early neutrophil recruitment limits necrosis and enhances clearance (<a href="https://pubmed.ncbi.nlm.nih.gov/32946878/">PMID: 32946878</a>).</li>
+<li><strong>Branch:</strong> coalescence of abscesses → <strong>yields</strong> a carbuncle; failure of clearance (host neutrophil/immune defects, persistent nasal carriage) → <strong>produces</strong> chronic/recurrent disease and, in lupoid sycosis, scarring alopecia (<a href="https://pubmed.ncbi.nlm.nih.gov/11269901/">PMID: 11269901</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/30995649/">PMID: 30995649</a>).</li>
+</ol>
+<p><strong>Pathways/processes and ontology suggestions:</strong> innate immune response (<a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" rel="noopener noreferrer">GO:0045087</a>), neutrophil chemotaxis (<a href="http://purl.obolibrary.org/obo/GO_0030593" target="_blank" rel="noopener noreferrer">GO:0030593</a>), inflammatory response (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>), MyD88-dependent toll-like receptor signaling (<a href="http://purl.obolibrary.org/obo/GO_0002755" target="_blank" rel="noopener noreferrer">GO:0002755</a>), defense response to Gram-positive bacterium (<a href="http://purl.obolibrary.org/obo/GO_0050830" target="_blank" rel="noopener noreferrer">GO:0050830</a>). <strong>Cell types (CL):</strong> neutrophil (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>), macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), T cell (<a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a>), keratinocyte (<a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>). <strong>Upstream</strong> events are toxin secretion and innate sensing; <strong>downstream</strong> events are neutrophilic abscess formation, dermonecrosis, and (in chronic disease) fibrosis/scarring.</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ level:</strong> skin (integumentary system only). Primary site is bearded skin of the face and neck; secondary involvement is limited to regional lymphadenopathy or, rarely, systemic upset with carbuncle.</li>
+<li><strong>Tissue/cell level:</strong> pilosebaceous unit / hair follicle of terminal beard hairs; epithelial (follicular epithelium, epidermis) and dermal connective tissue; neutrophils and macrophages dominate the infiltrate.</li>
+<li><strong>UBERON terms:</strong> hair follicle (<a href="http://purl.obolibrary.org/obo/UBERON_0002073" target="_blank" rel="noopener noreferrer">UBERON:0002073</a>), skin of face (<a href="http://purl.obolibrary.org/obo/UBERON_0008203" target="_blank" rel="noopener noreferrer">UBERON:0008203</a>), skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>), dermis (<a href="http://purl.obolibrary.org/obo/UBERON_0002067" target="_blank" rel="noopener noreferrer">UBERON:0002067</a>), epidermis (<a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" rel="noopener noreferrer">UBERON:0001003</a>).</li>
+<li><strong>CL terms:</strong> neutrophil (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>), macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), keratinocyte (<a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>).</li>
+<li><strong>Subcellular:</strong> no disease-specific compartment; the microbial pore-forming toxin acts at the host plasma membrane (<a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a>).</li>
+<li><strong>Localization/lateralization:</strong> typically <strong>bilateral</strong>, over upper lip, chin, cheeks, and mandibular/submental neck.</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> post-pubertal adult men; onset is typically subacute to chronic and insidious, superimposed on ongoing shaving.</li>
+<li><strong>Progression:</strong> superficial folliculitis barbae → deep sycosis barbae → furuncle → carbuncle; the chronic lupoid variant is slowly progressive with scarring. Course is episodic/relapsing while shaving and <em>S. aureus</em> carriage persist.</li>
+<li><strong>Duration:</strong> self-limited superficial episodes can resolve, but the deep/chronic form tends to be chronic and relapsing.</li>
+<li><strong>Remission:</strong> treatment-induced remission is achievable with antibiotics + decolonization + shaving cessation; relapse is common if shaving resumes and carriage persists (<a href="https://pubmed.ncbi.nlm.nih.gov/27820584/">PMID: 27820584</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/30859379/">PMID: 30859379</a>).</li>
+<li><strong>Critical intervention window:</strong> early antibiotic treatment of superficial folliculitis to prevent deepening into sycosis/furuncle/carbuncle (<a href="https://pubmed.ncbi.nlm.nih.gov/25226722/">PMID: 25226722</a>).</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Inheritance:</strong> none — acquired infection, not heritable; no OMIM entry.</li>
+<li><strong>Epidemiology:</strong> no formal incidence/prevalence figures are available (not a reportable disease; data derive from clinical/textbook description rather than registries).</li>
+<li><strong>Demographics:</strong> overwhelmingly post-pubertal adult men with terminal beard hair who shave; essentially absent in prepubertal children and in women (who lack a terminal beard). Sex ratio strongly male-predominant.</li>
+<li><strong>Geographic distribution:</strong> worldwide; no defined endemic areas for the bacterial form (unlike zoophilic tinea barbae, which clusters among people with animal/livestock contact).</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<p>Diagnosis is primarily <strong>clinical</strong> (beard-area follicular pustules/papules in an adult man who shaves). Confirmatory/differentiating tests:</p>
+<ol>
+<li><strong>Bacterial swab with Gram stain and culture + susceptibility</strong> of pustule contents to confirm <em>S. aureus</em> and detect MRSA (LOINC: aerobic wound culture, Gram stain).</li>
+<li><strong>KOH wet mount, fungal culture, and dermatophyte PCR</strong> of plucked hairs to <strong>exclude tinea barbae</strong> — mandatory when there is animal contact or antibiotic non-response (<a href="https://pubmed.ncbi.nlm.nih.gov/25226722/">PMID: 25226722</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/31001659/">PMID: 31001659</a>).</li>
+<li><strong>Skin biopsy/histopathology</strong> in atypical or chronic scarring cases: perifollicular/follicular neutrophilic (suppurative) inflammation acutely; mixed granulomatous inflammation with fibrosis/scarring in lupoid sycosis.</li>
+<li><strong>HSV testing</strong> (Tzanck cytology, direct immunofluorescence, viral culture, or HSV PCR) when lesions are acute/grouped/vesicular and fail antibiotics and antifungals — to identify herpetic sycosis (<a href="https://pubmed.ncbi.nlm.nih.gov/11896419/">PMID: 11896419</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/15118392/">PMID: 15118392</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/15564209/">PMID: 15564209</a>).</li>
+<li><strong>Dermoscopy</strong> and <strong>anterior-nares carriage swabs</strong> in recurrent disease.</li>
+</ol>
+<p><strong>Differential diagnosis:</strong> tinea barbae (fungal), pseudofolliculitis barbae (mechanical), herpetic sycosis (viral), acne vulgaris, folliculitis decalvans, and other pustular dermatoses.</p>
+<h3>11. Outcome / Prognosis</h3>
+<p>Prognosis is generally <strong>good/benign</strong>: acute bacterial sycosis barbae is curable with appropriate antibiotics and hygiene and carries <strong>no mortality</strong>. However, it is prone to chronicity and relapse while shaving continues and <em>S. aureus</em> carriage persists. The chronic deep <strong>lupoid sycosis</strong> variant can cause permanent <strong>cicatricial (scarring) alopecia</strong> and cosmetic disfigurement, with attendant psychosocial/quality-of-life impact. <strong>Complications:</strong> furuncle, carbuncle, abscess, cellulitis, regional lymphadenitis, and rarely systemic/bacteremic spread. <strong>Recurrence</strong> is common: more than half of patients with staphylococcal SSTI have at least one recurrence (<a href="https://pubmed.ncbi.nlm.nih.gov/30859379/">PMID: 30859379</a>).</p>
+<h3>12. Treatment</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Modality</th>
+<th>Agents/approach</th>
+<th>NCIT suggestion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Topical antibiotics (limited disease)</td>
+<td>Mupirocin, fusidic acid</td>
+<td>Topical Antibiotic Therapy</td>
+</tr>
+<tr>
+<td>Systemic antibiotics (deep/extensive)</td>
+<td>Anti-staphylococcal agents (culture-guided; cover MRSA if indicated)</td>
+<td>Systemic Antibiotic Therapy</td>
+</tr>
+<tr>
+<td>Procedural</td>
+<td>Incision and drainage of fluctuant furuncles/carbuncles</td>
+<td>Incision and Drainage</td>
+</tr>
+<tr>
+<td>Decolonization</td>
+<td>Intranasal mupirocin + chlorhexidine or dilute-bleach washes for patient and household</td>
+<td>Decolonization</td>
+</tr>
+<tr>
+<td>Behavioral</td>
+<td>Stop/modify shaving; single-use clean razors; avoid sharing items</td>
+<td>Behavioral Intervention</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Standard decolonization: "application of intranasal mupirocin and antiseptic body washes with chlorhexidine or dilute bleach water baths" (<a href="https://pubmed.ncbi.nlm.nih.gov/30859379/">PMID: 30859379</a>). Decolonization reliably reduces colonization but its effect on recurrence is variable (<a href="https://pubmed.ncbi.nlm.nih.gov/27820584/">PMID: 27820584</a>). <strong>Pharmacogenomics:</strong> not established for this condition. <strong>Advanced/experimental therapeutics</strong> (gene, cell, RNA, immunotherapy): not applicable. <strong>Mimic-specific therapy:</strong> systemic antifungals (terbinafine/itraconazole) for tinea barbae; systemic antivirals (aciclovir/valaciclovir) for herpetic sycosis (<a href="https://pubmed.ncbi.nlm.nih.gov/25226722/">PMID: 25226722</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/11896419/">PMID: 11896419</a>).</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary:</strong> behavioral — shaving modification (or beard growth), single-use clean razors, avoiding shared razors, good hygiene, and reducing <em>S. aureus</em> carriage.</li>
+<li><strong>Secondary:</strong> early antibiotic treatment of superficial folliculitis to prevent progression to deep sycosis/furuncle/carbuncle.</li>
+<li><strong>Tertiary:</strong> decolonization and shaving cessation to prevent recurrence and scarring.</li>
+<li><strong>Immunization:</strong> <strong>NOT AVAILABLE</strong> — no licensed <em>S. aureus</em> vaccine exists; multiple candidates have failed clinical endpoints, and natural colonization/infection does not elicit protective immunity because of extensive immune-evasion factors: "S. aureus colonization and invasive disease are not associated with the development of protective immune responses, which is attributable to a large spectrum of immune evasion factors." (<a href="https://pubmed.ncbi.nlm.nih.gov/27526714/">PMID: 27526714</a>).</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<p>Human sycosis barbae affects <em>Homo sapiens</em> (NCBI Taxonomy txid9606); its agent is <em>S. aureus</em> (txid1280). A close natural analog is <strong>canine superficial bacterial folliculitis (SBF)</strong>, the most common bacterial skin disease of dogs, caused principally by <em>Staphylococcus pseudintermedius</em> (txid283734), with neutrophilic follicular pustules containing intracellular cocci—histologically parallel to human staphylococcal folliculitis. Shared antimicrobial-resistance dynamics (MRSP, MRSA) and shared topical antiseptic management (dilute bleach, chlorhexidine, benzoyl peroxide) further underscore the comparative relevance (<a href="https://pubmed.ncbi.nlm.nih.gov/24345778/">PMID: 24345778</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/27426474/">PMID: 27426474</a>). Zoonotic note: the <em>tinea barbae</em> mimic is often zoophilic (livestock-acquired), whereas bacterial sycosis barbae itself is not classically zoonotic.</p>
+<h3>15. Model Organisms</h3>
+<p>There is no dedicated genetic model of "sycosis barbae." The pathophysiology is studied in <strong>murine <em>S. aureus</em> skin and soft-tissue infection models</strong>, including LysM-EGFP reporter mice for noninvasive neutrophil imaging and MyD88-deficient strains for innate-immunity dissection (<a href="https://pubmed.ncbi.nlm.nih.gov/30882782/">PMID: 30882782</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/25681348/">PMID: 25681348</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/26351278/">PMID: 26351278</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32946878/">PMID: 32946878</a>). <strong>Recapitulation:</strong> these models faithfully reproduce neutrophilic abscess formation, toxin-mediated dermonecrosis, and cytokine (IL-17/IL-22) control of bacterial burden. <strong>Limitations:</strong> mice are more resistant to several human-adapted <em>S. aureus</em> virulence factors, and no model reproduces the beard-follicle-specific, shaving-triggered anatomy of human sycosis barbae. The dog (SBF) serves as a naturally occurring large-animal comparator.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code> Shaving microtrauma  +  S. aureus follicular colonization
+          |
+          v
+Breach of follicular epithelium into dermis   (inferred for beard)
+          |
+  +---------------+----------------+
+  |                                |
+   PSMs -&gt; EGR1-dependent            MyD88 sensing by dermal
+   early leukocyte recruitment       macrophages: escalate + terminate
+   [PMID 34873293]                   neutrophil recruitment [PMID 25681348]
+  |                                |
+  +---------------+----------------+
+          v
+IL-17A / IL-22 (T cells) drive neutrophils + AMPs
+    [PMID 26351278]
+          |
+          v
+Neutrophils wall bacteria into perifollicular abscess (FURUNCLE)
+    [PMID 32946878]
+          |
+  +---------------+----------------+
+  |                                |
+   alpha-hemolysin (Hla)            Coalescence -&gt; CARBUNCLE
+   -&gt; dermonecrosis                        |
+   [PMID 32946878]                         v
+  |                     Failure to clear (neutrophil defect,
+  |                     nasal carriage) -&gt; CHRONIC/RECURRENT
+  +-----------------------------&gt;  -&gt; lupoid sycosis / scarring
+                          [PMID 11269901, 30995649]
+</code></pre>
+<p>The unifying interpretation is that sycosis barbae is a <strong>host-defense outcome</strong>: neutrophilic walling-off is simultaneously the protective response and the histologic lesion (the abscess). Disease severity is set by the balance between toxin output (PSMs, Hla) and the speed/adequacy of the IL-17/IL-22 → neutrophil axis. This explains why the three cornerstones of therapy—killing the organism (antibiotics), removing the reservoir (decolonization), and removing the trigger (shaving modification)—map directly onto the causal chain, and why host immune defects and persistent nasal carriage predict the chronic/relapsing phenotype.</p>
+<p>A second, clinically essential model is the <strong>differential-diagnosis triad</strong> of beard folliculitis. All three mimics present as beard-area pustules but diverge in cause and treatment:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Cause</th>
+<th>Key discriminators</th>
+<th>Treatment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Sycosis barbae</strong></td>
+<td><em>S. aureus</em> (bacterial)</td>
+<td>Responds to antibiotics; Gram-positive cocci</td>
+<td>Anti-staph antibiotics + decolonization + shaving change</td>
+</tr>
+<tr>
+<td><strong>Tinea barbae</strong></td>
+<td>Dermatophytes (fungal)</td>
+<td>Animal contact; antibiotic non-response; boggy nodules/kerion; lymphadenopathy</td>
+<td>Systemic antifungals; <strong>no</strong> incision</td>
+</tr>
+<tr>
+<td><strong>Herpetic sycosis</strong></td>
+<td>HSV-1/2 (viral)</td>
+<td>Acute grouped vesicles; fails antibiotics <strong>and</strong> antifungals; HSV PCR+</td>
+<td>Systemic antivirals</td>
+</tr>
+<tr>
+<td><strong>Pseudofolliculitis barbae</strong></td>
+<td>Ingrown curly hairs (mechanical)</td>
+<td>Curly hair, African/Asian ancestry; KRT75 A12T; foreign-body reaction</td>
+<td>Shaving modification; not primarily antimicrobial</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Role in this report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25226722/">25226722</a></td>
+<td><em>Infection of the beard area. Kerion: a review of 2 cases</em></td>
+<td>Core definition of sycosis barbae; tinea barbae as mimic; diagnostic branch point</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31001659/">31001659</a></td>
+<td><em>Tinea barbae profunda due to T. mentagrophytes</em></td>
+<td>Tinea barbae misdiagnosed as bacterial folliculitis; PCR/culture/histology diagnosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31354326/">31354326</a></td>
+<td><em>Pseudofolliculitis barbae; current treatment options</em></td>
+<td>KRT75/K6hf A12T ~6-fold PFB risk (GxE for the mimic)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27212468/">27212468</a></td>
+<td><em>Pseudofolliculitis barbae: understanding the condition</em></td>
+<td>PFB epidemiology / ancestry predisposition</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30995649/">30995649</a></td>
+<td><em>S. aureus and host immunity in recurrent furunculosis</em></td>
+<td>Virulence-factor basis; host immunity in recurrence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11269901/">11269901</a></td>
+<td><em>Repeated furunculosis with abnormal neutrophil activity</em></td>
+<td>Host neutrophil-function defect predisposing to recurrence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30859379/">30859379</a></td>
+<td><em>Prevention of recurrent CA-S. aureus SSTI</em></td>
+<td>Decolonization regimen; recurrence rate; household clustering</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27820584/">27820584</a></td>
+<td><em>CA-MRSA decolonization: do they reduce recurrence?</em></td>
+<td>Variable/limited effect of decolonization on recurrence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34873293/">34873293</a></td>
+<td><em>Rapid pathogen-specific recruitment by secreted toxins</em></td>
+<td>PSM/EGR1-dependent early leukocyte recruitment</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25681348/">25681348</a></td>
+<td><em>MyD88 in macrophages critical for abscess resolution</em></td>
+<td>Dermal-macrophage MyD88 orchestration of neutrophils</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26351278/">26351278</a></td>
+<td><em>IL-17A and IL-22 in cutaneous/hematogenous MRSA defense</em></td>
+<td>IL-17/IL-22 control abscess severity and bacterial burden</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32946878/">32946878</a></td>
+<td><em>Antibody protection against S. aureus dermonecrosis</em></td>
+<td>Neutrophil abscess compartmentalization; Hla dermonecrosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24345778/">24345778</a></td>
+<td><em>Canine superficial bacterial folliculitis</em></td>
+<td>Animal comparator (S. pseudintermedius); shared AMR</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27426474/">27426474</a></td>
+<td><em>Epidermal collarettes in dogs</em></td>
+<td>Neutrophil-and-cocci histology paralleling human disease</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27526714/">27526714</a></td>
+<td><em>S. aureus vaccines: deviating from the carol</em></td>
+<td>No protective immunity → no vaccine; recurrence rationale</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11896419/">11896419</a></td>
+<td><em>Herpetic folliculitis</em></td>
+<td>Herpetic sycosis as HSV variant mimicking sycosis barbae</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15118392/">15118392</a></td>
+<td><em>Fulminant herpetic sycosis</em></td>
+<td>Antibiotic+antifungal non-response → suspect HSV</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15564209/">15564209</a></td>
+<td><em>Relapsing HSV-2 folliculitis in the beard</em></td>
+<td>HSV PCR diagnosis when routine tests negative</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30882782/">30882782</a></td>
+<td><em>Mouse model of innate response to S. aureus</em></td>
+<td>Murine models (LysM-EGFP; MyD88) for mechanism</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Consistency:</strong> The mechanistic papers (mouse models + human genetics) converge on a single neutrophil-centric abscess narrative; the clinical papers converge on the antibiotics + decolonization + shaving-modification management triad. The main internal tension is the <strong>variable efficacy of decolonization</strong> on recurrence (<a href="https://pubmed.ncbi.nlm.nih.gov/27820584/">PMID: 27820584</a>) versus its consistent reduction of colonization (<a href="https://pubmed.ncbi.nlm.nih.gov/30859379/">PMID: 30859379</a>), which is faithfully reflected in the report's prognosis section.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No sycosis-barbae-specific epidemiology.</strong> No incidence/prevalence figures exist; the condition is not reportable and lacks registries. Demographic statements are qualitative.</li>
+<li><strong>Mechanism is extrapolated.</strong> The causal chain derives from general murine <em>S. aureus</em> SSTI models and human SSTI genetics, <strong>not</strong> from beard-follicle-specific experiments. The beard-follicle breach step is inferred.</li>
+<li><strong>No molecular profiling of the disease itself.</strong> No transcriptomic, proteomic, metabolomic, or single-cell datasets specific to sycosis barbae were identified; molecular data are from <em>S. aureus</em> biology and mouse models.</li>
+<li><strong>Identifier verification pending.</strong> ICD/SNOMED/MeSH mappings are compiled from aggregated resources and should be confirmed against primary ontology browsers; the MONDO ID was supplied by the template.</li>
+<li><strong>No dedicated animal or genetic model</strong> reproduces the shaving-triggered, terminal-beard-follicle anatomy.</li>
+<li><strong>Lupoid sycosis</strong> (the scarring chronic variant) is described mainly in older/textbook literature; modern mechanistic and outcome data are sparse.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Verify identifiers</strong> against OMIM (expected absent), Orphanet, ICD-10/11, SNOMED CT, MeSH, and MONDO browsers; record cross-references explicitly.</li>
+<li><strong>Targeted literature/registry search</strong> for any quantitative epidemiology (dermatology outpatient series, military grooming/PFB cohorts) that might yield frequency estimates for beard folliculitis subtypes.</li>
+<li><strong>Skin microbiome / host-response profiling</strong> of clinically confirmed sycosis barbae lesions vs. adjacent normal beard skin (16S + host RNA-seq) to test whether the mouse-derived IL-17/IL-22–neutrophil axis operates in the human beard follicle.</li>
+<li><strong>Prospective decolonization trial in recurrent beard folliculitis</strong> specifically, stratified by anterior-nares carriage and neutrophil-function status, to resolve the colonization-vs-recurrence discrepancy.</li>
+<li><strong>Diagnostic-algorithm validation</strong> for the bacterial/fungal/viral triad: prospective evaluation of when Gram stain + culture alone suffices versus when reflexive KOH/dermatophyte-PCR and HSV-PCR are cost-effective.</li>
+<li><strong>Curate the animal comparator</strong> (canine SBF, <em>S. pseudintermedius</em>) for the knowledge base as a natural model, including phenotype-recapitulation annotations.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 11 confirmed findings and 46 reviewed papers across 5 investigation iterations. Evidence types: human clinical (case series, reviews, guidelines), model organism (murine S. aureus SSTI), comparative/veterinary (canine SBF), and computational/ontology mapping.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Sycosis_Barbae-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Sycosis_Barbae-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc3.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>19</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>CL:0000775</code> (2 mentions) - the report calls it "CL terms:<strong> neutrophil"; CL calls it </strong>neutrophil**</li>
+<li><code>UBERON:0002073</code> (1 mention) - the report calls it "UBERON terms:<strong> hair follicle"; UBERON calls it </strong>hair follicle**</li>
+</ul>
+<p>Every term resolved, and every label the report gave matched.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="SYCE1_Related_Gametogenic_Failure-falcon.html">← SYCE1-related gametogenic failure (Falcon)</a>
+                
+                
+                <a href="SYCP3_Related_Spermatogenic_Failure-fallback.html">SYCP3-related spermatogenic failure (Fallback) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Sycosis_Barbae.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Sycosis_Barbae-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
