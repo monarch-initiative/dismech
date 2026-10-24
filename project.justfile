@@ -1081,7 +1081,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-community-evidence check-social-media-references check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1616,6 +1616,27 @@ check-delivery-system *args:
 [group('QC')]
 check-entity-refs *files:
     uv run python scripts/check_entity_refs.py "$@"
+
+# Enforce the community-source corroboration rule (design decision 6d): a
+# reference tagged PatientOrganization may corroborate a curated claim but may
+# never be its sole support. Ungated in CI for the same reason check-entity-refs
+# is -- the matching pytest carries the `kb_data` marker, so a curation PR
+# touching only kb/ never runs it. Invisible to every other gate by
+# construction: the URL resolves and the snippet is a real quote from it, so
+# LinkML, terms and reference validation all pass. Offline.
+[group('QC')]
+check-community-evidence *files:
+    uv run python scripts/check_community_evidence.py "$@"
+
+# Fail any reference to a user-generated social-media host (design decision 6d).
+# A patient-advocacy organization's published page is citable; a public forum is
+# not. Separate from check-community-evidence because that rule is opt-in by
+# tagging, so an untagged forum URL is invisible to it -- and every other gate
+# passes a forum citation, since the URL resolves and the snippet is a real
+# quote from the page. Ungated in CI; offline.
+[group('QC')]
+check-social-media-references *files:
+    uv run python scripts/check_social_media_references.py "$@"
 
 # Resolve every BARE-name pathograph target in kb/ (#10112, #9697). Distinct from
 # check-entity-refs: `downstream[].target`, `sequelae[].target`,
