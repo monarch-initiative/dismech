@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from dismech import kb_cache
+from dismech.conformance import iter_conforms_to
 from dismech.repo_root import repo_root
 
 __all__ = [
@@ -267,11 +268,9 @@ def _item_details(section: str, item: dict) -> dict[str, Any]:
             for key in ("functional_impact_category", "variant_origin"):
                 if isinstance(context.get(key), str):
                     details[key] = context[key]
-        conforms = item.get("conforms_to")
-        if isinstance(conforms, str):
-            conforms = [conforms]
-        if isinstance(conforms, list):
-            details["conforms_to"] = [c for c in conforms if isinstance(c, str)]
+        conforms = iter_conforms_to(item)
+        if conforms:
+            details["conforms_to"] = conforms
         processes = []
         for descriptor in item.get("biological_processes") or ():
             if not isinstance(descriptor, dict):

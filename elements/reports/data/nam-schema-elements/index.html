@@ -25520,6 +25520,25 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#assaydescriptor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AssayDescriptor
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -25539,8 +25558,8 @@
 
 
 <h1 id="schema-elements-associated-with-nams">Schema Elements Associated with NAMs</h1>
-<p>The schema elements a New Approach Methodology touches, as two trees: the fields on a <code>ModelMechanismLink</code>, and the four places such a link can live.</p>
-<p>First written 2026-10-13; updated 2026-10-22 to match <code>src/dismech/schema/dismech.yaml</code>.</p>
+<p>The schema elements a New Approach Methodology touches, as three trees: the fields on a <code>ModelMechanismLink</code>, the four places such a link can live, and the places an <code>AssayDescriptor</code> can be attached.</p>
+<p>First written 2026-10-13; updated 2026-10-23 to match <code>src/dismech/schema/dismech.yaml</code>.</p>
 <div class="highlight"><pre><span></span><code>Disease
 ├── name                                         string
 ├── pathophysiology: [Pathophysiology]
@@ -25600,7 +25619,8 @@
         │   │                                            THRESHOLD_DEPENDENT
         │   ├── interpretation                           string
         │   ├── (phenotype_term | biomarker_term |       optional ontology grounding of the measure
-        │   │    biological_processes | assays)          (HP / biomarker / GO / OBI)
+        │   │    biological_processes | assays)          (HP / biomarker / GO / OBI);
+        │   │                                            assays is [AssayDescriptor], see the third tree
         │   ├── notes                                    string
         │   └── evidence: [EvidenceItem]                 layer 2: &quot;this measurement was made&quot;
         └── evidence: [EvidenceItem]                     layer 1: &quot;this model is informative for this node&quot;
@@ -25657,6 +25677,135 @@ experimental and computational models add findings.</p>
 <p>ModelMechanismLink is the same class in every home:
   target · relationship · description · fidelity · limitations · model_scale ·
   divergences · readouts · evidence</p>
+<h2 id="assaydescriptor">AssayDescriptor</h2>
+<p><code>AssayDescriptor</code> names an assay: the technique used to make a measurement. It is
+a leaf, never a pathograph node, and is reached only through the <code>assays:</code> slot.
+Four classes carry that slot (<code>Pathophysiology</code>, <code>Biochemical</code>,
+<code>ExperimentalReadout</code> and <code>Experiment</code>), which gives four routes from a
+pathophysiology node to an assay. Each <code>(A)</code> below is an
+<code>assays: [AssayDescriptor]</code> slot.</p>
+<div class="highlight"><pre><span></span><code>Disease
+├── pathophysiology: [Pathophysiology]
+│   ├── name ◄────────────────────────────────────────────────┐  the pathograph node
+│   ├── biological_scale · cell_types · biological_processes …│
+│   └── assays: [AssayDescriptor] ─────────────────────► (A)  │  route 1: directly on the node
+│                                                             │
+├── biochemical: [Biochemical]                                │
+│   ├── name · biomarker_term · loinc_term · reference_ranges │
+│   ├── assays: [AssayDescriptor] ─────────────────────► (A)  │  route 2: the assay that measures the marker
+│   └── readouts: [BiomarkerReadout]                          │
+│       ├── target ───────────────────────────────────────────┤  bare name = pathophysiology[].name
+│       └── relationship · direction · endpoint_context       │
+│                                                             │
+├── experimental_models | animal_models | computational_models│
+│   └── modeled_mechanisms: [ModelMechanismLink]              │
+│       ├── target ───────────────────────────────────────────┤  bare name
+│       └── readouts: [ExperimentalReadout]                   │
+│           ├── target ───────────────────────────────────────┤  must repeat the link&#39;s target
+│           ├── phenotype_term | biomarker_term | biological_processes
+│           └── assays: [AssayDescriptor] ─────────────► (A)  │  route 3: how a model&#39;s readout was measured
+│                                                             │
+└── discussions: [Discussion]                                 │
+    ├── attaches_to ──────────────────────────────────────────┤  &quot;pathophysiology#&lt;name&gt;&quot;
+    └── proposed_experiments: [Experiment]                    │
+        ├── would_support / would_refute ─────────────────────┤  &quot;pathophysiology#&lt;name&gt;&quot;
+        ├── assays: [AssayDescriptor] ─────────────────► (A)  │  route 4a: the experiment&#39;s assays
+        ├── readouts: [ExperimentalReadout]                   │
+        │   ├── target ───────────────────────────────────────┘  &quot;pathophysiology#&lt;name&gt;&quot;
+        │   └── assays: [AssayDescriptor] ─────────────► (A)     route 4b: how this readout is measured
+        └── model_systems: [ExperimentalModel]
+            └── modeled_mechanisms → readouts → assays ─► (A)    route 3 again, inside a proposal
+
+(A) AssayDescriptor   is_a Descriptor
+    ├── preferred_term        string; the assay&#39;s name
+    ├── description           string
+    ├── term                  optional {id, label}
+    │                         bound to the AssayTerm dynamic enum:
+    │                         reachable_from OBI:0000070 &quot;assay&quot; (rdfs:subClassOf, indirect)
+    └── modifier · located_in · laterality · spatial_extent · onset · temporality ·
+        clinical_course · severity · qualifiers
+                              inherited from Descriptor; rarely meaningful for an assay
+</code></pre></div>
+<p>The schema also defines a class named <code>Assay</code>, with only <code>name</code> and
+<code>description</code>. No slot uses it as a range and no class inherits from it, so it
+plays no part in the routes above; <code>AssayDescriptor</code> is the class that carries
+assays.</p>
+<p>The <code>target</code> slots on <code>BiomarkerReadout</code> and <code>ModelMechanismLink</code> take the node's
+bare <code>name</code>; the slots under <code>discussions</code> take <code>pathophysiology#&lt;name&gt;</code>.</p>
+<p>An assay and an experimental model record different things. A
+<code>ModelMechanismLink</code> names a model system and states how it relates to the node
+(relationship, fidelity, caveats, evidence). An assay names a measurement
+technique and makes no claim about the node. The two meet at route 3: "this
+model shows X at this node, measured by assay Y".</p>
+<p>Use in <code>kb/</code>, counted 2026-10-23:</p>
+<table>
+<thead>
+<tr>
+<th>Route</th>
+<th>Slot path</th>
+<th>Objects</th>
+<th>Files</th>
+<th>Assay entries</th>
+<th>With an OBI <code>term:</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>4b</td>
+<td><code>discussions[].proposed_experiments[].readouts[].assays</code></td>
+<td>301</td>
+<td>82</td>
+<td>534</td>
+<td>0</td>
+</tr>
+<tr>
+<td>4a</td>
+<td><code>discussions[].proposed_experiments[].assays</code></td>
+<td>17</td>
+<td>6</td>
+<td>60</td>
+<td>0</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>biochemical[].assays</code></td>
+<td>6</td>
+<td>4</td>
+<td>7</td>
+<td>0</td>
+</tr>
+<tr>
+<td>1</td>
+<td><code>pathophysiology[].assays</code></td>
+<td>1</td>
+<td>1</td>
+<td>2</td>
+<td>0</td>
+</tr>
+<tr>
+<td>3</td>
+<td>model-link <code>readouts[].assays</code></td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Nearly all assays describe how a proposed experiment would measure something.
+  Route 3, which would record how a curated model's readout was measured, is
+  unused.</li>
+<li>No assay is bound to an OBI term. OBI has no adapter in
+  <code>conf/oak_config.yaml</code> and no <code>cache/enums/</code> membership file, so a binding
+  cannot be validated yet. Ground a readout with GO <code>biological_processes</code> in
+  the meantime.</li>
+<li>The global <code>assays</code> slot has no description, and its only example value,
+  <code>Elevated Blood Glucose</code>, is a result rather than an assay. The one
+  pathophysiology node using route 1, <code>Hyperglycemia</code> in
+  <code>kb/disorders/Type_I_Diabetes.yaml</code>, follows that example; its two values
+  duplicate markers the entry already lists under <code>biochemical:</code>.</li>
+</ul>
 
 
 
