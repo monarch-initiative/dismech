@@ -35,6 +35,7 @@ diseases:
 - Bipolar_Disorder
 - Cannabis_Hyperemesis_Syndrome
 - Subacute_Delirium
+- IgA_Nephropathy
 modules:
 - cardiac_camp_pka_calcium_handling
 - somatotroph_camp_pka_overactivation
@@ -46,6 +47,7 @@ modules:
 - mu_opioid_receptor_antagonism
 - beta_adrenergic_receptor_blockade
 - d2_receptor_antagonism
+- at1_receptor_blockade
 - glp1_receptor_agonism
 ---
 
@@ -107,7 +109,7 @@ conform:
 | Proposed module | Receptor (gene) | Drug classes | Candidate conformers |
 |---|---|---|---|
 | beta-adrenergic receptor blockade | ADRB1, ADRB2 | beta-blockers | Heart_Failure, Essential_Hypertension, Atrial_Fibrillation (Glaucoma and Migraine were assessed and rejected; see the module's scope notes) |
-| AT1 receptor blockade | AGTR1 | sartans | Essential_Hypertension, Heart_Failure, diabetic kidney disease |
+| AT1 receptor blockade | AGTR1 | sartans, ARNI, sparsentan | Essential_Hypertension, Heart_Failure, IgA_Nephropathy (diabetic kidney disease has no entry yet; the module's renal evidence is the RENAAL trial in type 2 diabetic nephropathy) |
 | mu-opioid receptor agonism | OPRM1 | opioid analgesics; antagonists/partial agonists for OUD | Opioid_Use_Disorder, Acute_Opioid_Poisoning |
 | D2 receptor antagonism | DRD2 | antipsychotics, antiemetics | Schizophrenia, Bipolar_Disorder, Cannabis_Hyperemesis_Syndrome, Subacute_Delirium. The extrapyramidal arm is modelled inside the module rather than as a drug-induced parkinsonism conformer; tardive dyskinesia is deliberately out of scope — see the module's scope notes |
 | dopamine receptor agonism | DRD2, DRD3 | dopamine agonists | Parkinsons_Disease, hyperprolactinemia |
@@ -197,12 +199,18 @@ mechanism-level rather than disease-level.
         and agitation — which is the point: one receptor action, three reasons to prescribe.
         `Schizophrenia` keeps its dopamine-dysregulation target alongside the receptor node,
         because D2 blockade acts downstream of that presynaptic abnormality
-  - [ ] Two incretin-treated entries, in #15252 (in review): `Type_2_Diabetes_Mellitus`
+  - [x] Three angiotensin-blocker-treated entries, in #15271: `Essential_Hypertension`,
+        `Heart_Failure` and `IgA_Nephropathy` against `at1_receptor_blockade`.
+        `Essential_Hypertension`'s ACE inhibitor is pointed at its own
+        renin-angiotensin-aldosterone node instead, because an ACE inhibitor never
+        occupies the receptor — see that module's scope notes
+  - [x] Two incretin-treated entries, in #15252: `Type_2_Diabetes_Mellitus`
         and `Obesity` against `glp1_receptor_agonism`, both at the receptor step. The
         module names no dominant weight-loss arm, so conforming `Obesity` against one
         would assert more than the evidence carries
 - [ ] Remaining Workstream A modules
   - [x] D2 receptor antagonism — `d2_receptor_antagonism` (#15299)
+  - [x] AT1 receptor blockade — `at1_receptor_blockade` (#15271)
 - [ ] Gs alpha defect module
 
 ## Decisions

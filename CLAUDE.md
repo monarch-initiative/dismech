@@ -813,6 +813,7 @@ pathophysiology:
 - **Organ-specific substitution**: Module nodes define generic cell types (e.g., `fibroblast`); conforming disorder nodes substitute organ-specific types (e.g., `hepatic stellate cell`)
 - **Consistency checking**: If a node declares `conforms_to`, it should include the expected biological processes and causal edges from the module
 - **Reference format**: `"module_name#Node Name"` — module name matches the filename in `kb/modules/` (without `.yaml`), node name matches a pathophysiology `name` in that module
+- **More than one module**: a node that is a genuine instance of two module nodes lists both — `conforms_to:` followed by a YAML list of references — instead of picking one (dismech#13923). The plain-string form stays valid and needs no migration. In code, read the slot through `dismech.conformance.iter_conforms_to`, which returns a list for either spelling; an `isinstance(value, str)` check silently drops the list form
 - **Validated exactly like a disorder**: `just validate-module-batch <files>` (what CI runs on changed modules) and `just validate-modules` (all modules, in `just qc`) apply the `validate-disorders` gate, including abstract-only `--no-full-text` snippet matching; the pytest sweep runs every disorder structural check on modules too. What is *not* checked is conformance content: `conforms_to` must resolve to a real module node, but nothing compares the conforming node's processes or edges against it
 
 **Creating a module?** Use the `create-module` skill — it covers the module
@@ -3987,6 +3988,13 @@ Non-negotiable rules:
   on an HGNC identifier written beside the wrong gene (#9845).
 - Never create or hand-edit `references_cache/*.md`; generate or regenerate an
   entry with `just fetch-reference <ID>`.
+- A reference first cached as an abstract stays `abstract_only` on later plain
+  fetches. To upgrade it, `just fetch-reference <ID> --force` (any `-`-prefixed
+  argument is passed to the validator rather than read as an ID, #13185). Use it
+  only when the content a claim needs, such as a phenotype table, is in the PMC
+  full text. A forced re-fetch rewrites the frontmatter and can add hundreds of
+  body lines (#10460, #10736), so stage only the `references_cache/` file you
+  meant to upgrade and re-run `just count-verified-snippets` afterwards.
 - **Re-derive the cited-PMID list immediately before pruning uncited caches.** A
   list built earlier in the session goes stale the moment you add a section, and
   pruning against it deletes a cache the entry now cites. CI does not catch this:
@@ -4841,6 +4849,19 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 - Never check out `main` in a worktree — `main` belongs to the primary checkout.
 - Never leave the primary checkout on a feature branch.
 - If `git checkout main` fails with "already checked out at …", find which worktree holds `main` (`git worktree list | grep '\[main\]'`), switch that worktree to a feature branch, then retry.
+
+**Which checkout a command reads and writes.** `dismech` commands find the
+repository from the working directory, not from where the package is installed
+(`src/dismech/repo_root.py`): the nearest directory at or above it holding a
+`justfile` and `kb/`. Set `DISMECH_ROOT=/path/to/checkout` to choose one
+explicitly; outside any checkout they fall back to the installed tree and warn
+once. This matters because one virtualenv shared across worktrees installs the
+package from the primary checkout, so a path built from `__file__` sent a
+worktree's reads and writes there (#15051, #15109). In `src/dismech/` and
+`src/phenoagent/`, use
+`repo_root()` (or `LazyRepoPaths` for a module-level constant) for checkout
+paths; `Path(__file__)` is only for resources inside the package, such as
+`schema/` and `templates/`. `tests/test_repo_root_sweep.py` enforces this.
 
 ### What to commit
 
