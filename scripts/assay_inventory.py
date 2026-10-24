@@ -22,10 +22,10 @@ conflating them:
 * **mechanical variation** -- names that differ only by punctuation or a
   generic word (`immunoblot` / `immunoblot assay`). Deterministic, safe to act
   on in bulk.
-* **candidate synonymy** -- names whose significant words overlap without
-  matching (`patch-clamp electrophysiology` / `patch clamp recording`). Flagged
-  for a curator, never merged: string overlap cannot tell a narrower assay from
-  a differently-worded one.
+* **candidate synonymy** -- pairs where one name's significant words are
+  contained in the other's (`patch clamp recording` inside `patch-clamp
+  electrophysiology`). Flagged for a curator, never merged: containment cannot
+  tell a narrower assay from a differently-worded one.
 
 Real synonymy with no shared words (`single-cell transcriptomic profiling` and
 `single-cell RNA sequencing`) is beyond either class, so neither the clusters
@@ -241,15 +241,23 @@ def collect(repo: Path, globs: list[str]) -> dict:
 
 
 def clusters(names: Counter[str]) -> tuple[list[list[str]], list[list[str]]]:
-    """Mechanical-variation clusters, and candidate-synonymy groups.
+    """Mechanical-variation clusters, and candidate-synonymy pairs.
 
     The first holds names with identical significant-token sets. The second
-    holds names whose sets overlap without matching, which is a question for a
-    curator rather than an answer.
+    holds pairs where one name's set is contained in the other's, which is a
+    question for a curator rather than an answer.
+
+    A name made only of generic words (`assay`, `readout`) reduces to an empty
+    token set and is left out of both. The empty set is a subset of every other
+    set, so it would otherwise pair with every name in the corpus -- 329 rows
+    on the current one -- and it would cluster with any other generic-only name
+    as if `assay` and `readout` were one assay written twice. Neither says
+    anything, and both would bury the real rows. Such a name is still counted
+    in the use table; it is only unclusterable.
     """
     by_key: defaultdict[frozenset[str], list[str]] = defaultdict(list)
     for name in names:
-        if name:
+        if name and significant_tokens(name):
             by_key[significant_tokens(name)].append(name)
 
     mechanical = [
@@ -261,7 +269,7 @@ def clusters(names: Counter[str]) -> tuple[list[list[str]], list[list[str]]]:
 
     # Only a subset relation counts as a candidate. Plain overlap does not: one
     # shared weak word ("cell") links `single-cell transcriptomic profiling` to
-    # `cell viability assay`, and on this corpus that yields ~1,700 groups, which
+    # `cell viability assay`, and on this corpus that yields ~1,700 pairs, which
     # is noise rather than a worklist. A subset says one name is the other plus
     # qualifiers -- `patch clamp recording` inside `patch-clamp electrophysiology`
     # -- which is either one assay written two ways or a narrower assay, and
@@ -388,11 +396,13 @@ def render_md(res: dict, focus: list[str]) -> str:
         "## Candidate synonymy",
         "",
         (
-            f"{len(candidates)} group(s) where one name's significant words "
-            "are contained in another's. These are **not** established "
-            "duplicates: one name may be a genuinely narrower assay rather "
-            "than the same one reworded, and only a curator can say which. "
-            "Two names for one assay that share no words are invisible here."
+            f"{len(candidates)} pair(s) where one name's significant words are "
+            "contained in the other's. One row is one such pair, so a name that "
+            "contains several others appears in several rows. These are **not** "
+            "established duplicates: one name may be a genuinely narrower assay "
+            "rather than the same one reworded, and only a curator can say "
+            "which. Two names for one assay that share no words are invisible "
+            "here, and a name made only of generic words is left out."
         ),
         "",
     ]
@@ -401,6 +411,12 @@ def render_md(res: dict, focus: list[str]) -> str:
         for group in candidates[:40]:
             out.append(
                 "| " + " \\| ".join(f"{n} ({s['names'][n]})" for n in group) + " |"
+            )
+        if len(candidates) > 40:
+            out.append("")
+            out.append(
+                f"Showing 40 of {len(candidates)}; `--format tsv` carries none "
+                "of this, so read the whole list here or re-run per glob."
             )
     else:
         out.append("None.")

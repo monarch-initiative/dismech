@@ -251,6 +251,25 @@ class TestAssayClustering:
         _, candidates = clusters(names)
         assert candidates == []
 
+    def test_a_name_made_only_of_generic_words_pairs_with_nothing(self):
+        """Caught in review on #15393, latent only because no name triggers it.
+
+        `assay` reduces to an empty token set, and the empty set is a subset of
+        every other set -- so without a guard it produced one candidate row per
+        name in the corpus, 329 of them, burying every real row. Two
+        generic-only names would also have clustered together as mechanical
+        variation, asserting `assay` and `readout` are one assay.
+        """
+        names = {
+            "assay": 1,
+            "readout": 1,
+            "immunostaining": 14,
+            "histopathology": 5,
+        }
+        mechanical, candidates = clusters(names)
+        assert mechanical == []
+        assert candidates == []
+
     def test_synonymy_without_shared_words_is_reported_by_neither(self):
         """The limit of the whole approach, pinned so no caller over-reads it.
 
