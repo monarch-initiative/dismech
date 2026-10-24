@@ -48,6 +48,20 @@ prefixes:
   ENVO: http://purl.obolibrary.org/obo/ENVO_
   XCO: http://purl.obolibrary.org/obo/XCO_
   FOODON: http://purl.obolibrary.org/obo/FOODON_
+  # Non-human gene and gene-product identifiers, admitted only on the genes of a
+  # model or dataset (AnimalModel, ExperimentalModel, Dataset) via
+  # GeneOrProductTerm. The Alliance of Genome Resources members come first; the
+  # spellings and expansions are Biolink's (biolink_model_prefix_map.json), which
+  # are also the forms the Monarch KG and GO use.
+  MGI: http://identifiers.org/mgi/
+  RGD: http://identifiers.org/rgd/
+  ZFIN: http://identifiers.org/zfin/
+  Xenbase: http://www.xenbase.org/gene/showgene.do?method=display&geneId=
+  FB: http://identifiers.org/fb/
+  WB: http://identifiers.org/wb/
+  SGD: http://identifiers.org/sgd/
+  NCBIGene: http://identifiers.org/ncbigene/
+  UniProtKB: http://purl.uniprot.org/uniprot/
   skos: http://www.w3.org/2004/02/skos/core#
   # Draft SEPIO LinkML model (sepio-framework/sepio-linkml). Its own
   # default_prefix is still the placeholder https://example.org/sepio-model/,
@@ -1462,6 +1476,37 @@ enums:
         - rdfs:subClassOf
   TriggerTerm:
     description: A trigger
+  GeneOrProductTerm:
+    description: >-
+      A gene or gene product in a model system or dataset, named in its own
+      species. In priority order: HGNC for a human gene; the species' Alliance
+      of Genome Resources member database where one exists (MGI mouse, RGD rat,
+      ZFIN zebrafish, Xenbase Xenopus, FB Drosophila, WB C. elegans, SGD
+      S. cerevisiae); otherwise NCBI Gene, or a UniProtKB accession. No
+      hierarchy constraint. The schema does not restrict the prefix: where each
+      prefix may appear, and the priority, are enforced by
+      scripts/check_gene_namespaces.py.
+    comments:
+      - >-
+        HGNC uses the lowercase `hgnc:` prefix, as everywhere in this
+        repository, and is checked by the term validator.
+      - >-
+        A model-organism gene takes its MOD identifier, whether the model acts
+        on the gene or on its product: mouse Coch is MGI:1278313, zebrafish
+        tmem165 is ZFIN:ZDB-GENE-030131-3222. This follows the Monarch KG,
+        where the MOD identifier is the gene node and NCBI Gene is ingested
+        only for other species. It deliberately differs from Biolink's
+        id_prefixes order and Translator node normalization, which put NCBIGene
+        first. The label is the MOD's official symbol, checked against
+        cache/<prefix>/terms.csv, filled from the Alliance API.
+      - >-
+        NCBI Gene (`NCBIGene:`) is the fallback for a species with no MOD
+        (pig, dog, macaque). Its label is the official symbol, checked against
+        cache/ncbigene/terms.csv: OAK's NCBI Gene adapter returns no labels.
+      - >-
+        UniProtKB (`UniProtKB:`) is also accepted for a species with no MOD,
+        for a gene product. It resolves through the OAK `uniprot:` adapter, and
+        its label is the protein's recommended name, not the gene symbol.
   GeneTerm:
     description: A gene term from HGNC
     comments:
@@ -6593,6 +6638,23 @@ classes:
             range: ChemicalEntityTerm
             obligation_level: REQUIRED
 
+  GeneOrProductDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for a gene or gene product in a model system or dataset,
+      bindable to HGNC for a human gene, to the species' Alliance MOD (MGI,
+      RGD, ZFIN, Xenbase, FB, WB, SGD) for a model-organism gene, or to NCBI
+      Gene or UniProtKB for a species with no MOD.
+    slot_usage:
+      term:
+        description: >-
+          hgnc:, an Alliance MOD prefix (MGI:, RGD:, ZFIN:, Xenbase:, FB:, WB:,
+          SGD:), NCBIGene: or UniProtKB: term reference
+        bindings:
+          - binds_value_of: id
+            range: GeneOrProductTerm
+            obligation_level: REQUIRED
+
   GeneDescriptor:
     is_a: Descriptor
     description: A descriptor for genes, bindable to HGNC or other gene databases
@@ -7095,6 +7157,14 @@ classes:
           description is more human-readable and may be used to communicate nuances not captured by the
           rigid standardization of the title slot.
         recommended: true
+      genes:
+        description: >-
+          Genes perturbed or profiled in the dataset, named in the dataset's
+          organism: hgnc: for a human gene, the species' Alliance MOD
+          identifier (MGI: for a mouse knockout) where one exists, otherwise
+          NCBIGene: or UniProtKB:.
+        range: GeneOrProductDescriptor
+        inlined_as_list: true
 
   ExperimentalModel:
     description: >-
@@ -7119,6 +7189,7 @@ classes:
       - organism
       - tissue_term
       - cell_types
+      - genes
       - conditions
       - cell_source
       - culture_system
@@ -7127,6 +7198,17 @@ classes:
       - findings
       - evidence
       - notes
+    slot_usage:
+      genes:
+        description: >-
+          Genes or gene products perturbed, expressed, or carried as a variant
+          in this system, named in the organism the cells came from: hgnc: for
+          a human gene, the species' Alliance MOD identifier where one exists
+          (a mouse cell line's knockout is MGI:, not its human ortholog),
+          otherwise NCBIGene: or UniProtKB:. Orthology to the human disease
+          gene goes in description or notes.
+        range: GeneOrProductDescriptor
+        inlined_as_list: true
 
   Experiment:
     description: >-
@@ -8687,6 +8769,16 @@ classes:
         description: >-
           Pathophysiology mechanism nodes this animal model recapitulates,
           perturbs, measures, rescues, or fails to recapitulate.
+      genes:
+        description: >-
+          Genes or gene products perturbed, expressed, or carried as a variant
+          in the model, named in the model's own species: the Alliance MOD
+          identifier for a model organism (a mouse knockout of Coch is
+          MGI:1278313, not hgnc:2180), NCBIGene: or UniProtKB: for a species
+          with no MOD, hgnc: for a human transgene. Orthology to the human
+          disease gene goes in description or notes.
+        range: GeneOrProductDescriptor
+        inlined_as_list: true
   Treatment:
     slots:
       - name
