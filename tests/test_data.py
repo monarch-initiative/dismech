@@ -32,6 +32,7 @@ from dismech.entity_refs import (
     iter_entity_refs,
     parse_entity_ref,
 )
+from dismech.medical_actions import non_therapeutic_action_target_errors
 from dismech.model_links import iter_model_links
 from dismech.yaml_io import safe_load
 
@@ -226,36 +227,6 @@ def _grouping_names():
         if isinstance(data, dict) and data.get("name"):
             names.add(data["name"])
     return names
-
-
-NON_THERAPEUTIC_ACTION_CATEGORIES = {
-    "DIAGNOSTIC",
-    "SCREENING",
-    "MONITORING",
-    "COUNSELING_INFORMATIONAL",
-}
-
-
-def _non_therapeutic_action_target_errors(data):
-    """Find annotated non-therapeutic medical actions that link to pathograph nodes."""
-    errors = []
-    for i, treatment in enumerate(data.get("treatments", []) or []):
-        category = treatment.get("action_category")
-        if category not in NON_THERAPEUTIC_ACTION_CATEGORIES:
-            continue
-        invalid_target_slots = [
-            slot
-            for slot in ("target_mechanisms", "target_phenotypes")
-            if treatment.get(slot)
-        ]
-        if invalid_target_slots:
-            slot_list = ", ".join(invalid_target_slots)
-            name = treatment.get("name", f"treatments[{i}]")
-            errors.append(
-                f"treatments[{i}] {name!r} has action_category={category!r} "
-                f"but also has treatment-style target slots: {slot_list}"
-            )
-    return errors
 
 
 @pytest.fixture(scope="module")
@@ -840,7 +811,7 @@ def test_non_therapeutic_action_target_check_catches_counseling():
         ],
     }
 
-    errors = _non_therapeutic_action_target_errors(data)
+    errors = non_therapeutic_action_target_errors(data)
 
     assert errors
     assert "Genetic counseling" in errors[0]
@@ -860,7 +831,7 @@ def test_non_therapeutic_action_target_check_catches_screening_phenotypes():
         ],
     }
 
-    errors = _non_therapeutic_action_target_errors(data)
+    errors = non_therapeutic_action_target_errors(data)
 
     assert errors
     assert "Newborn screening" in errors[0]
@@ -880,14 +851,56 @@ def test_therapeutic_action_target_check_allows_mechanism_targets():
         ],
     }
 
-    assert not _non_therapeutic_action_target_errors(data)
+    assert not non_therapeutic_action_target_errors(data)
+
+
+GENETIC_COUNSELING_TERM = {
+    "preferred_term": "genetic counseling",
+    "term": {"id": "NCIT:C15240", "label": "Genetic Counseling"},
+}
+
+
+def test_genetic_counseling_term_implies_counseling_category():
+    """An uncategorized Genetic Counseling treatment may not link to nodes either."""
+    data = {
+        "name": "Test Disease",
+        "treatments": [
+            {
+                "name": "Genetic counseling",
+                "treatment_term": GENETIC_COUNSELING_TERM,
+                "target_mechanisms": [{"target": "Primary mechanism"}],
+            }
+        ],
+    }
+
+    errors = non_therapeutic_action_target_errors(data)
+
+    assert errors
+    assert "NCIT:C15240 implies" in errors[0]
+
+
+def test_explicit_action_category_overrides_implied_category():
+    """A counseling bundle with a real intervention opts out with THERAPEUTIC."""
+    data = {
+        "name": "Test Disease",
+        "treatments": [
+            {
+                "name": "Genetic counseling and presymptomatic supplementation",
+                "action_category": "THERAPEUTIC",
+                "treatment_term": GENETIC_COUNSELING_TERM,
+                "target_mechanisms": [{"target": "Primary mechanism"}],
+            }
+        ],
+    }
+
+    assert not non_therapeutic_action_target_errors(data)
 
 
 def check_non_therapeutic_actions_do_not_use_treatment_targets(filepath, data=None):
     """Annotated non-therapeutic medical actions must not use treatment-style target links."""
     data = _document(filepath, data)
 
-    errors = _non_therapeutic_action_target_errors(data)
+    errors = non_therapeutic_action_target_errors(data)
 
     assert not errors, (
         f"Non-therapeutic action target links in {Path(filepath).name}: {errors}"

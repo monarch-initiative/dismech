@@ -2873,6 +2873,25 @@ Two things follow that are easy to get wrong:
   a surgical term. Check what the treatment actually is before normalizing it to the
   majority binding, and record the reason in `notes` when you leave one alone.
 
+#### Non-therapeutic actions link to no node
+
+Genetic counseling, screening, diagnostic testing and monitoring are recorded under
+`treatments:` but do not act on the disease, so they carry **no**
+`target_mechanisms` or `target_phenotypes`: those render as treatment edges in the
+pathograph, and "genetic counseling modulates KIT signalling" is not a claim. Keep
+the supporting evidence on the treatment itself, and set `action_category`
+(`COUNSELING_INFORMATIONAL`, `SCREENING`, `DIAGNOSTIC`, `MONITORING`).
+
+A treatment bound to `NCIT:C15240` Genetic Counseling (or `NCIT:C61547`
+Counseling, `NCIT:C171451` Fertility and Reproductive Counseling) is treated as
+`COUNSELING_INFORMATIONAL` when it sets no category. An explicit category wins, so a
+bundle that contains a real intervention ("counseling and avoidance of live BCG
+vaccination") sets `action_category: THERAPEUTIC` and keeps its links.
+
+```bash
+just check-non-therapeutic-actions      # gate (offline, in `just qc`, ungated in CI)
+```
+
 #### Therapeutic Agent Pattern (drug + drug class on pharmacotherapy)
 
 Treatment terms describe the **medical action** (e.g., Pharmacotherapy, chemotherapy,
@@ -4080,6 +4099,7 @@ just check-block-scalar-comments kb/disorders/MyDisease.yaml
 just check-enum-values kb/disorders/MyDisease.yaml
 just check-delivery-system kb/disorders/MyDisease.yaml
 just check-entity-refs kb/disorders/MyDisease.yaml
+just check-non-therapeutic-actions kb/disorders/MyDisease.yaml
 just check-causal-targets kb/disorders/MyDisease.yaml
 just check-shared-disease-terms
 just check-gene-activity-grounding
