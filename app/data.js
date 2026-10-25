@@ -251761,6 +251761,98 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Meningeal tuberculosis",
+    "disease_id": "MONDO:0006042",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial meningitis",
+      "Tuberculosis"
+    ],
+    "creation_date": "2026-09-30T03:19:40Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Meningeal tuberculosis is central nervous system tuberculosis caused by Mycobacterium tuberculosis, in which inhaled bacilli establish a primary pulmonary or disseminated focus, seed the meninges hematogenously, and trigger rupture of a caseating Rich focus into the subarachnoid space, basal granulomatous exudate, vasculitic infarction, hydrocephalus, and subacute meningitis with high mortality and neurologic morbidity.",
+    "pathophysiology": [
+      "Pulmonary Mycobacterium tuberculosis entry",
+      "Hematogenous CNS Tuberculous Seeding",
+      "Rich Focus Rupture Into CSF",
+      "Basal Granulomatous Meningeal Exudate",
+      "Tuberculous Cerebral Arteritis",
+      "Ischemic Cerebral Infarction",
+      "Obstructive Tuberculous Hydrocephalus",
+      "CSF MMP-9 Elevation",
+      "Blood-Brain Barrier Disruption"
+    ],
+    "cell_types": [
+      "macrophage",
+      "epithelioid macrophage",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0002150",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "maintenance of blood-brain barrier"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Hydrocephalus",
+      "CSF pleocytosis",
+      "Cognitive impairment",
+      "Coma",
+      "Nuchal rigidity",
+      "Vomiting",
+      "Cranial nerve paralysis",
+      "Seizure",
+      "Hemiparesis",
+      "Hyponatremia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0000238",
+      "HP:0012229",
+      "HP:0100543",
+      "HP:0001259",
+      "HP:0031179",
+      "HP:0002013",
+      "HP:0006824",
+      "HP:0001250",
+      "HP:0001269",
+      "HP:0002902"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Initial Four-Drug Antituberculous Therapy",
+      "Adjunctive Dexamethasone",
+      "BCG Vaccination"
+    ],
+    "environmental": [
+      "HIV co-infection"
+    ],
+    "biochemical": [],
+    "source_file": "Meningeal_Tuberculosis.yaml",
+    "page_url": "../pages/disorders/Meningeal_tuberculosis.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Meningioma",
     "disease_id": "MONDO:0016642",
     "category": "Neoplastic",
@@ -402420,19 +402512,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3727,
+  "total_disorder_pages": 3728,
   "total_subtypes": 4910,
-  "total_disorders_and_subtypes": 8637,
-  "total_unique_evidence_sources": 55626,
-  "total_unique_publications": 51967,
+  "total_disorders_and_subtypes": 8638,
+  "total_unique_evidence_sources": 55648,
+  "total_unique_publications": 51989,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3725,
-  "total_unique_pathological_events": 24569,
+  "total_pathographs": 3726,
+  "total_unique_pathological_events": 24577,
   "total_modules": 204,
-  "total_research_reports": 3850,
+  "total_research_reports": 3851,
   "total_classifications": 21,
   "total_comorbidities": 51,
-  "total_groupings": 121
+  "total_groupings": 125
 };
 window.dispatchEvent(new Event('searchDataReady'));
