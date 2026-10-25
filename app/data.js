@@ -3457,7 +3457,8 @@ window.searchData = [
       "WT1",
       "DHX37",
       "DHH",
-      "ZFPM2"
+      "ZFPM2",
+      "SRY"
     ],
     "treatments": [
       "Individualized gonadal management (retention versus gonadectomy)",
@@ -3480,7 +3481,7 @@ window.searchData = [
     "page_url": "../pages/disorders/46,XY_partial_gonadal_dysgenesis.html",
     "num_phenotypes": 22,
     "num_pathophysiology": 19,
-    "num_genes": 8,
+    "num_genes": 9,
     "num_treatments": 8,
     "causal_graph_edges": "64",
     "causal_graph_longest_path": "4"
@@ -3734,6 +3735,8 @@ window.searchData = [
     "description": "46,XY complete gonadal dysgenesis (Swyer syndrome) is a genetically heterogeneous disorder of testis development in which an individual with a nonmosaic 46,XY karyotype has typical female external genitalia, M\u00fcllerian structures, and bilateral streak or severely dysgenetic gonads because functional testes never differentiate. Loss of fetal Sertoli-cell and Leydig-cell function causes absent anti-M\u00fcllerian hormone and testicular androgen secretion; loss of pubertal gonadal hormone production causes hypergonadotropic hypogonadism, absent or incomplete breast development, delayed puberty, primary amenorrhea, uterine hypoplasia, infertility, and impaired bone accrual. Y-bearing dysgenetic gonadal tissue also confers a substantial, but imprecisely quantified, risk of gonadoblastoma and invasive germ-cell tumor.",
     "pathophysiology": [
       "SRY-SOX9-SOX8-DMRT1 transcriptional network failure",
+      "Defective nuclear import of mutant SRY",
+      "Failure of SOX9 testis-specific enhancer activation",
       "MAP3K1 gain-of-function pro-ovarian signaling bias",
       "NR5A1 gonadal transcription failure",
       "DHH paracrine signaling failure",
@@ -3761,6 +3764,7 @@ window.searchData = [
     "biological_processes": [
       "sex determination",
       "male gonad development",
+      "NLS-bearing protein import into nucleus",
       "steroid hormone biosynthetic process"
     ],
     "phenotypes": [
@@ -3834,11 +3838,11 @@ window.searchData = [
     "source_file": "46_XY_complete_gonadal_dysgenesis.yaml",
     "page_url": "../pages/disorders/46,XY_complete_gonadal_dysgenesis.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 16,
+    "num_pathophysiology": 18,
     "num_genes": 9,
     "num_treatments": 6,
-    "causal_graph_edges": "46",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "52",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "47,XYY Syndrome",
@@ -10386,7 +10390,8 @@ window.searchData = [
     ],
     "frequencies": [],
     "genes": [
-      "PCSK9"
+      "PCSK9",
+      "DAB2IP"
     ],
     "treatments": [
       "Ultrasound surveillance of small aneurysms",
@@ -10407,9 +10412,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Abdominal_Aortic_Aneurysm.html",
     "num_phenotypes": 7,
     "num_pathophysiology": 8,
-    "num_genes": 1,
+    "num_genes": 2,
     "num_treatments": 7,
-    "causal_graph_edges": "27",
+    "causal_graph_edges": "28",
     "causal_graph_longest_path": "7"
   },
   {
@@ -35530,6 +35535,7 @@ window.searchData = [
       "OCCASIONAL"
     ],
     "genes": [
+      "SYNGAP1",
       "CHD8",
       "SCN2A",
       "DYRK1A",
@@ -35551,7 +35557,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Autism_Spectrum_Disorder.html",
     "num_phenotypes": 12,
     "num_pathophysiology": 8,
-    "num_genes": 4,
+    "num_genes": 5,
     "num_treatments": 4,
     "causal_graph_edges": "14",
     "causal_graph_longest_path": "3"
@@ -61415,6 +61421,121 @@ window.searchData = [
     "num_treatments": 8,
     "causal_graph_edges": "44",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Brain Malformations With Or Without Urinary Tract Defects",
+    "disease_id": "MONDO:0100478",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A single functional copy of NFIA is insufficient for normal development. Loss of one allele arises through 1p31.3 deletion, NFIA-disrupting translocation, or intragenic loss-of-function variant.",
+    "pathophysiology": [
+      "NFIA Haploinsufficiency",
+      "Reduced NFIA-Dependent Transcriptional Regulation",
+      "Impaired Neurogenesis-to-Gliogenesis Transition",
+      "Defective Corpus Callosum Development",
+      "Impaired Cerebrospinal Fluid Homeostasis",
+      "Disrupted Ureteric and Metanephric Development"
+    ],
+    "cell_types": [
+      "radial glial cell",
+      "astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000681",
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "glial cell differentiation",
+      "astrocyte differentiation",
+      "corpus callosum development",
+      "axon guidance",
+      "ureteric bud development",
+      "metanephros development"
+    ],
+    "phenotypes": [
+      "Agenesis of the corpus callosum",
+      "Hypoplasia of the corpus callosum",
+      "Hydrocephalus",
+      "Ventriculomegaly",
+      "Chiari type I malformation",
+      "Tethered cord",
+      "Syringomyelia",
+      "Global developmental delay",
+      "Intellectual disability",
+      "Macrocephaly",
+      "Seizure",
+      "Generalized hypotonia",
+      "Nonspecific dysmorphic features",
+      "Recurrent urinary tract infection",
+      "Vesicoureteral reflux",
+      "Hydronephrosis",
+      "Strabismus",
+      "Cutis marmorata",
+      "Craniosynostosis"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Craniofacial",
+      "Renal",
+      "Ophthalmologic",
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001274",
+      "HP:0002079",
+      "HP:0000238",
+      "HP:0002119",
+      "HP:0007099",
+      "HP:0002144",
+      "HP:0003396",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000256",
+      "HP:0001250",
+      "HP:0001290",
+      "HP:0001999",
+      "HP:0000010",
+      "HP:0000076",
+      "HP:0000126",
+      "HP:0000486",
+      "HP:0000965",
+      "HP:0001363"
+    ],
+    "frequencies": [
+      "18/26 (69%) in a pooled NFIA-haploinsufficiency literature review; 18/20 (90%) in the Bertini case ascertainment.",
+      "15/26 (58%) in a pooled NFIA-haploinsufficiency literature review; 15/18 (83%) in the Bertini case ascertainment.",
+      "22/26 (85%) in a pooled NFIA-haploinsufficiency literature review; 22/23 (96%) in the Bertini case ascertainment.",
+      "4/26 (15%) in a pooled NFIA-haploinsufficiency literature review; 4/6 (67%) in the Bertini case ascertainment."
+    ],
+    "genes": [
+      "NFIA"
+    ],
+    "treatments": [
+      "Symptomatic and supportive management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Brain_Malformations_With_Or_Without_Urinary_Tract_Defects.yaml",
+    "page_url": "../pages/disorders/Brain_Malformations_With_Or_Without_Urinary_Tract_Defects.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Brain Small Vessel Disease 1 With Or Without Ocular Anomalies",
@@ -105547,6 +105668,139 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Congenital Heart Defects And Ectodermal Dysplasia",
+    "disease_id": "MONDO:0044303",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "developmental disorder"
+    ],
+    "creation_date": "2026-10-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Congenital heart defects and ectodermal dysplasia (CHDED; also congenital heart defects, dysmorphic facial features, and intellectual developmental disorder, CHDFIDD; OMIM 617364) is a rare autosomal dominant multisystem developmental disorder caused by heterozygous variants in PRKD1, which encodes the serine/threonine protein kinase D1. Core manifestations are congenital heart defects (most often septal and valvar lesions such as atrioventricular and atrial septal defects, pulmonary stenosis, and bicuspid aortic valve, with conotruncal and aortic-arch anomalies including tetralogy of Fallot and coarctation of the aorta), features of ectodermal dysplasia (abnormal or absent teeth, nail dysplasia, and skin changes), and dysmorphic facial features, with variable developmental delay, intellectual disability, and microcephaly. The disease-associated variants are predominantly de novo missense changes that behave as gain-of-function alleles, although inherited variants and loss-of-function alleles have also been reported; biallelic truncating PRKD1 variants cause a separate, recessively inherited truncus arteriosus phenotype rather than the dominant syndrome. PRKD1 acts downstream of diacylglycerol/protein kinase C signaling and phosphorylates class IIa histone deacetylases, modulating MEF2- and TBX5-dependent transcriptional programs required for cardiac and ectodermal development.",
+    "pathophysiology": [
+      "PRKD1 Kinase Dysfunction",
+      "Dysregulated HDAC-MEF2 Transcriptional Control",
+      "Impaired Cardiac Outflow Tract and Septal Morphogenesis",
+      "Impaired Ectodermal Appendage Development",
+      "Impaired Craniofacial and Neural Development"
+    ],
+    "cell_types": [
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "regulation of transcription by RNA polymerase II",
+      "outflow tract morphogenesis",
+      "cardiac septum morphogenesis",
+      "ectoderm development",
+      "nervous system development",
+      "head development"
+    ],
+    "phenotypes": [
+      "Truncus arteriosus",
+      "Tetralogy of Fallot",
+      "Atrioventricular septal defect",
+      "Atrial septal defect",
+      "Bicuspid aortic valve",
+      "Coarctation of aorta",
+      "Pulmonic stenosis",
+      "Partial anomalous pulmonary venous return",
+      "Ectodermal dysplasia",
+      "Abnormality of the dentition",
+      "Nail dysplasia",
+      "Global developmental delay",
+      "Intellectual disability",
+      "Microcephaly",
+      "Facial dysmorphism",
+      "Brachydactyly",
+      "Telangiectasia",
+      "Craniosynostosis",
+      "Cerebral calcification",
+      "Seizure",
+      "Hearing impairment",
+      "Dry skin",
+      "Bifid uvula",
+      "Increased intracranial pressure",
+      "Multicystic kidney dysplasia",
+      "Nephrocalcinosis",
+      "Male infertility",
+      "Hypospadias",
+      "Carotid artery dissection"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Integumentary",
+      "Neurologic",
+      "Head and neck",
+      "Musculoskeletal",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001660",
+      "HP:0001636",
+      "HP:0006695",
+      "HP:0001631",
+      "HP:0001647",
+      "HP:0001680",
+      "HP:0001642",
+      "HP:0010773",
+      "HP:0000968",
+      "HP:0000164",
+      "HP:0002164",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000252",
+      "HP:0001999",
+      "HP:0001156",
+      "HP:0001009",
+      "HP:0001363",
+      "HP:0002514",
+      "HP:0001250",
+      "HP:0000365",
+      "HP:0000958",
+      "HP:0000193",
+      "HP:0002516",
+      "HP:0000003",
+      "HP:0000121",
+      "HP:0003251",
+      "HP:0000047",
+      "HP:0012158"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PRKD1 variants"
+    ],
+    "treatments": [
+      "Surgical repair of congenital heart defects",
+      "Supportive skin care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_Heart_Defects_And_Ectodermal_Dysplasia.yaml",
+    "page_url": "../pages/disorders/Congenital_Heart_Defects_And_Ectodermal_Dysplasia.html",
+    "num_phenotypes": 29,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Congenital Heart Defects, Multiple Types, 2",
     "disease_id": "MONDO:0014000",
     "category": "Mendelian",
@@ -111293,7 +111547,8 @@ window.searchData = [
       "APOE",
       "LDLR",
       "PCSK9",
-      "9p21 Locus"
+      "9p21 Locus",
+      "DAB2IP"
     ],
     "treatments": [
       "Statins",
@@ -111321,9 +111576,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Coronary_Artery_Disease.html",
     "num_phenotypes": 3,
     "num_pathophysiology": 6,
-    "num_genes": 4,
+    "num_genes": 5,
     "num_treatments": 8,
-    "causal_graph_edges": "25",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "7"
   },
   {
@@ -136427,7 +136682,9 @@ window.searchData = [
       "Estrogen-Driven Transcription",
       "Cell Cycle Progression",
       "PI3K-AKT-mTOR Pathway Activation",
-      "ESR1 Mutation-Driven Endocrine Resistance"
+      "ESR1 Mutation-Driven Endocrine Resistance",
+      "RasGAP Tumor Suppressor Co-Silencing",
+      "Epithelial-to-Mesenchymal Transition"
     ],
     "cell_types": [
       "luminal epithelial cell of mammary gland"
@@ -136442,7 +136699,10 @@ window.searchData = [
       "cell population proliferation",
       "phosphatidylinositol 3-kinase/protein kinase B signal transduction",
       "TOR signaling",
-      "constitutive ligand-independent estrogen receptor signaling"
+      "constitutive ligand-independent estrogen receptor signaling",
+      "Ras protein signal transduction",
+      "canonical NF-kappaB signal transduction",
+      "epithelial to mesenchymal transition"
     ],
     "phenotypes": [
       "Breast Carcinoma",
@@ -136469,7 +136729,9 @@ window.searchData = [
     "genes": [
       "ESR1",
       "PIK3CA",
-      "CCND1"
+      "CCND1",
+      "DAB2IP",
+      "RASAL2"
     ],
     "treatments": [
       "Aromatase Inhibitors",
@@ -136490,10 +136752,10 @@ window.searchData = [
     "source_file": "ER_Positive_Breast_Cancer.yaml",
     "page_url": "../pages/disorders/ER-Positive_Breast_Cancer.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 5,
-    "num_genes": 3,
+    "num_pathophysiology": 7,
+    "num_genes": 5,
     "num_treatments": 8,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
   },
   {
@@ -172492,7 +172754,7 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "6",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "3"
   },
   {
@@ -185570,6 +185832,78 @@ window.searchData = [
     "num_treatments": 8,
     "causal_graph_edges": "31",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Visceral Heterotaxy 14",
+    "disease_id": "MONDO:0976135",
+    "category": "Mendelian",
+    "parents": [
+      "Visceral heterotaxy",
+      "Congenital Disorder"
+    ],
+    "creation_date": "2026-10-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Visceral heterotaxy 14 (HTX14) is an autosomal recessive laterality disorder caused by bi-allelic inactivating variants in CIROZ (previously C1orf127). CIROZ encodes a secreted protein with a signal peptide and three zona pellucida N (ZP-N) domains that is specifically expressed in the embryonic left-right organizer (LRO). It belongs to a conserved genetic module (with DAND5, PKD1L1, MMP21 and CIROP) that evolved in vertebrates whose LRO carries motile cilia; its precise molecular step within that module is not yet established. Loss of CIROZ function disrupts breaking of embryonic bilateral symmetry, producing heterotaxy (situs ambiguus) with congenital heart defects. The human phenotype is reproduced by the mouse knockout, which develops situs anomalies, but notably not by zebrafish or Xenopus knockouts, in which CIROZ is dispensable for left-right patterning. The gene was defined in a 2025 cohort of 16 individuals from 10 families; the literature is therefore recent and still thin, and no GeneReviews chapter exists.",
+    "pathophysiology": [
+      "Biallelic CIROZ Loss of Function",
+      "Loss of CIROZ in the Left-Right Organizer",
+      "Failure of Left-Right Axis Determination"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "determination of left/right symmetry"
+    ],
+    "phenotypes": [
+      "Heterotaxy",
+      "Congenital heart defect",
+      "Situs inversus totalis",
+      "Intestinal malrotation",
+      "Horseshoe kidney",
+      "Mitral atresia",
+      "Hypoplastic left ventricle",
+      "Abnormal lung lobation"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0030853",
+      "HP:0001627",
+      "HP:0001696",
+      "HP:0002566",
+      "HP:0000085",
+      "HP:0011560",
+      "HP:0004383",
+      "HP:0002101"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CIROZ"
+    ],
+    "treatments": [
+      "Cardiac surgery for congenital heart defects",
+      "Surgical correction of intestinal malrotation",
+      "Pneumococcal vaccination and infection prophylaxis"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Heterotaxy_Visceral_14_Autosomal.yaml",
+    "page_url": "../pages/disorders/Visceral_Heterotaxy_14.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Heyn-Sproul-Jackson syndrome",
@@ -243280,6 +243614,75 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "7",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Macular Dystrophy with or without Cone Dysfunction",
+    "disease_id": "MONDO:0958326",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary macular dystrophy"
+    ],
+    "creation_date": "2026-10-24T15:30:39Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Macular dystrophy with or without cone dysfunction is an autosomal-recessive inherited retinal disease caused by bi-allelic loss-of-function variants in SAMD7 (sterile alpha motif domain containing 7). SAMD7 is a photoreceptor transcriptional corepressor and a component of Polycomb repressive complex 1 (PRC1); its own expression is driven by the master photoreceptor transcription factor CRX (cone-rod homeobox), and it fine-tunes CRX-regulated gene expression. First delineated as a human disease gene in 2024, SAMD7 deficiency presents in affected individuals as a bilateral macular dystrophy, in most cases accompanied by generalized (peripheral) cone dysfunction on full-field electroretinography, with variable adult/juvenile age of onset (second to sixth decade). The intervening pathomechanism linking SAMD7 loss to the cone-predominant maculopathy in humans is not yet established, and the human phenotype differs markedly from the rod-dominated phenotype of Samd7-null mice.\n",
+    "pathophysiology": [
+      "SAMD7 Biallelic Loss-of-Function Variants",
+      "Loss of SAMD7 Transcriptional Corepressor Activity",
+      "Derepression of CRX-Regulated Photoreceptor Genes",
+      "Macular Cone Photoreceptor Dysfunction and Degeneration"
+    ],
+    "cell_types": [
+      "retinal cone cell",
+      "retinal rod cell",
+      "photoreceptor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000573",
+      "CL:0000604",
+      "CL:0000210"
+    ],
+    "biological_processes": [
+      "negative regulation of transcription by RNA polymerase II"
+    ],
+    "phenotypes": [
+      "Macular dystrophy",
+      "Cone dysfunction",
+      "Hyperautofluorescent macular lesion",
+      "Central macular hypoautofluorescence with surrounding hyperautofluorescent ring",
+      "Reduced scotopic rod b-wave amplitude"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0007754",
+      "HP:0008275",
+      "HP:0030631",
+      "HP:0030632",
+      "HP:0007984"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "SAMD7"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Macular_Dystrophy_With_Or_Without_Cone_Dysfunction.yaml",
+    "page_url": "../pages/disorders/Macular_Dystrophy_with_or_without_Cone_Dysfunction.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Maculopapular Cutaneous Mastocytosis",
@@ -317622,6 +318025,9 @@ window.searchData = [
       "Immune-Suppressive Tumor Microenvironment",
       "Osteoblastic Bone Tropism",
       "Clonal Evolution and Lineage Plasticity",
+      "EZH2-Mediated DAB2IP Silencing",
+      "Stromal RASAL3 Silencing",
+      "Stromal Glutamine Secretion",
       "AR-Mediated Mutagenesis at Androgen Receptor Binding Sites",
       "Replication Stress-Driven Chromosomal Instability",
       "Reactive Oxygen Species-Driven Mutagenesis",
@@ -317631,10 +318037,13 @@ window.searchData = [
       "APOBEC Cytidine Deaminase Mutagenesis"
     ],
     "cell_types": [
-      "epithelial cell of prostate"
+      "epithelial cell of prostate",
+      "prostate epithelial cell",
+      "prostatic cancer-associated fibroblast"
     ],
     "cell_type_ids": [
-      "CL:0002231"
+      "CL:0002231",
+      "CL:1000299"
     ],
     "biological_processes": [
       "androgen receptor signaling pathway",
@@ -317646,6 +318055,10 @@ window.searchData = [
       "negative regulation of immune response",
       "positive regulation of ossification",
       "cell fate commitment",
+      "Ras protein signal transduction",
+      "canonical NF-kappaB signal transduction",
+      "macropinocytosis",
+      "L-glutamine metabolic process",
       "chromoplexy (chained interchromosomal rearrangement) at AR binding sites",
       "DNA replication under replication stress",
       "chromosome organization",
@@ -317686,6 +318099,7 @@ window.searchData = [
       "OCCASIONAL"
     ],
     "genes": [
+      "DAB2IP",
       "TMPRSS2:ERG",
       "PTEN",
       "AR",
@@ -317711,10 +318125,10 @@ window.searchData = [
     "source_file": "Prostate_Adenocarcinoma.yaml",
     "page_url": "../pages/disorders/Prostate_Adenocarcinoma.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 16,
-    "num_genes": 6,
+    "num_pathophysiology": 19,
+    "num_genes": 7,
     "num_treatments": 8,
-    "causal_graph_edges": "28",
+    "causal_graph_edges": "31",
     "causal_graph_longest_path": "6"
   },
   {
@@ -340200,17 +340614,23 @@ window.searchData = [
     ],
     "phenotypes": [
       "Epilepsy",
-      "Autism Spectrum Disorder"
+      "Autism Spectrum Disorder",
+      "Intellectual Disability",
+      "Learning Disability",
+      "Aggressive Behavior"
     ],
     "phenotype_categories": [
-      "Clinical"
+      "Neurological"
     ],
     "phenotype_hpo_categories": [
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0007359",
-      "HP:0000729"
+      "HP:0000729",
+      "HP:0001249",
+      "HP:0001328",
+      "HP:0000718"
     ],
     "frequencies": [],
     "genes": [
@@ -340225,12 +340645,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "SYN1-Related_Disorder.yaml",
     "page_url": "../pages/disorders/SYN1-Related_Neurodevelopmental_Disorder.html",
-    "num_phenotypes": 2,
+    "num_phenotypes": 5,
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "SYNGAP1-Related Developmental and Epileptic Encephalopathy",
@@ -340622,7 +341042,8 @@ window.searchData = [
     "description": "Sagittal sinus thrombosis is an intracranial venous sinus thrombosis in which thrombus forms in the superior sagittal sinus or inferior sagittal sinus, obstructing cerebral venous drainage and potentially causing intracranial hypertension, venous congestion, venous infarction, hemorrhage, seizures, or coma.",
     "pathophysiology": [
       "Sagittal sinus thrombus and venous outflow obstruction",
-      "Venous infarction and intracranial hypertension",
+      "Venous infarction",
+      "Raised intracranial pressure",
       "Hemorrhagic parenchymal injury"
     ],
     "cell_types": [
@@ -340675,18 +341096,24 @@ window.searchData = [
     "treatments": [
       "Acute heparin anticoagulation",
       "Endovascular thrombolysis or thrombectomy",
-      "Decompressive surgery for life-threatening mass effect"
+      "Decompressive surgery for life-threatening mass effect",
+      "Subacute and secondary-prevention oral anticoagulation (warfarin or direct oral anticoagulants)",
+      "Antiepileptic seizure prophylaxis"
     ],
-    "environmental": [],
+    "environmental": [
+      "Oral contraceptives",
+      "Pregnancy and puerperium",
+      "Infection"
+    ],
     "biochemical": [],
     "source_file": "Sagittal_Sinus_Thrombosis.yaml",
     "page_url": "../pages/disorders/Sagittal_Sinus_Thrombosis.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 4,
     "num_genes": 0,
-    "num_treatments": 3,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "num_treatments": 5,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Salivary Gland Polymorphous Adenocarcinoma",
@@ -399310,17 +399737,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3700,
+  "total_disorder_pages": 3704,
   "total_subtypes": 4887,
-  "total_disorders_and_subtypes": 8587,
-  "total_unique_evidence_sources": 55252,
-  "total_unique_publications": 51609,
+  "total_disorders_and_subtypes": 8591,
+  "total_unique_evidence_sources": 55299,
+  "total_unique_publications": 51652,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 309,
-  "total_pathographs": 3697,
-  "total_unique_pathological_events": 24392,
+  "total_pathographs": 3701,
+  "total_unique_pathological_events": 24418,
   "total_modules": 204,
-  "total_research_reports": 3825,
+  "total_research_reports": 3829,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 121
