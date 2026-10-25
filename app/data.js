@@ -312579,7 +312579,9 @@ window.searchData = [
     "genes": [
       "PAX3 regulatory dysregulation"
     ],
-    "treatments": [],
+    "treatments": [
+      "Genetic Counseling"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Preaxial_Digit_Brachydactyly-Webbed_Fingers.yaml",
@@ -312587,7 +312589,7 @@ window.searchData = [
     "num_phenotypes": 3,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 0,
+    "num_treatments": 1,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "5"
   },
