@@ -238,9 +238,31 @@ every `=`. Neither checked, and it cost a curated entry — recovered only
 mid-review. A curator who believes a figure "cannot be quoted" paraphrases it
 into `explanation` prose or drops the claim, and nothing goes red.
 
-**Prefer ASCII in new snippets** — an invisible character in a quote is a trap
-for the next curator, and it buys nothing, since the source's typography folds
-anyway. Existing snippets that copied the source's thin spaces and en dashes
+**Greek letters verify in either spelling.** `greek_map` runs on both sides, so
+`α3β3` and `alpha3beta3` both normalize to `alpha3beta3`, `γ` to `gamma`, and
+`NF-κB` to `nf kappab`. Prefer copying the source's visible letter, so the quote
+reads as the source does (#9433). The ASCII spelling is an acceptable fallback,
+provided it keeps the source's spacing: `NF-kappa B` normalizes to
+`nf kappa b` and does not match.
+
+**Never truncate a quote to avoid a character.** A snippet that stops just
+before a Greek letter, `×`, or any other character it was cited for still
+verifies, and clears `check-snippet-length` once it has `MIN_SNIPPET_WORDS = 5`
+words, so the length gate is not a backstop. On #15493 two such fragments
+(`Leu335 lies close to the hydrophobic sleeve in the`, `Mutations in this region
+in the`) passed every gate and supported nothing (#15607). Quote through the
+character, or choose a different sentence.
+
+To test a candidate, call the real normalizer, not a re-implementation of it:
+
+```bash
+uv run python -c "from linkml_reference_validator.validation.supporting_text_validator import SupportingTextValidator as V; print(V.normalize_text('the α3β3 assembly'))"
+```
+
+**Prefer ASCII for invisible and lookalike characters** — an invisible character
+in a quote is a trap for the next curator, and it buys nothing, since the
+source's typography folds anyway. A visible Greek letter that is part of the
+nomenclature is not that case. Existing snippets that copied the source's thin spaces and en dashes
 verbatim are equally valid and need no repair; several hundred `kb/disorders`
 snippets do exactly that.
 
@@ -283,6 +305,40 @@ Snippet matching applies `literal_bracket_patterns` from
 If a verbatim quote fails near brackets, read the reason printed by
 `count-verified-snippets`. Do not change the global patterns to accommodate one
 snippet without replaying validation across the KB.
+
+### Bridging a stripped bracket with an ellipsis
+
+Any other bracketed span is stripped too, including source text such as a bare
+confidence interval (`[0.31-0.83]`), a cohort size (`[n = 30]`), or a citation
+marker (`[9]`). Stripping applies to the snippet only, not the cached text, so a
+stripped span at the end of a quote is harmless but one in the middle leaves a
+hole and the quote fails. That does **not** mean the sentence cannot be quoted.
+
+Both `count-verified-snippets` and the `validate-disorders` gate split a snippet
+on every run of two or more ASCII dots (`..` or more; the single `…` character
+does not count) and require each part to appear somewhere in the cached text.
+So replace the stripped span with ` ... `. From PMID:10023895 (#9848):
+
+```yaml
+# Source: "... urinary-tract infection (0.50 [0.31-0.83]), or haematuria (0.59 [0.35-0.98])."
+# Fails: [0.31-0.83] is stripped mid-quote
+snippet: "a history of urinary-tract infection (0.50 [0.31-0.83]), or haematuria (0.59"
+# Verifies: the ellipsis bridges the stripped span
+snippet: "a history of urinary-tract infection (0.50 ... or haematuria (0.59"
+```
+
+Do not truncate the quote before the stripped span instead. That is how a
+haematuria claim ended up citing a quote that stopped one clause short of the
+word "haematuria": it verified and supported nothing.
+
+**An ellipsis may bridge text you are omitting, never text the claim relies
+on.** The parts are matched independently, in any order, so nothing checks what
+the ellipsis skipped. Bridging intervening prose to join the subject to the
+finding is the practice #3757 established, with worked examples. Skipping over
+the clause that carries the finding, or a negation or qualifier, produces a quote
+that verifies and misstates the source, which is worse than a failing one; #441
+records that caution. When in doubt, quote a shorter contiguous span that
+supports the claim on its own.
 
 ### Read the title off the cache, never from memory
 

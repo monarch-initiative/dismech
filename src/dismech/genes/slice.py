@@ -29,6 +29,8 @@ from pathlib import Path
 from typing import Any
 
 from dismech import kb_cache
+from dismech.conformance import iter_conforms_to
+from dismech.repo_root import repo_root
 
 __all__ = [
     "ENTRY_KINDS",
@@ -266,11 +268,9 @@ def _item_details(section: str, item: dict) -> dict[str, Any]:
             for key in ("functional_impact_category", "variant_origin"):
                 if isinstance(context.get(key), str):
                     details[key] = context[key]
-        conforms = item.get("conforms_to")
-        if isinstance(conforms, str):
-            conforms = [conforms]
-        if isinstance(conforms, list):
-            details["conforms_to"] = [c for c in conforms if isinstance(c, str)]
+        conforms = iter_conforms_to(item)
+        if conforms:
+            details["conforms_to"] = conforms
         processes = []
         for descriptor in item.get("biological_processes") or ():
             if not isinstance(descriptor, dict):
@@ -444,8 +444,9 @@ def gene_slice(hgnc_id: str, kb_root: Path | str | None = None) -> GeneSlice:
 
     The index is memoised per ``kb_root`` for the life of the process, so a
     summary with dozens of claims walks the KB once. ``kb_root`` defaults to
-    the repository's ``kb/`` resolved from this file, so the call works from a
-    provedown verification, which runs with the document's directory as cwd.
+    the ``kb/`` of the checkout found at or above the working directory, so the
+    call works from a provedown verification, which runs with the document's
+    directory (``kb/genes/curated/``) as cwd.
     """
     canonical = normalize_hgnc_id(hgnc_id)
     if canonical is None:
@@ -456,7 +457,7 @@ def gene_slice(hgnc_id: str, kb_root: Path | str | None = None) -> GeneSlice:
 
 
 def default_kb_root() -> Path:
-    """``kb/`` of the checkout this module was imported from.
+    """``kb/`` of the checkout the command runs in (#15109).
 
     ``DISMECH_GENES_KB_ROOT`` overrides it, so tests can verify a summary
     against a fixture KB without the summary naming a path.
@@ -464,4 +465,4 @@ def default_kb_root() -> Path:
     override = os.environ.get("DISMECH_GENES_KB_ROOT")
     if override:
         return Path(override)
-    return Path(__file__).resolve().parents[3] / "kb"
+    return repo_root() / "kb"

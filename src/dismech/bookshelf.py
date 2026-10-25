@@ -47,8 +47,16 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_INDEX_DIR = REPO_ROOT / "cache" / "bookshelf"
+from dismech.repo_root import LazyRepoPaths
+
+# Resolved from the working directory when read, so a worktree reads its own
+# committed index (#15109).
+_PATHS = LazyRepoPaths(
+    __name__,
+    REPO_ROOT=lambda root: root,
+    DEFAULT_INDEX_DIR=lambda root: root / "cache" / "bookshelf",
+)
+__getattr__ = _PATHS.module_getattr
 
 #: CSV stem -> the ``ReferenceTagEnum`` value that tags a chapter of it.
 SOURCE_TAGS: dict[str, str] = {
@@ -197,9 +205,11 @@ class BookshelfIndex:
     @classmethod
     def load(
         cls,
-        index_dir: Path = DEFAULT_INDEX_DIR,
+        index_dir: Path | None = None,
         sources: Iterable[str] = tuple(SOURCE_TAGS),
     ) -> BookshelfIndex:
+        if index_dir is None:
+            index_dir = _PATHS.get("DEFAULT_INDEX_DIR")
         index = cls()
         for source in sources:
             path = index_dir / f"{source}.csv"

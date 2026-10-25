@@ -820,6 +820,15 @@ grouping-anchor-audit *args="":
 grouping-mondo-consistency *args="":
     uv run python scripts/grouping_mondo_consistency.py {{args}}
 
+# For every grouping with a HAS_MOLECULAR_FUNCTION criterion, check that each
+# member's causal genes carry an activity under the criterion's GO roots in
+# GO's own annotations (QuickGO) or in the gene's ai-gene-review core functions
+# (pinned ingest table), not just in the entry's curated terms. Needs network.
+# Report-only; --strict exits 1 when no causal gene of a member is supported.
+[group('QC')]
+grouping-gene-go-audit *args="":
+    uv run python scripts/grouping_gene_go_audit.py {{args}}
+
 # Report the declared grouping-of-grouping tree plus undeclared member-set
 # containments between groupings (advisory; a containment is a lead, not a ruling)
 [group('QC')]
@@ -999,11 +1008,14 @@ next-stubs count="5" *args="":
 stub-stats:
     uv run dismech-stubs stats
 
+# Where `fetch-claims` writes the open claim issues and the recipes below read them.
+claims_file := "tmp/claims.json"
+
 # Fetch every open claim issue in one list-API call (immediately consistent,
 # unlike a search) and write it where the other recipes can read it.
 # Fetch the open curation claims
 [group('Curation')]
-fetch-claims out="tmp/claims.json":
+fetch-claims out=claims_file:
     #!/usr/bin/env bash
     set -euo pipefail
     if ! command -v gh >/dev/null 2>&1; then
@@ -1024,16 +1036,22 @@ fetch-claims out="tmp/claims.json":
 
 # Reports double-claims, claims with no MONDO ID in the title (they lock
 # nothing), and stale claims — old with no PR. An open PR is never stale.
+# The claims path is optional even before a flag: a first argument starting
+# with `--` is passed through as a flag and the default path is used, so
+# `just check-claims --stale-days 30` works (#10180).
 # Cross-check open claim issues against the stub queue
 [group('Curation')]
-check-claims claims="tmp/claims.json" *args="":
-    uv run dismech-stubs claims {{claims}} {{args}}
+check-claims claims=claims_file *args="":
+    uv run dismech-stubs claims {{ if claims =~ '^--' { claims_file + " " + claims } else { claims } }} {{args}}
 
 # The two-phase pick: open claim issues, then the stub queue.
+# As with check-claims, a flag in the claims position is passed through and
+# the default path is used, so `just next-unclaimed 20 --json` works (#10180);
+# `just next-unclaimed 20 path/to/claims.json --json` still names a file.
 # Show the next unclaimed stub(s) to curate
 [group('Curation')]
-next-unclaimed count="5" claims="tmp/claims.json" *args="":
-    uv run dismech-stubs next {{count}} --claims {{claims}} {{args}}
+next-unclaimed count="5" claims=claims_file *args="":
+    uv run dismech-stubs next {{count}} --claims {{ if claims =~ '^--' { claims_file + " " + claims } else { claims } }} {{args}}
 
 # Never overwrites an existing stub. Default source format is the Monarch
 # rare-disease-identification prioritised list.
@@ -1063,7 +1081,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1112,6 +1130,35 @@ drug-exposure-query *args="":
 [group('QC')]
 chemical-binding-inventory *args="":
     uv run python scripts/chemical_binding_inventory.py {{args}}
+
+# Inventory of every assay in the KB by the route that reaches it: the five
+# `assays:` routes (dismech#15354), the distinct assay names, and a reverse
+# lookup from an assay name to the entries recording it. An assay on a proposed
+# experiment is a measurement somebody suggested, not one that was made, so the
+# routes are never summed into a single figure. Also reports names that differ
+# only mechanically, and separately flags names one of which contains the
+# other, which only a curator can resolve. Report-only, exits 0.
+#   just assay-inventory
+#   just assay-inventory --assay "multielectrode array recording"
+#   just assay-inventory --format tsv --out docs/reports/data/assays-<date>.tsv
+[group('QC')]
+assay-inventory *args="":
+    uv run python scripts/assay_inventory.py {{args}}
+
+# Inventory of the three model sections and every ModelMechanismLink reaching
+# the pathograph, counted by relationship, fidelity, model_scale and the detail
+# each link carries. Walks all four homes of a link through
+# `dismech.model_links`, including the model systems of a proposed experiment
+# (dismech#13427); `--curated-only` drops those. A missing fidelity or scale is
+# reported as not recorded, never as a verdict. For species normalised into
+# clades use `just model-taxon-census`, and for the scale comparison itself use
+# `just model-scale-audit`. Report-only, exits 0.
+#   just model-inventory
+#   just model-inventory --node "Neuronal Hyperexcitability"
+#   just model-inventory --format tsv --table models
+[group('QC')]
+model-inventory *args="":
+    uv run python scripts/model_inventory.py {{args}}
 
 # For a named entity, the schema path of every string match, whether the holding
 # object carries a bound term, and whether the mention is identity, prose or
@@ -1909,6 +1956,15 @@ check-snippet-boundaries *files:
 check-folded-hyphens:
     uv run python scripts/check_folded_hyphens.py
 
+# An evidence item inserted inside a '>-' notes scalar parses as prose, so the
+# entry validates and count-verified-snippets silently leaves it out (#11230).
+# Flags a string value containing a line that opens with a KB key such as
+# '- reference:' or 'snippet:'. No baseline: every finding fails.
+# Gate YAML structure swallowed into string values in kb/ and src/
+[group('QC')]
+check-folded-yaml *args:
+    uv run python scripts/check_folded_yaml.py {{args}}
+
 # Guard against NEW degenerate evidence snippets in kb/ -- bare terms too short
 # to carry a claim (e.g. snippet: 'Strabismus'), which support nothing and are
 # usually lifted from a table that never survives text extraction (#7450).
@@ -1994,8 +2050,9 @@ update-retired-support-prose-baseline:
 # Guard against one quoted sentence carrying two different `evidence_source`
 # values in the same file -- `evidence_source` describes the cited publication,
 # not the block the quote was pasted into, so a file that says both is
-# self-contradicting (#8184). Grandfathered against origin/main like the length
-# and title checks.
+# self-contradicting (#8184). Also compares the same sentence across files and
+# fails on HUMAN_CLINICAL against IN_VITRO/MODEL_ORGANISM/COMPUTATIONAL (#11221).
+# Grandfathered against origin/main like the length and title checks.
 [group('QC')]
 check-snippet-grading:
     uv run python scripts/check_snippet_grading.py --against-ref origin/main
@@ -2003,12 +2060,15 @@ check-snippet-grading:
 # List every snippet-grading divergence, baselined or not (triage view).
 # `--fields all` adds the `supports` divergences, which are NOT gated -- see the
 # script docstring for why (they are overwhelmingly correct curation).
+# `--cross-file` lists the same sentence graded differently in two files,
+# including the report-only pairs involving OTHER (pending #10273).
 [group('QC')]
 list-snippet-grading *args="":
     uv run python scripts/check_snippet_grading.py --all {{args}}
 
-# Regenerate the snippet-grading baseline after intentionally changing the set
-# (e.g. reconciling backlog divergences). Review the diff before committing.
+# Regenerate both snippet-grading baselines (per-file and cross-file) after
+# intentionally changing the set (e.g. reconciling backlog divergences). Review
+# the diff before committing.
 [group('QC')]
 update-snippet-grading-baseline:
     uv run python scripts/check_snippet_grading.py --update-baseline
@@ -2878,6 +2938,20 @@ alternative-models-research provider slug *args="":
 template-version-audit *args="":
     @uv run python scripts/template_version.py audit {{args}}
 
+# Report deep-research reports that name a MONDO CURIE for a different disease
+# than the one the report is about (#9949). A report's own Term Validation only
+# compares a CURIE with a label printed next to it, so the disease's own MONDO
+# term, usually printed bare in an identifier list, is never checked there.
+# Offline: labels come from cache/mondo/terms.csv only. Report-only, exit 0,
+# not part of `just qc`. A MISMATCH row is a lead to read, not a verdict.
+# Examples:
+#   just dr-mondo-audit
+#   just dr-mondo-audit --format tsv --out /tmp/dr_mondo.tsv
+#   just dr-mondo-audit research/Achondroplasia-deep-research-falcon.md
+[group('Research')]
+dr-mondo-audit *args="":
+    @uv run python scripts/dr_mondo_audit.py {{args}}
+
 # Verify that datasets[].accession values resolve to real repository records.
 # Nothing else in the validation stack checks dataset accessions, so run this
 # before committing any new `datasets:` block.
@@ -3539,12 +3613,42 @@ index-research-artifacts:
     uv run python scripts/index_research_artifacts.py
 
 # Fetch and cache a reference by ID
-# This may be a PMID, DOI, or other supported identifier
+# This may be a PMID, DOI, or other supported identifier.
+#
+# Arguments starting with `-` are flags, not identifiers, and are passed to
+# `linkml-reference-validator cache reference` (#13185):
+#   just fetch-reference PMID:37711075 --force
+# `--force` re-fetches a reference that is already cached. Use it only to
+# upgrade an `abstract_only` record whose needed content (a phenotype table,
+# functional data) is in the PMC full text. A forced re-fetch rewrites the
+# frontmatter and can add hundreds of lines of body (#10460, #10736): stage
+# only the `references_cache/` file you meant to upgrade, and re-run
+# `just count-verified-snippets` afterwards. Structured-source prefixes
+# (CGGV:, ORPHA:, ICTRP:, ...) always rebuild, so flags do not apply to them.
 [group('Research')]
 fetch-reference +identifiers:
     #!/usr/bin/env bash
-    for identifier in {{identifiers}}; do
+    flags=()
+    ids=()
+    for arg in {{identifiers}}; do
+        case "$arg" in
+            -*) flags+=("$arg") ;;
+            *) ids+=("$arg") ;;
+        esac
+    done
+    if [ ${#ids[@]} -eq 0 ]; then
+        echo "No reference identifier given (flags: ${flags[*]})." >&2
+        exit 2
+    fi
+    for identifier in "${ids[@]}"; do
         echo "Fetching reference: $identifier"
+        case "$identifier" in
+            CIViC_EID:*|CIVIC_EID:*|civic_eid:*|CIViC_ASSERTION:*|CIVIC_ASSERTION:*|civic_assertion:*|ICTRP:*|ictrp:*|CGGV:*|CGDS:*|ORPHA:*|Orphanet:*|ICEES:*|NCIT:*)
+                if [ ${#flags[@]} -gt 0 ]; then
+                    echo "Note: ${flags[*]} ignored for $identifier; structured-source records are always rebuilt." >&2
+                fi
+                ;;
+        esac
         case "$identifier" in
             CIViC_EID:*|CIVIC_EID:*|civic_eid:*|CIViC_ASSERTION:*|CIVIC_ASSERTION:*|civic_assertion:*)
                 if [ ! -f data/civic/accepted_assertion_summaries.tsv ] || [ ! -f data/civic/accepted_clinical_evidence_summaries.tsv ]; then
@@ -3606,7 +3710,7 @@ fetch-reference +identifiers:
                 uv run python -m dismech.structured_sources.cli rebuild ncit --id "$identifier"
                 ;;
             *)
-                scripts/run_reference_validator.sh cache reference "$identifier"
+                scripts/run_reference_validator.sh cache reference "${flags[@]}" "$identifier"
                 ;;
         esac
     done
