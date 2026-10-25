@@ -4863,6 +4863,16 @@ worktree's reads and writes there (#15051, #15109). In `src/dismech/` and
 paths; `Path(__file__)` is only for resources inside the package, such as
 `schema/` and `templates/`. `tests/test_repo_root_sweep.py` enforces this.
 
+**Each worktree would otherwise build its own ~1 GB environment.** `uv run` in a
+worktree with no `.venv` builds one there, and parallel curation in five
+worktrees has filled the disk that way (#13119). Share the primary checkout's
+environment by exporting `UV_PROJECT_ENVIRONMENT=<primary>/.venv` in your
+shell. The pre-edit validation hook does not inherit that variable, so it
+applies the same rule itself: it uses the primary's `.venv`, with
+`UV_NO_SYNC=1`, when the worktree has no `.venv` of its own and its
+`pyproject.toml` and `uv.lock` match the primary's byte for byte. A branch that
+changes dependencies gets its own environment, as it needs to.
+
 ### What to commit
 
 | Path | Commit? | Reason |
