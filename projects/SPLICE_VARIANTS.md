@@ -21,6 +21,8 @@ diseases:
   - Nager_Acrofacial_Dysostosis
   - Intellectual_Developmental_Disorder_Autosomal_Dominant_72
   - PRPF31-Related_Retinopathy
+  - PRPF8-Related_Retinopathy
+  - SNRNP200-Related_Dominant_Retinopathy
   - Craniofacial_Microsomia
   - Orofaciodigital_Syndrome
   - Mosaic_Variegated_Aneuploidy_Syndrome
@@ -34,7 +36,10 @@ diseases:
   - Usher_Syndrome_Type_2
   - Stargardt_Disease
 modules:
+  - spliceosome_component_dysfunction
   - antisense_oligonucleotide_therapy
+groupings:
+  - Spliceosomopathies
 ---
 
 # Splice Variants and Spliceosome Disorders
@@ -96,6 +101,8 @@ structural element.
 | Nager_Acrofacial_Dysostosis | SF3B4 |
 | Intellectual_Developmental_Disorder_Autosomal_Dominant_72 | SRRM2 |
 | PRPF31-Related_Retinopathy | PRPF31 |
+| PRPF8-Related_Retinopathy | PRPF8 |
+| SNRNP200-Related_Dominant_Retinopathy | SNRNP200 |
 | Craniofacial_Microsomia | SF3B2 (one of several genes) |
 | Orofaciodigital_Syndrome | ZRSR2 (one of several genes) |
 | Mosaic_Variegated_Aneuploidy_Syndrome | CENATAC (minor-intron splicing; one of several genes) |
@@ -111,8 +118,6 @@ Each of these has a stub in `stubs/`.
 | Congenital_Cerebellar_Ataxia_Due_To_RNU12_Mutation | RNU12 | Likely a `SUBTYPE` of the RNU12 entry |
 | Developmental_Delay_Dysmorphic_Facies_And_Brain_Anomalies | U2AF2 | |
 | PRPF19-related_Neurodevelopmental_Disorder | PRPF19 | |
-| PRPF8-related_Retinopathy | PRPF8 | Tri-snRNP retinopathy, like PRPF31 |
-| SNRNP200-related_Dominant_Retinopathy | SNRNP200 | Tri-snRNP retinopathy |
 | Metaphyseal_Chondrodysplasia-retinitis_Pigmentosa_Syndrome | CWC27 | |
 | Hypotrichosis_11 | SNRPE | |
 | LSM7-related_Leukodystrophy_And_Cerebellar_Atrophy | LSM7 | LSM7 sits in both the U6-associated and the decay-associated LSm rings; check which the source implicates |
@@ -154,13 +159,31 @@ this mechanism should conform to `antisense_oligonucleotide_therapy`.
 - **Why are the phenotypes tissue-restricted?** Mutations in core, ubiquitous
   machinery give craniofacial dysostoses (EFTUD2, SF3B4, SNRPB, TXNL4A),
   isolated retinopathy (PRPF31, PRPF8, SNRNP200) or neurodevelopmental disease
-  (RNU4-2, RNU5B-1, RNU2-2). No shared explanation is recorded.
+  (RNU4-2, RNU5B-1, RNU2-2). This is recorded as a `KNOWLEDGE_GAP` on
+  `spliceosome_component_dysfunction`. The Eftud2 work shows the P53 branch
+  contributes but is not sufficient: deleting Trp53 in neural crest did not
+  rescue development.
+- **Is RPE failure primary in the PRPF retinopathies?** Prpf8 knock-in mice
+  show an RPE phagocytosis defect that patient-derived RPE did not reproduce,
+  while retinal organoids degenerate without any RPE. Recorded as a
+  `HUMAN_MODEL_MISMATCH` on PRPF8-Related_Retinopathy.
+
+## Progress
+
+- `spliceosome_component_dysfunction` module: component variant, then
+  mis-splicing of a sensitive transcript subset (the key conformance target),
+  an optional P53 branch, failure of splicing-sensitive cells, and
+  tissue-restricted disease. Twelve entries conform to it.
+- `Spliceosomopathies` grouping: the twelve conforming entries, defined by a
+  single `CONFORMS_TO_MODULE` criterion.
+- PRPF8-Related_Retinopathy and SNRNP200-Related_Dominant_Retinopathy curated
+  from their stubs, both ClinGen Definitive.
 
 ## Possible next steps
 
-- A mechanism module for spliceosome dysfunction, so these entries can
-  `conform_to` a shared node chain instead of each restating it.
-- A `Grouping` for the snRNA gene disorders, or for spliceosomopathies more
-  broadly, with membership criteria on spliceosome components.
-- Curate the stubs above, starting with the two tri-snRNP retinopathies, which
-  extend the PRPF31 entry.
+- Wire the other spliceosome-gene entries (SNIP1, DHX16, WBP4, SRRM2, and
+  SF3B2 within Craniofacial_Microsomia) to the module and add them to the
+  grouping.
+- Curate the remaining stubs above, and add stubs for the RNU2-2, recessive
+  RNU4-2 and U4/U6 retinitis pigmentosa disorders.
+- Audit how consistently Group 2 splice variants are recorded on gene entries.
