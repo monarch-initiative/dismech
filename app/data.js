@@ -50590,6 +50590,72 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Bacterial meningitis caused by gram-negative bacteria",
+    "disease_id": "MONDO:0041825",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial meningitis"
+    ],
+    "creation_date": "2026-09-30T04:25:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Meningococcal",
+      "Haemophilus",
+      "Neonatal enteric Gram-negative meningitis",
+      "Healthcare-associated Gram-negative ventriculitis and meningitis"
+    ],
+    "description": "Bacterial meningitis caused by Gram-negative bacteria is pyogenic meningitis in which encapsulated or hospital-associated Gram-negative lineages such as Neisseria meningitidis, Haemophilus influenzae, Escherichia coli, Klebsiella pneumoniae, or Pseudomonas aeruginosa invade blood or a neurosurgical portal, enter the cerebrospinal-fluid compartment, replicate beside the meninges, and trigger lipopolysaccharide- or lipooligosaccharide-driven neutrophilic inflammation.",
+    "pathophysiology": [
+      "Gram-Negative Mucosal or Device Invasion",
+      "Gram-Negative Bacteremia",
+      "Gram-Negative Meningeal Seeding",
+      "Gram-Negative CSF Replication",
+      "LPS-Driven Neutrophilic Meningeal Inflammation"
+    ],
+    "cell_types": [
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Meningeal Irritation",
+      "Altered Mental Status"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0031179",
+      "HP:0004372"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Susceptibility-guided Gram-negative meningitis antibiotics"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Bacterial_Meningitis_Caused_By_Gram_Negative_Bacteria.yaml",
+    "page_url": "../pages/disorders/Bacterial_meningitis_caused_by_gram-negative_bacteria.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Bacterial Vaginosis",
     "disease_id": "MONDO:0005316",
     "category": "Infectious Disease",
@@ -401250,15 +401316,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3717,
-  "total_subtypes": 4897,
-  "total_disorders_and_subtypes": 8614,
-  "total_unique_evidence_sources": 55545,
-  "total_unique_publications": 51888,
+  "total_disorder_pages": 3718,
+  "total_subtypes": 4901,
+  "total_disorders_and_subtypes": 8619,
+  "total_unique_evidence_sources": 55550,
+  "total_unique_publications": 51893,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3715,
-  "total_unique_pathological_events": 24520,
+  "total_pathographs": 3716,
+  "total_unique_pathological_events": 24525,
   "total_modules": 204,
   "total_research_reports": 3841,
   "total_classifications": 21,
