@@ -79,12 +79,24 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
+from dismech.conformance import iter_conforms_to, module_stem
+from dismech.repo_root import LazyRepoPaths
 from dismech.yaml_io import safe_load
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-DISORDERS_DIR = ROOT_DIR / "kb" / "disorders"
-MODULES_DIR = ROOT_DIR / "kb" / "modules"
-GROUPINGS_DIR = ROOT_DIR / "kb" / "groupings"
+# Resolved from the working directory when read, not from this file's location,
+# so a worktree sharing the primary checkout's virtualenv checks and writes its
+# own tree (#15109). OAK_CONFIG_PATH and CLOSURE_CACHE_DIR are declared here
+# too and described further down, beside the closure code that reads them.
+_PATHS = LazyRepoPaths(
+    __name__,
+    ROOT_DIR=lambda root: root,
+    DISORDERS_DIR=lambda root: root / "kb" / "disorders",
+    MODULES_DIR=lambda root: root / "kb" / "modules",
+    GROUPINGS_DIR=lambda root: root / "kb" / "groupings",
+    OAK_CONFIG_PATH=lambda root: root / "conf" / "oak_config.yaml",
+    CLOSURE_CACHE_DIR=lambda root: root / "cache" / "closure",
+)
+__getattr__ = _PATHS.module_getattr
 
 BRANCH_OPERATORS = {"AND", "OR", "NOT"}
 
@@ -109,6 +121,7 @@ PREDICATE_PAYLOAD = {
     "HAS_GENE": "gene",
     "CONFORMS_TO_MODULE": "module",
     "HAS_BIOLOGICAL_PROCESS": "biological_processes",
+    "HAS_MOLECULAR_FUNCTION": "molecular_functions",
     "HAS_CLASSIFICATION": "classification",
     "HAS_INHERITANCE": None,
     "HAS_MAPPING": None,
@@ -368,7 +381,7 @@ def module_node_names(modules_dir: Path | None = None) -> dict[str, set[str]]:
     """Map each module stem under ``kb/modules/`` to its pathophysiology node
     names, the set a ``module_stem#Node Name`` anchor is resolved against."""
     nodes: dict[str, set[str]] = {}
-    for fp in glob.glob(str((modules_dir or MODULES_DIR) / "*.yaml")):
+    for fp in glob.glob(str((modules_dir or _PATHS.get("MODULES_DIR")) / "*.yaml")):
         with open(fp) as f:
             data = safe_load(f)
         if not isinstance(data, dict):
@@ -390,6 +403,7 @@ def criterion_closure_terms(grouping: dict) -> set[str]:
             if tid:
                 terms.add(tid)
         terms |= _term_ids(leaf.get("biological_processes"))
+        terms |= _term_ids(leaf.get("molecular_functions"))
     return {t for t in terms if t.split(":", 1)[0] in CLOSURE_PREFIXES}
 
 
@@ -430,8 +444,8 @@ def uncached_closure_terms(grouping: dict) -> list[str]:
 # subsumption, so a gene criterion stays an exact match.
 CLOSURE_PREFIXES = {"HP", "GO"}
 
-OAK_CONFIG_PATH = ROOT_DIR / "conf" / "oak_config.yaml"
-CLOSURE_CACHE_DIR = ROOT_DIR / "cache" / "closure"
+# OAK_CONFIG_PATH (conf/oak_config.yaml) and CLOSURE_CACHE_DIR (cache/closure/)
+# are lazy module attributes declared in `_PATHS` at the top of this module.
 CLOSURE_CACHE_HEADER = ("term", "descendant")
 
 # Fallback adapters if conf/oak_config.yaml is unreadable. Both OLS, matching
@@ -463,7 +477,7 @@ def reset_closure_caches() -> None:
 
 
 def closure_cache_path(prefix: str, cache_dir: Path | None = None) -> Path:
-    return (cache_dir or CLOSURE_CACHE_DIR) / f"{prefix.lower()}.csv"
+    return (cache_dir or _PATHS.get("CLOSURE_CACHE_DIR")) / f"{prefix.lower()}.csv"
 
 
 def read_closure_cache(path: Path) -> dict[str, frozenset[str]]:
@@ -524,7 +538,7 @@ def _adapter_for_prefix(prefix: str) -> str | None:
     """Resolve an ontology prefix to an OAK adapter string via oak_config.yaml."""
     adapters = dict(_DEFAULT_ADAPTERS)
     try:
-        with open(OAK_CONFIG_PATH) as f:
+        with open(_PATHS.get("OAK_CONFIG_PATH")) as f:
             conf = safe_load(f) or {}
         configured = conf.get("ontology_adapters") or {}
         if isinstance(configured, dict):
@@ -625,7 +639,7 @@ def build_closure_cache(
     fails is left out and reported, never written as an empty closure, so a
     transient outage cannot masquerade as "no descendants".
     """
-    cache_dir = cache_dir or CLOSURE_CACHE_DIR
+    cache_dir = cache_dir or _PATHS.get("CLOSURE_CACHE_DIR")
     cited: set[str] = set()
     for path in grouping_paths:
         with open(path) as f:
@@ -780,9 +794,8 @@ def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
             continue
 
         # conforms_to lives on pathophysiology nodes; collect the module stems.
-        conforms = node.get("conforms_to")
-        if isinstance(conforms, str) and conforms:
-            facts.module_stems.add(conforms.split("#", 1)[0].strip())
+        for conforms in iter_conforms_to(node):
+            facts.module_stems.add(module_stem(conforms))
             facts.module_refs.add(_normalize_module_ref(conforms))
 
         # Any term with an id contributes to the appropriate id set.
@@ -848,11 +861,17 @@ def _stronger_freq(a: str | None, b: str | None) -> str | None:
     return min(ranks, key=lambda f: FREQUENCY_RANK[f])
 
 
-@cache
 def load_disease_index(
-    disorders_dir: Path = DISORDERS_DIR,
+    disorders_dir: Path | None = None,
 ) -> dict[str, DiseaseFacts]:
     """Build a name -> DiseaseFacts index over kb/disorders/ (cached)."""
+    return _load_disease_index(disorders_dir or _PATHS.get("DISORDERS_DIR"))
+
+
+@cache
+def _load_disease_index(disorders_dir: Path) -> dict[str, DiseaseFacts]:
+    # Memoised on the resolved directory, so a process that changes its working
+    # directory does not keep the first checkout's index.
     index: dict[str, DiseaseFacts] = {}
     for fp in glob.glob(str(disorders_dir / "*.yaml")):
         if fp.endswith(".history.yaml"):
@@ -890,8 +909,12 @@ def _eval_leaf(
                 if gid.lower() in facts.gene_ids
                 else Satisfaction.NOT_SATISFIED
             )
-    elif predicate == "HAS_BIOLOGICAL_PROCESS":
-        ids = _term_ids(node.get("biological_processes"))
+    elif predicate in ("HAS_BIOLOGICAL_PROCESS", "HAS_MOLECULAR_FUNCTION"):
+        # Both read facts.go_ids, which holds every GO term the entry curates.
+        # The closure follows part_of as well as is_a, and GO makes some
+        # activities part_of a process (MAP kinase kinase activity is part_of
+        # MAPK cascade), so a BP criterion can be satisfied by an MF term.
+        ids = _term_ids(node.get(PREDICATE_PAYLOAD[predicate]))
         if ids:
             # A match under any listed term satisfies; with no match, an
             # unknown closure for any term leaves the verdict open.
@@ -1101,7 +1124,9 @@ class MemberEvaluation:
 
 
 def _default_groupings_by_name() -> dict[str, dict]:
-    return load_groupings_by_name(sorted(glob.glob(str(GROUPINGS_DIR / "*.yaml"))))
+    return load_groupings_by_name(
+        sorted(glob.glob(str(_PATHS.get("GROUPINGS_DIR") / "*.yaml")))
+    )
 
 
 def iter_disease_targets(
@@ -1235,7 +1260,7 @@ def find_candidate_members(
     not already listed as direct or nested members (candidate additions)."""
     if groupings_by_name is None:
         groupings_by_name = load_groupings_by_name(
-            sorted(glob.glob(str(GROUPINGS_DIR / "*.yaml")))
+            sorted(glob.glob(str(_PATHS.get("GROUPINGS_DIR") / "*.yaml")))
         )
         if grouping.get("name"):
             groupings_by_name[str(grouping["name"])] = grouping
@@ -1603,7 +1628,7 @@ def _report_nesting(paths: list[str], threshold: float) -> int:
 
 def _load_groupings_for_report(paths: list[str]) -> tuple[dict[str, dict], list[str]]:
     """Load all groupings for nested expansion and select report targets."""
-    all_paths = sorted(glob.glob(str(GROUPINGS_DIR / "*.yaml")))
+    all_paths = sorted(glob.glob(str(_PATHS.get("GROUPINGS_DIR") / "*.yaml")))
     if not paths:
         groupings = load_groupings_by_name(all_paths)
         return groupings, sorted(groupings)
@@ -1842,7 +1867,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.nesting:
         return _report_nesting(args.paths, args.nesting_threshold)
 
-    paths = args.paths or sorted(glob.glob(str(GROUPINGS_DIR / "*.yaml")))
+    paths = args.paths or sorted(glob.glob(str(_PATHS.get("GROUPINGS_DIR") / "*.yaml")))
     if not paths:
         print("No grouping files found.")
         return 0

@@ -54,6 +54,7 @@ from pathlib import Path
 from typing import Any
 
 from dismech import kb_cache
+from dismech.conformance import iter_conforms_to
 from dismech.export.sepio_export import _slug, pathophysiology_node_id
 from dismech.graph import build_causal_graph
 
@@ -385,14 +386,16 @@ def process_entry(
                 acc.add_edge(entry_id, "dismech:has_graph_node", node_id, section, stem)
             _grounding_edges(acc, stem, section, item, node_id)
 
-            if section == "pathophysiology" and item.get("conforms_to"):
-                ref = str(item["conforms_to"])
-                if "#" in ref:
-                    module, target = ref.split("#", 1)
-                    obj = pathophysiology_node_id(module, target)
-                else:
-                    obj = f"dismech:{_slug(ref)}"
-                acc.add_edge(node_id, "dismech:conforms_to", obj, "conforms_to", stem)
+            if section == "pathophysiology":
+                for ref in iter_conforms_to(item):
+                    if "#" in ref:
+                        module, target = ref.split("#", 1)
+                        obj = pathophysiology_node_id(module, target)
+                    else:
+                        obj = f"dismech:{_slug(ref)}"
+                    acc.add_edge(
+                        node_id, "dismech:conforms_to", obj, "conforms_to", stem
+                    )
 
     # Subtypes.
     for subtype in record.get("has_subtypes") or []:
