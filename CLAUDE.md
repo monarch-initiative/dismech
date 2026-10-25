@@ -4871,7 +4871,12 @@ shell. The pre-edit validation hook does not inherit that variable, so it
 applies the same rule itself: it uses the primary's `.venv`, with
 `UV_NO_SYNC=1`, when the worktree has no `.venv` of its own and its
 `pyproject.toml` and `uv.lock` match the primary's byte for byte. A branch that
-changes dependencies gets its own environment, as it needs to.
+changes dependencies gets its own environment, as it needs to. If the disk
+fills anyway, the baseline gates that extract `origin/main` to TMPDIR
+(`check-snippet-length`, `check-title-snippets`, `check-snippet-grading`,
+`check-reference-titles`) say `ENVIRONMENT ERROR, not a content finding` and
+exit 74 (`dismech.disk_full`), so free space and rerun rather than editing KB
+content.
 
 ### What to commit
 
