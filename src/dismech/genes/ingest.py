@@ -557,7 +557,7 @@ def build_ingest(
     sources["generated_by"] = (
         "just genes-ingest-build; every file in this directory is dropped and "
         "reloaded from the pins in data/hgnc/, data/ai-gene-review/ and "
-        "data/clingen/"
+        "data/clingen-genes/"
     )
     (out_dir / SOURCES_FILE).write_text(
         json.dumps(sources, indent=2, sort_keys=True) + "\n", encoding="utf-8"

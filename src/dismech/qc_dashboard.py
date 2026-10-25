@@ -19,6 +19,7 @@ from dismech.compare.mondo_export import (
     _query_direct_parent_map,
     _query_single_value_map,
 )
+from dismech.conformance import iter_conforms_to
 from dismech.render import curie_to_url, slugify
 from dismech.yaml_io import safe_load
 
@@ -562,7 +563,7 @@ def collect_capability_metrics(
         module_nodes = [
             item
             for item in pathophysiology_nodes
-            if isinstance(item.get("conforms_to"), str) and item["conforms_to"].strip()
+            if iter_conforms_to(item)
         ]
         total_module_conformance_nodes += len(module_nodes)
         if module_nodes:
