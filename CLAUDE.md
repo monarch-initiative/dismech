@@ -1252,8 +1252,9 @@ Both halves of that are load-bearing:
 
 **Report-only, like `check-source-defect-claims`.** A finding is a question, and
 it gets answered one of two ways: repair the annotation (`GO:0036446`
-myofibroblast differentiation, `GO:0140074` cardiac EndMT and `GO:0098609`
-decreased cell-cell adhesion are the usual right answers), **or** record why the
+myofibroblast differentiation, `GO:0140074` cardiac EndMT — in the heart
+only, since GO has no general EndMT term — and `GO:0098609` decreased
+cell-cell adhesion are the usual right answers), **or** record why the
 pairing is correct in `review_notes` on the node:
 
 ```yaml

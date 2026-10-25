@@ -54,9 +54,16 @@ from typing import Any
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_RULES_PATH = ROOT / "conf" / "logical_rules.yaml"
-DEFAULT_CLOSURE_DIR = ROOT / "cache" / "rule_closure"
+from dismech.repo_root import LazyRepoPaths
+
+# Resolved from the working directory when read, so a worktree reads its own
+# rule config and closure cache (#15109).
+_PATHS = LazyRepoPaths(
+    __name__,
+    DEFAULT_RULES_PATH=lambda root: root / "conf" / "logical_rules.yaml",
+    DEFAULT_CLOSURE_DIR=lambda root: root / "cache" / "rule_closure",
+)
+__getattr__ = _PATHS.module_getattr
 
 #: A node carrying this prefix in ``review_notes`` has been dispositioned by a
 #: curator rather than left broken. The rule id must follow, then the reasoning.
@@ -151,7 +158,7 @@ def closure_filename(root: str) -> str:
 
 def load_rules(path: Path | None = None) -> list[Rule]:
     """Read and validate ``conf/logical_rules.yaml``."""
-    path = path or DEFAULT_RULES_PATH
+    path = path or _PATHS.get("DEFAULT_RULES_PATH")
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except OSError as exc:
@@ -205,7 +212,7 @@ def load_closures(
     A missing file is not an error here -- the caller reports it against the
     rule that needed it, which says more than a bare filename would.
     """
-    closure_dir = closure_dir or DEFAULT_CLOSURE_DIR
+    closure_dir = closure_dir or _PATHS.get("DEFAULT_CLOSURE_DIR")
     closures = Closures()
     for root in dict.fromkeys(roots):
         path = closure_dir / closure_filename(root)

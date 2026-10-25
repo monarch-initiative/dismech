@@ -145,7 +145,8 @@ Answer it in one of two ways.
 | The node really means | Bind |
 |---|---|
 | fibroblast → myofibroblast conversion | `GO:0036446` myofibroblast differentiation |
-| endothelium acquiring a mesenchymal phenotype | `GO:0140074` cardiac endothelial to mesenchymal transition |
+| cardiac endothelium (endocardium, valve endothelium) acquiring a mesenchymal phenotype | `GO:0140074` cardiac endothelial to mesenchymal transition |
+| non-cardiac endothelium acquiring a mesenchymal phenotype | nothing: GO has no general EndMT term, so drop the process or leave it unbound with a `notes` line saying so |
 | endocardial cushion formation | `GO:0003198`, or another `GO:0060317` descendant |
 | loss of cell–cell adhesion, short of a full mesenchymal programme | `GO:0098609` cell-cell adhesion, `DECREASED` |
 
