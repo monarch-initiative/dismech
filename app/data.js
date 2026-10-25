@@ -32651,6 +32651,7 @@ window.searchData = [
       "Mucus Overproduction",
       "Airway Remodeling",
       "SIRT1-Mediated NAD+ Signaling and Protective Deacetylation",
+      "Reduced Club Cell Secretoglobin (CC16/SCGB1A1) Anti-Inflammatory Protection",
       "Early-Life Rhinovirus Wheezing Illness and Asthma Inception",
       "House Dust Mite Allergen Protease-Induced Epithelial Oxidant Signaling"
     ],
@@ -32670,6 +32671,7 @@ window.searchData = [
       "Smooth Muscle Cell",
       "Airway Smooth Muscle Cell",
       "T-helper 2 Cell",
+      "Club Cell",
       "Airway Epithelial Cell"
     ],
     "cell_type_ids": [
@@ -32685,7 +32687,8 @@ window.searchData = [
       "CL:0000160",
       "CL:0002202",
       "CL:0000057",
-      "CL:0002598"
+      "CL:0002598",
+      "CL:0000158"
     ],
     "biological_processes": [
       "Inflammatory response",
@@ -32703,6 +32706,8 @@ window.searchData = [
       "protein deacetylation",
       "response to oxidative stress",
       "transcriptional regulation",
+      "negative regulation of inflammatory response",
+      "negative regulation of type 2 immune response",
       "defense response to virus",
       "type 2 immune response",
       "Reactive oxygen species production",
@@ -32797,10 +32802,10 @@ window.searchData = [
     "source_file": "Asthma.yaml",
     "page_url": "../pages/disorders/Asthma.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 17,
     "num_treatments": 7,
-    "causal_graph_edges": "38",
+    "causal_graph_edges": "40",
     "causal_graph_longest_path": "6"
   },
   {
@@ -237073,6 +237078,106 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Lymphatic malformation 13",
+    "disease_id": "MONDO:0859379",
+    "category": "Mendelian",
+    "parents": [
+      "lymphatic malformation",
+      "hereditary disease"
+    ],
+    "creation_date": "2026-10-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Lymphatic malformation 13 (LMPHM13) is an autosomal recessive generalized lymphatic/vascular dysplasia caused by biallelic loss-of-function variants in THSD1, which encodes a transmembrane cell-surface protein carrying a thrombospondin type 1 domain that is expressed in endothelial (and hematopoietic) cells. THSD1 stabilizes the endothelial barrier by activating FAK-PI3K/Rac1 signaling that assembles focal adhesions and adherens junctions; loss of THSD1 impairs endothelial adhesion and barrier integrity. In humans, biallelic truncating THSD1 variants were first identified through autozygosity mapping of consanguineous families with recurrent non-immune hydrops fetalis and embryonic lethality, and subsequently in a consanguineous family whose surviving children had hydrops that resolved after birth followed by persistent lymphatic disease. In patients with a confirmed biallelic (homozygous) THSD1 genotype \u2014 two consanguineous families plus additional homozygous-truncating and homozygous-splice cases \u2014 the spectrum spans fetal non-immune hydrops with pleural and peritoneal effusions and ascites, chylothorax, persistent postnatal and lifelong peripheral edema, intestinal malabsorption, recurrent hydrocele, hemangiomas, and congenital cardiac defects. A separate 2026 case report of a child who is THSD1-mutation-positive extends the lymphatic spectrum to chronic lower-limb lymphedema and protein-losing enteropathy with hypoalbuminemia; that report states only \"a known THSD1 mutation\" and gives no variant, zygosity, segregation, or testing method, so assigning this child to the recessive LMPHM13 entity is an inference \u2014 a single heterozygous THSD1 variant would also fit the wording, and heterozygous THSD1 is the genotype of the autosomal dominant intracranial-aneurysm phenotype this entry excludes. Management is supportive \u2014 a high-protein, low-fat / medium-chain-triglyceride diet, albumin replacement, and, in refractory lymphedema with protein-losing enteropathy, lymphatic microsurgery (lymphovenous and lymph node-to-vein anastomosis). The disorder is distinct from the autosomal dominant THSD1-related intracranial aneurysm and subarachnoid hemorrhage phenotype, which is curated separately; no source ties intracranial aneurysm to this recessive lymphatic entity, and the aneurysm phenotype is deliberately excluded here.",
+    "pathophysiology": [
+      "THSD1 Loss of Function",
+      "Impaired Endothelial Focal Adhesion and Barrier Integrity",
+      "Defective Lymphatic Vessel Development and Integrity",
+      "Systemic Lymphatic Transport Failure"
+    ],
+    "cell_types": [
+      "endothelial cell",
+      "lymphatic endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115",
+      "CL:0002138"
+    ],
+    "biological_processes": [
+      "focal adhesion assembly",
+      "establishment of endothelial barrier",
+      "lymph vessel development",
+      "lymphangiogenesis"
+    ],
+    "phenotypes": [
+      "Nonimmune hydrops fetalis",
+      "Pleural effusion",
+      "Ascites",
+      "Lymphedema",
+      "Protein-losing enteropathy",
+      "Malabsorption",
+      "Hypoalbuminemia",
+      "Hydrocele testis",
+      "Hemangioma",
+      "Congenital cardiac defects",
+      "Chylothorax"
+    ],
+    "phenotype_categories": [
+      "Prenatal",
+      "Respiratory",
+      "Gastrointestinal",
+      "Lymphatic",
+      "Laboratory",
+      "Genitourinary",
+      "Dermatologic",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Metabolism",
+      "Neoplasm",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001790",
+      "HP:0002202",
+      "HP:0001541",
+      "HP:0001004",
+      "HP:0002243",
+      "HP:0002024",
+      "HP:0003073",
+      "HP:0000034",
+      "HP:0001028",
+      "HP:0001627",
+      "HP:0010310"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "THSD1"
+    ],
+    "treatments": [
+      "High-protein, low-fat / medium-chain triglyceride diet",
+      "Albumin replacement and supportive care",
+      "Lymphatic microsurgery (lymphovenous and lymph node-to-vein anastomosis)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Lymphatic_Malformation_13.yaml",
+    "page_url": "../pages/disorders/Lymphatic_malformation_13.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Lymphatic malformation 6",
     "disease_id": "MONDO:0014797",
     "category": "Mendelian",
@@ -241275,7 +241380,7 @@ window.searchData = [
   },
   {
     "name": "MMADHC-related Disorder of Cobalamin Metabolism, cblD Type",
-    "disease_id": "MONDO:0700297",
+    "disease_id": "MONDO:0100463",
     "category": "Mendelian",
     "parents": [
       "Inborn Disorder of Cobalamin Metabolism and Transport"
@@ -241289,8 +241394,11 @@ window.searchData = [
     ],
     "description": "cblD is the complementation group that broke the assumption that one gene defect in cobalamin metabolism gives one biochemical phenotype. MMADHC encodes the protein that sits at the branch point of intracellular B12 trafficking: after MMACHC strips the upper axial ligand from incoming cobalamin, MMADHC directs the product either into mitochondria, where it becomes adenosylcobalamin for methylmalonyl-CoA mutase, or keeps it in the cytosol, where it becomes methylcobalamin for methionine synthase.\nBecause the protein is the switch rather than either destination, where a variant falls within it determines which arm fails. N-terminal null alleles abolish the mitochondrial route and give isolated methylmalonic aciduria. Null alleles across the C-terminus abolish both and give the combined picture originally described. Missense alleles in a narrow conserved C-terminal segment spare adenosylcobalamin synthesis and give isolated homocystinuria. One gene therefore produces three biochemical diseases that were, before MMADHC was cloned, assigned to different disorders entirely - and the cblD-variant patients were initially recognised precisely because their cells complemented the mutant classes their biochemistry resembled.\nThe clinical consequences follow the biochemistry: the homocysteine-affected forms carry megaloblastic anemia and the thrombotic and endothelial complications of hyperhomocysteinemia, while the methylmalonate-predominant form carries the metabolic decompensation risk of an organic acidemia. Treatment is directed at whichever arm is broken, which is why establishing the biochemical form matters as much as establishing the gene.",
     "pathophysiology": [
-      "Biallelic MMADHC Loss of Function",
-      "Failure of Cobalamin Branch-Point Trafficking",
+      "N-Terminal MMADHC Null Alleles",
+      "C-Terminal MMADHC Missense Alleles",
+      "C-Terminal MMADHC Null Alleles",
+      "Loss of Mitochondrial Cobalamin Routing",
+      "Loss of Cytosolic Cobalamin Routing to Methionine Synthase",
       "Adenosylcobalamin Deficiency",
       "Methylcobalamin Deficiency",
       "Methylmalonic Acid Accumulation",
@@ -241353,10 +241461,10 @@ window.searchData = [
     "source_file": "MMADHC-related_Disorder_of_Cobalamin_Metabolism_cblD_Type.yaml",
     "page_url": "../pages/disorders/MMADHC-related_Disorder_of_Cobalamin_Metabolism,_cblD_Type.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 12,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "6"
   },
   {
@@ -275116,6 +275224,118 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Neurodevelopmental Disorder With Nonspecific Brain Abnormalities And With Or Without Seizures",
+    "disease_id": "MONDO:0032877",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal dominant neurodevelopmental disorder caused by heterozygous loss-of-function variants in DLL1, which encodes Delta-like canonical Notch ligand 1. Haploinsufficiency of this Notch pathway ligand disrupts Notch-dependent neural development. The phenotype is variable and includes developmental delay and intellectual disability, autism spectrum disorder, seizures, muscular hypotonia, non-specific structural brain abnormalities on MRI, and skeletal features such as scoliosis and vertebral segmentation defects. First delineated by Fischer-Zirnsak et al. (2019) in 15 individuals from 12 unrelated families (OMIM:618709).",
+    "pathophysiology": [
+      "DLL1 Haploinsufficiency",
+      "Reduced DLL1 Notch Ligand Dosage",
+      "Impaired Notch Signaling in Neural Progenitors",
+      "Dysregulated Neuronal Differentiation",
+      "Aberrant Neuronal Migration",
+      "Disordered Brain Morphogenesis",
+      "Somite Segmentation Defect"
+    ],
+    "cell_types": [
+      "neural progenitor cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0011020",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "Notch signaling pathway",
+      "neuron differentiation",
+      "neuron migration",
+      "brain development",
+      "somitogenesis"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Autism spectrum disorder",
+      "Seizures",
+      "Nonspecific brain abnormalities",
+      "Ventriculomegaly",
+      "Hydrocephalus",
+      "Abnormal corpus callosum morphology",
+      "Cortical dysplasia",
+      "Cerebellar hypoplasia",
+      "Hypoplasia of the pons",
+      "Periventricular nodular heterotopia",
+      "Microcephaly",
+      "Macrocephaly",
+      "Hypotonia",
+      "Scoliosis",
+      "Vertebral segmentation defect",
+      "Kyphosis",
+      "Upslanted palpebral fissure"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Musculoskeletal",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000717",
+      "HP:0001250",
+      "HP:0012443",
+      "HP:0002119",
+      "HP:0000238",
+      "HP:0001273",
+      "HP:0002539",
+      "HP:0001321",
+      "HP:0012110",
+      "HP:0032388",
+      "HP:0000252",
+      "HP:0000256",
+      "HP:0001252",
+      "HP:0002650",
+      "HP:0003422",
+      "HP:0002808",
+      "HP:0000582"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "DLL1"
+    ],
+    "treatments": [
+      "Supportive and symptomatic management",
+      "Antiseizure pharmacotherapy",
+      "Developmental and behavioral rehabilitation",
+      "Physical therapy",
+      "Orthopedic management of scoliosis",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Nonspecific_Brain_Abnormalities_And_With_Or_Without_Seizures.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Nonspecific_Brain_Abnormalities_And_With_Or_Without_Seizures.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Neurodevelopmental Disorder With Poor Growth, Large Ears, And Dysmorphic Facies",
     "disease_id": "MONDO:0859350",
     "category": "Mendelian",
@@ -287144,6 +287364,106 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "7",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Optic Atrophy 15",
+    "disease_id": "MONDO:0957935",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "Mitochondrial Disease"
+    ],
+    "creation_date": "2026-10-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Optic atrophy 15 (OPA15) is an autosomal recessive inherited optic neuropathy caused by biallelic variants in MCAT, which encodes the mitochondrial enzyme malonyl-CoA-acyl carrier protein transacylase. MCAT catalyses the transfer of malonyl groups onto the mitochondrial acyl carrier protein, the second step of the mitochondrial fatty-acid synthesis (mtFAS) pathway, and it is expressed in retinal ganglion cells, which are rich in mitochondria. As with the other nuclear-gene optic neuropathies, the disease is understood as a mitochondrial endophenotype in which the retinal ganglion cell and its long, energy-demanding axon fail selectively.\nThe gene-disease relationship rests on three reports and a handful of families, and the presentations they describe span a wide spectrum. The original report identified two brothers from a consanguineous Chinese family carrying homozygous missense variants (p.Leu81Arg and p.Arg212Trp); they had insidious, gradual childhood vision loss with nystagmus and acuity reduced to finger counting by age 8. The second report identified a sporadic French woman compound heterozygous for a splice-donor variant (c.424-2A>G) and a missense variant (p.Glu347Lys); she presented at age 20 with acute, bilateral but asymmetric central visual loss resembling Leber hereditary optic neuropathy. A third report identified a boy homozygous for p.Thr271Ile with a severe infantile multisystem presentation - hypotonia, failure to thrive, nystagmus, and symmetric T2/FLAIR signal change in the dorsal medulla, periaqueductal gray, substantia nigra, medial hypothalamus and habenular nuclei on brain MRI. All three are part of one gene-defined entity, and MCAT is now recognised as one of the nuclear genes causing an autosomal recessive LHON-like optic neuropathy (arLHON), alongside DNAJC30 and NDUFS2.\nThe mechanism downstream of the gene is partly established. The disease variants destabilise the MCAT protein and reduce its intracellular expression; retinal-ganglion-cell-specific knockdown of Mcat in mice reproduces an attenuated retinal nerve fibre layer. In the multisystem patient, the mitochondrial consequence was measured directly in the patient's own fibroblasts and lymphoblasts: a combined oxidative phosphorylation deficiency with reduced complex I, II and IV subunits and respiratory-chain enzyme activities, rescued by re-expressing wild-type MCAT. That patient's protein lipoylation was normal, and in a mutant myoblast line the p.Thr271Ile allele restored lipoylation but only partially restored respiration - dissociating the two branches of mtFAS output and implicating impaired respiratory-chain assembly, rather than lipoylation, as the disease-relevant consequence. What remains inferential is the final step: whether that respiratory-chain deficit is what selectively kills retinal ganglion cells, since the one patient with measured OXPHOS deficiency had multisystem disease and the isolated-optic-atrophy patients had no such measurement. The entry records that last step as a gap.",
+    "pathophysiology": [
+      "Biallelic MCAT Loss of Function",
+      "Impaired Mitochondrial Fatty-Acid Synthesis",
+      "Impaired Respiratory-Chain Assembly and Combined OXPHOS Deficiency",
+      "Retinal Ganglion Cell and Optic Nerve Axon Degeneration"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "lymphoblast",
+      "retinal ganglion cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0017005",
+      "CL:0000740"
+    ],
+    "biological_processes": [
+      "mitochondrial fatty-acid biosynthesis",
+      "mitochondrial respiratory chain complex assembly",
+      "cellular respiration"
+    ],
+    "phenotypes": [
+      "Optic atrophy",
+      "Reduced visual acuity",
+      "Nystagmus",
+      "Blindness",
+      "Central scotoma",
+      "Dyschromatopsia",
+      "Photophobia",
+      "Abnormal retinal nerve fiber layer morphology",
+      "Abnormal brainstem MRI signal intensity",
+      "Generalized hypotonia",
+      "Failure to thrive",
+      "Global developmental delay",
+      "Microcephaly",
+      "Short stature",
+      "Esotropia",
+      "Hyperreflexia"
+    ],
+    "phenotype_categories": [
+      "Eye",
+      "Neurologic",
+      "Growth",
+      "Head and neck"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000648",
+      "HP:0007663",
+      "HP:0000639",
+      "HP:0000618",
+      "HP:0000603",
+      "HP:0007641",
+      "HP:0000613",
+      "HP:0020119",
+      "HP:0012747",
+      "HP:0001290",
+      "HP:0001508",
+      "HP:0001263",
+      "HP:0000252",
+      "HP:0004322",
+      "HP:0000565",
+      "HP:0001347"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MCAT"
+    ],
+    "treatments": [
+      "High-dose methylprednisolone (ineffective)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Optic_Atrophy_15.yaml",
+    "page_url": "../pages/disorders/Optic_Atrophy_15.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Optic Atrophy 3",
@@ -367697,6 +368017,144 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Syndromic X-linked Intellectual Disability Nascimento Type",
+    "disease_id": "MONDO:0010461",
+    "category": "Genetic",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "X-linked Disorder"
+    ],
+    "creation_date": "2026-10-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Nascimento-type syndromic X-linked intellectual disability (also called UBE2A deficiency syndrome; MONDO:0010461; OMIM 300860) is a rare X-linked recessive neurodevelopmental disorder of hemizygous males caused by loss-of-function variants in, or deletions of, UBE2A at Xq24. UBE2A (HR6A) encodes an E2 ubiquitin-conjugating enzyme (the human orthologue of yeast RAD6) that works with E3 ligases such as Parkin to ubiquitinate substrates in the ubiquitin-proteasome system; one well-characterised consequence of its loss is impaired Parkin-dependent clearance of dysfunctional mitochondria (mitophagy) in neurons. Affected males present with moderate to severe intellectual disability, impaired or absent speech, seizures, a recognisable craniofacial gestalt (synophrys, prominent supraorbital ridges, deep-set almond-shaped eyes, depressed nasal bridge, wide mouth), skin findings (generalised hirsutism, onychodystrophy), and genital anomalies including micropenis. Carrier females are typically unaffected with completely skewed X-inactivation.\nSCOPE NOTE \u2014 this entity is defined by germline UBE2A loss of function. It is distinct from the many other eponymous XLID types and should not be conflated with disorders of the paralogous ubiquitin-conjugating enzyme genes. Congenital heart defects occur with both intragenic UBE2A alleles and larger Xq24 deletions encompassing neighbouring genes (notably SLC25A5); they are enriched among the larger deletions but are not confined to them, so they are treated here as part of the UBE2A phenotype spectrum with a deletion-size gradient rather than as a purely contiguous-gene feature.\n",
+    "pathophysiology": [
+      "UBE2A Loss-of-Function Variant",
+      "Impaired Ubiquitin-Conjugating (E2) Enzyme Activity",
+      "Impaired Parkin-Dependent Mitophagy",
+      "Accumulation of Dysfunctional Neuronal Mitochondria",
+      "Neuronal Synaptic Dysfunction",
+      "Impaired mGluR-Dependent Long-Term Depression",
+      "Spatial Learning and Memory Deficit"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "protein ubiquitination",
+      "mitophagy",
+      "mitochondrion organization",
+      "chemical synaptic transmission",
+      "long-term synaptic depression",
+      "learning or memory"
+    ],
+    "phenotypes": [
+      "Intellectual Disability",
+      "Global Developmental Delay",
+      "Absent Speech",
+      "Seizures",
+      "Synophrys",
+      "Prominent Supraorbital Ridges",
+      "Deeply Set Eyes",
+      "Almond-Shaped Palpebral Fissures",
+      "Depressed Nasal Bridge",
+      "Wide Mouth",
+      "Hypertelorism",
+      "Generalized Hirsutism",
+      "Nail Dystrophy",
+      "Micropenis",
+      "Obesity",
+      "Abnormal Facial Shape",
+      "Behavioral Abnormality",
+      "White Matter Abnormality",
+      "Upslanting Palpebral Fissures",
+      "Prominent Columella",
+      "Hypoplastic Alae Nasi",
+      "Macrocephaly",
+      "Dry Skin",
+      "Myxedematous Appearance",
+      "Widely Spaced Nipples",
+      "Pes Cavus",
+      "Constipation",
+      "Congenital Heart Defect"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Craniofacial",
+      "Dermatologic",
+      "Genitourinary",
+      "Growth",
+      "Behavioral",
+      "Chest",
+      "Musculoskeletal",
+      "Gastrointestinal",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0001344",
+      "HP:0001250",
+      "HP:0000664",
+      "HP:0000336",
+      "HP:0000490",
+      "HP:0007874",
+      "HP:0005280",
+      "HP:0000154",
+      "HP:0000316",
+      "HP:0002230",
+      "HP:0008404",
+      "HP:0000054",
+      "HP:0001513",
+      "HP:0001999",
+      "HP:0000708",
+      "HP:0002500",
+      "HP:0000582",
+      "HP:0009765",
+      "HP:0000430",
+      "HP:0000256",
+      "HP:0000958",
+      "HP:0006610",
+      "HP:0001761",
+      "HP:0002019",
+      "HP:0001627"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "UBE2A"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Syndromic_X-linked_Intellectual_Disability_Nascimento_Type.yaml",
+    "page_url": "../pages/disorders/Syndromic_X-linked_Intellectual_Disability_Nascimento_Type.html",
+    "num_phenotypes": 28,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Synovial Sarcoma",
     "disease_id": "MONDO:0010434",
     "category": "",
@@ -371585,6 +372043,60 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "TUBA1C-related Preimplantation Embryonic Arrest",
+    "disease_id": "MONDO:0979232",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "female reproductive system disease"
+    ],
+    "creation_date": "2026-10-25T06:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "TUBA1C-related preimplantation embryonic arrest (oocyte/zygote/embryo maturation arrest 24) is an autosomal-recessive form of primary female infertility caused by biallelic loss-of-function variants in TUBA1C, which encodes tubulin alpha-1C, an alpha-tubulin isotype that forms microtubules with beta-tubulin. Affected women present with recurrent preimplantation embryo arrest: in repeated IVF/ICSI cycles their embryos stop developing before the blastocyst stage. The two reported variants are a nonsense variant and a frameshift, each homozygous, and in vitro they impair spindle assembly. The disorder is the alpha-tubulin counterpart of TUBB8-related oocyte maturation defect, in which variants in the oocyte-specific beta-tubulin cause spindle defects, oocyte meiotic arrest and embryo arrest. The entity rests on two probands from a single cohort. A separate large exome study found heterozygous TUBA1C variants enriched among women with oocyte or embryo defects, but whether one allele is enough to cause disease is not established. No treatment has been reported.",
+    "pathophysiology": [
+      "Biallelic TUBA1C Truncating Variants",
+      "Defective Spindle Assembly"
+    ],
+    "cell_types": [
+      "oocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000023"
+    ],
+    "biological_processes": [
+      "spindle assembly"
+    ],
+    "phenotypes": [
+      "Female Infertility",
+      "Embryo Developmental Arrest"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0008222",
+      "HP:0020003"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TUBA1C"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "TUBA1C-related_Preimplantation_Embryonic_Arrest.yaml",
+    "page_url": "../pages/disorders/TUBA1C-related_Preimplantation_Embryonic_Arrest.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "TUBA4A-related Disorder",
@@ -400081,17 +400593,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3707,
+  "total_disorder_pages": 3712,
   "total_subtypes": 4897,
-  "total_disorders_and_subtypes": 8604,
-  "total_unique_evidence_sources": 55353,
-  "total_unique_publications": 51701,
+  "total_disorders_and_subtypes": 8609,
+  "total_unique_evidence_sources": 55382,
+  "total_unique_publications": 51730,
   "total_unique_disease_categories": 61,
-  "total_unique_phenotype_categories": 309,
-  "total_pathographs": 3704,
-  "total_unique_pathological_events": 24440,
+  "total_unique_phenotype_categories": 310,
+  "total_pathographs": 3709,
+  "total_unique_pathological_events": 24468,
   "total_modules": 204,
-  "total_research_reports": 3831,
+  "total_research_reports": 3836,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 121
