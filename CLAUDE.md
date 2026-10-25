@@ -3988,6 +3988,13 @@ Non-negotiable rules:
   on an HGNC identifier written beside the wrong gene (#9845).
 - Never create or hand-edit `references_cache/*.md`; generate or regenerate an
   entry with `just fetch-reference <ID>`.
+- **A patient-advocacy organization's published page is citable; a public forum
+  is not** (design decision 6d). Tag the advocacy reference
+  `tags: [PatientOrganization]` on its top-level `references:` entry, and give
+  every claim it supports at least one non-community citation as well — an
+  advocacy page can corroborate a claim, never carry it. Social-media citations
+  fail `just check-social-media-references`; record a community signal you
+  cannot cite in `discussions` as an unvalidated lead instead.
 - A reference first cached as an abstract stays `abstract_only` on later plain
   fetches. To upgrade it, `just fetch-reference <ID> --force` (any `-`-prefixed
   argument is passed to the validator rather than read as an ID, #13185). Use it
@@ -4085,6 +4092,8 @@ just check-shared-disease-terms
 just check-gene-activity-grounding
 just check-coarse-phenotypes kb/disorders/MyDisease.yaml
 just check-qualifier-terms kb/disorders/MyDisease.yaml
+just check-community-evidence kb/disorders/MyDisease.yaml
+just check-social-media-references kb/disorders/MyDisease.yaml
 just check-source-defect-claims  # report-only
 ```
 
@@ -4116,7 +4125,8 @@ block scalars, enum values a schema change has retired, inconsistent
 references, broken bare-name pathograph targets, shared `disease_term`s that do
 not say how they are shared, genes landing on a node that names no molecular
 function, coarse HPO bindings with no stated basis, wrong qualifier ontology
-labels, and prose claims about
+labels, evidence blocks whose only support is a patient-organization
+reference, citations of user-generated social media, and prose claims about
 defective sources that the cache contradicts. Nine of the gates in the list
 carry a committed baseline file grandfathering a pre-existing backlog:
 `check-snippet-length`, `check-title-snippets`, `check-reference-titles`,

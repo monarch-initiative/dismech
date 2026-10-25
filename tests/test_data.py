@@ -25,6 +25,10 @@ from linkml.validator.plugins import JsonschemaValidationPlugin
 # validation logic shared with the CLI tools.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
+from dismech.community_evidence import (
+    community_sole_support_errors,
+    iter_evidence_lists,
+)
 from dismech.conformance import normalize_conforms_to
 from dismech.entity_refs import (
     canonical_kind,
@@ -33,6 +37,10 @@ from dismech.entity_refs import (
     parse_entity_ref,
 )
 from dismech.model_links import iter_model_links
+from dismech.social_media_refs import (
+    is_social_media_reference,
+    social_media_reference_errors,
+)
 from dismech.yaml_io import safe_load
 
 # Paths
@@ -116,22 +124,11 @@ def _has_allowed_reference_prefix(reference):
     return any(text.startswith(p.lower()) for p in ALLOWED_REFERENCE_PREFIXES)
 
 
-def _iter_evidence_lists(node, path=""):
-    """Yield every ``(dotted_path, evidence_list)`` pair anywhere in a document.
-
-    Evidence blocks are attached at many depths (top-level sections, nested
-    `downstream` causal edges, `readouts`, `findings`, `members`, ...), so the
-    only reliable way to check them all is to walk the whole tree.
-    """
-    if isinstance(node, dict):
-        for key, value in node.items():
-            child = f"{path}.{key}" if path else key
-            if key == "evidence" and isinstance(value, list):
-                yield child, value
-            yield from _iter_evidence_lists(value, child)
-    elif isinstance(node, list):
-        for index, item in enumerate(node):
-            yield from _iter_evidence_lists(item, f"{path}[{index}]")
+# Evidence blocks are attached at many depths (top-level sections, nested
+# `downstream` causal edges, `readouts`, `findings`, `members`, ...), so the only
+# reliable way to check them all is to walk the whole tree. Shared with
+# `scripts/check_community_evidence.py` rather than kept in two places.
+_iter_evidence_lists = iter_evidence_lists
 
 
 def _document(filepath, data=None):
@@ -399,6 +396,141 @@ def check_evidence_items_have_references(filepath, data=None):
         all_errors.extend(check_evidence(evidence_list, path))
 
     assert not all_errors, f"Evidence errors in {Path(filepath).name}: {all_errors}"
+
+
+def check_community_sourced_evidence_is_not_sole_support(filepath, data=None):
+    """Community-sourced references may corroborate a claim but never carry it.
+
+    Second lane, not the only one: this runs inside the `kb_data` sweep, so it
+    runs under `just test-kb`, which the `schema` path filter gates -- and a curation
+    PR touches only `kb/`. `scripts/check_community_evidence.py` runs the same
+    rule ungated in CI so the PRs that introduce community sourcing are actually
+    covered (the #9473 shape).
+    """
+    data = _document(filepath, data)
+
+    errors = community_sole_support_errors(data)
+
+    assert not errors, (
+        f"Community-sourced evidence is sole support in {Path(filepath).name}: {errors}. "
+        "Add a non-community reference to the block, or move the claim to `discussions` "
+        "as an unvalidated lead (design decision 6d)."
+    )
+
+
+def test_community_sole_support_check_catches_community_only_block():
+    """The 6d check fires on a community-only block and clears a corroborated one."""
+    community_ref = "url:https://example.org/patient-org/symptoms/"
+
+    def entry(phenotype_evidence):
+        return {
+            "references": [
+                {"reference": community_ref, "tags": ["PatientOrganization"]},
+                {"reference": "PMID:20301616"},
+            ],
+            "phenotypes": [{"name": "Fatigue", "evidence": phenotype_evidence}],
+        }
+
+    community_only = entry([{"reference": community_ref, "snippet": "tiredness"}])
+    errors = community_sole_support_errors(community_only)
+    assert len(errors) == 1, errors
+    assert "phenotypes[0].evidence" in errors[0]
+
+    corroborated = entry(
+        [
+            {"reference": community_ref, "snippet": "tiredness"},
+            {"reference": "PMID:20301616", "snippet": "fatigue (93.8%)"},
+        ]
+    )
+    assert community_sole_support_errors(corroborated) == []
+
+    # An untagged reference is not community-sourced, so the same shape passes.
+    untagged = community_only
+    untagged["references"][0].pop("tags")
+    assert community_sole_support_errors(untagged) == []
+
+
+def test_community_sole_support_check_skips_reference_provenance_records():
+    """A `references[].findings[].evidence` provenance record may be community-only.
+
+    Evidence hangs off `Finding`, not off `PublicationReference` itself, so this
+    is the real shape of a provenance record documenting a community sweep.
+    """
+    community_ref = "url:https://example.org/patient-org/symptoms/"
+    data = {
+        "references": [
+            {
+                "reference": community_ref,
+                "tags": ["PatientOrganization"],
+                "findings": [
+                    {
+                        "statement": "Community sweep provenance.",
+                        "supporting_text": "chronic pain and fatigue",
+                        "evidence": [
+                            {"reference": community_ref, "snippet": "chronic pain"}
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+    assert community_sole_support_errors(data) == []
+
+
+def check_no_social_media_references(filepath, data=None):
+    """Public forums and social platforms are not citable sources (6d).
+
+    Second lane behind `scripts/check_social_media_references.py`, which runs
+    ungated in CI for the same reason the corroboration gate does.
+    """
+    data = _document(filepath, data)
+
+    errors = social_media_reference_errors(data)
+
+    assert not errors, (
+        f"Social-media references in {Path(filepath).name}: {errors}. "
+        "An advocacy organization's published page is citable; a forum is not. "
+        "Record an uncitable community signal in `discussions` as an "
+        "unvalidated lead (design decision 6d)."
+    )
+
+
+def test_social_media_check_matches_hosts_not_substrings():
+    """Subdomains match, look-alike hosts and non-url prefixes do not."""
+    assert is_social_media_reference("url:https://old.reddit.com/r/Example/")
+    assert is_social_media_reference("url:https://www.facebook.com/groups/1")
+    assert is_social_media_reference("url:https://x.com/someone/status/1")
+
+    # An advocacy organization's own page is the citable case 6d permits.
+    assert not is_social_media_reference(
+        "url:https://www.fshdsociety.org/living-with-fshd/symptoms/"
+    )
+    # Substring look-alikes must not match the bare host.
+    assert not is_social_media_reference("url:https://notreddit.com/page")
+    assert not is_social_media_reference("url:https://reddit.com.example.org/page")
+    # Non-url references are out of scope entirely.
+    assert not is_social_media_reference("PMID:20301616")
+
+
+def test_social_media_check_finds_references_at_any_depth():
+    """Both a top-level `references:` entry and a nested evidence item are caught."""
+    forum = "url:https://old.reddit.com/r/Example/top/?t=all"
+    data = {
+        "references": [{"reference": forum, "title": "Example"}],
+        "treatments": [
+            {
+                "name": "Genetic Counseling",
+                "evidence": [
+                    {"reference": forum, "snippet": "a thread title"},
+                    {"reference": "PMID:20301616", "snippet": "a real finding"},
+                ],
+            }
+        ],
+    }
+    errors = social_media_reference_errors(data)
+    assert len(errors) == 2, errors
+    assert any("references[0]" in e for e in errors)
+    assert any("treatments[0].evidence[0]" in e for e in errors)
 
 
 def check_orpha_evidence_is_graded_other(filepath, data=None):
@@ -2498,6 +2630,14 @@ DISORDER_CHECKS = (
     check_dataset_accession_prefix_and_shape,
     check_orpha_evidence_is_graded_other,
 )
+# Design decision 6d. Any entry carrying a top-level `references:` list:
+# disorders and modules (via DISORDER_CHECKS' callers), groupings, and
+# comorbidities, so a reference slot added to `ComorbidityAssociation` later is
+# covered by something rather than by nothing.
+REFERENCE_CHECKS = (
+    check_community_sourced_evidence_is_not_sole_support,
+    check_no_social_media_references,
+)
 # Modules use the Disease class and carry the same model sections, so these
 # span kb/disorders/ and kb/modules/.
 MODEL_BEARING_CHECKS = (
@@ -2580,6 +2720,7 @@ def test_disorder_file(filepath, validator):
         (
             check_valid_disorder_files,
             *DISORDER_CHECKS,
+            *REFERENCE_CHECKS,
             *MODEL_BEARING_CHECKS,
             *CONFORMS_TO_CHECKS,
         ),
@@ -2604,6 +2745,7 @@ def test_module_file(filepath, validator):
         (
             check_valid_module_files,
             *DISORDER_CHECKS,
+            *REFERENCE_CHECKS,
             *MODEL_BEARING_CHECKS,
             *CONFORMS_TO_CHECKS,
         ),
@@ -2620,7 +2762,7 @@ def test_comorbidity_file(filepath, validator):
     failures = _failures(
         filepath,
         data,
-        (check_valid_comorbidity_files, *CONFORMS_TO_CHECKS),
+        (check_valid_comorbidity_files, *CONFORMS_TO_CHECKS, *REFERENCE_CHECKS),
         validator=validator,
     )
     _assert_all_passed(filepath, failures)
@@ -2645,7 +2787,7 @@ def test_grouping_file(filepath, validator):
     failures = _failures(
         filepath,
         data,
-        (check_valid_grouping_files, *GROUPING_CHECKS),
+        (check_valid_grouping_files, *GROUPING_CHECKS, *REFERENCE_CHECKS),
         validator=validator,
     )
     _assert_all_passed(filepath, failures)

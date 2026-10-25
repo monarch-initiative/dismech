@@ -932,9 +932,17 @@ The KGX exporter emits typed, directed edges with the knowledge source identifie
 **Decision.** Every evidence item must cite a real, resolvable reference and quote it
 exactly.
 
-- **Accepted reference types**: PMID, DOI, NCT (ClinicalTrials.gov), and structured-source
-  IDs `ORPHA:` (Orphanet), `CGGV:`/`CGDS:` (ClinGen), `CIVIC_ASSERTION:`/`CIVIC_EID:`
-  (CIViC).
+- **Accepted reference types**: literature and registry IDs `PMID:`, `DOI:`, `PPR:`
+  (Europe PMC preprints), `clinicaltrials:` (ClinicalTrials.gov NCT records) and
+  `ICTRP:` (WHO trial registries); structured-source IDs `ORPHA:` (Orphanet),
+  `CGGV:`/`CGDS:` (ClinGen), `CIVIC_ASSERTION:`/`CIVIC_EID:` (CIViC), `ICEES:`,
+  `NCIT:` and `STRCHIVE:`; dataset accessions such as `GEO:` and `metabolights:`;
+  plus `file:` and `url:` for sources with no citable identifier. `url:` is the
+  widest of these and the least self-describing — it covers agency and regulator
+  pages (CDC, FDA, EMA), database endpoints (Orphadata, Monarch), preprints, and,
+  under §6d, community sources. The authoritative machine-readable list is
+  `ALLOWED_REFERENCE_PREFIXES` in `tests/test_data.py`; this prose lags it, so
+  check there first.
 - **Exact-snippet rule**: `snippet` values must be exact substring quotes from the cited
   reference, enforced by `linkml-reference-validator`. Paraphrase fails validation.
 - **Cache files are tool-generated**: `references_cache/*.md` are created exclusively by
@@ -1141,6 +1149,65 @@ new code. Budget each migration as a backfill *plus* whatever the newly-enabled 
 snippet checks surface — it is a curation pass, not a config edit. (2) Delete the frozen
 blob once open PRs have drained.
 
+
+### 6d. Patient-organization sources may corroborate, never carry, a claim (2026-08-29)
+
+**Decision (`@mellybelly`).** Published content from patient-advocacy and disease-foundation
+organizations is a citable `url:` reference, subject to a corroboration rule. **User-generated
+social-media content is not citable.** The pattern was worked out in
+[#7674](https://github.com/monarch-initiative/dismech/pull/7674) (FSHD), which swept both an
+advocacy organization and a public subreddit; the organization half is accepted and the
+forum half is not. #7674 merged before this decision did, so the PR recording it
+([#9654](https://github.com/monarch-initiative/dismech/pull/9654)) also removed the FSHD
+entry's three Reddit citations and its two cached Reddit pages, and tagged its FSHD Society
+references.
+
+- **`PatientOrganization` is citable.** Published disease-education content from an advocacy
+  organization or disease foundation — institutionally authored, publicly distributed, no
+  personal data. It may corroborate a claim, and may supply the experiential phrasing a
+  community actually uses, which is often what makes an under-reported manifestation findable
+  at all.
+- **Never sole support.** Every evidence block containing a `PatientOrganization` reference
+  must also carry at least one non-community reference. Enforced in CI by
+  `scripts/check_community_evidence.py`, which runs ungated and whole-KB — the matching
+  pytest check (`check_community_sourced_evidence_is_not_sole_support`) runs inside the
+  `kb_data` sweep and so is selected by path filters that a `kb/`-only curation PR never matches,
+  which is the #9473 shape. The rule is otherwise invisible: the URL resolves and the
+  snippet is a real quote from it, so LinkML, term and reference validation all pass.
+- **Tag it.** The reference carries `tags: [PatientOrganization]` on its top-level
+  `references:` entry, so the sourcing class is filterable, auditable, and — if this policy
+  is ever narrowed — retractable by query rather than by re-reading every entry. Tagging is
+  a curation step: no tool can infer it, because no cache marker distinguishes an advocacy
+  page from any other fetched URL. The corroboration gate is therefore opt-in, and a
+  reviewer should check the tag was applied.
+- **Adjudicate, don't promote.** A community signal that literature corroborates becomes a
+  normal curated entry; one it does not becomes a `discussions` entry recording an explicitly
+  unvalidated lead. It does not become a phenotype on organizational assertion alone.
+- **Social media is not citable, for now.** Public forums, subreddits, and social platforms
+  may not be cited as references. `scripts/check_social_media_references.py` fails a
+  reference on a known social-media host. This is **deferred, not settled** — the question
+  may be revisited, and the enum has no `PatientCommunity` value until it is.
+- **Closed groups are out of scope regardless.** Members disclosing health information in a
+  private group have not consented to public aggregation, whatever the platform's technical
+  accessibility. Where a community signal needs quantifying, a national patient registry is
+  the consented substitute — in #7674 that substitution is what produced the head-pain and
+  hearing-loss findings.
+
+**Rationale.** Patient communities describe manifestations the primary clinical literature
+under-represents: in FSHD, fatigue and pain rank at nearly the prevalence of the weakness
+that defines the disease, and the mechanism graph explains neither. Refusing the source class
+entirely means those manifestations stay invisible to the KB. Accepting it without constraint
+means unreviewed assertion enters a knowledge base whose credibility rests on the exact-quote
+pipeline. The corroboration rule takes the useful half — these sources are good at telling
+you *where to look* — while keeping every curated claim standing on something citable.
+
+The line falls between organizations and forums because they are not the same risk, and the
+yield matched the risk. An advocacy organization's symptom page is institutional publishing
+that happens not to be indexed in PubMed. A forum is individuals talking about their own
+health: citing one means quoting a person who did not consent to being a source, and caching
+it means carrying usernames and self-disclosed health status in git permanently. In #7674 the
+organization produced seven of the eight community-sourced evidence items and the forum
+produced one — for a claim already supported by GeneReviews.
 
 ### `quote_role`: provenance of the finding, separate from provenance of the sentence
 
@@ -1661,6 +1728,7 @@ This section details decisions we have **not yet made or formalized**.
 |---|---|---|
 | Exposure → disease relations (`disease_effect` / `causal_role`) | **PROPOSED, not ratified.** An `environmental[]` entry can say an exposure acts on a *mechanism node* (`influences_mechanisms`), but nothing states how it acts on the *disease*. The only slot for that is free-text `effect:`, used on 285 entries across 118 files — of which ~64 carry enum-shaped values (`HARMFUL` 28, `TRIGGERS` 20, `RISK_FACTOR` 7, `CAUSATIVE` 5, `EXACERBATES` 4) written into a string because no vocabulary exists at this scope. The KGX exporter already emits the exposure→disease edge and infers its predicate by requiring unanimity across mechanism links, then regex-matching four phrasings of the prose (`kgx_export.py:_exposure_predicate`); its docstring records the unanimity rule as a workaround for one exposure protecting against a mechanism while driving another. Proposal: two scalar slots on `Environmental` — `disease_effect` (direction, reusing `EnvironmentalEffectEnum` with scope-neutral value descriptions) and `causal_role` (strength, a new `EnvironmentalCausalRoleEnum`) — supported by the entry's existing `evidence:` block, which already holds the disease-level claim. Would home the ~22 exposures #10359 could not place, and let KGX read one declared field. **Open:** whether `causal_role` is its own axis or folds into `disease_effect`; whether the `NECESSARY`/`SUFFICIENT`/`COMPONENT_CAUSE` framing is heavier than the KB needs; and how to migrate `HARMFUL` (a valence, not a direction) and `CAUSATIVE` (which collapses both axes). Settle the vocabulary before populating at scale — narrowing an enum later is the merge-shaped failure of #10061. | [#11112](https://github.com/monarch-initiative/dismech/issues/11112) · draft schema in PR |
 | Experiment-grounded evidence (`experiment.design` / `inference.role`) | Design exploration, **not yet a schema change.** The `EvidenceItem` model is a validated citation-pointer (real reference + exact snippet + validator = citation integrity) with a thin appraisal layer — `supports` is polarity, `evidence_source` is a coarse organism bucket, and neither records *what experiment* produced a claim or *how* the mechanistic edge was inferred from it. Proposal: an optional `experiment{design, system, perturbation, readout, result, inference}` block plus two small closed enums — `experiment.design` (*how it was shown*) and `inference.role` (*necessity / sufficiency / rescue / direct-physical / therapeutic-rescue*, what the result licenses about the edge), mutually constraining so strength is *derived, not authored* and `experiment.result.snippet` stays substring-validated. Bespoke enum preferred over ECO (which types entity→term annotations, not causal-graph assertions); SEPIO reserved for the export layer. Worked on the FH PCSK9 sub-graph. | [The Evidence Model](evidence-model.md) · [FH worked example](../reports/fh-experiment-grounded-evidence-2026-07-30.md) |
+| Social media as a citable source | **DEFERRED (2026-08-29).** §6d accepts patient-organization content and declines user-generated social media; `@mellybelly`'s decision was "not social media, may be included at a later date", so this is deferred rather than settled. `ReferenceTagEnum` carries no `PatientCommunity` value and `scripts/check_social_media_references.py` fails a reference on a known social-media host, so revisiting means adding both back, not relaxing a host list. The open sub-questions are the ones that made the forum half hard: quoting an identifiable account without its consent, and what a cached copy of a user-generated page carries into git permanently (the r/FSHD listing cached in #7674 held 19 usernames). A national patient registry remains the consented substitute. | [#7674](https://github.com/monarch-initiative/dismech/pull/7674) · [#9654](https://github.com/monarch-initiative/dismech/pull/9654) |
 | Chromosomal-disorder curation guidelines | **Partly addressed (§15, PR #11943).** Optional named regions, cytoband syntax, and qualitative gene landmarks represent affected intervals without patient-specific coordinates. The noncoding-variant-impact skill covers their use; a dedicated chromosomal-disorder skill and the wider formation-mechanism guidance remain open. | [#3756](https://github.com/monarch-initiative/dismech/issues/3756) |
 | Noncoding region–disease representation | **Qualitative representation added (§15, PR #11943).** Regional `Genetic` records can name affected enhancers and intervals without substituting a host gene. Stable region identifiers and dedicated region nodes in external knowledge graphs remain separate follow-ups. | [#4394](https://github.com/monarch-initiative/dismech/issues/4394) |
 | Structural `knowledge_gaps:` schema slot | Deferred; knowledge gaps currently modeled via `discussions` (`kind: KNOWLEDGE_GAP`) | schema follow-up |
