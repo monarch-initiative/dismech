@@ -132352,7 +132352,9 @@ window.searchData = [
     "description": "Dowling-Degos disease is an autosomal dominant reticulate pigmentary genodermatosis characterized by progressive, disfiguring reticulate (net-like) hyperpigmentation of the flexures, most prominently the axillae, groin, neck, and inframammary regions, often with interspersed hypopigmented macules, comedo-like follicular lesions, and follicular hyperkeratosis. Onset is typically postpubertal. It is caused by heterozygous loss-of-function variants, acting through haploinsufficiency, in genes affecting basal keratinocyte keratin organization (KRT5; DDD1) or Notch-receptor glycosylation and gamma-secretase cleavage (POFUT1, DDD2; POGLUT1, DDD4; PSENEN-associated DDD). Histology shows filiform, antler-like downward elongation of pigmented rete ridges without an increase in melanocyte number. The acantholytic histopathologic variant is termed Galli-Galli disease. PSENEN carriers can show comorbid acne inversa (hidradenitis suppurativa).",
     "pathophysiology": [
       "Basal Keratinocyte Keratin 5 Haploinsufficiency",
-      "Notch Pathway Glycosylation and Cleavage Deficiency"
+      "Notch Receptor O-Glycosylation Deficiency",
+      "Gamma-Secretase Notch Cleavage Deficiency",
+      "Reduced Melanocyte and Keratinocyte Notch Signaling"
     ],
     "cell_types": [
       "keratinocyte",
@@ -132363,8 +132365,12 @@ window.searchData = [
       "CL:0000148"
     ],
     "biological_processes": [
+      "intermediate filament organization",
+      "melanosome transport",
+      "protein O-linked glycosylation",
       "Notch signaling pathway",
-      "protein O-linked glycosylation"
+      "proteolysis",
+      "melanin biosynthetic process"
     ],
     "phenotypes": [
       "Reticulate hyperpigmentation of the flexures",
@@ -132374,7 +132380,9 @@ window.searchData = [
       "Comedo-like follicular lesions",
       "Acne inversa"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Dermatological"
+    ],
     "phenotype_hpo_categories": [
       "Immune",
       "Integument"
@@ -132397,20 +132405,17 @@ window.searchData = [
       "POGLUT1",
       "PSENEN"
     ],
-    "treatments": [
-      "Topical therapy",
-      "Ablative laser therapy"
-    ],
+    "treatments": [],
     "environmental": [],
     "biochemical": [],
     "source_file": "Dowling-Degos_Disease.yaml",
     "page_url": "../pages/disorders/Dowling-Degos_Disease.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 2,
+    "num_pathophysiology": 4,
     "num_genes": 4,
-    "num_treatments": 2,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "2"
+    "num_treatments": 0,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Down_syndrome",
@@ -244481,6 +244486,8 @@ window.searchData = [
       "Plasmodium falciparum malaria",
       "Plasmodium vivax malaria",
       "Plasmodium knowlesi malaria",
+      "Plasmodium malariae malaria",
+      "Plasmodium ovale malaria",
       "Cerebral malaria",
       "Recurrent vivax malaria"
     ],
@@ -293379,8 +293386,8 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "PHARC syndrome",
@@ -356294,6 +356301,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "Intraciliary transport",
+      "Centriole assembly",
       "Sperm flagellum assembly"
     ],
     "phenotypes": [
@@ -356736,7 +356744,7 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "6",
     "causal_graph_longest_path": "3"
   },
   {
@@ -359671,6 +359679,122 @@ window.searchData = [
     "num_treatments": 11,
     "causal_graph_edges": "37",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Spinocerebellar Ataxia Type 4",
+    "disease_id": "MONDO:0010847",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Dominant Cerebellar Ataxia Type I"
+    ],
+    "creation_date": "2026-10-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spinocerebellar ataxia type 4 (SCA4) is an autosomal dominant neurodegenerative disease caused by a heterozygous, uninterrupted GGC repeat expansion in the last coding exon (exon 10) of ZFHX3, which encodes an expanded polyglycine tract near the C-terminus of the transcription factor ZFHX3 (ATBF1). The locus was mapped to 16q22.1 in a Utah kindred of Swedish ancestry in 1996, but the expansion sits in an extremely GC-rich region and was found only in 2023-2024 by long-read sequencing. All reported pathogenic alleles share one ancient Swedish founder haplotype. The disease combines cerebellar ataxia with an invariable sensory neuropathy, slow saccades, brainstem signs, upper and lower motor neuron involvement and autonomic failure, of which orthostatic hypotension is the most disabling. Onset ranges from adolescence to the seventh decade; longer repeats give earlier and more severe disease, and anticipation is common. Autopsies show Purkinje cell loss, widespread brainstem and spinal neuronal loss, and p62- and ubiquitin-positive neuronal inclusions in the central and enteric nervous systems. Patient cells have more ZFHX3 protein, polyglycine aggregates and abnormal mTOR and autophagy markers that normalize when ZFHX3 is knocked down. Treatment is supportive.",
+    "pathophysiology": [
+      "ZFHX3 Exonic GGC Repeat Expansion",
+      "Polyglycine-Expanded ZFHX3 Accumulation and Aggregation",
+      "Impaired Autophagy with mTOR Activation",
+      "Purkinje Cell Loss and Cerebellar Degeneration",
+      "Brainstem Neuronal Loss",
+      "Sensory Neuronopathy and Dorsal Column Degeneration",
+      "Spinal Motor Neuron Loss",
+      "Central and Enteric Autonomic Neurodegeneration"
+    ],
+    "cell_types": [
+      "neuron",
+      "enteric neuron",
+      "fibroblast",
+      "Purkinje cell",
+      "sensory neuron",
+      "motor neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0007011",
+      "CL:0000057",
+      "CL:0000121",
+      "CL:0000101",
+      "CL:0000100"
+    ],
+    "biological_processes": [
+      "inclusion body assembly",
+      "autophagy",
+      "TOR signaling"
+    ],
+    "phenotypes": [
+      "Gait ataxia",
+      "Sensory axonal neuropathy",
+      "Slow saccadic eye movements",
+      "Dysarthria",
+      "Dysphagia",
+      "Orthostatic hypotension due to autonomic dysfunction",
+      "Skeletal muscle atrophy",
+      "Spasticity",
+      "Cerebellar atrophy",
+      "Atrophy of the spinal cord",
+      "Weight loss",
+      "Chronic cough",
+      "Cognitive impairment",
+      "Parkinsonism"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Autonomic",
+      "Neuroimaging",
+      "Constitutional",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002066",
+      "HP:0003390",
+      "HP:0000514",
+      "HP:0001260",
+      "HP:0002015",
+      "HP:0004926",
+      "HP:0003202",
+      "HP:0001257",
+      "HP:0001272",
+      "HP:0006827",
+      "HP:0001824",
+      "HP:0034315",
+      "HP:0100543",
+      "HP:0001300"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ZFHX3"
+    ],
+    "treatments": [
+      "Physical Therapy",
+      "Occupational Therapy",
+      "Speech-Language Therapy",
+      "Gastrostomy",
+      "Management of Autonomic Dysfunction",
+      "Avoidance of Alcohol and Sedating Drugs",
+      "Neuro-Ophthalmology Counseling",
+      "Mental Health Management",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spinocerebellar_Ataxia_Type_4.yaml",
+    "page_url": "../pages/disorders/Spinocerebellar_Ataxia_Type_4.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 9,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Spinocerebellar Ataxia Type 6",
@@ -376844,6 +376968,7 @@ window.searchData = [
       "Reduced MHC class II antigen presentation",
       "AIRE loss in thymic epithelial cells",
       "Central tolerance failure in the thymic microenvironment",
+      "Neutralizing anti-IL-23 autoantibodies",
       "Neuromuscular autoantigen-expressing medullary epithelial niche",
       "PD-L1 Mediated Adaptive Immune Resistance",
       "Checkpoint-blockade-unmasked immune-related toxicity"
@@ -376852,19 +376977,22 @@ window.searchData = [
       "epithelial cell of thymus",
       "medullary thymic epithelial cell",
       "cortical thymic epithelial cell",
-      "regulatory T cell"
+      "regulatory T cell",
+      "plasma cell"
     ],
     "cell_type_ids": [
       "CL:0002293",
       "CL:0002365",
       "CL:0002364",
-      "CL:0000815"
+      "CL:0000815",
+      "CL:0000786"
     ],
     "biological_processes": [
       "cell population proliferation",
       "glycolytic process",
       "antigen processing and presentation of peptide antigen via MHC class II",
       "T cell differentiation in thymus",
+      "interleukin-23-mediated signaling pathway",
       "negative regulation of T cell mediated immunity"
     ],
     "phenotypes": [
@@ -376873,6 +377001,7 @@ window.searchData = [
       "Pure red cell aplasia",
       "Good syndrome",
       "Recurrent infections",
+      "Opportunistic infection",
       "Hypogammaglobulinemia"
     ],
     "phenotype_categories": [
@@ -376894,6 +377023,7 @@ window.searchData = [
       "HP:0012410",
       "MONDO:0015696",
       "HP:0002719",
+      "HP:0031690",
       "HP:0004313"
     ],
     "frequencies": [
@@ -376910,7 +377040,8 @@ window.searchData = [
       "Postoperative radiotherapy",
       "Platinum-anthracycline chemotherapy",
       "Systemic immunosuppression",
-      "Immune Checkpoint Blockade"
+      "Immune Checkpoint Blockade",
+      "B-cell depletion for neutralizing anti-IL-23 autoantibodies"
     ],
     "environmental": [],
     "biochemical": [
@@ -376918,11 +377049,11 @@ window.searchData = [
     ],
     "source_file": "Thymoma.yaml",
     "page_url": "../pages/disorders/Thymoma.html",
-    "num_phenotypes": 6,
-    "num_pathophysiology": 9,
+    "num_phenotypes": 7,
+    "num_pathophysiology": 10,
     "num_genes": 2,
-    "num_treatments": 5,
-    "causal_graph_edges": "15",
+    "num_treatments": 6,
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "5"
   },
   {
@@ -399737,15 +399868,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3704,
-  "total_subtypes": 4887,
-  "total_disorders_and_subtypes": 8591,
-  "total_unique_evidence_sources": 55299,
-  "total_unique_publications": 51652,
+  "total_disorder_pages": 3705,
+  "total_subtypes": 4889,
+  "total_disorders_and_subtypes": 8594,
+  "total_unique_evidence_sources": 55316,
+  "total_unique_publications": 51669,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 309,
-  "total_pathographs": 3701,
-  "total_unique_pathological_events": 24418,
+  "total_pathographs": 3702,
+  "total_unique_pathological_events": 24427,
   "total_modules": 204,
   "total_research_reports": 3829,
   "total_classifications": 21,
