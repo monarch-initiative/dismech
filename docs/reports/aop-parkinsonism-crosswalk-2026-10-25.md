@@ -16,12 +16,18 @@ The AOP side is transcribed into that script from the snapshot; the dismech side
 dismech already holds the human-relevant core of AOP 3 — including the same post-mortem
 complex I citation AOP 3 leans on — at a coarser granularity than AOP-Wiki uses; what it does
 not hold is the *chemical* initiation arm, and that arm is evidenced in model systems rather
-than in human disease for complexes I and III, and not evidenced at all for complexes II and IV.
+than in human disease for complexes I and III, and not evidenced at all in AOP-Wiki for
+complexes II and IV.
 
 So the gap is mostly representational, not evidential, and the part that is evidential cannot be
-closed by porting anything across. For complex II it runs the other way: dismech's curated SDHA
-neurodegeneration chain is better evidenced than AOP 588's, and it routes the lesion to optic
-nerve, cerebellum and muscle rather than to the substantia nigra.
+closed by porting anything across. For complexes II and IV it runs the other way, in two
+different ways. For complex II, dismech's curated SDHA neurodegeneration chain is better
+evidenced than AOP 588's, and it routes the lesion to optic nerve, cerebellum and muscle rather
+than to the substantia nigra. For complex IV, the step AOP 589 asserts with no reference at all
+is one dismech represents directly in five parkinsonism entries with cited human evidence,
+including a quantified human measurement of chemical complex IV inhibition — but those entries
+reach parkinsonism through basal ganglia necrosis and hypoxic injury, not through the selective
+nigral degeneration AOP 589 inherits from AOP 3.
 
 ## What the five AOPs are, and why they are nearly the same AOP
 
@@ -153,7 +159,9 @@ dismech mostly calls it:
 | complex IV (AOP 589) | 76 | 44 | 6 |
 
 Complex IV is the exception: six parkinsonism entries bind it, which is the same six that match
-KE1543 above. For complexes I, II and III the overlap is zero. dismech curates respiratory-chain
+KE1543 above. Those six turn out to matter, because five of them carry AOP 589's otherwise
+unevidenced causal edge — see *What dismech holds against those two empty edges* below. For
+complexes I, II and III the overlap is zero. dismech curates respiratory-chain
 inhibition in depth — the `Mitochondrial_Complex_I_Deficiency_Nuclear_Type_*` series, MELAS,
 Leigh syndrome, the Leber optic neuropathies, ACAD9 deficiency, the complex II deficiency
 entries, `Pheochromocytoma_Paraganglioma`, `Carney-Stratakis_Syndrome` — and
@@ -220,6 +228,10 @@ Per-step evidence as AOP-Wiki holds it, read off the four evidence blocks on eac
 | KER3554 complex II → mito dysfunction (AOP 588) | **0** | **0** | **0** | **none — no references at all** |
 | KER3555 complex IV → mito dysfunction (AOP 589) | **0** | **0** | **0** | **none — no references at all** |
 | KER3629 redox cycling → mito ROS (AOP 593) | 3,334 ch | 5,116 ch | "strong" | in vitro + rat ex vivo |
+
+Every figure in that table is AOP-Wiki's own record of its own edge. For KER3555 the zeroes say
+what the wiki holds, not what is known: dismech carries that step with cited human evidence, as
+*What dismech holds against those two empty edges* sets out below.
 
 Three distinct situations, and they call for different answers.
 
@@ -331,6 +343,64 @@ CLI. Exposing the modification *date* would add real screening value; the sub-da
 in the same records should stay out, since they describe individual contributors rather than the
 state of the science.
 
+### What dismech holds against those two empty edges
+
+The symmetry stops here. "Neither knowledge base has it" would be the tidy conclusion, and it is
+true for AOP 588 and false for AOP 589.
+
+For **AOP 588's** unique edge (KER3554, succinate dehydrogenase → mitochondrial dysfunction),
+one of the 82 entries has the upstream end and no route to the downstream one: Manganism, whose
+`Microglial Complex II-Dependent Reactive Oxygen Species Production` matched on its name alone.
+Nothing else in the parkinsonism set touches it. That edge is unevidenced in AOP-Wiki and
+unrepresented in dismech.
+
+For **AOP 589's** unique edge (KER3555, complex IV inhibition → mitochondrial dysfunction),
+dismech covers it directly in five entries, each as two distinct nodes with an edge between
+them, and all five bind `HP:0001300` parkinsonism:
+
+| Entry | Upstream node → downstream node | Strongest cited evidence on or at that node |
+|---|---|---|
+| Carbon_Monoxide_Poisoning | Cytochrome c oxidase inhibition → Cellular energy failure | `PMID:9584335` **HUMAN_CLINICAL** — "76% inhibition compared to controls during acute poisoning (P < 0.01) and 48% at day 3" |
+| Cyanide_Poisoning | Cytochrome c Oxidase Inhibition → Oxidative Phosphorylation Failure and ATP Depletion | `PMID:41204534` HUMAN_CLINICAL on the edge; `PMID:17906319` IN_VITRO on the node |
+| Methanol_Poisoning | Cytochrome c oxidase inhibition by formate → Cellular energy failure | `PMID:12216995` — formate as the proximate inhibitor |
+| FASTKD5-Related_COX_Deficiency | Reduced complex IV activity → Impaired mitochondrial respiration | muscle-biopsy OXPHOS assay, HUMAN_CLINICAL; `PMID:34748562` IN_VITRO respirometry |
+| Parkinson_Disease_Mitochondrial | one node matched both ends | `PMID:11079536` HUMAN_CLINICAL — reduced cytochrome c oxidase activity in the proband |
+
+Three of the five are chemical exposures, which is the stressor class the AOP framework exists to
+serve, and the carbon monoxide entry carries a quantified, time-resolved human measurement of
+chemical complex IV inhibition. **The causal step AOP 589 asserts without a single reference is
+one dismech already represents with cited human evidence.** For this edge the AOP contributes the
+chain shape and dismech contributes the evidence, which is the reverse of the pattern everywhere
+else in this report.
+
+**Two limits, and the second is the substantive one.**
+
+First, KE890 — nigrostriatal dopaminergic degeneration — is absent from all five. So the chain
+from the complex IV lesion to the motor outcome is broken in the middle in every entry that has
+the lesion.
+
+Second, and more interesting than a gap: where these entries *do* reach parkinsonism, they do not
+reach it the way AOP 589 assumes. Cyanide_Poisoning carries a complete chain —
+
+```
+Cytochrome c Oxidase Inhibition → Oxidative Phosphorylation Failure and ATP Depletion
+  → Cerebral Energy Failure → Excitotoxic Neuronal Injury → Basal Ganglia Necrosis → Parkinsonism
+```
+
+— and it routes through **basal ganglia necrosis**, not selective nigral dopaminergic loss.
+Methanol_Poisoning has a `Basal ganglia injury` node and Carbon_Monoxide_Poisoning has
+`Cerebral hypoxic-ischemic injury`, `Delayed demyelination` and `Delayed neuronal injury`; in
+both, the bound parkinsonism phenotype has no causal inlink at all.
+
+AOP 589 inherits KER908 (mitochondrial dysfunction → dopaminergic degeneration) from AOP 3, where
+the supporting evidence is about complex I, rotenone and MPTP acting on the substantia nigra.
+Applying that inherited edge to complex IV inhibition assumes the same selective nigral route,
+while the three human chemical presentations dismech records instead describe basal ganglia
+necrosis and delayed hypoxic injury. So the unevidenced edge is the fillable one, and the
+well-evidenced inherited edge is the one whose transfer to a different complex needs an argument
+that no AOP 589 field makes. That argument is exactly what the missing weight-of-evidence and Key
+Event essentiality fields would have had to contain.
+
 ### And AOP-Wiki can never be the citation
 
 Independently of all of the above: there is no `AOP:` prefix in `references_cache/`, no fetcher
@@ -341,9 +411,13 @@ starting bibliography — and for AOP 3 a good one, naming specific fetchable hu
 of which the PD entry already cites.
 
 So, to answer the question in order: the evidence behind AOP 3's chain is strong and partly
-human; the evidence behind AOPs 587 and 593 is solid but model-system only; the evidence behind
-AOPs 588 and 589 does not exist. None of it can be cited from AOP-Wiki. And the one chain whose
-human claim is well supported is the one dismech already represents, only more coarsely.
+human; the evidence behind AOPs 587 and 593 is solid but model-system only; and the evidence
+behind the edges unique to AOPs 588 and 589 does not exist *in AOP-Wiki*. For AOP 588's edge it
+does not appear to exist anywhere in this corpus. For AOP 589's edge it exists in dismech, cited
+and partly human, which makes that one a candidate for the opposite exercise — AOP-Wiki taking
+evidence from dismech rather than the other way round. None of it can be cited from AOP-Wiki
+itself. And the one chain whose human claim is well supported is the one dismech already
+represents, only more coarsely.
 
 ## Finding 3 — paraquat is named without its mechanism
 
