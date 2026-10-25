@@ -131843,6 +131843,97 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Distal Myopathy, Tateyama Type",
+    "disease_id": "MONDO:0013686",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal dominant distal myopathy",
+      "Caveolinopathy"
+    ],
+    "creation_date": "2026-10-24T01:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Distal myopathy, Tateyama type (MPDT; OMIM:614321, ORPHA:488650) is a rare, slowly progressive distal myopathy caused by heterozygous pathogenic variants in CAV3, which encodes caveolin-3, the muscle-specific structural protein of sarcolemmal caveolae. Muscle atrophy and weakness are largely confined to the small muscles of the hands and feet, with thenar and hypothenar atrophy, together with raised serum creatine kinase and severely reduced caveolin-3 on muscle biopsy. Some patients also show calf hypertrophy, pes cavus, and signs of muscle hyperexcitability such as percussion-induced rapid muscle contractions. The index patient (Tateyama et al. 2002) was a sporadic case carrying the heterozygous c.80G>A (p.Arg27Gln) substitution, and a Spanish family with the same variant showed autosomal dominant transmission of a late-onset, hand-predominant myopathy preceded in younger carriers by hyperexcitability and hyperCKemia alone. A second allele, c.136G>A (p.Ala46Thr), apparently de novo, was reported in a sporadic Chinese patient with distal myopathy. MPDT is one of several allelic caveolinopathy phenotypes: CAV3 variants also cause rippling muscle disease, limb-girdle muscular dystrophy 1C, isolated hyperCKemia, hypertrophic cardiomyopathy and long QT syndrome 9, and the same variant, p.Arg27Gln included, can produce different phenotypes in different individuals and even within one family. ClinGen lumps all of these under a single caveolinopathy entity, whereas MONDO and OMIM keep them separate; this entry follows the MONDO split and covers only the distal myopathy phenotype.",
+    "pathophysiology": [
+      "Heterozygous CAV3 missense variant",
+      "Caveolin-3 Golgi retention and oligomer misassembly",
+      "Sarcolemmal caveolin-3 deficiency and caveolae loss",
+      "Dysferlin and MG53 mislocalization",
+      "Defective sarcolemmal membrane repair",
+      "Impaired caveolar mechanoprotection",
+      "T-tubule system disorganization",
+      "Myostatin signaling disinhibition",
+      "Myofiber damage and myopathic change"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "caveola assembly",
+      "plasma membrane repair",
+      "T-tubule organization"
+    ],
+    "phenotypes": [
+      "Intrinsic hand muscle atrophy",
+      "Foot small muscle atrophy",
+      "Weakness of the intrinsic hand muscles",
+      "Progressive distal muscle weakness",
+      "Elevated circulating creatine kinase",
+      "Decreased muscle caveolin-3 level",
+      "Calf muscle pseudohypertrophy",
+      "Pes cavus",
+      "Percussion-induced rapid rolling muscle contractions",
+      "Myopathic EMG",
+      "Increased variability in muscle fiber diameter"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0008954",
+      "HP:6001485",
+      "HP:0009005",
+      "HP:0009063",
+      "HP:0003236",
+      "HP:6000230",
+      "HP:0003707",
+      "HP:0001761",
+      "HP:0003760",
+      "HP:0003458",
+      "HP:0003557"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "CAV3"
+    ],
+    "treatments": [
+      "Physical therapy",
+      "Myostatin inhibition (experimental)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Distal_Myopathy_Tateyama_Type.yaml",
+    "page_url": "../pages/disorders/Distal_Myopathy,_Tateyama_Type.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Dominant Beta-Thalassemia",
     "disease_id": "MONDO:0011381",
     "category": "Mendelian",
@@ -190317,6 +190408,100 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Hypermetabolism Due To Uncoupled Mitochondrial Oxidative Phosphorylation 2",
+    "disease_id": "MONDO:0859302",
+    "category": "Mendelian",
+    "parents": [
+      "MONDO:0003847"
+    ],
+    "creation_date": "2026-10-20T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypermetabolism due to uncoupled mitochondrial oxidative phosphorylation 2 (HUMOP2; OMIM 620085) is an autosomal dominant mitochondrial uncoupling syndrome caused by a heterozygous de novo ATP5F1B variant. ATP5F1B encodes the beta subunit of the catalytic F1 domain of mitochondrial ATP synthase (complex V). The single reported kindred is a monozygotic twin pair carrying p.Leu335Pro, a residue lying close to the hydrophobic sleeve of the alpha3beta3 assembly that grips the tip of the rotating gamma stalk. Proton translocation through the FO pore proceeds, but its mechanical energy is no longer efficiently converted into ATP synthesis, so the proton motive force is dissipated as heat. The biochemical signature is therefore the inverse of most mitochondrial disease: elevated rather than depressed respiration, with a reduced inner membrane potential. Clinically this presents as euthyroid hypermetabolism from infancy with failure to thrive despite hyperphagia, persistent tachypnea, recurrent unexplained hyperthermia, diaphoresis and mild global developmental delay. The authors place the condition alongside Luft syndrome in a proposed category of mitochondrial uncoupling syndromes, while noting that Luft syndrome appears to arise outside complex V. No disease-modifying therapy is documented; the reported twins remained symptomatic on excess calories, creatine and folinic acid.",
+    "pathophysiology": [
+      "ATP5F1B Beta Subunit Gamma-Stalk Interface Disruption",
+      "Chemiosmotic Uncoupling Within Complex V",
+      "Mitochondrial Inner Membrane Depolarization",
+      "Compensatory Respiratory Chain Hyperactivity",
+      "Glycolytic Compensation",
+      "Substrate Energy Dissipation As Heat",
+      "Systemic Hypermetabolic State"
+    ],
+    "cell_types": [
+      "skin fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0002620"
+    ],
+    "biological_processes": [
+      "proton motive force-driven mitochondrial ATP synthesis",
+      "proton transmembrane transport",
+      "regulation of mitochondrial membrane potential",
+      "elevated basal oxygen consumption",
+      "glycolytic process"
+    ],
+    "phenotypes": [
+      "Increased resting energy expenditure",
+      "Failure to thrive",
+      "Polyphagia",
+      "Tachypnea",
+      "Recurrent hyperthermia",
+      "Hyperhidrosis",
+      "Global developmental delay",
+      "Intrauterine growth retardation",
+      "Elevated circulating branched-chain amino acid concentration",
+      "Hypertriglyceridemia",
+      "Hyperammonemia"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Growth",
+      "Respiratory",
+      "Dermatologic",
+      "Neurologic",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0012339",
+      "HP:0001508",
+      "HP:0002591",
+      "HP:0002789",
+      "HP:0004370",
+      "HP:0000975",
+      "HP:0001263",
+      "HP:0001511",
+      "HP:0008344",
+      "HP:0002155",
+      "HP:0001987"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ATP5F1B"
+    ],
+    "treatments": [
+      "Caloric Supplementation",
+      "Creatine Supplementation",
+      "Folinic Acid Supplementation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypermetabolism_Due_To_Uncoupled_Mitochondrial_Oxidative_Phosphorylation_2.yaml",
+    "page_url": "../pages/disorders/Hypermetabolism_Due_To_Uncoupled_Mitochondrial_Oxidative_Phosphorylation_2.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Hypermobile Ehlers-Danlos Syndrome",
     "disease_id": "MONDO:0007523",
     "category": "Genetic",
@@ -210276,6 +210461,153 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Inflammatory Skin And Bowel Disease Neonatal 2",
+    "disease_id": "MONDO:0014481",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-24T18:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Neonatal inflammatory skin and bowel disease 2 (NISBD2), also called EGFR deficiency, is an autosomal recessive multisystem epithelial disorder caused by germline loss-of-function variants in EGFR. Almost every reported patient is homozygous for the same extracellular-domain missense variant, c.1283G>A (p.Gly428Asp), and of Roma origin. The variant receptor misfolds, binds EGF poorly, is lost from the plasma membrane and fails to autophosphorylate or activate ERK and AKT, so EGFR signalling is abolished in every epithelium that depends on it. Affected infants are usually born prematurely and growth-restricted, with thin, translucent, fragile skin that erodes and desquamates, then becomes ichthyotic and develops a papulopustular rash with alopecia and long eyelashes, the same picture produced by EGFR-inhibitor cancer drugs. Chronic diarrhoea, failure to thrive, recurrent skin and respiratory infections and sepsis, nephromegaly with renal tubular salt and water loss and severe electrolyte imbalance, congenital heart defects and a progeroid appearance complete the syndrome. Most patients die in the first months of life; rare survivors into childhood have been reported. The ADAM17-associated form (NISBD1) disrupts the same signalling axis upstream, by failing to shed EGFR ligands, and is a separate disease.",
+    "pathophysiology": [
+      "EGFR Extracellular Domain Misfolding and Loss of Receptor Function",
+      "Abolished EGFR Downstream Signaling",
+      "Disturbed Keratinocyte Differentiation and Epidermal Barrier Failure",
+      "Cutaneous Inflammation with Impaired Innate Host Defense",
+      "Hair Follicle Inflammation and Degeneration",
+      "Intestinal Epithelial Dysfunction",
+      "Renal Tubular Salt and Water Wasting",
+      "Premature Cellular Senescence"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "dermal fibroblast",
+      "hair follicle cell",
+      "intestinal epithelial cell",
+      "epithelial cell of nephron"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000057",
+      "CL:0002559",
+      "CL:0002563",
+      "CL:1000449"
+    ],
+    "biological_processes": [
+      "epidermal growth factor receptor signaling pathway",
+      "keratinocyte differentiation",
+      "establishment of skin barrier",
+      "inflammatory response",
+      "defense response to Gram-positive bacterium",
+      "hair follicle development",
+      "cellular senescence"
+    ],
+    "phenotypes": [
+      "Skin erosions",
+      "Thin translucent skin",
+      "Ichthyosis",
+      "Skin desquamation",
+      "Papulopustular rash",
+      "Recurrent skin infections",
+      "Sepsis",
+      "Alopecia",
+      "Long eyelashes",
+      "Hyperpigmentation of the skin",
+      "Reduced subcutaneous adipose tissue",
+      "Progeroid facial appearance",
+      "Chronic diarrhea",
+      "Intestinal perforation",
+      "Failure to thrive",
+      "Premature birth",
+      "Intrauterine growth retardation",
+      "Polyhydramnios",
+      "Enlarged kidney",
+      "Hypokalemia",
+      "Hypernatremia",
+      "Hypomagnesemia",
+      "Hypoalbuminemia",
+      "Renal Fanconi syndrome",
+      "Congenital heart defects",
+      "Recurrent respiratory infections",
+      "Dentinogenesis imperfecta"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Infectious",
+      "Growth",
+      "Craniofacial",
+      "Gastrointestinal",
+      "Prenatal",
+      "Renal",
+      "Metabolic",
+      "Cardiovascular",
+      "Respiratory",
+      "Dental"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0200041",
+      "HP:0010648",
+      "HP:0008064",
+      "HP:0040189",
+      "HP:0200039",
+      "HP:0001581",
+      "HP:0100806",
+      "HP:0001596",
+      "HP:0000527",
+      "HP:0000953",
+      "HP:0003758",
+      "HP:0005328",
+      "HP:0002028",
+      "HP:0031368",
+      "HP:0001508",
+      "HP:0001622",
+      "HP:0001511",
+      "HP:0001561",
+      "HP:0000105",
+      "HP:0002900",
+      "HP:0003228",
+      "HP:0002917",
+      "HP:0003073",
+      "HP:0001994",
+      "HP:0001627",
+      "HP:0002205",
+      "HP:0000703"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "EGFR"
+    ],
+    "treatments": [
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Inflammatory_Skin_And_Bowel_Disease_Neonatal_2.yaml",
+    "page_url": "../pages/disorders/Inflammatory_Skin_And_Bowel_Disease_Neonatal_2.html",
+    "num_phenotypes": 27,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Influenza",
     "disease_id": "MONDO:0005812",
     "category": "Infectious Disease",
@@ -215050,7 +215382,8 @@ window.searchData = [
       "Gut-Brain Axis Dysfunction",
       "Intestinal Barrier Dysfunction",
       "Immune Activation and Mast Cell Degranulation",
-      "Microbiome Dysbiosis"
+      "Microbiome Dysbiosis",
+      "Bile Acid Malabsorption"
     ],
     "cell_types": [
       "enterochromaffin cell",
@@ -215065,7 +215398,8 @@ window.searchData = [
       "Gut Motility",
       "Nervous System Process",
       "Mast Cell Activation",
-      "Host-Microbiome Interaction"
+      "Host-Microbiome Interaction",
+      "bile acid biosynthesis"
     ],
     "phenotypes": [
       "Abdominal Pain",
@@ -215107,6 +215441,7 @@ window.searchData = [
       "Loperamide",
       "Linaclotide",
       "Rifaximin",
+      "Bile Acid Sequestrants",
       "Tricyclic Antidepressants",
       "SSRIs",
       "Probiotics",
@@ -215125,11 +215460,11 @@ window.searchData = [
     "source_file": "Irritable_Bowel_Syndrome.yaml",
     "page_url": "../pages/disorders/Irritable_Bowel_Syndrome.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 7,
     "num_genes": 2,
-    "num_treatments": 13,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "1"
+    "num_treatments": 14,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Ischemic Stroke",
@@ -286674,6 +287009,93 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 5,
     "causal_graph_edges": "46",
+    "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Olmsted Syndrome 2",
+    "disease_id": "MONDO:0030961",
+    "category": "Mendelian",
+    "parents": [
+      "Olmsted syndrome"
+    ],
+    "creation_date": "2026-10-24T01:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Olmsted syndrome 2 (OLMS2) is the autosomal dominant, PERP-related form of Olmsted syndrome: a severe palmoplantar keratoderma with periorificial keratotic plaques. It is caused by heterozygous nonsense variants clustered in the last exon of PERP (p.Trp151* and p.Tyr153*), which encodes a p53/p63 target tetraspan membrane protein that is a component of desmosomes. Because the premature stop lies in the terminal exon, the mutant transcript escapes nonsense-mediated decay and a truncated protein is made; in patient keratinocytes it reaches the membrane but is enriched in the detergent-soluble fraction, consistent with unstable incorporation into desmosomes. Patient skin shows immature desmosomes lacking the electron-dense midline, cultured keratinocyte sheets fragment more under mechanical stress, and the epidermis is hyperproliferative with acanthosis and hyperkeratosis. Reported patients also have cheilitis, keratotic plaques in flexures and on the buttocks, hyperkeratotic nails and woolly, often yellow, hair. The same gene causes a recessive erythrokeratoderma (EKVP7) through biallelic loss of expression, which this knowledge base curates as a subtype of Erythrokeratodermia Variabilis.",
+    "pathophysiology": [
+      "PERP Last-Exon Nonsense Variant",
+      "Unstable Desmosomal Incorporation of Truncated PERP",
+      "Immature Desmosomes Lacking the Electron-Dense Midline",
+      "Impaired Keratinocyte Adhesion Under Mechanical Stress",
+      "Epidermal Hyperproliferation",
+      "Altered Terminal Keratinocyte Differentiation"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "basal cell of epidermis"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0002187"
+    ],
+    "biological_processes": [
+      "desmosome organization",
+      "cell-cell adhesion",
+      "keratinocyte proliferation",
+      "keratinocyte differentiation"
+    ],
+    "phenotypes": [
+      "Palmoplantar keratoderma",
+      "Periorificial hyperkeratosis",
+      "Cheilitis",
+      "Hyperkeratotic plaques of the flexures and buttocks",
+      "Skin fissure",
+      "Hyperkeratotic nails",
+      "Woolly hair",
+      "Yellow hair",
+      "Sparse eyebrow",
+      "Carious teeth",
+      "Epidermal acanthosis",
+      "Hyperkeratosis"
+    ],
+    "phenotype_categories": [
+      "Dermatological",
+      "Dental",
+      "Histopathological"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Integument",
+      "Limbs"
+    ],
+    "phenotype_ids": [
+      "HP:0000982",
+      "HP:0034521",
+      "HP:0100825",
+      "HP:0200035",
+      "HP:0031057",
+      "HP:0012542",
+      "HP:0002224",
+      "HP:0002286",
+      "HP:0045075",
+      "HP:0000670",
+      "HP:0025092",
+      "HP:0000962"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PERP"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Olmsted_Syndrome_2.yaml",
+    "page_url": "../pages/disorders/Olmsted_Syndrome_2.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "7"
   },
   {
@@ -400828,17 +401250,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3713,
+  "total_disorder_pages": 3717,
   "total_subtypes": 4897,
-  "total_disorders_and_subtypes": 8610,
-  "total_unique_evidence_sources": 55499,
-  "total_unique_publications": 51844,
+  "total_disorders_and_subtypes": 8614,
+  "total_unique_evidence_sources": 55545,
+  "total_unique_publications": 51888,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3711,
-  "total_unique_pathological_events": 24491,
+  "total_pathographs": 3715,
+  "total_unique_pathological_events": 24520,
   "total_modules": 204,
-  "total_research_reports": 3838,
+  "total_research_reports": 3841,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 121
