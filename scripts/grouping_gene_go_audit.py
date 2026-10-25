@@ -16,16 +16,31 @@ it collects the criterion's GO roots, then for each disease member:
    ``kb/genes/ingest/hgnc.tsv`` (falling back to the UniProt REST API for a
    gene the ingest table does not hold);
 3. asks QuickGO for that protein's molecular-function annotations under any
-   root, following ``is_a`` and ``part_of``.
+   root, following ``is_a`` and ``part_of``;
+4. reads the gene's ai-gene-review core molecular-function terms from the
+   pinned ``kb/genes/ingest/ai_gene_review_core_function_terms.tsv`` and tests
+   them against the roots through QuickGO's ontology ancestors.
 
-A gene's verdict is the strongest evidence class among its matching positive
-annotations (``NOT`` annotations are reported, never counted):
+A gene's verdict is the strongest class of support it has
+(``NOT`` annotations are reported, never counted):
 
-  EXPERIMENTAL   EXP, IDA, IPI, IMP, IGI, IEP and the high-throughput codes
-  PHYLOGENETIC   IBA, IBD, IKR, IRD
-  CURATED        TAS, NAS, IC and the sequence-similarity codes (ISS, ISO ...)
-  ELECTRONIC     IEA only
-  NONE           no annotation under any root
+  EXPERIMENTAL   a GO annotation coded EXP, IDA, IPI, IMP, IGI, IEP or a
+                 high-throughput code
+  PHYLOGENETIC   a GO annotation coded IBA, IBD, IKR or IRD
+  CURATED        a GO annotation coded TAS, NAS, IC or a sequence-similarity
+                 code (ISS, ISO ...)
+  GENE_REVIEW    an ai-gene-review core function under a root
+  ELECTRONIC     a GO annotation coded IEA, and nothing stronger
+  NONE           none of the above
+
+The gene review counts as support because it is this project's own curation
+of the gene's function. It is AI-generated and lives in a separate repository,
+so it ranks below every curated GO evidence class. Where it states an activity
+GO's annotations lack, the review is the answer, so the report lists those
+genes separately rather than treating them as gaps. The ingest table is a snapshot (see
+``kb/genes/ingest/sources.json``), so a review newer than the pin is not seen
+until the ingest is refreshed (``just genes-ingest-refresh --repin`` then
+``just genes-ingest-build``).
 
 A ``member_type: SUBTYPE`` row names its parent entry, so the parent's genes
 would rate it by its siblings' genes. A subtype is instead checked against the
@@ -34,27 +49,17 @@ as ``SUBTYPE_UNSCOPED`` (no lookup) when the row names none, including a
 subtype reached through a nested grouping.
 
 A member is ``SUPPORTED`` when at least one causal gene has a verdict above
-NONE, ``UNSUPPORTED`` when every causal gene is NONE, and ``NO_CAUSAL_GENE``
+NONE (``GENE_REVIEW`` included), ``UNSUPPORTED`` when every causal gene is NONE, and ``NO_CAUSAL_GENE``
 when the entry binds no causal HGNC gene at all. For a NO_CAUSAL_GENE member
 the genes it does bind (``DISPUTED``, ``SUSCEPTIBILITY`` ...) are still looked
 up and listed with their relationship type, because a grouping member whose
 only gene is disputed is itself worth a look.
 
-Each gene also carries a second, independent opinion: the molecular-function
-core-function terms of its ai-gene-review review, read from the pinned
-``kb/genes/ingest/ai_gene_review_core_function_terms.tsv`` and tested against
-the roots through QuickGO's ontology ancestors. That review is AI-generated and
-is shown as a lead, never counted in the verdict. It matters most where the two
-disagree: a gene GO does not annotate under a root but whose review proposes
-an activity under it is a candidate GO annotation gap. The ingest table is a
-snapshot (see ``kb/genes/ingest/sources.json``), so a review newer than the pin
-is not seen until the ingest is refreshed.
-
 An UNSUPPORTED member is a lead, not a defect, and it can mean three different
 things: the gene is not what the criterion says (the member does not belong),
-GO has not yet annotated a real activity (an annotation gap worth reporting
-upstream), or the activity belongs to a different gene in a multi-gene entry.
-Read the entry before changing anything.
+the gene has no ai-gene-review review yet (or one newer than the ingest pin),
+or the activity belongs to a different gene in a multi-gene entry. Read the
+entry before changing anything.
 
 Usage:
     uv run python scripts/grouping_gene_go_audit.py
@@ -105,7 +110,7 @@ EVIDENCE_CLASSES = {
     "ELECTRONIC": {"IEA"},
 }
 # Strongest first; NONE is the floor.
-VERDICT_ORDER = ["EXPERIMENTAL", "PHYLOGENETIC", "CURATED", "ELECTRONIC", "NONE"]
+VERDICT_ORDER = ["EXPERIMENTAL", "PHYLOGENETIC", "CURATED", "GENE_REVIEW", "ELECTRONIC", "NONE"]
 
 
 def evidence_class(code: str) -> str:
@@ -132,7 +137,7 @@ class GeneVerdict:
     relationship: str | None = None
     annotations: list[Annotation] = field(default_factory=list)
     lookup_failed: bool = False
-    # ai-gene-review core MF terms that fall under a root (a lead, not a verdict).
+    # ai-gene-review core MF terms that fall under a root (GENE_REVIEW support).
     review_terms: list[str] = field(default_factory=list)
 
     @property
@@ -149,15 +154,23 @@ class GeneVerdict:
 
     @property
     def verdict(self) -> str:
+        classes = {evidence_class(a.evidence) for a in self.positive}
+        if self.review_terms:
+            # Keyed on the HGNC id, so it stands even when the GO lookup cannot.
+            classes.add("GENE_REVIEW")
+        for name in VERDICT_ORDER[:-1]:
+            if name in classes:
+                return name
         if self.lookup_failed:
             return "LOOKUP_FAILED"
         if self.uniprot is None:
             return "NO_UNIPROT"
-        classes = {evidence_class(a.evidence) for a in self.positive}
-        for name in VERDICT_ORDER:
-            if name in classes:
-                return name
         return "NONE"
+
+    @property
+    def go_supported(self) -> bool:
+        """Whether GO's own annotations, not the gene review, support the gene."""
+        return bool(self.positive)
 
     @property
     def go_ids(self) -> list[str]:
@@ -465,9 +478,15 @@ def build_verdicts(only: str | None = None, *, pause: float = 0.2) -> list[Group
         under = terms_under_roots(candidate_terms, roots, pause=pause) if candidate_terms else set()
         if under is None:
             gv.review_lookup_failed = True
+            # The review now carries verdicts, so a gene it might have supported
+            # is unresolved, not unsupported, when the ancestor lookup fails.
+            for g in all_genes:
+                if review_terms.get(g.hgnc) and not g.go_supported:
+                    g.lookup_failed = True
             print(
-                f"WARNING: QuickGO ancestor lookup failed for {name}; the ai-gene-review "
-                "column is empty for this grouping, not absent.",
+                f"WARNING: QuickGO ancestor lookup failed for {name}; ai-gene-review "
+                "support could not be checked, so genes relying on it are reported "
+                "as LOOKUP_FAILED and their members as UNRESOLVED.",
                 file=sys.stderr,
             )
         for g in all_genes:
@@ -495,13 +514,13 @@ def _print_summary(verdicts: list[GroupingVerdict]) -> None:
         counts = {k: len(v.by_verdict(k)) for k in kinds}
         print("    " + "  ".join(f"{k}={n}" for k, n in counts.items() if n or k != "SUBTYPE_UNSCOPED"))
         if v.review_lookup_failed:
-            print("    NOTE: the ai-gene-review lookup failed; that column is empty, not absent.")
+            print("    NOTE: the ai-gene-review lookup failed; genes relying on it are LOOKUP_FAILED.")
         weakest = [
             m for m in v.by_verdict("SUPPORTED")
             if all(g.verdict in ("ELECTRONIC", "NONE", "NO_UNIPROT", "LOOKUP_FAILED") for g in m.causal_genes)
         ]
         for label, rows in (
-            ("UNSUPPORTED (no causal gene annotated under a root)", v.by_verdict("UNSUPPORTED")),
+            ("UNSUPPORTED (no causal gene supported by GO or its gene review)", v.by_verdict("UNSUPPORTED")),
             ("UNRESOLVED (lookup failed or no UniProt accession)", v.by_verdict("UNRESOLVED")),
             ("NO_CAUSAL_GENE (no causal HGNC gene; the genes it does bind are listed)",
              v.by_verdict("NO_CAUSAL_GENE")),
@@ -523,20 +542,21 @@ def _print_summary(verdicts: list[GroupingVerdict]) -> None:
         if mixed:
             print("\n    Causal genes with no annotation under a root, in otherwise SUPPORTED members:")
             for m, g in mixed:
-                review = f"  ai-gene-review core: {', '.join(g.review_terms)}" if g.review_terms else ""
-                print(f"      {m.label}: {g.symbol} ({g.uniprot}){review}")
-        gaps = [(m, g) for m in v.members for g in m.genes if g.verdict == "NONE" and g.review_terms]
-        if gaps:
-            print("\n    Candidate GO annotation gaps (GO has nothing under a root; the ai-gene-review")
-            print("    core function does):")
-            for m, g in gaps:
-                print(f"      {g.symbol} ({g.uniprot}) in {m.label}: {', '.join(g.review_terms)}")
+                print(f"      {m.label}: {g.symbol} ({g.uniprot})")
+        review_only = [
+            (m, g) for m in v.members for g in m.genes
+            if g.review_terms and not g.go_supported
+        ]
+        if review_only:
+            print("\n    Supported by the ai-gene-review core function, with no GO annotation under a root:")
+            for m, g in review_only:
+                print(f"      {g.symbol} ({g.uniprot or 'no UniProt'}) in {m.label}: {', '.join(g.review_terms)}")
 
     print("\n" + "-" * 72)
     print(
-        "UNSUPPORTED is a lead, not a defect: the member may not belong, GO may\n"
-        "lack a real annotation, or the activity may sit on another gene. Read the\n"
-        "entry before changing anything."
+        "UNSUPPORTED is a lead, not a defect: the member may not belong, its gene\n"
+        "may have no ai-gene-review review yet, or the activity may sit on another\n"
+        "gene. Read the entry before changing anything."
     )
 
 

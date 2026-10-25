@@ -79,6 +79,7 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
+from dismech.conformance import iter_conforms_to, module_stem
 from dismech.repo_root import LazyRepoPaths
 from dismech.yaml_io import safe_load
 
@@ -793,9 +794,8 @@ def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
             continue
 
         # conforms_to lives on pathophysiology nodes; collect the module stems.
-        conforms = node.get("conforms_to")
-        if isinstance(conforms, str) and conforms:
-            facts.module_stems.add(conforms.split("#", 1)[0].strip())
+        for conforms in iter_conforms_to(node):
+            facts.module_stems.add(module_stem(conforms))
             facts.module_refs.add(_normalize_module_ref(conforms))
 
         # Any term with an id contributes to the appropriate id set.

@@ -757,3 +757,72 @@ def test_next_keeps_and_annotates_a_possible_kb_duplicate(tmp_path, next_cli):
     kinds = [a["kind"] for a in rows[0]["advisories"]]
     assert kinds == ["possible_kb_duplicate"]
     assert "Hereditary_Xanthinuria.yaml" in rows[0]["advisories"][0]["message"]
+
+
+def test_next_json_carries_the_enrichment_fields_when_present(tmp_path, next_cli):
+    """`--json` must carry what the lump/split call turns on (#10180).
+
+    The fields are emitted only when the stub has them. The enrichment omits an
+    empty block rather than writing it empty, so absence means "MONDO records
+    none", and a `null` would blur that.
+    """
+    import json
+
+    (tmp_path / "Enriched_Test_Disease.yaml").write_text(
+        "mondo_id: MONDO:9999903\n"
+        "label: enriched test disease\n"
+        "synonyms:\n- ETD\n"
+        "mondo_parents:\n- id: MONDO:0002012\n  label: methylmalonic acidemia\n"
+        "mondo_descendants:\n- id: MONDO:9999904\n  label: enriched test disease 1\n"
+        "mondo_descendant_count: 1\n"
+        "genes:\n- id: hgnc:7526\n  label: MMUT\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "Bare_Test_Disease.yaml").write_text(
+        "mondo_id: MONDO:9999905\nlabel: bare test disease\n", encoding="utf-8"
+    )
+
+    rows = {
+        row["mondo_id"]: row
+        for row in json.loads(next_cli("5", "--stub-dir", str(tmp_path), "--json"))
+    }
+    enriched = rows["MONDO:9999903"]
+    assert enriched["mondo_parents"] == [
+        {"id": "MONDO:0002012", "label": "methylmalonic acidemia"}
+    ]
+    assert enriched["mondo_descendants"] == [
+        {"id": "MONDO:9999904", "label": "enriched test disease 1"}
+    ]
+    assert enriched["mondo_descendant_count"] == 1
+    assert enriched["genes"] == [{"id": "hgnc:7526", "label": "MMUT"}]
+    assert enriched["synonyms"] == ["ETD"]
+
+    bare = rows["MONDO:9999905"]
+    from dismech.stubs.cli import ENRICHMENT_KEYS
+
+    assert not set(ENRICHMENT_KEYS) & set(bare)
+    # The base record is unchanged for both.
+    for row in (enriched, bare):
+        assert {"mondo_id", "label", "priority", "stub_path", "advisories"} <= set(row)
+
+    text = next_cli("5", "--stub-dir", str(tmp_path))
+    assert "enriched test disease  (MONDO descendants: 1)" in text
+    assert "bare test disease\n" in text
+
+
+def test_next_reports_a_missing_claims_file_without_a_traceback(tmp_path):
+    """`--json` in the recipe's claims slot used to become a file path (#10180)."""
+    from typer.testing import CliRunner
+
+    from dismech.stubs.cli import app
+
+    missing = tmp_path / "no_such_claims.json"
+    for args in (
+        ["next", "3", "--stub-dir", str(tmp_path), "--claims", str(missing)],
+        ["claims", str(missing), "--stub-dir", str(tmp_path)],
+    ):
+        result = CliRunner().invoke(app, args)
+        assert result.exit_code == 2, result.output
+        assert not isinstance(result.exception, FileNotFoundError)
+        assert "claims file not found" in result.output
+        assert "just fetch-claims" in result.output
