@@ -8654,6 +8654,97 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "ALK-Related Neuroblastic Tumor Susceptibility",
+    "disease_id": "MONDO:0013083",
+    "category": "",
+    "parents": [],
+    "creation_date": "2026-10-22T17:46:42Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal dominant, incompletely penetrant cancer predisposition syndrome caused by a heterozygous germline activating missense variant in the tyrosine kinase domain of ALK. It is the principal genetic cause of familial neuroblastoma. Carriers are at raised risk of the whole neuroblastic tumor spectrum - neuroblastoma, ganglioneuroblastoma and ganglioneuroma - with risk concentrated in infancy and falling through childhood, and with a characteristic tendency to multifocal and bilateral primary tumors. The entry describes the susceptibility state, not the tumor: the germline variant is necessary but not sufficient, and transformation requires a cooperating somatic lesion, most often MYCN amplification. Roughly half of carriers never develop a neuroblastic tumor, and an unaffected transmitting parent is common.",
+    "pathophysiology": [
+      "Germline ALK Kinase Domain Activating Variant",
+      "Constitutive Ligand-Independent ALK Kinase Activation",
+      "Sustained RAS-MAPK and PI3K-AKT-mTOR Signaling",
+      "Sympathoadrenal Neuroblast Hyperplasia and Delayed Differentiation",
+      "Somatic MYCN Amplification in an ALK-Activated Neuroblast",
+      "Block of Developmentally Timed Neuroblast Apoptosis",
+      "Disrupted Brainstem Development"
+    ],
+    "cell_types": [
+      "neural crest derived neuroblast",
+      "sympathetic neuron",
+      "chromaffin cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002676",
+      "CL:0011103",
+      "CL:0000166"
+    ],
+    "biological_processes": [
+      "protein autophosphorylation",
+      "peptidyl-tyrosine phosphorylation",
+      "MAPK cascade",
+      "phosphatidylinositol 3-kinase/protein kinase B signal transduction",
+      "sympathetic nervous system development",
+      "positive regulation of cell population proliferation",
+      "neuron differentiation",
+      "negative regulation of apoptotic process"
+    ],
+    "phenotypes": [
+      "Neuroblastoma",
+      "Ganglioneuroblastoma",
+      "Ganglioneuroma",
+      "Encephalopathy",
+      "Abnormal brainstem morphology",
+      "Elevated urinary homovanillic acid",
+      "Elevated urinary vanillylmandelic acid"
+    ],
+    "phenotype_categories": [
+      "Neoplasm",
+      "Neurologic",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003006",
+      "HP:0006747",
+      "HP:0003005",
+      "HP:0001298",
+      "HP:0002363",
+      "HP:0011977",
+      "HP:0011978"
+    ],
+    "frequencies": [
+      "Rare; two reported cases."
+    ],
+    "genes": [
+      "ALK",
+      "MYCN"
+    ],
+    "treatments": [
+      "Lorlatinib",
+      "Crizotinib",
+      "Surgical resection",
+      "Genetic counseling and cascade testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ALK-Related_Neuroblastic_Tumor_Susceptibility.yaml",
+    "page_url": "../pages/disorders/ALK-Related_Neuroblastic_Tumor_Susceptibility.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "ALK-Rearranged Non-Small Cell Lung Cancer",
     "disease_id": "MONDO:0005233",
     "category": "",
@@ -121372,40 +121463,133 @@ window.searchData = [
     "subtypes": [],
     "description": "Dementia with Lewy Bodies (DLB) is a progressive neurodegenerative disorder characterized by cognitive decline, visual hallucinations, parkinsonism, and fluctuating cognition. It is pathologically defined by the presence of Lewy bodies containing aggregated alpha-synuclein protein in the brain. DLB is the second most common cause of neurodegenerative dementia after Alzheimer's disease.\n",
     "pathophysiology": [
-      "Alpha-Synuclein Aggregation and Lewy Body Formation",
       "Autophagy-Lysosome Dysfunction",
+      "Alpha-Synuclein Aggregation and Lewy Body Formation",
+      "Peripheral Autonomic and Lower Brainstem Lewy Pathology",
+      "Cardiac Sympathetic Noradrenergic Denervation",
+      "Olfactory Bulb Lewy Pathology",
+      "Pontine REM-Atonia Circuit Lewy Pathology",
+      "REM Sleep Atonia Loss",
+      "Nigrostriatal Dopaminergic Degeneration",
+      "Striatal Dopamine Deficiency Without D2 Receptor Compensation",
+      "Basal Forebrain Cholinergic Degeneration",
+      "Cortical Cholinergic Deficit",
+      "Thalamocortical Arousal Network Dysfunction",
+      "Limbic Lewy Pathology",
+      "Neocortical Lewy Pathology",
+      "Occipital and Parietal Association Cortex Dysfunction",
+      "Reduced Neocortical Hypocretin Signalling",
+      "Concomitant Alzheimer Disease Co-Pathology",
       "Neuronal Death"
     ],
     "cell_types": [
-      "neuron"
+      "neuron",
+      "sympathetic neuron",
+      "enteric neuron",
+      "postganglionic sympathetic noradrenergic neuron",
+      "glutamatergic REM-on neuron of the sublaterodorsal nucleus",
+      "substantia nigra dopaminergic neuron",
+      "basal forebrain cholinergic neuron",
+      "hypocretin-secreting neuron"
     ],
     "cell_type_ids": [
-      "CL:0000540"
+      "CL:0000540",
+      "CL:0011103",
+      "CL:0007011",
+      "CL:3000002",
+      "CL:4042025",
+      "CL:0000108",
+      "CL:0011109"
     ],
     "biological_processes": [
+      "autophagy",
       "inclusion body assembly",
-      "autophagy"
+      "sensory perception of smell",
+      "REM sleep",
+      "skeletal muscle contraction during REM sleep",
+      "dopaminergic synaptic transmission",
+      "cholinergic synaptic transmission",
+      "visual perception"
     ],
     "phenotypes": [
+      "REM Sleep Behavior Disorder",
+      "Hyposmia",
+      "Constipation",
+      "Orthostatic Hypotension",
+      "Urinary Urgency and Incontinence",
+      "Depression",
+      "Anxiety",
+      "Impaired Attention and Executive Function",
+      "Visuospatial Impairment",
+      "Fluctuating Cognition and Alertness",
+      "Posterior EEG Slowing",
+      "Excessive Daytime Somnolence",
+      "Visual Misperceptions and Illusions",
       "Visual Hallucinations",
-      "Parkinsonism",
+      "Delusions",
+      "Delusional Misidentification",
+      "Apathy",
       "Dementia",
-      "REM Sleep Behavior Disorder"
+      "Memory Impairment",
+      "Parkinsonism",
+      "Bradykinesia",
+      "Rigidity",
+      "Postural Instability",
+      "Frequent Falls",
+      "Severe Antipsychotic Sensitivity",
+      "Dysphagia",
+      "Aspiration Pneumonia"
     ],
     "phenotype_categories": [
-      "Neurological"
+      "Neurological",
+      "Gastrointestinal",
+      "Cardiovascular",
+      "Genitourinary",
+      "Psychiatric",
+      "Respiratory"
     ],
     "phenotype_hpo_categories": [
-      "Nervous System"
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
+      "HP:5200291",
+      "HP:0004409",
+      "HP:0002019",
+      "HP:0004926",
+      "HP:0000012",
+      "HP:0000716",
+      "HP:0000739",
+      "HP:0033051",
+      "HP:0010794",
+      "HP:0007159",
+      "HP:0011203",
+      "HP:0001262",
+      "HP:5200205",
       "HP:0002367",
-      "HP:0001300",
+      "HP:0000746",
+      "HP:5200428",
+      "HP:0000741",
       "HP:0000726",
-      "HP:5200291"
+      "HP:0002354",
+      "HP:0001300",
+      "HP:0002067",
+      "HP:0002063",
+      "HP:0002172",
+      "HP:0002359",
+      "HP:0002015",
+      "HP:0011951"
     ],
     "frequencies": [
-      "VERY_FREQUENT"
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OBLIGATE"
     ],
     "genes": [
       "APOE",
@@ -121414,18 +121598,19 @@ window.searchData = [
     ],
     "treatments": [
       "Cholinesterase Inhibitors",
+      "Levodopa",
       "Symptomatic Management"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Dementia_with_Lewy_Bodies.yaml",
     "page_url": "../pages/disorders/Dementia_with_Lewy_Bodies.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 27,
+    "num_pathophysiology": 18,
     "num_genes": 3,
-    "num_treatments": 2,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "2"
+    "num_treatments": 3,
+    "causal_graph_edges": "52",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Dengue",
@@ -179307,6 +179492,7 @@ window.searchData = [
     "treatments": [
       "HLH-94 / HLH-2004 Chemoimmunotherapy (Etoposide + Dexamethasone)",
       "Emapalumab (Anti-Interferon-gamma Antibody)",
+      "PD-1 Blockade (Nivolumab, Sintilimab) for Refractory or Relapsed EBV-HLH",
       "Allogeneic Hematopoietic Stem Cell Transplantation"
     ],
     "environmental": [],
@@ -179316,7 +179502,7 @@ window.searchData = [
     "num_phenotypes": 11,
     "num_pathophysiology": 6,
     "num_genes": 8,
-    "num_treatments": 3,
+    "num_treatments": 4,
     "causal_graph_edges": "21",
     "causal_graph_longest_path": "5"
   },
@@ -400593,17 +400779,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3712,
+  "total_disorder_pages": 3713,
   "total_subtypes": 4897,
-  "total_disorders_and_subtypes": 8609,
-  "total_unique_evidence_sources": 55382,
-  "total_unique_publications": 51730,
+  "total_disorders_and_subtypes": 8610,
+  "total_unique_evidence_sources": 55494,
+  "total_unique_publications": 51839,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3709,
-  "total_unique_pathological_events": 24468,
+  "total_pathographs": 3710,
+  "total_unique_pathological_events": 24489,
   "total_modules": 204,
-  "total_research_reports": 3836,
+  "total_research_reports": 3838,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 121
