@@ -23728,6 +23728,7 @@ window.searchData = [
       "Microglial Lipid Droplet Accumulation",
       "Interneuron Dysfunction and Network Hypersynchrony",
       "Tau-Induced Nucleocytoplasmic Transport Failure",
+      "scaRNA13 Nuclear ncRNA Upregulation",
       "Brain N-Glycan Hyperglycosylation",
       "Micro-MKKS63 Microprotein Depletion",
       "Microglial Oxidative Phosphorylation Failure"
@@ -23822,6 +23823,7 @@ window.searchData = [
       "Microglial phagocytosis",
       "Inhibitory synaptic transmission",
       "Nucleocytoplasmic transport",
+      "mRNA splicing",
       "Protein N-linked glycosylation",
       "UDP-N-acetylglucosamine biosynthesis (hexosamine pathway flux)",
       "Protein O-GlcNAcylation",
@@ -23894,10 +23896,10 @@ window.searchData = [
     "source_file": "Alzheimer_Disease.yaml",
     "page_url": "../pages/disorders/Alzheimer_Disease.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 28,
+    "num_pathophysiology": 29,
     "num_genes": 10,
     "num_treatments": 7,
-    "causal_graph_edges": "70",
+    "causal_graph_edges": "71",
     "causal_graph_longest_path": "10"
   },
   {
@@ -235434,36 +235436,56 @@ window.searchData = [
     "updated_date": null,
     "subtypes": [],
     "description": "This is a provisional record for one published human observation associated with Lone Star virus. The report concerned an immunocompromised adult with fatal meningoencephalitis, but etiologic attribution remains uncertain: an initial cerebrospinal-fluid detection was reproduced only at the originating laboratory and was not reproduced by later testing at a second laboratory; additional confirmation was negative. The record does not define a general clinical spectrum, established human transmission route, diagnostic case definition, or established causal disease entity.",
-    "pathophysiology": [],
+    "pathophysiology": [
+      "Central Nervous System Inflammation"
+    ],
     "cell_types": [],
     "cell_type_ids": [],
-    "biological_processes": [],
+    "biological_processes": [
+      "inflammatory response"
+    ],
     "phenotypes": [
-      "Meningoencephalitis"
+      "Meningoencephalitis",
+      "Fever",
+      "Headache",
+      "Myalgia",
+      "Thrombocytopenia"
     ],
     "phenotype_categories": [
-      "Neurologic"
+      "Neurologic",
+      "Constitutional",
+      "Musculoskeletal",
+      "Hematologic"
     ],
     "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
       "Immune",
+      "Metabolism",
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0002383"
+      "HP:0002383",
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0003326",
+      "HP:0001873"
     ],
     "frequencies": [],
     "genes": [],
-    "treatments": [],
+    "treatments": [
+      "Supportive Care"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Lone_Star_Virus_Infection.yaml",
     "page_url": "../pages/disorders/Lone_Star_Virus_Infection.html",
-    "num_phenotypes": 1,
-    "num_pathophysiology": 0,
+    "num_phenotypes": 5,
+    "num_pathophysiology": 1,
     "num_genes": 0,
-    "num_treatments": 0,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 1,
+    "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Long-chain 3-hydroxyacyl-CoA Dehydrogenase Deficiency",
@@ -300266,6 +300288,7 @@ window.searchData = [
     ],
     "environmental": [
       "Pesticide Exposure",
+      "Trifluralin Exposure",
       "Rural Living",
       "Head Trauma"
     ],
@@ -300276,7 +300299,7 @@ window.searchData = [
     "num_pathophysiology": 32,
     "num_genes": 14,
     "num_treatments": 8,
-    "causal_graph_edges": "94",
+    "causal_graph_edges": "95",
     "causal_graph_longest_path": "14"
   },
   {
@@ -330273,7 +330296,10 @@ window.searchData = [
     ],
     "cell_types": [],
     "cell_type_ids": [],
-    "biological_processes": [],
+    "biological_processes": [
+      "Chromatin remodeling",
+      "Chromatin organization"
+    ],
     "phenotypes": [
       "Atypical Teratoid Rhabdoid Tumor",
       "Rhabdoid Tumor of the Kidney",
@@ -330310,8 +330336,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Rheumatic Heart Disease",
@@ -336759,7 +336785,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "8",
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "5"
   },
   {
@@ -370500,7 +370526,10 @@ window.searchData = [
       "Hearing Impairment"
     ],
     "phenotype_categories": [
-      "Clinical"
+      "Nervous System",
+      "Head and Neck",
+      "Eye",
+      "Ear"
     ],
     "phenotype_hpo_categories": [
       "Ear",
@@ -370532,7 +370561,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "13",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "5"
   },
   {
@@ -381919,11 +381948,23 @@ window.searchData = [
       "Additional X Chromosome (47,XXX)",
       "X-Inactivation Escape / Gene Dosage Imbalance",
       "Neurodevelopmental Vulnerability",
-      "Premature Ovarian Insufficiency"
+      "Ovarian Dysgenesis"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
-    "biological_processes": [],
+    "cell_types": [
+      "oocyte",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000023",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "female meiosis chromosome segregation",
+      "chromosome segregation",
+      "dosage compensation by inactivation of X chromosome",
+      "regulation of gene expression",
+      "nervous system development"
+    ],
     "phenotypes": [
       "Tall Stature",
       "Epicanthus",
@@ -381935,20 +381976,23 @@ window.searchData = [
       "Attention Deficit Hyperactivity Disorder",
       "Premature Ovarian Insufficiency",
       "Seizures",
-      "Renal and Genitourinary Anomalies"
+      "Renal and Genitourinary Anomalies",
+      "Constipation",
+      "Anxiety",
+      "Depression"
     ],
     "phenotype_categories": [
       "Growth",
-      "Craniofacial",
+      "Head and Neck",
       "Musculoskeletal",
-      "Developmental",
-      "Cognitive",
-      "Behavioral",
-      "Reproductive",
-      "Neurologic",
-      "Renal"
+      "Limbs",
+      "Nervous System",
+      "Endocrine",
+      "Genitourinary",
+      "Gastrointestinal"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
       "Genitourinary",
       "Growth",
       "Head and Neck",
@@ -381967,9 +382011,13 @@ window.searchData = [
       "HP:0007018",
       "HP:0008209",
       "HP:0001250",
-      "HP:0000119"
+      "HP:0000119",
+      "HP:0002019",
+      "HP:0000739",
+      "HP:0000716"
     ],
     "frequencies": [
+      "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
     ],
@@ -381978,17 +382026,18 @@ window.searchData = [
     ],
     "treatments": [
       "Developmental and Educational Support",
-      "Speech and Language Therapy"
+      "Speech and Language Therapy",
+      "Physical and Occupational Therapy"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Trisomy_X.yaml",
     "page_url": "../pages/disorders/Trisomy_X.html",
-    "num_phenotypes": 11,
+    "num_phenotypes": 14,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "5",
+    "num_treatments": 3,
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "3"
   },
   {
@@ -400782,12 +400831,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3713,
   "total_subtypes": 4897,
   "total_disorders_and_subtypes": 8610,
-  "total_unique_evidence_sources": 55494,
-  "total_unique_publications": 51839,
+  "total_unique_evidence_sources": 55499,
+  "total_unique_publications": 51844,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3710,
-  "total_unique_pathological_events": 24489,
+  "total_pathographs": 3711,
+  "total_unique_pathological_events": 24491,
   "total_modules": 204,
   "total_research_reports": 3838,
   "total_classifications": 21,
