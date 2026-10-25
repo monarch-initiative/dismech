@@ -239,9 +239,9 @@ Connecting a vaccine via `target_mechanisms:` forces the curator to distinguish 
 
 ---
 
-## 3. Flagship New-Disorder Trial: Rotaviral Enteritis (`MONDO:0001166`)
+## 3. Flagship New-Disorder Trial: Rotaviral Enteritis (`MONDO:0005194`)
 
-`Rotaviral_Enteritis` (`MONDO:0001166`, *rotaviral enteritis*) is our primary end-to-end curation trial integrating:
+`Rotaviral_Enteritis` (`MONDO:0005194`, *rotaviral enteritis*) is our primary end-to-end curation trial integrating:
 1. **Viral pathogenesis** across dual secretory + osmotic diarrhea mechanisms,
 2. **Host genetic receptor dependency** (`FUT2` secretor status), and
 3. **Vaccine mechanism links** (`NCIT:C96394` `Rotavirus Vaccine`).
@@ -251,16 +251,17 @@ Connecting a vaccine via `target_mechanisms:` forces the curator to distinguish 
 ```mermaid
 flowchart TD
   G1["Host FUT2 Secretor Status (hgnc:4013)<br/>Alpha(1,2)-fucosylated HBGA expression on villus enterocytes"] --> N1
-  N1["Rotavirus Attachment and Mature Enterocyte Invasion<br/>VP4 (VP8*/VP5*) & VP7 outer capsid bind HBGAs/integrins"]
-  N1 --> N2["NSP4 Enterotoxin Ca2+-Activated Cl- Secretion<br/>Endoplasmic reticulum Ca2+ mobilization & ANO1 (TMEM16A) activation + ENS stimulation"]
-  N1 --> N3["Villus Enterocyte Cytolysis and Brush-Border Disaccharidase Loss<br/>Villus blunting, lactase/sucrase-isomaltase depletion, SGLT1 loss"]
-  N1 --> N4["NSP1-Mediated Antagonism of Host Type I/III Interferon Signaling<br/>Proteasomal degradation of IRF3, IRF5, IRF7 & beta-TrCP"]
-  N4 --> N1
-  N2 --> P1["Secretory Watery Diarrhea (HP:0002014)"]
-  N3 --> P1
+  N1["Host Glycan Attachment and Mature Villus Enterocyte Entry<br/>VP4 (VP8*/VP5*) & VP7 outer capsid bind HBGAs/sialoglycans"]
+  N1 --> N2["NSP4 Viroporin-Mediated Intracellular Calcium Mobilization<br/>Endoplasmic reticulum Ca2+ mobilization & Calcium-Activated Chloride Secretion (ANO1) + ENS stimulation"]
+  N1 --> N3["Proteasomal DGAT1 Degradation and Villus Enterocyte Destruction<br/>Villus blunting, lactase/sucrase-isomaltase depletion, carbohydrate malabsorption"]
+  N1 --> N4["Cytoplasmic Replication and Innate Antiviral Antagonism<br/>Viroplasm assembly, NSP1 PRR antagonism & Systemic Antigenemia and Transient Viremia"]
+  N2 --> P1["Secretory Diarrhea (HP:0005208)"]
+  N3 --> P3["Malabsorptive Osmotic Diarrhea (HP:0033310) & Secondary Lactase Deficiency (HP:0002024)"]
   P1 --> P2["Dehydration (HP:0001944) & Metabolic Acidosis (HP:0001942)"]
-  V1["Oral Live-Attenuated Rotavirus Vaccine (NCIT:C96394)<br/>RV5 (RotaTeq) / RV1 (Rotarix)"] -. "INHIBITS (Mucosal sIgA anti-VP4/VP7 & anti-NSP4)" .-> N1
-  V1 -. "INHIBITS (Neutralization of extracellular NSP4)" .-> N2
+  P3 --> P2
+  V1["Oral Live-Attenuated Rotavirus Vaccine (NCIT:C96394)<br/>RV5 (RotaTeq) / RV1 (Rotarix)"] -. "INHIBITS (Mucosal sIgA anti-VP4/VP7 & anti-VP6)" .-> N1
+  V1 -. "INHIBITS (Prevents NSP4 enterotoxin activity)" .-> N2
+  V1 -. "INHIBITS (Preserves DGAT1 & villus enterocytes)" .-> N3
 ```
 
 ---
@@ -312,7 +313,7 @@ We audited all 35+ existing disorder entries with vaccine treatments and enriche
 
 | Disorder (`kb/disorders/`) | Vaccine Treatment(s) | Status | Targeted Pathophysiology Node(s) |
 |---|---|---|---|
-| `Rotaviral_Enteritis` | `Rotavirus Vaccination` (`NCIT:C96394`) | **Completed (New Entry)** | `Rotavirus attachment to histo-blood group antigens and enterocyte entry`, `NSP4 viroporin-mediated endoplasmic reticulum calcium release`, `Villus enterocyte lysis, blunting, and brush-border disaccharidase loss` (+ `FUT2` `effect_modifiers`) |
+| `Rotaviral_Enteritis` | `Rotavirus Vaccination` (`NCIT:C96394`) | **Completed (New Entry)** | `Host Glycan Attachment and Mature Villus Enterocyte Entry`, `NSP4 Viroporin-Mediated Intracellular Calcium Mobilization`, `Proteasomal DGAT1 Degradation and Villus Enterocyte Destruction` (+ `FUT2` `effect_modifiers`) |
 | `COVID-19` | `COVID-19 Vaccination` (`NCIT:C181140`) | **Completed** | `Viral Entry and Replication in Respiratory Epithelium` |
 | `Influenza` | `Annual Vaccination` | **Completed** | `Respiratory Epithelial Infection and Cytopathic Effect`, `Triggering of Acute Myocardial Infarction` |
 | `Respiratory_Syncytial_Virus_Infection` | `Vaccination` | **Completed** | `RSV Infection of Airway Epithelial Cells` |
@@ -339,7 +340,7 @@ We audited all 35+ existing disorder entries with vaccine treatments and enriche
 # STATUS
 
 ## Phase 1: Flagship New Vaccine-Preventable Disease (VPD) Curations
-- [x] Curate `Rotaviral_Enteritis` (`MONDO:0001166`) with `NCIT:C96394` (`Rotavirus Vaccine`), `FUT2` (`hgnc:4013`) host secretor receptor dependency, `ANO1` (`hgnc:21625`) chloride channel effector, and `NSP4`/`VP4`/`VP7` pathograph nodes
+- [x] Curate `Rotaviral_Enteritis` (`MONDO:0005194`) with `NCIT:C96394` (`Rotavirus Vaccine`), `FUT2` (`hgnc:4013`) host secretor receptor dependency, `ANO1` (`hgnc:21625`) chloride channel effector, and `NSP4`/`VP4`/`VP7` pathograph nodes
 - [ ] Curate `Yellow_Fever` (`MONDO:0005506`) with live-attenuated 17D vaccine (`NCIT`) and viscerotropic/hepatocyte pathograph
 - [ ] Curate `Herpes_Zoster` (`MONDO:0005295`) with recombinant gE/AS01B subunit vaccine (Shingrix) restoring VZV-specific CD4+ T-cell immunity to inhibit dorsal-root-ganglion reactivation
 - [ ] Curate `Meningococcal_Infection` / `Meningococcal_Meningitis` (`MONDO:0005161`) with MenACWY polysaccharide-protein conjugate and MenB factor H-binding protein (`fHbp`) vaccines

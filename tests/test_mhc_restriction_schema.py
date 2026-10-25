@@ -2,10 +2,10 @@
 
 from pathlib import Path
 
+import yaml
 from linkml.validator import Validator
 from linkml.validator.plugins import JsonschemaValidationPlugin
 from linkml_runtime.utils.schemaview import SchemaView
-import yaml
 
 from dismech.term_tooltips import ONTOLOGY_NAMES, TERM_ROLES, term_tooltip
 
