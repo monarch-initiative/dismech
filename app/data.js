@@ -151450,6 +151450,92 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Familial Infantile Myoclonic Epilepsy",
+    "disease_id": "MONDO:0011506",
+    "category": "Mendelian",
+    "parents": [
+      "Myoclonic Epilepsy",
+      "Epilepsy",
+      "Neurological Disease",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-10-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Familial infantile myoclonic epilepsy (FIME) is the autosomal recessive epilepsy in which TBC1D24 was first implicated. It was described in a large consanguineous Italian kindred whose affected members began having myoclonic seizures in the first year of life, sometimes with febrile or generalized tonic-clonic seizures. The myoclonic jerks are bilateral or focal, often occur without loss of consciousness, can run for long periods, and some are reflex-triggered. In that founding family seizures responded to treatment and development and intellect stayed normal over decades, which placed FIME at the mild end of what is now called the TBC1D24-related disorder continuum, opposite developmental and epileptic encephalopathy 16 and DOORS syndrome. Families reported since then with the same early-onset focal and generalized myoclonic presentation have had moderate intellectual disability or cerebellar atrophy, and GeneReviews now describes FIME with dysarthria and mild-to-moderate intellectual disability, so normal cognition is a feature of the original kindred rather than of the disorder as a whole. Seizures can persist into adulthood. The variants reported so far are missense or in-frame changes; the founding family's alleles fail to support TBC1D24-driven neurite growth in cultured neurons, and TBC1D24 binds the trafficking GTPase ARF6.",
+    "pathophysiology": [
+      "Biallelic In-Frame TBC1D24 Variant Hypofunction",
+      "Altered ARF6-Dependent Membrane Trafficking",
+      "Reduced Neurite Outgrowth and Arborization",
+      "Impaired Synaptic Vesicle Endocytosis",
+      "Cortical Neuronal Hyperexcitability"
+    ],
+    "cell_types": [
+      "Neuron",
+      "Cerebral cortex neuron",
+      "Hippocampal neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0010012",
+      "CL:0002608"
+    ],
+    "biological_processes": [
+      "regulation of ARF protein signal transduction",
+      "neuron projection development",
+      "synaptic vesicle endocytosis"
+    ],
+    "phenotypes": [
+      "Infantile-onset myoclonic seizures",
+      "Focal aware myoclonic seizures",
+      "Generalized tonic-clonic seizures",
+      "Febrile seizures",
+      "Myoclonic status epilepticus",
+      "Reflex myoclonia",
+      "Intellectual disability",
+      "Dysarthria",
+      "Cerebellar atrophy"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0032794",
+      "HP:0032758",
+      "HP:0002069",
+      "HP:0002373",
+      "HP:0032667",
+      "HP:0020207",
+      "HP:0001249",
+      "HP:0001260",
+      "HP:0001272"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "TBC1D24"
+    ],
+    "treatments": [
+      "Antiseizure pharmacotherapy",
+      "Genetic counseling",
+      "Neurologic surveillance with EEG"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Familial_Infantile_Myoclonic_Epilepsy.yaml",
+    "page_url": "../pages/disorders/Familial_Infantile_Myoclonic_Epilepsy.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Familial Isolated Vitamin E Deficiency",
     "disease_id": "MONDO:0010188",
     "category": "Mendelian",
@@ -274966,6 +275052,144 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Neurodevelopmental Disorder With Dysmorphic Facies And Variable Seizures",
+    "disease_id": "MONDO:0031011",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-10-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive neurodevelopmental disorder caused by biallelic loss-of-function variants in EMC10, which encodes a lumenal subunit of the endoplasmic reticulum membrane protein complex (EMC). Affected children have global developmental delay and intellectual disability ranging from mild to severe, with marked impairment of speech and language. Seizures occur in about half of reported individuals, and dysmorphic features (long face, pointed chin, curly hair) and limb findings (cubitus valgus, arachnodactyly, fifth-finger clinodactyly) are variable. Failure to thrive, abdominal wall hernias, renal findings (nephrocalcinosis, renal cysts, hydronephrosis), microcephaly, behavioural problems, motor regression, hypotonia, dysarthria and ataxia are reported in subsets. Most reported families are consanguineous and of Middle Eastern origin, and a recurrent frameshift (c.287delG, p.Gly96Alafs*9) arose independently on two founder haplotypes at a homopolymeric G run. The variants reduce EMC10 transcript levels and yield unstable truncated protein. How EMC10 loss produces the neurodevelopmental phenotype is not established: the EMC is a transmembrane-domain insertase, but EMC10 knockdown in human cell lines increases rather than decreases insertion of an EMC client, so the direction of the cellular defect is an open question.",
+    "pathophysiology": [
+      "Biallelic EMC10 Loss of Function",
+      "Altered EMC-Dependent Membrane Protein Insertion"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "tail-anchored membrane protein insertion into ER membrane"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Delayed speech and language development",
+      "Atypical behavior",
+      "Seizure",
+      "Microcephaly",
+      "Motor regression",
+      "Axial hypotonia",
+      "Appendicular hypotonia",
+      "Dysarthria",
+      "Truncal ataxia",
+      "Hyperkinetic movements",
+      "Thin corpus callosum",
+      "Abnormal cerebral white matter morphology",
+      "Long face",
+      "Pointed chin",
+      "Curly hair",
+      "Cubitus valgus",
+      "Arachnodactyly",
+      "Clinodactyly of the 5th finger",
+      "Scoliosis",
+      "Gingival overgrowth",
+      "Failure to thrive",
+      "Hernia of the abdominal wall",
+      "Ventricular septal defect",
+      "Nephrocalcinosis",
+      "Renal cyst",
+      "Hydronephrosis",
+      "Elevated circulating parathyroid hormone level",
+      "Ventriculomegaly",
+      "Polyhydramnios"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Craniofacial",
+      "Integument",
+      "Musculoskeletal",
+      "Growth",
+      "Gastrointestinal",
+      "Cardiovascular",
+      "Renal",
+      "Endocrine",
+      "Pregnancy"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0000708",
+      "HP:0001250",
+      "HP:0000252",
+      "HP:0033044",
+      "HP:0008936",
+      "HP:0012389",
+      "HP:0001260",
+      "HP:0002078",
+      "HP:0002487",
+      "HP:0033725",
+      "HP:0002500",
+      "HP:0000276",
+      "HP:0000307",
+      "HP:0002212",
+      "HP:0002967",
+      "HP:0001166",
+      "HP:0004209",
+      "HP:0002650",
+      "HP:0000212",
+      "HP:0001508",
+      "HP:0004299",
+      "HP:0001629",
+      "HP:0000121",
+      "HP:0000107",
+      "HP:0000126",
+      "HP:0003165",
+      "HP:0002119",
+      "HP:0001561"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "EMC10"
+    ],
+    "treatments": [
+      "Developmental and Educational Support",
+      "Antiseizure Medication",
+      "Nutritional Support",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Dysmorphic_Facies_And_Variable_Seizures.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Dysmorphic_Facies_And_Variable_Seizures.html",
+    "num_phenotypes": 31,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Neurodevelopmental Disorder With Dysmorphic Facies, Sleep Disturbance, and Brain Abnormalities",
     "disease_id": "MONDO:0030852",
     "category": "Mendelian",
@@ -276121,6 +276345,126 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Neurodevelopmental Disorder With Movement Abnormalities, Abnormal Gait, And Autistic Features",
+    "disease_id": "MONDO:0060642",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-10-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant neurodevelopmental disorder (OMIM 617865) defined by the recurrent de novo ZSWIM6 nonsense variant c.2737C>T (p.Arg913Ter) in the penultimate exon. Affected children have infantile truncal hypotonia, delayed walking followed by a wide-based unsteady gait, severe to profound intellectual disability with very limited speech, autistic features, stereotyped and paroxysmal movements, and frequent gastro-esophageal reflux; progressive spasticity, seizures, strabismus, progressive microcephaly and, in one reported individual, a progressive peripheral neuropathy occur in a subset. The variant mRNA escapes nonsense-mediated decay, so a truncated ZSWIM6 lacking the C-terminal Sin3-like domain is proposed to act in a dominant-negative manner. ZSWIM6 is a nuclear protein that associates with repressive chromatin regulators, and mouse Zswim6 loss disrupts striatal development, spiny projection neuron synapses and motor behaviour.",
+    "pathophysiology": [
+      "ZSWIM6 p.Arg913Ter Truncation Escaping Nonsense-Mediated Decay",
+      "ZSWIM6 Repressive Chromatin Regulation Deficit",
+      "Striatal Spiny Projection Neuron Excitatory Synaptic Dysfunction",
+      "Altered Medium Spiny Neuron Morphology",
+      "Reduced Striatal Volume",
+      "Striatal Motor Circuit Dysfunction",
+      "Peripheral Nerve Neurofilament Accumulation"
+    ],
+    "cell_types": [
+      "striatal spiny projection neuron",
+      "medium spiny neuron"
+    ],
+    "cell_type_ids": [
+      "CL:1001474"
+    ],
+    "biological_processes": [
+      "chromatin organization",
+      "glutamatergic synaptic transmission",
+      "dendritic spine morphogenesis"
+    ],
+    "phenotypes": [
+      "Severe to profound intellectual disability",
+      "Poor speech",
+      "Autistic features",
+      "Hyperactivity",
+      "Happy demeanor",
+      "Truncal hypotonia",
+      "Delayed walking",
+      "Wide-based unsteady gait",
+      "Progressive spasticity",
+      "Loss of ambulation",
+      "Abnormal tongue movements",
+      "Motor stereotypies",
+      "Tics",
+      "Seizures",
+      "Peripheral neuropathy",
+      "Impaired pain sensation",
+      "Strabismus",
+      "Progressive microcephaly",
+      "Progressive macrocephaly",
+      "Growth deficiency",
+      "Coarse facial features",
+      "Gastroesophageal reflux"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Ophthalmological",
+      "Growth",
+      "Craniofacial",
+      "Digestive"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0002465",
+      "HP:0000717",
+      "HP:0000752",
+      "HP:0040082",
+      "HP:0008936",
+      "HP:0031936",
+      "HP:0002136",
+      "HP:0001257",
+      "HP:0002505",
+      "HP:0000182",
+      "HP:0000733",
+      "HP:0100033",
+      "HP:0001250",
+      "HP:0009830",
+      "HP:0007328",
+      "HP:0000486",
+      "HP:0000253",
+      "HP:0004481",
+      "HP:0001510",
+      "HP:0000280",
+      "HP:0002020"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ZSWIM6"
+    ],
+    "treatments": [
+      "Antiseizure Pharmacotherapy",
+      "Fundoplication",
+      "Gastrostomy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Movement_Abnormalities_Abnormal_Gait_And_Autistic_Features.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Movement_Abnormalities,_Abnormal_Gait,_And_Autistic_Features.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Neurodevelopmental Disorder With Nonspecific Brain Abnormalities And With Or Without Seizures",
     "disease_id": "MONDO:0032877",
     "category": "Mendelian",
@@ -276231,6 +276575,235 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "30",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Neurodevelopmental Disorder With Or Without Variable Movement Or Behavioral Abnormalities",
+    "disease_id": "MONDO:0859225",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-10-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant neurodevelopmental disorder caused by heterozygous, mostly de novo variants in KCNN2, which encodes SK2 (KCa2.2), a small-conductance calcium-activated potassium channel gated by calcium-calmodulin. Most variants tested in heterologous cells abolish or reduce SK2 current, and the disorder is thought to arise from KCNN2 haploinsufficiency, although some pore variants suppress the co-expressed wild-type channel in vitro. Affected children have motor and language developmental delay and intellectual disability that ranges from mild to severe, often with early-onset movement disorders (cerebellar ataxia, tremor, myoclonus, dystonia, chorea or tics) and behavioral features such as autism spectrum disorder and anxiety. Periventricular white matter hyperintensities are seen in about half of imaged patients. Milder presentations without intellectual disability, such as a specific learning disorder, have been reported. Spontaneous Kcnn2 mutant mice and rats show early-onset tremor and locomotor instability.",
+    "pathophysiology": [
+      "Heterozygous KCNN2 Loss of Function",
+      "Altered Neuronal Afterhyperpolarization and Firing"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "regulation of action potential firing pattern"
+    ],
+    "phenotypes": [
+      "Intellectual disability",
+      "Global developmental delay",
+      "Motor delay",
+      "Delayed speech and language development",
+      "Specific learning disability",
+      "Abnormality of movement",
+      "Ataxia",
+      "Extrapyramidal signs",
+      "Tremor",
+      "Myoclonus",
+      "Dystonia",
+      "Chorea",
+      "Tics",
+      "Autistic behavior",
+      "Anxiety",
+      "Seizure",
+      "Peripheral neuropathy",
+      "Microcephaly",
+      "Nystagmus",
+      "Periventricular white matter hyperintensities"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0001270",
+      "HP:0000750",
+      "HP:0001328",
+      "HP:0100022",
+      "HP:0001251",
+      "HP:0002071",
+      "HP:0001337",
+      "HP:0001336",
+      "HP:0001332",
+      "HP:0002072",
+      "HP:0100033",
+      "HP:0000729",
+      "HP:0000739",
+      "HP:0001250",
+      "HP:0009830",
+      "HP:0000252",
+      "HP:0000639",
+      "HP:0030891"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "KCNN2"
+    ],
+    "treatments": [
+      "Speech and Language Therapy",
+      "Occupational Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Or_Without_Variable_Movement_Or_Behavioral_Abnormalities.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Or_Without_Variable_Movement_Or_Behavioral_Abnormalities.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Neurodevelopmental Disorder With Poor Growth And Behavioral Abnormalities",
+    "disease_id": "MONDO:0859377",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian neurodevelopmental disorder"
+    ],
+    "creation_date": "2026-10-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Neurodevelopmental disorder with poor growth and behavioral abnormalities (NEDGBA, OMIM 620242) is an autosomal recessive disorder caused by biallelic truncating or splice-site variants in ATP9A. ATP9A encodes a class II (P4B) P4-ATPase, a CDC50-independent phospholipid flippase found in early and recycling endosomes and the trans-Golgi network, and is expressed mainly in the brain. Affected children have global developmental delay, intellectual disability ranging from mild to severe, motor and speech delay, hypotonia, and behavioral abnormalities that include attention deficit hyperactivity disorder, aggression, and autistic features with stereotypies. Several have postnatal (secondary) microcephaly, failure to thrive with short stature, and feeding problems such as gastroesophageal reflux and vomiting; seizures are reported in a minority. Patient fibroblasts show near-absent ATP9A mRNA. In cell and mouse studies, ATP9A loss impairs recycling from endosomes to the plasma membrane and damages neurite morphology and synaptic transmission.",
+    "pathophysiology": [
+      "Biallelic ATP9A Loss of Function",
+      "Impaired Wntless Sorting and Wnt Secretion",
+      "Impaired Endosome-to-Plasma Membrane Recycling",
+      "Increased Extracellular Vesicle Release",
+      "Neurite Morphology and Synaptic Transmission Defects"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "Wnt protein secretion",
+      "endocytic recycling",
+      "exosomal secretion",
+      "neuron projection maintenance"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Motor delay",
+      "Delayed speech and language development",
+      "Hypotonia",
+      "Limb muscle weakness",
+      "Joint hypermobility",
+      "Knee flexion contracture",
+      "Elbow flexion contracture",
+      "Seizure",
+      "Attention deficit hyperactivity disorder",
+      "Aggressive behavior",
+      "Autistic behavior",
+      "Motor stereotypy",
+      "Sleep disturbance",
+      "Postnatal microcephaly",
+      "Failure to thrive",
+      "Short stature",
+      "Feeding difficulties",
+      "Gastroesophageal reflux",
+      "Vomiting",
+      "Strabismus",
+      "Visual impairment",
+      "Smooth philtrum",
+      "Thin upper lip vermilion",
+      "Delayed myelination",
+      "Hypoplasia of the corpus callosum",
+      "Cerebellar vermis hypoplasia",
+      "2-3 toe cutaneous syndactyly"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Musculoskeletal",
+      "Behavioral",
+      "Growth",
+      "Gastrointestinal",
+      "Ophthalmological",
+      "Craniofacial",
+      "Limbs"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001270",
+      "HP:0000750",
+      "HP:0001252",
+      "HP:0003690",
+      "HP:0001382",
+      "HP:0006380",
+      "HP:0002987",
+      "HP:0001250",
+      "HP:0007018",
+      "HP:0000718",
+      "HP:0000729",
+      "HP:0000733",
+      "HP:0002360",
+      "HP:0005484",
+      "HP:0001508",
+      "HP:0004322",
+      "HP:0011968",
+      "HP:0002020",
+      "HP:0002013",
+      "HP:0000486",
+      "HP:0000505",
+      "HP:0000319",
+      "HP:0000219",
+      "HP:0012448",
+      "HP:0002079",
+      "HP:0001320",
+      "HP:0005709"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ATP9A"
+    ],
+    "treatments": [
+      "Antiseizure medication (sodium valproate)",
+      "Fundoplication",
+      "Tube feeding and gastrostomy",
+      "Proton pump inhibitor therapy",
+      "Rehabilitation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Poor_Growth_And_Behavioral_Abnormalities.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Poor_Growth_And_Behavioral_Abnormalities.html",
+    "num_phenotypes": 29,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Neurodevelopmental Disorder With Poor Growth, Large Ears, And Dysmorphic Facies",
@@ -342169,6 +342742,112 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "SYNCRIP-related Neurodevelopmental Disorder",
+    "disease_id": "MONDO:0800456",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "SYNCRIP-related neurodevelopmental disorder (SYNCRIP-NDD) is a Mendelian neurodevelopmental disorder caused by heterozygous, usually de novo, loss-of-function or deleterious missense variants in SYNCRIP, which encodes the RNA-binding protein synaptotagmin-binding cytoplasmic RNA-interacting protein (hnRNP-Q/NSAP1). SYNCRIP is a member of the heterogeneous nuclear ribonucleoprotein family and regulates mRNA splicing, nucleocytoplasmic transport, dendritic mRNA localization, and local translation in neurons. Haploinsufficiency is the proposed disease mechanism, placing the disorder within the broader hnRNPopathy spectrum. The phenotype is dominated by borderline-to-moderate developmental delay and intellectual disability, with variable neurobehavioral and psychiatric features (autism spectrum disorder, ADHD, sleep disturbance), ocular/vision anomalies, seizures, hypotonia, and movement disorders; hand and foot anomalies, kidney anomalies, and growth delay occur in a subset.",
+    "pathophysiology": [
+      "SYNCRIP Haploinsufficiency",
+      "SYNCRIP RRM2 Missense Impairing RNA Binding",
+      "Impaired SYNCRIP Phase Separation",
+      "Dysregulated Notch Signaling in Radial Glial Cells",
+      "Impaired Radial Glial Temporal Fate Progression",
+      "Cortical Layering Defect",
+      "Dysregulated Neuronal mRNA Localization",
+      "Impaired Neurodevelopment"
+    ],
+    "cell_types": [
+      "forebrain radial glial cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0013000",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "Notch signaling pathway",
+      "forebrain radial glial cell differentiation",
+      "cerebral cortex neuron differentiation",
+      "intracellular mRNA localization"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Autism spectrum disorder",
+      "Attention deficit hyperactivity disorder",
+      "Sleep disturbance",
+      "Seizure",
+      "Hypotonia",
+      "Abnormality of movement",
+      "Cerebral visual impairment",
+      "Strabismus",
+      "Abnormality of refraction",
+      "Abnormality of the kidney",
+      "Abnormality of the hand",
+      "Abnormal foot morphology",
+      "Growth delay",
+      "Periventricular nodular heterotopia",
+      "Hypertonia",
+      "Feeding difficulties",
+      "Constipation",
+      "Widened subarachnoid space"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000717",
+      "HP:0007018",
+      "HP:0002360",
+      "HP:0001250",
+      "HP:0001252",
+      "HP:0100022",
+      "HP:0100704",
+      "HP:0000486",
+      "HP:0000539",
+      "HP:0000077",
+      "HP:0001155",
+      "HP:0001760",
+      "HP:0001510",
+      "HP:0032388",
+      "HP:0001276",
+      "HP:0011968",
+      "HP:0002019",
+      "HP:0012704"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SYNCRIP"
+    ],
+    "treatments": [
+      "Antiseizure pharmacotherapy",
+      "Developmental and supportive care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SYNCRIP-related_Neurodevelopmental_Disorder.yaml",
+    "page_url": "../pages/disorders/SYNCRIP-related_Neurodevelopmental_Disorder.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "SYNGAP1-Related Developmental and Epileptic Encephalopathy",
     "disease_id": "MONDO:0012960",
     "category": "Mendelian",
@@ -401741,17 +402420,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3721,
+  "total_disorder_pages": 3727,
   "total_subtypes": 4910,
-  "total_disorders_and_subtypes": 8631,
-  "total_unique_evidence_sources": 55581,
-  "total_unique_publications": 51922,
+  "total_disorders_and_subtypes": 8637,
+  "total_unique_evidence_sources": 55626,
+  "total_unique_publications": 51967,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3719,
-  "total_unique_pathological_events": 24544,
+  "total_pathographs": 3725,
+  "total_unique_pathological_events": 24569,
   "total_modules": 204,
-  "total_research_reports": 3844,
+  "total_research_reports": 3850,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 121
