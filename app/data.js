@@ -59595,6 +59595,84 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Botryomycosis",
+    "disease_id": "MONDO:0400006",
+    "category": "Infectious Disease",
+    "parents": [
+      "primary bacterial infectious disease"
+    ],
+    "creation_date": "2026-09-29T20:30:52Z",
+    "updated_date": null,
+    "subtypes": [
+      "Cutaneous",
+      "Visceral"
+    ],
+    "description": "Botryomycosis is a rare chronic suppurative granulomatous bacterial infection in which ordinary non-filamentous bacteria, most often Staphylococcus aureus and then Pseudomonas aeruginosa, persist in tissue as compact grains surrounded by Splendore-Hoeppli material and chronic pyogranulomatous inflammation, producing nodules, abscesses, draining sinuses, ulcers, or mass-like visceral lesions that can mimic mycetoma, actinomycosis, and neoplasia.",
+    "pathophysiology": [
+      "Common Bacterial Persistence in Tissue",
+      "Impaired Host Bacterial Clearance",
+      "Bacterial Grain Formation",
+      "Chronic Pyogranulomatous Inflammation"
+    ],
+    "cell_types": [
+      "neutrophil",
+      "macrophage",
+      "eosinophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000775",
+      "CL:0000235",
+      "CL:0000771"
+    ],
+    "biological_processes": [
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Skin Nodules",
+      "Abscess",
+      "Skin Ulcer",
+      "Draining Sinus Tracts and Fistulae",
+      "Pulmonary Mass"
+    ],
+    "phenotype_categories": [
+      "Skin",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Integument",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0200036",
+      "HP:0025615",
+      "HP:0200042",
+      "HP:6000095",
+      "HP:0033821"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Culture-Directed Antibacterial Therapy",
+      "Surgical Debridement or Resection",
+      "Antiretroviral Therapy in HIV-Associated Disease"
+    ],
+    "environmental": [
+      "HIV infection with poor immunological control",
+      "Prolonged steroid use",
+      "Cutaneous trauma or surgery"
+    ],
+    "biochemical": [],
+    "source_file": "Botryomycosis.yaml",
+    "page_url": "../pages/disorders/Botryomycosis.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Botulism",
     "disease_id": "MONDO:0005498",
     "category": "Infectious Disease",
@@ -161398,6 +161476,127 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "GNB5-Related Neurodevelopmental Disorder",
+    "disease_id": "MONDO:0014957",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-10-25T02:45:37Z",
+    "updated_date": null,
+    "subtypes": [
+      "IDDCA",
+      "LADCI"
+    ],
+    "description": "GNB5-related neurodevelopmental disorder is an autosomal recessive disorder caused by biallelic variants in GNB5, which encodes the atypical G protein beta subunit G-beta-5. G-beta-5 does not pair with a G-gamma subunit. Instead it forms an obligate complex with the R7 family of regulator of G protein signaling proteins (RGS6, RGS7, RGS9 and RGS11). These complexes speed the switch-off of inhibitory Gi/o-coupled receptor signaling in neurons, retinal photoreceptors and ON-bipolar cells, and cardiac pacemaker cells. Without G-beta-5 the R7 RGS proteins are degraded, so receptor signaling lasts too long.\nThe neurodevelopmental phenotype ranges from severe-to-profound intellectual disability with a developmental and epileptic encephalopathy (epileptic spasms, focal seizures), visual impairment with nystagmus, hypotonia, feeding difficulty and gastroesophageal reflux, to normal intellect with severe language disorder and attention deficit hyperactivity disorder. Severity tracks the allele: truncating alleles give the severe form, and the hypomorphic missense allele p.Ser81Leu gives the mild form. Across the spectrum, sinus bradycardia from sinoatrial node dysfunction is nearly universal. It comes from an exaggerated vagal (muscarinic, I-K,ACh-mediated) slowing of the heart rate.",
+    "pathophysiology": [
+      "GNB5 Loss of Function",
+      "Loss of Gbeta5-R7 RGS Complexes",
+      "Enhanced Muscarinic IKACh Activation in Sinoatrial Node Cells",
+      "Exaggerated Parasympathetic Slowing of Heart Rate",
+      "Prolonged Inhibitory GPCR Signaling in Neurons",
+      "Abnormal Neuronal Development in Cerebellum and Hippocampus",
+      "Defective Retinal Photoreceptor and ON-Bipolar Cell Signaling"
+    ],
+    "cell_types": [
+      "sinoatrial node myocyte",
+      "neuron",
+      "ON-bipolar cell",
+      "rod photoreceptor"
+    ],
+    "cell_type_ids": [
+      "CL:1000409",
+      "CL:0000540",
+      "CL:0000749",
+      "CL:0000604"
+    ],
+    "biological_processes": [
+      "muscarinic acetylcholine receptor signaling",
+      "regulation of heart rate",
+      "dopamine receptor signaling",
+      "GABA-B receptor signaling",
+      "phototransduction"
+    ],
+    "phenotypes": [
+      "Sinus bradycardia",
+      "Sick sinus syndrome",
+      "Global developmental delay",
+      "Severe or profound intellectual disability",
+      "Mild intellectual disability",
+      "Delayed speech and language development",
+      "Attention deficit hyperactivity disorder",
+      "Motor delay",
+      "Epileptic spasm",
+      "Hypsarrhythmia",
+      "EEG with burst suppression",
+      "Focal-onset seizure",
+      "Hypotonia",
+      "Nystagmus",
+      "Cerebral visual impairment",
+      "Abnormal dark-adapted electroretinogram",
+      "Gastroesophageal reflux",
+      "Feeding difficulties"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Neurological",
+      "Psychiatric",
+      "Ophthalmological",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001688",
+      "HP:0011704",
+      "HP:0001263",
+      "HP:0010864",
+      "HP:0001256",
+      "HP:0000750",
+      "HP:0007018",
+      "HP:0001270",
+      "HP:0011097",
+      "HP:0002521",
+      "HP:0010851",
+      "HP:0007359",
+      "HP:0001252",
+      "HP:0000639",
+      "HP:0100704",
+      "HP:0030469",
+      "HP:0002020",
+      "HP:0011968"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "GNB5"
+    ],
+    "treatments": [
+      "Cardiac Pacing",
+      "Avoidance of Bradycardia-Potentiating Drugs",
+      "Multidisciplinary Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "GNB5-Related_Neurodevelopmental_Disorder.yaml",
+    "page_url": "../pages/disorders/GNB5-Related_Neurodevelopmental_Disorder.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "GNE Myopathy",
@@ -374032,14 +374231,20 @@ window.searchData = [
     "creation_date": "2026-04-05T18:58:47Z",
     "updated_date": null,
     "subtypes": [
-      "Mesial Temporal Lobe Epilepsy with Hippocampal Sclerosis"
+      "Mesial Temporal Lobe Epilepsy with Hippocampal Sclerosis",
+      "ETL1",
+      "ETL5",
+      "ETL7",
+      "ETL8"
     ],
     "description": "Temporal lobe epilepsy is a focal epilepsy in which seizures arise from temporal lobe networks, often involving mesial temporal structures and commonly associated with memory and other cognitive deficits.",
     "pathophysiology": [
       "Hippocampal Sclerosis and Neuronal Loss",
       "Epitranscriptomic m6A RNA Methylation Dysregulation",
       "Excitation-Inhibition Imbalance",
-      "Thalamocortical Network Dysfunction"
+      "Thalamocortical Network Dysfunction",
+      "Impaired Galanin Neuropeptide Signaling",
+      "Reduced Extracellular Carboxypeptidase A6 Activity"
     ],
     "cell_types": [
       "pyramidal neuron",
@@ -374054,7 +374259,8 @@ window.searchData = [
     "biological_processes": [
       "RNA methylation",
       "chemical synaptic transmission",
-      "transmission of nerve impulse"
+      "transmission of nerve impulse",
+      "galanin receptor signaling"
     ],
     "phenotypes": [
       "Seizures",
@@ -374082,7 +374288,12 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
-    "genes": [],
+    "genes": [
+      "LGI1",
+      "RELN",
+      "CPA6",
+      "GAL"
+    ],
     "treatments": [
       "Antiseizure Medication Therapy",
       "Epilepsy Surgery for Drug-Resistant Disease"
@@ -374092,11 +374303,11 @@ window.searchData = [
     "source_file": "Temporal_Lobe_Epilepsy.yaml",
     "page_url": "../pages/disorders/Temporal_Lobe_Epilepsy.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 4,
-    "num_genes": 0,
+    "num_pathophysiology": 6,
+    "num_genes": 4,
     "num_treatments": 2,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Temtamy Preaxial Brachydactyly Syndrome",
@@ -399868,17 +400079,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3705,
-  "total_subtypes": 4889,
-  "total_disorders_and_subtypes": 8594,
-  "total_unique_evidence_sources": 55316,
-  "total_unique_publications": 51669,
+  "total_disorder_pages": 3707,
+  "total_subtypes": 4897,
+  "total_disorders_and_subtypes": 8604,
+  "total_unique_evidence_sources": 55353,
+  "total_unique_publications": 51701,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 309,
-  "total_pathographs": 3702,
-  "total_unique_pathological_events": 24427,
+  "total_pathographs": 3704,
+  "total_unique_pathological_events": 24440,
   "total_modules": 204,
-  "total_research_reports": 3829,
+  "total_research_reports": 3831,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 121
