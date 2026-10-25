@@ -155,6 +155,13 @@ def test_doi_slashes_map_to_the_cache_filename(tmp_path):
     assert cache_has_no_title("DOI:10.1/x.y", cache)
 
 
+def test_url_references_map_to_the_validators_cache_filename(tmp_path):
+    cache = _cache(
+        tmp_path, "url_https___example.org_a.pdf.md", "reference_id: url:https://example.org/a.pdf\n"
+    )
+    assert cache_has_no_title("url:https://example.org/a.pdf#page=3", cache)
+
+
 def test_main_reports_but_passes_an_item_whose_cache_has_no_title(tmp_path, monkeypatch, capsys):
     import scripts.find_missing_reference_titles as fmrt
 

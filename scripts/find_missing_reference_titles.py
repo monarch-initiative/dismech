@@ -58,6 +58,7 @@ if str(ROOT / "src") not in sys.path:  # pragma: no cover - import bootstrap
 
 from dismech import kb_cache
 from dismech.kb_cache import load_document
+from linkml_reference_validator.cache import cache_filename
 
 #: All of kb/, not just disorders: modules and groupings carry evidence too, and
 #: 68 of the 571 gaps found when this became a gate were in kb/modules/.
@@ -84,7 +85,9 @@ def cache_has_no_title(reference: Any, cache_dir: Path = CACHE_DIR) -> bool:
     """
     if not isinstance(reference, str) or ":" not in reference:
         return False
-    path = cache_dir / (reference.strip().replace(":", "_", 1).replace("/", "_") + ".md")
+    # The validator's own naming, so a url: reference (every ":/?=" becomes "_",
+    # and the "#fragment" is dropped) resolves to the file it actually wrote.
+    path = cache_dir / cache_filename(reference.strip())
     if not path.is_file():
         return False
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
