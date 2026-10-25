@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visceral Heterotaxy 14 · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Visceral Heterotaxy 14</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Visceral Heterotaxy 14</h1>
+                
+                <p class="report-subtitle">Heterotaxy, Visceral, 14, Autosomal (HTX14) — Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-10-24</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0976135" target="_blank" rel="noopener noreferrer">MONDO:0976135</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">11 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Heterotaxy, Visceral, 14, Autosomal (HTX14) — Comprehensive Disease Characterization Report</h1>
+<p><strong>Causal gene: CIROZ (formerly C1orf127; NCBI Gene 148345; <a href="https://bioregistry.io/HGNC:26730" target="_blank" rel="noopener noreferrer">HGNC:26730</a>; Ensembl ENSG00000175262; locus 1p36.22)</strong>
+<strong>Disease identifiers: <a href="http://purl.obolibrary.org/obo/MONDO_0976135" target="_blank" rel="noopener noreferrer">MONDO:0976135</a> · OMIM 621080 · <a href="http://purl.obolibrary.org/obo/DOID_0061123" target="_blank" rel="noopener noreferrer">DOID:0061123</a> · <a href="https://bioregistry.io/GARD:0027430" target="_blank" rel="noopener noreferrer">GARD:0027430</a> · MedGen C1875141 · UMLS C5975611</strong></p>
+<hr />
+<h2>Summary</h2>
+<p>Heterotaxy, visceral, 14, autosomal (<strong>HTX14</strong>) is an ultra-rare, autosomal-recessive laterality (left-right patterning) disorder caused by <strong>biallelic loss-of-function variants in CIROZ</strong>, a gene previously named C1orf127 and now officially designated <em>ciliated left-right organizer protein containing ZP-N domains</em>. The gene maps to chromosome 1p36.22 (between TARDBP and CASZ1) and encodes a <strong>secreted protein</strong> bearing a signal peptide followed by three zona-pellucida (ZP-N) domains, consistent with an extracellular role. CIROZ is expressed specifically in the embryonic <strong>left-right organizer (LRO)</strong> — the ciliated midline structure (mouse posterior notochord/node, zebrafish Kupffer's vesicle, <em>Xenopus</em> gastrocoel roof plate) where the body's left-right axis is first established. The disease was formally delineated in 2025 by Szenker-Ravi et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/39753129/">PMID: 39753129</a>), who reported 16 affected individuals from 10 families.</p>
+<p>Mechanistically, CIROZ is a newly recognized member of a <strong>vertebrate LRO extracellular genetic module</strong> that also contains DAND5, PKD1L1, MMP21, and CIROP. This module operates upstream of the canonical <strong>NODAL–PITX2 symmetry-breaking cascade</strong>: motile cilia at the LRO generate leftward fluid flow, which is sensed by immotile sensory cilia via a PKD2/PKD1L1 mechanosensitive calcium channel; flow sensing drives left-sided down-regulation of the secreted NODAL inhibitor DAND5, disinhibiting NODAL on the left, which in turn amplifies NODAL and activates the PITX2 transcription factor in the left lateral plate mesoderm to specify asymmetric organogenesis. Biallelic CIROZ inactivation disrupts this cascade, producing congenital situs ambiguus/situs inversus with variable congenital heart defects (CHD) and visceral malpositions.</p>
+<p>Clinically, HTX14 shows <strong>incomplete penetrance and highly variable expressivity</strong>, ranging from asymptomatic situs inversus totalis to lethal complex CHD such as hypoplastic left heart syndrome. Notably, CIROZ-related heterotaxy is associated with <em>less frequent and milder</em> cardiac involvement than heterotaxy caused by the other four module genes. <strong>Mouse Ciroz knockouts faithfully phenocopy</strong> human situs defects, whereas — surprisingly — zebrafish and <em>Xenopus</em> knockouts do <strong>not</strong> show laterality anomalies, revealing species-specific essentiality of this gene. No gene-specific therapy exists; management is supportive and centers on cardiac surgery, infection prophylaxis for splenic dysfunction, and screening for intestinal malrotation.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — Biallelic CIROZ loss-of-function causes autosomal-recessive HTX14</h3>
+<p>The defining study of this disease is <strong>Szenker-Ravi et al. (2025)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/39753129/">PMID: 39753129</a>), which reported <strong>16 individuals from 10 families</strong> with bi-allelic CIROZ inactivation variants causing heterotaxy with congenital heart defects. The abstract states verbatim: <em>"We report 16 individuals from 10 families with bi-allelic CIROZ inactivation variants, which cause heterotaxy with congenital heart defects."</em> The authors establish gene identity and protein architecture directly: <em>"CIROZ (previously known as C1orf127) is also specifically expressed in the LRO of mice, frogs, and fish, where it encodes a protein with a signal peptide followed by 3 zona pellucida N domains, consistent with extracellular localization."</em></p>
+<p>Independent corroboration comes from <strong>Xie et al. (2025)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40467998/">PMID: 40467998</a>), a whole-exome-sequencing study of congenital heart disease patients with laterality defects, which lists C1ORF127/CIROZ among candidate laterality genes (<em>"4.1% exhibiting variants in candidate genes (FMNL3, C1ORF127, CFAP157, C10ORF107, MYO1D)"</em>). A third independent cohort (Dong et al., cited as reference 82 within the Szenker-Ravi paper) analyzed 5,497 CHD exomes and identified CIROZ as a <strong>genome-wide-significant laterality risk gene</strong>, adding five more biallelic-LOF families including the recurrent p.Arg113* allele. The convergence of three independent cohorts firmly establishes CIROZ as a bona fide heterotaxy gene.</p>
+<p>The inheritance is unambiguously <strong>autosomal recessive</strong>: affected individuals are either homozygous (in consanguineous families) or compound heterozygous for loss-of-function alleles, and heterozygous carriers are unaffected.</p>
+<h3>Finding 2 — CIROZ variant spectrum and population genetics</h3>
+<p>All reported HTX14 alleles are loss-of-function (nonsense, frameshift, or a signal-peptide-disrupting missense), referenced to transcript <strong>NM_001170754.2</strong>:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant (cDNA)</th>
+<th>Protein</th>
+<th>Type</th>
+<th>Exon</th>
+<th>gnomAD v4.1.0 MAF</th>
+<th>Zygosity / Families</th>
+<th>Population</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>c.56C&gt;T</td>
+<td>p.(Thr19Met)</td>
+<td>Missense (signal peptide)</td>
+<td>—</td>
+<td>4.32 × 10⁻⁴</td>
+<td>Compound het (family 1)</td>
+<td>European</td>
+</tr>
+<tr>
+<td>c.577C&gt;T</td>
+<td>p.(Arg193*)</td>
+<td>Nonsense (NMD)</td>
+<td>7</td>
+<td>2.48 × 10⁻⁶</td>
+<td>Compound het with c.56C&gt;T (family 1)</td>
+<td>European</td>
+</tr>
+<tr>
+<td>c.337C&gt;T</td>
+<td>p.(Arg113*)</td>
+<td>Nonsense (NMD)</td>
+<td>4</td>
+<td>2.73 × 10⁻⁵</td>
+<td>Homozygous, 7 families (F2–F8)</td>
+<td>Middle Eastern (consanguineous)</td>
+</tr>
+<tr>
+<td>c.1210del</td>
+<td>p.(Gln404Argfs*84)</td>
+<td>Frameshift</td>
+<td>—</td>
+<td>5.62 × 10⁻⁶</td>
+<td>2 families</td>
+<td>Guatemalan</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The recurrent nonsense allele <strong>p.Arg113</strong><em> is enriched in the Qatar Genome Program (MAF 8.57 × 10⁻⁴; 24 heterozygotes among ~14,000 genomes) and is catalogued in ClinVar (RCV003989718.2). Importantly, haplotype analysis showed </em><em>no shared founder haplotype</em><em> for this recurrent variant, indicating independent recurrent mutation rather than a single founder event — consistent with a CpG-hypermutable Arg codon (CGA→TGA). The Szenker-Ravi study documents the recurrent homozygous nonsense variant (</em>"In seven additional families (F2-F8), the affected individuals were homozygous for another stop-gained variant, c.337C&gt;T (p.Arg113…"<em>) and the Guatemalan frameshift (</em>"This deletion of one base c.1210del (p.Gln404Argfs…"*).</p>
+<p>All variants are predicted to cause <strong>nonsense-mediated decay / protein-null</strong> outcomes, and the signal-peptide missense (p.Thr19Met) is presumed to impair secretion — establishing a uniform <strong>loss-of-function</strong> disease mechanism.</p>
+<h3>Finding 3 — Clinical phenotype spectrum, incomplete penetrance, and comparatively mild cardiac involvement</h3>
+<p>Among the 16 affected individuals, the phenotype ranged widely:
+- <strong>Heterotaxy without CHD (5/16):</strong> e.g., asymptomatic situs inversus totalis; horseshoe kidney with otherwise normal situs solitus.
+- <strong>Heterotaxy with severe CHD (11/16):</strong> e.g., hypoplastic left heart syndrome with mitral and aortic atresia, bilobed lungs (pulmonary isomerism), and intestinal malrotation.</p>
+<p><strong>Outcomes:</strong> 3 fetuses underwent termination of pregnancy, and 2 died in the first year of life from complex cardiac phenotypes. Critically, <strong>two individuals carrying biallelic variants had normal situs solitus (non-penetrant)</strong>, directly demonstrating <strong>incomplete penetrance</strong>.</p>
+<p>A key quantitative observation is that CIROZ-related disease has <strong>milder cardiac involvement</strong> than other module genes: significantly fewer CIROZ individuals had CHD (5/16) compared with individuals harboring biallelic variants in the four other module genes MMP21, PKD1L1, CIROP, and DAND5 (chi-squared <em>p</em> = 0.006). Furthermore, the module genes collectively produce far more situs ambiguus than the primary-ciliary-dyskinesia (CILD) genes (chi-squared <em>p</em> &lt; 0.00001), distinguishing this "extracellular module" heterotaxy from classic ciliary-motility heterotaxy. The core phenotype is anchored by the primary report: <em>"We report 16 individuals from 10 families with bi-allelic CIROZ inactivation variants, which cause heterotaxy with congenital heart defects."</em></p>
+<h3>Finding 4 — Animal models: mouse phenocopy, but no zebrafish/Xenopus phenotype</h3>
+<p>Two independent mouse <em>Ciroz</em> (gene symbol <em>Gm572</em>) null lines model HTX14:
+1. <strong>ENU-induced 5′ splice-donor variant</strong> c.26+1G&gt;A (p.Trp9<em>, protein-null; <a href="https://bioregistry.io/MGI:5431499" target="_blank" rel="noopener noreferrer">MGI:5431499</a>): homozygous E15.5 embryos show situs inversus totalis, CHDs, </em><em>right pulmonary isomerism</em><em>, and abnormal liver positioning.
+2. </em><em>IMPC LacZ cassette</em><em> replacing exon 4 (</em>Gm572^tm1b(EUCOMM)Hmgu*; <a href="https://bioregistry.io/MGI:5635119" target="_blank" rel="noopener noreferrer">MGI:5635119</a>): partially embryonic lethal (&lt;6% survive to birth), with E18.5 situs inversus affecting lungs, heart, liver, and stomach.</p>
+<p>In stark contrast, complete CRISPR knockouts and morpholino knockdowns in <em>Xenopus laevis</em>, and maternal-zygotic null zebrafish, showed <strong>no laterality or heart-looping defects</strong> (asymmetric <em>lefty2</em> and <em>lov/southpaw</em> expression remained intact); MZ-null zebrafish were viable and fertile. The authors summarize: <em>"While the knockout of Ciroz in mice also leads to situs anomalies, we unexpectedly find that its targeted inactivation in zebrafish and Xenopus does not lead to observable LR anomalies."</em> CIROZ protein was confirmed to be <strong>secreted</strong> (detected in culture media), to form <strong>oligomers</strong>, and to be expressed specifically in the ciliated LRO, temporally <strong>after cirop and before mmp21</strong>. Evolutionarily, CIROZ is absent/pseudogenized in Carnivora, Atherinomorpha fish, and jawless vertebrates — reinforcing its dispensability in some lineages despite essentiality in human and mouse.</p>
+<h3>Finding 5 — Mechanistic placement in the LRO extracellular module upstream of NODAL–PITX2</h3>
+<p>CIROZ joins a four-gene module — DAND5, PKD1L1, MMP21, CIROP — that <em>"has specifically evolved in vertebrate species that harbor motile cilia in their left-right organizer (LRO)."</em> The downstream pathway is the conserved NODAL cascade (Gabriel &amp; Lo 2024, <a href="https://pubmed.ncbi.nlm.nih.gov/38884745/">PMID: 38884745</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38884711/">PMID: 38884711</a>): <em>"This pathway involves initial asymmetric activation of a nodal signaling cascade at the embryonic node, followed by its propagation to the left lateral plate mesoderm and activation of left-sided expression of the Pitx2 transcription factor specifying visceral organ asymmetry."</em> CIROZ is a secreted ZP-N-domain protein acting extracellularly within this module, feeding into DAND5-mediated regulation of NODAL.</p>
+<h3>Finding 6 — Epidemiology and management context</h3>
+<p>Laterality defects have an estimated prevalence of <strong>~1 in 10,000 live births</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/39753129/">PMID: 39753129</a>). Within CHD cohorts, laterality defects appear in ~1.1% of patients (<a href="https://pubmed.ncbi.nlm.nih.gov/40467998/">PMID: 40467998</a>), and CHD is markedly more common in heterotaxy than in the general population (57% vs ~1%). Current NGS yields a molecular diagnosis in only <strong>20–30% of heterotaxy cases</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42630107/">PMID: 42630107</a>), which is precisely the diagnostic gap that CIROZ discovery helps close. Splenic abnormalities (asplenia/polysplenia) drive <strong>high bacteremia risk and mortality</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/27425254/">PMID: 27425254</a>): <em>"HTX patients are at high risk for bacteremia leading to mortality, regardless of anatomic splenic type."</em> Pneumococcal conjugate vaccination is protective (<a href="https://pubmed.ncbi.nlm.nih.gov/20730421/">PMID: 20730421</a>): <em>"No cases of pneumococcal sepsis occurred after the introduction of the conjugated pneumococcal vaccination to the pediatric vaccination schedule."</em> The same study notes that <em>"the finding of interrupted IVC on echocardiography should prompt screening for intestinal malrotation."</em></p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<h3>Ordered causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li><strong>Biallelic loss-of-function variant in CIROZ</strong> (nonsense/frameshift → NMD/protein-null, or signal-peptide missense → impaired secretion) <strong>leads to</strong> absence of functional secreted CIROZ protein in the embryonic left-right organizer (LRO). <em>[Demonstrated: human genetics + protein secretion assays.]</em></li>
+<li>Loss of CIROZ <strong>disrupts the vertebrate LRO extracellular module</strong> (DAND5/PKD1L1/MMP21/CIROP/CIROZ) that operates during the symmetry-breaking window. <em>[Inferred from module membership and LRO-specific, stage-specific expression — CIROZ acts after CIROP and before MMP21.]</em></li>
+<li>Normally, motile cilia at the LRO generate <strong>leftward fluid flow</strong>, sensed by immotile sensory cilia via the <strong>PKD2/PKD1L1 mechanosensitive Ca²⁺ channel</strong>. Module disruption <strong>impairs correct flow-dependent signaling</strong>. <em>[Demonstrated for the module broadly; CIROZ's precise biochemical step is inferred.]</em></li>
+<li>Flow sensing normally causes <strong>left-sided down-regulation of DAND5</strong> (a secreted NODAL antagonist). Faulty signaling <strong>results in failure to properly repress DAND5 asymmetrically</strong>. <em>[Inferred for CIROZ specifically.]</em></li>
+<li>Persistent/symmetric DAND5 activity <strong>fails to disinhibit NODAL</strong> on the left (NODAL normally acts as NODAL–GDF1 heterodimers). → <strong>Loss or randomization of left-sided NODAL activation.</strong> <em>[Demonstrated for the cascade.]</em></li>
+<li>Disrupted NODAL <strong>fails to activate PITX2</strong> correctly in the <strong>left lateral plate mesoderm</strong>. <em>[Demonstrated for the cascade.]</em></li>
+<li>Absent/randomized PITX2 asymmetry <strong>leads to abnormal left-right specification of visceral organogenesis</strong> → <strong>situs ambiguus / situs inversus</strong>. <em>[Demonstrated.]</em></li>
+</ol>
+<p><strong>Branch point (explains variable expressivity):</strong>
+- 7a. Random/abnormal cardiac looping and outflow-tract morphogenesis <strong>→ congenital heart defects</strong> (e.g., HLHS, atrioventricular septal defects) in a subset. <em>[Observed in 11/16.]</em>
+- 7b. Abnormal thoraco-abdominal organ positioning <strong>→ pulmonary isomerism, abnormal liver/stomach position, intestinal malrotation, splenic anomalies (asplenia/polysplenia), horseshoe kidney.</strong>
+- 7c. In some biallelic carriers, stochastic/compensatory factors permit normal patterning <strong>→ situs solitus (non-penetrant).</strong> <em>[Observed in 2 individuals — incomplete penetrance.]</em></p>
+<h3>Schematic</h3>
+<pre><code> CIROZ biallelic LOF
+│ (no secreted CIROZ in LRO)
+▼
+ LRO extracellular module disrupted
+ (DAND5 · PKD1L1 · MMP21 · CIROP · CIROZ)
+│
+▼
+ Cilia-driven leftward flow sensing impaired
+│ (PKD2/PKD1L1 Ca²⁺ channel)
+▼
+ Failure of asymmetric DAND5 down-regulation
+│
+▼
+ NODAL not disinhibited on the left  ──►  PITX2 not activated in left LPM
+│
+▼
+ Loss/randomization of L-R organ specification
+│
+   ┌────┴─────────────┬──────────────────┐
+   ▼                  ▼                  ▼
+ Cardiac looping/   Visceral mal-      Stochastic rescue
+ OFT defects →      positioning →      → situs solitus
+ CHD (11/16)        pulmonary          (non-penetrant, 2 cases)
+    isomerism, gut
+    malrotation,
+    asplenia/polysplenia
+</code></pre>
+<p><strong>Upstream vs downstream:</strong> CIROZ acts <em>upstream</em> at the LRO (symmetry-breaking step), within the extracellular module; NODAL/LEFTY/PITX2 are <em>downstream</em> transcriptional effectors. <strong>Cell types involved:</strong> motile and primary/sensory ciliated cells of the LRO; lateral plate mesoderm cells. <strong>Suggested ontology terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0007368" target="_blank" rel="noopener noreferrer">GO:0007368</a> (determination of left/right symmetry), <a href="http://purl.obolibrary.org/obo/GO_0060287" target="_blank" rel="noopener noreferrer">GO:0060287</a> (epithelial cilium movement involved in determination of left/right asymmetry), <a href="http://purl.obolibrary.org/obo/GO_0003140" target="_blank" rel="noopener noreferrer">GO:0003140</a> (determination of left/right asymmetry in lateral mesoderm), <a href="http://purl.obolibrary.org/obo/GO_0038003" target="_blank" rel="noopener noreferrer">GO:0038003</a> (Nodal signaling pathway); <a href="http://purl.obolibrary.org/obo/CL_0000064" target="_blank" rel="noopener noreferrer">CL:0000064</a> (ciliated cell); <a href="http://purl.obolibrary.org/obo/UBERON_0005098" target="_blank" rel="noopener noreferrer">UBERON:0005098</a> (left-right organizer / node region), <a href="http://purl.obolibrary.org/obo/UBERON_0003081" target="_blank" rel="noopener noreferrer">UBERON:0003081</a> (lateral plate mesoderm); <a href="http://purl.obolibrary.org/obo/CHEBI_29108" target="_blank" rel="noopener noreferrer">CHEBI:29108</a> (calcium(2+)).</p>
+<hr />
+<h2>Section-by-Section Characterization</h2>
+<h3>1. Disease Information</h3>
+<p>HTX14 is an ultra-rare Mendelian <strong>visceral heterotaxy / laterality disorder</strong> in which thoraco-abdominal organs develop in an abnormal left-right arrangement (situs ambiguus or situs inversus), frequently with congenital heart defects. <strong>Identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0976135" target="_blank" rel="noopener noreferrer">MONDO:0976135</a>; OMIM 621080; <a href="http://purl.obolibrary.org/obo/DOID_0061123" target="_blank" rel="noopener noreferrer">DOID:0061123</a>; <a href="https://bioregistry.io/GARD:0027430" target="_blank" rel="noopener noreferrer">GARD:0027430</a>; MedGen C1875141; UMLS C5975611. No dedicated Orphanet or ICD-10/ICD-11 code is specific to the type-14 subtype (classified under broader heterotaxy/situs categories; MeSH D059446 "Heterotaxy Syndrome"). <strong>Synonyms:</strong> HTX14; CIROZ-related heterotaxy; CIROZ visceral heterotaxy; C1orf127-related heterotaxy. Information is <strong>aggregated disease-level</strong> (case series + cohort studies), not EHR-derived.</p>
+<h3>2. Etiology</h3>
+<p><strong>Primary cause:</strong> biallelic (homozygous or compound-heterozygous) loss-of-function variants in CIROZ — a purely <strong>genetic</strong> etiology. <strong>Genetic risk factors:</strong> the recurrent p.Arg113<em> founder-independent allele (enriched in Middle Eastern/Qatari populations), p.Arg193</em>, p.Gln404Argfs<em>84 (Guatemalan), and signal-peptide p.Thr19Met. </em><em>Consanguinity</em><em> is a major contributor (7 of 10 families consanguineous). </em><em>Carrier status is non-pathogenic</em><em> (recessive). No established environmental or infectious cause for HTX14 specifically; however, for heterotaxy broadly, </em><em>pregestational diabetes/maternal hyperglycemia</em><em> is a recognized teratogenic risk factor acting on the same NODAL–PITX2 axis (<a href="https://pubmed.ncbi.nlm.nih.gov/39442590/">PMID: 39442590</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41974186/">PMID: 41974186</a>). </em><em>Protective factors:</em><em> none genetic are established; incomplete penetrance implies unidentified modifiers. </em><em>Gene-environment interactions:</em>* not specifically characterized for CIROZ.</p>
+<h3>3. Phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO term</th>
+<th>Frequency (16 individuals)</th>
+<th>Onset</th>
+<th>Severity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Visceral heterotaxy / situs ambiguus</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030853" target="_blank" rel="noopener noreferrer">HP:0030853</a> (abnormal heart/visceral situs)</td>
+<td>Core defining feature</td>
+<td>Congenital/prenatal</td>
+<td>Variable</td>
+</tr>
+<tr>
+<td>Situs inversus totalis</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001696" target="_blank" rel="noopener noreferrer">HP:0001696</a></td>
+<td>Subset</td>
+<td>Congenital</td>
+<td>Often asymptomatic</td>
+</tr>
+<tr>
+<td>Congenital heart defect (e.g., HLHS)</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" rel="noopener noreferrer">HP:0001627</a>; <a href="http://purl.obolibrary.org/obo/HP_0004383" target="_blank" rel="noopener noreferrer">HP:0004383</a> (HLHS)</td>
+<td>11/16 (~69%)</td>
+<td>Congenital</td>
+<td>Severe when present</td>
+</tr>
+<tr>
+<td>Pulmonary isomerism / abnormal lung lobation</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0006528" target="_blank" rel="noopener noreferrer">HP:0006528</a></td>
+<td>Subset</td>
+<td>Congenital</td>
+<td>Moderate</td>
+</tr>
+<tr>
+<td>Intestinal malrotation</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002566" target="_blank" rel="noopener noreferrer">HP:0002566</a></td>
+<td>Subset</td>
+<td>Congenital</td>
+<td>Moderate–severe</td>
+</tr>
+<tr>
+<td>Abnormal liver/stomach position</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" rel="noopener noreferrer">HP:0002240</a> (context)</td>
+<td>Subset</td>
+<td>Congenital</td>
+<td>Variable</td>
+</tr>
+<tr>
+<td>Asplenia / polysplenia</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001746" target="_blank" rel="noopener noreferrer">HP:0001746</a> / <a href="http://purl.obolibrary.org/obo/HP_0001748" target="_blank" rel="noopener noreferrer">HP:0001748</a></td>
+<td>Common in heterotaxy</td>
+<td>Congenital</td>
+<td>Increases infection risk</td>
+</tr>
+<tr>
+<td>Horseshoe kidney</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000085" target="_blank" rel="noopener noreferrer">HP:0000085</a></td>
+<td>Reported</td>
+<td>Congenital</td>
+<td>Mild</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Quality of life:</strong> dominated by cardiac morbidity; asymptomatic situs inversus has minimal QoL impact, whereas complex CHD imposes major burden (surgery, mortality). Severity is <strong>variable</strong>; progression is <strong>stable/structural</strong> (congenital, non-degenerative). No disease-specific QoL instruments exist for HTX14.</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>Causal gene:</strong> CIROZ (C1orf127); OMIM gene/phenotype 621080; <a href="https://bioregistry.io/HGNC:26730" target="_blank" rel="noopener noreferrer">HGNC:26730</a>; NCBI Gene 148345; Ensembl ENSG00000175262; locus 1p36.22. <strong>Variant classes:</strong> nonsense, frameshift, signal-peptide missense — all <strong>loss-of-function</strong> (see Finding 2 table). <strong>ACMG classification:</strong> the LOF alleles are pathogenic/likely-pathogenic (PVS1 + population-frequency/segregation evidence); p.Thr19Met is a hypomorphic signal-peptide missense. <strong>Allele frequencies</strong> are rare in gnomAD (2.5 × 10⁻⁶ to 4.3 × 10⁻⁴). <strong>Origin:</strong> germline. <strong>Functional consequence:</strong> loss of function (secreted protein null / impaired secretion). <strong>Modifier genes:</strong> none identified, but incomplete penetrance strongly implies modifiers. <strong>Epigenetic / chromosomal abnormalities:</strong> none implicated.</p>
+<h3>5. Environmental Information</h3>
+<p>No environmental, lifestyle, or infectious agent is causally linked to HTX14 specifically (it is monogenic recessive). For the broader heterotaxy phenotype, maternal pregestational diabetes/hyperglycemia is an environmental risk factor converging on NODAL–PITX2 signaling (<a href="https://pubmed.ncbi.nlm.nih.gov/39442590/">PMID: 39442590</a>).</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p>See the <strong>Mechanistic Model</strong> section above for the ordered causal chain and diagram. Molecular pathway: <strong>TGF-β/NODAL superfamily signaling</strong> (Reactome/KEGG Nodal/TGF-β). Protein dysfunction: loss of a secreted ZP-N/zona-pellucida-domain (ZP2-like, DUF4556) oligomeric protein. Cellular processes: ciliary motility and mechanosensation, left-right determination. No metabolic, immune, or autoimmune component is intrinsic to the primary lesion.</p>
+<h3>7. Anatomical Structures Affected</h3>
+<p><strong>Primary organs:</strong> heart (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>), lungs (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>), liver (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>), stomach (<a href="http://purl.obolibrary.org/obo/UBERON_0000945" target="_blank" rel="noopener noreferrer">UBERON:0000945</a>), spleen (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>), intestine (<a href="http://purl.obolibrary.org/obo/UBERON_0000160" target="_blank" rel="noopener noreferrer">UBERON:0000160</a>), kidney (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>). <strong>Developmental origin structure:</strong> left-right organizer/node (<a href="http://purl.obolibrary.org/obo/UBERON_0005098" target="_blank" rel="noopener noreferrer">UBERON:0005098</a>) and lateral plate mesoderm (<a href="http://purl.obolibrary.org/obo/UBERON_0003081" target="_blank" rel="noopener noreferrer">UBERON:0003081</a>). <strong>Body systems:</strong> cardiovascular, respiratory, digestive, lymphatic/immune (spleen), urinary. <strong>Cell/tissue level:</strong> ciliated epithelial cells of the LRO (<a href="http://purl.obolibrary.org/obo/CL_0000064" target="_blank" rel="noopener noreferrer">CL:0000064</a>); mesodermal cells. <strong>Subcellular:</strong> cilium/axoneme (<a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" rel="noopener noreferrer">GO:0005929</a>), extracellular space (<a href="http://purl.obolibrary.org/obo/GO_0005615" target="_blank" rel="noopener noreferrer">GO:0005615</a> — site of secreted CIROZ). <strong>Lateralization:</strong> the defining abnormality is disrupted left-right asymmetry (mirror-image or randomized/ambiguous).</p>
+<h3>8. Temporal Development</h3>
+<p><strong>Onset:</strong> congenital — the lesion acts during the narrow embryonic <strong>symmetry-breaking window</strong> (equivalent to ~3rd–4th week human gestation). Often detected <strong>prenatally</strong> on fetal echocardiography/ultrasound or at birth. <strong>Progression:</strong> structural and <strong>stable</strong> (non-progressive once formed); disease course is determined by the fixed anatomical defects. <strong>Critical period:</strong> the LRO/node stage is the sole window of vulnerability; there is no post-developmental opportunity for primary correction. Outcome is dominated by neonatal/infant cardiac events (terminations and early deaths concentrated in infancy).</p>
+<h3>9. Inheritance and Population</h3>
+<p><strong>Inheritance:</strong> autosomal recessive. <strong>Penetrance:</strong> incomplete (2 biallelic individuals had situs solitus). <strong>Expressivity:</strong> highly variable (asymptomatic → lethal CHD). <strong>Consanguinity:</strong> major role (7/10 families). <strong>Founder effect:</strong> the recurrent p.Arg113<em> allele arose by </em><em>independent recurrence</em><em> (no shared haplotype), not a classic founder. </em><em>Carrier frequency:</em><em> low (gnomAD rare; elevated for p.Arg113</em> in Qatar, MAF 8.57 × 10⁻⁴). <strong>Populations:</strong> reported in European, Middle Eastern (Qatari/consanguineous), and Guatemalan families. <strong>Prevalence:</strong> heterotaxy overall ~1/10,000 live births; HTX14 is a small ultra-rare subset. No reported sex skew. No genetic anticipation or germline mosaicism documented.</p>
+<h3>10. Diagnostics</h3>
+<p><strong>Imaging</strong> is central: fetal/postnatal echocardiography, abdominal ultrasound, CT/MRI to map cardiac and visceral situs; interrupted IVC is a useful flag (<a href="https://pubmed.ncbi.nlm.nih.gov/20730421/">PMID: 20730421</a>). <strong>Laboratory:</strong> Howell-Jolly bodies / functional asplenia screening; sepsis workup when febrile. <strong>Genetic testing</strong> is the definitive confirmatory route: <strong>trio whole-exome or whole-genome sequencing</strong> is most effective given locus heterogeneity (CIROZ is one of &gt;60 heterotaxy/laterality genes); heterotaxy/laterality <strong>gene panels</strong> should now include CIROZ. Single-gene testing is reserved for cascade testing of a known familial variant. CMA/karyotype help exclude chromosomal causes. <strong>Differential diagnosis:</strong> primary ciliary dyskinesia (PCD)-associated heterotaxy (<a href="https://pubmed.ncbi.nlm.nih.gov/42026914/">PMID: 42026914</a>), and other module/laterality genes (DAND5, PKD1L1, MMP21, CIROP, DNAH9, GDF1, CFAP53/CCDC11) (<a href="https://pubmed.ncbi.nlm.nih.gov/42630107/">PMID: 42630107</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39969775/">PMID: 39969775</a>). Reference transcript for reporting: <strong>NM_001170754.2</strong>.</p>
+<h3>11. Outcome / Prognosis</h3>
+<p>Prognosis is governed by the <strong>cardiac phenotype</strong>: severe complex CHD drives pregnancy termination, surgical intervention, and early mortality concentrated in infancy (<a href="https://pubmed.ncbi.nlm.nih.gov/41974186/">PMID: 41974186</a>): <em>"In LSD, major CHD drives pregnancy termination, surgical intervention, and early mortality concentrated during infancy."</em> In the CIROZ cohort, 3/16 were terminated and 2/16 died in year one; those without CHD can be asymptomatic with normal life expectancy. <strong>Morbidity</strong> includes repeat cardiac surgery, infection (splenic dysfunction), and sequelae of malrotation. <strong>Prognostic factors:</strong> presence/severity of CHD, right-ventricular-outflow obstruction, splenic status. CIROZ cases trend toward <strong>milder cardiac involvement</strong> than other module genes (CHD 5/16; <em>p</em> = 0.006).</p>
+<h3>12. Treatment</h3>
+<p>No gene-specific or disease-modifying therapy exists; care is <strong>supportive and anatomy-directed</strong>:
+- <strong>Cardiac surgery</strong> for CHD (staged single-ventricle palliation or biventricular repair as anatomy permits) — NCIT: Cardiac Surgical Procedure.
+- <strong>Infection prophylaxis</strong> for asplenia/functional asplenia: <strong>pneumococcal, Hib, and meningococcal vaccination</strong> plus antibiotic prophylaxis (<a href="https://pubmed.ncbi.nlm.nih.gov/27425254/">PMID: 27425254</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/20730421/">PMID: 20730421</a>) — NCIT: Antibiotic Prophylaxis / Vaccination.
+- <strong>Surgical correction of intestinal malrotation</strong> (Ladd procedure) when indicated.
+- <strong>Supportive/rehabilitative care</strong> and multidisciplinary follow-up.
+No pharmacogenomic, gene, cell, RNA, or targeted therapies are reported for HTX14.</p>
+<h3>13. Prevention</h3>
+<p><strong>Primary prevention:</strong> not possible for the monogenic lesion; optimizing maternal glycemic control reduces the broader heterotaxy risk (<a href="https://pubmed.ncbi.nlm.nih.gov/39442590/">PMID: 39442590</a>). <strong>Secondary prevention:</strong> prenatal detection via fetal echocardiography enables delivery planning at cardiac centers. <strong>Genetic counseling:</strong> 25% recurrence risk per pregnancy for carrier couples; cascade carrier testing; prenatal diagnosis and preimplantation genetic testing are feasible once the familial variant is known. <strong>Tertiary prevention:</strong> vaccination + antibiotic prophylaxis to prevent overwhelming post-splenic sepsis; malrotation screening and prophylactic Ladd procedure.</p>
+<h3>14. Other Species / Natural Disease</h3>
+<p><strong>Mouse ortholog:</strong> <em>Gm572</em> (Ciroz), with two null alleles (<a href="https://bioregistry.io/MGI:5431499" target="_blank" rel="noopener noreferrer">MGI:5431499</a>; <a href="https://bioregistry.io/MGI:5635119" target="_blank" rel="noopener noreferrer">MGI:5635119</a>) recapitulating human situs defects. <strong>Non-mammalian orthologs</strong> exist in zebrafish and <em>Xenopus</em> but are <strong>dispensable</strong> there (no LR phenotype on knockout). The gene is <strong>absent/pseudogenized in Carnivora, Atherinomorpha fish, and jawless vertebrates</strong>, indicating lineage-specific loss. No naturally occurring companion-animal or wildlife CIROZ disease is reported (no established OMIA entry). No zoonotic relevance.</p>
+<h3>15. Model Organisms</h3>
+<p><strong>Mouse</strong> is the validated model: two independent null lines phenocopy heterotaxy (situs inversus, CHD, pulmonary isomerism, abnormal liver position; partial embryonic lethality). <strong>Phenotype recapitulation is strong</strong> in mouse. <strong>Zebrafish (maternal-zygotic null) and Xenopus (CRISPR/morpholino) do NOT recapitulate</strong> the phenotype — an important limitation highlighting species-specific gene essentiality and cautioning against using these organisms to model CIROZ function. Resources: MGI (mouse), IMPC/EUCOMM (tm1b allele). In-vitro secretion assays (demonstrating CIROZ is secreted and oligomerizes) complement the animal data.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Role</th>
+<th>Key contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39753129/">39753129</a></td>
+<td><em>CIROZ is dispensable in ancestral vertebrates but essential for L-R patterning in humans</em></td>
+<td><strong>Primary / defining</strong></td>
+<td>16 individuals/10 families; variant spectrum; mouse phenocopy; zebrafish/Xenopus negative; module membership; secreted ZP-N protein</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40467998/">40467998</a></td>
+<td><em>Prevalence of laterality defects in CHD</em></td>
+<td>Supporting / independent</td>
+<td>Lists C1ORF127/CIROZ as candidate gene; laterality epidemiology in CHD (1.1%); diagnostic yield ~13%</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42630107/">42630107</a></td>
+<td><em>Genetics in Heterotaxy (DNAH9, PKD1L1, MMP21, GDF1)</em></td>
+<td>Context</td>
+<td>NGS diagnoses only 20–30% of HTX; extracardiac burden affects survival</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38884745/">38884745</a></td>
+<td><em>Molecular Pathways and Animal Models of Defects in Situs</em></td>
+<td>Mechanism</td>
+<td>LRO cilia → Nodal → Lefty → Pitx2; species differences in ciliary requirement</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38884711/">38884711</a></td>
+<td><em>Establishment of Cardiac Laterality</em></td>
+<td>Mechanism</td>
+<td>Defines the downstream Nodal–Pitx2 cascade CIROZ feeds into</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41974186/">41974186</a></td>
+<td><em>Laterality Spectrum Disorders in the Prenatal Era</em></td>
+<td>Prognosis</td>
+<td>Major CHD drives termination and early infant mortality; pregestational diabetes association</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39442590/">39442590</a></td>
+<td><em>Hyperglycaemia induces diet-dependent L-R axis defects</em></td>
+<td>Gene-environment</td>
+<td>Maternal diabetes perturbs Nodal–Pitx2 — shared downstream axis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27425254/">27425254</a></td>
+<td><em>Bacteremia in Patients with Heterotaxy</em></td>
+<td>Management</td>
+<td>High bacteremia mortality regardless of splenic type</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20730421/">20730421</a></td>
+<td><em>Heterotaxy syndrome: contemporary disease trends</em></td>
+<td>Prevention</td>
+<td>Pneumococcal vaccine protective; interrupted IVC → malrotation screening</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27679871/">27679871</a></td>
+<td><em>Factors influencing bacteraemia in isomerism/CHD</em></td>
+<td>Management</td>
+<td>Most bacteremia episodes nosocomial</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42026914/">42026914</a></td>
+<td><em>Genetics of Primary Ciliary Dyskinesia</em></td>
+<td>Differential dx</td>
+<td>~50% of PCD have laterality defects — key DDx to distinguish</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39969775/">39969775</a></td>
+<td><em>CFAP53 biallelic mutations / situs inversus</em></td>
+<td>Differential dx</td>
+<td>Example of another recessive laterality gene</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Evidence source types:</strong> human clinical/genetic (39753129, 40467998, 42630107, 41974186), model organism (39753129 mouse/zebrafish/Xenopus; 39442590 mouse), in vitro (39753129 secretion/oligomerization assays), and review/mechanistic synthesis (38884745, 38884711, 37340963, 36172285).</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Single defining cohort.</strong> The disease rests primarily on one 2025 study (16 individuals) plus a second cohort (Dong et al., 5 additional families). The total number of reported patients worldwide is small (~21 families), so phenotype frequencies carry wide confidence intervals.</li>
+<li><strong>Incomplete penetrance is unexplained.</strong> Two biallelic individuals had normal situs; the genetic/environmental modifiers responsible are unknown.</li>
+<li><strong>Exact biochemical step is inferred.</strong> CIROZ's precise molecular interaction (e.g., whether it directly modulates DAND5, GDF1, or cilia-dependent flow) is not experimentally pinpointed; its placement "after CIROP, before MMP21" is temporal/expression-based.</li>
+<li><strong>Species discordance</strong> means zebrafish/Xenopus are poor functional models, limiting rapid in-vivo mechanistic dissection; mechanistic work depends on the slower mouse system.</li>
+<li><strong>No specific ICD/Orphanet code</strong>, no dedicated natural-history registry, and no QoL instruments for the CIROZ subtype.</li>
+<li><strong>No therapy</strong> targets the pathway; all management is generic heterotaxy care.</li>
+<li><strong>Low diagnostic yield</strong> (20–30%) for heterotaxy overall means CIROZ-attributable cases are likely under-ascertained; carrier-frequency and true prevalence estimates are preliminary.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Expand the patient registry.</strong> Aggregate CIROZ cases via GeneMatcher/Matchmaker Exchange to refine penetrance, expressivity, CHD subtype frequencies, and genotype–phenotype correlations (e.g., does p.Thr19Met confer milder disease than nulls?).</li>
+<li><strong>Define CIROZ's biochemical partner(s).</strong> Use co-immunoprecipitation / proximity labeling in mouse node or LRO-like organoids to test direct interaction with DAND5, GDF1, PKD1L1, MMP21, and CIROP; determine whether CIROZ modulates NODAL antagonism.</li>
+<li><strong>Mouse mechanistic dissection.</strong> In Ciroz-null embryos, quantify asymmetric Dand5, Nodal, Lefty2, and Pitx2 expression to localize the exact step of cascade failure; test conditional/tissue-specific alleles.</li>
+<li><strong>Modifier discovery.</strong> Whole-genome sequencing and expression analysis of penetrant vs non-penetrant biallelic carriers to identify genetic modifiers explaining incomplete penetrance.</li>
+<li><strong>Functional variant classification.</strong> Secretion/oligomerization assays for all reported and future missense variants (including p.Thr19Met) to standardize ACMG classification (PS3/PVS1 evidence).</li>
+<li><strong>Panel/pipeline updates.</strong> Ensure CIROZ is added to all clinical heterotaxy/laterality and CHD gene panels and to ClinVar/ClinGen curation, with NM_001170754.2 as the reference transcript.</li>
+<li><strong>Prospective management study.</strong> Evaluate whether CIROZ-defined patients, given their milder cardiac profile, warrant a distinct surveillance/counseling pathway versus other module genes.</li>
+</ol>
+<hr />
+<p><em>Report compiled from an autonomous multi-iteration investigation (9 confirmed findings; 20 papers reviewed). All mechanistic and clinical claims are attributed to the cited PMIDs above; verbatim abstract quotes are embedded where they anchor a specific claim.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Heterotaxy_Visceral_14_Autosomal-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Heterotaxy_Visceral_14_Autosomal-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.4.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>12</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>UBERON:0005098</code> (2 mentions) - the report calls it "left-right organizer / node region"; UBERON calls it <strong>UBERON_0005098</strong></li>
+<li><code>HP:0030853</code> (1 mention) - the report calls it "abnormal heart/visceral situs"; HP calls it <strong>Heterotaxy</strong></li>
+<li><code>HP:0001696</code> (1 mention) - the report calls it "Physical manifestation"; HP calls it <strong>Situs inversus totalis</strong></li>
+<li><code>HP:0006528</code> (1 mention) - the report calls it "Physical manifestation"; HP calls it <strong>Chronic lung disease</strong></li>
+<li><code>HP:0002240</code> (1 mention) - the report calls it "context"; HP calls it <strong>Hepatomegaly</strong></li>
+<li><code>HP:0000085</code> (1 mention) - the report calls it "Physical manifestation"; HP calls it <strong>Horseshoe kidney</strong></li>
+<li><code>GO:0005615</code> (1 mention) - the report calls it "site of secreted CIROZ"; GO calls it <strong>obsolete extracellular space</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>UBERON:0005098</code> (UBERON_0005098) (2 mentions) - replaced by <code>UBERON:0004200</code></li>
+<li><code>GO:0005615</code> (obsolete extracellular space) (1 mention) - replaced by <code>GO:0005576</code></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0038003</code> (1 mention) - the report calls it "Nodal signaling pathway"; GO calls it <strong>G protein-coupled opioid receptor signaling pathway</strong>, and lists "opioid receptor signaling pathway" among its other names</li>
+<li><code>HP:0002566</code> (1 mention) - the report calls it "Physical manifestation"; HP calls it <strong>Intestinal malrotation</strong></li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>GARD</code>, <code>MGI</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Visceral_Heterotaxy_13-openscientist.html">← Visceral Heterotaxy 13 (OpenScientist)</a>
+                
+                
+                <a href="Visceral_Heterotaxy_7-claude_code.html">Visceral Heterotaxy 7 (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Visceral_Heterotaxy_14.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Heterotaxy_Visceral_14_Autosomal-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
