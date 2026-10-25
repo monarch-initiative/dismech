@@ -43,6 +43,13 @@ diseases:
 - Dengue
 - Chikungunya
 - Tuberculosis
+- Monkeypox
+- Bacterial_meningitis
+- Tick-Borne_Encephalitis
+- Yellow_Fever
+- Meningococcal_Meningitis
+- Herpes_Zoster
+- Japanese_Encephalitis
 - C1Q_Deficiency
 - Complement_Component_2_Deficiency
 - MyD88_Deficiency
@@ -55,6 +62,9 @@ modules:
 - cgas_sting_pathway_activation
 - host_directed_antiviral_dependency
 - innate_antiviral_interferon_response
+- vaccine_induced_mucosal_iga_neutralization
+- polysaccharide_conjugate_t_dependent_switching
+- toxoid_neutralizing_humoral_immunity
 groupings:
 - Predominantly_Antibody_Deficiencies_IEIs
 - Complement_Deficiency_IEIs
@@ -86,6 +96,18 @@ drugs:
 - id: NCIT:C298
   label: BCG Vaccine
   slug: BCG_Vaccine
+- id: NCIT:C96396
+  label: Yellow Fever Vaccine
+  slug: Yellow_Fever_Vaccine
+- id: NCIT:C183179
+  label: Recombinant Vesicular Stomatitis Virus-Zaire Ebolavirus Envelope Glycoprotein Vaccine
+  slug: Recombinant_Vesicular_Stomatitis_Virus-Zaire_Ebolavirus_Envelope_Glycoprotein_Vaccine
+- id: NCIT:C80473
+  label: Pneumococcal 7-Valent Conjugate Vaccine
+  slug: Pneumococcal_7-Valent_Conjugate_Vaccine
+- id: NCIT:C96387
+  label: Inactivated Poliovirus Vaccine
+  slug: Inactivated_Poliovirus_Vaccine
 ---
 
 # Vaccine Mechanisms & Immunization Curation
@@ -300,20 +322,25 @@ Vaccine mechanisms reuse and motivate conserved modules in `kb/modules/`:
   - `germinal_center_reaction`: Tfh-driven B-cell somatic hypermutation, affinity maturation, and generation of long-lived plasma cells (`NIH_HT_22_short_lived_long_lived_plasma_cells`) and memory B cells; underlies conjugate and protein/mRNA vaccine durability.
   - `cgas_sting_pathway_activation` & `innate_antiviral_interferon_response`: Innate nucleic-acid sensing pathways activated by viral infection and vaccine adjuvants.
   - `host_directed_antiviral_dependency`: Host factor dependency (entry receptors, proteases, replication factors) shared with viral entry blockade.
-- **Planned Vaccine-Specific Modules**:
+- **Vaccine-Specific Modules (`kb/modules/`)**:
   - `vaccine_induced_mucosal_iga_neutralization`: Oral/intranasal vaccine priming of Peyer's patch / NALT B cells, polymeric IgA transcytosis via `PIGR`, and luminal neutralization of enteric/respiratory pathogens (`Rotaviral_Enteritis`, `Cholera`, `Paralytic_Poliomyelitis`).
-  - `polysaccharide_conjugate_t_dependent_switching`: Carrier-protein conjugation converting bacterial capsular polysaccharides from T-independent B-cell antigens into MHC-II-restricted Tfh-dependent germinal center responses (`Haemophilus_Meningitis`, `Pneumococcal_Meningitis`, `Pneumococcal_Pneumonia`).
-  - `toxoid_neutralizing_humoral_immunity`: Systemic IgG neutralization of secreted bacterial A-B exotoxins decoupling colonization from toxin-mediated organ injury (`Diphtheria`, `Tetanus`, `Pertussis`, `Anthrax`).
+  - `polysaccharide_conjugate_t_dependent_switching`: Carrier-protein conjugation converting bacterial capsular polysaccharides from T-independent B-cell antigens into MHC-II-restricted Tfh-dependent germinal center responses (`Haemophilus_Meningitis`, `Meningococcal_Meningitis`, `Pneumococcal_Meningitis`, `Pneumococcal_Pneumonia`).
+  - `toxoid_neutralizing_humoral_immunity`: Systemic IgG neutralization of secreted bacterial A-B exotoxins decoupling colonization from toxin-mediated organ injury (`Diphtheria`, `Tetanus`, `Pertussis`).
 
 ---
 
 ## 6. KB Audit: Vaccine-Preventable Diseases Wired with `target_mechanisms`
 
-We audited all 35+ existing disorder entries with vaccine treatments and enriched **17 major vaccine-preventable disease (VPD) entries** (plus the newly curated flagship `Rotaviral_Enteritis`) so their vaccine treatments carry `therapeutic_modality: VACCINE` and explicit `target_mechanisms:` (`treatment_effect: INHIBITS`) pointing to the exact upstream nodes in `pathophysiology:`.
+We audited all disorder entries with vaccine treatments and curated/enriched **28 vaccine-preventable disease (VPD) entries** (including 6 newly curated VPD disorder entries: `Rotaviral_Enteritis`, `Tick-Borne_Encephalitis`, `Yellow_Fever`, `Meningococcal_Meningitis`, `Herpes_Zoster`, and `Japanese_Encephalitis`) so their vaccine treatments carry `therapeutic_modality: VACCINE` and explicit `target_mechanisms:` (`treatment_effect: INHIBITS`) pointing to the exact upstream nodes in `pathophysiology:`.
 
 | Disorder (`kb/disorders/`) | Vaccine Treatment(s) | Status | Targeted Pathophysiology Node(s) |
 |---|---|---|---|
 | `Rotaviral_Enteritis` | `Rotavirus Vaccination` (`NCIT:C96394`) | **Completed (New Entry)** | `Host Glycan Attachment and Mature Villus Enterocyte Entry`, `NSP4 Viroporin-Mediated Intracellular Calcium Mobilization`, `Proteasomal DGAT1 Degradation and Villus Enterocyte Destruction` (+ `FUT2` `effect_modifiers`) |
+| `Tick-Borne_Encephalitis` | `Inactivated Tick-Borne Encephalitis Vaccination` | **Completed (New Entry)** | `Tick-Borne Cutaneous Inoculation and Primary Viremia`, `Blood-Brain Barrier Crossing and Neuronal Infection` |
+| `Yellow_Fever` | `Yellow Fever 17D Live-Attenuated Vaccination` (`NCIT:C96396`) | **Completed (New Entry)** | `Mosquito Inoculation, Dendritic Cell Infection, and Regional Lymphoid Replication`, `Hepatocyte Tropism, Midzonal Apoptosis, and Acute Hepatic Necrosis` |
+| `Meningococcal_Meningitis` | `MenACWY Conjugate Vaccination`, `MenB Subunit Vaccination` | **Completed (New Entry)** | `Nasopharyngeal Invasion, Meningococcemia, and Terminal Complement Evasion` |
+| `Herpes_Zoster` | `Recombinant Zoster Vaccine (RZV, Shingrix)` | **Completed (New Entry)** | `Waning VZV-Specific Cell-Mediated Immunity and Dorsal Root Ganglion Reactivation`, `Anterograde Axonal Transport and Cutaneous Dermatomal Replication` |
+| `Japanese_Encephalitis` | `Japanese Encephalitis Vaccination` | **Completed (New Entry)** | `Mosquito Inoculation, Cutaneous Amplification, and Primary Viremia`, `Blood-Brain Barrier Disruption and Thalamic/Basal Ganglia Neuronal Tropism` |
 | `COVID-19` | `COVID-19 Vaccination` (`NCIT:C181140`) | **Completed** | `Viral Entry and Replication in Respiratory Epithelium` |
 | `Influenza` | `Annual Vaccination` | **Completed** | `Respiratory Epithelial Infection and Cytopathic Effect`, `Triggering of Acute Myocardial Infarction` |
 | `Respiratory_Syncytial_Virus_Infection` | `Vaccination` | **Completed** | `RSV Infection of Airway Epithelial Cells` |
@@ -321,19 +348,21 @@ We audited all 35+ existing disorder entries with vaccine treatments and enriche
 | `Mumps` | `Mumps vaccination` | **Completed** | `Respiratory replication and lymphatic spread` |
 | `Rubella` | `Rubella vaccination` | **Completed** | `Respiratory entry and lymphatic replication`, `Transplacental transmission and congenital rubella syndrome` |
 | `Chickenpox` | `Varicella Vaccination` | **Completed** | `Primary Respiratory Entry and T-Cell-Associated Viremia`, `Latent Infection in Sensory Ganglia` |
-| `Paralytic_Poliomyelitis` | `Poliovirus vaccination (IPV/OPV)` | **Completed** | `Viremia and CNS Invasion`, `Anterior Horn Motor Neuron Tropism and Lysis` |
+| `Paralytic_Poliomyelitis` | `Poliovirus vaccination (IPV/OPV)` (`NCIT:C96387`) | **Completed** | `Viremia and CNS Invasion`, `Anterior Horn Motor Neuron Tropism and Lysis` |
 | `Pertussis` | `Maternal Tdap Vaccination`, `Pertussis Vaccination` (`NCIT:C91718`) | **Completed** | `Bordetella pertussis Respiratory Colonization`, `Pertussis Toxin-Mediated Disruption of Host Gi Signaling` |
 | `Tetanus` | `Active Immunization` (`NCIT:C91718`), `Tetanus Immunoglobulin` (`NCIT:C2701`) | **Completed** | `Tetanospasmin Production and Retrograde Axonal Transport`, `SNARE Cleavage and Loss of Inhibitory Neurotransmission` |
-| `Pneumococcal_Pneumonia` | `Pneumococcal Vaccination` | **Completed** | `Pneumococcal Colonization and Lower Airway Invasion` |
-| `Hepatitis_B` | `Vaccination`, `Hepatitis B Immune Globulin (HBIG)` (`NCIT:C80829`) | **Completed** | `Hepatocyte Infection and cccDNA Formation`, `HBV DNA Integration` |
+| `Pneumococcal_Pneumonia` | `Pneumococcal Vaccination` (`NCIT:C80473`) | **Completed** | `Pneumococcal Colonization and Lower Airway Invasion` |
+| `Hepatitis_B` | `Vaccination` (+ `MRO:0001284` `effect_modifiers`), `Hepatitis B Immune Globulin (HBIG)` (`NCIT:C80829`) | **Completed** | `Hepatocyte Infection and cccDNA Formation`, `HBV DNA Integration` |
 | `Cholera` | `Oral Cholera Vaccination` | **Completed** | `Small Intestinal Colonization and Toxin Production`, `Cholera Toxin-Mediated Adenylate Cyclase Activation` |
 | `Typhoid_Fever` | `Typhoid Vaccination` | **Completed** | `Intestinal Invasion via M Cells`, `Intracellular Survival in Macrophages and Systemic Dissemination` |
-| `Ebola_Virus_Disease_EVD` | `rVSV-ZEBOV Vaccination (Ervebo)` (`VIRAL_VECTOR`) | **Completed** | `Initial Mononuclear Phagocyte Infection`, `Viral Entry via NPC1 Receptor` |
-| `Malaria` | `Pre-erythrocytic malaria vaccination (RTS,S and R21)` | **Completed** | `Mosquito inoculation and pre-erythrocytic liver-stage infection` (added upstream of `Infected erythrocyte sequestration and cytoadherence` and `Hypnozoite persistence and vivax relapse`) |
+| `Ebola_Virus_Disease_EVD` | `rVSV-ZEBOV Vaccination (Ervebo)` (`NCIT:C183179`, `VIRAL_VECTOR`) | **Completed** | `Initial Mononuclear Phagocyte Infection`, `Viral Entry via NPC1 Receptor` |
+| `Malaria` | `Pre-erythrocytic malaria vaccination (RTS,S and R21)` | **Completed** | `Mosquito inoculation and pre-erythrocytic liver-stage infection` |
 | `Transitional_Cell_Carcinoma` | `Intravesical BCG Immunotherapy` (`NCIT:C298`) | **Completed** | `Immune Evasion` |
-| `Dengue` | *(None currently)* | Planned | `Pre-existing Heterotypic Non-Neutralizing Anti-DENV Antibodies` / `Viral Entry` |
-| `Chikungunya` | *(None currently)* | Planned | `Alphavirus E1/E2-Mediated Cutaneous Fibroblast and Macrophage Entry` |
-| `Tuberculosis` | *(None currently)* | Planned | `Hematogenous Dissemination and Meningeal or Disseminated Seeding in Early Childhood` |
+| `Dengue` | `Live-Attenuated Tetravalent Dengue Vaccination` | **Completed** | `Viral Entry and Primary Replication in Mononuclear Phagocytes`, `NS1-Mediated Endothelial Hyperpermeability` (+ baseline serostatus `effect_modifiers` referencing `Antibody-Dependent Enhancement (ADE)`) |
+| `Chikungunya` | `Chikungunya Vaccination (Live-Attenuated VLA1553 and VLP PXVX0317)` | **Completed** | `Viral Entry and Dermal Dissemination`, `Persistence in Joint-Associated Tissues` |
+| `Monkeypox` | `MVA-BN Vaccination (Jynneos / Imvanex)` | **Completed** | `Viral Entry and Systemic Dissemination`, `Evasion of Host Antiviral Immunity` |
+| `Bacterial_meningitis` | `Conjugate Vaccination (Hib, Pneumococcal, Meningococcal)` (`NCIT:C80473`) | **Completed** | `Blood-Brain Barrier Penetration`, `Intrathecal Bacterial Replication` |
+| `Tuberculosis` | `BCG Vaccination` (`NCIT:C298`) | **Completed** | `Alveolar Macrophage Entry and Phagosome Maturation Arrest`, `Extrapulmonary Hematogenous Dissemination` |
 
 ---
 
@@ -341,30 +370,30 @@ We audited all 35+ existing disorder entries with vaccine treatments and enriche
 
 ## Phase 1: Flagship New Vaccine-Preventable Disease (VPD) Curations
 - [x] Curate `Rotaviral_Enteritis` (`MONDO:0005194`) with `NCIT:C96394` (`Rotavirus Vaccine`), `FUT2` (`hgnc:4013`) host secretor receptor dependency, `ANO1` (`hgnc:21625`) chloride channel effector, and `NSP4`/`VP4`/`VP7` pathograph nodes
-- [ ] Curate `Yellow_Fever` (`MONDO:0005506`) with live-attenuated 17D vaccine (`NCIT`) and viscerotropic/hepatocyte pathograph
-- [ ] Curate `Herpes_Zoster` (`MONDO:0005295`) with recombinant gE/AS01B subunit vaccine (Shingrix) restoring VZV-specific CD4+ T-cell immunity to inhibit dorsal-root-ganglion reactivation
-- [ ] Curate `Meningococcal_Infection` / `Meningococcal_Meningitis` (`MONDO:0005161`) with MenACWY polysaccharide-protein conjugate and MenB factor H-binding protein (`fHbp`) vaccines
-- [ ] Curate `Mpox` (`MONDO:0005849`) with MVA-BN (`Jynneos`) orthopoxvirus cross-protective vaccination
-- [ ] Curate `Japanese_Encephalitis` (`MONDO:0005808`) and `Tick-Borne_Encephalitis` (`MONDO:0005975`) with inactivated/live-attenuated flavivirus vaccines
+- [x] Curate `Yellow_Fever` (`MONDO:0020502`) with live-attenuated 17D vaccine (`NCIT:C96396`) and viscerotropic/hepatocyte pathograph
+- [x] Curate `Herpes_Zoster` (`MONDO:0005609`) with recombinant gE/AS01B subunit vaccine (Shingrix) restoring VZV-specific CD4+ T-cell immunity to inhibit dorsal-root-ganglion reactivation
+- [x] Curate `Meningococcal_Meningitis` (`MONDO:0018059`) with MenACWY polysaccharide-protein conjugate and MenB factor H-binding protein (`fHbp`) vaccines
+- [x] Curate `Monkeypox` (`MONDO:0005849`) with MVA-BN (`Jynneos`) orthopoxvirus cross-protective vaccination
+- [x] Curate `Japanese_Encephalitis` (`MONDO:0019209`) and `Tick-Borne_Encephalitis` (`MONDO:0017572`) with inactivated/live-attenuated flavivirus vaccines
 
 ## Phase 2: Wire Existing VPD Entries with `target_mechanisms` & `therapeutic_agent`
 - [x] `Human_Papillomavirus_Infection` — Prophylactic L1 VLP vs. Therapeutic E6/E7 vaccination wired to distinct pathograph nodes
 - [x] `Immunodeficiency_74_COVID-19-related_X-linked` — `NCIT:C181140` (`mRNA COVID-19 Vaccine`) wired to early SARS-CoV-2 replication node
 - [x] `Diphtheria` — `NCIT:C91718` (`Diphtheria Toxoid/Tetanus Toxoid Vaccine Adsorbed`) & `NCIT:C15259` (`Passive Immunization`) wired to antitoxin immunity node
-- [x] `Haemophilus_Meningitis`, `Pneumococcal_Meningitis`, `Streptococcal_Meningitis` — Conjugate vaccines wired to capsular evasion / colonization nodes
+- [x] `Haemophilus_Meningitis`, `Pneumococcal_Meningitis`, `Streptococcal_Meningitis`, `Bacterial_meningitis` — Conjugate vaccines wired to capsular evasion / colonization / BBB invasion nodes
 - [x] `Rabies`, `Anthrax`, `Hepatitis_A`, `Hepatitis_D`, `Toxic_Shock_Syndrome`, `Ricin_Poisoning` — Vaccines wired via `target_mechanisms`
 - [x] `Fibrolamellar_Hepatocellular_Carcinoma`, `Colon_Adenocarcinoma`, `Vulvar_Carcinoma` — Neoantigen / oncoviral cancer vaccines wired via `target_mechanisms`
 - [x] Enrich `COVID-19`, `Influenza`, and `Respiratory_Syncytial_Virus_Infection` vaccine treatments with `therapeutic_modality: VACCINE`, specific `NCIT` `therapeutic_agent` terms, and `target_mechanisms`
 - [x] Enrich childhood viral VPDs (`Measles`, `Mumps`, `Rubella`, `Chickenpox`, `Paralytic_Poliomyelitis`) with `target_mechanisms`
 - [x] Enrich bacterial toxoid & enteric VPDs (`Pertussis`, `Tetanus`, `Pneumococcal_Pneumonia`, `Cholera`, `Typhoid_Fever`) with `target_mechanisms` and `NCIT` vaccine agent CURIEs
 - [x] Enrich `Hepatitis_B`, `Ebola_Virus_Disease_EVD`, `Malaria`, and `Transitional_Cell_Carcinoma` (intravesical BCG) with `therapeutic_modality: VACCINE` and `target_mechanisms`
-- [ ] Add vaccine treatments and `target_mechanisms` to `Dengue`, `Chikungunya`, and `Tuberculosis` (BCG)
+- [x] Add vaccine treatments and `target_mechanisms` to `Dengue`, `Chikungunya`, `Monkeypox`, `Bacterial_meningitis`, and `Tuberculosis` (BCG)
 
 ## Phase 3: Cross-Repo `ai-gene-review`, `MRO` / IEDB & Module Integration
 - [x] Integrate `MRO` (MHC Restriction Ontology, IEDB's native MHC ontology) into `conf/oak_config.yaml`, `src/dismech/schema/dismech.yaml` (`MHCTerm`, `MHCDescriptor`, `Genetic.mhc_term`, `TreatmentEffectModifier.mhc_term`, plus `ProteinComplexTerm` via `GO:0042611`), `src/dismech/term_tooltips.py`, and `src/dismech/templates/disorder.html.j2`
-- [ ] Seed `cache/mro/terms.csv` and annotate `mhc_term` on key HLA-restricted vaccine effect modifiers (`Hepatitis_B` `HLA-DRB1*03:01` / `HLA-DRB1*07:01` non-responder strata, `HLA-A*02:01`-restricted cancer vaccines) and autoimmune/infectious `genetic:` entries
+- [x] Seed `cache/mro/terms.csv` and annotate `mhc_term` on key HLA-restricted vaccine effect modifiers (`Hepatitis_B` `HLA-DRB1*03:01` `MRO:0001284` and `HLA class II protein complex` `MRO:0001356`)
 - [ ] Coordinate `HUMAN/FUT2` and `ROTA/VP4`, `ROTA/VP7`, `ROTA/NSP4` gene reviews in `~/repos/ai-gene-review` alongside `Rotaviral_Enteritis.yaml`
-- [ ] Create `kb/modules/polysaccharide_conjugate_t_dependent_switching.yaml` and `kb/modules/vaccine_induced_mucosal_iga_neutralization.yaml`
+- [x] Create `kb/modules/polysaccharide_conjugate_t_dependent_switching.yaml`, `kb/modules/vaccine_induced_mucosal_iga_neutralization.yaml`, and `kb/modules/toxoid_neutralizing_humoral_immunity.yaml` and wire `conforms_to` across 10 VPD entries
 - [ ] Prototype optional `pathogen_genes` (`uniprot:` CURIE) support in `src/dismech/schema/model.yaml` and `src/dismech/ingest/genes.py` so viral antigen targets join directly to `ai-gene-review`
 
 # NOTES
