@@ -226,7 +226,7 @@ mechanism-level rather than disease-level.
         against `serotonin_1b_1d_receptor_agonism`, both at the trigger.
         `Familial_Hemiplegic_Migraine` is deliberately not wired — see that module's
         scope notes
-  - [ ] Two CGRP-antagonist-treated entries, in #15624 (in review): `Migraine`, through its named
+  - [x] Two CGRP-antagonist-treated entries, in #15624: `Migraine`, through its named
         gepant treatment, and `pseudotumor_cerebri`, through its erenumab treatment.
         The second is not a migraine entry on purpose, so the module is
         indication-independent and both the small-molecule and the antibody route are
@@ -237,7 +237,7 @@ mechanism-level rather than disease-level.
   - [x] AT1 receptor blockade — `at1_receptor_blockade` (#15271)
   - [x] dopamine receptor agonism — `dopamine_receptor_agonism` (#15350)
   - [x] 5-HT1B/1D agonism — `serotonin_1b_1d_receptor_agonism` (#15470)
-  - [ ] CGRP receptor antagonism — `cgrp_receptor_antagonism` (#15624, in review)
+  - [x] CGRP receptor antagonism — `cgrp_receptor_antagonism` (#15624)
   - [ ] H1 / H2 receptor antagonism
   - [ ] beta2 agonism / muscarinic antagonism (airway)
   - [ ] CaSR positive allosteric modulation
@@ -267,7 +267,8 @@ mechanism-level rather than disease-level.
   triptan arm carries a vasoconstriction profile that the gepant arm exists
   specifically to avoid, so one module could not hold both adverse chains without
   contradicting itself. And the pharmacology review the CGRP module is grounded on
-  draws the line itself: it separates the drugs that bind the CGRP peptide from the
+  ([PMID:34076887](https://pubmed.ncbi.nlm.nih.gov/34076887/), Garelja, Walker and Hay,
+  *Br J Pharmacol* 2022) draws the line itself: it separates the drugs that bind the CGRP peptide from the
   receptor antagonists, and subdivides the latter into small molecules and one
   antibody antagonist. That third reason also settles where erenumab goes, which
   the first two left open, and it scopes `cgrp_receptor_antagonism` to receptor
