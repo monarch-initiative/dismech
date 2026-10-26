@@ -372,8 +372,10 @@ Copy it from there. `just check-reference-titles` gates new mismatches (offline,
 similarity-based, so punctuation, dashes, diacritics and source-XML markup do
 not trip it) and prints the cached title in the failure message, so the fix is a
 copy-paste. `just list-reference-title-mismatches` is the triage view;
-`scripts/find_missing_reference_titles.py` is the complementary check for
-*absent* titles.
+`just check-reference-titles-present` is the complementary gate for *absent*
+titles: every evidence item must carry one. Fill a gap with
+`uv run python scripts/backfill_reference_titles.py <file>`, which copies the
+cached title, rather than typing it.
 
 ## Frequency claims
 
