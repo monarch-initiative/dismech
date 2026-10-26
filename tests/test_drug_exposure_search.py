@@ -150,3 +150,40 @@ treatments:
         q = Query(terms=["levodopa"], curies=[])
         res = collect(repo, ["kb/disorders/*.yaml"], q)
         assert "NCIT:C15986" not in res["resolved"]
+
+
+class TestRoleVocabulary:
+    """The two scripts are documented as a pair, so one role name per block.
+
+    ``docs/searching_drugs_and_exposures_in_dismech.md`` runs the query script
+    and then the inventory, and invites reading the two outputs together. They
+    each carry a ``role`` column, and five blocks named the same thing twice:
+    ``pathophysiology`` was ``mechanism_node`` in one and ``mechanism`` in the
+    other, and ``biochemical``, ``datasets``, ``computational_models`` and
+    ``discussions`` were a hand-chosen name against the bare slot name. A join
+    or a filter on role silently returned nothing for those blocks.
+    """
+
+    def _query_roles(self) -> dict[str, str]:
+        from drug_exposure_query import PROBES, PROPOSED_PROBE
+
+        roles = {p["block"]: p["role"] for p in PROBES}
+        roles[PROPOSED_PROBE["block"]] = PROPOSED_PROBE["role"]
+        return roles
+
+    def test_every_shared_block_has_one_role_name(self):
+        from chemical_binding_inventory import ROLE_BY_ROOT
+
+        disagree = {
+            block: (role, ROLE_BY_ROOT.get(block, block))
+            for block, role in self._query_roles().items()
+            if ROLE_BY_ROOT.get(block, block) != role
+        }
+        assert disagree == {}, f"same block, two role names: {disagree}"
+
+    def test_the_inventory_names_every_block_the_query_probes(self):
+        """A block left out of the map falls back to its slot name, silently."""
+        from chemical_binding_inventory import ROLE_BY_ROOT
+
+        missing = sorted(set(self._query_roles()) - set(ROLE_BY_ROOT))
+        assert missing == [], f"not in ROLE_BY_ROOT, so named by fallback: {missing}"

@@ -202,6 +202,59 @@ def preserve_kb_cache_environment():
         _reset_kb_cache_env()
 
 
+@pytest.fixture(autouse=True)
+def clear_lazy_repo_path_overrides():
+    """Undo what ``monkeypatch`` leaves behind on a ``LazyRepoPaths`` name.
+
+    Patching a path constant served by a module ``__getattr__`` (such as
+    ``browser_export.HPO_CATEGORY_CACHE_PATH``) and then undoing the patch
+    writes the pre-patch value into the module's ``__dict__``, so for the rest
+    of the process that constant no longer follows the working directory. A
+    later test that changes directory then reads the repository's own file and
+    fails, but only when the two tests share a worker, which is how #15396
+    ejected PRs from the merge queue at random.
+
+    Cleared at setup as well as teardown, for the reason
+    ``preserve_kb_cache_environment`` gives: teardown runs after the test's own
+    ``monkeypatch`` undo only because of the order pytest happens to set
+    fixtures up in.
+    """
+    from dismech.repo_root import LazyRepoPaths
+
+    LazyRepoPaths.clear_all_overrides()
+    try:
+        yield
+    finally:
+        LazyRepoPaths.clear_all_overrides()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def isolate_stub_coverage_cache(tmp_path_factory):
+    """Keep the persistent stub coverage cache out of the checkout's ``tmp/``.
+
+    ``build_coverage_index()`` keeps the ids and labels each KB file contributes
+    in a JSON file between runs (#15116). Its records are validated against
+    file content, so sharing the developer's copy would not give a wrong
+    answer, but a test run should neither depend on nor rewrite it. One file
+    per session (per worker under xdist), so the tests that index the live KB
+    still build it once and reuse it. Tests of the cache itself pass their own
+    ``cache_path``.
+    """
+    from dismech.stubs.model import COVERAGE_CACHE_ENV
+
+    previous = os.environ.get(COVERAGE_CACHE_ENV)
+    os.environ[COVERAGE_CACHE_ENV] = str(
+        tmp_path_factory.mktemp("stub_coverage") / "stub_coverage_index.json"
+    )
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop(COVERAGE_CACHE_ENV, None)
+        else:
+            os.environ[COVERAGE_CACHE_ENV] = previous
+
+
 # --- CI step twins ------------------------------------------------------------
 #
 # A few whole-repo gate tests run the same check as an ungated step in

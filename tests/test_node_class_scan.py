@@ -133,7 +133,7 @@ def _pair(disorder_class, disorder_conf, module_class, module_conf):
     r = ScanResult(
         assignments=[src, tgt],
         index={("Dis", "D node"): src, ("mod", "M node"): tgt},
-        conforms_to={("Dis", "D node"): "mod#M node"},
+        conforms_to={("Dis", "D node"): ["mod#M node"]},
     )
     return r
 
@@ -162,7 +162,7 @@ def test_conformance_gate_excludes_low_confidence_sides():
 def test_conformance_skips_conflicts_and_unresolvable_targets():
     assert conformance_mismatches(_pair(CONFLICT, "HIGH", "CELLULAR", "HIGH")) == []
     r = _pair("ACTIVITY", "HIGH", "CELLULAR", "HIGH")
-    r.conforms_to[("Dis", "D node")] = "no_such_module#Missing"
+    r.conforms_to[("Dis", "D node")] = ["no_such_module#Missing"]
     assert conformance_mismatches(r) == []
 
 

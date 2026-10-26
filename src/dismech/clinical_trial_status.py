@@ -40,11 +40,11 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from dismech.repo_root import repo_root
 from dismech.yaml_io import safe_load
 
 logger = logging.getLogger(__name__)
 
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 DEFAULT_KB_GLOBS = ("kb/disorders/*.yaml", "kb/modules/*.yaml", "kb/comorbidities/*.yaml")
 
 CLINICALTRIALS_BATCH_URL = "https://clinicaltrials.gov/api/v2/studies"
@@ -416,7 +416,7 @@ def render_markdown(report: AuditReport) -> str:
 def _default_paths() -> list[Path]:
     paths: list[Path] = []
     for pattern in DEFAULT_KB_GLOBS:
-        paths.extend(sorted(ROOT_DIR.glob(pattern)))
+        paths.extend(sorted(repo_root().glob(pattern)))
     return paths
 
 
