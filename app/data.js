@@ -151270,6 +151270,86 @@ window.searchData = [
     "causal_graph_longest_path": "13"
   },
   {
+    "name": "Familial Hyperprolactinemia",
+    "disease_id": "MONDO:0014250",
+    "category": "Genetic",
+    "parents": [
+      "hyperprolactinemia"
+    ],
+    "creation_date": "2026-10-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Familial hyperprolactinemia is a rare inherited form of persistent hyperprolactinemia without a pituitary tumour, caused by germline loss-of-function variants in the prolactin receptor gene PRLR. The defective receptor fails to activate JAK2-STAT5 signalling, so target tissues are insensitive to prolactin and the feedback by which prolactin restrains its own secretion is weakened. Circulating prolactin rises after puberty. A heterozygous extracellular-domain variant (His188Arg) segregated with hyperprolactinemia, oligomenorrhea and infertility in one kindred, and a compound heterozygous woman with complete prolactin resistance had hyperprolactinemia with absent lactation after delivery.",
+    "pathophysiology": [
+      "PRLR Loss of Function",
+      "Impaired JAK2-STAT5 Prolactin Signaling",
+      "Loss of Short-Loop Dopaminergic Feedback",
+      "Lactotroph Disinhibition and Prolactin Hypersecretion",
+      "Mammary Prolactin Resistance",
+      "Reproductive Tract Prolactin Resistance"
+    ],
+    "cell_types": [
+      "tuberoinfundibular dopaminergic neuron",
+      "lactotroph",
+      "mammary luminal epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000700",
+      "CL:0000439",
+      "CL:0002326"
+    ],
+    "biological_processes": [
+      "prolactin signaling pathway",
+      "dopamine secretion",
+      "prolactin secretion",
+      "lactation"
+    ],
+    "phenotypes": [
+      "Hyperprolactinemia",
+      "Oligomenorrhea",
+      "Menorrhagia",
+      "Female infertility",
+      "Galactorrhea",
+      "Agalactia"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Breast",
+      "Endocrine",
+      "Genitourinary",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000870",
+      "HP:0000876",
+      "HP:0000132",
+      "HP:0008222",
+      "HP:0100829",
+      "HP:0031109"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PRLR"
+    ],
+    "treatments": [
+      "Dopamine Agonist Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Familial_Hyperprolactinemia.yaml",
+    "page_url": "../pages/disorders/Familial_Hyperprolactinemia.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Familial Hypocalciuric Hypercalcemia 1",
     "disease_id": "MONDO:0007791",
     "category": "Mendelian",
@@ -197326,6 +197406,73 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "36",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Hypotrichosis 2",
+    "disease_id": "MONDO:0007805",
+    "category": "Mendelian",
+    "parents": [
+      "Hair Disorder",
+      "Hypotrichosis Simplex of the Scalp"
+    ],
+    "creation_date": "2026-10-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypotrichosis 2 (HYPT2; OMIM 146520), clinically known as hypotrichosis simplex of the scalp (HSS), is a rare autosomal dominant, non-syndromic alopecia confined to the scalp. Hair is normal or near-normal in infancy; diffuse thinning begins in childhood and progresses to almost complete scalp baldness in young adulthood, while eyebrows, eyelashes, body hair and nails are spared.\nIt is caused by heterozygous nonsense (and rare insertion) variants clustered in exon 2 of CDSN, which encodes corneodesmosin, an adhesive glycoprotein of the corneodesmosomes of cornified epithelia and of the inner root sheath of the hair follicle. The truncated proteins retain the N-terminal glycine/serine-rich adhesive domain, escape normal handling, and accumulate as amyloid-like deposits around hair follicles and in the papillary dermis. Ring-shaped oligomers of the mutant protein are toxic to keratinocytes in culture, and the disease has been framed as a localized human amyloidosis. The step from those deposits to follicle failure in human scalp is inferred rather than demonstrated, and is tracked in `discussions`.\nBiallelic loss-of-function CDSN variants cause a different disease, inflammatory peeling skin syndrome type B (curated separately as `Peeling_Skin_Syndrome`). A heterozygous HSS nonsense allele carrier can therefore also be the parent of a peeling-skin proband.\n",
+    "pathophysiology": [
+      "CDSN Exon 2 Truncating Variant",
+      "Truncated Corneodesmosin Amyloid Aggregation",
+      "Keratinocyte Toxicity of Corneodesmosin Oligomers",
+      "Progressive Hair Follicle Failure"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "inner root sheath cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0002560"
+    ],
+    "biological_processes": [
+      "amyloid fibril formation by truncated corneodesmosin",
+      "hair follicle cycling"
+    ],
+    "phenotypes": [
+      "Progressive Diffuse Scalp Hair Thinning",
+      "Fine Scalp Hair",
+      "Near-Complete Scalp Baldness in Young Adulthood"
+    ],
+    "phenotype_categories": [
+      "Cutaneous"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0002209",
+      "HP:0002213",
+      "HP:0002293"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CDSN"
+    ],
+    "treatments": [
+      "Genetic Counseling",
+      "Topical Gentamicin (Nonsense Read-Through)",
+      "Topical Minoxidil with Oral Botanical Extracts"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypotrichosis_2.yaml",
+    "page_url": "../pages/disorders/Hypotrichosis_2.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Hypotrichosis 4",
@@ -256667,7 +256814,8 @@ window.searchData = [
       "Vestibulo-Cerebellar Integration Failure and Compensation",
       "Vestibular CGRP Signaling",
       "PACAP Pathway",
-      "Triptan Occupancy of Meningeal and Trigeminal 5-HT1B/1D Receptors"
+      "Triptan Occupancy of Meningeal and Trigeminal 5-HT1B/1D Receptors",
+      "Gepant Occupancy of the CGRP Receptor"
     ],
     "cell_types": [],
     "cell_type_ids": [],
@@ -256749,10 +256897,10 @@ window.searchData = [
     "source_file": "Migraine.yaml",
     "page_url": "../pages/disorders/Migraine.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 11,
     "num_genes": 5,
     "num_treatments": 11,
-    "causal_graph_edges": "15",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "6"
   },
   {
@@ -366096,6 +366244,78 @@ window.searchData = [
     "causal_graph_longest_path": "10"
   },
   {
+    "name": "Staphylococcus Discitis",
+    "disease_id": "MONDO:8000001",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial arthritis",
+      "Staphylococcus aureus infection"
+    ],
+    "creation_date": "2026-09-30T09:32:58Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Staphylococcus discitis is a pyogenic bacterial infection of the intervertebral disc and adjacent vertebral endplates in which Staphylococcus aureus or another staphylococcus seeds the discovertebral unit, expands across poorly vascularized disc-endplate tissue, activates osteoblast inflammatory and resorptive signaling, and can extend into vertebral bone, paraspinal soft tissue, or the epidural space.",
+    "pathophysiology": [
+      "Hematogenous Staphylococcal Discovertebral Seeding",
+      "Disc-Endplate Bacterial Expansion",
+      "Protein A-TNFR1 Osteoblast Inflammatory Signaling",
+      "Staphylococcal RANKL Induction",
+      "Vertebral Endplate Destruction",
+      "Epidural or Paravertebral Extension"
+    ],
+    "cell_types": [
+      "preosteoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0007010"
+    ],
+    "biological_processes": [
+      "toll-like receptor 2 signaling pathway",
+      "positive regulation of osteoclast differentiation"
+    ],
+    "phenotypes": [
+      "Back Pain",
+      "Fever",
+      "Bacteremia",
+      "Radicular Nerve Damage",
+      "Epidural or Paravertebral Abscess",
+      "Endocarditis",
+      "Elevated C-reactive protein"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003418",
+      "HP:0001945",
+      "HP:0031864",
+      "HP:0033181",
+      "HP:0100584",
+      "HP:0011227"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Six-Week Pathogen-Directed Antibiotic Therapy",
+      "Spinal Surgical Source Control"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Staphylococcus_Discitis.yaml",
+    "page_url": "../pages/disorders/Staphylococcus_Discitis.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Stargardt Disease",
     "disease_id": "MONDO:0019353",
     "category": "Mendelian",
@@ -366227,6 +366447,127 @@ window.searchData = [
     "num_treatments": 8,
     "causal_graph_edges": "33",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Statin Toxicity",
+    "disease_id": "MONDO:0033170",
+    "category": "Complex",
+    "parents": [
+      "Poisoning"
+    ],
+    "creation_date": "2026-10-23T15:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "SAMS",
+      "CK-Defined Myopathy",
+      "Anti-HMGCR IMNM",
+      "Hepatotoxicity",
+      "New-Onset Diabetes"
+    ],
+    "description": "Statin toxicity is the adverse-effect spectrum of HMG-CoA reductase inhibitor therapy. One drug-target engagement produces it, but the engagement is shared with the drug's intended action, so the entry is organised by what the drug does where it is not wanted rather than by a lesion the patient carries. Statins inhibit HMG-CoA reductase in skeletal muscle as well as in liver, and the resulting loss of mevalonate-pathway isoprenoid intermediates - not the loss of cholesterol itself - is what experimental rescue points to as the proximate cause of myocyte injury. Above that molecular step the entry splits into strata that share almost nothing clinically: reported muscle symptoms with a normal creatine kinase, creatine-kinase-defined myopathy, rhabdomyolysis with pigment nephropathy, an uncommon anti-HMGCR immune-mediated necrotizing myopathy that persists after the drug is stopped, aminotransferase elevation, and an excess of new-onset diabetes put at around 10% relative risk by randomised trials. The strata carry different denominators, different diagnostic routes and opposite management - a careful rechallenge is appropriate for ordinary muscle symptoms and is permanently avoided once anti-HMGCR disease is confirmed - so they are kept apart as subtypes rather than merged into a single frequency. Host susceptibility is pharmacokinetic, not Mendelian: reduced-function alleles of the hepatic uptake transporter SLCO1B1 and the efflux transporter ABCG2 raise systemic drug exposure, which raises risk without being necessary or sufficient for injury.",
+    "pathophysiology": [
+      "Reduced Statin Transporter Function",
+      "Elevated Systemic Statin Exposure",
+      "HMG-CoA Reductase Inhibition in Skeletal Muscle",
+      "Depletion of Mevalonate Pathway Isoprenoid Intermediates",
+      "Impaired Protein Geranylgeranylation",
+      "Myocyte Bioenergetic Failure",
+      "Skeletal Muscle Fiber Necrosis",
+      "Myoglobin Release into the Circulation",
+      "Myoglobin-Induced Renal Tubular Injury",
+      "Statin-Induced HMGCR Autoantigen Exposure",
+      "Anti-HMGCR Autoantibody Response",
+      "Autoimmune Myofiber Necrosis and Regeneration",
+      "Impaired Glucose Regulation",
+      "Hepatocyte Mitochondrial Injury"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0008002",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "isoprenoid biosynthetic process",
+      "ubiquinone biosynthetic process",
+      "cholesterol biosynthetic process",
+      "protein geranylgeranylation",
+      "muscle cell apoptotic process",
+      "humoral immune response mediated by circulating immunoglobulin",
+      "glucose homeostasis",
+      "response to oxidative stress"
+    ],
+    "phenotypes": [
+      "Myalgia",
+      "Proximal muscle weakness",
+      "Elevated circulating creatine kinase activity",
+      "Rhabdomyolysis",
+      "Muscle fiber necrosis",
+      "Necrotizing myopathy",
+      "Myoglobinuria",
+      "Acute kidney injury",
+      "Dysphagia",
+      "Elevated circulating hepatic transaminase concentration",
+      "Type II diabetes mellitus"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory",
+      "Pathological"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003326",
+      "HP:0003701",
+      "HP:0003236",
+      "HP:0003201",
+      "HP:0003713",
+      "HP:0008978",
+      "HP:0002913",
+      "HP:0001919",
+      "HP:0002015",
+      "HP:0002910",
+      "HP:0005978"
+    ],
+    "frequencies": [
+      "VERY_RARE"
+    ],
+    "genes": [
+      "SLCO1B1",
+      "ABCG2",
+      "CYP2C9"
+    ],
+    "treatments": [
+      "Withdrawal of the implicated statin",
+      "Statin switch, dose reduction or alternate-day dosing",
+      "Non-statin lipid-lowering therapy",
+      "Immunosuppression for anti-HMGCR necrotizing myopathy",
+      "Fluid resuscitation and renal support in rhabdomyolysis"
+    ],
+    "environmental": [
+      "Therapeutic statin exposure"
+    ],
+    "biochemical": [
+      "Serum creatine kinase"
+    ],
+    "source_file": "Statin_Toxicity.yaml",
+    "page_url": "../pages/disorders/Statin_Toxicity.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 14,
+    "num_genes": 3,
+    "num_treatments": 5,
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "11"
   },
   {
     "name": "Steatocystoma Multiplex",
@@ -402428,7 +402769,8 @@ window.searchData = [
       "Altered glucocorticoid metabolism",
       "Intracranial venous hypertension",
       "Impaired cerebrospinal fluid outflow",
-      "Optic nerve axonal injury"
+      "Optic nerve axonal injury",
+      "Erenumab Occupancy of the CGRP Receptor"
     ],
     "cell_types": [
       "choroid plexus epithelial cell",
@@ -402504,25 +402846,25 @@ window.searchData = [
     "source_file": "pseudotumor_cerebri.yaml",
     "page_url": "../pages/disorders/pseudotumor_cerebri.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 13,
+    "num_pathophysiology": 14,
     "num_genes": 0,
     "num_treatments": 10,
-    "causal_graph_edges": "40",
+    "causal_graph_edges": "41",
     "causal_graph_longest_path": "8"
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3728,
-  "total_subtypes": 4910,
-  "total_disorders_and_subtypes": 8638,
-  "total_unique_evidence_sources": 55648,
-  "total_unique_publications": 51989,
+  "total_disorder_pages": 3732,
+  "total_subtypes": 4915,
+  "total_disorders_and_subtypes": 8647,
+  "total_unique_evidence_sources": 55691,
+  "total_unique_publications": 52030,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3726,
-  "total_unique_pathological_events": 24577,
-  "total_modules": 204,
-  "total_research_reports": 3851,
+  "total_pathographs": 3730,
+  "total_unique_pathological_events": 24609,
+  "total_modules": 205,
+  "total_research_reports": 3856,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 125
