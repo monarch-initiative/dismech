@@ -297831,6 +297831,83 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "PRPF8-Related Retinopathy",
+    "disease_id": "MONDO:0700234",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy",
+      "Spliceosomopathy"
+    ],
+    "creation_date": "2026-10-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "PRPF8-related retinopathy (retinitis pigmentosa 13, RP13) is an autosomal dominant rod-cone degeneration caused by heterozygous variants in PRPF8, the central scaffold protein of the U5 snRNP and the spliceosome's catalytic core. Variants cluster in the C-terminal Jab1/MPN region that regulates the Brr2 RNA helicase, and most are thought to act through altered helicase regulation rather than simple loss of PRPF8. The result is defective 5' splice-site selection and cryptic splicing that falls mainly on ciliary and retina-specific transcripts, followed by photoreceptor degeneration with night blindness and constricting visual fields. Expressivity varies within families and penetrance is incomplete. PRPF8 accounts for about 2 to 3 percent of autosomal dominant retinitis pigmentosa, and cystoid macular edema is unusually common.",
+    "pathophysiology": [
+      "PRPF8 C-Terminal Variant",
+      "Impaired Regulation of the Brr2 Helicase",
+      "Altered 5' Splice-Site Selection in Ciliary and Retinal Transcripts",
+      "Photoreceptor Ciliary Defects and Rod Degeneration",
+      "Retinal Pigment Epithelium Dysfunction"
+    ],
+    "cell_types": [
+      "rod photoreceptor",
+      "cone photoreceptor",
+      "retinal pigment epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000604",
+      "CL:0000573",
+      "CL:0002586"
+    ],
+    "biological_processes": [
+      "Brr2-driven U4/U6 release during spliceosome activation",
+      "mRNA 5'-splice site recognition",
+      "photoreceptor cilium assembly"
+    ],
+    "phenotypes": [
+      "Night blindness",
+      "Constriction of peripheral visual field",
+      "Rod-cone dystrophy",
+      "Abnormal electroretinogram",
+      "Cystoid macular edema"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000662",
+      "HP:0001133",
+      "HP:0000510",
+      "HP:0000512",
+      "HP:0011505"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "PRPF8"
+    ],
+    "treatments": [
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "PRPF8-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/PRPF8-Related_Retinopathy.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "PRPH2-Related Retinopathy",
     "disease_id": "MONDO:1040055",
     "category": "Mendelian",
@@ -326533,6 +326610,102 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "RNU5B-1 Related Neurodevelopmental Disorder With Seizures And Joint Laxity",
+    "disease_id": "MONDO:1060179",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Spliceosomopathy"
+    ],
+    "creation_date": "2026-10-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A dominant neurodevelopmental disorder caused by heterozygous, usually de novo variants in RNU5B-1, one of the genes encoding U5 small nuclear RNA of the major spliceosome. Pathogenic variants cluster in the invariant 5' loop I of U5, the element that base-pairs with exon sequence at the splice junction and holds the two exons in register for ligation. Affected individuals have global developmental delay, hypotonia, failure to thrive, seizures, eye anomalies and a variable set of congenital malformations. Head size varies: two carriers of n.39C>G had macrocephaly and three carriers of n.44A>G had acquired microcephaly. Variants are invisible to standard exome capture and are found by genome sequencing. Which of the splicing changes caused by these variants produce the neurodevelopmental phenotype is not known.",
+    "pathophysiology": [
+      "RNU5B-1 Loop I Variant",
+      "Perturbed U5 Loop I Exon Alignment",
+      "Variant-Specific Altered Splice Site Usage",
+      "Abnormal Brain Development",
+      "Reduced or Aberrant U5B snRNP Pool"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "U5 loop I exon recognition and alignment during splicing",
+      "mRNA 5'-splice site recognition",
+      "mRNA 3'-splice site recognition",
+      "nervous system development"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Generalized hypotonia",
+      "Seizures",
+      "Macrocephaly",
+      "Acquired microcephaly",
+      "Failure to thrive",
+      "Abnormal brain morphology",
+      "Eye abnormalities",
+      "Pectus excavatum",
+      "Marfanoid habitus",
+      "Tooth agenesis",
+      "Cardiac malformation",
+      "Pulmonary anomalies",
+      "Sacrococcygeal anomalies"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Growth",
+      "Ophthalmological",
+      "Skeletal",
+      "Craniofacial",
+      "Cardiovascular",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001290",
+      "HP:0001250",
+      "HP:0000256",
+      "HP:0005484",
+      "HP:0001508",
+      "HP:0012443",
+      "HP:0000478",
+      "HP:0000767",
+      "HP:0001519",
+      "HP:0009804",
+      "HP:0001627",
+      "HP:0002086",
+      "HP:0000924"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "RNU5B-1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "RNU5B-1_Related_Neurodevelopmental_Disorder_With_Seizures_And_Joint_Laxity.yaml",
+    "page_url": "../pages/disorders/RNU5B-1_Related_Neurodevelopmental_Disorder_With_Seizures_And_Joint_Laxity.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "ROS1-Rearranged Non-Small Cell Lung Cancer",
     "disease_id": "MONDO:0005061",
     "category": "",
@@ -340050,6 +340223,78 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "88",
     "causal_graph_longest_path": "14"
+  },
+  {
+    "name": "SNRNP200-Related Dominant Retinopathy",
+    "disease_id": "MONDO:0800098",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy",
+      "Spliceosomopathy"
+    ],
+    "creation_date": "2026-10-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "SNRNP200-related dominant retinopathy (retinitis pigmentosa 33, RP33) is an autosomal dominant rod-cone degeneration caused by heterozygous missense variants in SNRNP200, which encodes Brr2, the U5 snRNP RNA helicase that unwinds the U4/U6 snRNA duplex to activate the spliceosome. Recurrent variants such as p.Ser1087Leu and p.Arg1090Leu sit in the ratchet helix of the first helicase cassette. The mutant helicase still assembles into spliceosomes but unwinds U4/U6 poorly, and its loss of function at 5' splice-site recognition lets cryptic sites be used. Patients present with night blindness, usually in the first two decades, and a rod-predominant dystrophy that later involves cones. Onset and severity vary widely and penetrance is incomplete. SNRNP200 accounts for about 1.6 percent of autosomal dominant retinitis pigmentosa, and its course is milder on average than PRPF-gene retinopathy.",
+    "pathophysiology": [
+      "SNRNP200 Missense Variant in the Brr2 Helicase Cassette",
+      "Impaired Brr2 U4/U6 Unwinding",
+      "Defective 5' Splice-Site Recognition with Cryptic Site Use",
+      "Photoreceptor Dysfunction and Degeneration"
+    ],
+    "cell_types": [
+      "rod photoreceptor",
+      "cone photoreceptor"
+    ],
+    "cell_type_ids": [
+      "CL:0000604",
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "U4/U6 release during spliceosome activation",
+      "mRNA 5'-splice site recognition"
+    ],
+    "phenotypes": [
+      "Night blindness",
+      "Rod-cone dystrophy",
+      "Abnormal electroretinogram",
+      "Reduced visual acuity",
+      "Spicular pigmentation of the retina"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000662",
+      "HP:0000510",
+      "HP:0000512",
+      "HP:0007663",
+      "HP:0007737"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "SNRNP200"
+    ],
+    "treatments": [
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SNRNP200-Related_Dominant_Retinopathy.yaml",
+    "page_url": "../pages/disorders/SNRNP200-Related_Dominant_Retinopathy.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "SOCS1 Haploinsufficiency",
@@ -403402,19 +403647,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3739,
+  "total_disorder_pages": 3742,
   "total_subtypes": 4918,
-  "total_disorders_and_subtypes": 8657,
-  "total_unique_evidence_sources": 55719,
-  "total_unique_publications": 52058,
+  "total_disorders_and_subtypes": 8660,
+  "total_unique_evidence_sources": 55752,
+  "total_unique_publications": 52089,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3737,
-  "total_unique_pathological_events": 24632,
-  "total_modules": 208,
-  "total_research_reports": 3857,
+  "total_pathographs": 3740,
+  "total_unique_pathological_events": 24644,
+  "total_modules": 209,
+  "total_research_reports": 3860,
   "total_classifications": 21,
   "total_comorbidities": 51,
-  "total_groupings": 125
+  "total_groupings": 126
 };
 window.dispatchEvent(new Event('searchDataReady'));
