@@ -76,6 +76,7 @@ ONTOLOGY_NAMES: dict[str, Ontology] = {
     "MGI": Ontology("MGI", "Mouse Genome Informatics", definite=False),
     "MONDO": Ontology("MONDO", "Mondo Disease Ontology"),
     "MP": Ontology("MP", "Mammalian Phenotype Ontology"),
+    "MRO": Ontology("MRO", "MHC Restriction Ontology"),
     "NCBITAXON": Ontology("NCBITaxon", "NCBI Taxonomy"),
     "NCIT": Ontology("NCIT", "NCI Thesaurus"),
     "OBA": Ontology("OBA", "Ontology of Biological Attributes"),
@@ -231,6 +232,16 @@ TERM_ROLES: dict[str, TermRole] = {
         "This population-specific finding", "was reported in", "population"
     ),
     "gene.gene_term": TermRole("This disease-associated gene", "is", "gene"),
+    "gene.mhc_term": TermRole(
+        "This disease-associated genetic factor",
+        "has",
+        "major histocompatibility complex restriction",
+    ),
+    "effect_modifier.mhc_term": TermRole(
+        "This treatment subgroup",
+        "is defined by",
+        "major histocompatibility complex restriction",
+    ),
     "trial.target_phenotypes": TermRole("This clinical trial", "targets", "phenotype"),
     # Comorbidities
     "comorbidity.phenotypes": TermRole("This comorbidity", "shares", "phenotype"),
