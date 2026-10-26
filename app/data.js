@@ -135672,9 +135672,11 @@ window.searchData = [
       "Cerebellar Purkinje Cell Dendritic and Synaptic Deficit"
     ],
     "cell_types": [
+      "neuron",
       "Purkinje cell"
     ],
     "cell_type_ids": [
+      "CL:0000540",
       "CL:0000121"
     ],
     "biological_processes": [
@@ -135714,7 +135716,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "3"
   },
   {
@@ -253994,7 +253996,7 @@ window.searchData = [
     "creation_date": "2026-03-04T18:40:20Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Metatropic dysplasia is a TRPV4-associated autosomal dominant skeletal dysplasia with short-limbed disproportionate stature, progressive spinal deformity, and severe metaphyseal and vertebral abnormalities that can range from nonlethal to perinatal lethal forms.\n",
+    "description": "Metatropic dysplasia is a TRPV4-associated autosomal dominant skeletal dysplasia with short-limbed disproportionate stature, progressive spinal deformity, and severe metaphyseal and vertebral abnormalities that can range from nonlethal to perinatal lethal forms.",
     "pathophysiology": [
       "TRPV4 Channel Hyperactivity in Growth Plate Chondrocytes",
       "SOX9-Mediated Blocked Terminal Chondrocyte Differentiation",
@@ -254065,7 +254067,7 @@ window.searchData = [
     ],
     "frequencies": [],
     "genes": [
-      "TRPV4 Pathogenic Variants"
+      "TRPV4"
     ],
     "treatments": [
       "Cervical Spine and Odontoid Surveillance",
