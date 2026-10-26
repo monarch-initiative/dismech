@@ -315225,6 +315225,80 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Premature Ovarian Failure 24",
+    "disease_id": "MONDO:0970995",
+    "category": "Mendelian",
+    "parents": [
+      "Primary Ovarian Insufficiency",
+      "Meiotic Disorder"
+    ],
+    "creation_date": "2026-10-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Premature ovarian failure 24 (POF24) is an autosomal recessive form of primary ovarian insufficiency caused by biallelic variants in SYCP2L (synaptonemal complex protein 2-like). SYCP2L is an oocyte-specific paralog of the synaptonemal-complex lateral-element protein SYCP2. It sits on the synaptonemal complex in late diplotene and stays at the centromeres of dictyate-arrested oocytes, the primordial-follicle reserve that persists until ovulation. Two homozygous alleles were reported in Chinese women from consanguineous families: the frameshift p.Ser52Profs*7 and the missense p.Ile333Met. A third family, from Iran, carried a homozygous nonsense variant. The frameshift carrier had small ovaries with no antral follicles and secondary amenorrhea at 30. The missense carrier had oligomenorrhea from her mid-twenties with some ovarian function left, which the authors attribute to partial loss of function. Both had high FSH and low AMH. In mice, loss of Sycp2l does not stop oocytes forming, but the primordial oocyte pool runs down faster with age, causing early reproductive aging and subfertility. No affected men have been reported.",
+    "pathophysiology": [
+      "SYCP2L Loss of Function",
+      "Reduced Primordial Oocyte Survival",
+      "Ovarian Follicle Depletion"
+    ],
+    "cell_types": [
+      "primordial oocyte",
+      "oocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000023"
+    ],
+    "biological_processes": [
+      "female gamete generation"
+    ],
+    "phenotypes": [
+      "Premature ovarian insufficiency",
+      "Secondary amenorrhea",
+      "Oligomenorrhea",
+      "Elevated circulating follicle stimulating hormone level",
+      "Elevated circulating luteinizing hormone level",
+      "Decreased circulating anti-Mullerian hormone",
+      "Decreased serum estradiol",
+      "Female infertility"
+    ],
+    "phenotype_categories": [
+      "Reproductive",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0008209",
+      "HP:0000869",
+      "HP:0000876",
+      "HP:0008232",
+      "HP:0011969",
+      "HP:0031103",
+      "HP:0008214",
+      "HP:0008222"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SYCP2L"
+    ],
+    "treatments": [
+      "Hormone replacement therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Premature_Ovarian_Failure_24.yaml",
+    "page_url": "../pages/disorders/Premature_Ovarian_Failure_24.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Premenstrual Dysphoric Disorder",
     "disease_id": "MONDO:1010182",
     "category": "Complex",
@@ -403328,17 +403402,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3738,
+  "total_disorder_pages": 3739,
   "total_subtypes": 4918,
-  "total_disorders_and_subtypes": 8656,
-  "total_unique_evidence_sources": 55716,
-  "total_unique_publications": 52055,
+  "total_disorders_and_subtypes": 8657,
+  "total_unique_evidence_sources": 55719,
+  "total_unique_publications": 52058,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3736,
-  "total_unique_pathological_events": 24630,
+  "total_pathographs": 3737,
+  "total_unique_pathological_events": 24632,
   "total_modules": 208,
-  "total_research_reports": 3856,
+  "total_research_reports": 3857,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 125
