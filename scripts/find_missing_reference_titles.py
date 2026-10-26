@@ -56,9 +56,10 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "src") not in sys.path:  # pragma: no cover - import bootstrap
     sys.path.insert(0, str(ROOT / "src"))
 
+from linkml_reference_validator.cache import cache_filename
+
 from dismech import kb_cache
 from dismech.kb_cache import load_document
-from linkml_reference_validator.cache import cache_filename
 
 #: All of kb/, not just disorders: modules and groupings carry evidence too, and
 #: 68 of the 571 gaps found when this became a gate were in kb/modules/.

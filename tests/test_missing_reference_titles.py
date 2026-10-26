@@ -34,6 +34,7 @@ def test_committed_kb_has_no_evidence_item_without_a_reference_title():
     """The gate itself, over the real KB."""
     result = subprocess.run(
         [sys.executable, "scripts/find_missing_reference_titles.py", "--details"],
+        check=False,
         cwd=ROOT,
         capture_output=True,
         text=True,
