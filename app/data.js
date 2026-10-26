@@ -62078,6 +62078,88 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Brain Small Vessel Disease 4 (NIT1)",
+    "disease_id": "MONDO:0979873",
+    "category": "Mendelian",
+    "parents": [
+      "Familial porencephaly",
+      "Cerebral small vessel disease"
+    ],
+    "creation_date": "2026-10-25T22:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Brain small vessel disease 4 is an autosomal recessive cerebral small vessel disease caused by biallelic loss-of-function variants in NIT1, which encodes nitrilase-like protein 1, the metabolite-repair amidase that hydrolyzes deaminated glutathione (dGSH), a by-product formed by side reactions of transaminases. Patients lack detectable NIT1 protein and accumulate dGSH, which is excreted in urine and can give a false-positive urine sulfite dipstick test. Presentation is in adulthood with movement disorders, neuropsychiatric symptoms (psychosis, schizophrenia, cognitive deterioration) and occasionally seizures, together with a striking imaging pattern of numerous, massively dilated basal ganglia perivascular spaces that has also been described as a deep cavitating state or basal ganglia cysts. Non-lobar intracerebral hemorrhage in mid-adulthood occurred in three of seven patients in the largest series and was fatal in two. Autopsy shows large electron-dense deposits in the walls of small and medium-sized cerebral arteries. How dGSH accumulation produces the vasculopathy is not established; increased oxidative stress is a proposed but unproven link. About ten patients from six families have been reported, most carrying the recurrent p.Arg243Trp variant. There is no disease-specific treatment.",
+    "pathophysiology": [
+      "NIT1 Loss of Function",
+      "Deaminated Glutathione Accumulation",
+      "Cellular Oxidative Stress",
+      "Cerebral Small Vessel Wall Deposits"
+    ],
+    "cell_types": [
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "metabolite repair",
+      "response to oxidative stress"
+    ],
+    "phenotypes": [
+      "Movement Disorder",
+      "Massively Dilated Basal Ganglia Perivascular Spaces",
+      "Basal Ganglia Cystic Lesions",
+      "Intracerebral Hemorrhage",
+      "Psychosis",
+      "Schizophrenia",
+      "Seizures",
+      "Hemiparesis",
+      "Neuropsychological Deterioration",
+      "Spastic Tetraplegia"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Psychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0100022",
+      "HP:0012520",
+      "HP:0006799",
+      "HP:0001342",
+      "HP:0000709",
+      "HP:0100753",
+      "HP:0001250",
+      "HP:0001269",
+      "HP:0001268",
+      "HP:0002510"
+    ],
+    "frequencies": [
+      "3/7"
+    ],
+    "genes": [
+      "NIT1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [
+      "Increased urinary deaminated glutathione"
+    ],
+    "source_file": "Brain_Small_Vessel_Disease_4.yaml",
+    "page_url": "../pages/disorders/Brain_Small_Vessel_Disease_4_NIT1.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Branchiooculofacial Syndrome",
     "disease_id": "MONDO:0007235",
     "category": "Genetic",
@@ -271111,6 +271193,128 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "NIK Deficiency",
+    "disease_id": "MONDO:0018642",
+    "category": "Mendelian",
+    "parents": [
+      "Combined immunodeficiency",
+      "Inborn error of immunity"
+    ],
+    "creation_date": "2026-10-25T05:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "NIK deficiency is an autosomal recessive combined immunodeficiency caused by biallelic loss-of-function variants in MAP3K14, which encodes NF-kappaB-inducing kinase (NIK). NIK is the apex kinase of the non-canonical NF-kappaB pathway: on engagement of TNF-receptor-superfamily members such as BAFF receptor, CD40 and the lymphotoxin-beta receptor, NIK accumulates, phosphorylates IKK-alpha and drives processing of the NF-kappaB2 precursor p100 to p52, which with RelB activates a distinct set of target genes. Loss of NIK kinase activity abolishes this pathway and, because NIK also feeds the canonical arm, impairs canonical NF-kappaB signalling as well.\nThe human disease has been reported in only a handful of consanguineous families. Affected children present in infancy or early childhood with recurrent, severe bacterial and viral infections, Cryptosporidium infection, and susceptibility to mycobacteria including disseminated BCG disease after vaccination. Immunologically the picture is a combined defect: B-cell lymphopenia with loss of class-switched memory B cells and hypogammaglobulinemia from impaired B-cell survival, normal total T-cell numbers but perturbed follicular helper and memory T cells, and reduced, poorly cytotoxic NK cells. Immunoglobulin levels characteristically show low IgG and IgA with normal or raised IgM, reflecting a class-switch defect.\nTwo features set NIK deficiency apart from most inborn errors of immunity. First, NIK is required not only in haematopoietic cells but in lymph-node and thymic stromal cells, so patients lack peripheral lymph nodes and have a central-tolerance defect that haematopoietic stem cell transplantation cannot repair. Second, transplanted patients achieve donor chimerism and early T-cell reconstitution yet continue to suffer defective memory responses, persistent hypogammaglobulinemia and late immune dysregulation (seropositive arthritis, autoimmune hepatitis), because the stromal and thymic-epithelial defects are not corrected by replacing the haematopoietic compartment. Immunoglobulin replacement is supportive; most reported patients have died of infection despite treatment.",
+    "pathophysiology": [
+      "Loss of NIK Kinase Activity",
+      "Impaired p100-to-p52 Processing and Non-canonical NF-kappaB Failure",
+      "Impaired B-cell Survival and Maturation",
+      "Defective T Follicular Helper and Memory T-cell Responses",
+      "Defective NK-cell Development and Cytotoxicity",
+      "Defective Secondary Lymphoid Organ Development",
+      "Defective Thymic Central Tolerance",
+      "Hypogammaglobulinemia with Impaired Class Switching",
+      "Post-transplant Immune Dysregulation and Autoimmunity"
+    ],
+    "cell_types": [
+      "B cell",
+      "T follicular helper cell",
+      "natural killer cell",
+      "medullary thymic epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000236",
+      "CL:0002038",
+      "CL:0000623",
+      "CL:0002365"
+    ],
+    "biological_processes": [
+      "non-canonical NF-kappaB signal transduction",
+      "B cell homeostasis",
+      "T follicular helper cell differentiation",
+      "natural killer cell activation",
+      "lymph node development",
+      "negative thymic T cell selection"
+    ],
+    "phenotypes": [
+      "Combined immunodeficiency",
+      "Recurrent bacterial infections",
+      "Recurrent viral infections",
+      "Recurrent Cryptosporidium infection",
+      "Persistent CMV viremia",
+      "BCGosis",
+      "Decreased total B cell count",
+      "Decreased class-switched memory B cell proportion",
+      "Decreased circulating immunoglobulin concentration",
+      "Increased circulating IgM concentration",
+      "Decreased circulating IgA concentration",
+      "Reduced total natural killer cell count",
+      "Decreased natural killer cell-induced killing of target cells",
+      "Lymph node hypoplasia",
+      "Recurrent pneumonia",
+      "Pneumocystis jirovecii pneumonia",
+      "Chronic diarrhea",
+      "Candida esophagitis",
+      "Arthritis",
+      "Autoimmune hepatitis",
+      "Increased total lymphocyte count"
+    ],
+    "phenotype_categories": [
+      "Immunologic",
+      "Digestive"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0005387",
+      "HP:0002718",
+      "HP:0004429",
+      "HP:5210120",
+      "HP:0032247",
+      "HP:0020087",
+      "HP:0010976",
+      "HP:0030388",
+      "HP:0004313",
+      "HP:0003496",
+      "HP:0002720",
+      "HP:0040218",
+      "HP:0025808",
+      "HP:0002732",
+      "HP:0006532",
+      "HP:0020102",
+      "HP:0002028",
+      "HP:0033351",
+      "HP:0001369",
+      "HP:5210421",
+      "HP:0100827"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MAP3K14"
+    ],
+    "treatments": [
+      "Hematopoietic Stem Cell Transplantation",
+      "Immunoglobulin Replacement Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "NIK_Deficiency.yaml",
+    "page_url": "../pages/disorders/NIK_Deficiency.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "36",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "NOG-Related Symphalangism Spectrum Disorder",
     "disease_id": "MONDO:0100521",
     "category": "Mendelian",
@@ -378393,7 +378597,9 @@ window.searchData = [
     ],
     "creation_date": "2026-01-09T07:01:29Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Neonatal tetanus"
+    ],
     "description": "Tetanus is a toxin-mediated neuromuscular disease caused by Clostridium tetani, an anaerobic, spore-forming gram-positive bacterium that contaminates wounds and germinates in devitalized, low-oxygen tissue. The organism produces tetanospasmin (tetanus neurotoxin), which travels by retrograde axonal transport to the spinal cord and cleaves the SNARE protein synaptobrevin in inhibitory interneurons, blocking GABA and glycine release. Loss of inhibitory tone produces unopposed motor activity with rigidity, trismus (lockjaw), generalized muscle spasms, and life-threatening autonomic instability.",
     "pathophysiology": [
       "Tetanus Toxin (Tetanospasmin) Action",
@@ -378460,6 +378666,83 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Tetanus neonatorum",
+    "disease_id": "MONDO:0001737",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tetanus"
+    ],
+    "creation_date": "2026-09-30T04:09:01Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Tetanus neonatorum is neonatal tetanus caused by Clostridium tetani spore contamination of the umbilical stump during delivery or cord care, followed by germination in devitalized umbilical tissue, local tetanus-neurotoxin secretion, peripheral motor-neuron uptake, retrograde trafficking into the spinal cord and brainstem, SNARE disruption in inhibitory interneurons, and neonatal spastic paralysis.",
+    "pathophysiology": [
+      "Umbilical Clostridium tetani Spore Contamination",
+      "Devitalized Cord Germination",
+      "Umbilical Tetanus-Neurotoxin Secretion",
+      "Neonatal Motor-Axon Toxin Uptake",
+      "Tetanospasmin Retrograde CNS Trafficking",
+      "Inhibitory Interneuron SNARE Cleavage",
+      "Neonatal Spastic Paralysis"
+    ],
+    "cell_types": [
+      "motor neuron",
+      "interneuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000100",
+      "CL:0000099"
+    ],
+    "biological_processes": [
+      "synaptic transmission, GABAergic",
+      "synaptic transmission, glycinergic"
+    ],
+    "phenotypes": [
+      "Poor suck",
+      "Trismus",
+      "Generalized Rigidity",
+      "Reflex Muscle Spasms",
+      "Apnea",
+      "Respiratory Failure"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002033",
+      "HP:0000211",
+      "HP:0002063",
+      "HP:0003394",
+      "HP:0002104",
+      "HP:0002878"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Umbilical source control",
+      "Metronidazole anaerobic therapy",
+      "Tetanus antitoxin neutralization",
+      "Maternal tetanus toxoid immunization",
+      "Clean antimicrobial umbilical cord care"
+    ],
+    "environmental": [
+      "Nonsterile umbilical cord applications"
+    ],
+    "biochemical": [],
+    "source_file": "Tetanus_Neonatorum.yaml",
+    "page_url": "../pages/disorders/Tetanus_neonatorum.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Tetraamelia Syndrome 2",
@@ -403647,17 +403930,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3742,
-  "total_subtypes": 4918,
-  "total_disorders_and_subtypes": 8660,
-  "total_unique_evidence_sources": 55752,
-  "total_unique_publications": 52089,
+  "total_disorder_pages": 3745,
+  "total_subtypes": 4919,
+  "total_disorders_and_subtypes": 8664,
+  "total_unique_evidence_sources": 55768,
+  "total_unique_publications": 52105,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3740,
-  "total_unique_pathological_events": 24644,
+  "total_pathographs": 3743,
+  "total_unique_pathological_events": 24663,
   "total_modules": 209,
-  "total_research_reports": 3860,
+  "total_research_reports": 3862,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 126
