@@ -9,6 +9,7 @@ was run from commit `0bcc052` for the Key Event level screen; the entity reads a
 snapshot-only and carry no code dependency.
 **Reproduce:** `python scripts/aop_parkinsonism_crosswalk.py` (`--format json`, `--format tsv`).
 The AOP side is transcribed into that script from the snapshot; the dismech side is read live.
+**dismech KB state:** every number on the dismech side was computed against `021a80a0933`.
 **Per-entry rows:** [`data/aop-parkinsonism-crosswalk-2026-10-25.tsv`](data/aop-parkinsonism-crosswalk-2026-10-25.tsv)
 
 ## The one-sentence version
@@ -482,11 +483,11 @@ This is a slice of an already-tracked problem, not a new one. `causal_inlink_cov
 metric behind `just list-disconnected-phenotypes` (issue
 [#11935](https://github.com/monarch-initiative/dismech/issues/11935)) and the gating
 `compliance-connectivity` score — supplies the connectivity here, so these numbers cannot
-disagree with those recipes. Over the 82 entries, 916 of 1,528 phenotypes are causally
-connected (59.95%).
+disagree with those recipes. Over the 82 entries, 927 of 1,528 phenotypes are causally
+connected (60.67%).
 
 What the corpus view cannot show is that the stranded phenotype is often *the adverse outcome
-itself*. **40 of the 82 entries leave at least one parkinsonian phenotype with no causal edge
+itself*. **39 of the 82 entries leave at least one parkinsonian phenotype with no causal edge
 explaining it**, which means KE896 has no anchor in the pathograph on half this set.
 
 The sharp subset is the entries that clearly do wire phenotypes and still leave parkinsonism
