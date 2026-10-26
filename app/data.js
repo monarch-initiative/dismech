@@ -131533,6 +131533,123 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Distal Arthrogryposis Type 2B1",
+    "disease_id": "MONDO:0020820",
+    "category": "Mendelian",
+    "parents": [
+      "Sheldon-Hall Syndrome",
+      "Distal Arthrogryposis"
+    ],
+    "creation_date": "2026-10-26T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Distal arthrogryposis type 2B1 (DA2B1) is the TNNI2-defined form of Sheldon-Hall syndrome (distal arthrogryposis type 2B, DA2B): an autosomal dominant congenital contracture disorder caused by heterozygous variants in TNNI2, which encodes the troponin I isoform of fast-twitch skeletal myofibers. Children are born with non-progressive contractures concentrated in the hands and feet (camptodactyly, ulnar deviation and overlapping of the fingers, talipes equinovarus or vertical talus) together with a recognizable but milder facial phenotype than Freeman-Sheldon syndrome (triangular face, downslanting palpebral fissures, small mouth). Contractures are most severe at birth, cognition and life expectancy are normal, and management is early physiotherapy, occupational therapy, casting and bracing, and orthopedic surgery. The reported TNNI2 variants cluster in the carboxy-terminal region of troponin I; in reconstituted thin filaments and troponin-exchanged skinned fast-twitch fibers they increase Ca2+ sensitivity of force, which is the basis of the leading, still model-derived, hypothesis that excess contractility of developing fast-twitch muscle produces the fetal contractures. Lump/split note: DA2B is genetically heterogeneous (TNNI2 = DA2B1; TNNT3, MYH3 and MYH8 define MONDO's other DA2B subtypes, and TPM2 also causes DA2B), the same TNNI2 variant can produce DA1 in one family and DA2B in another, and a TNNI2 family meeting strict Freeman-Sheldon (DA2A) criteria has been reported. This entry follows MONDO's gene-defined split and covers the TNNI2 allelic series, including families labelled DA1 or DA2A; it does not cover the other DA2B genes.",
+    "pathophysiology": [
+      "TNNI2 C-Terminal Variant in Fast Skeletal Troponin I",
+      "Increased Calcium Sensitivity of Fast-Twitch Thin Filament Activation",
+      "Increased Contractility of Developing Fast-Twitch Muscle",
+      "Congenital Distal Joint Contracture Formation",
+      "Type 2 Fiber Myopathic Change",
+      "Impaired Endochondral Ossification"
+    ],
+    "cell_types": [
+      "fast-twitch skeletal muscle fiber (rabbit psoas, troponin-exchanged)",
+      "type 2 skeletal muscle fiber",
+      "osteoblast (mouse)",
+      "chondrocyte (mouse)"
+    ],
+    "cell_type_ids": [
+      "CL:0000190",
+      "CL:0002212",
+      "CL:0000062",
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "Ca2+ sensitivity of skeletal myofibril force",
+      "fast-twitch skeletal muscle fiber contraction",
+      "endochondral ossification"
+    ],
+    "phenotypes": [
+      "Distal arthrogryposis",
+      "Camptodactyly of finger",
+      "Ulnar deviation of finger",
+      "Overlapping fingers",
+      "Abnormal finger flexion crease",
+      "Talipes equinovarus",
+      "Congenital vertical talus",
+      "Overlapping toe",
+      "Triangular face",
+      "Downslanted palpebral fissures",
+      "Narrow mouth",
+      "High palate",
+      "Prominent nasolabial fold",
+      "Micrognathia",
+      "Short stature",
+      "Scoliosis",
+      "Hip dysplasia",
+      "Torticollis",
+      "Myopathy",
+      "Elevated circulating creatine kinase activity"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Craniofacial",
+      "Growth",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0005684",
+      "HP:0100490",
+      "HP:0009465",
+      "HP:0010557",
+      "HP:0006143",
+      "HP:0001762",
+      "HP:0001838",
+      "HP:0001845",
+      "HP:0000325",
+      "HP:0000494",
+      "HP:0000160",
+      "HP:0000218",
+      "HP:0005272",
+      "HP:0000347",
+      "HP:0004322",
+      "HP:0002650",
+      "HP:0001385",
+      "HP:0000473",
+      "HP:0003198",
+      "HP:0003236"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TNNI2"
+    ],
+    "treatments": [
+      "Physical Therapy",
+      "Occupational Therapy",
+      "Serial Casting and Bracing",
+      "Orthopedic Surgery",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Distal_Arthrogryposis_Type_2B1.yaml",
+    "page_url": "../pages/disorders/Distal_Arthrogryposis_Type_2B1.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Distal Hereditary Motor Neuronopathy, Autosomal Dominant",
     "disease_id": "MONDO:0015362",
     "category": "Genetic",
@@ -156954,6 +157071,133 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "9",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Fliedner-Zweier Syndrome",
+    "disease_id": "MONDO:0957787",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Syndromic Intellectual Disability"
+    ],
+    "creation_date": "2026-10-26T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Fliedner-Zweier syndrome (SCAF4-associated neurodevelopmental disorder) is an autosomal dominant neurodevelopmental disorder caused by heterozygous, mostly truncating and splice-site, loss-of-function variants in SCAF4, which encodes an RNA polymerase II CTD-binding factor that, together with SCAF8, suppresses premature use of early polyadenylation sites. Children present with developmental delay in which speech is more affected than motor milestones, borderline to mild intellectual disability (moderate to severe in a minority), frequent behavioural and psychiatric disturbance, seizures in roughly half, and variable skeletal anomalies such as clubfoot, scoliosis and hip dysplasia, with non-specific facial dysmorphism. Variants are de novo in most families but inherited from a mildly affected or unaffected parent in a substantial minority.",
+    "pathophysiology": [
+      "SCAF4 Haploinsufficiency",
+      "Altered Polyadenylation Site Selection and Transcription Termination",
+      "Transcriptome-wide Expression and Splicing Dysregulation",
+      "Impaired Nervous System Development and Function"
+    ],
+    "cell_types": [
+      "peripheral blood lymphocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000542"
+    ],
+    "biological_processes": [
+      "regulation of mRNA alternative polyadenylation",
+      "termination of RNA polymerase II transcription",
+      "gene expression",
+      "mRNA processing",
+      "nervous system development"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Mild intellectual disability",
+      "Delayed speech and language development",
+      "Seizures",
+      "Behavioral and psychiatric disturbances",
+      "Sleep disturbance",
+      "Skeletal anomalies",
+      "Facial dysmorphism",
+      "Microcephaly",
+      "Hypotonia",
+      "Short stature",
+      "Feeding difficulties",
+      "Eye abnormalities",
+      "Urogenital anomalies",
+      "Renal anomalies",
+      "Cardiac anomalies",
+      "Nonspecific white matter abnormalities"
+    ],
+    "phenotype_categories": [
+      "Neurodevelopmental",
+      "Neurological",
+      "Behavioral",
+      "Skeletal",
+      "Craniofacial",
+      "Growth",
+      "Gastrointestinal",
+      "Ophthalmological",
+      "Genitourinary",
+      "Renal",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001256",
+      "HP:0000750",
+      "HP:0001250",
+      "HP:0000708",
+      "HP:0002360",
+      "HP:0000924",
+      "HP:0001999",
+      "HP:0000252",
+      "HP:0001252",
+      "HP:0004322",
+      "HP:0011968",
+      "HP:0000478",
+      "HP:0000119",
+      "HP:0000077",
+      "HP:0001627",
+      "HP:0002500"
+    ],
+    "frequencies": [
+      "32/44",
+      "18/43",
+      "36/43",
+      "15/40",
+      "21/41",
+      "28/42",
+      "9/38",
+      "6/40",
+      "9/42",
+      "9/37",
+      "16/41",
+      "10/41",
+      "4/34",
+      "3/36",
+      "3/5"
+    ],
+    "genes": [
+      "SCAF4"
+    ],
+    "treatments": [
+      "Antiseizure medication",
+      "Organ-system screening at diagnosis"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Fliedner-Zweier_Syndrome.yaml",
+    "page_url": "../pages/disorders/Fliedner-Zweier_Syndrome.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Flinders Island Spotted Fever",
@@ -285519,7 +285763,8 @@ window.searchData = [
     ],
     "biological_processes": [
       "lysosomal transport",
-      "lipid metabolic process"
+      "lipid metabolic process",
+      "lysosome organization"
     ],
     "phenotypes": [
       "Generalized tonic-clonic seizures",
@@ -285529,7 +285774,7 @@ window.searchData = [
       "Motor deterioration"
     ],
     "phenotype_categories": [
-      "Neurologic"
+      "Neurological"
     ],
     "phenotype_hpo_categories": [
       "Nervous System"
@@ -285556,8 +285801,8 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "O'Donnell-Luria-Rodan Syndrome",
@@ -309494,7 +309739,8 @@ window.searchData = [
     ],
     "biological_processes": [
       "neural crest cell migration",
-      "melanocyte differentiation"
+      "melanocyte differentiation",
+      "developmental pigmentation"
     ],
     "phenotypes": [
       "White Forelock",
@@ -309513,7 +309759,7 @@ window.searchData = [
       "HP:0002290"
     ],
     "frequencies": [
-      "Very frequent"
+      "VERY_FREQUENT"
     ],
     "genes": [
       "KIT",
@@ -309532,8 +309778,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Pigment Dispersion Syndrome",
@@ -350366,6 +350612,71 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "27",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Sessile Serrated Polyposis Cancer Syndrome",
+    "disease_id": "MONDO:0014919",
+    "category": "Mendelian",
+    "parents": [
+      "hyperplastic polyposis syndrome",
+      "hereditary cancer-predisposing syndrome"
+    ],
+    "creation_date": "2026-10-26T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Sessile serrated polyposis cancer syndrome (SSPCS) is the germline, RNF43-defined form of serrated polyposis: an autosomal dominant predisposition to multiple serrated colorectal polyps and colorectal cancer caused by heterozygous loss-of-function variants in RNF43, a transmembrane E3 ubiquitin ligase that restrains Wnt signalling by ubiquitinating Frizzled receptors and targeting them for degradation. ClinGen classifies the RNF43-SSPCS relationship as Definitive (autosomal dominant). This entry is deliberately narrower than the clinical serrated polyposis syndrome (SPS), which is defined by WHO endoscopic criteria regardless of cause; RNF43 explains only a small minority of clinically defined SPS (0 to about 2% of tested cohorts in the series cited here), and the clinical syndrome is linked to smoking and other non-Mendelian factors. Conversely, population-based sequencing shows that many germline RNF43 carriers have neither polyposis nor a notable family history, that colorectal cancer risk is moderate overall, and that risk is concentrated in N-terminal truncating variants. Mechanistically the entry is a germline two-hit predisposition: the polyps of carriers show second-hit RNF43 inactivation and frequent somatic BRAF mutation, placing them on the serrated neoplasia pathway. The somatic serrated-pathway colorectal cancers this syndrome predisposes to (for example BRAF V600E-mutant, CIMP-high colorectal cancer) are curated as separate entries and are not merged here.",
+    "pathophysiology": [
+      "Germline Heterozygous RNF43 Loss of Function",
+      "Somatic Second-Hit Inactivation of RNF43 in Colorectal Polyps",
+      "Impaired Frizzled Ubiquitination and Wnt Receptor Turnover",
+      "Increased Wnt Signalling with Reduced R-spondin Dependence",
+      "Somatic BRAF Activation in Carrier Polyps"
+    ],
+    "cell_types": [
+      "LGR5+ intestinal crypt stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002250"
+    ],
+    "biological_processes": [
+      "Frizzled receptor degradation",
+      "canonical Wnt signaling"
+    ],
+    "phenotypes": [
+      "Serrated Colorectal Polyps",
+      "Colorectal Carcinoma"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0032222",
+      "HP:0003003"
+    ],
+    "frequencies": [],
+    "genes": [
+      "RNF43"
+    ],
+    "treatments": [
+      "Colonoscopic Surveillance with Polypectomy",
+      "Colectomy for Unmanageable Polyp Burden or Cancer",
+      "Genetic Counseling and Cascade Testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Sessile_Serrated_Polyposis_Cancer_Syndrome.yaml",
+    "page_url": "../pages/disorders/Sessile_Serrated_Polyposis_Cancer_Syndrome.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Severe Combined Immunodeficiency",
@@ -403931,17 +404242,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3745,
+  "total_disorder_pages": 3748,
   "total_subtypes": 4919,
-  "total_disorders_and_subtypes": 8664,
-  "total_unique_evidence_sources": 55774,
-  "total_unique_publications": 52111,
+  "total_disorders_and_subtypes": 8667,
+  "total_unique_evidence_sources": 55809,
+  "total_unique_publications": 52145,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3743,
-  "total_unique_pathological_events": 24663,
+  "total_pathographs": 3746,
+  "total_unique_pathological_events": 24677,
   "total_modules": 209,
-  "total_research_reports": 3862,
+  "total_research_reports": 3865,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 127
