@@ -720,6 +720,7 @@ the table below mirrors it.
 | Anatomy | UBERON | `UBERON:` |
 | Chemicals / drugs | ChEBI | `CHEBI:` |
 | Genes | HGNC | `hgnc:` (canonical lowercase), `HGNC:` (legacy) |
+| Non-human genes, on model and dataset genes only (`animal_models[].genes`, `experimental_models[].genes`, `datasets[].genes`) | Alliance of Genome Resources MODs first; NCBI Gene or UniProtKB for a species without one | `MGI:`, `RGD:`, `ZFIN:`, `Xenbase:`, `FB:`, `WB:`, `SGD:`; then `NCBIGene:`, `UniProtKB:` |
 | Inheritance / variant effects | Genotype Ontology | `GENO:` |
 | Physical variant classes / genomic sequence contexts | Sequence Ontology | `SO:` |
 | Treatments / clinical interventions | NCI Thesaurus | `NCIT:` |
@@ -748,6 +749,25 @@ of fake identifiers.
 
 - **HGNC casing**: gene CURIEs use **lowercase** `hgnc:` (e.g. `hgnc:746`). This is the
   canonical form that passes validation; do not flag it as an error.
+- **Non-human genes (2026-10-09, revised 2026-10-15, #13548)**: a model system or
+  dataset names its genes in its own species, so the `genes` of `AnimalModel`,
+  `ExperimentalModel` and `Dataset` accept non-human identifiers. Every other gene slot
+  stays HGNC-only, and a human gene is `hgnc:` even inside a model. The order of
+  preference, set by @cmungall's review: the species' **Alliance MOD** (MGI mouse, RGD
+  rat, ZFIN zebrafish, Xenbase Xenopus, FB fly, WB worm, SGD yeast) whenever one exists,
+  whether the model acts on the gene or its product; otherwise `NCBIGene:`, or
+  `UniProtKB:` for a gene product. This is the Monarch KG's convention (the MOD ID is the
+  gene node; NCBI Gene is ingested only for non-MOD taxa), and it **deliberately differs**
+  from Biolink's `id_prefixes` order and Translator node normalization, which both lead
+  with NCBIGene. Prefix spellings are Biolink's, shared by the Monarch KG and GO; GO's
+  `MGI:MGI:` local-ID form is rejected. None of the MOD prefixes or NCBIGene is routed in
+  `conf/oak_config.yaml`, so the term validator would pass any label on them; they are
+  checked by `scripts/check_gene_namespaces.py` (`just check-gene-namespaces`) against
+  committed `cache/<prefix>/terms.csv` files filled from the Alliance API and NCBI
+  E-utilities. `UniProtKB:` is routed through OAK's `uniprot:` adapter. The same script
+  gates any of these prefixes outside a model's or dataset's `genes`, and a fallback
+  prefix on a species that has a MOD. Orthology to the human gene is prose for now; a
+  structured link is a planned follow-up.
 - **`preferred_term` vs `term.label`**: `term.label` must exactly match the canonical
   ontology label (OAK-verified); `preferred_term` may be more specific/clinical when the
   ontology term is too broad.
