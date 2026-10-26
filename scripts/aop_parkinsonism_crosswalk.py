@@ -56,6 +56,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+from dismech.kb_cache import load_document
 from dismech.qc_plugins import CAUSAL_PREDICATES, causal_inlink_coverage
 
 SNAPSHOT = "10-03-2026"
@@ -154,7 +155,7 @@ RULES: dict[str, tuple[list[str], set[str], str]] = {
     "1543": (
         ["complex_iv_assembly_deficiency#"],
         {"GO:0004129", "GO:0006123", "GO:0033617"},
-        r"complex iv\b|cytochrome c oxidase|\bcox\b",
+        r"complex iv\b|cytochrome c oxidase|\bcox\b(?!-?2)",  # not COX-2 (cyclooxygenase)
     ),
     "2362": ([], set(), r"redox[- ]cycl|paraquat"),
     "2363": (
@@ -333,7 +334,7 @@ def respiratory_complex_sweep(root: Path) -> dict[str, dict[str, list[str]]]:
     }
     found["complex II by SDHx gene"] = {}
     for path in sorted((root / "kb/disorders").glob("*.yaml")):
-        record = yaml.safe_load(path.read_text())
+        record = load_document(path)
         nodes = record.get("pathophysiology") or []
         for label, go_ids in RESPIRATORY_COMPLEX_GO.items():
             hits = [
@@ -471,7 +472,7 @@ def select_records(root: Path) -> list[Path]:
     chosen = []
     second_sign = PARKINSONIAN_HPO - {"HP:0001300", "HP:0002548", "HP:0002067"}
     for path in sorted((root / "kb/disorders").glob("*.yaml")):
-        record = yaml.safe_load(path.read_text())
+        record = load_document(path)
         ids = {
             ((p.get("phenotype_term") or {}).get("term") or {}).get("id")
             for p in record.get("phenotypes") or []
@@ -580,10 +581,7 @@ def main() -> int:
     args = parser.parse_args()
 
     paths = select_records(args.root)
-    results = [
-        crosswalk(yaml.safe_load(p.read_text()), p.relative_to(args.root))
-        for p in paths
-    ]
+    results = [crosswalk(load_document(p), p.relative_to(args.root)) for p in paths]
     sweep = respiratory_complex_sweep(args.root)
 
     if args.format == "json":

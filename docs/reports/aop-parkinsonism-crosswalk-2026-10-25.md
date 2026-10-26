@@ -301,7 +301,8 @@ directly from the XML export:
 
 All three complex-variant AOPs were created on 2025-08-01. The complex III one was developed
 over the following four months. The complex II and complex IV ones carry a last-modification
-date equal to their creation date and have not been edited in the fourteen months since, so
+date equal to their creation date and have not been edited in the fourteen months between then
+and the 2026-10-03 snapshot this report reads, so
 nothing was added after the record was opened. Their XML representations are 7,800 characters
 each, identical in size to one another and about 7% the size of their developed sibling, which
 is what a structural clone looks like.
@@ -356,29 +357,42 @@ Nothing else in the parkinsonism set touches it. That edge is unevidenced in AOP
 unrepresented in dismech.
 
 For **AOP 589's** unique edge (KER3555, complex IV inhibition → mitochondrial dysfunction),
-dismech covers it directly in five entries, each as two distinct nodes with an edge between
+dismech covers it directly in five entries, each as two distinct nodes with a causal edge between
 them, and all five bind `HP:0001300` parkinsonism:
 
-| Entry | Upstream node → downstream node | Strongest cited evidence on or at that node |
-|---|---|---|
-| Carbon_Monoxide_Poisoning | Cytochrome c oxidase inhibition → Cellular energy failure | `PMID:9584335` **HUMAN_CLINICAL** — "76% inhibition compared to controls during acute poisoning (P < 0.01) and 48% at day 3" |
-| Cyanide_Poisoning | Cytochrome c Oxidase Inhibition → Oxidative Phosphorylation Failure and ATP Depletion | `PMID:41204534` HUMAN_CLINICAL on the edge; `PMID:17906319` IN_VITRO on the node |
-| Methanol_Poisoning | Cytochrome c oxidase inhibition by formate → Cellular energy failure | `PMID:12216995` — formate as the proximate inhibitor |
-| FASTKD5-Related_COX_Deficiency | Reduced complex IV activity → Impaired mitochondrial respiration | muscle-biopsy OXPHOS assay, HUMAN_CLINICAL; `PMID:34748562` IN_VITRO respirometry |
-| Parkinson_Disease_Mitochondrial | one node matched both ends | `PMID:11079536` HUMAN_CLINICAL — reduced cytochrome c oxidase activity in the proband |
+| Entry | Upstream node → downstream node | Lesion | Strongest cited evidence |
+|---|---|---|---|
+| Carbon_Monoxide_Poisoning | Cytochrome c oxidase inhibition → Cellular energy failure | chemical inhibition | `PMID:9584335` **HUMAN_CLINICAL** — "76% inhibition compared to controls during acute poisoning (P < 0.01) and 48% at day 3" |
+| Cyanide_Poisoning | Cytochrome c Oxidase Inhibition → Oxidative Phosphorylation Failure and ATP Depletion | chemical inhibition | `PMID:41204534` HUMAN_CLINICAL on the edge; `PMID:17906319` IN_VITRO on the node |
+| Methanol_Poisoning | Cytochrome c oxidase inhibition by formate → Cellular energy failure | chemical inhibition by a metabolite | `PMID:12216995` — formate as the proximate inhibitor |
+| FASTKD5-Related_COX_Deficiency | Reduced complex IV activity → Impaired mitochondrial respiration | assembly defect | muscle-biopsy OXPHOS assay, HUMAN_CLINICAL; `PMID:34748562` IN_VITRO respirometry |
+| Autosomal_Dominant_Progressive_External_Ophthalmoplegia | Threshold-Dependent Mosaic Respiratory Chain Deficiency → Skeletal and Bulbar Mitochondrial Myopathy | mtDNA-maintenance failure | `PMID:20479361` HUMAN_CLINICAL — COX-deficient fibres in skeletal muscle |
 
-Three of the five are chemical exposures, which is the stressor class the AOP framework exists to
-serve, and the carbon monoxide entry carries a quantified, time-resolved human measurement of
-chemical complex IV inhibition. **The causal step AOP 589 asserts without a single reference is
+A sixth entry, `Parkinson_Disease_Mitochondrial`, matches **both** ends of the edge on a single
+node — `Respiratory Chain (Oxidative Phosphorylation) Deficiency`, bound to `GO:0006119` and
+`GO:0004129` together — so the crosswalk scores it `same node` and it is not one of the five.
+`PMID:11079536` records reduced cytochrome c oxidase activity in the proband's lymphocytes.
+
+**Only three of the five are complex IV inhibition in the sense AOP 589's molecular initiating
+event means it.** Carbon monoxide, cyanide and formate inhibit the enzyme. FASTKD5 deficiency
+impairs its assembly. adPEO's lesion is clonal mtDNA deletion crossing a threshold, past which
+none of the thirteen mtDNA-encoded oxidative phosphorylation subunits can be made, so
+COX-negative fibres are its readout rather than its mechanism — the same shape of lesion as
+`Parkinson_Disease_Mitochondrial`'s. Those three chemical entries are the stressor class the AOP
+framework exists to serve, and the carbon monoxide entry carries a quantified, time-resolved
+human measurement of chemical complex IV inhibition. **The causal step AOP 589 asserts without a single reference is
 one dismech already represents with cited human evidence.** For this edge the AOP contributes the
 chain shape and dismech contributes the evidence, which is the reverse of the pattern everywhere
 else in this report.
 
 **Two limits, and the second is the substantive one.**
 
-First, KE890 — nigrostriatal dopaminergic degeneration — is absent from all five. So the chain
-from the complex IV lesion to the motor outcome is broken in the middle in every entry that has
-the lesion.
+First, KE890 — nigrostriatal dopaminergic degeneration — is absent from four of the five, so in
+those four the chain from the complex IV lesion to the motor outcome is broken in the middle.
+adPEO is the exception: it carries a `Nigrostriatal Dopaminergic Degeneration` node and reaches it
+from the respiratory-chain lesion in three hops, via `Multisystem PEO-Plus Extension`. It is also
+the entry whose lesion is least like complex IV inhibition, so the one case that completes the
+chain is the one that fits the molecular initiating event worst.
 
 Second, and more interesting than a gap: where these entries *do* reach parkinsonism, they do not
 reach it the way AOP 589 assumes. Cyanide_Poisoning carries a complete chain —
@@ -477,7 +491,7 @@ close the KE 188 gap (issue [#10368](https://github.com/monarch-initiative/disme
 and the PD entry's own `Neuroinflammation` node does **not** conform to it. Of the 16 entries
 matching KE188, the module conformance is what several of them are missing.
 
-## Finding 6 — the adverse outcome is stranded on 40 of 82 entries
+## Finding 6 — the adverse outcome is stranded on 39 of 82 entries
 
 This is a slice of an already-tracked problem, not a new one. `causal_inlink_coverage` — the
 metric behind `just list-disconnected-phenotypes` (issue
@@ -504,8 +518,13 @@ dangling — where this is unlikely to be a deliberate "mechanism genuinely unkn
 | Dihydropyrimidinase Deficiency | 64.3% | Parkinsonism |
 
 At the other end, four entries named for parkinsonism have **0%** phenotype connectivity —
-PARK7, PRKN, Infantile Parkinsonism-Dystonia and Corticobasal Syndrome — which is the same
-set Finding 4 surfaces from the other direction.
+PARK7, PRKN, Infantile Parkinsonism-Dystonia and Corticobasal Syndrome. Three of those four are
+the entries Finding 4 surfaces from the other direction; the two lists differ in the fourth, which
+is Machado-Joseph Disease in Finding 4 and Corticobasal Syndrome here. "Named for parkinsonism"
+means the entry's own label carries parkinsonism or an equivalent, which is what makes a missing
+mechanism notable; other entries also sit at 0% — Methanol and Carbon Monoxide Poisoning, Chronic
+Traumatic Encephalopathy and several spinocerebellar ataxias among them — without parkinsonism
+being what they are named for.
 
 As the `check_disconnected_phenotypes` docstring argues, an edge added to clear a report is
 worse than no edge, and some of these may be legitimate. Triage, not a backlog.
@@ -568,5 +587,5 @@ It proposes no nodes, files no issues, and asserts no edges. It does not judge w
 Event is the right one for a dismech entry — the level screen checks each Event against itself,
 and the crosswalk checks what is already present. The curation questions it raises — the
 disjunction between the complex I entries and the parkinsonism entries, the redox cycling route
-for paraquat, the neuroinflammation feedback arm, the 40 stranded adverse outcomes, the missing
+for paraquat, the neuroinflammation feedback arm, the 39 stranded adverse outcomes, the missing
 module conformances — are for triage item by item, not a backlog to work through.
