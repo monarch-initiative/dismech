@@ -5977,6 +5977,17 @@ slots:
     multivalued: true
     range: NCITMapping
     inlined_as_list: true
+  model_mappings:
+    description: >-
+      The record for this same animal model in a model organism database: an
+      MGI genotype, a ZFIN fish, or an RGD strain, i.e. the record the database
+      attaches its own disease-model assertion to. One DisMech model can map to
+      several records (a line studied as hemizygous males and heterozygous
+      females is two MGI genotypes), so the slot is multivalued and each
+      mapping says which way the granularity runs. See issue #15395.
+    multivalued: true
+    range: AnimalModelMapping
+    inlined_as_list: true
   mapping_predicate:
     description: Relationship between this disease and the mapped term (e.g., skos:exactMatch)
     range: uriorcurie
@@ -8665,6 +8676,7 @@ classes:
       - publication
       - associated_phenotypes
       - modeled_mechanisms
+      - model_mappings
       - evidence
       - notes
     attributes:
@@ -9369,6 +9381,62 @@ classes:
           - binds_value_of: id
             range: NCITDiseaseOrFindingTerm
             obligation_level: REQUIRED
+
+  ModelOrganismGenotypeTerm:
+    is_a: Term
+    description: >-
+      A Term whose id is a model organism database record for a whole-organism
+      model: an MGI genotype, a ZFIN fish (ZDB-FISH-...), or an RGD strain.
+      These are the records the Alliance of Genome Resources calls affected
+      genomic models. MGI and RGD use one ID space for genes and for
+      genotypes/strains, so the pattern cannot tell `MGI:1097716` (the Arx
+      gene) from `MGI:3844352` (an Arx genotype); `just check-model-mappings`
+      checks the record type against a committed cache instead.
+    slot_usage:
+      id:
+        pattern: "^(MGI:[0-9]+|ZFIN:ZDB-FISH-[0-9]{6}-[0-9]+|RGD:[0-9]+)$"
+
+  AnimalModelMapping:
+    is_a: TermMapping
+    description: >-
+      A curated link from a DisMech animal model to the record for the same
+      model, or a narrower or related one, in a model organism database.
+    comments:
+      - >-
+        mapping_predicate is skos:exactMatch when the DisMech model is that
+        genotype (same alleles, same zygosity); skos:narrowMatch when the
+        database record is one genotype of a broader DisMech model (a line
+        reported for both sexes, or across zygosities); skos:broadMatch when
+        the DisMech model is the narrower one; skos:relatedMatch when the two
+        share gene and disease but differ in allele or zygosity and the
+        curator still judges the link useful. closeMatch is not used.
+      - >-
+        Confirm a mapping by reading the database's allele and genotype record
+        against the DisMech model and its evidence. A candidate pair from
+        monarch-animal-models is a lead, not a mapping: it pairs records by
+        shared gene and disease, which also pairs different alleles.
+    slot_usage:
+      term:
+        range: ModelOrganismGenotypeTerm
+        description: >-
+          The database record, with its label normalized as
+          `just check-model-mappings` documents (markup reduced to angle
+          brackets, the background strain dropped).
+      mapping_predicate:
+        description: >-
+          skos:exactMatch, skos:narrowMatch, skos:broadMatch or
+          skos:relatedMatch, read as "<this DisMech model> <predicate>
+          <the database record>".
+      mapping_source:
+        description: >-
+          What establishes the correspondence: the publication both records
+          cite (PMID:...), or the database allele record whose description
+          names the same variant (e.g. MGI:7867540).
+      mapping_justification:
+        required: true
+        description: >-
+          What was compared and found to agree or differ: allele, zygosity,
+          sex, conditional driver, and the shared paper where there is one.
 
   MappingConsistency:
     description: Consistency assertion for a mapping relative to another source

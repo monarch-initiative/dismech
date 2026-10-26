@@ -1732,6 +1732,51 @@ model, which is `PARTIALLY_RECAPITULATES` against `Motor Neuron Degeneration`
 while `RECAPITULATES` `Oxidative Stress`, with a `RESTORED` readout for the
 vitamin-E rescue arm.
 
+### Animal Models in Model Organism Databases (`model_mappings`)
+
+When an animal model is also curated in MGI, ZFIN or RGD, `model_mappings`
+records which database record it is: an MGI genotype, a ZFIN fish
+(`ZFIN:ZDB-FISH-…`) or an RGD strain, the record the database attaches its own
+disease-model assertion to (#15395, epic #15394).
+
+```yaml
+- species: Mouse (Mus musculus)
+  genotype: Arx conditional loss in Dlx5/6-lineage ganglionic-eminence neurons
+  model_mappings:
+  - term:
+      id: MGI:3844352
+      label: "Arx<tm1Gldn>/Y Tg(mI56i-cre,-EGFP)1Kc/0"
+    mapping_predicate: skos:narrowMatch
+    mapping_source: "PMID:19439424"
+    mapping_justification: >-
+      Same line and paper; MGI records the hemizygous males as one genotype.
+```
+
+- **Read as "this DisMech model *predicate* that record".** `exactMatch`: same
+  alleles and zygosity. `narrowMatch`: the record is one genotype of a broader
+  DisMech model (a line reported in both sexes is two MGI genotypes, so two
+  mappings). `broadMatch`: the reverse. `relatedMatch`: same gene and disease,
+  different allele or zygosity. Not `closeMatch`.
+- **Confirm by reading the allele record, not by matching gene and disease.**
+  A candidate pair from monarch-animal-models is a lead. On its first worked
+  examples it paired an Adnp knockout with two point-mutant knock-ins and the
+  `Npr2(cn/cn)` mouse with the `slw` allele; the right mappings went to other
+  DisMech records, or nowhere.
+- **The label is generated, never typed.** `just check-model-mappings-online`
+  fetches each new record from the Monarch KG into
+  `cache/mod_models/genotypes.csv`; commit the row with the entry. The label is
+  the record's name with `<sup>x</sup>` written `<x>`, other markup removed, and
+  the `[background:]` part dropped.
+- **A gene ID here is the error to watch for.** MGI and RGD use one ID space
+  for genes and genotypes, so `MGI:1097716` (the Arx gene) is well-formed in
+  this slot. `just check-model-mappings` (offline, in `just qc` and CI) checks
+  the cached record type, and fails it as `NOT_A_GENOTYPE`.
+- A disagreement over *which disease* the model is for is not recorded here;
+  it is derivable from the database's own assertion.
+
+Worked examples: `ADNP-Related_Syndrome`, `ARX-Related_Lissencephaly_and_Interneuronopathy`,
+`Acromesomelic_Dysplasia_Maroteaux_Type`.
+
 ### Linking Environmental Factors into the Pathograph
 
 An `environmental:` entry only appears in the pathograph if it declares which
