@@ -50861,7 +50861,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "6",
     "causal_graph_longest_path": "1"
   },
   {
@@ -73782,7 +73782,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 2,
     "num_treatments": 6,
-    "causal_graph_edges": "27",
+    "causal_graph_edges": "28",
     "causal_graph_longest_path": "7"
   },
   {
@@ -89381,7 +89381,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "4"
   },
   {
@@ -89455,7 +89455,8 @@ window.searchData = [
     ],
     "genes": [],
     "treatments": [
-      "Symptomatic management"
+      "Symptomatic management",
+      "Live-Attenuated Chikungunya Vaccination (VLA1553 / IXCHIQ)"
     ],
     "environmental": [],
     "biochemical": [],
@@ -89464,9 +89465,9 @@ window.searchData = [
     "num_phenotypes": 4,
     "num_pathophysiology": 9,
     "num_genes": 0,
-    "num_treatments": 1,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "7"
+    "num_treatments": 2,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Childhood-Onset Striatonigral Degeneration",
@@ -90422,8 +90423,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Cholesteatoma",
@@ -121908,7 +121909,8 @@ window.searchData = [
     ],
     "genes": [],
     "treatments": [
-      "Intravenous Fluid Resuscitation"
+      "Intravenous Fluid Resuscitation",
+      "Tetravalent Live-Attenuated Dengue Vaccination (TAK-003 / CYD-TDV)"
     ],
     "environmental": [],
     "biochemical": [],
@@ -121917,9 +121919,9 @@ window.searchData = [
     "num_phenotypes": 5,
     "num_pathophysiology": 12,
     "num_genes": 0,
-    "num_treatments": 1,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 2,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Dent Disease",
@@ -138379,7 +138381,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 6,
     "num_treatments": 5,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "1"
   },
   {
@@ -175904,6 +175906,7 @@ window.searchData = [
       "CL:0000775"
     ],
     "biological_processes": [
+      "complement activation",
       "tumor necrosis factor production",
       "interleukin-1 beta production",
       "leukocyte migration"
@@ -180986,7 +180989,8 @@ window.searchData = [
       "VERY_FREQUENT"
     ],
     "genes": [
-      "HBV Genotype"
+      "HBV Genotype",
+      "HLA Class II Polymorphisms (HLA-DP and HLA-DQ Loci)"
     ],
     "treatments": [
       "Antiviral Medications",
@@ -181008,9 +181012,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Hepatitis_B.html",
     "num_phenotypes": 10,
     "num_pathophysiology": 8,
-    "num_genes": 1,
+    "num_genes": 2,
     "num_treatments": 5,
-    "causal_graph_edges": "21",
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "4"
   },
   {
@@ -186696,6 +186700,70 @@ window.searchData = [
     "num_treatments": 8,
     "causal_graph_edges": "31",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Herpes Zoster",
+    "disease_id": "MONDO:0005609",
+    "category": "Infectious Disease",
+    "parents": [
+      "Viral Disease"
+    ],
+    "creation_date": "2026-10-25T20:15:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Herpes zoster (shingles) is a neurocutaneous disease caused by the reactivation of latent varicella-zoster virus (VZV; human alphaherpesvirus 3) from cranial nerve, dorsal root, or autonomic ganglionic neurons when VZV-specific cell-mediated immunity declines with advancing age or immunosuppression. Reactivated virus replicates in ganglionic neurons and travels anterogradely along sensory axons to the innervated dermatome, producing a painful unilateral vesicular rash and ganglionic inflammation that frequently progresses to postherpetic neuralgia (PHN) and can be complicated by VZV vasculopathy, cranial neuropathies, myelitis, or meningoencephalitis.",
+    "pathophysiology": [
+      "Ganglionic VZV Latency and Reactivation Under Waning T-Cell Immunity",
+      "Dermatomal Ganglionitis, Neuroinflammation, and Postherpetic Neuralgia"
+    ],
+    "cell_types": [
+      "neuron",
+      "T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000084"
+    ],
+    "biological_processes": [
+      "viral latency",
+      "viral genome replication",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Skin rash",
+      "Neuralgia"
+    ],
+    "phenotype_categories": [
+      "Dermatological",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Immune",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0033697",
+      "HP:0033345"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Adjuvanted Recombinant Zoster Vaccine (RZV / Shingrix, VZV gE + AS01B)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Herpes_Zoster.yaml",
+    "page_url": "../pages/disorders/Herpes_Zoster.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 2,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Visceral Heterotaxy 14",
@@ -211158,7 +211226,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "6",
     "causal_graph_longest_path": "2"
   },
   {
@@ -217613,6 +217681,70 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Japanese Encephalitis",
+    "disease_id": "MONDO:0019209",
+    "category": "Infectious Disease",
+    "parents": [
+      "Arbovirus Infection",
+      "Viral Encephalitis"
+    ],
+    "creation_date": "2026-10-25T20:20:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Japanese encephalitis (JE) is a mosquito-borne neuroinvasive orthoflavivirus disease caused by Japanese encephalitis virus (JEV), transmitted primarily by Culex mosquitoes (especially Culex tritaeniorhynchus) in an enzootic cycle involving wading birds and domestic pigs across Asia and the Western Pacific. Although most human infections are asymptomatic, neuroinvasive disease (roughly 68,000 cases and up to 20,400 deaths annually) targets the thalamus, basal ganglia, brainstem, and cerebral cortex, causing acute encephalitis with a high incidence of early seizures (50% to 80% of cases) and permanent neurological sequelae.",
+    "pathophysiology": [
+      "Cutaneous Mosquito Inoculation, Peripheral Amplification, and Blood-Brain Barrier Breach",
+      "Neuronal Infection, Microglial Neuroinflammation, and Epileptogenesis"
+    ],
+    "cell_types": [
+      "dendritic cell",
+      "neuron",
+      "microglial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000451",
+      "CL:0000540",
+      "CL:0000129"
+    ],
+    "biological_processes": [
+      "viral genome replication",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Infectious encephalitis",
+      "Seizure"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002383",
+      "HP:0001250"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Japanese Encephalitis SA 14-14-2 Vaccination (Live-Attenuated SA14-14-2, Inactivated IXIARO, and Chimeric IMOJEV)",
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Japanese_Encephalitis.yaml",
+    "page_url": "../pages/disorders/Japanese_Encephalitis.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 2,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Japanese Spotted Fever",
@@ -245925,6 +246057,8 @@ window.searchData = [
     ],
     "description": "Malaria is a mosquito-borne protozoal infection caused by Plasmodium species, with major global burden from Plasmodium falciparum and Plasmodium vivax. Clinical disease is driven by blood-stage parasitemia, while severe falciparum syndromes involve microvascular sequestration and organ dysfunction, and vivax disease is complicated by relapse from dormant liver hypnozoites.",
     "pathophysiology": [
+      "Mosquito inoculation and sporozoite skin-to-liver migration",
+      "CSP-mediated hepatocyte invasion and hepatic schizogony",
       "Infected erythrocyte sequestration and cytoadherence",
       "Blood-brain barrier dysfunction in cerebral malaria",
       "EPCR-associated endothelial pathology",
@@ -245938,6 +246072,7 @@ window.searchData = [
       "Placental Sequestration via VAR2CSA-CSA Binding"
     ],
     "cell_types": [
+      "hepatocyte",
       "erythrocyte",
       "endothelial cell",
       "T cell",
@@ -245945,6 +246080,7 @@ window.searchData = [
       "infected erythrocyte"
     ],
     "cell_type_ids": [
+      "CL:0000182",
       "CL:0000232",
       "CL:0000115",
       "CL:0000084",
@@ -246018,11 +246154,11 @@ window.searchData = [
     "source_file": "Malaria.yaml",
     "page_url": "../pages/disorders/Malaria.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 11,
+    "num_pathophysiology": 13,
     "num_genes": 7,
     "num_treatments": 6,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Maleylacetoacetate Isomerase Deficiency",
@@ -249356,8 +249492,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Meckel Diverticulum",
@@ -252090,6 +252226,75 @@ window.searchData = [
     "num_genes": 13,
     "num_treatments": 5,
     "causal_graph_edges": "20",
+    "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Meningococcal Meningitis",
+    "disease_id": "MONDO:0018059",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial meningitis"
+    ],
+    "creation_date": "2026-10-25T20:10:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Meningococcal meningitis is an acute, life-threatening bacterial infection of the leptomeninges and subarachnoid space caused by encapsulated Neisseria meningitidis (serogroups A, B, C, W, X, and Y). Following nasopharyngeal colonization and bloodstream invasion, meningococci cross the blood-brain barrier and replicate in the cerebrospinal fluid, where lipooligosaccharide (endotoxin) release and two-partner secretion system virulence factors trigger complement activation (C1q, MBL, C3a, C5a, sC5b-9) and canonical/non-canonical inflammasome pyroptosis (caspase-1, caspase-11, gasdermin-D, IL-1beta, IL-18), often accompanied by meningococcemia and a characteristic petechial or purpuric rash.",
+    "pathophysiology": [
+      "Nasopharyngeal Mucosal Colonization and Epithelial Invasion",
+      "Polysaccharide Capsule and Factor H-Binding Protein Complement Evasion and Meningococcemia",
+      "Cerebrospinal Fluid Complement Activation and Inflammasome Pyroptosis"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "adhesion of symbiont to host",
+      "complement activation",
+      "pyroptosis",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Meningitis",
+      "Sepsis",
+      "Petechiae"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Systemic",
+      "Dermatological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Immune",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001287",
+      "HP:0100806",
+      "HP:0000967"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "Terminal Complement Pathway Deficiency (C5-C9)"
+    ],
+    "treatments": [
+      "Quadrivalent Meningococcal Conjugate Vaccination (MenACWY / MCV4)",
+      "Meningococcal Group B Protein Vaccination (4CMenB / MenB-FHbp)",
+      "Early Parenteral Antimicrobial Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Meningococcal_Meningitis.yaml",
+    "page_url": "../pages/disorders/Meningococcal_Meningitis.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "3"
   },
   {
@@ -261945,7 +262150,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 9,
     "num_treatments": 6,
-    "causal_graph_edges": "2",
+    "causal_graph_edges": "4",
     "causal_graph_longest_path": "1"
   },
   {
@@ -266732,8 +266937,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Murine typhus",
@@ -300716,7 +300921,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "4"
   },
   {
@@ -307464,8 +307669,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Peters plus syndrome",
@@ -311128,8 +311333,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Pneumocystis Pneumonia",
@@ -330372,7 +330577,7 @@ window.searchData = [
     "num_pathophysiology": 1,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "1",
+    "causal_graph_edges": "2",
     "causal_graph_longest_path": "1"
   },
   {
@@ -334992,6 +335197,100 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Rotaviral Enteritis",
+    "disease_id": "MONDO:0005194",
+    "category": "Infectious",
+    "parents": [
+      "Infectious Disease",
+      "Gastrointestinal Disease"
+    ],
+    "creation_date": "2026-04-20T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Rotaviral enteritis is an acute viral gastroenteritis caused primarily by Group A rotavirus (Reoviridae), a triple-layered non-enveloped double-stranded RNA virus that infects mature enterocytes at the tips of small intestinal villi. Disease is driven by a dual mechanism combining NSP4 enterotoxin-mediated intracellular calcium mobilization, chloride secretion, and enteric nervous system activation (early secretory diarrhea) with proteasomal DGAT1 degradation, brush-border disaccharidase loss, and villus blunting (secondary malabsorptive osmotic diarrhea). Host histo-blood group antigen (HBGA) secretor status controlled by FUT2 and Lewis status controlled by FUT3 govern VP8*-mediated attachment and strain-specific susceptibility to both natural infection and live-attenuated oral rotavirus vaccines.",
+    "pathophysiology": [
+      "Host Glycan Attachment and Mature Villus Enterocyte Entry",
+      "Cytoplasmic Replication and Innate Antiviral Antagonism",
+      "Systemic Antigenemia and Transient Viremia",
+      "NSP4 Viroporin-Mediated Intracellular Calcium Mobilization",
+      "Calcium-Activated Chloride Secretion",
+      "Enteric Nervous System Secretomotor Activation",
+      "Proteasomal DGAT1 Degradation and Villus Enterocyte Destruction"
+    ],
+    "cell_types": [
+      "enterocyte of epithelium of small intestine",
+      "enteric neuron"
+    ],
+    "cell_type_ids": [
+      "CL:1000334",
+      "CL:0007011"
+    ],
+    "biological_processes": [
+      "endocytosis involved in viral entry into host cell",
+      "viral RNA genome replication",
+      "negative regulation of type I interferon production",
+      "release of sequestered calcium ion into cytosol",
+      "chloride transmembrane transport",
+      "cytolysis"
+    ],
+    "phenotypes": [
+      "Secretory Diarrhea",
+      "Malabsorptive Osmotic Diarrhea",
+      "Vomiting",
+      "Fever",
+      "Dehydration",
+      "Metabolic Acidosis",
+      "Abdominal Pain",
+      "Secondary Lactase Deficiency and Carbohydrate Malabsorption",
+      "Elevated Hepatic Transaminases"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Systemic",
+      "Metabolic",
+      "Hepatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0005208",
+      "HP:0033310",
+      "HP:0002013",
+      "HP:0001945",
+      "HP:0001944",
+      "HP:0001942",
+      "HP:0002027",
+      "HP:0002024",
+      "HP:0002910"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "FUT2"
+    ],
+    "treatments": [
+      "Oral Rehydration Therapy",
+      "Zinc Supplementation",
+      "Rotavirus Vaccination"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Rotaviral_Enteritis.yaml",
+    "page_url": "../pages/disorders/Rotaviral_Enteritis.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Rothmund-Thomson Syndrome",
     "disease_id": "MONDO:0010002",
     "category": "Mendelian",
@@ -335291,8 +335590,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Rubinstein-Taybi Syndrome",
@@ -377791,6 +378090,8 @@ window.searchData = [
       "CL:0008025"
     ],
     "biological_processes": [
+      "receptor-mediated endocytosis",
+      "response to toxic substance",
       "synaptic transmission, GABAergic",
       "synaptic transmission, glycinergic",
       "negative regulation of neurotransmitter secretion",
@@ -377838,8 +378139,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 6,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Tetraamelia Syndrome 2",
@@ -380254,6 +380555,90 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Tick-Borne Encephalitis",
+    "disease_id": "MONDO:0017572",
+    "category": "Infectious Disease",
+    "parents": [
+      "Arbovirus Infection",
+      "Viral Encephalitis"
+    ],
+    "creation_date": "2026-10-25T20:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "European Subtype (TBEV-Eu)",
+      "Siberian Subtype (TBEV-Sib)",
+      "Far Eastern Subtype (TBEV-FE)"
+    ],
+    "description": "Tick-borne encephalitis (TBE) is a neuroinvasive flavivirus infection caused by tick-borne encephalitis virus (TBEV), transmitted primarily by the bite of infected Ixodes ticks (Ixodes ricinus in Europe and Ixodes persulcatus in Siberia and the Far East) and less frequently by ingestion of unpasteurized dairy products from infected ruminants. Symptomatic European-subtype infection characteristically follows a biphasic course, with an initial nonspecific viremic febrile phase accompanied by leukopenia and thrombocytopenia, followed after an asymptomatic interval by central nervous system invasion presenting as meningitis, meningoencephalitis, or meningoencephalomyelitis.",
+    "pathophysiology": [
+      "Cutaneous Inoculation, Peripheral Viral Replication, and Primary Viremia",
+      "Neuroinvasion and Central Nervous System Inflammation"
+    ],
+    "cell_types": [
+      "dendritic cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000451",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "viral genome replication",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Meningitis",
+      "Infectious encephalitis",
+      "Ataxia",
+      "Tremor",
+      "Leukopenia",
+      "Thrombocytopenia"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Neurological",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Immune",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0001287",
+      "HP:0002383",
+      "HP:0001251",
+      "HP:0001337",
+      "HP:0001882",
+      "HP:0001873"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Inactivated Tick-Borne Encephalitis Vaccination (FSME-IMMUN / TICOVAC)",
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Tick-Borne_Encephalitis.yaml",
+    "page_url": "../pages/disorders/Tick-Borne_Encephalitis.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 2,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Tick-Borne Relapsing Fever",
     "disease_id": "MONDO:0001621",
     "category": "Infectious Disease",
@@ -382117,7 +382502,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 10,
     "num_treatments": 9,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
   },
   {
@@ -384249,7 +384634,8 @@ window.searchData = [
       "Natural Compound Therapy",
       "Bacteriophage Therapy",
       "Antimicrobial Peptide Therapy",
-      "Probiotic Therapy"
+      "Probiotic Therapy",
+      "Bacillus Calmette-Gu\u00e9rin (BCG) Vaccination"
     ],
     "environmental": [],
     "biochemical": [
@@ -384261,8 +384647,8 @@ window.searchData = [
     "num_phenotypes": 10,
     "num_pathophysiology": 8,
     "num_genes": 8,
-    "num_treatments": 17,
-    "causal_graph_edges": "11",
+    "num_treatments": 18,
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "3"
   },
   {
@@ -385337,7 +385723,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "19",
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "5"
   },
   {
@@ -400031,6 +400417,94 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Yellow Fever",
+    "disease_id": "MONDO:0020502",
+    "category": "Infectious Disease",
+    "parents": [
+      "Arbovirus Infection",
+      "Viral Hemorrhagic Fever"
+    ],
+    "creation_date": "2026-10-25T20:05:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Yellow fever is a mosquito-borne viral hemorrhagic fever caused by yellow fever virus, an orthoflavivirus endemic to tropical and subtropical regions of Africa and South America and transmitted by Aedes, Haemogogus, and Sabethes mosquitoes. Following dermal inoculation, the virus infects dendritic cells, amplifies in draining lymph nodes, and disseminates via the bloodstream to the liver, where viral cytopathic replication and an unbalanced pro- and anti-inflammatory cytokine response (TNF-alpha, TGF-beta) drive hepatocyte apoptosis, lytic necrosis, steatosis, consumptive and synthetic coagulopathy, endothelial dysfunction, and in 20% to 60% of symptomatic patients a toxic phase marked by jaundice, hemorrhage, thrombocytopenia, and hepatic and renal failure.",
+    "pathophysiology": [
+      "Dermal Dendritic Cell Infection, Lymphatic Amplification, and Systemic Viremia",
+      "Hepatocyte Apoptosis, Lytic Necrosis, and Cytokine-Driven Hepatotoxicity",
+      "Endothelial Activation and Increased Vascular Permeability"
+    ],
+    "cell_types": [
+      "dendritic cell",
+      "hepatocyte",
+      "macrophage",
+      "CD4-positive, alpha-beta T cell",
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000451",
+      "CL:0000182",
+      "CL:0000235",
+      "CL:0000624",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "viral entry into host cell",
+      "viral genome replication",
+      "apoptotic process",
+      "inflammatory response",
+      "regulation of vascular permeability",
+      "endothelial cell activation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Jaundice",
+      "Thrombocytopenia",
+      "Abnormal bleeding",
+      "Hepatic failure",
+      "Acute kidney injury"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Hepatic",
+      "Hematologic",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Genitourinary",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0000952",
+      "HP:0001873",
+      "HP:0001892",
+      "HP:0001399",
+      "HP:0001919"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Live-Attenuated Yellow Fever 17D Vaccine (YF-VAX / Stamaril)",
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Yellow_Fever.yaml",
+    "page_url": "../pages/disorders/Yellow_Fever.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Yersinia Enterocolitica Infectious Disease",
     "disease_id": "MONDO:0042370",
     "category": "Infectious Disease",
@@ -402854,16 +403328,16 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3732,
-  "total_subtypes": 4915,
-  "total_disorders_and_subtypes": 8647,
-  "total_unique_evidence_sources": 55691,
-  "total_unique_publications": 52030,
+  "total_disorder_pages": 3738,
+  "total_subtypes": 4918,
+  "total_disorders_and_subtypes": 8656,
+  "total_unique_evidence_sources": 55716,
+  "total_unique_publications": 52055,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3730,
-  "total_unique_pathological_events": 24609,
-  "total_modules": 205,
+  "total_pathographs": 3736,
+  "total_unique_pathological_events": 24630,
+  "total_modules": 208,
   "total_research_reports": 3856,
   "total_classifications": 21,
   "total_comorbidities": 51,
