@@ -100,8 +100,11 @@ surface. Assume neither phase knows about a PR.
 
 `just enrich-stubs` has **already** written `mondo_parents`, `mondo_descendants`,
 `mondo_descendant_count` and `genes` into the stubs. That is the evidence the
-`entry_type` decision turns on. Read the stub file. Do **not** re-derive it with
-per-candidate ontology lookups.
+`entry_type` decision turns on. `just next-unclaimed N --json` carries them on
+each record (with `synonyms`, for the step-5 duplicate search), so a pool can be
+screened without opening the stub files; otherwise read the stub file. Do
+**not** re-derive them with per-candidate ontology lookups. The text output
+shows only `mondo_descendant_count`, beside the label.
 
 **An empty block is omitted, not written as zero** (`render()` in
 `scripts/enrich_curation_stubs.py` only emits a block when it has content), so
@@ -167,8 +170,16 @@ turns on. Enriching an issue body with a definition or an OMIM ID is not that.
    just next-unclaimed $((N + 20))          # stubs minus claimed, as a pool
    ```
 
-   `next-unclaimed` takes `--json` if you want it machine-readable. Ask for
-   headroom (`N + 20`), because you will skip candidates.
+   `just next-unclaimed $((N + 20)) --json` gives the same pool as JSON, with
+   the enrichment fields above on each record (a key is left out when the stub
+   lacks that field, never set to `null`). A first argument after the count that
+   starts with `--` is passed through as a flag and the default
+   `tmp/claims.json` is used; to read another claims file, name it there
+   (`just next-unclaimed 25 path/to/claims.json --json`). Ask for
+   headroom (`N + 20`), because you will skip candidates. It already leaves out
+   stubs whose MONDO ID the KB covers; a `[advisory] possible_kb_duplicate`
+   line under a candidate (`advisories` in `--json`) means an entry with the
+   same name exists under another MONDO ID, so open that entry before choosing.
 
    **No `gh` CLI (web and remote sessions).** `just fetch-claims` shells out to
    `gh`, which is absent there — and `curl https://api.github.com` fails too:
