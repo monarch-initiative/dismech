@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dystonia 25 · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Dystonia 25</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Dystonia 25</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-10-20</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0014033" target="_blank" rel="noopener noreferrer">MONDO:0014033</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Dystonia 25 (DYT25; now designated <strong>DYT-GNAL</strong>) is an autosomal dominant, adult-onset <strong>isolated (primary) dystonia</strong> caused by loss-of-function mutations in <em>GNAL</em>. Dystonia is a movement disorder defined by sustained or intermittent involuntary muscle contractions producing twisting, repetitive movements and abnormal postures. DYT25 characteristically presents as <strong>focal or segmental cranio-cervical dystonia</strong> — most often cervical dystonia (torticollis) — that may spread to oromandibular, laryngeal (spasmodic dysphonia), and upper-limb regions, frequently with dystonic tremor. <em>GNAL</em> was the <strong>first gene definitively confirmed to cause common adult-onset focal/segmental isolated dystonia</strong> (Fuchs et al. 2013, <a href="https://pubmed.ncbi.nlm.nih.gov/23222958/" target="_blank" rel="noopener noreferrer">PMID 23222958</a>; Vemula et al. 2013, <a href="https://pubmed.ncbi.nlm.nih.gov/23449625/" target="_blank" rel="noopener noreferrer">PMID 23449625</a>).</p>
+<p><strong>Key identifiers.</strong>
+- OMIM: <strong>615073</strong> (Dystonia 25, DYT25)
+- MONDO: <strong><a href="http://purl.obolibrary.org/obo/MONDO_0014033" target="_blank" rel="noopener noreferrer">MONDO:0014033</a></strong>
+- Orphanet: dystonia 25 falls under <a href="https://bioregistry.io/ORPHA:98806" target="_blank" rel="noopener noreferrer">ORPHA:98806</a> (isolated dystonia) / adult-onset isolated focal dystonia spectrum
+- Gene (HGNC): <strong>GNAL</strong>, <a href="https://bioregistry.io/HGNC:4388" target="_blank" rel="noopener noreferrer">HGNC:4388</a>; NCBI Gene ID 2774; UniProt P38405 (GNAL_HUMAN)
+- MeSH: Dystonic Disorders (D020821); Dystonia (D004421)
+- ICD-10: <strong>G24</strong> (Dystonia; G24.3 spasmodic torticollis, G24.4 idiopathic orofacial dystonia); ICD-11: <strong>8A02</strong> (Dystonia)</p>
+<p><strong>Synonyms / alternative names:</strong> DYT25; DYT-GNAL; dystonia-25; primary torsion dystonia 25; GNAL-related dystonia; adult-onset cervical/cranio-cervical dystonia (GNAL type).</p>
+<p><strong>Information source type.</strong> Disease-level knowledge is derived from <strong>aggregated resources</strong> (OMIM, Orphanet) and from <strong>individual-patient case series / pedigrees</strong> reported in primary literature; mechanistic data come from rodent models and in vitro assays rather than EHR aggregation.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause — genetic.</strong> Heterozygous <strong>loss-of-function mutations in <em>GNAL</em></strong>, encoding the stimulatory G-protein alpha subunit <strong>Gα-olf</strong> (G(olf)). The disorder is monogenic and autosomal dominant with <strong>incomplete penetrance</strong> (Vemula 2013, <a href="https://pubmed.ncbi.nlm.nih.gov/23449625/" target="_blank" rel="noopener noreferrer">PMID 23449625</a>: "These mutations show incomplete penetrance").</p>
+<p><strong>Genetic risk factors (causal variants).</strong> Nonsense, frameshift, splice-site, start-loss, and missense variants across the <em>GNAL</em> coding sequence (see §4). There are no established common susceptibility (GWAS) loci; DYT25 is a Mendelian, not polygenic, entity.</p>
+<p><strong>Environmental risk factors.</strong> None established as causal. As with other focal dystonias, non-specific triggers/modifiers hypothesized for adult-onset focal dystonia generally (e.g., repetitive/occupational activity, peripheral trauma, prior neck injury for cervical dystonia) may act as triggers in genetically predisposed individuals, but no GNAL-specific environmental factor is proven. <strong>Age</strong> (adult onset) and possibly <strong>sex</strong> modulate expression.</p>
+<p><strong>Protective factors.</strong> None genetically defined. Incomplete penetrance implies the existence of unidentified genetic/environmental <strong>modifiers</strong> that can prevent clinical expression in carriers, but these are not characterized.</p>
+<p><strong>Gene–environment interactions.</strong> The incomplete, age-dependent penetrance of <em>GNAL</em> variants is consistent with gene–environment and gene–gene interactions shaping whether and when a carrier manifests dystonia; specifics remain unknown.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>DYT25 is an <strong>isolated</strong> dystonia — dystonia is the only motor feature (± tremor), without other neurological signs, and brain MRI is typically normal.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO term</th>
+<th>Onset / severity / progression</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cervical dystonia (torticollis)</td>
+<td>Clinical sign</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002317" target="_blank" rel="noopener noreferrer">HP:0002317</a></strong> (Torticollis) / <a href="http://purl.obolibrary.org/obo/HP_0030972" target="_blank" rel="noopener noreferrer">HP:0030972</a> (Cervical dystonia)</td>
+<td>Adult-onset (often 3rd–6th decade); moderate; usually focal, limited spread</td>
+<td>Most common site; typical presenting feature</td>
+</tr>
+<tr>
+<td>Cranial / oromandibular dystonia</td>
+<td>Clinical sign</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002540" target="_blank" rel="noopener noreferrer">HP:0002540</a></strong>? — use <a href="http://purl.obolibrary.org/obo/HP_0012048" target="_blank" rel="noopener noreferrer">HP:0012048</a> (Oromandibular dystonia)</td>
+<td>Adult-onset; variable</td>
+<td>Common in segmental cases</td>
+</tr>
+<tr>
+<td>Laryngeal dystonia (spasmodic dysphonia)</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001618" target="_blank" rel="noopener noreferrer">HP:0001618</a> (Dysphonia)</td>
+<td>Adult-onset</td>
+<td>Reported (Vemula 2013; Carecchio 2016)</td>
+</tr>
+<tr>
+<td>Blepharospasm / facial dystonia</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000643" target="_blank" rel="noopener noreferrer">HP:0000643</a> (Blepharospasm)</td>
+<td>Adult-onset</td>
+<td>Occasional (cranial involvement)</td>
+</tr>
+<tr>
+<td>Upper-limb / hand-forearm (writer's) dystonia</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002527" target="_blank" rel="noopener noreferrer">HP:0002527</a>? use <a href="http://purl.obolibrary.org/obo/HP_0003470" target="_blank" rel="noopener noreferrer">HP:0003470</a> / <a href="http://purl.obolibrary.org/obo/HP_0100660" target="_blank" rel="noopener noreferrer">HP:0100660</a> (Dystonic limb)</td>
+<td>Adult-onset</td>
+<td>Reported</td>
+</tr>
+<tr>
+<td>Dystonic tremor (head/arm)</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002322" target="_blank" rel="noopener noreferrer">HP:0002322</a> (Resting tremor)/<a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" rel="noopener noreferrer">HP:0001337</a> (Tremor)</td>
+<td>Variable; may mimic DYT11/essential tremor</td>
+<td>Prominent in some families (Carecchio 2016)</td>
+</tr>
+<tr>
+<td>Generalization of dystonia</td>
+<td>Clinical course</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007325" target="_blank" rel="noopener noreferrer">HP:0007325</a> (Generalized dystonia)</td>
+<td>Rare; generally does NOT generalize</td>
+<td>Uncommon (one Chinese case generalized)</td>
+</tr>
+<tr>
+<td>Microsmia / hyposmia</td>
+<td>Symptom/lab</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004409" target="_blank" rel="noopener noreferrer">HP:0004409</a> (Hyposmia)</td>
+<td>—</td>
+<td>Reported in p.V228F carriers (Gα-olf role in olfaction), not consistent</td>
+</tr>
+<tr>
+<td>Psychiatric / "mental" symptoms</td>
+<td>Behavioral</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" rel="noopener noreferrer">HP:0000708</a> (Behavioral abnormality)</td>
+<td>—</td>
+<td>Rare (Fan 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/35396637/" target="_blank" rel="noopener noreferrer">PMID 35396637</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>General phenotype characteristics.</strong> <em>Onset:</em> adult-onset (typically ~ 4th–5th decade; range childhood to late adult). <em>Severity:</em> mild-to-moderate, variable even <strong>within families (intra-familial heterogeneity)</strong> (Carecchio 2016, <a href="https://pubmed.ncbi.nlm.nih.gov/26725140/" target="_blank" rel="noopener noreferrer">PMID 26725140</a>). <em>Progression:</em> slowly progressive then <strong>plateaus</strong>; focal→segmental spread possible but <strong>generalization is rare</strong>; course is chronic/lifelong, non-remitting (dystonic tremor can fluctuate). <em>Distribution:</em> often asymmetric.</p>
+<p><strong>Quality-of-life impact.</strong> Cervical and cranial dystonia cause pain, social embarrassment, impaired head control, speech/swallowing difficulty, and functional disability; QoL is reduced similarly to other adult-onset focal dystonias (disease-specific tools such as CDIP-58 / TWSTRS for cervical dystonia; no GNAL-specific QoL study). Botulinum toxin and DBS substantially improve QoL (§12).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <strong><em>GNAL</em></strong> (guanine nucleotide-binding protein, alpha-activating activity polypeptide, olfactory type) — chromosome <strong>18p11.21</strong>; <a href="https://bioregistry.io/HGNC:4388" target="_blank" rel="noopener noreferrer">HGNC:4388</a>; OMIM gene <em>139312</em>; encodes <strong>Gα-olf (G(olf) subunit alpha)</strong>, UniProt P38405.</p>
+<p><strong>Representative pathogenic variants (all heterozygous, germline).</strong>
+- <strong>p.Ser293*</strong> (nonsense) — original family (Fuchs 2013, <a href="https://pubmed.ncbi.nlm.nih.gov/23222958/" target="_blank" rel="noopener noreferrer">PMID 23222958</a>)
+- <strong>p.Val137Met</strong> (missense) — original family (Fuchs 2013)
+- <strong>p.Val228Phe</strong> (c.682G&gt;T, missense) — African-American pedigree; carriers showed microsmia (Vemula 2013, <a href="https://pubmed.ncbi.nlm.nih.gov/23449625/" target="_blank" rel="noopener noreferrer">PMID 23449625</a>)
+- <strong>p.Arg198Thrfs*13</strong> (c.591dupA, frameshift); <strong>p.Arg245*</strong> (c.733C&gt;T, nonsense); <strong>p.Met1?</strong> (c.3G&gt;A, start-loss) (Vemula 2013)
+- <strong>p.Asp210Asn</strong> (c.628G&gt;A, exon 9, missense) — Italian family (Carecchio 2016, <a href="https://pubmed.ncbi.nlm.nih.gov/26725140/" target="_blank" rel="noopener noreferrer">PMID 26725140</a>)
+- <strong>p.Val354Ala</strong> (c.1061T&gt;C, missense) — <em>de novo</em> in sporadic Serbian cervical dystonia patient (Dobričić 2014, <a href="https://pubmed.ncbi.nlm.nih.gov/24729450/" target="_blank" rel="noopener noreferrer">PMID 24729450</a>)
+- <strong>p.Ser95*</strong> (c.284C&gt;T, nonsense) and <strong>c.932-7T&gt;G</strong> (splice) — Chinese patients (Miao 2013, <a href="https://pubmed.ncbi.nlm.nih.gov/23759320/" target="_blank" rel="noopener noreferrer">PMID 23759320</a>)</p>
+<p><strong>Variant classification (ACMG/AMP).</strong> Truncating variants (nonsense, frameshift, canonical splice, start-loss) are classified <strong>pathogenic</strong> (loss of function is the established mechanism for a haploinsufficient gene). Missense variants are often <strong>likely pathogenic/VUS</strong>, supported by functional assays (BRET showing impaired Gα-olf coupling; Fuchs 2013), in silico prediction, and segregation.</p>
+<p><strong>Variant types/classes.</strong> Missense, nonsense, frameshift, splice-site, and start-loss — i.e., a mix consistent with <strong>haploinsufficiency</strong>. In a representative set of 10 reported variants, <strong>~60% are truncating</strong> (nonsense/frameshift/start-loss/splice) and <strong>~40% missense</strong>, supporting loss-of-function rather than gain-of-function or dominant-negative mechanisms (see <code>gnal_variant_spectrum.png</code>).</p>
+<p><strong>Classification note.</strong> GNAL causes <strong>isolated dystonia</strong> (dystonia as the sole motor feature apart from tremor; MDS 2013 axis-I classification), distinct from combined dystonia-parkinsonism (e.g., ATP1A3/DYT12) or myoclonus-dystonia (SGCE/DYT11). However, GNAL "and CIZ1 ... are probably not a common cause of classic cervical dystonia" (Balint &amp; Bhatia 2015, <a href="https://pubmed.ncbi.nlm.nih.gov/25643588/" target="_blank" rel="noopener noreferrer">PMID 25643588</a>) — important for setting genetic-testing yield expectations.</p>
+<p><strong>Allele frequency.</strong> Pathogenic <em>GNAL</em> variants are <strong>rare/absent in gnomAD</strong> controls. In dystonia cohorts, mutation frequency is low: <strong>~0.4%</strong> in Serbian cranio-cervical dystonia (Dobričić 2014) and <strong>~3.4%</strong> among Chinese cervical-onset/involved primary dystonia after excluding TOR1A/THAP1 (Miao 2013). GNAL accounts for a small but meaningful fraction of adult-onset isolated dystonia.</p>
+<p><strong>Somatic vs germline.</strong> <strong>Germline</strong> (including documented <em>de novo</em> germline events — Dobričić 2014).</p>
+<p><strong>Functional consequence.</strong> <strong>Loss of function / haploinsufficiency.</strong> BRET assays confirmed impaired function of several mutants (Fuchs 2013: "Impaired function of several of the mutants was shown by bioluminescence resonance energy transfer (BRET) assays"). Reduced Gα-olf lowers D1-/A2A-receptor–stimulated adenylyl cyclase activity in striatum.</p>
+<p><strong>Modifier genes.</strong> Unidentified; incomplete penetrance implies modifiers exist.</p>
+<p><strong>Epigenetic information.</strong> Gα-olf participates in <strong>DALN/histone H3 phosphorylation</strong> downstream of dopamine signaling in striatum (noted by Vemula 2013), linking it to activity-dependent transcription; no disease-specific methylation signature reported.</p>
+<p><strong>Chromosomal abnormalities.</strong> None characteristic; DYT25 is caused by point mutations/small indels, not large structural variants.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> None established as causal for DYT25. No toxin/radiation/occupational exposure is proven to cause GNAL dystonia.</li>
+<li><strong>Lifestyle factors:</strong> None established. (For focal dystonias broadly, repetitive task performance and peripheral trauma are debated triggers.)</li>
+<li><strong>Infectious agents:</strong> Not applicable — DYT25 is a genetic, non-infectious disorder.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li>A heterozygous <strong>loss-of-function <em>GNAL</em> mutation</strong> (nonsense/frameshift/splice/missense) <strong>results in</strong> reduced quantity or function of <strong>Gα-olf</strong> protein (haploinsufficiency; demonstrated by BRET, Fuchs 2013).</li>
+<li>Because Gα-olf is the principal <strong>Gαs-like subunit coupling D1 dopamine and A2A adenosine receptors to adenylyl cyclase in the striatum</strong>, reduced Gα-olf <strong>leads to</strong> decreased receptor-stimulated <strong>cAMP production</strong> in striatal spiny projection neurons (SPNs) (Vemula 2013; Yu-Taeger 2020).</li>
+<li>Diminished cAMP/PKA signaling <strong>results in</strong> blunted <strong>dopamine- and adenosine-mediated signaling and synaptic plasticity</strong> in both direct (D1) and indirect (A2A) pathway SPNs (demonstrated in a GNAL rat model, Yu-Taeger 2020, <a href="https://pubmed.ncbi.nlm.nih.gov/31678405/" target="_blank" rel="noopener noreferrer">PMID 31678405</a>).</li>
+<li>In parallel, <strong>striatal cholinergic interneurons become dysfunctional</strong> (abnormal excitability/acetylcholine release) — a convergent node shared across genetic dystonias (Eskow Jaunarajs 2019, <a href="https://pubmed.ncbi.nlm.nih.gov/31320448/" target="_blank" rel="noopener noreferrer">PMID 31320448</a>). <em>Inferred</em> to amplify the plasticity deficit.</li>
+<li>Altered dopaminergic/cholinergic balance <strong>leads to loss of corticostriatal long-term depression (LTD)</strong> — a signature plasticity defect also seen in DYT1 (Martella 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/33991565/" target="_blank" rel="noopener noreferrer">PMID 33991565</a>). This is <strong>demonstrated</strong> and is <strong>pharmacologically reversible</strong> (chronic mGlu5 negative allosteric modulator dipraglurant restored LTD).</li>
+<li>Disordered basal-ganglia output <strong>propagates to and dysregulates the cerebello-thalamo-cortical network</strong>, producing <strong>abnormal/pathological firing patterns</strong> (demonstrated in DYT25 mice: functional abnormalities in cerebello-thalamic pathways, Aïssa 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/35699413/" target="_blank" rel="noopener noreferrer">PMID 35699413</a>). <em>Branch:</em> both basal-ganglia and cerebellar circuits contribute (network model of dystonia).</li>
+<li>Aberrant motor-network firing <strong>results in</strong> excessive co-contraction of agonist/antagonist muscles → <strong>sustained involuntary contractions, abnormal postures, and dystonic tremor</strong> — the clinical phenotype.</li>
+</ol>
+<h3>Biochemical grounding of Gα-olf</h3>
+<p>Gα-olf (G(olf) subunit alpha) is a <strong>stimulatory, Gs-like G-protein alpha subunit</strong> that couples GPCRs to <strong>adenylyl cyclase III</strong> to raise cAMP. Classic biochemistry (Jones et al. 1990, <a href="https://pubmed.ncbi.nlm.nih.gov/2105931/" target="_blank" rel="noopener noreferrer">PMID 2105931</a>) showed Golf is "functionally and structurally similar" to Gs, interacts with β-adrenergic receptors (activated by isoproterenol, EC50 ≈ 120 nM) and is constitutively activated by cholera toxin. Its signaling is amplified by the GTP-exchange factor <strong>Ric-8B</strong>, which potentiates Gα-olf-dependent cAMP accumulation and is co-expressed with Gα-olf in olfactory neurons and brain (Von Dannecker et al. 2005, <a href="https://pubmed.ncbi.nlm.nih.gov/15829631/" target="_blank" rel="noopener noreferrer">PMID 15829631</a>) — a candidate modifier/co-factor of residual Gα-olf activity in DYT25. In the striatum, Gα-olf substitutes for Gαs as the principal stimulatory subunit, explaining why its haploinsufficiency selectively blunts striatal D1/A2A-cAMP signaling.</p>
+<h3>Category detail</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> <strong>GPCR → Gα-olf → adenylyl cyclase (AC3/AC5) → cAMP → PKA → DARPP-32</strong> signaling; dopamine (D1/D5) and adenosine (A2A) receptor cascades. KEGG: dopaminergic synapse (hsa04728), cAMP signaling (hsa04024), GABAergic/cholinergic synapse. Reactome: G-alpha (s) signalling events.</li>
+<li><strong>Cellular processes:</strong> Synaptic plasticity (LTD/LTP), neuronal excitability, neurotransmission; cholinergic interneuron hyperexcitability; activity-dependent transcription (histone H3 phosphorylation).</li>
+<li><strong>Protein dysfunction:</strong> Reduced Gα-olf abundance/coupling (loss of function); truncating alleles likely degraded (NMD); missense alleles impair nucleotide exchange/effector coupling.</li>
+<li><strong>Metabolic changes:</strong> Lowered cyclic-AMP second-messenger tone in striatum (not a systemic metabolic disorder).</li>
+<li><strong>Immune involvement:</strong> None established.</li>
+<li><strong>Tissue damage mechanisms:</strong> <strong>None/neurodegeneration absent</strong> — dystonia is a <em>functional/circuit</em> disorder ("lack of overt neuropathology," Weisheit 2018, <a href="https://pubmed.ncbi.nlm.nih.gov/29325615/" target="_blank" rel="noopener noreferrer">PMID 29325615</a>). No cell death, gliosis, or structural lesion.</li>
+<li><strong>Biochemical abnormality:</strong> Deficient D1/A2A-receptor-coupled adenylyl cyclase activation; impaired cAMP signaling.</li>
+<li><strong>GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0007186" target="_blank" rel="noopener noreferrer">GO:0007186</a> (GPCR signaling), <a href="http://purl.obolibrary.org/obo/GO_0007189" target="_blank" rel="noopener noreferrer">GO:0007189</a> (adenylate cyclase-activating GPCR signaling / cAMP), <a href="http://purl.obolibrary.org/obo/GO_0007212" target="_blank" rel="noopener noreferrer">GO:0007212</a> (dopamine receptor signaling), <a href="http://purl.obolibrary.org/obo/GO_0060079" target="_blank" rel="noopener noreferrer">GO:0060079</a>/<a href="http://purl.obolibrary.org/obo/GO_0048167" target="_blank" rel="noopener noreferrer">GO:0048167</a> (regulation of synaptic plasticity), <a href="http://purl.obolibrary.org/obo/GO_0007608" target="_blank" rel="noopener noreferrer">GO:0007608</a> (sensory perception of smell).</li>
+<li><strong>Cell types (CL):</strong> <a href="http://purl.obolibrary.org/obo/CL_0000029" target="_blank" rel="noopener noreferrer">CL:0000029</a>/striatal medium spiny neuron (direct/indirect pathway SPN), <a href="http://purl.obolibrary.org/obo/CL_0000108" target="_blank" rel="noopener noreferrer">CL:0000108</a> (cholinergic neuron / striatal cholinergic interneuron), cerebellar neurons, thalamocortical neurons.</li>
+</ul>
+<p><strong>Human imaging corroboration.</strong> Resting-state fMRI in the cervical-dystonia phenotype independently confirms <strong>functional (network) dysfunction without structural damage</strong> across the cerebello-basal ganglia-thalamo-cortical loop (Giannì 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/35169015/" target="_blank" rel="noopener noreferrer">PMID 35169015</a>; Zito 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/34875561/" target="_blank" rel="noopener noreferrer">PMID 34875561</a>; Norris 2020, <a href="https://pubmed.ncbi.nlm.nih.gov/32913023/" target="_blank" rel="noopener noreferrer">PMID 32913023</a>), and GPi-DBS normalizes this network connectivity toward healthy-control levels (Filip 2025, <a href="https://pubmed.ncbi.nlm.nih.gov/39986202/" target="_blank" rel="noopener noreferrer">PMID 39986202</a>) — consistent with the rodent-derived mechanism. (These cohorts are predominantly idiopathic, not genotyped GNAL; link is by phenotype.)</p>
+<p><strong>Upstream vs downstream:</strong> GNAL LOF and striatal cAMP deficit are <strong>upstream</strong>; corticostriatal LTD loss and cerebello-thalamo-cortical dysfiring are <strong>downstream</strong>; muscle co-contraction is the terminal output.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level:</strong> <strong>Brain / central nervous system</strong> (nervous system) — functionally affected; no peripheral organ pathology.</li>
+<li><strong>Primary structures:</strong> <strong>Striatum</strong> (caudate-putamen) — the main site of Gα-olf expression and dysfunction. <a href="http://purl.obolibrary.org/obo/UBERON_0002435" target="_blank" rel="noopener noreferrer">UBERON:0002435</a> (striatum); <a href="http://purl.obolibrary.org/obo/UBERON_0001874" target="_blank" rel="noopener noreferrer">UBERON:0001874</a> (putamen); <a href="http://purl.obolibrary.org/obo/UBERON_0001873" target="_blank" rel="noopener noreferrer">UBERON:0001873</a> (caudate).</li>
+<li><strong>Secondary / network structures:</strong> <strong>Globus pallidus internus</strong> (DBS target; <a href="http://purl.obolibrary.org/obo/UBERON_0002477" target="_blank" rel="noopener noreferrer">UBERON:0002477</a>), <strong>thalamus</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001897" target="_blank" rel="noopener noreferrer">UBERON:0001897</a>), <strong>cerebellum</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a>), <strong>motor cortex</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001384" target="_blank" rel="noopener noreferrer">UBERON:0001384</a>) — the cerebello-thalamo-cortical and cortico-striato-pallidal motor loops.</li>
+<li><strong>Clinically affected effectors (dystonic muscles):</strong> cervical (sternocleidomastoid, splenius, trapezius), cranial/oromandibular, laryngeal, upper-limb muscles.</li>
+<li><strong>Tissue/cell level:</strong> Nervous tissue; striatal <strong>medium spiny neurons</strong> and <strong>cholinergic interneurons</strong> (CL terms in §6).</li>
+<li><strong>Subcellular level (GO Cellular Component):</strong> <strong>Plasma membrane</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a>) and heterotrimeric G-protein complex (<a href="http://purl.obolibrary.org/obo/GO_0005834" target="_blank" rel="noopener noreferrer">GO:0005834</a>) where Gα-olf couples GPCRs to adenylyl cyclase; cytoplasmic/membrane signaling compartments. No organelle-specific storage pathology.</li>
+<li><strong>Localization / lateralization:</strong> Bilateral basal ganglia involvement at the network level; <strong>clinical manifestation is often asymmetric</strong> (e.g., laterocollis/torticollis to one side; asymmetric limb tremor).</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> <strong>Adult-onset</strong> — typically <strong>4th–6th decade</strong> (range from childhood to late adulthood). Onset is <strong>insidious/chronic</strong>, not acute.</li>
+<li><strong>Progression:</strong> <strong>Slowly progressive</strong> over months–years, usually reaching a plateau; focal→segmental <strong>spread</strong> can occur (cervical → cranial/laryngeal/limb) but <strong>generalization is rare</strong>. Course is <strong>chronic and lifelong</strong>, non-remitting (dystonic tremor may fluctuate).</li>
+<li><strong>Stages:</strong> No formal staging. Clinically: focal → segmental (± tremor), stabilizing.</li>
+<li><strong>Remission:</strong> Spontaneous remission is uncommon; symptomatic control via botulinum toxin / DBS (treatment-induced improvement, not cure).</li>
+<li><strong>Critical periods:</strong> Age-dependent penetrance means the <strong>adult window</strong> is when manifestation occurs; earlier intervention (shorter disease duration) predicts better DBS response (Tisch &amp; Kumar 2020).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> <strong>Autosomal dominant</strong> (AD). HGNC <em>GNAL</em>, 18p11.21.</li>
+<li><strong>Penetrance:</strong> <strong>Incomplete, age-dependent</strong> (Vemula 2013). Unaffected obligate carriers occur within pedigrees.</li>
+<li><strong>Expressivity:</strong> <strong>Highly variable</strong>, including intra-familial heterogeneity in site and severity (Carecchio 2016).</li>
+<li><strong>De novo / mosaicism:</strong> Documented <strong>de novo</strong> mutations cause seemingly sporadic cases (Dobričić 2014); germline mosaicism not specifically reported.</li>
+<li><strong>Anticipation:</strong> Not applicable (not a repeat-expansion disorder).</li>
+<li><strong>Founder effects / consanguinity:</strong> None established (dominant; multiple independent mutations across populations). Consanguinity not relevant.</li>
+<li><strong>Carrier frequency:</strong> Pathogenic alleles are rare; no established population carrier frequency.</li>
+<li><strong>Epidemiology:</strong> No DYT25-specific prevalence figure. Adult-onset focal dystonia overall affects ~15–30 per 100,000 (cervical dystonia the most common focal form). <em>GNAL</em> explains a <strong>minority</strong> of isolated dystonia: ~<strong>0.4%</strong> (Serbian cranio-cervical cohort, Dobričić 2014) to ~<strong>3.4%</strong> (Chinese cervical cohort after excluding TOR1A/THAP1, Miao 2013); roughly ~1–2% of familial PTD in mixed-European cohorts (Fuchs/Vemula 2013).</li>
+<li><strong>Population demographics / geographic distribution:</strong> Reported across diverse ancestries — European/Caucasian, African-American, Serbian, Italian, Chinese, Korean — i.e., <strong>no restricted geographic distribution</strong>; mutations are private/family-specific.</li>
+<li><strong>Sex ratio:</strong> No strong GNAL-specific skew reported (cervical dystonia generally has mild female predominance).</li>
+<li><strong>Age distribution:</strong> Affected individuals cluster in adulthood (middle age).</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Clinical diagnosis</strong> is primary: adult-onset isolated cranio-cervical/segmental dystonia ± tremor, normal cognition, and typically <strong>normal brain MRI</strong> (isolated dystonia, no structural lesion).</li>
+<li><strong>Laboratory tests / biomarkers:</strong> No specific blood/urine biomarker; routine metabolic/copper (to exclude Wilson disease) and other labs are used for differential diagnosis, not for positive diagnosis. Olfactory testing may reveal subtle hyposmia in some carriers (not diagnostic).</li>
+<li><strong>Imaging:</strong> Brain MRI is <strong>normal/non-specific</strong> (used to exclude secondary causes). Research <strong>resting-state fMRI</strong> of the cervical-dystonia phenotype shows <strong>network, not structural</strong>, abnormalities — loss of dentate–sensorimotor-cortex connectivity anticorrelation and increased pallidal connectivity with preserved global architecture and normal volumes (Giannì 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/35169015/" target="_blank" rel="noopener noreferrer">PMID 35169015</a>), somatotopic motor-cortex–cerebellum hyperconnectivity (Zito 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/34875561/" target="_blank" rel="noopener noreferrer">PMID 34875561</a>), and regional striatal/sensorimotor connectivity reduction (Norris 2020, <a href="https://pubmed.ncbi.nlm.nih.gov/32913023/" target="_blank" rel="noopener noreferrer">PMID 32913023</a>). These are research tools, not clinical diagnostics, and cohorts are mostly idiopathic (not genotyped GNAL).</li>
+<li><strong>Electrophysiology:</strong> EMG used to guide botulinum toxin injections and characterize dystonic vs tremor activity; not diagnostic of GNAL.</li>
+<li><strong>Genetic testing (confirmatory, gold standard):</strong></li>
+<li><strong>Approach:</strong> After exclusion of acquired causes and often <em>TOR1A</em>/<em>THAP1</em>, test <em>GNAL</em> via <strong>multigene dystonia NGS panels</strong> or <strong>whole-exome/whole-genome sequencing</strong>; single-gene <em>GNAL</em> Sanger sequencing (coding + splice sites) for targeted confirmation and family segregation.</li>
+<li>WES/WGS: high yield in familial adult-onset dystonia; was the discovery method (Fuchs 2013; Vemula 2013).</li>
+<li>Gene panels: dystonia panels include <em>GNAL</em>, <em>TOR1A</em>, <em>THAP1</em>, <em>ANO3</em>, <em>KMT2B</em>, <em>GCH1</em>, etc.</li>
+<li>CMA/karyotype/FISH/mtDNA/repeat-expansion testing: <strong>not indicated</strong> (point-mutation disorder, not structural or repeat-based).</li>
+<li><strong>Clinical criteria / classification:</strong> Per the 2013 MDS consensus classification of dystonia (axis I clinical, axis II etiology); GNAL = inherited isolated dystonia (<strong>DYT-GNAL</strong>).</li>
+<li><strong>Differential diagnosis:</strong> Other isolated dystonias (<strong>DYT-TOR1A/DYT1</strong>, <strong>DYT-THAP1/DYT6</strong>, <strong>DYT-ANO3/DYT24</strong>, <strong>DYT-KMT2B/DYT28</strong>), dopa-responsive dystonia (<strong>GCH1</strong>), essential tremor (dystonic tremor can mimic; Carecchio 2016 noted partial mimicry of DYT11 myoclonus-dystonia), Wilson disease, tardive/drug-induced dystonia, functional dystonia. Distinguishing features: adult cranio-cervical onset, AD family history, normal MRI, and a <em>GNAL</em> variant.</li>
+<li><strong>Screening:</strong> No population newborn screening. <strong>Cascade genetic testing</strong> of at-risk adult relatives and <strong>genetic counseling</strong> are appropriate given AD inheritance and incomplete penetrance.</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival / mortality:</strong> DYT25 is <strong>not life-shortening</strong>; normal life expectancy. No disease-specific mortality.</li>
+<li><strong>Morbidity / disability:</strong> Chronic motor disability, pain (especially cervical), speech/voice impairment (laryngeal involvement), and psychosocial impact; generally <strong>non-progressive to generalization</strong> and does not cause dementia or systemic decline.</li>
+<li><strong>Disease course:</strong> Slowly progressive then stable; chronic lifelong.</li>
+<li><strong>Quality of life:</strong> Reduced by motor symptoms and pain but <strong>substantially improved by treatment</strong> (botulinum toxin, DBS).</li>
+<li><strong>Recovery potential:</strong> No spontaneous cure; excellent symptomatic control achievable — GPi-DBS gave ~47% early and ~63% late motor-score improvement in GNAL patients (Ahn 2019, <a href="https://pubmed.ncbi.nlm.nih.gov/31158945/" target="_blank" rel="noopener noreferrer">PMID 31158945</a>).</li>
+<li><strong>Prognostic factors:</strong> Shorter disease duration and isolated (vs combined) phenotype predict better DBS outcome (Tisch &amp; Kumar 2020, <a href="https://pubmed.ncbi.nlm.nih.gov/33488508/" target="_blank" rel="noopener noreferrer">PMID 33488508</a>). GNAL genotype itself is a <strong>favorable predictor</strong> of DBS response.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><em>No disease-modifying/curative therapy exists; management is symptomatic.</em></p>
+<p><strong>Pharmacotherapy (oral).</strong>
+- <strong>Anticholinergics</strong> (e.g., trihexyphenidyl) — rational given striatal cholinergic dysfunction; modest benefit (NCIT: Trihexyphenidyl). 
+- Other oral agents used in dystonia: benzodiazepines (clonazepam — helpful for tremor/myoclonic features), baclofen, tetrabenazine (for select cases). Variable efficacy.</p>
+<p><strong>Chemodenervation (first-line for focal dystonia).</strong>
+- <strong>Botulinum neurotoxin (BoNT-A/B)</strong> injections into dystonic muscles (cervical, laryngeal, cranial) — mainstay for focal cervical/cranial/laryngeal dystonia; improves posture, pain, and voice (NCIT: Botulinum Toxin, C837). <strong>Class I evidence, Level A recommendation</strong> for cervical dystonia — increased range of neck movement, decreased pain, increased functional capacity (Novak et al. 2010 international consensus, <a href="https://pubmed.ncbi.nlm.nih.gov/20633181/" target="_blank" rel="noopener noreferrer">PMID 20633181</a>). Applies to DYT25 given its idiopathic-type cervical/cranial presentation.</p>
+<p><strong>Surgical / interventional (for medically refractory disease).</strong>
+- <strong>Globus pallidus internus deep brain stimulation (GPi-DBS)</strong> — highly effective in GNAL dystonia: <strong>100% early responder rate (5/5)</strong>, motor-score reduction <strong>46.9% early / 63.4% late</strong>, comparable to DYT1 and superior to DYT6 (Ahn 2019, <a href="https://pubmed.ncbi.nlm.nih.gov/31158945/" target="_blank" rel="noopener noreferrer">PMID 31158945</a>); excellent outcomes also in Carecchio 2016 (two cases) and reviewed by Tisch &amp; Kumar 2020. NCIT: Deep Brain Stimulation.</p>
+<p><strong>Pharmacogenomics / experimental (preclinical).</strong>
+- <strong>mGlu5 negative allosteric modulator dipraglurant</strong> rescued corticostriatal LTD in GNAL rat and DYT1 mouse models (Martella 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/33991565/" target="_blank" rel="noopener noreferrer">PMID 33991565</a>) — a mechanistically rational candidate, <strong>not yet an approved DYT25 therapy</strong>.
+- Targeting striatal cAMP/adenosine (A2A) signaling is a theoretical avenue from the mechanism.</p>
+<p><strong>Supportive / rehabilitative:</strong> Physiotherapy, occupational therapy, speech therapy (for laryngeal involvement), pain management, sensory-trick training, patient education.</p>
+<p><strong>Treatment algorithm:</strong> (1) confirm diagnosis + genetic counseling → (2) focal: botulinum toxin ± oral anticholinergics → (3) segmental/refractory: optimize oral meds → (4) refractory/disabling: <strong>GPi-DBS</strong> → (5) ongoing rehabilitation and symptom support.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> None possible (monogenic, largely non-modifiable). No vaccine/behavioral intervention.</li>
+<li><strong>Secondary prevention / early detection:</strong> <strong>Genetic counseling and cascade testing</strong> of adult at-risk relatives; awareness enables early botulinum toxin / earlier DBS consideration (shorter duration → better outcome).</li>
+<li><strong>Reproductive options:</strong> Prenatal diagnosis and <strong>preimplantation genetic testing (PGT-M)</strong> are theoretically available for known familial mutations, but <strong>incomplete penetrance and adult onset</strong> strongly complicate counseling and uptake.</li>
+<li><strong>Immunization / public-health / environmental interventions:</strong> Not applicable.</li>
+<li><strong>Tertiary prevention:</strong> Prevent complications/disability through optimized symptom control, pain management, and rehabilitation.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy / orthologs:</strong> <em>GNAL</em> is conserved; ortholog in mouse <strong>Gnal</strong> (NCBI Gene 14680; <em>Mus musculus</em>, NCBI:txid10090) and rat <strong>Gnal</strong> (<em>Rattus norvegicus</em>, NCBI:txid10116).</li>
+<li><strong>Natural disease in other species:</strong> No well-documented naturally occurring <em>GNAL</em> dystonia in companion animals or wildlife (not in OMIA as an established natural model); DYT25 is studied via engineered/induced laboratory models rather than natural animal disease.</li>
+<li><strong>Comparative biology:</strong> The striatal Gα-olf→adenylyl cyclase→cAMP signaling axis is evolutionarily conserved across mammals, underpinning translational validity of rodent models.</li>
+<li><strong>Zoonotic potential:</strong> Not applicable (genetic disorder).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse — <em>Gnal</em>⁺/⁻ heterozygous knockout:</strong> A <strong>novel dystonia model</strong> recapitulating haploinsufficiency; useful for pathophysiology (Pelosi et al. 2017, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/28546310/" target="_blank" rel="noopener noreferrer">PMID 28546310</a></strong>). Cerebello-thalamic pathway dysfunction demonstrated in DYT25 mice (Aïssa 2022, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/35699413/" target="_blank" rel="noopener noreferrer">PMID 35699413</a></strong>). <strong>Cell-type-specific Gnal loss-of-function</strong> mice refine which neuronal populations drive the phenotype (Longueville et al. 2025, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/40902679/" target="_blank" rel="noopener noreferrer">PMID 40902679</a></strong>).</li>
+<li><strong>Rat — GNAL model:</strong> Shows <strong>impaired dopamine-/adenosine-mediated signaling and plasticity</strong> and <strong>loss of corticostriatal LTD</strong>, rescued by chronic mGlu5 NAM (Yu-Taeger 2020, <a href="https://pubmed.ncbi.nlm.nih.gov/31678405/" target="_blank" rel="noopener noreferrer">PMID 31678405</a>; Martella 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/33991565/" target="_blank" rel="noopener noreferrer">PMID 33991565</a>).</li>
+<li><strong>Model types available:</strong> Constitutive knockout/heterozygous, and <strong>conditional/cell-type-specific</strong> (Cre-driven) Gnal alleles.</li>
+<li><strong>In vitro / cellular:</strong> Patient <strong>lymphoblastoid cell lines</strong> (p.V228F showed upregulated cell-cycle/development genes; Vemula 2013); heterologous <strong>BRET assays</strong> quantifying mutant Gα-olf coupling (Fuchs 2013).</li>
+<li><strong>Phenotype recapitulation:</strong> Rodent models reproduce <strong>electrophysiological/plasticity endophenotypes</strong> (loss of LTD, impaired D1/A2A signaling, cerebello-thalamic abnormalities) more robustly than overt motor dystonia — a common limitation of dystonia models (overt sustained dystonic postures are often subtle).</li>
+<li><strong>Limitations:</strong> Incomplete recapitulation of the human adult-onset focal motor phenotype; interspecies differences in penetrance and circuit organization.</li>
+<li><strong>Resources:</strong> MGI (Gnal), RGD (Gnal), IMPC/IMSR for knockout lines.</li>
+</ul>
+<hr />
+<h2>Summary of Evidence Sources</h2>
+<ul>
+<li><strong>Human clinical / genetic:</strong> PMIDs 23222958 (Fuchs), 23449625 (Vemula), 24729450 (Dobričić), 26725140 (Carecchio), 23759320 (Miao), 31158945 (Ahn, DBS), 33488508 (Tisch &amp; Kumar, DBS review), 35396637 (Fan), 29325615 (Weisheit review), 25643588 (Balint &amp; Bhatia, classification/review).</li>
+<li><strong>Human neuroimaging (cervical-dystonia phenotype):</strong> PMIDs 35169015 (Giannì), 34875561 (Zito), 32913023 (Norris), 39986202 (Filip, DBS network restoration), 40820429 (Xue, DBS connectomes).</li>
+<li><strong>Model organism / in vitro:</strong> PMIDs 28546310 (Pelosi mouse), 31678405 (Yu-Taeger rat), 33991565 (Martella, dipraglurant rescue), 31320448 (Eskow Jaunarajs, cholinergic), 35699413 (Aïssa, cerebello-thalamic), 40902679 (Longueville 2025, cell-type-specific).</li>
+<li><strong>Biochemistry (Gα-olf):</strong> PMIDs 2105931 (Jones, Golf is Gs-like stimulatory Gα), 15829631 (Von Dannecker, Ric-8B regulator).</li>
+<li><strong>Treatment evidence:</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/20633181/" target="_blank" rel="noopener noreferrer">PMID 20633181</a> (Novak, Class I/Level A botulinum toxin for cervical dystonia).</li>
+<li><strong>Computational:</strong> Variant-class tabulation (<code>gnal_variant_spectrum.png</code>) — ~60% truncating vs ~40% missense, supporting haploinsufficiency.</li>
+</ul>
+<h2>Limitations &amp; Future Directions</h2>
+<ul>
+<li>No DYT25-specific prevalence/incidence, penetrance %, or QoL data; figures are extrapolated from broader adult-onset focal dystonia and small cohorts.</li>
+<li>Modifier genes and the basis of incomplete penetrance are unknown.</li>
+<li>GNAL-specific mechanistic data are largely rodent/in vitro; human evidence is from genetics plus network imaging of the (mostly non-genotyped) cervical-dystonia phenotype. There is no human neuropathology — the disease is functional/circuit-based, not degenerative.</li>
+<li>Mechanism-based therapies (mGlu5 NAM, cAMP/A2A modulators) remain preclinical and warrant clinical translation; natural-history and genotype–DBS-outcome studies are needed.</li>
+</ul>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Dystonia_25-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Dystonia_25-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+<li><a href="../../research/Dystonia_25-deep-research-openscientist_artifacts/provenance_gnal_variant_spectrum.json">OpenScientist gnal variant spectrum</a>
+<img alt="OpenScientist gnal variant spectrum" src="../../research/Dystonia_25-deep-research-openscientist_artifacts/provenance_gnal_variant_spectrum.png" /></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>23</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:15829631</code> (1 mention) - Ric-8B, an olfactory putative GTP exchange factor, amplifies signal transduction through the olfactory-specific G-protein Galphaolf.</li>
+<li>shared terms: gene, functional</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>dystonia</code>, <code>gnal</code>, <code>dyt25</code>, <code>olf</code>, <code>cervical</code>, <code>genetic</code>, <code>adult-onset</code>, <code>focal</code>, <code>vemula</code>, <code>clinical</code>, <code>toxin</code>, <code>tremor</code>, <code>gene</code>, <code>signaling</code>, <code>phenotype</code>, <code>disease</code>, <code>dystonic</code>, <code>penetrance</code>, <code>cause</code>, <code>functional</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>6</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0007186</code> (1 mention) - the report calls it "GPCR signaling"; GO calls it <strong>G protein-coupled receptor signaling pathway</strong>, and lists "GPCR signaling pathway" among its other names</li>
+<li><code>GO:0007189</code> (1 mention) - the report calls it "adenylate cyclase-activating GPCR signaling / cAMP"; GO calls it <strong>adenylate cyclase-activating G protein-coupled receptor signaling pathway</strong>, and lists "adenylate cyclase-activating GPCR signaling pathway" among its other names</li>
+<li><code>GO:0007212</code> (1 mention) - the report calls it "dopamine receptor signaling"; GO calls it <strong>G protein-coupled dopamine receptor signaling pathway</strong>, and lists "dopamine receptor signalling pathway" among its other names</li>
+<li><code>CL:0000108</code> (1 mention) - the report calls it "cholinergic neuron / striatal cholinergic interneuron"; CL calls it <strong>cholinergic neuron</strong></li>
+<li><code>UBERON:0001873</code> (1 mention) - the report calls it "caudate"; UBERON calls it <strong>caudate nucleus</strong>, and lists "caudatum" among its other names</li>
+<li><code>UBERON:0001897</code> (1 mention) - the report calls it "thalamus"; UBERON calls it <strong>dorsal plus ventral thalamus</strong>, and lists "thalamus" among its other names</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+<p>32 of 34 terms resolved to a current term; the rest could not be looked up either way.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Dystonia_24-openscientist.html">← Dystonia 24 (OpenScientist)</a>
+                
+                
+                <a href="Dystroglycanopathy-falcon.html">Dystroglycanopathy (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Dystonia_25.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Dystonia_25-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

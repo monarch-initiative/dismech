@@ -1,6 +1,6 @@
 ---
 title: 'GPCRs: Drug Mechanisms and Disease Modules'
-status: PLANNED
+status: IN_PROGRESS
 description: >-
   Mechanism modules anchored on G protein-coupled receptors: drug-mechanism
   modules for the major GPCR-targeting drug classes, and disease modules for
@@ -9,6 +9,7 @@ tags: [PHARMACOLOGY, MODULES, GPCR]
 diseases:
 - Heart_Failure
 - Essential_Hypertension
+- Atrial_Fibrillation
 - Type_2_Diabetes_Mellitus
 - Obesity
 - Obesity_Due_to_MC4R_Pathway_Disruption
@@ -31,6 +32,10 @@ diseases:
 - Pseudohypoparathyroidism
 - Familial_Glucocorticoid_Deficiency
 - Kallmann_Syndrome
+- Bipolar_Disorder
+- Cannabis_Hyperemesis_Syndrome
+- Subacute_Delirium
+- IgA_Nephropathy
 modules:
 - cardiac_camp_pka_calcium_handling
 - somatotroph_camp_pka_overactivation
@@ -40,6 +45,10 @@ modules:
 - photoreceptor_degeneration
 - mu_opioid_receptor_agonism
 - mu_opioid_receptor_antagonism
+- beta_adrenergic_receptor_blockade
+- d2_receptor_antagonism
+- at1_receptor_blockade
+- glp1_receptor_agonism
 ---
 
 # GPCRs: Drug Mechanisms and Disease Modules
@@ -99,10 +108,10 @@ conform:
 
 | Proposed module | Receptor (gene) | Drug classes | Candidate conformers |
 |---|---|---|---|
-| beta-adrenergic receptor blockade | ADRB1, ADRB2 | beta-blockers | Heart_Failure, Essential_Hypertension, Atrial_Fibrillation, Glaucoma, Migraine |
-| AT1 receptor blockade | AGTR1 | sartans | Essential_Hypertension, Heart_Failure, diabetic kidney disease |
+| beta-adrenergic receptor blockade | ADRB1, ADRB2 | beta-blockers | Heart_Failure, Essential_Hypertension, Atrial_Fibrillation (Glaucoma and Migraine were assessed and rejected; see the module's scope notes) |
+| AT1 receptor blockade | AGTR1 | sartans, ARNI, sparsentan | Essential_Hypertension, Heart_Failure, IgA_Nephropathy (diabetic kidney disease has no entry yet; the module's renal evidence is the RENAAL trial in type 2 diabetic nephropathy) |
 | mu-opioid receptor agonism | OPRM1 | opioid analgesics; antagonists/partial agonists for OUD | Opioid_Use_Disorder, Acute_Opioid_Poisoning |
-| D2 receptor antagonism | DRD2 | antipsychotics, antiemetics | Schizophrenia; toxicity arm to drug-induced parkinsonism |
+| D2 receptor antagonism | DRD2 | antipsychotics, antiemetics | Schizophrenia, Bipolar_Disorder, Cannabis_Hyperemesis_Syndrome, Subacute_Delirium. The extrapyramidal arm is modelled inside the module rather than as a drug-induced parkinsonism conformer; tardive dyskinesia is deliberately out of scope — see the module's scope notes |
 | dopamine receptor agonism | DRD2, DRD3 | dopamine agonists | Parkinsons_Disease, hyperprolactinemia |
 | GLP-1 / GIP receptor agonism | GLP1R, GIPR | incretin mimetics | Type_2_Diabetes_Mellitus, Obesity |
 | 5-HT1B/1D agonism and CGRP receptor antagonism | HTR1B, HTR1D, CALCRL/RAMP1 | triptans, gepants | Migraine, Migraine_with_Aura |
@@ -169,15 +178,39 @@ mechanism-level rather than disease-level.
 ### Phase 1 — first modules
 - [x] mu-opioid receptor agonism (first module; see above) — `mu_opioid_receptor_agonism` (#14453)
 - [x] mu-opioid receptor antagonism — `mu_opioid_receptor_antagonism` (#14456)
-- [ ] beta-adrenergic receptor blockade
-- [ ] GLP-1 receptor agonism
+- [x] beta-adrenergic receptor blockade — `beta_adrenergic_receptor_blockade` (#15087)
+- [ ] GLP-1 receptor agonism — `glp1_receptor_agonism` (#15252, in review)
 - [ ] GPCR loss-of-function hormone resistance
 - [ ] GPCR constitutive activation
 
 ### Phase 2 — conformers and remaining modules
 - [ ] Add `conforms_to` on the treatment-linked pathophysiology nodes of the
       candidate conformers above
+  - [x] The four opioid-treated entries, in #14973: `Opioid_Use_Disorder` and
+        `Acute_Opioid_Poisoning` against both mu-opioid modules, `Acute_Post-Surgical_Pain`
+        against agonism, `Alcohol_Use_Disorder` against antagonism
+  - [x] Three beta-blocker-treated entries, in #15087: `Heart_Failure`,
+        `Essential_Hypertension` and `Atrial_Fibrillation` against
+        `beta_adrenergic_receptor_blockade`. `Migraine` and `Glaucoma` are deliberately
+        not wired — see that module's scope notes
+  - [x] Four antipsychotic-treated entries, in #15299: `Schizophrenia`, `Bipolar_Disorder`,
+        `Cannabis_Hyperemesis_Syndrome` and `Subacute_Delirium` against
+        `d2_receptor_antagonism`. The four span three indications — psychosis/mania, antiemesis
+        and agitation — which is the point: one receptor action, three reasons to prescribe.
+        `Schizophrenia` keeps its dopamine-dysregulation target alongside the receptor node,
+        because D2 blockade acts downstream of that presynaptic abnormality
+  - [x] Three angiotensin-blocker-treated entries, in #15271: `Essential_Hypertension`,
+        `Heart_Failure` and `IgA_Nephropathy` against `at1_receptor_blockade`.
+        `Essential_Hypertension`'s ACE inhibitor is pointed at its own
+        renin-angiotensin-aldosterone node instead, because an ACE inhibitor never
+        occupies the receptor — see that module's scope notes
+  - [x] Two incretin-treated entries, in #15252: `Type_2_Diabetes_Mellitus`
+        and `Obesity` against `glp1_receptor_agonism`, both at the receptor step. The
+        module names no dominant weight-loss arm, so conforming `Obesity` against one
+        would assert more than the evidence carries
 - [ ] Remaining Workstream A modules
+  - [x] D2 receptor antagonism — `d2_receptor_antagonism` (#15299)
+  - [x] AT1 receptor blockade — `at1_receptor_blockade` (#15271)
 - [ ] Gs alpha defect module
 
 ## Decisions

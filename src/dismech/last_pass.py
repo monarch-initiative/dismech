@@ -53,11 +53,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from dismech.repo_root import repo_root
 from dismech.yaml_io import safe_load_path
-
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_DEFAULT_KB = _REPO_ROOT / "kb"
-_DEFAULT_HISTORY = _REPO_ROOT / "history"
 
 #: history ``target.kind`` -> directory under ``kb/``. Kinds outside this map
 #: (``schema``, ``other``) are provenance for non-KB files and are not reported.
@@ -373,12 +370,20 @@ def is_substantive(event: Event, bulk_summaries: dict[str, int]) -> bool:
 
 
 def build_report(
-    kb_dir: Path = _DEFAULT_KB,
-    history_dir: Path = _DEFAULT_HISTORY,
+    kb_dir: Path | None = None,
+    history_dir: Path | None = None,
     kinds: Iterable[str] = tuple(KB_KINDS),
     bulk_threshold: int = DEFAULT_BULK_THRESHOLD,
 ) -> Report:
-    """Compute the last substantive pass for every KB entry of the given kinds."""
+    """Compute the last substantive pass for every KB entry of the given kinds.
+
+    ``kb_dir`` and ``history_dir`` default to ``kb/`` and ``history/`` in the
+    checkout the command runs in (#15109).
+    """
+    if kb_dir is None:
+        kb_dir = repo_root() / "kb"
+    if history_dir is None:
+        history_dir = repo_root() / "history"
     kinds = tuple(kinds)
     events, summary_slugs, unreadable = load_events(history_dir, kinds)
     bulk_summaries = detect_bulk_summaries(summary_slugs, bulk_threshold)
@@ -605,8 +610,8 @@ def format_bulk(report: Report) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--kb-dir", type=Path, default=_DEFAULT_KB)
-    parser.add_argument("--history-dir", type=Path, default=_DEFAULT_HISTORY)
+    parser.add_argument("--kb-dir", type=Path, default=repo_root() / "kb")
+    parser.add_argument("--history-dir", type=Path, default=repo_root() / "history")
     parser.add_argument(
         "--kind",
         action="append",

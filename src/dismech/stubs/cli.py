@@ -34,9 +34,12 @@ app = typer.Typer(
     help="Inspect and maintain the curation stub queue under stubs/.",
 )
 
+# A factory, not a value, so the default is the checkout the command runs in
+# rather than whichever was current when this module was imported (#15109).
 _STUB_DIR_OPTION = typer.Option(
-    default_stub_dir(),
+    ...,
     "--stub-dir",
+    default_factory=default_stub_dir,
     file_okay=False,
     dir_okay=True,
     resolve_path=True,
@@ -96,6 +99,19 @@ def check_command(
         raise typer.Exit(1)
 
 
+#: Fields `just enrich-stubs` (and the seed) write that the lump/split call
+#: turns on. `next --json` passes each through only when the stub carries it,
+#: because the enrichment omits an empty block rather than writing it empty, so
+#: an absent key keeps that meaning instead of becoming a `null`.
+ENRICHMENT_KEYS = (
+    "mondo_parents",
+    "mondo_descendants",
+    "mondo_descendant_count",
+    "genes",
+    "synonyms",
+)
+
+
 @app.command("next")
 def next_command(
     count: int = typer.Argument(1, min=1, help="How many stubs to show."),
@@ -104,6 +120,14 @@ def next_command(
         False,
         "--include-claimed",
         help="Do not filter out diseases with an open claim issue.",
+    ),
+    include_stale: bool = typer.Option(
+        False,
+        "--include-stale",
+        help=(
+            "Do not filter out stale stubs (disease already curated, or MONDO "
+            "term retired with no replacement)."
+        ),
     ),
     alpha: bool = typer.Option(
         False, "--alpha", help="Sort alphabetically within a band instead of by hash."
@@ -130,14 +154,35 @@ def next_command(
     spread — there is no computed score, and no ranking within a band. This is a
     pool to choose from, not a recommendation: pick the disease you actually
     know something about rather than the first row.
+
+    Stale stubs (`already_curated`, `obsolete_term`; see `STALE_KINDS`) are left
+    out, because `tidy` would delete them and nobody should claim one in the
+    meantime. Every other advisory `check` raises on a stub, such as
+    `possible_kb_duplicate`, keeps it in the pool and is printed beside it, so
+    the lump/split call is made before the claim rather than after.
     """
+    # Read the claims first, so a missing file fails before the slow KB walk.
+    claimed = _load_claim_index(claims_path)
+
     stubs = [
         s
         for s in load_stubs(stub_dir)
         if s.status == "OPEN" and s.entry_type in {"UNDECIDED", "DISEASE"}
     ]
 
-    claimed = _load_claim_index(claims_path)
+    # Reuse `check`'s own classification rather than re-deriving staleness here,
+    # so `next` and `tidy` can never disagree about which stubs are stale.
+    advisories: dict[Path, list] = {}
+    for issue in check_stubs(stub_dir):
+        if issue.path is not None and issue.severity != "error":
+            advisories.setdefault(issue.path, []).append(issue)
+    if not include_stale:
+        stubs = [
+            s
+            for s in stubs
+            if not any(i.kind in STALE_KINDS for i in advisories.get(s.path, []))
+        ]
+
     if claimed is not None and not include_claimed:
         stubs = [s for s in stubs if s.mondo_id not in claimed]
 
@@ -159,6 +204,15 @@ def next_command(
                         "stub_path": str(s.path.relative_to(Path.cwd()))
                         if s.path.is_relative_to(Path.cwd())
                         else str(s.path),
+                        "advisories": [
+                            {"kind": i.kind, "message": i.message}
+                            for i in advisories.get(s.path, [])
+                        ],
+                        **{
+                            key: s.data[key]
+                            for key in ENRICHMENT_KEYS
+                            if s.data.get(key) is not None
+                        },
                     }
                     for s in picked
                 ],
@@ -171,8 +225,14 @@ def next_command(
         typer.echo("No open stubs.")
         return
     for stub in picked:
-        typer.echo(f"{stub.priority:6s} {stub.mondo_id}  {stub.label}")
+        line = f"{stub.priority:6s} {stub.mondo_id}  {stub.label}"
+        # The clearest single "this is a grouping" signal, so it goes on the row.
+        if stub.data.get("mondo_descendant_count"):
+            line += f"  (MONDO descendants: {stub.data['mondo_descendant_count']})"
+        typer.echo(line)
         typer.echo(f"       {stub.path.name}")
+        for issue in advisories.get(stub.path, []):
+            typer.echo(f"       [advisory] {issue.kind}: {issue.message}")
 
 
 def _read_json_arg(path: str | None):
@@ -180,7 +240,19 @@ def _read_json_arg(path: str | None):
         return None
     if path == "-":
         return json.loads(sys.stdin.read())
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        typer.echo(
+            f"claims file not found: {path}. Write it with `just fetch-claims`, "
+            "or build it from the GitHub MCP server where there is no gh CLI "
+            "(see the claim-disease skill).",
+            err=True,
+        )
+        raise typer.Exit(2) from None
+    except json.JSONDecodeError as exc:
+        typer.echo(f"claims file is not valid JSON: {path}: {exc}", err=True)
+        raise typer.Exit(2) from None
 
 
 def _load_claim_index(path: str | None):
