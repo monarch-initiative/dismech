@@ -27,6 +27,7 @@ diseases:
 - Asthma
 - Chronic_Obstructive_Pulmonary_Disease
 - Urticaria
+- Alpha-gal_Syndrome
 - Gastroesophageal_Reflux_Disease
 - Multiple_Sclerosis
 - Glaucoma
@@ -56,6 +57,8 @@ modules:
 - dopamine_receptor_agonism
 - serotonin_1b_1d_receptor_agonism
 - cgrp_receptor_antagonism
+- h1_receptor_antagonism
+- h2_receptor_antagonism
 ---
 
 # GPCRs: Drug Mechanisms and Disease Modules
@@ -123,8 +126,10 @@ conform:
 | GLP-1 / GIP receptor agonism | GLP1R, GIPR | incretin mimetics | Type_2_Diabetes_Mellitus, Obesity |
 | 5-HT1B/1D agonism | HTR1B, HTR1D | triptans | Migraine, Migraine_with_Aura. `Familial_Hemiplegic_Migraine` was assessed and rejected: its management is avoidance of vasoconstricting agents, and a disease that withholds a drug class is not an instance of that class's mechanism |
 | CGRP receptor antagonism | CALCRL, RAMP1 | gepants, erenumab | Migraine, pseudotumor_cerebri. Scoped to receptor antagonism, so the peptide-directed antibodies are out; `Migraine_with_Aura` was assessed and rejected because its only CGRP treatment names no agent |
-| H1 / H2 receptor antagonism | HRH1, HRH2 | antihistamines, H2 blockers | Urticaria, allergic rhinitis, Gastroesophageal_Reflux_Disease |
-| beta2 agonism / muscarinic antagonism (airway) | ADRB2, CHRM3 | SABA/LABA, LAMA | Asthma, Chronic_Obstructive_Pulmonary_Disease |
+| H1 receptor antagonism | HRH1 | antihistamines | Urticaria, Alpha-gal_Syndrome. Two modules rather than one: see the Decisions below. `allergic rhinitis` was listed here as a candidate and has no dismech entry, so `Alpha-gal_Syndrome` was wired instead, which also keeps the module indication-independent |
+| H2 receptor antagonism | HRH2 | H2 blockers | Gastroesophageal_Reflux_Disease. Scoped to H2 blockade, so the proton-pump inhibitors are out: they block the same terminal pump non-competitively and the H2RA mechanism is upstream of it |
+| beta2 adrenergic receptor agonism | ADRB2 | SABA, LABA | Asthma, Chronic_Obstructive_Pulmonary_Disease |
+| muscarinic receptor antagonism (airway) | CHRM3 | SAMA, LAMA | Chronic_Obstructive_Pulmonary_Disease, Asthma |
 | CaSR positive allosteric modulation | CASR | calcimimetics | secondary hyperparathyroidism in CKD |
 | S1P receptor modulation | S1PR1 | fingolimod, siponimod | Multiple_Sclerosis |
 | P2Y12 receptor antagonism | P2RY12 | clopidogrel, ticagrelor | Coronary_Artery_Disease |
@@ -232,14 +237,27 @@ mechanism-level rather than disease-level.
         indication-independent and both the small-molecule and the antibody route are
         exercised. `Migraine`'s anti-CGRP antibody treatment is left unwired because it
         bundles a receptor-directed agent with two peptide-directed ones
+  - [x] Two antihistamine-treated entries, in #15686: `Urticaria` and
+        `Alpha-gal_Syndrome` against `h1_receptor_antagonism`, both at the trigger.
+        The second is not an urticaria entry on purpose, so the module is
+        indication-independent. Three entries that bundle an H1 and an H2 agent into one
+        treatment (`Mast_Cell_Activation_Syndrome`, `Maculopapular_Cutaneous_Mastocytosis`
+        and the related systemic mastocytosis entries) are deliberately not wired:
+        neither module can take them without asserting one receptor's action for the
+        other receptor's drug, so splitting those treatments is the prerequisite
+  - [x] One H2-blocker-treated entry, in #15689: `Gastroesophageal_Reflux_Disease`
+        against `h2_receptor_antagonism`, at the trigger. Its existing H2 antagonist
+        treatment was wired rather than a new one added
 - [ ] Remaining Workstream A modules
   - [x] D2 receptor antagonism — `d2_receptor_antagonism` (#15299)
   - [x] AT1 receptor blockade — `at1_receptor_blockade` (#15271)
   - [x] dopamine receptor agonism — `dopamine_receptor_agonism` (#15350)
   - [x] 5-HT1B/1D agonism — `serotonin_1b_1d_receptor_agonism` (#15470)
   - [x] CGRP receptor antagonism — `cgrp_receptor_antagonism` (#15624)
-  - [ ] H1 / H2 receptor antagonism
-  - [ ] beta2 agonism / muscarinic antagonism (airway)
+  - [x] H1 receptor antagonism — `h1_receptor_antagonism` (#15686)
+  - [x] H2 receptor antagonism — `h2_receptor_antagonism` (#15689)
+  - [ ] beta2 adrenergic receptor agonism
+  - [ ] muscarinic receptor antagonism (airway)
   - [ ] CaSR positive allosteric modulation
   - [ ] S1P receptor modulation
   - [ ] P2Y12 receptor antagonism
@@ -277,6 +295,50 @@ mechanism-level rather than disease-level.
   The question's premise was a false choice, and the answer is *both*: a migraine
   neurovascular **mechanism** module is a genuinely distinct third module, not a
   substitute for either drug module, and is now in the Workstream A queue above.
+- **H1 and H2 antagonism are two modules, and so are airway beta2 agonism and
+  muscarinic antagonism** (decided 2026-10-26). Both were single rows in the
+  Workstream A table above, and both are now split, by the rule two entries up.
+  H1 and H2 are different receptors on different cells with disjoint effector
+  chains -- cutaneous vasodilatation, extravasation and itch against
+  parietal-cell acid secretion -- and disjoint conformers; they share only the
+  word *antihistamine*. The airway pair are different receptors in opposite
+  directions, Gs-coupled relaxation against Gq blockade, sharing only that the
+  two drug classes are often inhaled together.
+
+  The queue table bundled on shared indication twice, which is the failure the
+  rule above names, so a bundled row there should be read as a candidate for
+  splitting rather than as a decision already taken.
+
+## Deferred follow-ups
+
+Items raised in review and deliberately not done at the time, recorded here so
+they are not lost. None blocks anything.
+
+- **Join the H1 anticholinergic node to the pathograph.** `Anticholinergic
+  Effects of First-Generation Antihistamines` in `h1_receptor_antagonism` has no
+  edges at all, which is deliberate: its effects are conventionally muscarinic,
+  no cited abstract says so, and an edge from H1 occupancy would assert that
+  blocking H1 causes thirst and tachycardia. The #15686 reviewer suggested a
+  `target_mechanisms` link from the first-generation treatment instead, which
+  asserts only that the agents cause them and rests on the sentence already
+  cited. Not pushed because it would have reset an approval for a rendering
+  improvement.
+- **Drop ranitidine from `Gastroesophageal_Reflux_Disease`'s H2 treatment, or
+  decide to keep it.** That treatment binds ranitidine while conforming to a
+  module that leaves it unbound, because NDMA contamination led to recalls and
+  registration suspensions
+  ([PMID:35696227](https://pubmed.ncbi.nlm.nih.gov/35696227/)). The entry records
+  the caveat and cites that source, but the roster is unchanged: removing an
+  agent is a clinical-content decision and was another curator's call. Whoever
+  takes it should also delete the trailing clause "Whether to drop it from the
+  roster is a clinical-content decision and has not been made here", which
+  describes a pull request rather than the treatment.
+- **Split the three entries that bundle an H1 and an H2 antihistamine into one
+  treatment** (`Mast_Cell_Activation_Syndrome`, with cetirizine and famotidine
+  together; `Maculopapular_Cutaneous_Mastocytosis`; and the related systemic
+  mastocytosis entries). Neither histamine module can take them without
+  asserting one receptor's action for the other receptor's drug, so this is the
+  prerequisite for conforming them.
 
 ## Open questions
 
