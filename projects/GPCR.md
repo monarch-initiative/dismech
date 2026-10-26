@@ -20,6 +20,10 @@ diseases:
 - Schizophrenia
 - Parkinsons_Disease
 - Migraine
+- Migraine_with_Aura
+- pseudotumor_cerebri
+- Restless_Legs_Syndrome
+- Peripartum_Cardiomyopathy
 - Asthma
 - Chronic_Obstructive_Pulmonary_Disease
 - Urticaria
@@ -32,6 +36,9 @@ diseases:
 - Pseudohypoparathyroidism
 - Familial_Glucocorticoid_Deficiency
 - Kallmann_Syndrome
+- Bipolar_Disorder
+- Cannabis_Hyperemesis_Syndrome
+- Subacute_Delirium
 - IgA_Nephropathy
 modules:
 - cardiac_camp_pka_calcium_handling
@@ -43,8 +50,12 @@ modules:
 - mu_opioid_receptor_agonism
 - mu_opioid_receptor_antagonism
 - beta_adrenergic_receptor_blockade
+- d2_receptor_antagonism
 - at1_receptor_blockade
 - glp1_receptor_agonism
+- dopamine_receptor_agonism
+- serotonin_1b_1d_receptor_agonism
+- cgrp_receptor_antagonism
 ---
 
 # GPCRs: Drug Mechanisms and Disease Modules
@@ -107,10 +118,11 @@ conform:
 | beta-adrenergic receptor blockade | ADRB1, ADRB2 | beta-blockers | Heart_Failure, Essential_Hypertension, Atrial_Fibrillation (Glaucoma and Migraine were assessed and rejected; see the module's scope notes) |
 | AT1 receptor blockade | AGTR1 | sartans, ARNI, sparsentan | Essential_Hypertension, Heart_Failure, IgA_Nephropathy (diabetic kidney disease has no entry yet; the module's renal evidence is the RENAAL trial in type 2 diabetic nephropathy) |
 | mu-opioid receptor agonism | OPRM1 | opioid analgesics; antagonists/partial agonists for OUD | Opioid_Use_Disorder, Acute_Opioid_Poisoning |
-| D2 receptor antagonism | DRD2 | antipsychotics, antiemetics | Schizophrenia; toxicity arm to drug-induced parkinsonism |
+| D2 receptor antagonism | DRD2 | antipsychotics, antiemetics | Schizophrenia, Bipolar_Disorder, Cannabis_Hyperemesis_Syndrome, Subacute_Delirium. The extrapyramidal arm is modelled inside the module rather than as a drug-induced parkinsonism conformer; tardive dyskinesia is deliberately out of scope — see the module's scope notes |
 | dopamine receptor agonism | DRD2, DRD3 | dopamine agonists | Parkinsons_Disease, hyperprolactinemia |
 | GLP-1 / GIP receptor agonism | GLP1R, GIPR | incretin mimetics | Type_2_Diabetes_Mellitus, Obesity |
-| 5-HT1B/1D agonism and CGRP receptor antagonism | HTR1B, HTR1D, CALCRL/RAMP1 | triptans, gepants | Migraine, Migraine_with_Aura |
+| 5-HT1B/1D agonism | HTR1B, HTR1D | triptans | Migraine, Migraine_with_Aura. `Familial_Hemiplegic_Migraine` was assessed and rejected: its management is avoidance of vasoconstricting agents, and a disease that withholds a drug class is not an instance of that class's mechanism |
+| CGRP receptor antagonism | CALCRL, RAMP1 | gepants, erenumab | Migraine, pseudotumor_cerebri. Scoped to receptor antagonism, so the peptide-directed antibodies are out; `Migraine_with_Aura` was assessed and rejected because its only CGRP treatment names no agent |
 | H1 / H2 receptor antagonism | HRH1, HRH2 | antihistamines, H2 blockers | Urticaria, allergic rhinitis, Gastroesophageal_Reflux_Disease |
 | beta2 agonism / muscarinic antagonism (airway) | ADRB2, CHRM3 | SABA/LABA, LAMA | Asthma, Chronic_Obstructive_Pulmonary_Disease |
 | CaSR positive allosteric modulation | CASR | calcimimetics | secondary hyperparathyroidism in CKD |
@@ -189,27 +201,91 @@ mechanism-level rather than disease-level.
         `Essential_Hypertension` and `Atrial_Fibrillation` against
         `beta_adrenergic_receptor_blockade`. `Migraine` and `Glaucoma` are deliberately
         not wired — see that module's scope notes
+  - [x] Four antipsychotic-treated entries, in #15299: `Schizophrenia`, `Bipolar_Disorder`,
+        `Cannabis_Hyperemesis_Syndrome` and `Subacute_Delirium` against
+        `d2_receptor_antagonism`. The four span three indications — psychosis/mania, antiemesis
+        and agitation — which is the point: one receptor action, three reasons to prescribe.
+        `Schizophrenia` keeps its dopamine-dysregulation target alongside the receptor node,
+        because D2 blockade acts downstream of that presynaptic abnormality
   - [x] Three angiotensin-blocker-treated entries, in #15271: `Essential_Hypertension`,
         `Heart_Failure` and `IgA_Nephropathy` against `at1_receptor_blockade`.
         `Essential_Hypertension`'s ACE inhibitor is pointed at its own
         renin-angiotensin-aldosterone node instead, because an ACE inhibitor never
         occupies the receptor — see that module's scope notes
-  - [ ] Two incretin-treated entries, in #15252 (in review): `Type_2_Diabetes_Mellitus`
+  - [x] Two incretin-treated entries, in #15252: `Type_2_Diabetes_Mellitus`
         and `Obesity` against `glp1_receptor_agonism`, both at the receptor step. The
         module names no dominant weight-loss arm, so conforming `Obesity` against one
         would assert more than the evidence carries
+  - [x] Three dopamine-agonist-treated entries, in #15350: `Parkinsons_Disease`,
+        `Restless_Legs_Syndrome` and `Peripartum_Cardiomyopathy` against
+        `dopamine_receptor_agonism`. All three anchor without a `downstream` edge; the
+        first two at the trigger, and `Peripartum_Cardiomyopathy` at the module's
+        lactotroph node instead, because bromocriptine is given there for prolactin
+        suppression rather than for striatal signalling
+  - [x] Two triptan-treated entries, in #15470: `Migraine` and `Migraine_with_Aura`
+        against `serotonin_1b_1d_receptor_agonism`, both at the trigger.
+        `Familial_Hemiplegic_Migraine` is deliberately not wired — see that module's
+        scope notes
+  - [x] Two CGRP-antagonist-treated entries, in #15624: `Migraine`, through its named
+        gepant treatment, and `pseudotumor_cerebri`, through its erenumab treatment.
+        The second is not a migraine entry on purpose, so the module is
+        indication-independent and both the small-molecule and the antibody route are
+        exercised. `Migraine`'s anti-CGRP antibody treatment is left unwired because it
+        bundles a receptor-directed agent with two peptide-directed ones
 - [ ] Remaining Workstream A modules
+  - [x] D2 receptor antagonism — `d2_receptor_antagonism` (#15299)
   - [x] AT1 receptor blockade — `at1_receptor_blockade` (#15271)
+  - [x] dopamine receptor agonism — `dopamine_receptor_agonism` (#15350)
+  - [x] 5-HT1B/1D agonism — `serotonin_1b_1d_receptor_agonism` (#15470)
+  - [x] CGRP receptor antagonism — `cgrp_receptor_antagonism` (#15624)
+  - [ ] H1 / H2 receptor antagonism
+  - [ ] beta2 agonism / muscarinic antagonism (airway)
+  - [ ] CaSR positive allosteric modulation
+  - [ ] S1P receptor modulation
+  - [ ] P2Y12 receptor antagonism
+  - [ ] V2 receptor antagonism
+  - [ ] MC4R agonism
+  - [ ] migraine neurovascular mechanism — a *disease* module, not a drug one, factoring
+        the cortical spreading depolarization → trigeminovascular activation → central
+        sensitization chain out of `Migraine`, `Migraine_with_Aura` and
+        `Familial_Hemiplegic_Migraine`, which currently each re-derive it. Added from the
+        resolution of the CGRP open question below
 - [ ] Gs alpha defect module
 
 ## Decisions
 
 - **Agonism and antagonism of the same receptor are separate modules** (decided
   2026-10-15), because their downstream consequence chains differ.
+- **One receptor family plus one direction of pharmacological action makes one
+  module** (decided 2026-10-25, generalizing the rule above). A module is never
+  defined by an indication: conformers come from whatever diseases happen to be
+  treated that way, not the reverse.
+- **5-HT1B/1D agonism and CGRP receptor antagonism are two modules, not one**
+  (decided 2026-10-25, resolving the open question below). Three reasons, in
+  increasing order of weight. By the rule above, they are different receptors in
+  opposite directions, so bundling them would bundle on shared indication. The
+  triptan arm carries a vasoconstriction profile that the gepant arm exists
+  specifically to avoid, so one module could not hold both adverse chains without
+  contradicting itself. And the pharmacology review the CGRP module is grounded on
+  ([PMID:34076887](https://pubmed.ncbi.nlm.nih.gov/34076887/), Garelja, Walker and Hay,
+  *Br J Pharmacol* 2022) draws the line itself: it separates the drugs that bind the CGRP peptide from the
+  receptor antagonists, and subdivides the latter into small molecules and one
+  antibody antagonist. That third reason also settles where erenumab goes, which
+  the first two left open, and it scopes `cgrp_receptor_antagonism` to receptor
+  antagonism with the peptide-directed antibodies out.
+
+  The question's premise was a false choice, and the answer is *both*: a migraine
+  neurovascular **mechanism** module is a genuinely distinct third module, not a
+  substitute for either drug module, and is now in the Workstream A queue above.
 
 ## Open questions
 
 - How should biased agonism (G protein vs arrestin, e.g. oliceridine) be
   represented — a node within the agonism module, or a hypothesis group?
-- Is a CGRP-receptor module better placed with migraine neurovascular
-  mechanism than with the 5-HT1B/1D triptan module?
+- Should the peptide-directed anti-CGRP antibodies (fremanezumab, galcanezumab,
+  eptinezumab) get a ligand-sequestration module of their own? They reduce
+  signalling through the same receptor one step upstream, so such a module would
+  share `cgrp_receptor_antagonism`'s effector chain — which is a reason to decide
+  it deliberately rather than fold them in. `Migraine`'s anti-CGRP antibody
+  treatment bundles one receptor-directed and two peptide-directed agents and
+  wants splitting either way.
