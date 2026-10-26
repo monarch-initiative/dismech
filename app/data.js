@@ -302240,6 +302240,7 @@ window.searchData = [
       "MAPK cascade",
       "JNK cascade",
       "p38MAPK cascade",
+      "Microglial activation",
       "TNF-alpha production",
       "IL-1beta production",
       "IL-6 production",
@@ -403933,8 +403934,8 @@ window.searchMetrics = {
   "total_disorder_pages": 3745,
   "total_subtypes": 4919,
   "total_disorders_and_subtypes": 8664,
-  "total_unique_evidence_sources": 55768,
-  "total_unique_publications": 52105,
+  "total_unique_evidence_sources": 55774,
+  "total_unique_publications": 52111,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
   "total_pathographs": 3743,
@@ -403943,6 +403944,6 @@ window.searchMetrics = {
   "total_research_reports": 3862,
   "total_classifications": 21,
   "total_comorbidities": 51,
-  "total_groupings": 126
+  "total_groupings": 127
 };
 window.dispatchEvent(new Event('searchDataReady'));
