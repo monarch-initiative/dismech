@@ -44,8 +44,9 @@ def extract_claims_command(
         help="Write CSV output to this path instead of stdout.",
     ),
     kb_dir: Path = typer.Option(
-        default_kb_dir(),
+        ...,
         "--kb-dir",
+        default_factory=default_kb_dir,
         exists=True,
         file_okay=False,
         dir_okay=True,
