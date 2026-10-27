@@ -140,3 +140,136 @@ def test_validate_pre_edit_keeps_reference_validation_advisory():
 @pytest.mark.parametrize("validator", ["linkml-validate", "validate-data", "validate data"])
 def test_validate_pre_edit_keeps_all_three_validators(validator):
     assert validator in _recipe_body("validate-pre-edit")
+
+
+def test_hook_marker_matches_the_recipe_warning():
+    """The hook recognizes an outage by the text the recipe prints (#12634)."""
+    assert hook.TERMS_NOT_CHECKED_MARKER in _recipe_body("validate-pre-edit")
+
+
+def test_terms_not_checked_notice_reaches_the_model_without_approving():
+    import json
+
+    assert hook.terms_not_checked_notice("✓ Pre-edit validation passed") is None
+
+    notice = hook.terms_not_checked_notice(
+        "⚠ TERMS NOT CHECKED: ontology service unavailable."
+    )
+    payload = json.loads(notice)["hookSpecificOutput"]
+    assert payload["hookEventName"] == "PreToolUse"
+    assert "NOT checked" in payload["additionalContext"]
+    # Adding context must never double as an approval of the tool call.
+    assert "permissionDecision" not in payload
+
+
+def test_terms_not_checked_notice_lists_the_unchecked_terms():
+    """The model is told which terms to recheck, not just that some were skipped."""
+    import json
+
+    output = (
+        "⚠ TERMS NOT CHECKED: ontology service unavailable.\n"
+        "Offline recheck: no errors in what the local cache could check. Not checked:\n"
+        "  not checked: HP:9999998 at phenotypes[1].phenotype_term.term "
+        "(not in the local term cache)\n"
+    )
+    context = json.loads(hook.terms_not_checked_notice(output))["hookSpecificOutput"][
+        "additionalContext"
+    ]
+    assert "not checked: HP:9999998 at phenotypes[1].phenotype_term.term" in context
+
+
+def test_terms_not_checked_notice_caps_a_long_list():
+    import json
+
+    many = "\n".join(f"  not checked: HP:{i:07d}" for i in range(30))
+    context = json.loads(
+        hook.terms_not_checked_notice("TERMS NOT CHECKED\n" + many)
+    )["hookSpecificOutput"]["additionalContext"]
+    assert context.count("not checked: HP:") == hook.MAX_NOT_CHECKED_LINES
+    assert "... and 10 more" in context
+
+
+# --- Shared uv environment across worktrees (dismech#13119) -------------------
+
+
+def _git(cwd: Path, *args: str) -> None:
+    import subprocess
+
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@example.org", *args],
+        cwd=cwd,
+        check=True,
+        capture_output=True,
+    )
+
+
+@pytest.fixture
+def primary_and_worktree(tmp_path):
+    """A primary checkout with a `.venv`, plus a fresh worktree without one."""
+    primary = _make_checkout(tmp_path / "dismech")
+    (primary / "pyproject.toml").write_text("[project]\nname = 'x'\n")
+    (primary / "uv.lock").write_text("version = 1\n")
+    _git(primary, "init", "-q", "-b", "main")
+    _git(primary, "add", "-A")
+    _git(primary, "commit", "-q", "-m", "init")
+    (primary / ".venv").mkdir()
+    worktree = tmp_path / "wt" / "dismech-asthma"
+    _git(primary, "worktree", "add", "-q", "-b", "asthma", str(worktree))
+    return primary, worktree
+
+
+def test_worktree_reuses_the_primary_environment_without_syncing(primary_and_worktree):
+    primary, worktree = primary_and_worktree
+
+    env = hook.validation_env(worktree, environ={})
+
+    assert Path(env["UV_PROJECT_ENVIRONMENT"]).resolve() == (primary / ".venv").resolve()
+    assert env["UV_NO_SYNC"] == "1", (
+        "A worktree must not re-sync the shared environment, or it repoints the "
+        "primary's editable install at itself."
+    )
+
+
+def test_explicit_uv_project_environment_wins(primary_and_worktree):
+    _, worktree = primary_and_worktree
+
+    env = hook.validation_env(worktree, environ={"UV_PROJECT_ENVIRONMENT": "/elsewhere"})
+
+    assert env["UV_PROJECT_ENVIRONMENT"] == "/elsewhere"
+    assert "UV_NO_SYNC" not in env
+
+
+def test_primary_checkout_keeps_its_own_environment(primary_and_worktree):
+    primary, _ = primary_and_worktree
+
+    assert "UV_PROJECT_ENVIRONMENT" not in hook.validation_env(primary, environ={})
+
+
+def test_worktree_with_its_own_venv_keeps_it(primary_and_worktree):
+    _, worktree = primary_and_worktree
+    (worktree / ".venv").mkdir()
+
+    assert "UV_PROJECT_ENVIRONMENT" not in hook.validation_env(worktree, environ={})
+
+
+@pytest.mark.parametrize("changed", ["pyproject.toml", "uv.lock"])
+def test_worktree_with_different_dependencies_gets_its_own_environment(
+    primary_and_worktree, changed
+):
+    _, worktree = primary_and_worktree
+    (worktree / changed).write_text("# a dependency change on this branch\n")
+
+    assert "UV_PROJECT_ENVIRONMENT" not in hook.validation_env(worktree, environ={})
+
+
+def test_no_shared_environment_when_the_primary_has_none(primary_and_worktree):
+    primary, worktree = primary_and_worktree
+    (primary / ".venv").rmdir()
+
+    assert "UV_PROJECT_ENVIRONMENT" not in hook.validation_env(worktree, environ={})
+
+
+def test_outside_git_the_environment_is_unchanged(tmp_path):
+    checkout = _make_checkout(tmp_path / "dismech")
+
+    assert hook.validation_env(checkout, environ={"PATH": "/bin"}) == {"PATH": "/bin"}

@@ -19,6 +19,7 @@ from dismech.compare.mondo_export import (
     _query_direct_parent_map,
     _query_single_value_map,
 )
+from dismech.conformance import iter_conforms_to
 from dismech.render import curie_to_url, slugify
 from dismech.yaml_io import safe_load
 
@@ -562,7 +563,7 @@ def collect_capability_metrics(
         module_nodes = [
             item
             for item in pathophysiology_nodes
-            if isinstance(item.get("conforms_to"), str) and item["conforms_to"].strip()
+            if iter_conforms_to(item)
         ]
         total_module_conformance_nodes += len(module_nodes)
         if module_nodes:
@@ -1263,7 +1264,7 @@ def inject_uncurated_link(
     summary: dict[str, Any],
 ) -> bool:
     """Insert or update the uncurated-links section in the dashboard index page."""
-    return _inject_block(
+    return inject_block(
         dashboard_index_path,
         start_sentinel=UNCURATED_BLOCK_START,
         end_sentinel=UNCURATED_BLOCK_END,
@@ -1271,14 +1272,19 @@ def inject_uncurated_link(
     )
 
 
-def _inject_block(
+def inject_block(
     dashboard_index_path: Path,
     *,
     start_sentinel: str,
     end_sentinel: str,
     block: str,
 ) -> bool:
-    """Insert or update a sentinel-delimited section in the dashboard index page."""
+    """Insert or update a sentinel-delimited section in the dashboard index page.
+
+    Shared by every supplemental dashboard report (capability metrics, uncurated
+    links, phenotype systems): each owns one start/end sentinel pair and replaces
+    only what sits between them, so the reports can be regenerated in any order.
+    """
     if not dashboard_index_path.exists():
         return False
 
@@ -1309,7 +1315,7 @@ def inject_capability_metrics_link(
     summary: dict[str, Any],
 ) -> bool:
     """Insert or update the capability-metrics section in the dashboard index page."""
-    return _inject_block(
+    return inject_block(
         dashboard_index_path,
         start_sentinel=CAPABILITY_BLOCK_START,
         end_sentinel=CAPABILITY_BLOCK_END,

@@ -20,6 +20,7 @@ from pathlib import Path
 
 import pytest
 
+import dismech.preflight_dr as P
 from dismech.preflight_dr import (
     FAIL,
     PASS,
@@ -28,12 +29,14 @@ from dismech.preflight_dr import (
     HeuristicLexicon,
     HgncLexicon,
     LexiconUnavailable,
+    MondoBuildUnavailable,
     MondoRecord,
     assess,
     default_lexicon,
     extract_gene_mentions,
     extract_omim_ids,
     fetch_mondo_record,
+    find_rival_diseases,
     format_report,
     main,
     preflight,
@@ -107,6 +110,14 @@ def _stub_adapter(monkeypatch, record):
     monkeypatch.setattr(
         "dismech.preflight_dr.fetch_mondo_record",
         lambda mondo_id, adapter=None, **kwargs: record,
+    )
+    # ``main`` opens MONDO before anything else; the record above stands in for
+    # what that adapter would have returned.
+    monkeypatch.setattr("dismech.preflight_dr.open_mondo_adapter", lambda: object())
+    # The rival-gene disease lookup would otherwise open the real MONDO build.
+    monkeypatch.setattr(
+        "dismech.preflight_dr._default_rival_lookup",
+        lambda adapter, use_hgnc: (lambda symbols, exclude: ({}, [])),
     )
 
 
@@ -237,6 +248,56 @@ def test_rival_at_or_above_ratio_triggers_a_warning():
     assert result.verdict == WARN
 
 
+# KDM1A-related adrenal hyperplasia (#9826): GIP is the disease's own effector
+# (KDM1A loss derepresses GIPR), yet at 21/48 = 0.44 it clears the ratio by
+# more than the Temtamy rival (0.40) the threshold was tuned on.
+REC_AIMAH3 = MondoRecord(
+    id="MONDO:0700299",
+    label="ACTH-independent macronodular adrenal hyperplasia 3",
+    genes=("KDM1A",),
+)
+
+
+def test_effector_gene_warning_does_not_tell_the_curator_to_exclude_sections():
+    counts = Counter({"KDM1A": 48, "GIP": 21, "GIPR": 21, "ARMC5": 10, "GNAS": 2})
+    result = assess(REC_AIMAH3, counts)
+
+    assert result.verdict == WARN
+    assert result.rival_genes[0] == ("GIP", 21)
+    reason = next(r for r in result.reasons if "GIP" in r)
+    assert "44% of KDM1A" in reason
+    assert "modifier gene" in reason
+    assert "exclude them only if they are about a different disease" in reason
+    assert "exclude those sections before curating" not in reason
+
+
+def test_bare_ontology_prefixes_in_prose_are_not_rival_genes():
+    """ "HP calls it ..." survives CURIE stripping but is the ontology, not haptoglobin."""
+    text = "ACO2 " * 46 + 'The report calls it "Physical"; HP calls it Optic atrophy. ' * 14
+    counts = extract_gene_mentions(text, FakeLexicon({"ACO2", "HP"}))
+    assert counts["HP"] == 14
+    record = MondoRecord(id="MONDO:0013802", label="ICRD", genes=("ACO2",))
+
+    result = assess(record, counts)
+
+    assert result.verdict == PASS
+    assert all(sym != "HP" for sym, _ in result.rival_genes)
+
+
+def test_an_ontology_prefix_alone_cannot_manufacture_a_fail():
+    record = MondoRecord(id="MONDO:0014572", label="LIKNS", genes=("SLC9A1",))
+    result = assess(record, Counter({"HP": 40}))
+    assert result.verdict != FAIL
+
+
+def test_a_prefix_symbol_that_is_the_expected_gene_is_still_counted():
+    """HP (haptoglobin) is excluded from the rival pool, never from the expected gene."""
+    record = MondoRecord(id="MONDO:0000001", label="hypohaptoglobinemia", genes=("HP",))
+    result = assess(record, Counter({"HP": 12}))
+    assert result.verdict == PASS
+    assert result.expected_mentions == {"HP": 12}
+
+
 def test_no_gene_mentions_at_all_warns_rather_than_fails():
     """An absent expected gene with no rival is unverifiable, not proven wrong."""
     result = assess(REC_LIKNS, Counter())
@@ -337,7 +398,11 @@ class DeadAdapter:
 
 
 class StubMondoAdapter:
-    """Minimal MONDO adapter: one RO:0004003 edge with a configurable label."""
+    """Minimal MONDO adapter: RO:0004003 edges with configurable labels.
+
+    ``relationships`` filters the way oaklib's does, so the same stub answers
+    the forward lookup (disease -> gene) and the reverse one (gene -> disease).
+    """
 
     def __init__(self, labels, relationships, mappings=()):
         self._labels = labels
@@ -347,8 +412,17 @@ class StubMondoAdapter:
     def label(self, curie):
         return self._labels.get(curie)
 
-    def relationships(self, curies):
-        return list(self._relationships)
+    def curies_by_label(self, label):
+        return [curie for curie, value in self._labels.items() if value == label]
+
+    def relationships(self, subjects=None, predicates=None, objects=None):
+        return [
+            (s, p, o)
+            for s, p, o in self._relationships
+            if (subjects is None or s in subjects)
+            and (predicates is None or p in predicates)
+            and (objects is None or o in objects)
+        ]
 
     def simple_mappings_by_curie(self, curie):
         return list(self._mappings)
@@ -506,8 +580,38 @@ def test_a_failed_alias_lookup_does_not_manufacture_a_fail():
     assert "Some ontology lookups failed" in joined
 
 
-def test_a_matching_omim_downgrades_a_fail_to_a_warn():
-    """An OMIM match is an independent identity anchor for the *right* disease."""
+def test_a_matching_omim_keeps_warn_when_no_rival_causes_another_disease():
+    """A report written in a protein name the alias list lacks must not be binned.
+
+    NHE1 is not an HGNC alias of SLC9A1, so the canonical symbol is never
+    counted. With no rival gene resolving to a disease of its own, the matching
+    OMIM number is the only identity evidence, and it keeps the verdict at WARN.
+    """
+    record = MondoRecord(
+        id="MONDO:0014572",
+        label="Lichtenstein-Knorr syndrome",
+        genes=("SLC9A1",),
+        omim_ids=("616291",),
+    )
+    result = assess(
+        record,
+        Counter({"NHE1": 41}),
+        {"616291"},
+        rival_disease_lookup=lambda symbols, exclude: ({}, []),
+    )
+    assert result.verdict == WARN
+    joined = " ".join(result.reasons)
+    assert "616291" in joined
+    assert "pointed at the right entry" in joined
+    assert "None of the rival genes checked (NHE1)" in joined
+    assert "under any name" in joined
+    # The old wording read as permission to keep the report.
+    assert "reconcile" not in joined
+    assert result.rival_diseases == {}
+
+
+def test_without_a_rival_lookup_a_matching_omim_still_only_warns():
+    """No lookup means no determination, so nothing can escalate to FAIL."""
     record = MondoRecord(
         id="MONDO:0014572",
         label="Lichtenstein-Knorr syndrome",
@@ -516,9 +620,7 @@ def test_a_matching_omim_downgrades_a_fail_to_a_warn():
     )
     result = assess(record, Counter({"NHE1": 41}), {"616291"})
     assert result.verdict == WARN
-    joined = " ".join(result.reasons)
-    assert "616291" in joined
-    assert "contradicts the gene-frequency signal" in joined
+    assert "were not checked" in " ".join(result.reasons)
 
 
 @requires_reports
@@ -613,6 +715,345 @@ def test_no_hgnc_mode_never_opens_the_hgnc_adapter(monkeypatch):
     assert record.lookup_errors == ()
 
 
+def _no_local_builds(monkeypatch, tmp_path):
+    """Point OAK's build directory at an empty dir, and make opening fatal.
+
+    Opening ``sqlite:obo:*`` on a missing build downloads it rather than
+    failing, so the test must prove the adapter is never opened at all.
+    """
+    monkeypatch.setenv("PYSTOW_HOME", str(tmp_path))
+
+    def _explode(spec, *_args, **_kwargs):  # pragma: no cover - must never run
+        raise AssertionError(f"{spec} was opened; it would have been downloaded")
+
+    monkeypatch.setattr("oaklib.get_adapter", _explode)
+
+
+def test_fetch_mondo_record_refuses_to_download_a_missing_mondo_build(
+    monkeypatch, tmp_path
+):
+    """#12687: no local ``mondo.db`` is a hard error, never a lazy download.
+
+    Nor an empty record: that would read as "MONDO records no causal gene"
+    and come out as a SKIP verdict.
+    """
+    _no_local_builds(monkeypatch, tmp_path)
+    with pytest.raises(MondoBuildUnavailable, match="just fetch-ontology-dbs mondo"):
+        fetch_mondo_record("MONDO:0014572", use_hgnc=False)
+
+
+def test_cli_exits_2_without_the_mondo_build_before_opening_hgnc(
+    monkeypatch, tmp_path, capsys
+):
+    """The CLI fails fast, and before the HGNC lexicon can fetch its own build."""
+    _no_local_builds(monkeypatch, tmp_path)
+
+    def _no_lexicon(**_kwargs):  # pragma: no cover - must never run
+        raise AssertionError("HGNC lexicon was built for a run that cannot finish")
+
+    monkeypatch.setattr("dismech.preflight_dr.default_lexicon", _no_lexicon)
+    report = tmp_path / "report.md"
+    report.write_text("SLC9A1 SLC9A1 SLC9A1\n", encoding="utf-8")
+    with pytest.raises(SystemExit) as excinfo:
+        main([str(report), "MONDO:0014572"])
+    assert excinfo.value.code == 2
+    err = capsys.readouterr().err
+    assert "just fetch-ontology-dbs mondo" in err
+    assert str(tmp_path / "oaklib" / "mondo.db") in err
+
+
+def test_cli_opens_mondo_when_the_build_is_present(monkeypatch, tmp_path, capsys):
+    """With ``mondo.db`` on disk the guard lets the adapter through."""
+    monkeypatch.setenv("PYSTOW_HOME", str(tmp_path))
+    (tmp_path / "oaklib").mkdir()
+    (tmp_path / "oaklib" / "mondo.db").write_bytes(b"")
+    adapter = StubMondoAdapter(
+        labels={
+            "MONDO:0014572": "Lichtenstein-Knorr syndrome",
+            "HGNC:11071": "SLC9A1",
+        },
+        relationships=[("MONDO:0014572", "RO:0004003", "HGNC:11071")],
+    )
+    opened = []
+
+    def _get_adapter(spec, *_args, **_kwargs):
+        opened.append(spec)
+        return adapter
+
+    monkeypatch.setattr("oaklib.get_adapter", _get_adapter)
+    report = tmp_path / "report.md"
+    report.write_text("SLC9A1 " * 5 + "\n", encoding="utf-8")
+    assert main([str(report), "MONDO:0014572", "--no-hgnc"]) == 0
+    assert opened == ["sqlite:obo:mondo"]
+    assert capsys.readouterr().out.startswith("PASS")
+
+
+# --------------------------------------------------------------------------
+# #12166: the right OMIM number does not make a report about the right gene
+# --------------------------------------------------------------------------
+
+# MONDO:0030717 as the live adapter returns it.
+REC_IMD97 = MondoRecord(
+    id="MONDO:0030717",
+    label="immunodeficiency 97 with autoinflammation",
+    genes=("PIK3CG",),
+    omim_ids=("619802",),
+)
+
+# Gene counts and OMIM citations of the openscientist report filed as #12166.
+# The report itself was replaced by a re-run before it was committed.
+IMD97_TBK1_COUNTS = Counter({"TNF": 58, "TBK1": 47, "RIPK1": 27, "TANK": 6, "RIPK3": 4})
+IMD97_TBK1_OMIM = {"604834", "619802"}
+
+# The reverse RO:0004003 edges the live sqlite:obo:mondo adapter holds for
+# these genes. TNF, the report's most-mentioned gene, causes no MONDO disease.
+IMD97_MONDO = StubMondoAdapter(
+    labels={
+        "MONDO:0030717": "immunodeficiency 97 with autoinflammation",
+        "MONDO:0971173": "autoinflammation with arthritis and vasculitis",
+        "MONDO:0014641": "frontotemporal dementia and/or amyotrophic lateral sclerosis 4",
+        "HGNC:8978": "PIK3CG",
+        "HGNC:11584": "TBK1",
+        "HGNC:11892": "TNF",
+    },
+    relationships=[
+        ("MONDO:0030717", "RO:0004003", "HGNC:8978"),
+        ("MONDO:0971173", "RO:0004003", "HGNC:11584"),
+        ("MONDO:0014641", "RO:0004003", "HGNC:11584"),
+    ],
+)
+
+
+def _imd97_lookup(symbols, exclude):
+    return find_rival_diseases(symbols, exclude, IMD97_MONDO)
+
+
+def test_a_rival_gene_with_its_own_disease_fails_despite_a_matching_omim():
+    """The #12166 case: PIK3CG=0, TBK1=47, OMIM 619802 cited. That is a FAIL."""
+    result = assess(
+        REC_IMD97,
+        IMD97_TBK1_COUNTS,
+        IMD97_TBK1_OMIM,
+        rival_disease_lookup=_imd97_lookup,
+    )
+    assert result.verdict == FAIL
+    assert result.expected_absent
+    assert "TBK1" in result.rival_diseases
+    assert ("MONDO:0971173", "autoinflammation with arthritis and vasculitis") in (
+        result.rival_diseases["TBK1"]
+    )
+    joined = " ".join(result.reasons)
+    assert "zero mentions, not a low count" in joined
+    assert "discard it rather than cherry-picking" in joined
+    # The OMIM match is still reported, as context that does not soften the FAIL.
+    assert "619802" in joined
+    assert "does not soften this verdict" in joined
+
+
+def test_the_rival_lookup_goes_past_the_most_mentioned_rival():
+    """TNF out-ranks TBK1 in the #12166 report and causes no MONDO disease."""
+    seen = []
+
+    def _lookup(symbols, exclude):
+        seen.extend(symbols)
+        return _imd97_lookup(symbols, exclude)
+
+    result = assess(
+        REC_IMD97, IMD97_TBK1_COUNTS, IMD97_TBK1_OMIM, rival_disease_lookup=_lookup
+    )
+    assert seen[:2] == ["TNF", "TBK1"]
+    assert "TNF" not in result.rival_diseases
+    assert result.verdict == FAIL
+
+
+def test_a_failed_rival_lookup_never_manufactures_a_fail():
+    """Could-not-check leaves the OMIM-matching case at WARN, and says so."""
+
+    def _broken(symbols, exclude):
+        raise RuntimeError("mondo.db unreadable")
+
+    result = assess(
+        REC_IMD97, IMD97_TBK1_COUNTS, IMD97_TBK1_OMIM, rival_disease_lookup=_broken
+    )
+    assert result.verdict == WARN
+    joined = " ".join(result.reasons)
+    assert "did not complete" in joined
+    assert any("mondo.db unreadable" in e for e in result.lookup_errors)
+
+
+def test_the_rival_lookup_only_runs_when_the_canonical_gene_is_absent():
+    """A clean run must not pay for, or depend on, the reverse lookup."""
+
+    def _explode(symbols, exclude):  # pragma: no cover - must never run
+        raise AssertionError("rival lookup ran on a report naming its gene")
+
+    for counts in (Counter({"PIK3CG": 30, "TBK1": 4}), Counter({"PIK3CG": 1, "TBK1": 47})):
+        result = assess(REC_IMD97, counts, {"619802"}, rival_disease_lookup=_explode)
+        assert result.verdict in (PASS, WARN)
+        assert not result.expected_absent
+
+
+def test_an_abbreviation_that_is_also_a_gene_symbol_cannot_decide_a_fail():
+    """AR is an HGNC symbol, and the cause of Kennedy disease.
+
+    A report on the right disease that writes "AR" for autosomal recessive,
+    names its gene only by protein name, and cites the right OMIM number must
+    stay at WARN rather than be binned as a Kennedy disease report.
+    """
+    asked = []
+
+    def _lookup(symbols, exclude):
+        asked.extend(symbols)
+        return {"AR": [("MONDO:0010735", "Kennedy disease")]}, []
+
+    record = MondoRecord(
+        id="MONDO:0014572",
+        label="Lichtenstein-Knorr syndrome",
+        genes=("SLC9A1",),
+        omim_ids=("616291",),
+    )
+    result = assess(
+        record, Counter({"AR": 12, "HR": 4}), {"616291"}, rival_disease_lookup=_lookup
+    )
+    assert asked == []
+    assert result.verdict == WARN
+    assert result.rival_diseases == {}
+    assert "common abbreviation" in " ".join(result.reasons)
+
+
+def test_an_abbreviation_is_skipped_but_a_real_rival_gene_still_decides():
+    """The #12166-shaped DC report: TYMS/ENOSF1 decide, AR and HR are skipped."""
+    asked = []
+
+    def _lookup(symbols, exclude):
+        asked.extend(symbols)
+        return {"TYMS": [("MONDO:0031057", "dyskeratosis congenita, digenic")]}, []
+
+    record = MondoRecord(
+        id="MONDO:0859319",
+        label="dyskeratosis congenita, autosomal recessive 8",
+        genes=("DCLRE1B",),
+        omim_ids=("620133",),
+    )
+    counts = Counter({"TYMS": 70, "ENOSF1": 41, "AR": 6, "BMF": 5, "HR": 4})
+    result = assess(record, counts, {"620133"}, rival_disease_lookup=_lookup)
+    assert "AR" not in asked and "HR" not in asked
+    assert asked[:2] == ["TYMS", "ENOSF1"]
+    assert result.verdict == FAIL
+
+
+def test_the_default_rival_lookup_never_downloads_a_build(monkeypatch, tmp_path):
+    """No local HGNC build: the fallback is skipped, not fetched (#12687)."""
+    _no_local_builds(monkeypatch, tmp_path)
+    lookup = P._default_rival_lookup(IMD97_MONDO, use_hgnc=True)
+    found, errors = lookup(["TBK1"], "MONDO:0030717")
+    assert errors == []
+    assert "TBK1" in found
+
+
+def test_the_default_rival_lookup_refuses_a_missing_mondo_build(monkeypatch, tmp_path):
+    """With no adapter passed it goes through open_mondo_adapter's guard."""
+    _no_local_builds(monkeypatch, tmp_path)
+    lookup = P._default_rival_lookup(None, use_hgnc=False)
+    with pytest.raises(MondoBuildUnavailable):
+        lookup(["TBK1"], "MONDO:0030717")
+
+
+def test_find_rival_diseases_excludes_the_intended_entity():
+    """PIK3CG causes MONDO:0030717 itself; that is not a *rival* disease."""
+    found, errors = find_rival_diseases(["PIK3CG", "TBK1", "TNF"], "MONDO:0030717", IMD97_MONDO)
+    assert errors == []
+    assert set(found) == {"TBK1"}
+    assert [mid for mid, _label in found["TBK1"]] == ["MONDO:0014641", "MONDO:0971173"]
+
+
+def test_find_rival_diseases_falls_back_to_hgnc_for_the_identifier():
+    """A gene MONDO does not label is looked up in HGNC before being given up on."""
+    mondo = StubMondoAdapter(
+        labels={"MONDO:0971173": "autoinflammation with arthritis and vasculitis"},
+        relationships=[("MONDO:0971173", "RO:0004003", "HGNC:11584")],
+    )
+    hgnc = StubHgnc(curie="hgnc:11584", symbol="TBK1", approved={"TBK1": "hgnc:11584"})
+    found, errors = find_rival_diseases(["TBK1"], "MONDO:0030717", mondo, hgnc)
+    assert errors == []
+    assert found == {"TBK1": [("MONDO:0971173", "autoinflammation with arthritis and vasculitis")]}
+
+
+def test_find_rival_diseases_records_a_failed_lookup_instead_of_an_empty_answer():
+    class _Dead(StubMondoAdapter):
+        def relationships(self, subjects=None, predicates=None, objects=None):
+            raise RuntimeError("boom")
+
+    dead = _Dead(labels={"HGNC:11584": "TBK1"}, relationships=[])
+    found, errors = find_rival_diseases(["TBK1"], "MONDO:0030717", dead)
+    assert found == {}
+    assert len(errors) == 1 and "TBK1" in errors[0] and "boom" in errors[0]
+
+
+def test_format_report_marks_zero_mentions_and_names_the_rival_disease():
+    result = assess(
+        REC_IMD97, IMD97_TBK1_COUNTS, IMD97_TBK1_OMIM, rival_disease_lookup=_imd97_lookup
+    )
+    text = format_report(result)
+    assert "PIK3CG=0 (never named)" in text
+    assert "rival disease   : TBK1 -> MONDO:0971173 autoinflammation with arthritis" in text
+
+
+def test_a_low_count_is_not_reported_as_never_named():
+    result = assess(REC_IMD97, Counter({"PIK3CG": 2, "TBK1": 1}))
+    assert not result.expected_absent
+    assert "never named" not in format_report(result)
+    assert "mentioned only 2 time(s)" in " ".join(result.reasons)
+
+
+def test_cli_fails_the_12166_report_shape(monkeypatch, tmp_path, capsys):
+    """End to end through ``main``: the reverse lookup reaches the verdict."""
+    monkeypatch.setattr(
+        "dismech.preflight_dr.fetch_mondo_record",
+        lambda mondo_id, adapter=None, **kwargs: REC_IMD97,
+    )
+    monkeypatch.setattr(
+        "dismech.preflight_dr._default_rival_lookup",
+        lambda adapter, use_hgnc: _imd97_lookup,
+    )
+    # ``main`` opens MONDO first; without this the test needs a local mondo.db.
+    monkeypatch.setattr("dismech.preflight_dr.open_mondo_adapter", lambda: object())
+    report = tmp_path / "report.md"
+    lines = ["OMIM 619802 and OMIM 604834."]
+    for gene, n in IMD97_TBK1_COUNTS.items():
+        lines += [f"{gene} is discussed."] * n
+    report.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    exit_code = main(
+        [str(report), "MONDO:0030717", "--no-hgnc"]
+    )
+    out = capsys.readouterr().out
+    assert exit_code == 1
+    assert out.startswith("FAIL")
+    assert "MONDO:0971173" in out
+
+
+@pytest.mark.oak_db
+@pytest.mark.skipif(
+    os.environ.get("DISMECH_OAK_INTEGRATION") != "1",
+    reason="set DISMECH_OAK_INTEGRATION=1 to check the live sqlite:obo:mondo adapter",
+)
+def test_integration_live_mondo_reverse_lookup_finds_the_tbk1_disease():
+    """The reverse RO:0004003 query the #12166 fix depends on, against real MONDO."""
+    from dismech.oak_db import local_build_present
+
+    if not local_build_present("sqlite:obo:mondo"):
+        pytest.skip("local mondo.db absent; `just fetch-ontology-dbs mondo`")
+    from oaklib import get_adapter
+
+    found, errors = find_rival_diseases(
+        ["TNF", "TBK1"], "MONDO:0030717", get_adapter("sqlite:obo:mondo")
+    )
+    assert errors == []
+    assert "TNF" not in found
+    assert "MONDO:0971173" in {mid for mid, _label in found["TBK1"]}
+
+
+@pytest.mark.oak_db
 @pytest.mark.skipif(
     os.environ.get("DISMECH_OAK_INTEGRATION") != "1",
     reason="set DISMECH_OAK_INTEGRATION=1 to check the live sqlite:obo:mondo adapter",
@@ -624,6 +1065,10 @@ def test_integration_live_mondo_adapter_resolves_the_canonical_gene_symbol():
     that ``sqlite:obo:mondo`` really carries the ``RO:0004003`` edge *and* a
     resolvable gene symbol on the other end of it.
     """
+    from dismech.oak_db import local_build_present
+
+    if not local_build_present("sqlite:obo:mondo"):
+        pytest.skip("local mondo.db absent; `just fetch-ontology-dbs mondo`")
     record = fetch_mondo_record("MONDO:0014572")
     assert record.lookup_errors == ()
     assert record.genes == ("SLC9A1",)
@@ -635,3 +1080,186 @@ def test_integration_live_mondo_adapter_resolves_the_canonical_gene_symbol():
     # The gene's own approved symbol must not be listed as its alias: `assess`
     # would then count every SLC9A1 mention twice.
     assert "SLC9A1" not in record.gene_aliases.get("SLC9A1", ())
+
+
+# --------------------------------------------------------------------------
+# Gene identifiers written beside the wrong gene (#9845)
+# --------------------------------------------------------------------------
+
+
+class StubHgncTable:
+    """HGNC stub over a whole symbol table, keyed on the uppercase prefix."""
+
+    name = "hgnc"
+
+    def __init__(self, table):
+        #: CURIE -> approved symbol
+        self._table = dict(table)
+
+    def label(self, curie):
+        return self._table.get(curie)
+
+    def curies_by_label(self, label):
+        return [curie for curie, symbol in self._table.items() if symbol == label]
+
+
+MRD30_HGNC = StubHgncTable({
+    "HGNC:16966": "ZMYND11",
+    "HGNC:29316": "ZSWIM6",
+    "HGNC:4764": "H3-3A",
+})
+REC_MRD30 = MondoRecord(
+    id="MONDO:0014331",
+    label="intellectual developmental disorder, autosomal dominant 30",
+    genes=("ZMYND11",),
+    gene_curies={"ZMYND11": "HGNC:16966"},
+)
+MRD30_LEXICON = FakeLexicon({"ZMYND11", "ZSWIM6", "H3-3A"})
+
+
+def _mrd30_check(text, hgnc=MRD30_HGNC, lexicon=MRD30_LEXICON):
+    findings, errors = P.check_gene_identifiers(text, REC_MRD30, lexicon, hgnc)
+    result = assess(
+        REC_MRD30,
+        extract_gene_mentions(text, lexicon),
+        gene_identifier_findings=findings,
+        gene_identifier_errors=errors,
+    )
+    return result
+
+
+def _mrd30_report(gene_line):
+    return "\n".join(["ZMYND11 is the causal gene."] * 5 + [gene_line]) + "\n"
+
+
+def test_extract_curies_keeps_only_allowlisted_prefixes():
+    text = "Gene *ZMYND11*, HGNC:29316; HP:0001250; Table 1: 5 patients; hgnc : 16966."
+    assert P.extract_curies(text) == ["HGNC:29316", "hgnc:16966"]
+
+
+def test_fetch_mondo_record_keeps_the_causal_gene_curie():
+    adapter = StubMondoAdapter(
+        labels={"MONDO:0014572": "Lichtenstein-Knorr syndrome", "HGNC:11071": "SLC9A1"},
+        relationships=[("MONDO:0014572", "RO:0004003", "HGNC:11071")],
+    )
+    record = fetch_mondo_record("MONDO:0014572", adapter=adapter, use_hgnc=False)
+    assert record.genes == ("SLC9A1",)
+    assert record.gene_curies == {"SLC9A1": "HGNC:11071"}
+
+
+def test_a_wrong_curie_beside_the_intended_gene_warns_and_names_the_gene_it_is():
+    """The MRD30 report: ZMYND11 written as HGNC:29316, which is ZSWIM6."""
+    result = _mrd30_check(_mrd30_report("| Gene (HGNC) | *ZMYND11*, HGNC:29316 |"))
+    assert result.verdict == WARN
+    [finding] = result.gene_identifier_findings
+    assert finding.kind == "canonical"
+    assert finding.curie == "HGNC:29316"
+    assert finding.curie_symbol == "ZSWIM6"
+    assert finding.expected_curie == "HGNC:16966"
+    rendered = format_report(result)
+    assert "HGNC:29316 beside ZMYND11, which is ZSWIM6" in rendered
+
+
+def test_the_right_curie_beside_the_intended_gene_leaves_a_pass_intact():
+    result = _mrd30_check(_mrd30_report("| Gene (HGNC) | *ZMYND11*, hgnc:16966 |"))
+    assert result.verdict == PASS
+    assert result.gene_identifier_findings == []
+
+
+def test_a_second_gene_with_its_correct_curie_is_not_a_finding():
+    """Reports legitimately name interaction partners with their own IDs."""
+    result = _mrd30_check(
+        _mrd30_report("ZMYND11 (HGNC:16966) reads H3.3K36me3 on H3-3A (HGNC:4764).")
+    )
+    assert result.verdict == PASS
+    assert result.gene_identifier_findings == []
+
+
+def test_two_genes_with_their_identifiers_swapped_are_both_found():
+    """The MPC deficiency report wrote MPC1 and MPC2 with each other's IDs."""
+    hgnc = StubHgncTable({"HGNC:21606": "MPC1", "HGNC:24515": "MPC2"})
+    record = MondoRecord(
+        id="MONDO:0013877",
+        label="mitochondrial pyruvate carrier deficiency",
+        genes=("MPC1",),
+        gene_curies={"MPC1": "HGNC:21606"},
+    )
+    text = "MPC1 is written as HGNC:24515 and MPC2 as HGNC:21606.\n"
+    findings, errors = P.check_gene_identifiers(
+        text, record, FakeLexicon({"MPC1", "MPC2"}), hgnc
+    )
+    assert errors == []
+    assert [(f.kind, f.symbol, f.curie_symbol) for f in findings] == [
+        ("canonical", "MPC1", "MPC2"),
+        ("symbol", "MPC2", "MPC1"),
+    ]
+
+
+def test_without_hgnc_the_comparison_with_mondo_still_runs():
+    """`--no-hgnc` drops the symbol lookup, not the CURIE-vs-CURIE check."""
+    result = _mrd30_check(
+        _mrd30_report("| Gene (HGNC) | *ZMYND11*, HGNC:29316 |"),
+        hgnc=None,
+        lexicon=HeuristicLexicon(),
+    )
+    assert result.verdict == WARN
+    [finding] = result.gene_identifier_findings
+    assert finding.kind == "canonical"
+    assert finding.curie_symbol == ""
+    assert "HGNC:29316 beside ZMYND11; ZMYND11 is HGNC:16966" in format_report(result)
+
+
+def test_a_failed_hgnc_lookup_caps_at_warn_instead_of_passing():
+    result = _mrd30_check(
+        _mrd30_report("H3-3A (HGNC:4764) is discussed."), hgnc=DeadAdapter("hgnc down")
+    )
+    assert result.verdict == WARN
+    assert any("hgnc down" in e for e in result.lookup_errors)
+
+
+def test_a_gene_identifier_finding_never_turns_a_fail_into_something_else():
+    findings = [P.GeneIdentifierFinding("symbol", 1, "HGNC:1", "SNX14")]
+    result = assess(REC_LIKNS, Counter({"SNX14": 43}), gene_identifier_findings=findings)
+    assert result.verdict == FAIL
+
+
+def test_cli_json_carries_the_gene_identifier_finding(monkeypatch, tmp_path, capsys):
+    import json
+
+    _stub_adapter(monkeypatch, REC_MRD30)
+    report = tmp_path / "report.md"
+    report.write_text(_mrd30_report("| Gene (HGNC) | *ZMYND11*, HGNC:29316 |"), encoding="utf-8")
+    assert main([str(report), "MONDO:0014331", "--no-hgnc", "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["verdict"] == WARN
+    assert payload["gene_identifier_findings"][0]["curie"] == "HGNC:29316"
+    assert payload["gene_identifier_findings"][0]["expected_curie"] == "HGNC:16966"
+
+
+def test_a_curie_in_parentheses_pairs_with_the_gene_in_front_of_them():
+    """The SLC35A1-CDG report: CMP inside the parenthesis is not the gene."""
+    line = "**Gene:** *SLC35A1* (Golgi CMP-sialic acid transporter; HGNC:10940, 6q15)"
+    assert list(P.pair_gene_curies(line)) == [(1, "HGNC:10940", "SLC35A1")]
+
+
+def test_curies_sharing_a_parenthesis_pair_in_order_with_the_listed_genes():
+    """The Hodgkin lymphoma report: JAK1's correct ID is not paired with JAK2."""
+    line = "- JAK-STAT: JAK1, JAK2 (HGNC:6190, HGNC:6192)"
+    assert list(P.pair_gene_curies(line)) == [
+        (1, "HGNC:6190", "JAK1"),
+        (1, "HGNC:6192", "JAK2"),
+    ]
+
+
+def test_curies_sharing_a_parenthesis_are_not_guessed_without_a_matching_list():
+    line = "JAK2 signalling (HGNC:6190, HGNC:6192) in Reed-Sternberg cells"
+    assert list(P.pair_gene_curies(line)) == []
+
+
+def test_a_repeated_curie_in_a_shared_parenthesis_pairs_by_position():
+    """One ID written for two genes: the second must still pair with its own gene."""
+    line = "JAK1, JAK2 (HGNC:6190, HGNC:6190)"
+    assert list(P.pair_gene_curies(line)) == [
+        (1, "HGNC:6190", "JAK1"),
+        (1, "HGNC:6190", "JAK2"),
+    ]

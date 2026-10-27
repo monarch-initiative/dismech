@@ -1,0 +1,2243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cocoon Syndrome · Perplexity · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Cocoon Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Cocoon Syndrome</h1>
+                
+                <p class="report-subtitle">Cocoon syndrome / fetal encasement syndrome</p>
+                
+                
+                <div class="report-date">2026-10-23</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-perplexity">Perplexity</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0013334" target="_blank" rel="noopener noreferrer">MONDO:0013334</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: sonar-deep-research</span>
+                    
+                    
+                    <span class="meta-chip">56 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Cocoon syndrome / fetal encasement syndrome</h1>
+<p><strong>Disease-knowledge report; evidence reviewed through 23 October 2026</strong></p>
+<h2>Executive summary</h2>
+<p><strong>Cocoon syndrome is an autosomal-recessive, usually embryo/fetal-lethal developmental disorder caused by biallelic loss-of-function variants in <em>CHUK</em></strong>, which encodes inhibitor of nuclear factor-κB kinase subunit-α (IKKα). The defining molecularly confirmed cases were two female fetuses homozygous for <em>CHUK</em> <strong>NM_001278:c.1264C&gt;T, p.(Gln422Ter)</strong>, with absent detectable IKKα protein, severe craniofacial malformation, omphalocele, immobile hypoplastic limbs bound to the trunk, and thin membrane-like skin encasing the limbs. The correct identifiers are <strong><a href="http://purl.obolibrary.org/obo/MONDO_0013334" target="_blank" rel="noopener noreferrer">MONDO:0013334</a>, <a href="https://bioregistry.io/OMIM:613630" target="_blank" rel="noopener noreferrer">OMIM:613630</a> and <a href="https://bioregistry.io/ORPHA:465824" target="_blank" rel="noopener noreferrer">ORPHA:465824</a></strong>; thus, contrary to the supplied “OMIM not recorded” field, an OMIM phenotype entry is available. [28][102][106]</p>
+<p>The direct human evidence remains exceptionally small: <strong>two genotyped fetuses from one Finnish family</strong>. A phenotypically similar 1987 “cocoon fetus” was not molecularly tested. Orphanet consequently lists only two published molecularly established cases, and no incidence or population prevalence can be calculated reliably. [52][104]</p>
+<p>The principal primary report concluded:</p>
+<blockquote>
+<p>“We report an autosomal recessive lethal syndrome characterized by multiple fetal malformations, the most obvious anomalies being the defective face and seemingly absent limbs, which are bound to the trunk and encased under the skin.”<br />
+— Lahtela et al., <em>New England Journal of Medicine</em>, 21 October 2010; PMID <strong>20961246</strong>. [58]</p>
+</blockquote>
+<hr />
+<h2>Evidence interpretation</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Evidence type</th>
+<th>Evidence available</th>
+<th>Main limitation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Human clinical/genetic</td>
+<td>Two molecularly confirmed affected fetuses in one family; segregation in both parents</td>
+<td>No independent molecularly confirmed classic Cocoon family and no untreated longitudinal course</td>
+</tr>
+<tr>
+<td>Human functional</td>
+<td>Fetal fibroblast RNA, immunoprecipitation/Western blot and expression-array studies</td>
+<td>Small number of fetal samples; some expression findings were exploratory</td>
+</tr>
+<tr>
+<td>Model organism</td>
+<td>Three independent <em>Chuk</em> null mouse lines with closely matching skin, limb, craniofacial and abdominal-wall phenotypes</td>
+<td>Mice survive to birth and have less severe craniofacial disease than the human fetuses</td>
+</tr>
+<tr>
+<td>In vitro/cellular</td>
+<td>Keratinocyte, fibroblast and pathway studies of IKKα; rescue experiments in hypomorphic human disease</td>
+<td>Many findings address general IKKα biology rather than the p.Gln422Ter Cocoon genotype specifically</td>
+</tr>
+<tr>
+<td>Computational/curated</td>
+<td>MONDO, OMIM, Orphanet, GenCC, MGI, MedGen</td>
+<td>Frequency estimates inherit the two-case ascertainment limitation</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h1>1. Disease information</h1>
+<h2>1.1 Definition</h2>
+<p>Cocoon syndrome—preferably also called <strong>fetal encasement syndrome</strong>—is a severe developmental ectodermal/morphogenetic disorder. Its characteristic appearance results from abnormal epidermal development: the limbs are hypoplastic and immobile, bound to the trunk, and covered by transparent membrane-like skin. Severe abnormalities of the face, eyes, mouth/palate, skull, abdominal wall, muscle and skeleton accompany the cutaneous phenotype; cardiac, renal, diaphragmatic and lung-lobulation defects can occur. [102][207]</p>
+<p>It must not be confused with <strong>abdominal cocoon syndrome</strong>, an unrelated acquired or idiopathic encapsulating peritoneal disorder.</p>
+<h2>1.2 Identifiers and nomenclature</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier or term</th>
+<th>Status/comment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/MONDO_0013334" target="_blank" rel="noopener noreferrer">MONDO:0013334</a></strong></td>
+<td>Cocoon syndrome</td>
+</tr>
+<tr>
+<td>OMIM phenotype</td>
+<td><strong>613630</strong></td>
+<td>“Cocoon syndrome”; mapping to <em>CHUK</em>; OMIM currently prefixes the name with “?” because the classic association is based on one family</td>
+</tr>
+<tr>
+<td>OMIM gene</td>
+<td><strong>600664</strong></td>
+<td><em>CHUK</em></td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><strong><a href="https://bioregistry.io/ORPHA:465824" target="_blank" rel="noopener noreferrer">ORPHA:465824</a></strong></td>
+<td>Preferred term: fetal encasement syndrome</td>
+</tr>
+<tr>
+<td>Disease Ontology</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/DOID_0060647" target="_blank" rel="noopener noreferrer">DOID:0060647</a></strong></td>
+<td>Fetal encasement syndrome</td>
+</tr>
+<tr>
+<td>MedGen</td>
+<td><strong>C3150891</strong>, UID 462241</td>
+<td>Cocoon syndrome</td>
+</tr>
+<tr>
+<td>SNOMED CT</td>
+<td><strong>1220575002</strong></td>
+<td>Cocoon syndrome / fetal encasement syndrome</td>
+</tr>
+<tr>
+<td>ICD-10/ICD-10-CM</td>
+<td>No dedicated disease-specific code found</td>
+<td>If coding is required, a nonspecific congenital-malformation code would depend on the local coding system and documented manifestations</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>No dedicated Cocoon/fetal-encasement entity found</td>
+<td>Phenotype-specific congenital-malformation coding may be necessary</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>No dedicated disease descriptor identified</td>
+<td>A supplementary concept exists for human CHUK protein, not for the syndrome itself</td>
+</tr>
+<tr>
+<td>Gene</td>
+<td><strong>CHUK</strong>, HGNC:<strong>1974</strong>, NCBI Gene:<strong>1147</strong>, Ensembl:<strong>ENSG00000213341</strong></td>
+<td></td>
+</tr>
+<tr>
+<td>Protein</td>
+<td>IKKα, UniProt:<strong>O15111</strong></td>
+<td>745-aa serine/threonine kinase</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>OMIM explicitly maps phenotype 613630 to <em>CHUK</em> at 10q24.31 with autosomal-recessive inheritance, while Orphanet and MedGen use fetal encasement syndrome as the descriptive name. [1][14][87][102][302]</p>
+<h2>1.3 Synonyms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Preferred or alternative name</th>
+<th>Comment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cocoon syndrome</td>
+<td>Name proposed by Lahtela et al. because membrane-like skin encased the fetus</td>
+</tr>
+<tr>
+<td>Fetal encasement syndrome</td>
+<td>Preferred Orphanet/descriptive term</td>
+</tr>
+<tr>
+<td>Foetal encasement syndrome</td>
+<td>British spelling</td>
+</tr>
+<tr>
+<td>Cocoon fetus</td>
+<td>Historical descriptive term; the 1987 fetus was not molecularly confirmed</td>
+</tr>
+<tr>
+<td>Severe fetal encasement malformation</td>
+<td>Descriptive wording in the primary report</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>“Bartsocas–Papas syndrome type 2” is an allelic <em>CHUK</em> disorder and may represent a less severe part of a CHUK-related phenotypic continuum, but it should not automatically be substituted for classic, complete-null Cocoon syndrome. ClinGen has elected to lump the conditions for gene-validity assessment, whereas phenotype databases retain separate entries. [35][89][146]</p>
+<h2>1.4 Provenance</h2>
+<p>This entry is <strong>not derived from an EHR cohort</strong>. It is an aggregated disease-level synthesis whose foundational patient evidence is the 2010 study of one Finnish family with five pregnancies, including two affected fetuses. OMIM, Orphanet, MONDO/MedGen and GenCC curate that primary report. [28][106][326]</p>
+<hr />
+<h1>2. Etiology</h1>
+<h2>2.1 Primary causal factor</h2>
+<p>The established cause is <strong>biallelic germline loss of CHUK/IKKα function</strong>. In the defining family, both fetuses were homozygous for a nonsense variant and both unaffected parents were heterozygous carriers. Fetal CHUK RNA was approximately <strong>12% of control</strong>, and no IKKα protein was detected by an N-terminal antibody, supporting nonsense-mediated RNA decay and/or instability of the truncated protein. [296][331]</p>
+<h2>2.2 Risk and protective factors</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Factor category</th>
+<th>Finding</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Causal genetic risk</td>
+<td>Homozygosity or compound heterozygosity for sufficiently severe loss-of-function <em>CHUK</em> alleles</td>
+</tr>
+<tr>
+<td>Family history</td>
+<td>Previous similarly malformed fetus, recurrent early miscarriage, or known parental carrier status increases prior probability</td>
+</tr>
+<tr>
+<td>Consanguinity/remote relatedness</td>
+<td>The Finnish parents shared an ancestor traced to the 18th century; this supports identity by descent but not a general requirement for consanguinity</td>
+</tr>
+<tr>
+<td>Sex</td>
+<td>Both confirmed fetuses were 46,XX, but two cases cannot establish female susceptibility</td>
+</tr>
+<tr>
+<td>Age</td>
+<td>No maternal- or paternal-age effect reported</td>
+</tr>
+<tr>
+<td>Environmental/toxic/infectious factors</td>
+<td>None established</td>
+</tr>
+<tr>
+<td>Lifestyle factors</td>
+<td>None established</td>
+</tr>
+<tr>
+<td>Modifier genes</td>
+<td>None demonstrated for classic Cocoon syndrome</td>
+</tr>
+<tr>
+<td>Genetic protective alleles</td>
+<td>None identified</td>
+</tr>
+<tr>
+<td>Environmental protective factors</td>
+<td>None identified</td>
+</tr>
+<tr>
+<td>Gene–environment interaction</td>
+<td>No evidence specific to this disorder</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The two normal later births in the family are compatible with Mendelian segregation, not with a protective exposure. No GWAS, susceptibility locus or polygenic-risk data are applicable.</p>
+<hr />
+<h1>3. Phenotypes</h1>
+<p>All frequency estimates below refer to the <strong>two molecularly confirmed fetuses</strong>, unless explicitly marked “reported association.” They must not be treated as stable population percentages.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype/type</th>
+<th>Characteristics and observed frequency</th>
+<th>Onset/course and functional effect</th>
+<th>Suggested HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Severe craniofacial malformation—physical sign</td>
+<td>Large craniofacial defect in 2/2; essential primary facial structures failed to form normally</td>
+<td>Embryonic/fetal onset; severe, fixed and lethal; incompatible with normal feeding or airway function</td>
+<td>Abnormality of facial morphology, <strong><a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" rel="noopener noreferrer">HP:0001999</a></strong>; abnormal craniofacial morphology, <strong><a href="http://purl.obolibrary.org/obo/HP_0000152" target="_blank" rel="noopener noreferrer">HP:0000152</a></strong></td>
+</tr>
+<tr>
+<td>Cranial cyst/cystic structure—imaging sign</td>
+<td>Abnormal fluid-filled cyst in cranial region in 2/2; exact anatomical identity uncertain</td>
+<td>Visible by 12–13 weeks; possibly pharynx or beginning of gut, according to authors</td>
+<td>Intracranial cystic lesion, <strong><a href="http://purl.obolibrary.org/obo/HP_0010576" target="_blank" rel="noopener noreferrer">HP:0010576</a></strong> or broader abnormal intracranial morphology</td>
+</tr>
+<tr>
+<td>Hypoplastic eyeballs—physical sign</td>
+<td>Reported in syndrome definition</td>
+<td>Congenital, severe</td>
+<td>Microphthalmia, <strong><a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" rel="noopener noreferrer">HP:0000568</a></strong></td>
+</tr>
+<tr>
+<td>Abnormal nasal and oral openings—physical sign</td>
+<td>Two nasal-region openings separated by a septum and an abnormal opening replacing the mouth; unopened stomodeum was considered</td>
+<td>Embryonic, severe; normal oral function impossible</td>
+<td>Abnormal oral morphology, <strong><a href="http://purl.obolibrary.org/obo/HP_0000153" target="_blank" rel="noopener noreferrer">HP:0000153</a></strong>; abnormal nasal morphology, <strong><a href="http://purl.obolibrary.org/obo/HP_0000366" target="_blank" rel="noopener noreferrer">HP:0000366</a></strong></td>
+</tr>
+<tr>
+<td>Absent/undeveloped palate—physical sign</td>
+<td>Palate did not develop</td>
+<td>Embryonic, severe</td>
+<td>Abnormality of the palate, <strong><a href="http://purl.obolibrary.org/obo/HP_0000174" target="_blank" rel="noopener noreferrer">HP:0000174</a></strong></td>
+</tr>
+<tr>
+<td>Omphalocele—physical/imaging sign</td>
+<td>2/2</td>
+<td>Present at first-trimester ultrasound; fixed abdominal-wall defect</td>
+<td>Omphalocele, <strong><a href="http://purl.obolibrary.org/obo/HP_0001539" target="_blank" rel="noopener noreferrer">HP:0001539</a></strong></td>
+</tr>
+<tr>
+<td>Fetal akinesia/immobility—functional sign</td>
+<td>Immobile limbs in 2/2</td>
+<td>Detected at 12–13 weeks; severe; likely contributed secondarily to muscle underdevelopment</td>
+<td>Decreased fetal movement, <strong><a href="http://purl.obolibrary.org/obo/HP_0001558" target="_blank" rel="noopener noreferrer">HP:0001558</a></strong>; akinesia, <strong><a href="http://purl.obolibrary.org/obo/HP_0002304" target="_blank" rel="noopener noreferrer">HP:0002304</a></strong></td>
+</tr>
+<tr>
+<td>Upper-limb hypoplasia—physical sign</td>
+<td>2/2; limbs looked absent externally but contained modestly shortened, nearly normally shaped bones</td>
+<td>Embryonic, severe, nonprogressive malformation</td>
+<td>Upper-limb undergrowth, <strong><a href="http://purl.obolibrary.org/obo/HP_0009824" target="_blank" rel="noopener noreferrer">HP:0009824</a></strong></td>
+</tr>
+<tr>
+<td>Lower-limb hypoplasia—physical sign</td>
+<td>2/2</td>
+<td>Embryonic, severe</td>
+<td>Lower-limb undergrowth, <strong><a href="http://purl.obolibrary.org/obo/HP_0009816" target="_blank" rel="noopener noreferrer">HP:0009816</a></strong></td>
+</tr>
+<tr>
+<td>Limbs bound/fused to trunk—physical sign</td>
+<td>Defining feature in 2/2; externally only rudimentary protrusions were visible</td>
+<td>Embryonic; total loss of independent limb function</td>
+<td>Broad annotation: abnormal limb morphology, <strong><a href="http://purl.obolibrary.org/obo/HP_0040064" target="_blank" rel="noopener noreferrer">HP:0040064</a></strong>; congenital contracture/pterygium terms as appropriate</td>
+</tr>
+<tr>
+<td>Transparent membrane-like skin encasing limbs—physical/pathology sign</td>
+<td>Defining feature in 2/2; epidermis only 2–5 cell layers</td>
+<td>Embryonic, severe barrier-development defect</td>
+<td>Thin skin, <strong><a href="http://purl.obolibrary.org/obo/HP_0000963" target="_blank" rel="noopener noreferrer">HP:0000963</a></strong>; abnormal skin morphology, <strong><a href="http://purl.obolibrary.org/obo/HP_0011121" target="_blank" rel="noopener noreferrer">HP:0011121</a></strong></td>
+</tr>
+<tr>
+<td>Absent epidermal granular layer—histologic abnormality</td>
+<td>2/2 examined</td>
+<td>Developmental; contributes to failed terminal differentiation/barrier formation</td>
+<td>Absent stratum granulosum, <strong><a href="http://purl.obolibrary.org/obo/HP_0025815" target="_blank" rel="noopener noreferrer">HP:0025815</a></strong></td>
+</tr>
+<tr>
+<td>Absent stratum corneum/horny layer—histologic abnormality</td>
+<td>2/2 examined</td>
+<td>Developmental epidermal-barrier failure</td>
+<td>Abnormal stratum corneum morphology, <strong><a href="http://purl.obolibrary.org/obo/HP_0011127" target="_blank" rel="noopener noreferrer">HP:0011127</a></strong></td>
+</tr>
+<tr>
+<td>Absent adnexal structures on outer limbs—histologic sign</td>
+<td>2/2; primitive follicles occurred only within skin infoldings</td>
+<td>Congenital ectodermal-appendage defect</td>
+<td>Abnormality of skin appendages, <strong><a href="http://purl.obolibrary.org/obo/HP_0011138" target="_blank" rel="noopener noreferrer">HP:0011138</a></strong></td>
+</tr>
+<tr>
+<td>Muscle hypoplasia—pathology sign</td>
+<td>Very poorly developed skeletal muscle in 2/2; authors considered lack of movement contributory</td>
+<td>Fetal; severe; both primary developmental signaling and secondary disuse are plausible</td>
+<td>Hypoplasia of the musculature, <strong><a href="http://purl.obolibrary.org/obo/HP_0009004" target="_blank" rel="noopener noreferrer">HP:0009004</a></strong></td>
+</tr>
+<tr>
+<td>General skeletal/bone hypoplasia—radiographic sign</td>
+<td>All visible bones hypoplastic in 2/2; growth plates normal and no chondrodystrophy</td>
+<td>Fetal, generalized, fixed</td>
+<td>Skeletal hypoplasia, <strong><a href="http://purl.obolibrary.org/obo/HP_0002652" target="_blank" rel="noopener noreferrer">HP:0002652</a></strong>; limb undergrowth terms above</td>
+</tr>
+<tr>
+<td>Skull-bone hypoplasia/acalvaria spectrum—radiographic sign</td>
+<td>Particularly described in fetus 1</td>
+<td>Fetal, severe</td>
+<td>Acalvaria, <strong><a href="http://purl.obolibrary.org/obo/HP_0001476" target="_blank" rel="noopener noreferrer">HP:0001476</a></strong>, if complete absence is documented; otherwise skull hypoplasia</td>
+</tr>
+<tr>
+<td>Abnormal lung lobulation—anatomic sign</td>
+<td>Present in both: fetus 1 had four right and three left lobes; fetus 2 had three lobes in each lung</td>
+<td>Congenital; clinical respiratory effect unmeasurable</td>
+<td>Abnormal lung lobation, <strong><a href="http://purl.obolibrary.org/obo/HP_0002101" target="_blank" rel="noopener noreferrer">HP:0002101</a></strong></td>
+</tr>
+<tr>
+<td>Tetralogy of Fallot—cardiac sign</td>
+<td>1/2</td>
+<td>Congenital, severe; would impair oxygenation if liveborn</td>
+<td>Tetralogy of Fallot, <strong><a href="http://purl.obolibrary.org/obo/HP_0001636" target="_blank" rel="noopener noreferrer">HP:0001636</a></strong></td>
+</tr>
+<tr>
+<td>Horseshoe kidney—anatomic sign</td>
+<td>1/2</td>
+<td>Congenital; isolated functional impact could not be assessed</td>
+<td>Horseshoe kidney, <strong><a href="http://purl.obolibrary.org/obo/HP_0000085" target="_blank" rel="noopener noreferrer">HP:0000085</a></strong></td>
+</tr>
+<tr>
+<td>Diaphragmatic defect—anatomic sign</td>
+<td>1/2</td>
+<td>Congenital; respiratory effect could not be assessed</td>
+<td>Congenital diaphragmatic hernia/defect, <strong><a href="http://purl.obolibrary.org/obo/HP_0000776" target="_blank" rel="noopener noreferrer">HP:0000776</a></strong></td>
+</tr>
+<tr>
+<td>Normal karyotype—laboratory result</td>
+<td>46,XX in 2/2</td>
+<td>Helped exclude a visible numerical/large structural chromosomal cause</td>
+<td>Not a disease HPO abnormality</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The primary histology showed a very thin epidermis with <strong>two to five cell layers</strong>, absent granular and horny layers and absent adnexal structures over the outer limbs. Bone growth plates were normal and the bones were only modestly shortened, indicating that apparent “absence” of limbs was chiefly caused by failed outgrowth/encasement rather than complete skeletal agenesis. [28][213][218][226]</p>
+<h3>Quality of life</h3>
+<p>No EQ-5D, SF-36, PROMIS or other patient-reported outcomes exist. Both confirmed pregnancies were terminated at 13–14 gestational weeks after severe abnormalities were detected. Given the embryonic severity and absence of a surviving classic-null patient, postnatal quality of life cannot be measured; the aggregate impact is fetal death or pregnancy termination and substantial reproductive and psychological burden for the family.</p>
+<hr />
+<h1>4. Genetic and molecular information</h1>
+<h2>4.1 Gene and protein</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gene</td>
+<td><em>CHUK</em></td>
+</tr>
+<tr>
+<td>Official name</td>
+<td>Component of inhibitor of nuclear factor kappa-B kinase complex</td>
+</tr>
+<tr>
+<td>HGNC</td>
+<td><strong><a href="https://bioregistry.io/HGNC:1974" target="_blank" rel="noopener noreferrer">HGNC:1974</a></strong></td>
+</tr>
+<tr>
+<td>NCBI Gene</td>
+<td><strong>1147</strong></td>
+</tr>
+<tr>
+<td>Ensembl</td>
+<td><strong>ENSG00000213341</strong></td>
+</tr>
+<tr>
+<td>Chromosomal location</td>
+<td><strong>10q24.31</strong></td>
+</tr>
+<tr>
+<td>OMIM gene</td>
+<td><strong>600664</strong></td>
+</tr>
+<tr>
+<td>Protein</td>
+<td>IKKα / IKK1</td>
+</tr>
+<tr>
+<td>UniProt</td>
+<td><strong>O15111</strong></td>
+</tr>
+<tr>
+<td>Protein length</td>
+<td>745 amino acids</td>
+</tr>
+<tr>
+<td>Major domains</td>
+<td>Protein kinase 15–302; leucine zipper 455–476; C-terminal NEMO-binding region 738–743</td>
+</tr>
+<tr>
+<td>Principal compartments</td>
+<td>Cytosol, IKK complex and nucleoplasm</td>
+</tr>
+<tr>
+<td>Gene-disease validity</td>
+<td>GenCC “Definitive” for Cocoon syndrome; ClinGen assesses a broader lumped CHUK/Bartsocas–Papas relationship separately</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>CHUK encodes a serine/threonine kinase that participates in the IKK complex and has additional nuclear, kinase-independent functions in epidermal differentiation. [14][21][311][326]</p>
+<h2>4.2 Classic Cocoon-syndrome variant</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant field</th>
+<th>Finding</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Transcript used in original report</td>
+<td><strong>NM_001278</strong></td>
+</tr>
+<tr>
+<td>Coding variant</td>
+<td><strong>c.1264C&gt;T</strong></td>
+</tr>
+<tr>
+<td>Protein variant</td>
+<td><strong>p.(Gln422Ter)</strong>, originally p.Gln422X</td>
+</tr>
+<tr>
+<td>Exon</td>
+<td>12 of 21</td>
+</tr>
+<tr>
+<td>Variant class</td>
+<td>Nonsense/stop-gain</td>
+</tr>
+<tr>
+<td>Origin</td>
+<td>Germline</td>
+</tr>
+<tr>
+<td>Zygosity</td>
+<td>Homozygous in both affected fetuses</td>
+</tr>
+<tr>
+<td>Segregation</td>
+<td>Both unaffected parents heterozygous</td>
+</tr>
+<tr>
+<td>Predicted product</td>
+<td>421-aa truncated protein</td>
+</tr>
+<tr>
+<td>Observed RNA consequence</td>
+<td>CHUK transcript approximately 12% of control in affected fibroblasts</td>
+</tr>
+<tr>
+<td>Observed protein consequence</td>
+<td>No detectable IKKα protein</td>
+</tr>
+<tr>
+<td>Functional class</td>
+<td>Complete or near-complete loss of function</td>
+</tr>
+<tr>
+<td>Original control frequency</td>
+<td>Absent from 100 ancestry-matched unaffected controls</td>
+</tr>
+<tr>
+<td>gnomAD/1000 Genomes/TOPMed frequency</td>
+<td>No reliable public frequency for this exact CHUK nomenclature was identified; do not infer a numerical frequency</td>
+</tr>
+<tr>
+<td>ClinVar</td>
+<td>No clearly matching, condition-specific ClinVar record for the original CHUK p.Gln422Ter allele was identified</td>
+</tr>
+<tr>
+<td>ACMG interpretation</td>
+<td><strong>Pathogenic</strong> is strongly supported by PVS1, cosegregation, extreme rarity in matched controls, absent protein and highly specific recessive phenotype, although no formal expert-panel ClinVar assertion was located</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The stop occurs before the leucine zipper and NEMO-binding region, but the decisive experimental observation was <strong>absence of protein</strong>, not merely loss of those C-terminal domains. [28][296][311]</p>
+<h2>4.3 Other genetic mechanisms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Mechanism</th>
+<th>Evidence in classic Cocoon syndrome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Large deletion/CNV</td>
+<td>Not reported</td>
+</tr>
+<tr>
+<td>Aneuploidy</td>
+<td>Excluded by normal 46,XX karyotypes in the two confirmed fetuses</td>
+</tr>
+<tr>
+<td>Translocation/inversion</td>
+<td>Not reported</td>
+</tr>
+<tr>
+<td>Somatic mutation</td>
+<td>Not applicable; disease-causing variant is germline</td>
+</tr>
+<tr>
+<td>Modifier genes</td>
+<td>None known</td>
+</tr>
+<tr>
+<td>Founder effect</td>
+<td>Possible remote Finnish founder/identity-by-descent, but unproven beyond one pedigree</td>
+</tr>
+<tr>
+<td>Germline mosaicism</td>
+<td>Not reported; residual recurrence risk would still be discussed if parental testing were negative in another family</td>
+</tr>
+<tr>
+<td>Epigenetic defect</td>
+<td>No disease-specific methylation or chromatin signature reported</td>
+</tr>
+<tr>
+<td>Repeat expansion/mitochondrial DNA</td>
+<td>Not relevant</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h1>5. Environmental, lifestyle and infectious information</h1>
+<p>No toxin, medication, radiation, maternal disease, nutritional deficiency, smoking, alcohol exposure or occupational factor has been associated with molecularly confirmed Cocoon syndrome. No pathogen causes or triggers it, and it is neither transmissible nor zoonotic.</p>
+<p>General inflammatory stimuli can activate IKKα-containing signaling complexes, but this normal biochemical responsiveness is not evidence of a disease-specific gene–environment interaction. Complete developmental loss of IKKα is sufficient to produce the phenotype.</p>
+<hr />
+<h1>6. Mechanism and pathophysiology</h1>
+<h2>6.1 Ordered causal chain</h2>
+<ol>
+<li><strong>Homozygous germline <em>CHUK</em> c.1264C&gt;T creates p.Gln422Ter</strong>, which <strong>leads to</strong> marked transcript depletion and no detectable IKKα protein.  </li>
+<li><strong>Loss of IKKα leads to</strong> failure of its nuclear, largely kinase-independent program for embryonic keratinocyte cell-cycle exit and terminal differentiation.  </li>
+<li><strong>Failed keratinocyte/periderm differentiation leads to</strong> absent granular/cornified epidermal layers, abnormal skin-appendage development and membrane-like, adhesive/encasing skin.  </li>
+<li><strong>Abnormal epidermis leads to</strong> defective ectoderm–mesoderm signaling during limb, skeletal and craniofacial morphogenesis; mouse rescue studies specifically implicate failure to repress ectodermal FGF-family signals such as FGF8.  </li>
+<li><strong>Defective morphogenetic signaling leads to</strong> severe craniofacial malformation, inadequate limb outgrowth and abnormal body-wall closure, including omphalocele.  </li>
+<li><strong>Skin encasement and malformed limbs lead to</strong> profound fetal akinesia; reduced movement likely <strong>results in</strong> additional secondary skeletal-muscle hypoplasia.  </li>
+<li><strong>Branch A:</strong> developmental signaling failure <strong>leads to</strong> skull/bone and lung-lobulation defects and, variably, cardiac, renal and diaphragmatic malformations. The exact human tissue-specific intermediates are <strong>inferred</strong>, not demonstrated.  </li>
+<li><strong>Branch B:</strong> absence of IKKα also <strong>would be expected to disrupt</strong> noncanonical and portions of canonical NF-κB signaling in immune/stromal cells; this is demonstrated for surviving hypomorphic/kinase-domain CHUK disease, but an immune phenotype cannot be measured in classic fetal-lethal Cocoon syndrome.  </li>
+<li><strong>The combined craniofacial, skin, body-wall and limb defects lead to</strong> fetal lethality or medically indicated pregnancy termination.</li>
+</ol>
+<h2>6.2 Epidermal differentiation and ectoderm–mesoderm signaling</h2>
+<p>IKKα-null mice and keratinocytes fail to undergo normal terminal epidermal differentiation. The granular layer and stratum corneum are absent, while proliferative epidermal cells persist. Importantly, several experiments indicate that this developmental function depends more on nuclear IKKα scaffolding/coregulation than on its kinase activity or NF-κB activation. Nuclear IKKα participates in a Smad2/3-associated TGF-β program controlling keratinocyte cell-cycle exit and differentiation, and interacts with Notch/p63 regulatory networks. [122][125][126][131]</p>
+<p>An epidermis-specific IKKα transgene rescued both epidermal and skeletal morphology in otherwise IKKα-deficient mice. This supports the expert interpretation that abnormal skeleton and limbs are substantially <strong>downstream of defective epidermal signaling</strong>, rather than a primary chondrocyte growth-plate disorder. Elevated limb-bud ectodermal FGF8 is one implicated signal. [118]</p>
+<p>Suggested GO/CL annotations:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Mechanism</th>
+<th>Suggested GO biological-process terms</th>
+<th>Principal cell type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Keratinocyte differentiation</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0030216" target="_blank" rel="noopener noreferrer">GO:0030216</a>, keratinocyte differentiation; <a href="http://purl.obolibrary.org/obo/GO_0008544" target="_blank" rel="noopener noreferrer">GO:0008544</a>, epidermis development</td>
+<td>Keratinocyte, <strong><a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a></strong></td>
+</tr>
+<tr>
+<td>Epidermal barrier formation</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0061436" target="_blank" rel="noopener noreferrer">GO:0061436</a>, establishment of skin barrier</td>
+<td>Suprabasal keratinocyte; epidermal cell</td>
+</tr>
+<tr>
+<td>Cell-cycle exit</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0045786" target="_blank" rel="noopener noreferrer">GO:0045786</a>, negative regulation of cell-cycle progression</td>
+<td>Basal and suprabasal keratinocytes</td>
+</tr>
+<tr>
+<td>Ectoderm–mesoderm signaling</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0009887" target="_blank" rel="noopener noreferrer">GO:0009887</a>, animal organ morphogenesis; <a href="http://purl.obolibrary.org/obo/GO_0048736" target="_blank" rel="noopener noreferrer">GO:0048736</a>, appendage development</td>
+<td>Keratinocyte, mesenchymal cell <strong><a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" rel="noopener noreferrer">CL:0000134</a></strong></td>
+</tr>
+<tr>
+<td>Craniofacial morphogenesis</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0048701" target="_blank" rel="noopener noreferrer">GO:0048701</a>, embryonic cranial-skeleton morphogenesis</td>
+<td>Cranial-neural-crest-derived mesenchymal cell</td>
+</tr>
+<tr>
+<td>Limb morphogenesis</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0035108" target="_blank" rel="noopener noreferrer">GO:0035108</a>, limb morphogenesis</td>
+<td>Limb-bud ectodermal cell and mesenchymal cell</td>
+</tr>
+<tr>
+<td>Muscle hypoplasia secondary to akinesia</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0007519" target="_blank" rel="noopener noreferrer">GO:0007519</a>, skeletal-muscle tissue development</td>
+<td>Skeletal muscle cell, <strong><a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" rel="noopener noreferrer">CL:0000188</a></strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<h2>6.3 NF-κB pathways</h2>
+<p>IKKα has separable roles:</p>
+<ul>
+<li>In the <strong>canonical NF-κB pathway</strong>, IKKα can partner with IKKβ and NEMO to phosphorylate IκB proteins, permitting NF-κB nuclear translocation.</li>
+<li>In the <strong>noncanonical pathway</strong>, NIK activates IKKα, promoting processing of NF-κB2 p100 to p52 and RELB-dependent transcription.</li>
+<li>In embryonic epidermis, the crucial terminal-differentiation role is substantially <strong>kinase- and NF-κB-independent</strong>.</li>
+</ul>
+<p>This distinction explains why complete IKKα absence causes catastrophic morphogenesis, whereas some kinase-domain or NIK-interaction variants permit survival but cause ectodermal abnormalities plus immunodeficiency.</p>
+<p>Suggested pathway annotations include <a href="http://purl.obolibrary.org/obo/GO_0043123" target="_blank" rel="noopener noreferrer">GO:0043123</a>, positive regulation of IκB kinase/NF-κB signaling; <a href="http://purl.obolibrary.org/obo/GO_0038061" target="_blank" rel="noopener noreferrer">GO:0038061</a>, NIK/NF-κB signaling; <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" rel="noopener noreferrer">GO:0007249</a>, IκB kinase/NF-κB signaling; and <a href="http://purl.obolibrary.org/obo/GO_0008385" target="_blank" rel="noopener noreferrer">GO:0008385</a>, IκB kinase complex.</p>
+<h2>6.4 Human molecular profiling</h2>
+<p>Affected fetal fibroblast expression arrays identified <strong>132 differentially expressed transcripts</strong>, 91 corresponding to recognized genes. Enriched groups involved ossification, the IKK–NF-κB cascade, actin-filament binding and extracellular matrix. <em>MMP14</em> RNA was reduced, although MMP14 protein was detected in affected but not age-matched control fibroblasts, which the authors proposed might reflect negative feedback. These findings are exploratory and have not been replicated in additional classic Cocoon samples. [28]</p>
+<p>No disease-specific metabolomics, lipidomics, spatial transcriptomics, single-cell atlas, proteomic signature, DNA-methylation signature or CRISPR-screen result has been published for classic Cocoon syndrome.</p>
+<h2>6.5 Recent research, 2023–2024</h2>
+<p>A 2023 authoritative review of cutaneous inborn errors of NF-κB emphasized that IKKα is required for keratinocyte differentiation—including filaggrin and loricrin expression—but that this function is independent of kinase activity and NF-κB signaling. [124][138]</p>
+<p>A 17 May 2024 preprint (PMID <strong>38798321</strong>, subsequently peer-reviewed after the requested 2023–2024 window) described a surviving female with biallelic kinase-domain <em>CHUK</em> variants, hypogammaglobulinemia, recurrent lung infections and Hay–Wells-like ectodermal features. Both alleles were loss-of-function; noncanonical NF-κB activation was profoundly diminished, canonical signaling was partially impaired, and wild-type <em>CHUK</em> restored noncanonical signaling. This broadens the <strong>CHUK allelic spectrum</strong>, but it does not alter the fetal-lethal prognosis for complete-null p.Gln422Ter Cocoon syndrome. [147]</p>
+<p>The 2024 abstract states:</p>
+<blockquote>
+<p>“Reintroducing wild-type <em>CHUK</em> restored non-canonical NF-κB activation.” [147]</p>
+</blockquote>
+<hr />
+<h1>7. Anatomical structures affected</h1>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Structures</th>
+<th>Suggested ontology terms</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Primary organ/tissue</td>
+<td>Skin and epidermis, especially limb-covering epidermis</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> skin; <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" rel="noopener noreferrer">UBERON:0001003</a> epidermis</td>
+</tr>
+<tr>
+<td>Primary anatomical region</td>
+<td>Upper and lower limbs/limb buds</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002102" target="_blank" rel="noopener noreferrer">UBERON:0002102</a> upper limb; <a href="http://purl.obolibrary.org/obo/UBERON_0002103" target="_blank" rel="noopener noreferrer">UBERON:0002103</a> lower limb</td>
+</tr>
+<tr>
+<td>Primary craniofacial</td>
+<td>Head, face, palate, primitive mouth/pharyngeal region, eyes and skull</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0000033" target="_blank" rel="noopener noreferrer">UBERON:0000033</a> head; <a href="http://purl.obolibrary.org/obo/UBERON_0001456" target="_blank" rel="noopener noreferrer">UBERON:0001456</a> face; <a href="http://purl.obolibrary.org/obo/UBERON_0001716" target="_blank" rel="noopener noreferrer">UBERON:0001716</a> secondary palate; <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a> eye</td>
+</tr>
+<tr>
+<td>Body wall</td>
+<td>Ventral abdominal wall/umbilical region</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0003697" target="_blank" rel="noopener noreferrer">UBERON:0003697</a> abdominal wall; omphalocele annotation</td>
+</tr>
+<tr>
+<td>Musculoskeletal</td>
+<td>Skeletal muscle, bone, cartilage/growth plates</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a> skeletal muscle organ; <a href="http://purl.obolibrary.org/obo/UBERON_0001474" target="_blank" rel="noopener noreferrer">UBERON:0001474</a> bone element</td>
+</tr>
+<tr>
+<td>Variable secondary organs</td>
+<td>Heart, kidneys, diaphragm and lungs</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a> heart; <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a> kidney; <a href="http://purl.obolibrary.org/obo/UBERON_0001103" target="_blank" rel="noopener noreferrer">UBERON:0001103</a> diaphragm; <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a> lung</td>
+</tr>
+<tr>
+<td>Principal cells</td>
+<td>Keratinocytes, dermal fibroblasts, mesenchymal cells; secondarily myocytes, chondrocytes and osteoblasts</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>, <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a>, <a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" rel="noopener noreferrer">CL:0000134</a>, <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" rel="noopener noreferrer">CL:0000188</a>, <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a>, <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" rel="noopener noreferrer">CL:0000062</a></td>
+</tr>
+<tr>
+<td>Subcellular</td>
+<td>Cytosol, nucleoplasm and IKK complex</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" rel="noopener noreferrer">GO:0005829</a>, <a href="http://purl.obolibrary.org/obo/GO_0005654" target="_blank" rel="noopener noreferrer">GO:0005654</a>, <a href="http://purl.obolibrary.org/obo/GO_0008385" target="_blank" rel="noopener noreferrer">GO:0008385</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>No consistent lateralization was reported; the encasement and limb phenotype was generalized/bilateral.</p>
+<hr />
+<h1>8. Temporal development</h1>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Temporal feature</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Biological onset</td>
+<td>Embryonic, during epidermal, craniofacial, limb and body-wall morphogenesis</td>
+</tr>
+<tr>
+<td>Earliest clinical detection</td>
+<td>Multiple abnormalities detected by ultrasound at <strong>12 weeks</strong> in fetus 2 and <strong>13 weeks</strong> in fetus 1</td>
+</tr>
+<tr>
+<td>Course</td>
+<td>Fixed congenital malformation rather than episodic or relapsing disease</td>
+</tr>
+<tr>
+<td>Progression</td>
+<td>Morphogenetic failure evolves as embryogenesis proceeds; it is not a postnatal degenerative disorder</td>
+</tr>
+<tr>
+<td>Pregnancy outcomes in confirmed cases</td>
+<td>Termination at 13 and 14 weeks</td>
+</tr>
+<tr>
+<td>Untreated duration</td>
+<td>Unknown; authors inferred that similarly affected pregnancies may miscarry early</td>
+</tr>
+<tr>
+<td>Remission</td>
+<td>None reported or biologically expected</td>
+</tr>
+<tr>
+<td>Critical period</td>
+<td>First trimester/early fetal epidermal and limb development</td>
+</tr>
+<tr>
+<td>Intervention window</td>
+<td>No corrective fetal intervention exists; the practical window is early ultrasound and molecular prenatal diagnosis</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The family had a first-trimester miscarriage before the two affected pregnancies, but it was not genotyped and cannot be counted as Cocoon syndrome. Two subsequent pregnancies produced unaffected children. [28]</p>
+<hr />
+<h1>9. Inheritance and population</h1>
+<h2>9.1 Epidemiology</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Measure</th>
+<th>Current estimate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Molecularly confirmed classic cases</td>
+<td><strong>2 fetuses</strong></td>
+</tr>
+<tr>
+<td>Molecularly confirmed families</td>
+<td><strong>1 Finnish family</strong></td>
+</tr>
+<tr>
+<td>Additional historical possible case</td>
+<td>1 ungenotyped “cocoon fetus,” reported in 1987</td>
+</tr>
+<tr>
+<td>Prevalence per 100,000</td>
+<td>Not calculable</td>
+</tr>
+<tr>
+<td>Incidence per 100,000 births/year</td>
+<td>Not calculable</td>
+</tr>
+<tr>
+<td>Orphanet epidemiologic descriptor</td>
+<td>Two published cases</td>
+</tr>
+<tr>
+<td>Geographic evidence</td>
+<td>Finland for the molecularly confirmed pedigree; no demonstrated endemic distribution</td>
+</tr>
+<tr>
+<td>Sex ratio</td>
+<td>Both confirmed fetuses female, but no inference is possible from n=2</td>
+</tr>
+<tr>
+<td>Age distribution</td>
+<td>Prenatal only for classic complete-null disease</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Orphanet’s prevalence compilation lists fetal encasement syndrome as <strong>“2 case(s)”</strong>, not as a numerical population prevalence. [104]</p>
+<h2>9.2 Mendelian parameters</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Assessment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inheritance</td>
+<td>Autosomal recessive</td>
+</tr>
+<tr>
+<td>Recurrence for two confirmed carrier parents</td>
+<td>25% affected, 50% carrier and 25% unaffected noncarrier per conception</td>
+</tr>
+<tr>
+<td>Penetrance</td>
+<td>Apparently complete for homozygous complete-null p.Gln422Ter in the observed pedigree; broader allele-specific penetrance is unknown</td>
+</tr>
+<tr>
+<td>Expressivity</td>
+<td>Severe and similar in the two classic fetuses, with variable internal-organ defects</td>
+</tr>
+<tr>
+<td>Heterozygote phenotype</td>
+<td>Parents clinically unaffected; no established carrier phenotype</td>
+</tr>
+<tr>
+<td>Anticipation</td>
+<td>Not applicable</td>
+</tr>
+<tr>
+<td>Consanguinity</td>
+<td>No close consanguinity reported, but a shared 18th-century ancestor was identified</td>
+</tr>
+<tr>
+<td>Founder effect</td>
+<td>Possible but not established</td>
+</tr>
+<tr>
+<td>Carrier frequency</td>
+<td>Unknown</td>
+</tr>
+<tr>
+<td>Germline mosaicism</td>
+<td>Not reported</td>
+</tr>
+<tr>
+<td>Population enrichment</td>
+<td>Not established in Finnish or other populations</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h1>10. Diagnostics</h1>
+<h2>10.1 Diagnostic strategy</h2>
+<ol>
+<li><strong>Prenatal ultrasound:</strong> Suspect the disorder when first-trimester imaging shows a large craniofacial defect, cranial cystic structure, omphalocele and profoundly immobile hypoplastic limbs apparently incorporated into or encased by the trunk skin.</li>
+<li><strong>Detailed fetal assessment:</strong> High-resolution ultrasound, fetal echocardiography and, where useful, fetal MRI to define craniofacial, brain, cardiac, diaphragmatic, renal and lung abnormalities.</li>
+<li><strong>Chromosomal testing:</strong> Karyotype and/or chromosomal microarray to exclude common aneuploidies and pathogenic CNVs; these do not diagnose single-nucleotide <em>CHUK</em> disease.</li>
+<li><strong>Molecular confirmation:</strong> Sequence <em>CHUK</em> with deletion/duplication analysis. In a known family, targeted testing for the familial variant is fastest.</li>
+<li><strong>Broader sequencing:</strong> A fetal-malformation/ectodermal-dysplasia/pterygium panel, trio WES or WGS is appropriate when the phenotype is atypical or the familial variant is unknown.</li>
+<li><strong>Segregation:</strong> Test both parents to establish phase and autosomal-recessive inheritance.</li>
+<li><strong>Pathology:</strong> If pregnancy loss or termination occurs, fetal radiography, autopsy and skin histology can document limb encasement, epidermal thinning, missing granular/cornified layers and absent adnexa.</li>
+</ol>
+<p>GTR lists <strong>eight clinical tests</strong> under Cocoon syndrome, including single-gene <em>CHUK</em> testing and whole-coding-region NGS. [268][269][284]</p>
+<h2>10.2 Utility of test modalities</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Modality</th>
+<th>Utility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Targeted familial-variant test</td>
+<td>Preferred for prenatal or preimplantation testing in a known family</td>
+</tr>
+<tr>
+<td><em>CHUK</em> sequencing</td>
+<td>Diagnostic for coding SNVs/small indels</td>
+</tr>
+<tr>
+<td>Deletion/duplication analysis</td>
+<td>Complements sequencing if only one pathogenic allele is found</td>
+</tr>
+<tr>
+<td>Multigene fetal-anomaly panel</td>
+<td>Useful differential genes include <em>RIPK4</em>, <em>IRF6</em>, <em>ZMPSTE24</em>, <em>LMNA</em>, <em>P4HB</em>, <em>NALCN</em>, <em>GLDN</em> and genes for lethal pterygium/fetal-akinesia syndromes</td>
+</tr>
+<tr>
+<td>Trio WES</td>
+<td>High utility for an unexplained recurrent fetal malformation phenotype after karyotype/CMA</td>
+</tr>
+<tr>
+<td>WGS</td>
+<td>Can detect coding, intronic and structural variants; no Cocoon-specific diagnostic-yield study exists</td>
+</tr>
+<tr>
+<td>CMA</td>
+<td>Excludes CNVs but will usually miss the causative nonsense SNV</td>
+</tr>
+<tr>
+<td>Karyotype</td>
+<td>Excludes aneuploidy/large rearrangements; was normal in both confirmed fetuses</td>
+</tr>
+<tr>
+<td>FISH</td>
+<td>No routine role unless a specific rearrangement is suspected</td>
+</tr>
+<tr>
+<td>mtDNA testing</td>
+<td>Not indicated by this phenotype</td>
+</tr>
+<tr>
+<td>Repeat-expansion testing</td>
+<td>Not applicable</td>
+</tr>
+<tr>
+<td>RNA sequencing</td>
+<td>Potentially useful for suspected splice variants, but not validated as routine testing</td>
+</tr>
+<tr>
+<td>Proteomics/metabolomics/liquid biopsy</td>
+<td>No established diagnostic role</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Prenatal exome sequencing may be considered for a structurally abnormal fetus when karyotype and CMA are nondiagnostic, preferably with clinical-genetics consultation. [293][294]</p>
+<h2>10.3 Differential diagnosis</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Differential</th>
+<th>Distinguishing features</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>CHUK</em>-related Bartsocas–Papas syndrome type 2</td>
+<td>Same gene and overlapping mechanism, but generally less complete fetal encasement; popliteal pterygia, clefting, syndactyly and genital anomalies may predominate</td>
+</tr>
+<tr>
+<td><em>RIPK4</em>-related Bartsocas–Papas/CHAND syndrome</td>
+<td>Similar pterygia, clefting and epidermal differentiation defects; distinguished molecularly by <em>RIPK4</em></td>
+</tr>
+<tr>
+<td>IRF6-related popliteal pterygium syndrome</td>
+<td>Usually autosomal dominant and compatible with survival; cleft lip/palate, lower-lip pits, pterygia and syndactyly</td>
+</tr>
+<tr>
+<td>Restrictive dermopathy (<em>ZMPSTE24</em>, rarely <em>LMNA</em>)</td>
+<td>Tight thin skin, joint contractures and pulmonary hypoplasia, but usually recognizable facial restriction and hyperkeratotic/restrictive skin rather than the characteristic severe facial-development failure and limb encasement</td>
+</tr>
+<tr>
+<td>Neu–Laxova syndrome</td>
+<td>Severe growth restriction, edema, microcephaly, ocular abnormalities and ichthyosis; biochemical/genetic defects differ</td>
+</tr>
+<tr>
+<td>Pena–Shokeir/fetal-akinesia deformation sequence</td>
+<td>Akinesia, contractures and pulmonary hypoplasia due to many neuromuscular causes; does not intrinsically reproduce the IKKα-null epidermal histology</td>
+</tr>
+<tr>
+<td>Lethal multiple-pterygium syndrome</td>
+<td>Multiple webs and akinesia, often involving neuromuscular-junction genes; lacks the characteristic membrane-like encasement</td>
+</tr>
+<tr>
+<td>Harlequin ichthyosis (<em>ABCA12</em>)</td>
+<td>Thick armor-like hyperkeratotic plates and eclabium/ectropion rather than thin membrane-like epidermis</td>
+</tr>
+<tr>
+<td>Amniotic-band sequence</td>
+<td>Asymmetric disruptions/constriction amputations; not recessively recurrent and lacks uniform abnormal epidermal differentiation</td>
+</tr>
+<tr>
+<td>Severe chromosomal disorder</td>
+<td>Excluded or clarified by karyotype/CMA and genomic sequencing</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Restrictive dermopathy’s accepted differential includes Neu–Laxova, Pena–Shokeir and lethal multiple-pterygium syndromes, reflecting the shared fetal-akinesia/tight-skin presentation. [253][265]</p>
+<h2>10.4 Screening</h2>
+<p>Cocoon syndrome is not included in population newborn screening because classic disease manifests prenatally and is lethal. Appropriate approaches are:</p>
+<ul>
+<li>cascade carrier testing in a molecularly diagnosed family;</li>
+<li>targeted prenatal diagnosis by chorionic-villus sampling or amniocentesis;</li>
+<li>preimplantation genetic testing for monogenic disease, PGT-M;</li>
+<li>carrier testing of reproductive partners where a familial pathogenic allele is known.</li>
+</ul>
+<hr />
+<h1>11. Outcome and prognosis</h1>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome domain</th>
+<th>Finding</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Survival</td>
+<td>No surviving patient with the classic complete-null fetal-encasement phenotype</td>
+</tr>
+<tr>
+<td>Five-/ten-year survival</td>
+<td>Not applicable</td>
+</tr>
+<tr>
+<td>Life expectancy</td>
+<td>Intrauterine lethal or pregnancy terminated after diagnosis</td>
+</tr>
+<tr>
+<td>Mortality rate</td>
+<td>Cannot be statistically calculated from two terminated pregnancies</td>
+</tr>
+<tr>
+<td>Recovery</td>
+<td>None expected because malformations arise during embryogenesis</td>
+</tr>
+<tr>
+<td>Principal morbidity</td>
+<td>Catastrophic craniofacial, limb, epidermal and abdominal-wall malformation</td>
+</tr>
+<tr>
+<td>Complications if gestation continued</td>
+<td>Likely airway/feeding impossibility, respiratory failure from craniofacial/diaphragmatic/lung abnormalities and cardiac compromise; largely inferred</td>
+</tr>
+<tr>
+<td>Prognostic factors</td>
+<td>Complete absence of IKKα predicts the severe classic phenotype; residual protein/function appears associated with less severe, sometimes surviving CHUK-related disease</td>
+</tr>
+<tr>
+<td>Validated prognostic biomarker</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Quality-of-life instruments</td>
+<td>None used</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The authors characterized complete CHUK loss as a “lethal inherited condition” and suggested that some affected conceptions may be recorded as miscarriages of unknown cause. [275][331]</p>
+<hr />
+<h1>12. Treatment</h1>
+<h2>12.1 Current treatment status</h2>
+<p>There is <strong>no disease-modifying pharmacotherapy, surgery, fetal intervention, gene therapy, RNA therapy or approved targeted therapy for classic Cocoon syndrome</strong>, and no Cocoon-specific interventional clinical trial or NCT identifier was identified.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Intervention category</th>
+<th>Current role</th>
+<th>Suggested NCIT term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Maternal–fetal medicine assessment</td>
+<td>Defines severity and associated anomalies; not curative</td>
+<td>Fetal Ultrasound, NCIT concept family</td>
+</tr>
+<tr>
+<td>Genetic counseling</td>
+<td>Explains inheritance, prognosis and reproductive options</td>
+<td>Genetic Counseling</td>
+</tr>
+<tr>
+<td>Pregnancy continuation with palliative planning</td>
+<td>Family-dependent; anticipatory neonatal comfort care if live birth is possible</td>
+<td>Palliative Care</td>
+</tr>
+<tr>
+<td>Pregnancy termination where legal and chosen</td>
+<td>Reproductive-management option, not treatment of the molecular disorder</td>
+<td>Pregnancy Termination</td>
+</tr>
+<tr>
+<td>Postmortem examination</td>
+<td>Confirms phenotype and improves recurrence counseling</td>
+<td>Autopsy</td>
+</tr>
+<tr>
+<td>Gene replacement/editing</td>
+<td>Theoretical only; no preclinical fetal-therapy program reported</td>
+<td>Gene Therapy; Genome Editing</td>
+</tr>
+<tr>
+<td>Pharmacotherapy</td>
+<td>None</td>
+<td>Not applicable</td>
+</tr>
+<tr>
+<td>Surgery</td>
+<td>No corrective procedure can address the multisystem embryonic malformations</td>
+<td>Not applicable</td>
+</tr>
+<tr>
+<td>Rehabilitation</td>
+<td>Not applicable to classic fetal-lethal disease</td>
+<td>Not applicable</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>IKK inhibitors would be mechanistically inappropriate for a complete loss-of-function syndrome. Conversely, delivering functional <em>CHUK</em> after major first-trimester structures have formed would probably be too late; this is an inference, not an experimentally tested therapeutic conclusion.</p>
+<p>No treatment response rates, adverse-event data, pharmacogenomic guidance or combination-therapy algorithms exist.</p>
+<hr />
+<h1>13. Prevention</h1>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Prevention level</th>
+<th>Applicable measure</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Primary prevention</td>
+<td>No diet, vaccine, lifestyle or environmental intervention prevents a recessive <em>CHUK</em> disorder</td>
+</tr>
+<tr>
+<td>Reproductive primary prevention</td>
+<td>Carrier identification, genetic counseling, donor gametes, PGT-M or use of an unaffected embryo</td>
+</tr>
+<tr>
+<td>Secondary prevention/early detection</td>
+<td>First-trimester ultrasound and targeted prenatal molecular testing</td>
+</tr>
+<tr>
+<td>Tertiary prevention</td>
+<td>No method prevents malformation progression after it is established; care focuses on informed pregnancy management and avoidance of nonbeneficial interventions</td>
+</tr>
+<tr>
+<td>Cascade screening</td>
+<td>Offer testing to adult relatives after a familial pathogenic variant is established</td>
+</tr>
+<tr>
+<td>Public-health screening</td>
+<td>Not justified by current prevalence and evidence</td>
+</tr>
+<tr>
+<td>Immunization/prophylaxis</td>
+<td>No disease-specific role</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>For two confirmed carriers, counseling should communicate the <strong>25% recurrence risk in each conception</strong>, independent of outcomes in previous pregnancies.</p>
+<hr />
+<h1>14. Other species and natural disease</h1>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Species/taxon</th>
+<th>Ortholog</th>
+<th>Natural Cocoon-like disease</th>
+<th>Relevance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Human, <em>Homo sapiens</em>—NCBI Taxon 9606</td>
+<td><em>CHUK</em>, NCBI Gene 1147</td>
+<td>Yes</td>
+<td>Target disease</td>
+</tr>
+<tr>
+<td>Mouse, <em>Mus musculus</em>—Taxon 10090</td>
+<td><em>Chuk</em>, NCBI Gene <strong>12675</strong>, <a href="https://bioregistry.io/MGI:99484" target="_blank" rel="noopener noreferrer">MGI:99484</a></td>
+<td>No documented spontaneous veterinary syndrome; engineered null models exist</td>
+<td>Best-established comparative model</td>
+</tr>
+<tr>
+<td>Rat, <em>Rattus norvegicus</em>—Taxon 10116</td>
+<td><em>Chuk</em>, NCBI Gene <strong>309361</strong></td>
+<td>None identified</td>
+<td>Ortholog, no established natural disease</td>
+</tr>
+<tr>
+<td>Zebrafish, <em>Danio rerio</em>—Taxon 7955</td>
+<td><em>chuk</em>, NCBI Gene <strong>393287</strong>, ZFIN:ZDB-GENE-040426-1069</td>
+<td>None identified</td>
+<td>Developmental/pathway ortholog</td>
+</tr>
+<tr>
+<td>Domestic dog/cat/livestock</td>
+<td>Conserved CHUK orthologs</td>
+<td>No verified naturally occurring fetal-encasement syndrome identified</td>
+<td>No current veterinary or breed-specific/VBO association</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>No evidence supports zoonotic transmission or cross-species infection. The mechanism is conserved developmental gene function, not transmissible disease. Ortholog records confirm mouse and zebrafish CHUK conservation and expression in developing structures. [162][163][115]</p>
+<hr />
+<h1>15. Model organisms</h1>
+<h2>15.1 Available models</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Resource/allele</th>
+<th>Phenotype recapitulation</th>
+<th>Limitations and applications</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Global <em>Chuk</em> null mouse</td>
+<td><strong>Chuk^tm1Aki</strong>, <a href="https://bioregistry.io/MGI:1857735" target="_blank" rel="noopener noreferrer">MGI:1857735</a></td>
+<td>Perinatal death; shiny, taut/adhesive abnormal epidermis; limb outgrowth failure and encasement; craniofacial defects</td>
+<td>Closely reproduces skin/limb phenotype but mice reach birth and human facial defects are more severe; useful for epidermal differentiation and NF-κB studies</td>
+</tr>
+<tr>
+<td>Global <em>Chuk</em> null mouse</td>
+<td><strong>Chuk^tm1Mka</strong>, <a href="https://bioregistry.io/MGI:1857768" target="_blank" rel="noopener noreferrer">MGI:1857768</a></td>
+<td>Rudimentary protruding limbs, absent/truncated tail and external ears, short snout, omphalocele and taut skin</td>
+<td>Same limitations; independently validates gene mechanism</td>
+</tr>
+<tr>
+<td>Global <em>Chuk/IKK1</em> null mouse</td>
+<td><strong>Chuk^tm1Ver</strong>, <a href="https://bioregistry.io/MGI:2386272" target="_blank" rel="noopener noreferrer">MGI:2386272</a></td>
+<td>Abnormal skin and skeleton, perinatal lethality</td>
+<td>Useful for confirming that phenotypes are not allele-construction artifacts</td>
+</tr>
+<tr>
+<td>Epidermis-specific rescue</td>
+<td>Epidermal <em>Ikka</em> transgene on null background</td>
+<td>Rescues epidermal differentiation and skeletal morphology</td>
+<td>Demonstrates epidermal control of mesodermal morphogenesis; does not model a human treatment</td>
+</tr>
+<tr>
+<td>Conditional keratinocyte knockout</td>
+<td>K5-Cre/K15-Cre with floxed <em>Chuk</em></td>
+<td>Epidermal hyperplasia, impaired differentiation and later skin pathology</td>
+<td>Useful for tissue-specific function; less representative of complete embryonic null disease</td>
+</tr>
+<tr>
+<td>Primary affected fetal fibroblasts</td>
+<td>Skin fibroblasts from the two human fetuses</td>
+<td>Low CHUK RNA, absent protein and altered developmental/ECM transcripts</td>
+<td>Irreplaceable human evidence but finite, non-keratinocyte-biased material</td>
+</tr>
+<tr>
+<td>Keratinocyte culture</td>
+<td>Experimental IKKα knockdown/knockout and rescue</td>
+<td>Failed terminal differentiation, persistent proliferation; Notch/TGF-β pathway interrogation</td>
+<td>Simplifies multicellular craniofacial and limb morphogenesis</td>
+</tr>
+<tr>
+<td>Zebrafish</td>
+<td><em>chuk</em> ortholog resources available</td>
+<td>Ortholog expressed in eye, nervous system, notochord, fin and segmental plate</td>
+<td>No well-validated Cocoon-specific zebrafish line identified</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>MGI recognizes three global null models for human fetal encasement syndrome. Homozygous null mice die neonatally and exhibit thickened taut adhesive skin that prevents appendages from protruding, absent whiskers, skeletal abnormalities and esophageal closure. [171][177][178][189]</p>
+<p>The landmark mouse abstract reported:</p>
+<blockquote>
+<p>“IKKalpha-deficient mice died perinatally. In IKKalpha-deficient fetuses, limb outgrowth was severely impaired despite unaffected skeletal development.”<br />
+— Takeda et al., <em>Science</em>, 9 April 1999; PMID <strong>10195895</strong>. [192]</p>
+</blockquote>
+<p>The models support an unusually strong cross-species genotype–phenotype relationship: global IKKα absence produces nearly the same skin-encased rudimentary limbs and craniofacial/body-wall abnormalities in humans and mice. The key species difference is timing—mice commonly survive until birth, while human complete-null disease appears lethal in utero.</p>
+<hr />
+<h1>Overall interpretation and knowledge-base recommendations</h1>
+<ol>
+<li><strong>Canonical entry:</strong> Cocoon syndrome / fetal encasement syndrome, <a href="http://purl.obolibrary.org/obo/MONDO_0013334" target="_blank" rel="noopener noreferrer">MONDO:0013334</a>, <a href="https://bioregistry.io/OMIM:613630" target="_blank" rel="noopener noreferrer">OMIM:613630</a>, <a href="https://bioregistry.io/ORPHA:465824" target="_blank" rel="noopener noreferrer">ORPHA:465824</a>.</li>
+<li><strong>Causal gene:</strong> <em>CHUK</em>; <a href="https://bioregistry.io/HGNC:1974" target="_blank" rel="noopener noreferrer">HGNC:1974</a>; autosomal recessive.</li>
+<li><strong>Defining molecular mechanism:</strong> Complete IKKα loss of function, established for homozygous c.1264C&gt;T, p.(Gln422Ter).</li>
+<li><strong>Core phenotypes:</strong> Severe craniofacial malformation, omphalocele, fetal akinesia, hypoplastic limbs bound to the trunk, membrane-like epidermis, absent terminal epidermal layers, muscle and skeletal hypoplasia.</li>
+<li><strong>Evidence strength:</strong> Mechanistically compelling human and mouse evidence, but extremely limited human case count.</li>
+<li><strong>Frequency representation:</strong> Use “2/2 molecularly confirmed fetuses” rather than generalized percentages.</li>
+<li><strong>Allelic-series warning:</strong> Surviving individuals with partial/hypomorphic <em>CHUK</em> dysfunction may have Bartsocas–Papas-, Hay–Wells-like or immunodeficiency phenotypes and should not be assigned the classic fetal-encasement prognosis solely because <em>CHUK</em> is involved.</li>
+<li><strong>Clinical actionability:</strong> Prenatal recognition, molecular confirmation, carrier testing, genetic counseling, PGT-M and targeted prenatal diagnosis; no disease-modifying treatment.</li>
+</ol>
+<h2>Key primary and recent sources</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Publication</th>
+<th>Date</th>
+<th>Evidence</th>
+<th>PMID/URL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lahtela J et al. “Mutant CHUK and severe fetal encasement malformation.” <em>N Engl J Med</em> 363:1631–1637</td>
+<td><strong>21 October 2010</strong></td>
+<td>Foundational human family, variant, fetal pathology, fibroblast functional studies</td>
+<td>PMID <strong>20961246</strong>; <a href="https://pubmed.ncbi.nlm.nih.gov/20961246/" target="_blank" rel="noopener noreferrer">https://pubmed.ncbi.nlm.nih.gov/20961246/</a> [58]</td>
+</tr>
+<tr>
+<td>Takeda K et al. “Limb and skin abnormalities in mice lacking IKKalpha.” <em>Science</em> 284:313–316</td>
+<td><strong>9 April 1999</strong></td>
+<td>Global null mouse</td>
+<td>PMID <strong>10195895</strong>; <a href="https://pubmed.ncbi.nlm.nih.gov/10195895/" target="_blank" rel="noopener noreferrer">https://pubmed.ncbi.nlm.nih.gov/10195895/</a> [192]</td>
+</tr>
+<tr>
+<td>Sil AK et al. “IκB kinase-alpha acts in the epidermis to control skeletal and craniofacial morphogenesis.” <em>Nature</em></td>
+<td><strong>8 April 2004</strong></td>
+<td>Epidermal rescue and FGF mechanism</td>
+<td>PMID <strong>15071597</strong>; <a href="https://pubmed.ncbi.nlm.nih.gov/15071597/" target="_blank" rel="noopener noreferrer">https://pubmed.ncbi.nlm.nih.gov/15071597/</a> [118]</td>
+</tr>
+<tr>
+<td>Cadieux-Dion M et al. “Novel heterozygous pathogenic variants in CHUK…” <em>BMC Med Genet</em></td>
+<td><strong>9 March 2018</strong></td>
+<td>Broader CHUK allelic spectrum</td>
+<td>PMID <strong>29523099</strong>; <a href="https://pubmed.ncbi.nlm.nih.gov/29523099/" target="_blank" rel="noopener noreferrer">https://pubmed.ncbi.nlm.nih.gov/29523099/</a> [32]</td>
+</tr>
+<tr>
+<td>Skin manifestations of inborn errors of NF-κB</td>
+<td><strong>17 January 2023</strong></td>
+<td>Current synthesis of kinase-independent keratinocyte role</td>
+<td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9888762/" target="_blank" rel="noopener noreferrer">https://pmc.ncbi.nlm.nih.gov/articles/PMC9888762/</a> [138]</td>
+</tr>
+<tr>
+<td>Riller Q et al. “Compound heterozygous mutations in the kinase domain of IKKα…”</td>
+<td><strong>17 May 2024</strong>, preprint</td>
+<td>Kinase-domain CHUK disease, canonical/noncanonical signaling and rescue</td>
+<td>PMID <strong>38798321</strong>; <a href="https://pubmed.ncbi.nlm.nih.gov/38798321/" target="_blank" rel="noopener noreferrer">https://pubmed.ncbi.nlm.nih.gov/38798321/</a> [147]</td>
+</tr>
+</tbody>
+</table></div></details>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>14</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMC:PMC7275878</code> (1 mention) - The genetic basis of pneumococcal and staphylococcal infections: inborn errors of human TLR and IL-1R immunity.</li>
+<li>shared terms: disease</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>syndrome</code>, <code>chuk</code>, <code>fetal</code>, <code>ikk</code>, <code>cocoon</code>, <code>phenotype</code>, <code>limb</code>, <code>disease</code>, <code>severe</code>, <code>family</code>, <code>classic</code>, <code>confirmed</code>, <code>encasement</code>, <code>skin</code>, <code>fetuse</code>, <code>gene</code>, <code>epidermal</code>, <code>craniofacial</code>, <code>malformation</code>, <code>protein</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>70</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>63</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0013334</code> (3 mentions) - the report calls it "MONDO"; MONDO calls it <strong>cocoon syndrome</strong></li>
+<li><code>DOID:0060647</code> (3 mentions) - the report calls it "Disease Ontology"; DOID calls it <strong>fetal encasement syndrome</strong></li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>OMIM</code>, <code>ORPHA</code>, <code>MGI</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Cockayne_Syndrome-falcon.html">← Cockayne Syndrome (Falcon)</a>
+                
+                
+                <a href="CODAS_Syndrome-openscientist.html">CODAS Syndrome (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Cocoon_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Cocoon_Syndrome-deep-research-perplexity.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-perplexity" aria-current="page">Perplexity</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

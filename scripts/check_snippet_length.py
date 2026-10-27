@@ -25,12 +25,22 @@ it would have caught the cluster above with no network at all.
 Signal
 ------
 A reference/snippet pair whose snippet holds fewer than
-:data:`MIN_SNIPPET_WORDS` words.
+:data:`MIN_SNIPPET_WORDS` words. In Chinese and Japanese text, which does not
+put spaces between words, each Han or kana character counts as one word (see
+:func:`count_words`).
 
 Structured-database rows are exempt. A quoted row from an Orphanet, ClinGen,
 ICEES, or NCIT cache file (``HP:0001987 | Hyperammonemia | Very frequent
 (99-80%)``) is short in words but fully propositional, and its pipe-delimited
 shape identifies it unambiguously.
+
+Orphanet records also carry short facts as one-line bullets rather than table
+rows -- ``- Autosomal dominant`` under ``## Inheritance``, ``- Age of onset:
+Infancy`` under ``## Natural history`` -- which have no pipe to key on. A snippet
+citing an ``ORPHA:`` reference is exempt when it equals a whole line of that
+record's cached body in ``references_cache/``, with or without the ``- ``
+bullet (issue #14443). The match is a whole line, never a substring, so a
+fragment of a longer sentence in the same record is still flagged.
 
 Baseline ratchet
 ----------------
@@ -70,20 +80,24 @@ import sys
 import tarfile
 import tempfile
 from collections import Counter
+from functools import cache
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "src") not in sys.path:  # pragma: no cover - import bootstrap
     sys.path.insert(0, str(ROOT / "src"))
 
+from dismech import kb_cache
+from dismech.disk_full import reports_disk_full
+from dismech.kb_cache import load_document
 from dismech.reference_snippet_audit import (
     DEFAULT_SCHEMA,
     discover_field_names,
     iter_snippet_pairs,
 )
-from dismech.yaml_io import safe_load
 
 SCAN_DIR = ROOT / "kb"
+CACHE_DIR = ROOT / "references_cache"
 BASELINE_PATH = ROOT / "tests" / "snippet_length_baseline.txt"
 
 # When set (CI sets it to ``origin/main``), the grandfather baseline is derived
@@ -97,16 +111,38 @@ BASELINE_REF_ENV = "SNIPPET_BASELINE_REF"
 MIN_SNIPPET_WORDS = 5
 
 # A token counts as a word if it contains a letter or a digit, so "c.142G" and
-# "18F-FDOPA" count once and stray punctuation counts for nothing.
-_WORD_RE = re.compile(r"[^\s]*[A-Za-z0-9][^\s]*")
+# "18F-FDOPA" count once and stray punctuation counts for nothing. Hangul
+# syllables count as letters here: Korean separates words with spaces, so a
+# whitespace token is already a word (issue #11530).
+_WORD_RE = re.compile(r"[^\s]*[A-Za-z0-9\uac00-\ud7a3][^\s]*")
+
+# Chinese and Japanese do not separate words with spaces, so a whole sentence is
+# one whitespace token, or none if it has no Latin letter or digit -- which left
+# every snippet from a Chinese- or Japanese-language abstract below the floor,
+# however long, and such a paper uncitable (issue #11530). Each Han ideograph and
+# each kana counts as one word instead, the usual approximation (one character is
+# roughly one morpheme). Kana: U+3040-U+30FF, minus the middle dot and length
+# mark (U+30FB-U+30FC), which are punctuation-like. Han: CJK Unified Ideographs
+# and Extension A. These ranges share no character with the Latin class above,
+# so no Latin-script snippet's count changes.
+_CJK_RE = re.compile(r"[\u3040-\u30fa\u30fd-\u30ff\u3400-\u4dbf\u4e00-\u9fff]")
 
 # A pipe-delimited row quoted out of a structured-source cache file.
 _TABLE_ROW_RE = re.compile(r"\S\s*\|\s*\S")
 
+# Structured prefixes whose records hold short facts as whole bullet lines.
+# CGGV/CGDS/ICEES/NCIT records are pipe tables throughout, so the row rule
+# above already covers them (issue #14443).
+RECORD_LINE_PREFIXES = frozenset({"ORPHA"})
+
 
 def count_words(snippet: str) -> int:
-    """Number of word-like tokens in *snippet*."""
-    return len(_WORD_RE.findall(snippet))
+    """Number of word-like tokens in *snippet*.
+
+    Whitespace-delimited tokens carrying a Latin letter, digit, or Hangul
+    syllable, plus one per Han or kana character.
+    """
+    return len(_WORD_RE.findall(snippet)) + len(_CJK_RE.findall(snippet))
 
 
 def is_structured_row(snippet: str) -> bool:
@@ -114,11 +150,61 @@ def is_structured_row(snippet: str) -> bool:
     return bool(_TABLE_ROW_RE.search(snippet))
 
 
-def find_violations(path: Path, data, excerpt_fields, reference_fields):
+def _record_line(text: str) -> str:
+    """*text* with whitespace collapsed and any leading ``- `` bullet dropped."""
+    line = " ".join(text.split())
+    return line.removeprefix("- ")
+
+
+@cache
+def _record_lines(cache_file: Path) -> frozenset[str]:
+    """Every ``- `` bullet line in a cached structured record's body, normalized.
+
+    Only bullets are record fields. A heading (``## Inheritance``) or the title
+    line is also a whole line, but quoting one claims nothing (#15276 review).
+    """
+    try:
+        text = cache_file.read_text(encoding="utf-8")
+    except OSError:
+        return frozenset()
+    if text.startswith("---"):
+        # Drop the YAML frontmatter: its lines are metadata, not record fields.
+        _, _, rest = text[3:].partition("\n---")
+        text = rest
+    return frozenset(
+        line
+        for line in (
+            _record_line(raw) for raw in text.splitlines() if raw.lstrip().startswith("- ")
+        )
+        if line
+    )
+
+
+def is_record_line(reference: str, snippet: str, cache_dir: Path = CACHE_DIR) -> bool:
+    """True when *snippet* is a whole bullet line of a structured record it cites.
+
+    Only :data:`RECORD_LINE_PREFIXES` qualify, and only against the record's
+    own cache file, so the same words under a PMID are still a bare label.
+    """
+    prefix, sep, local_id = reference.strip().partition(":")
+    if not sep or prefix.upper() not in RECORD_LINE_PREFIXES or not local_id:
+        return False
+    line = _record_line(snippet)
+    if not line:
+        return False
+    cache_file = cache_dir / f"{prefix.upper()}_{local_id}.md"
+    return line in _record_lines(cache_file)
+
+
+def find_violations(
+    path: Path, data, excerpt_fields, reference_fields, cache_dir: Path = CACHE_DIR
+):
     """Yield ``(location, words, snippet)`` for too-short snippets in *data*."""
     for pair in iter_snippet_pairs(path, data, excerpt_fields, reference_fields):
         snippet = pair.snippet.strip()
         if is_structured_row(snippet):
+            continue
+        if is_record_line(pair.reference_id, snippet, cache_dir):
             continue
         words = count_words(snippet)
         if words < MIN_SNIPPET_WORDS:
@@ -144,8 +230,7 @@ def scan_repo(
     findings = []
     for path in sorted(scan_dir.rglob("*.yaml")):
         try:
-            with path.open(encoding="utf-8") as handle:
-                data = safe_load(handle)
+            data = load_document(path)
         except Exception as exc:
             # Not this check's job to gate on malformed YAML (`validate-all`
             # does that), but skipping silently would make the file invisible
@@ -314,7 +399,12 @@ def new_findings(findings, baseline: Counter):
     return new
 
 
+@reports_disk_full("check-snippet-length")
 def main(argv=None) -> int:
+    # One walk over kb/ per run, so the shared-parse cache would cost a hash
+    # per file and 500 MB of retention for no hits. Under pytest, which
+    # imports scan_repo directly alongside the other scans, it stays on.
+    kb_cache.default_off()
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
@@ -379,7 +469,8 @@ def main(argv=None) -> int:
         for rel, location, words, snippet in new:
             print(f"{rel}:{location}: {words} word(s): {snippet!r}")
         print(f"\n{len(new)} new finding(s). Pipe-delimited structured-source rows")
-        print("(ORPHA/ClinGen/ICEES/NCIT tables) are exempt.")
+        print("(ORPHA/ClinGen/ICEES/NCIT tables) are exempt, as is a whole line of")
+        print("a cited ORPHA record (`- Autosomal dominant`).")
         if args.against_ref or os.environ.get(BASELINE_REF_ENV):
             # A ref baseline (CI) never reads tests/snippet_length_baseline.txt,
             # so --update-baseline would pass locally, still fail CI, and commit

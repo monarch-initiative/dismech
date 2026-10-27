@@ -171,7 +171,7 @@ Brucellosis is a zoonotic infectious disease caused by bacteria of the genusBruc
 
 Citation:Loubet P, Magnan C, Salipante F, Pastre T, Keriel A, O’Callaghan D, et al.  (2024) Diagnosis of brucellosis: Combining tests to improve performance. PLoS Negl Trop Dis 18(9):
            e0012442.
-        
+
         https://doi.org/10.1371/journal.pntd.0012442
 
 Editor:Joseph M. Vinetz, Yale University School of Medicine, UNITED STATES OF AMERICA

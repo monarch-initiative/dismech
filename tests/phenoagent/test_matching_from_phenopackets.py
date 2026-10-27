@@ -4,7 +4,9 @@ from pathlib import Path
 
 import pytest
 from linkml.validator import Validator
+from linkml.validator.plugins import JsonschemaValidationPlugin
 
+from phenoagent import matching
 from phenoagent.matching import (
     build_matching_run_from_phenopacket,
     extract_case_phenotypes_from_phenopacket,
@@ -34,7 +36,10 @@ def test_build_matching_run_from_phenopacket_validates(fixture_name: str, diseas
     )
 
     assert run["matches"], "Expected at least one match row"
-    validator = Validator(MATCHING_SCHEMA_PATH)
+    validator = Validator(
+        MATCHING_SCHEMA_PATH,
+        validation_plugins=[JsonschemaValidationPlugin(closed=True)],
+    )
     report = validator.validate(run, target_class="MatchingRun")
     errors = [result for result in report.results if result.severity.name == "ERROR"]
     assert not errors, f"Validation errors for {fixture_name}: {[str(e) for e in errors]}"
@@ -75,14 +80,26 @@ def test_local_phenopacket_store_examples_if_present(relative_path: str, disease
         run_id=f"test-{phenopacket.get('id', 'unknown')}",
     )
 
-    validator = Validator(MATCHING_SCHEMA_PATH)
+    validator = Validator(
+        MATCHING_SCHEMA_PATH,
+        validation_plugins=[JsonschemaValidationPlugin(closed=True)],
+    )
     report = validator.validate(run, target_class="MatchingRun")
     errors = [result for result in report.results if result.severity.name == "ERROR"]
     assert not errors, f"Validation errors for {phenopacket_path}: {[str(e) for e in errors]}"
 
 
-def test_fanconi_matching_has_exact_hits_for_known_terms():
-    """Terms shared between case and Fanconi model should resolve as exact."""
+@pytest.mark.parametrize("ancestry_available", [False, True])
+def test_fanconi_matching_has_exact_hits_for_known_terms(monkeypatch, ancestry_available):
+    """Shared terms match exactly; broad anemia must not equal aplastic anemia."""
+    # Exercise both the offline fallback and the known HPO is-a relationship,
+    # without depending on whether this machine has the optional HPO database.
+    monkeypatch.setattr(
+        matching._HP_ISA,
+        "is_strict_descendant_of",
+        lambda child, ancestor: ancestry_available
+        and (child, ancestor) == ("HP:0001915", "HP:0001903"),
+    )
     phenopacket = load_phenopacket(PHENOPACKET_DIR / "PMID_35451551_proband.min.json")
     run = build_matching_run_from_phenopacket(
         phenopacket,
@@ -93,8 +110,19 @@ def test_fanconi_matching_has_exact_hits_for_known_terms():
     by_case_id = {row["case_term_id"]: row for row in run["matches"] if row.get("case_term_id")}
     assert by_case_id["HP:0001873"]["model_term_id"] == "HP:0001873"
     assert by_case_id["HP:0001873"]["exact"] is True
-    assert by_case_id["HP:0001903"]["model_term_id"] == "HP:0001903"
-    assert by_case_id["HP:0001903"]["exact"] is True
+    anemia = by_case_id["HP:0001903"]
+    assert anemia["exact"] is False
+    if ancestry_available:
+        assert anemia["model_term_id"] == "HP:0001915"
+        assert anemia["case_is_broader"] is True
+        assert anemia["case_is_narrower"] is False
+    else:
+        assert "model_term_id" not in anemia
+        assert anemia["case_is_broader"] is False
+        assert any(
+            row.get("model_term_id") == "HP:0001915" and "case_term_id" not in row
+            for row in run["matches"]
+        )
 
 
 def test_fanconi_unmatched_model_terms_are_emitted_as_model_only_rows():

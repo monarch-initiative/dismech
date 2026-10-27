@@ -37,6 +37,8 @@ import glob
 import os
 from collections import defaultdict
 
+from dismech import kb_cache
+from dismech.kb_cache import load_document
 from dismech.nec_risk import (
     ACRONYM_RE,
     NON_EPONYM_WORDS,
@@ -47,7 +49,6 @@ from dismech.nec_risk import (
     eponyms_in,
     series_hits,
 )
-from dismech.yaml_io import safe_load
 
 # The detection logic itself lives in ``dismech.nec_risk`` so the priority
 # dashboard can reuse it against *uncurated* MONDO candidates. This script is
@@ -75,8 +76,7 @@ def load_entries():
         if path.endswith(".history.yaml"):
             continue
         try:
-            with open(path) as fh:
-                data = safe_load(fh)
+            data = load_document(path)
         except Exception:
             continue
         if not isinstance(data, dict):
@@ -175,6 +175,10 @@ def print_markdown(rows, findings):
 
 
 def main():
+    # One walk over kb/ per run, so the shared-parse cache would cost a hash
+    # per file and 500 MB of retention for no hits. Under pytest, which
+    # imports scan_repo directly alongside the other scans, it stays on.
+    kb_cache.default_off()
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--markdown", action="store_true", help="emit full markdown report")
     args = ap.parse_args()

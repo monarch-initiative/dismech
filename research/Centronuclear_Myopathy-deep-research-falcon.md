@@ -1313,3 +1313,40 @@ References
 - [Edison artifact artifact-00](Centronuclear_Myopathy-deep-research-falcon_artifacts/artifact-00.md)
 - [Edison artifact artifact-01](Centronuclear_Myopathy-deep-research-falcon_artifacts/artifact-01.md)
 ![## Context ID: pqac-00000041 Table 2 summarizes the common conditions and procedures/services related to XLMTM in the study population. It includes frequencies ](Centronuclear_Myopathy-deep-research-falcon_artifacts/image-1.png)
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.3.0rc3.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 10 |
+| Resolved | 10 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| References weighed for topical relevance | 10 |
+| On topic | 7 |
+| Off topic | 0 |
+
+All extracted references resolved successfully.
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 10 |
+| Resolved | 10 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 0 |
+| Unverifiable | 0 |
+| Terms whose name was checked | 1 |
+| Terms named correctly | 0 |
+| Terms named as a **different** term | 1 |
+
+### Terms the report names something else
+
+These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:
+
+- `HP:0001396` (1 mention) - the report calls it "XLMTM hepatobiliary complications"; HP calls it **Cholestasis**

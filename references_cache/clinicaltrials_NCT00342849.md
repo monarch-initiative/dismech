@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00342849"
+reference_id: clinicaltrials:NCT00342849
 title: Treatment of Lead-Exposed Children (TLC) Trial
 content_type: summary
+full_text_attempted: true
 ---
 
 # Treatment of Lead-Exposed Children (TLC) Trial

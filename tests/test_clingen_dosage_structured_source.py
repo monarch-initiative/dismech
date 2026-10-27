@@ -272,3 +272,24 @@ def test_serialize_accepts_native_bare_and_url_identifiers(
     entry = dosage_source.serialize(identifier)
     assert entry.reference_id == AAGAB_ID
     assert entry.title == "AAGAB dosage sensitivity"
+
+
+def test_dosage_snapshot_date_comes_from_the_csv_read_not_the_manifest(
+    dosage_source: ClinGenDosageSource, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    # Same provenance rule as the gene-validity source (dismech#13575): the
+    # manifest pin can be newer or older than the file on disk, so the stamp
+    # must come from the file that was parsed.
+    for attr in ("bulk_files", "_manifest_snapshot_date", "_manifest_schema_tag"):
+        monkeypatch.setattr(
+            ClinGenDosageSource,
+            attr,
+            getattr(ClinGenDosageSource, attr, None),
+            raising=False,
+        )
+    manifest = tmp_path / "MANIFEST.yaml"
+    manifest.write_text(
+        "snapshot_date: '2026-10-04'\nbulk_files: []\n", encoding="utf-8"
+    )
+    ClinGenDosageSource.load_manifest(manifest)
+    assert dosage_source.snapshot_date == "2026-05-09"

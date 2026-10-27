@@ -42,12 +42,14 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from dismech.yaml_io import find_duplicate_keys
 
-# Curated KB content, plus the two hand-edited YAML trees whose duplicates would be
-# exactly as silent: a repeated key in the schema or in an OAK/validator config is
-# swallowed by PyYAML the same way a repeated `classifications:` is. ``history`` is
-# excluded for the same reason the folded-hyphen guard excludes it: those records are
-# append-only, so a finding there cannot be fixed in place.
-DEFAULT_ROOTS = ("kb", "src/dismech/schema", "conf")
+# Curated KB content, plus the hand-edited YAML trees whose duplicates would be
+# exactly as silent: a repeated key in the schema, in an OAK/validator config, or in
+# a curation stub is swallowed by PyYAML the same way a repeated `classifications:`
+# is. ``stubs`` is included because it has the merge-race shape this check exists for
+# — many small files edited by many concurrent PRs. ``history`` is excluded for the
+# same reason the folded-hyphen guard excludes it: those records are append-only, so a
+# finding there cannot be fixed in place.
+DEFAULT_ROOTS = ("kb", "stubs", "src/dismech/schema", "conf")
 
 
 def iter_yaml_files(paths: list[str]) -> list[Path]:

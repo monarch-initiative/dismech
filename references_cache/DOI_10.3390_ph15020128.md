@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.3390/ph15020128
+extractor_version: 1
 title: "Discovery, Development, Inventions and Patent Review of Fexinidazole: The First All-Oral Therapy for Human African Trypanosomiasis"
 authors:
 - Mohd Imran
@@ -16,7 +17,7 @@ journal: Pharmaceuticals
 year: '2022'
 doi: 10.3390/ph15020128
 content_type: abstract_only
-full_text_attempted: true
+is_preprint: false
 ---
 
 # Discovery, Development, Inventions and Patent Review of Fexinidazole: The First All-Oral Therapy for Human African Trypanosomiasis

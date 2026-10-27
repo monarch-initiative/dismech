@@ -59,6 +59,27 @@ The reference format is `"module_name#Node Name"` — `module_name` is the modul
 filename in `kb/modules/` (without `.yaml`); `Node Name` matches a
 pathophysiology `name` in that module.
 
+### A node that is an instance of two modules
+
+A node can be a genuine instance of more than one module node — a germline
+PTEN loss is both a constitutional first hit (`germline_two_hit_tumor_predisposition`)
+and loss of an mTORC1 brake (`mtorc1_hyperactivation`). List every reference
+rather than picking one:
+
+```yaml
+- name: PTEN loss and PI3K AKT mTOR activation
+  conforms_to:
+  - "germline_two_hit_tumor_predisposition#Constitutional First-Hit Tumor Suppressor Inactivation"
+  - "mtorc1_hyperactivation#Loss of an Upstream mTORC1 Negative Regulator"
+```
+
+The single-string form stays valid, so existing entries need no change. Each
+list item is foreign-key checked, and listing the same reference twice on one
+node is an error. Code reads the slot through
+`dismech.conformance.iter_conforms_to`, which returns a list for either
+spelling; never test `isinstance(node["conforms_to"], str)`, which silently
+skips the list form.
+
 ## Principles
 
 - **Same schema.** Modules validate against the `Disease` class, just like disorder files.
@@ -72,12 +93,18 @@ There are many modules (conserved fibrosis, lysosomal storage, aortopathy
 TGF-β dysregulation, ciliopathy, cardiac ion-channel repolarization, and a large
 family of "disease-like phenotype" final-common-pathway modules such as
 osteoporosis, glaucoma, cataract, PAH, and more). The authoritative, current
-list — with each module's key conformance target — lives in the project
-`CLAUDE.md` under **"Mechanism Modules"**, alongside the module YAML in
-`kb/modules/`.
+list *is* `kb/modules/` itself — there is no hand-maintained catalog to consult,
+because one drifted out of date. To see every module with its description and
+its `module#Node Name` conformance targets:
+
+```bash
+just list-modules            # all modules
+just list-modules inflamm    # filter by name, description, or node
+```
 
 ## Go deeper
 
-- `CLAUDE.md` → "Mechanism Modules" (full module catalog + conformance targets).
+- `CLAUDE.md` → "Mechanism Modules" (conformance mechanics + thematic module families).
+- `just list-modules` → the live module catalog with conformance targets.
 - [Schema: Pathophysiology](../schema/classes/Pathophysiology.md) · [CausalEdge](../schema/classes/CausalEdge.md) · [MechanisticHypothesis](../schema/classes/MechanisticHypothesis.md)
 - [Data Model overview](../data-model.md)

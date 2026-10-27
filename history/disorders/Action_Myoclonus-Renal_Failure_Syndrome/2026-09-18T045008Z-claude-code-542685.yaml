@@ -1,0 +1,101 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Action_Myoclonus-Renal_Failure_Syndrome
+  path: kb/disorders/Action_Myoclonus-Renal_Failure_Syndrome.yaml
+session:
+  id: 2026-09-18T045008Z-claude-code-542685
+  timestamp: '2026-09-18T04:50:08Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/11989
+  urls: []
+events:
+- type: REVIEW
+  outcome: changed
+  sections:
+  - animal_models
+  - notes
+  summary: 'Review round 4: fix merge-queue CI failure and move review provenance
+    out of notes'
+  details: |
+    Two changes, both prompted by events after the round-4 approval.
+
+    1. Merge-queue CI failure, and the reason it was invisible until then.
+
+    GitHub's merge queue ejected #11989 from its batch with CI_FAILURE. The
+    failing job was `test (3.13)` in run 35304793909, and the single failure was
+    this entry:
+
+      check_upward_extrapolating_links_are_caveated
+      animal_models[0].modeled_mechanisms[3] (MOLECULAR model -> CELLULAR target,
+      gap +1) missing limitations (or a typed divergence)
+
+    The link is the Limp2-null mouse against `Reduced Lysosomal Glucocerebrosidase
+    Activity`. The node is `biological_scale: CELLULAR`; the link declares
+    `model_scale: MOLECULAR`. That is a real one-step upward extrapolation and the
+    gate is right to require a caveat: the other three links on this model each
+    carry `limitations` and this one did not.
+
+    The fix is a `limitations` block, not a change of `model_scale`. What
+    PMID:40639771 measures is enzyme activity, by activity assay and
+    activity-based probe, in whole-tissue preparations and in isolated
+    leukocytes, which is a molecular quantity. Relabelling the link CELLULAR to
+    clear the gate would have asserted an observation the paper does not make.
+    The caveat records what the gap actually is: a whole-tissue activity assay
+    cannot attribute residual activity to a cell type within that tissue, so the
+    leukocyte-versus-tissue contrast is the only cell-resolved comparison the
+    mouse supplies, and the node's finer claim (fibroblasts and neuronal cells
+    entirely LIMP-2-dependent, blood cells not) rests on the human data already
+    cited on that node: PMID:18424452 and PMID:26018676.
+
+    Why no earlier round caught it: `just test-kb`, which runs the per-file
+    checks in tests/test_data.py, is gated in .github/workflows/main.yaml on the
+    `schema` paths filter (src/dismech/schema/**, src/dismech/groupings.py,
+    src/dismech/entity_refs.py, tests/test_data.py). A curation PR that adds a new
+    kb/disorders entry matches the `kb_disorders` filter, which runs
+    `just validate-disorders` (schema, terms, references), but matches neither
+    `schema` nor `python`. So this entry's per-file check battery first ran in the
+    merge queue, where a failure ejects the whole batch rather than one PR. The
+    failure reproduces on the unchanged branch head, so it was present from the
+    first push and survived three review rounds, none of which ran it. This is
+    the same shape as the gap recorded in CLAUDE.md for check_entity_ref_foreign_keys
+    (#9473) and for enum narrowing (#10061), both of which were answered by moving
+    the check to an ungated whole-KB CI step.
+
+    2. Round-3 correction moved here from the entry's `notes:`.
+
+    The round-4 review's one non-blocking suggestion was that the "Correction,
+    round 3" paragraph is review provenance sitting in rendered disease content,
+    and belongs in a history record. This push is the next edit to the entry, so
+    it is folded in here and removed from `notes:`. Its text, preserved:
+
+      An earlier version of this block claimed that no reference cached here
+      stated giant somatosensory evoked potentials for AMRF in quotable text.
+      That was false. PMID:35346091 states it in its Content body, for a confirmed
+      p.N45MfsX88 homozygote, and this PR committed that cache. The claim was
+      written without searching the file it was about, and it is recorded rather
+      than quietly removed because a false statement about repository state is
+      worse than a gap: it tells the next curator not to look. Giant SEP is now
+      curated in diagnosis, with the intrafamilial variability the same paper's
+      Table 1 shows.
+
+    The evidence item itself is untouched; only the meta-commentary moved.
+
+    Validation on this push: `just validate` clean (schema, terms, 56/56 snippets
+    verified); pytest tests/test_data.py for this entry passes, having failed
+    before the change; check-duplicate-keys, check-entity-refs,
+    check-causal-targets, check-enum-values, check-qualifier-terms clean;
+    `just model-scale-audit --strict` exits 0 with no finding on this entry;
+    check-snippet-grading clean against origin/main. check-snippet-length and
+    check-title-snippets report findings only in Epidermolysis_Bullosa,
+    Meningioma, Fibrochondrogenesis, Warburg_Micro_Syndrome and
+    Tall_Stature-Intellectual_Disability-Renal_Anomalies_Syndrome, none of which
+    this PR touches; the branch is behind main, so those are fixes present on main
+    and absent from this older tree.

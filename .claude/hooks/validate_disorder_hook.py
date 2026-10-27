@@ -24,9 +24,20 @@ term caches (`fix-references-cache`, `normalize-cache`) and attempts full-text
 downloads, so firing it on every edit was both slow and a source of working-tree
 churn. `validate-pre-edit` runs the same validators without the mutating steps,
 and blocks only on schema and term errors — see its comment in project.justfile.
+
+Shared environment (dismech#13119): `validate-pre-edit` calls `uv run`, and a
+fresh worktree has no `.venv`, so the first disorder edit in each worktree made
+uv build a complete environment there (72 MB to ~1 GB each), which filled the
+disk during parallel curation. The hook does not inherit a curator's
+`UV_PROJECT_ENVIRONMENT`, so it now selects the primary checkout's `.venv`
+itself — but only when the worktree's `pyproject.toml` and `uv.lock` match the
+primary's byte for byte, and with `UV_NO_SYNC=1`, so the hook never re-syncs
+the shared environment or repoints its editable install at a worktree. The
+schema and data are read by path from the worktree's cwd either way.
 """
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -34,6 +45,53 @@ from pathlib import Path
 
 # Side-effect-free counterpart of `just validate`; see project.justfile.
 VALIDATE_RECIPE = "validate-pre-edit"
+
+# Printed by `validate-pre-edit` when term lookup could not reach the ontology
+# service (dismech#12634). The edit is allowed, but its terms were not checked.
+TERMS_NOT_CHECKED_MARKER = "TERMS NOT CHECKED"
+TERMS_NOT_CHECKED_CONTEXT = (
+    "Pre-edit validation allowed this edit, but the ontology service did not "
+    "answer. The terms listed below were NOT checked; every other term was "
+    "rechecked offline against the local cache and had no errors. Run "
+    "`just validate-terms` "
+    "on this file once the service is reachable, and do not change a term just "
+    "because it could not be looked up."
+)
+# Lines the recipe prints for each term it could not check (dismech#12658).
+NOT_CHECKED_LINE_PREFIX = "not checked:"
+# Keeps the context short when a file adds many new terms at once.
+MAX_NOT_CHECKED_LINES = 20
+
+
+def terms_not_checked_notice(output: str) -> str | None:
+    """
+    JSON for the hook's stdout when the edit passed with terms unchecked.
+
+    Stderr from a hook that exits 0 is not shown to the model, so the warning is
+    passed as `additionalContext` instead. No `permissionDecision` is set: the
+    hook only adds context and never approves a tool call on its own authority.
+    """
+    if TERMS_NOT_CHECKED_MARKER not in output:
+        return None
+    unchecked = [
+        line.strip()
+        for line in output.splitlines()
+        if line.strip().startswith(NOT_CHECKED_LINE_PREFIX)
+    ]
+    context = TERMS_NOT_CHECKED_CONTEXT
+    if unchecked:
+        shown = unchecked[:MAX_NOT_CHECKED_LINES]
+        if len(unchecked) > len(shown):
+            shown.append(f"... and {len(unchecked) - len(shown)} more")
+        context += "\n" + "\n".join(shown)
+    return json.dumps(
+        {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "additionalContext": context,
+            }
+        }
+    )
 
 
 def find_project_root(file_path: Path) -> Path | None:
@@ -67,6 +125,60 @@ def recipe_available(project_root: Path, recipe: str) -> bool:
         check=False,
     )
     return result.returncode == 0
+
+
+# Files that decide what a uv environment contains. A worktree may reuse the
+# primary checkout's environment only when all of these match (dismech#13119).
+DEPENDENCY_FILES = ("pyproject.toml", "uv.lock")
+
+
+def primary_checkout(project_root: Path) -> Path | None:
+    """The checkout holding the shared `.git` directory, or None outside git."""
+    result = subprocess.run(
+        ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        capture_output=True,
+        text=True,
+        cwd=project_root,
+        check=False,
+    )
+    common_dir = result.stdout.strip()
+    if result.returncode != 0 or not common_dir:
+        return None
+    return Path(common_dir).parent
+
+
+def validation_env(project_root: Path, environ: dict | None = None) -> dict:
+    """
+    Environment for the validation subprocess (dismech#13119).
+
+    Points uv at the primary checkout's `.venv` when `project_root` is a
+    worktree with no environment of its own and the same dependency files as
+    the primary. Anything else leaves the environment as it was: an explicit
+    `UV_PROJECT_ENVIRONMENT` wins, a worktree that already has a `.venv` keeps
+    it, and a worktree whose dependencies differ needs its own environment.
+    """
+    env = dict(os.environ if environ is None else environ)
+    if "UV_PROJECT_ENVIRONMENT" in env:
+        return env
+    if (project_root / ".venv").exists():
+        return env
+    primary = primary_checkout(project_root)
+    if primary is None or primary.resolve() == project_root.resolve():
+        return env
+    primary_venv = primary / ".venv"
+    if not primary_venv.is_dir():
+        return env
+    for name in DEPENDENCY_FILES:
+        ours, theirs = project_root / name, primary / name
+        if not (ours.is_file() and theirs.is_file()):
+            return env
+        if ours.read_bytes() != theirs.read_bytes():
+            return env
+    env["UV_PROJECT_ENVIRONMENT"] = str(primary_venv)
+    # Never let a worktree's `uv run` re-sync the shared environment: that
+    # would repoint the primary's editable install at this worktree.
+    env["UV_NO_SYNC"] = "1"
+    return env
 
 
 def simulate_edit(file_path: Path, old_string: str, new_string: str) -> str:
@@ -129,6 +241,7 @@ def validate_content(
             capture_output=True,
             text=True,
             cwd=project_root,
+            env=validation_env(project_root),
             check=False,
         )
 
@@ -210,6 +323,13 @@ def main():
         print("Fix the issues above before proceeding.", file=sys.stderr)
         print("=" * 60 + "\n", file=sys.stderr)
         sys.exit(2)  # Block the operation
+
+    notice = terms_not_checked_notice(output)
+    if notice is not None:
+        print("⚠ Allowing edit, but ontology terms were NOT checked", file=sys.stderr)
+        print("=" * 60 + "\n", file=sys.stderr)
+        print(notice)
+        sys.exit(0)
 
     print("✓ Validation passed - allowing edit", file=sys.stderr)
     print("=" * 60 + "\n", file=sys.stderr)

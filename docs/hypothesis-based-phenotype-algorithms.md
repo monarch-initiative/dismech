@@ -20,7 +20,7 @@ skeletal-muscle RYR1/CACNA1S — the first non-cardiac example, whose definition
 `AlgorithmValidationStatus` object: `status` + `rationale` + optional
 `evidence`), and reuses `attaches_to` to link the pathograph node(s) it is
 predicated on. A gating test
-(`test_hypothesis_based_definition_attaches_to_foreign_keys`) enforces that a
+(`check_hypothesis_based_definition_attaches_to_foreign_keys`) enforces that a
 `MECHANISTIC_HYPOTHESIS` definition has resolving `attaches_to` refs. The
 declared-vs-inferred consistency lint and the KGX-export treatment remain
 follow-ups. The rest of this document is the original design write-up, retained

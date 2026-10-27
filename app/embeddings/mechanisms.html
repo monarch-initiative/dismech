@@ -1,657 +1,191 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mechanism Embedding Comparison</title>
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-    <script src="mechanisms_data.js"></script>
-    <style>
-    /* Reader-facing AI-curation / not-medical-advice disclaimer.
-       Mirrors src/dismech/templates/_disclaimer.css.j2 — keep the two in step.
-       Palette variables carry literal fallbacks so the bar renders correctly
-       on pages that do not define the DisMech palette. */
-    /* Flex rather than an absolutely positioned button: the dismiss control stays
-       in flow, so it can never overlap the text however the bar wraps. */
-    .dismech-disclaimer {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: 100%;
-      box-sizing: border-box;
-      margin: 0;
-      padding: 10px 16px;
-      background: var(--gray-100, #f3f4f6);
-      color: var(--gray-700, #374151);
-      border-bottom: 1px solid var(--gray-300, #d1d5db);
-      font-family: inherit;
-      font-size: 0.85rem;
-      line-height: 1.5;
-      text-align: center;
-    }
-    /* `display: flex` above outranks the UA rule for the `hidden` attribute. */
-    .dismech-disclaimer[hidden] { display: none; }
-    .dismech-disclaimer p {
-      flex: 1 1 auto; min-width: 0; max-width: var(--max-width, 960px); margin: 0 auto;
-    }
-    .dismech-disclaimer strong { color: var(--gray-900, #111827); }
-    .dismech-disclaimer a { color: var(--primary, #00838f); text-decoration: underline; }
-    /* Hidden until the script confirms it can act on a click, so a reader without
-       JavaScript is never shown a dead control. */
-    .dismech-disclaimer-dismiss { display: none; }
-    /* margin-right clears the Hypothes.is sidebar toolbar, which covers the
-       rightmost ~33px of the pages that embed the annotation client and swallows
-       clicks there. Applied everywhere for consistency; elsewhere it is whitespace. */
-    .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
-      display: flex; flex: 0 0 auto; margin-right: 28px;
-      align-items: center; justify-content: center;
-      width: 28px; height: 28px; padding: 0; border: 0; border-radius: 4px;
-      background: none; color: inherit; font: inherit; font-size: 1.15rem;
-      line-height: 1; cursor: pointer;
-    }
-    .dismech-disclaimer-dismiss:hover { background: var(--gray-300, #d1d5db); }
-    .dismech-disclaimer-dismiss:focus-visible {
-      outline: 2px solid var(--primary, #00838f); outline-offset: 2px;
-    }
-    /* The button's footprint sits only on the right, so the centred text lands about
-       half that left of true centre. Mirroring it fixes that but costs the same width
-       again, so it applies only where there is room to spare. */
-    @media (min-width: 900px) {
-      .dismech-disclaimer.is-dismissible::before {
-        content: ""; flex: 0 0 auto; width: 28px; margin-left: 28px;
-      }
-    }
-
-        * {
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DisMech embeddings have moved</title>
+  <link rel="canonical" href="https://monarch-initiative.github.io/dismech-ont-scores/">
+  <style>
+    body { max-width: 42rem; margin: 12vh auto; padding: 2rem; font: 1.1rem/1.6 system-ui, sans-serif; color: #163334; background: #f8f5eb; }
+    a { color: #0e6d63; }
+          /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
             box-sizing: border-box;
             margin: 0;
-            padding: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
         }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f5f5;
-            color: #333;
-            /* Column layout so .container claims the leftover viewport height
-               instead of subtracting a hardcoded header height. Robust to
-               anything above the fold (the disclaimer bar, whose height varies
-               with wrapping) changing size. */
-            display: flex;
-            flex-direction: column;
-            min-height: 100dvh;
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
         }
-        .header {
-            background: #2c3e50;
-            color: white;
-            padding: 1rem 2rem;
-            display: flex;
-            align-items: center;
-            gap: 2rem;
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
         }
-        .header h1 {
-            font-size: 1.5rem;
-            font-weight: 500;
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
         }
-        .header a {
-            color: #3498db;
-            text-decoration: none;
-        }
-        .header a:hover {
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
             text-decoration: underline;
         }
-        .container {
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
             display: flex;
-            flex: 1;
-            /* Lets the overflow-y children below actually scroll. */
-            min-height: 0;
-        }
-        .sidebar {
-            width: 320px;
-            background: white;
-            border-right: 1px solid #ddd;
-            padding: 1rem;
-            overflow-y: auto;
-        }
-        .main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-        #plot {
-            flex: 1;
-        }
-        .control-group {
-            margin-bottom: 1.5rem;
-        }
-        .control-group label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: #555;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        select, input[type="text"] {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 0.95rem;
-            background: white;
-        }
-        select:focus, input:focus {
-            outline: none;
-            border-color: #3498db;
-        }
-        .disease-chips {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            margin-top: 0.5rem;
-            min-height: 36px;
-        }
-        .chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            padding: 0.3rem 0.6rem;
-            border-radius: 16px;
-            font-size: 0.85rem;
-            color: white;
-            cursor: default;
-        }
-        .chip .remove {
-            cursor: pointer;
-            font-weight: bold;
-            opacity: 0.8;
-        }
-        .chip .remove:hover {
-            opacity: 1;
-        }
-        .chip .count {
-            background: rgba(255,255,255,0.3);
-            padding: 0.1rem 0.4rem;
-            border-radius: 10px;
-            font-size: 0.75rem;
-        }
-        .add-disease {
-            display: flex;
-            gap: 0.5rem;
-        }
-        .add-disease input {
-            flex: 1;
-        }
-        .btn {
-            padding: 0.5rem 1rem;
-            border: 1px solid #ddd;
-            background: white;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.9rem;
-        }
-        .btn:hover {
-            background: #f0f0f0;
-        }
-        .btn-primary {
-            background: #3498db;
-            border-color: #3498db;
-            color: white;
-        }
-        .btn-primary:hover {
-            background: #2980b9;
-        }
-        .stats {
-            background: #ecf0f1;
-            padding: 0.75rem;
-            border-radius: 4px;
-            font-size: 0.85rem;
-        }
-        .stats-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.2rem 0;
-        }
-        .loading {
-            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
             align-items: center;
             justify-content: center;
-            height: 100%;
-            font-size: 1.2rem;
-            color: #888;
-        }
-        .suggestions {
-            position: absolute;
-            background: white;
-            border: 1px solid #ddd;
-            border-top: none;
-            max-height: 200px;
-            overflow-y: auto;
-            z-index: 100;
-            width: calc(100% - 70px);
-            border-radius: 0 0 4px 4px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .suggestion-item {
-            padding: 0.5rem;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
             cursor: pointer;
         }
-        .suggestion-item:hover, .suggestion-item.selected {
-            background: #e8f4fc;
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
         }
-        .search-wrapper {
-            position: relative;
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
         }
-        .help-text {
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
             font-size: 0.8rem;
-            color: #888;
-            margin-top: 0.5rem;
+            color: var(--gray-600, #4b5563);
         }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.3rem 0;
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
         }
-        .legend-swatch {
-            width: 12px;
-            height: 12px;
-            border-radius: 2px;
-        }
-        .context-toggle {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-top: 0.5rem;
-        }
-        .context-toggle input {
-            width: auto;
-        }
-    </style>
+
+</style>
 </head>
 <body>
-<!-- Reader-facing disclaimer. Mirrors src/dismech/templates/_disclaimer.html.j2 —
-     keep the wording here, in that partial, and in docs/disclaimer.md in step.
-     Deliberately not dismissible; see docs/explanation/design-decisions.md (§11).
-     The disclaimer URL is deliberately absolute — the canonical text is published
-     by a separate MkDocs build under /elements/, so no relative path is correct
-     from every page. Please do not "fix" it into a relative link. -->
 <aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
-  <p>
-    <strong>AI-curated research resource &mdash; not medical advice.</strong>
-    DisMech content is generated and maintained by AI curation agents under human
-    review, from publicly accessible literature and curated biomedical knowledge
-    resources. Nothing here is intended to inform medical diagnosis or treatment.
-    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
-  </p>
-  <button type="button" class="dismech-disclaimer-dismiss"
-          aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
-    <span aria-hidden="true">&times;</span>
-  </button>
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
 </aside>
-<!-- Runs synchronously, immediately after the bar, so an already-dismissed bar is
-     hidden before first paint rather than flashing and disappearing. Dismissal is
-     kept for the browsing session in sessionStorage; see design-decisions.md §11. -->
+
 <script>
-  (function () {
-    var KEY = 'dismech-disclaimer-dismissed';
-    var bar = document.querySelector('.dismech-disclaimer');
-    if (!bar) { return; }
-    // sessionStorage access itself throws when storage is blocked (Safari
-    // private browsing, cookies-disabled), so every use is guarded.
-    var store = null;
-    try { store = window.sessionStorage; } catch (err) { store = null; }
-    try {
-      if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
-    } catch (err) { /* unreadable storage: show the bar */ }
-    var button = bar.querySelector('.dismech-disclaimer-dismiss');
-    if (!button) { return; }
-    bar.classList.add('is-dismissible');
-    button.addEventListener('click', function () {
-      bar.hidden = true;
-      try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
-      // Focus would otherwise fall back to <body>, losing a keyboard reader's
-      // place. preventScroll keeps the viewport where it was.
-      var next = document.querySelector('main, h1');
-      if (next) {
-        if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
-        try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
-      }
-    });
-  })();
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
 </script>
-    <div class="header">
-        <h1>Mechanism Embedding Comparison</h1>
-        <a href="index.html">&larr; Back to Disease Explorer</a>
-    </div>
-    <div class="container">
-        <div class="sidebar">
-            <div class="control-group">
-                <label>Add Disease</label>
-                <div class="search-wrapper">
-                    <div class="add-disease">
-                        <input type="text" id="disease-search" placeholder="Type to search..." autocomplete="off">
-                        <button class="btn btn-primary" id="add-btn">Add</button>
-                    </div>
-                    <div class="suggestions" id="suggestions" style="display: none;"></div>
-                </div>
-                <p class="help-text">Search and add diseases to compare their pathophysiology mechanisms</p>
-            </div>
-
-            <div class="control-group">
-                <label>Selected Diseases</label>
-                <div class="disease-chips" id="disease-chips">
-                    <span style="color: #888; font-size: 0.9rem;">No diseases selected</span>
-                </div>
-            </div>
-
-            <div class="control-group">
-                <label>Reduction Method</label>
-                <select id="method-select">
-                    <option value="umap">UMAP</option>
-                    <option value="tsne">t-SNE</option>
-                </select>
-            </div>
-
-            <div class="control-group">
-                <label>Display Options</label>
-                <div class="context-toggle">
-                    <input type="checkbox" id="show-context" checked>
-                    <label for="show-context" style="text-transform: none; font-weight: normal;">Show unselected as gray</label>
-                </div>
-                <div class="context-toggle">
-                    <input type="checkbox" id="show-labels">
-                    <label for="show-labels" style="text-transform: none; font-weight: normal;">Show mechanism labels</label>
-                </div>
-            </div>
-
-            <div class="control-group">
-                <label>Statistics</label>
-                <div class="stats">
-                    <div class="stats-row">
-                        <span>Total mechanisms:</span>
-                        <span id="stat-total">-</span>
-                    </div>
-                    <div class="stats-row">
-                        <span>Selected:</span>
-                        <span id="stat-selected">-</span>
-                    </div>
-                    <div class="stats-row">
-                        <span>Diseases available:</span>
-                        <span id="stat-diseases">-</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="control-group" id="legend-section" style="display: none;">
-                <label>Legend</label>
-                <div id="legend"></div>
-            </div>
-        </div>
-        <div class="main">
-            <div id="plot">
-                <div class="loading">Loading mechanism embeddings...</div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Color palette
-        const COLORS = [
-            '#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A',
-            '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52'
-        ];
-        const GRAY = '#cccccc';
-
-        let data = null;
-        let selectedDiseases = [];
-        let currentMethod = 'umap';
-        let showContext = true;
-        let showLabels = false;
-        let suggestionIndex = -1;
-
-        function loadData() {
-            if (typeof window.MECHANISM_DATA === 'undefined') {
-                document.getElementById('plot').innerHTML =
-                    `<div class="loading">No mechanism data found.<br><br>
-                     Run:<br>
-                     <code>just embed-index-mechanisms</code><br>
-                     <code>just embed-mechanisms-data</code></div>`;
-                return;
-            }
-            data = window.MECHANISM_DATA;
-            initializeApp();
-        }
-
-        function initializeApp() {
-            // Set up event listeners
-            const searchInput = document.getElementById('disease-search');
-            const suggestions = document.getElementById('suggestions');
-
-            searchInput.addEventListener('input', (e) => {
-                const term = e.target.value.toLowerCase();
-                if (term.length < 1) {
-                    suggestions.style.display = 'none';
-                    return;
-                }
-                const matches = data.diseases
-                    .filter(d => d.toLowerCase().includes(term) && !selectedDiseases.includes(d))
-                    .slice(0, 10);
-
-                if (matches.length === 0) {
-                    suggestions.style.display = 'none';
-                    return;
-                }
-
-                suggestionIndex = -1;
-                suggestions.innerHTML = matches.map((d, i) =>
-                    `<div class="suggestion-item" data-disease="${d}">${d}</div>`
-                ).join('');
-                suggestions.style.display = 'block';
-
-                suggestions.querySelectorAll('.suggestion-item').forEach(item => {
-                    item.addEventListener('click', () => {
-                        addDisease(item.dataset.disease);
-                        searchInput.value = '';
-                        suggestions.style.display = 'none';
-                    });
-                });
-            });
-
-            searchInput.addEventListener('keydown', (e) => {
-                const items = suggestions.querySelectorAll('.suggestion-item');
-                if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    suggestionIndex = Math.min(suggestionIndex + 1, items.length - 1);
-                    updateSuggestionHighlight(items);
-                } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    suggestionIndex = Math.max(suggestionIndex - 1, 0);
-                    updateSuggestionHighlight(items);
-                } else if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (suggestionIndex >= 0 && items[suggestionIndex]) {
-                        addDisease(items[suggestionIndex].dataset.disease);
-                        searchInput.value = '';
-                        suggestions.style.display = 'none';
-                    }
-                } else if (e.key === 'Escape') {
-                    suggestions.style.display = 'none';
-                }
-            });
-
-            document.getElementById('add-btn').addEventListener('click', () => {
-                const term = searchInput.value;
-                const match = data.diseases.find(d => d.toLowerCase() === term.toLowerCase());
-                if (match && !selectedDiseases.includes(match)) {
-                    addDisease(match);
-                    searchInput.value = '';
-                    suggestions.style.display = 'none';
-                }
-            });
-
-            document.addEventListener('click', (e) => {
-                if (!e.target.closest('.search-wrapper')) {
-                    suggestions.style.display = 'none';
-                }
-            });
-
-            document.getElementById('method-select').addEventListener('change', (e) => {
-                currentMethod = e.target.value;
-                updatePlot();
-            });
-
-            document.getElementById('show-context').addEventListener('change', (e) => {
-                showContext = e.target.checked;
-                updatePlot();
-            });
-
-            document.getElementById('show-labels').addEventListener('change', (e) => {
-                showLabels = e.target.checked;
-                updatePlot();
-            });
-
-            // Update stats
-            document.getElementById('stat-total').textContent = data.points.length;
-            document.getElementById('stat-diseases').textContent = data.diseases.length;
-
-            updatePlot();
-        }
-
-        function updateSuggestionHighlight(items) {
-            items.forEach((item, i) => {
-                item.classList.toggle('selected', i === suggestionIndex);
-            });
-        }
-
-        function addDisease(disease) {
-            if (selectedDiseases.includes(disease) || selectedDiseases.length >= 10) return;
-            selectedDiseases.push(disease);
-            updateChips();
-            updatePlot();
-        }
-
-        function removeDisease(disease) {
-            selectedDiseases = selectedDiseases.filter(d => d !== disease);
-            updateChips();
-            updatePlot();
-        }
-
-        function updateChips() {
-            const container = document.getElementById('disease-chips');
-            if (selectedDiseases.length === 0) {
-                container.innerHTML = '<span style="color: #888; font-size: 0.9rem;">No diseases selected</span>';
-                document.getElementById('legend-section').style.display = 'none';
-                return;
-            }
-
-            // Count mechanisms per disease
-            const counts = {};
-            data.points.forEach(p => {
-                if (selectedDiseases.includes(p.disease)) {
-                    counts[p.disease] = (counts[p.disease] || 0) + 1;
-                }
-            });
-
-            container.innerHTML = selectedDiseases.map((d, i) => `
-                <span class="chip" style="background: ${COLORS[i % COLORS.length]}">
-                    ${d}
-                    <span class="count">${counts[d] || 0}</span>
-                    <span class="remove" onclick="removeDisease('${d.replace(/'/g, "\\'")}')">&times;</span>
-                </span>
-            `).join('');
-
-            // Update legend
-            const legend = document.getElementById('legend');
-            legend.innerHTML = selectedDiseases.map((d, i) => `
-                <div class="legend-item">
-                    <span class="legend-swatch" style="background: ${COLORS[i % COLORS.length]}"></span>
-                    <span>${d}</span>
-                </div>
-            `).join('');
-            document.getElementById('legend-section').style.display = 'block';
-        }
-
-        function updatePlot() {
-            if (!data) return;
-
-            const diseaseColorMap = {};
-            selectedDiseases.forEach((d, i) => {
-                diseaseColorMap[d] = COLORS[i % COLORS.length];
-            });
-
-            // Build traces
-            const traces = [];
-
-            // Context trace (unselected diseases)
-            if (showContext) {
-                const contextPoints = data.points.filter(p => !selectedDiseases.includes(p.disease));
-                if (contextPoints.length > 0) {
-                    traces.push({
-                        x: contextPoints.map(p => p[currentMethod][0]),
-                        y: contextPoints.map(p => p[currentMethod][1]),
-                        text: contextPoints.map(p => `<b>${p.mechanism}</b><br>Disease: ${p.disease}`),
-                        mode: 'markers',
-                        type: 'scatter',
-                        name: 'Other diseases',
-                        marker: {
-                            size: 6,
-                            color: GRAY,
-                            opacity: 0.3,
-                        },
-                        hoverinfo: 'text',
-                    });
-                }
-            }
-
-            // Selected disease traces
-            selectedDiseases.forEach((disease, i) => {
-                const points = data.points.filter(p => p.disease === disease);
-                if (points.length === 0) return;
-
-                traces.push({
-                    x: points.map(p => p[currentMethod][0]),
-                    y: points.map(p => p[currentMethod][1]),
-                    text: points.map(p => `<b>${p.mechanism}</b><br>Disease: ${p.disease}`),
-                    customdata: points.map(p => p.mechanism),
-                    mode: showLabels ? 'markers+text' : 'markers',
-                    type: 'scatter',
-                    name: disease,
-                    marker: {
-                        size: 12,
-                        color: COLORS[i % COLORS.length],
-                        opacity: 0.9,
-                        line: { width: 1, color: 'white' },
-                    },
-                    textposition: 'top center',
-                    textfont: { size: 9 },
-                    hoverinfo: 'text',
-                });
-            });
-
-            // Update stats
-            const selectedCount = data.points.filter(p => selectedDiseases.includes(p.disease)).length;
-            document.getElementById('stat-selected').textContent = selectedCount;
-
-            const layout = {
-                title: `Pathophysiology Mechanisms (${currentMethod.toUpperCase()})`,
-                xaxis: { title: `${currentMethod.toUpperCase()} 1`, zeroline: false },
-                yaxis: { title: `${currentMethod.toUpperCase()} 2`, zeroline: false },
-                hovermode: 'closest',
-                showlegend: true,
-                legend: { x: 1.02, y: 1 },
-                margin: { l: 60, r: 150, t: 60, b: 60 },
-            };
-
-            const config = {
-                responsive: true,
-                displayModeBar: true,
-            };
-
-            Plotly.newPlot('plot', traces, layout, config);
-        }
-
-        // Initialize on load
-        window.onload = loadData;
-    </script>
+  <h1>Embeddings are now in the Concept Explorer</h1>
+  <p>Explore disease and mechanism similarities alongside their curated ontology annotations, using a shared source snapshot.</p>
+  <p><a id="destination" href="https://monarch-initiative.github.io/dismech-ont-scores/?space=mechanisms">Open the Concept Explorer</a></p>
+  <p>Existing disease-focus and representation selections are preserved. The new local embedding model produces a different similarity space from the legacy browser.</p>
+  <script>
+    const destination = new URL('https://monarch-initiative.github.io/dismech-ont-scores/');
+    const params = new URLSearchParams(location.search);
+    const space = params.get('space') || 'mechanisms';
+    const allowed = ['pathophysiology', 'phenotypes', 'treatments', 'celltypes', 'mechanisms'];
+    destination.searchParams.set('space', allowed.includes(space) ? space : 'mechanisms');
+    if (params.has('focus')) destination.searchParams.set('focus', params.get('focus'));
+    document.getElementById('destination').href = destination.href;
+    location.replace(destination.href);
+  </script>
 </body>
 </html>

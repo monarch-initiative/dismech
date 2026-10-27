@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/images/dismech_logo_color.png" alt="DisMech logo" width="140">
+</p>
+
 # Disorder Mechanisms Knowledge Base (dismech)
 
 A curated knowledge base of disease pathophysiology, with structured evidence from the literature.
@@ -19,6 +23,11 @@ Each disorder page includes:
 - Genetic factors and variants
 - Treatment options with NCIT term links
 - All claims backed by PubMed evidence
+
+Related browsers:
+
+- [Curation history dashboard](https://monarch-initiative.github.io/dismech-history/) — explore curation, review, and audit activity by date, agent tool, model, and section.
+- [Monarch NAMs browser](https://monarch-initiative.github.io/monarch-nams/) — explore New Approach Methodologies (NAMs) and research datasets represented in DisMech.
 
 ## How It Works
 
@@ -95,8 +104,11 @@ just qc
 # Validate a single file
 just validate kb/disorders/Asthma.yaml
 
-# Validate references against PubMed abstracts
-just validate-references kb/disorders/Asthma.yaml
+# Validate a KB entry's evidence snippets against the cited abstracts
+just validate-kb-references kb/disorders/Asthma.yaml
+
+# Check a deep-research report's citations (a different question -- see docs)
+just validate-research-reference research/Asthma-deep-research-falcon.md
 
 # Analyze compliance with recommended field coverage
 just compliance-all
@@ -186,7 +198,9 @@ just upload-cx2-test-all
 and applies a deterministic layout so the uploaded network is immediately viewable in
 NDEx. Add `--dot-layout` if Graphviz and `pydot` are available and you want a Graphviz
 layout instead of the built-in layered layout. The default NDEx upload visibility is
-`PUBLIC`, and the `just` upload targets default the host to `https://test.ndexbio.org`.
+`PRIVATE`, and the `just` upload targets default the host to `https://test.ndexbio.org`.
+Production releases use the protected, manually triggered `Publish NDEx release`
+GitHub Actions workflow described in the operator documentation.
 
 ## Agentic Curation Guide
 
@@ -266,6 +280,13 @@ Regardless of which route you use, the agent follows the same workflow:
 4. **Submit** — commits changes and opens a pull request for human review
 
 For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Evidence recuration reports
+
+Run `just jev-audit` to assess disease assertion/snippet pairs with Jev and produce
+CSV reports for recuration. Corpus assessment history and the weekly workflow live in
+[dismech-evals](https://github.com/monarch-initiative/dismech-evals). See [the audit guide](docs/jev-evidence-audit.md) for
+inventory, cached reruns, report columns and the weekly GitHub Action.
 
 ## Schema Documentation
 

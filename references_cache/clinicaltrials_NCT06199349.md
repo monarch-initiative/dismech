@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06199349"
+reference_id: clinicaltrials:NCT06199349
 title: "Phase Ib Clinical Study on the Safety, Tolerability and Pharmacokinetic Characteristics of GMDTC for Injection After Repeated Administration in People With Excessive Cadmium Levels"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Phase Ib Clinical Study on the Safety, Tolerability and Pharmacokinetic Characteristics of GMDTC for Injection After Repeated Administration in People With Excessive Cadmium Levels

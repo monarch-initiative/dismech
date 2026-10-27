@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04233125"
+reference_id: clinicaltrials:NCT04233125
 title: A Randomized Controlled Trial of Core Decompression With or Without Cement Packing for Osteonecrosis of the Femoral Head - Long Term Results
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Randomized Controlled Trial of Core Decompression With or Without Cement Packing for Osteonecrosis of the Femoral Head - Long Term Results

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT01605383"
+reference_id: clinicaltrials:NCT01605383
 title: "A Pilot Clinical Trial of \"ex Vivo\" Expanded Autologous Bone Marrow Mesenchymal Stem Cells Fixed in Allogenic Human Bone Tissue (XCEL-MT-OSTEO- ALPHA) in Osteonecrosis of the Femoral Head"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Pilot Clinical Trial of "ex Vivo" Expanded Autologous Bone Marrow Mesenchymal Stem Cells Fixed in Allogenic Human Bone Tissue (XCEL-MT-OSTEO- ALPHA) in Osteonecrosis of the Femoral Head

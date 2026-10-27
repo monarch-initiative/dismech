@@ -1,0 +1,36 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Pheochromocytoma_Paraganglioma
+  path: kb/disorders/Pheochromocytoma_Paraganglioma.yaml
+session:
+  id: 2026-08-01T045510Z-claude-code-c15108
+  timestamp: '2026-08-01T04:55:10Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/7521
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - evidence
+  - pathophysiology
+  - treatments
+  summary: 'Address round-4 re-review on PR #7521 (reference_title and snippet fidelity)'
+  details: |
+    Round-4 response to the ai4c-reviewer re-review of PR #7521, which confirmed both round-3 blockers fixed and left one residual plus two non-blocking notes. All three closed.
+
+    Residual - wrong reference_title on PMID:32388798. The evidence item read "Multiple Endocrine Neoplasia Type 2: A Review." while the cache gives "MEN2-related pheochromocytoma: current state of knowledge, specific characteristics in MEN2B, and perspectives." The reference and snippet were both correct; only the title was a plausible-but-nonexistent string attached to a real identifier, which is exactly the issue #7536 failure mode. Corrected. The round-2 claim that every reference_title had been checked against its cache was therefore wrong for one item; that check has now been redone as a script that normalises case and punctuation and compares all 44 distinct (reference, reference_title) pairs in the file against the title: field of their cache. Result: 0 mismatches.
+
+    Note 1 - dash fidelity in the FIRSTMAPP snippet. The reviewer found that the quote used ASCII hyphens where the cache has U+2013 en-dashes in "23 -50%" and "11 -31%". The linkml reference validator normalises dashes so this passed, but the evidence explanation claimed the artifacts were reproduced verbatim, so the claim was false even though the validation was green. Investigating this surfaced a second, larger artifact the reviewer had not spotted: the cache also contains "placebo- controlled" with a PDF line break inside the compound. Rather than reproduce that too, the snippet now starts at "recently reported", which drops the artifact entirely while keeping the whole substantive result; the en-dashes are now the cache's real U+2013 characters. The explanation records both decisions. To make sure this class of defect is actually gone rather than merely masked by the validator, all 114 snippets in the file were re-audited with a script that normalises whitespace only - no dash, quote, or character folding of any kind. Result: 0 mismatches. Every snippet in the entry is now byte-exact against its cache modulo line wrapping alone, and none depends on validator leniency.
+
+    Note 2 - subject-less fragment. The second evidence item on the Angiogenic and Glycolytic Tumor Program node quoted "has demonstrated potential in reducing angiogenesis and tumor cell growth", which has no subject. Extended back to the full "Sunitinib, which inhibits VEGF1, ... and RET proto-oncogene receptors, has demonstrated potential in ..." sentence so it stands alone. This pulls in the "c- kit" PDF artifact, so the snippet is held on a single quoted line (a folded scalar cannot end a line in a hyphen without failing check_folded_hyphens.py) and the artifact is called out in the explanation, matching how the same quote is handled on the Sunitinib treatment.
+
+    Validation: just validate passes (schema + terms + references); check_folded_hyphens.py clean; reference validation 99/114 with the same 15 DOI-prefix skips; all 114 snippets independently confirmed byte-exact under whitespace-only normalisation; all 44 reference_title values confirmed against their caches by script; weighted compliance unchanged at 78.7% (these were correctness rather than coverage fixes); 0 dangling edges; 0 pathophysiology nodes or treatments without evidence; 0 orphaned caches. references_cache reformat churn reverted before committing.
