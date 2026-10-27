@@ -121861,6 +121861,73 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Dehydrated_Hereditary_Stomatocytosis_2",
+    "disease_id": "MONDO:0014737",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-27T17:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dehydrated hereditary stomatocytosis type 2 (Gardos channelopathy, a form of hereditary xerocytosis) is an autosomal dominant hemolytic anemia caused by gain-of-function variants in KCNN4, the gene encoding the erythrocyte Gardos channel (a Ca2+-activated, K+-selective channel that regulates red-cell volume). The variants raise the channel's calcium sensitivity so it opens at lower intracellular calcium, driving potassium efflux and a red-cell cation leak. In the accepted model this dehydrates the cell (xerocytosis), but the hydration endpoint is variant-dependent: the recurrent R352H allele shows compensatory effects that prevent frank dehydration and red-cell Ca2+ overload instead, and other variants (V222L, H340N) show no obvious dehydration at all, so the channelopathy is now seen as a complex pathology distinct from the common PIEZO1 xerocytosis. The downstream picture is reduced deformability and chronic, usually compensated, hemolysis with splenomegaly, and a high rate of iron overload. It is rarer than the PIEZO1-related type 1 xerocytosis.",
+    "pathophysiology": [
+      "KCNN4 Gardos Channel Gain of Function",
+      "Red Cell Cation Leak and Volume Dysregulation",
+      "Reduced Erythrocyte Deformability",
+      "Chronic Hemolysis"
+    ],
+    "cell_types": [
+      "erythrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000232"
+    ],
+    "biological_processes": [
+      "potassium ion export across plasma membrane",
+      "cell volume homeostasis",
+      "erythrocyte homeostasis"
+    ],
+    "phenotypes": [
+      "Hemolytic anemia",
+      "Stomatocytosis",
+      "Splenomegaly",
+      "Hyperferritinemia"
+    ],
+    "phenotype_categories": [
+      "Hematological",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0001878",
+      "HP:0004446",
+      "HP:0001744",
+      "HP:0003281"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KCNN4 gain-of-function variants"
+    ],
+    "treatments": [
+      "Supportive care and iron monitoring"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dehydrated_Hereditary_Stomatocytosis_2.yaml",
+    "page_url": "../pages/disorders/Dehydrated_Hereditary_Stomatocytosis_2.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Delayed Sleep Phase Syndrome",
     "disease_id": "MONDO:0024377",
     "category": "Complex",
@@ -239049,6 +239116,100 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Lowry-Wood Syndrome",
+    "disease_id": "MONDO:0009191",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia",
+      "Spliceosomopathy"
+    ],
+    "creation_date": "2026-10-26T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Lowry-Wood syndrome is a rare autosomal recessive skeletal dysplasia caused by biallelic pathogenic variants in RNU4ATAC, which encodes the U4atac small nuclear RNA of the minor (U12-dependent) spliceosome. Its defining features are multiple epiphyseal dysplasia without spinal involvement together with microcephaly, accompanied by variable short stature, developmental delay or intellectual disability, eye involvement (congenital nystagmus, retinal dystrophy), joint dislocations and contractures, and subclinical antibody deficiency. It is the mildest of the three historically named RNU4ATAC phenotypes, alongside microcephalic osteodysplastic primordial dwarfism type I and Roifman syndrome, and the three are now regarded as points on one phenotypic spectrum (RNU4atac-opathy).",
+    "pathophysiology": [
+      "Biallelic Hypomorphic RNU4ATAC Variants",
+      "Defective U12-Type Minor Intron Splicing",
+      "Secondary Primary Cilium Dysfunction"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "U12-type (minor) intron splicing",
+      "cilium assembly"
+    ],
+    "phenotypes": [
+      "Multiple Epiphyseal Dysplasia",
+      "Microcephaly",
+      "Short Stature",
+      "Intrauterine Growth Retardation",
+      "Developmental Delay and Intellectual Disability",
+      "Congenital Nystagmus",
+      "Retinal Dystrophy",
+      "Hip Dislocation",
+      "Patellar Dislocation",
+      "Limited Elbow Extension",
+      "Coxa Vara",
+      "Fifth Finger Clinodactyly",
+      "Decreased Serum Immunoglobulins"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Neurological",
+      "Growth",
+      "Ophthalmological",
+      "Immunologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002654",
+      "HP:0000252",
+      "HP:0004322",
+      "HP:0001511",
+      "HP:0001249",
+      "HP:0000639",
+      "HP:0000556",
+      "HP:0002827",
+      "HP:0002999",
+      "HP:0001377",
+      "HP:0002812",
+      "HP:0004209",
+      "HP:0004313"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "RNU4ATAC"
+    ],
+    "treatments": [
+      "Multidisciplinary Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Lowry-Wood_Syndrome.yaml",
+    "page_url": "../pages/disorders/Lowry-Wood_Syndrome.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Ludwig's Angina",
@@ -405801,17 +405962,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3762,
+  "total_disorder_pages": 3764,
   "total_subtypes": 4926,
-  "total_disorders_and_subtypes": 8688,
-  "total_unique_evidence_sources": 56011,
-  "total_unique_publications": 52342,
+  "total_disorders_and_subtypes": 8690,
+  "total_unique_evidence_sources": 56027,
+  "total_unique_publications": 52358,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3760,
-  "total_unique_pathological_events": 24756,
+  "total_pathographs": 3762,
+  "total_unique_pathological_events": 24759,
   "total_modules": 213,
-  "total_research_reports": 3879,
+  "total_research_reports": 3881,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 127
