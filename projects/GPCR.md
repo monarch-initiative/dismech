@@ -28,6 +28,8 @@ diseases:
 - Thunderstorm_Asthma
 - Formaldehyde_Poisoning
 - Chronic_Obstructive_Pulmonary_Disease
+- Cough_Variant_Asthma
+- Sulfur_Mustard_Poisoning
 - Urticaria
 - Alpha-gal_Syndrome
 - Gastroesophageal_Reflux_Disease
@@ -259,11 +261,17 @@ mechanism-level rather than disease-level.
         trigger. The third is a toxicological entry rather than an airway disease, so the
         module is not tied to asthma; its link carries receptor-level evidence only,
         because that treatment's own notes record that no formaldehyde-specific efficacy
-        publication exists. `Chronic_Obstructive_Pulmonary_Disease` and
-        `Cough_Variant_Asthma` are deliberately not wired, and `Sulfur_Mustard_Poisoning`
-        likewise: the first two bind the generic `Bronchodilator` agent in a treatment
-        covering both airway drug classes, and the third's salmeterol sits in a bundled
-        supportive-care treatment with no agent-level binding
+        publication exists. Three further entries treat with a beta2 agonist and are
+        deliberately not wired, each blocked by one treatment covering more than one drug
+        class. `Chronic_Obstructive_Pulmonary_Disease` and `Cough_Variant_Asthma` bind the
+        generic `NCIT:C319` Bronchodilator agent, which covers beta2 agonists and
+        muscarinic antagonists alike, so wiring either would assert beta2 action for a
+        LAMA. `Sulfur_Mustard_Poisoning` is a different shape: its salmeterol *is* bound at
+        agent level (`CHEBI:9011`), but inside `Macrolide and Inhaled Corticosteroid
+        Therapy for Bronchiolitis Obliterans` alongside azithromycin and fluticasone
+        propionate, so wiring that treatment would assert beta2 action for a macrolide and
+        a corticosteroid. That makes it the most tractable of the three to split, since the
+        agent it needs is already identified
 - [ ] Remaining Workstream A modules
   - [x] D2 receptor antagonism — `d2_receptor_antagonism` (#15299)
   - [x] AT1 receptor blockade — `at1_receptor_blockade` (#15271)
@@ -392,11 +400,12 @@ they are not lost. None blocks anything.
   it deliberately rather than fold them in. `Migraine`'s anti-CGRP antibody
   treatment bundles one receptor-directed and two peptide-directed agents and
   wants splitting either way.
-- **Is tissue a third scoping axis?** The rule above is one receptor family plus
-  one direction of action. Beta2 agonism does not fit it: the corpus uses the
-  class for three mechanistically disjoint purposes that share one trigger and
-  one transducer and diverge only at the effector — airway smooth muscle
-  relaxation (`Asthma`, `Thunderstorm_Asthma`, `Cough_Variant_Asthma`,
+- **Is tissue a third scoping axis?** The scoping rule under Decisions is one
+  receptor family plus one direction of action. Beta2 agonism does not fit it:
+  thirteen entries treat with a beta2 agonist, for three mechanistically disjoint
+  purposes that share one trigger and one transducer and diverge only at the
+  effector — airway smooth muscle relaxation (`Asthma`, `Thunderstorm_Asthma`,
+  `Cough_Variant_Asthma`, `Chronic_Obstructive_Pulmonary_Disease`,
   `Formaldehyde_Poisoning`, `Sulfur_Mustard_Poisoning`); enhancing neuromuscular
   transmission (`Congenital_Myasthenic_Syndrome` and its `_6` and `_7` entries,
   `ALG2-Congenital_Disorder_of_Glycosylation`,
@@ -408,7 +417,25 @@ they are not lost. None blocks anything.
   that scope does not settle the question. Either the other two chains become
   their own modules, or they become further effector arms off a shared trigger —
   in which case one module would serve about ten conformers instead of three.
-  **MC4R and V2 have the same shape**, so this is worth deciding before either.
+  That figure is three already wired, plus the six unwired entries whose beta2
+  agonist sits in a treatment of its own, plus
+  `ALG2-Congenital_Disorder_of_Glycosylation`, where albuterol shares a treatment
+  with ephedrine — a borderline case, since ephedrine is itself a sympathomimetic
+  with beta activity rather than a different class. It assumes the three entries
+  blocked by genuine cross-class bundling stay out; unbundling all three would
+  make it thirteen. **MC4R and V2 have the same shape**, so this is worth deciding
+  before either.
+
+  A fourth group names a beta2 agonist without treating with one: several cardiac
+  entries cite beta-adrenergic stimulation as an arrhythmia provocateur or a thing
+  to avoid. Those are not conformer candidates in any scoping, and the count above
+  excludes them.
+
+  The three blocked airway entries are declared in this page's frontmatter, so they
+  link from the prose above. The neuromuscular and potassium-shift entries
+  deliberately are not, pending this decision: declaring them would put nine
+  entries in the project's disease list on the strength of a scoping question
+  nobody has answered yet. Add them if the answer is one shared trigger.
 - **May a module PR split another entry's bundled treatment?** Three modules have
   now been blocked by one treatment covering two drug classes: the muscarinic
   module cannot take `Chronic_Obstructive_Pulmonary_Disease` or
