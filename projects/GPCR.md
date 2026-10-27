@@ -352,12 +352,19 @@ they are not lost. None blocks anything.
       names H1 and H2 antagonists, anti-leukotrienes and stabilisers in its
       description and binds **no** agent at all. The hardest of the four, and the
       one a conformance pass would silently skip.
-- **Correct the same count in both histamine modules' `notes`.** The `notes` of
-  `h1_receptor_antagonism` and `h2_receptor_antagonism` both say "three entries"
-  and name two of them plus "the related systemic mastocytosis entries". That is
-  the error corrected on this page: there are four, and
-  `Monoclonal_Mast_Cell_Activation_Syndrome` is unnamed in both. A `kb/` change,
-  so it could not ride the `projects/`-only pull request that fixed the page.
+- **Correct the same count in both histamine modules' `notes`.** Both say three
+  and both leave `Monoclonal_Mast_Cell_Activation_Syndrome` unnamed, but they
+  word it differently, so a single search will not find both:
+    - `h2_receptor_antagonism`: "Three entries bundle an H1 and an H2
+      antihistamine into a single treatment (… and the related systemic
+      mastocytosis entries)".
+    - `h1_receptor_antagonism`: "Three further entries treat with H1 and H2
+      antihistamines bundled into a single treatment (… and
+      `Systemic_Mastocytosis`' relatives)" — vaguer still, since it names one
+      entry and then gestures at unnamed relatives.
+
+  There are four, listed in the bullet above. A `kb/` change, so it could not
+  ride the `projects/`-only pull request that fixed this page.
 
 ## Open questions
 
