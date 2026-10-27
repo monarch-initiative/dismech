@@ -24967,6 +24967,8 @@ window.searchData = [
       "neurotransmitter transport",
       "response to oxidative stress",
       "cellular senescence",
+      "Microglial activation",
+      "Astrocyte activation",
       "microglial cell activation",
       "anterograde axonal transport",
       "autophagy",
@@ -25165,7 +25167,7 @@ window.searchData = [
     "num_pathophysiology": 18,
     "num_genes": 37,
     "num_treatments": 11,
-    "causal_graph_edges": "53",
+    "causal_graph_edges": "54",
     "causal_graph_longest_path": "5"
   },
   {
@@ -32748,7 +32750,8 @@ window.searchData = [
       "SIRT1-Mediated NAD+ Signaling and Protective Deacetylation",
       "Reduced Club Cell Secretoglobin (CC16/SCGB1A1) Anti-Inflammatory Protection",
       "Early-Life Rhinovirus Wheezing Illness and Asthma Inception",
-      "House Dust Mite Allergen Protease-Induced Epithelial Oxidant Signaling"
+      "House Dust Mite Allergen Protease-Induced Epithelial Oxidant Signaling",
+      "Beta2 Agonist Occupancy of Airway Smooth Muscle Receptors"
     ],
     "cell_types": [
       "Mast Cell",
@@ -32767,7 +32770,8 @@ window.searchData = [
       "Airway Smooth Muscle Cell",
       "T-helper 2 Cell",
       "Club Cell",
-      "Airway Epithelial Cell"
+      "Airway Epithelial Cell",
+      "bronchial smooth muscle cell"
     ],
     "cell_type_ids": [
       "CL:0000097",
@@ -32897,10 +32901,10 @@ window.searchData = [
     "source_file": "Asthma.yaml",
     "page_url": "../pages/disorders/Asthma.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 10,
     "num_genes": 17,
     "num_treatments": 7,
-    "causal_graph_edges": "40",
+    "causal_graph_edges": "42",
     "causal_graph_longest_path": "6"
   },
   {
@@ -47049,6 +47053,71 @@ window.searchData = [
     "num_treatments": 15,
     "causal_graph_edges": "89",
     "causal_graph_longest_path": "13"
+  },
+  {
+    "name": "Autosomal Recessive Spinocerebellar Ataxia 17",
+    "disease_id": "MONDO:0014503",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal recessive cerebellar ataxia"
+    ],
+    "creation_date": "2026-10-26T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Biallelic loss-of-function variants in CWF19L1 (splice-site, frameshift, and nonsense alleles, as well as damaging missense alleles) abolish or reduce the protein. The normal biological function of the evolutionarily highly conserved CWF19L1 protein is unknown; its name reflects homology to the yeast Cwf19 spliceosome-associated protein (complexed with cdc5), but a specific molecular function has not been established, so none is asserted here.",
+    "pathophysiology": [
+      "CWF19L1 Loss of Function",
+      "Cerebellar Hypoplasia",
+      "Progressive Cerebellar Degeneration"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Cerebellar ataxia",
+      "Cerebellar atrophy",
+      "Cerebellar vermis hypoplasia",
+      "Intellectual disability",
+      "Global developmental delay",
+      "Developmental regression",
+      "Extrapyramidal movement disorder",
+      "Hypotonia",
+      "Seizures"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Imaging"
+    ],
+    "phenotype_hpo_categories": [
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001251",
+      "HP:0001272",
+      "HP:0001320",
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0002376",
+      "HP:0002071",
+      "HP:0001252",
+      "HP:0001250"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CWF19L1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Recessive_Spinocerebellar_Ataxia_17.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Spinocerebellar_Ataxia_17.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Autosomal Recessive Spinocerebellar Ataxia 20",
@@ -82424,7 +82493,8 @@ window.searchData = [
       "DNMBP"
     ],
     "treatments": [
-      "Cataract Surgery"
+      "Cataract Surgery",
+      "Genetic Counseling"
     ],
     "environmental": [],
     "biochemical": [],
@@ -82433,8 +82503,8 @@ window.searchData = [
     "num_phenotypes": 2,
     "num_pathophysiology": 3,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "7",
+    "num_treatments": 2,
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "4"
   },
   {
@@ -135796,6 +135866,83 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Dysplasminogenemia",
+    "disease_id": "MONDO:0100538",
+    "category": "Mendelian",
+    "parents": [
+      "Coagulation Disorder",
+      "Hereditary Hematologic Disorder"
+    ],
+    "creation_date": "2026-10-27T12:13:49Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dysplasminogenemia (type II plasminogen deficiency) is an inherited qualitative defect of plasminogen caused by germline PLG missense variants. Plasma plasminogen functional activity is reduced while plasminogen antigen is normal, because the variant protein is synthesized and secreted normally but its plasmin form is catalytically defective. The best-characterized allele, p.Ala620Thr (plasminogen Tochigi, p.Ala601Thr in mature-protein numbering), is common in East Asian populations. Heterozygotes have about half-normal activity and homozygotes much less, yet most carriers are asymptomatic and do not develop the ligneous mucosal lesions of type I deficiency (hypoplasminogenemia). Whether dysplasminogenemia predisposes to venous thromboembolism or cerebral infarction is contested: case reports and selected stroke series propose a link, while family, population and knock-in mouse studies find no increased thrombotic risk.",
+    "pathophysiology": [
+      "PLG Missense Variant with Preserved Plasminogen Secretion",
+      "Loss of Plasmin Catalytic Activity",
+      "Reduced Fibrinolytic Capacity"
+    ],
+    "cell_types": [
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "fibrinolysis"
+    ],
+    "phenotypes": [
+      "Reduced Plasminogen Functional Activity",
+      "Deep Venous Thrombosis",
+      "Pulmonary Embolism",
+      "Cerebral Infarct",
+      "Central Retinal Vein Occlusion"
+    ],
+    "phenotype_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Respiratory",
+      "Nervous System",
+      "Eye"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Eye",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0040224",
+      "HP:0002625",
+      "HP:0002204",
+      "HP:0025722",
+      "HP:0020166"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "PLG"
+    ],
+    "treatments": [
+      "Anticoagulation for Thrombotic Events"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Decreased Plasma Plasminogen Activity",
+      "Normal Plasma Plasminogen Antigen"
+    ],
+    "source_file": "Dysplasminogenemia.yaml",
+    "page_url": "../pages/disorders/Dysplasminogenemia.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Dyssegmental Dysplasia",
     "disease_id": null,
     "category": "Mendelian",
@@ -158962,7 +159109,8 @@ window.searchData = [
       "Upper airway squamous cell carcinoma",
       "Haematopoietic stem cell genotoxic attrition",
       "Haptenation and type IV sensitization",
-      "Erythrocyte oxidant injury"
+      "Erythrocyte oxidant injury",
+      "Beta2 Agonist Occupancy of Airway Smooth Muscle Receptors"
     ],
     "cell_types": [
       "respiratory tract epithelial cell",
@@ -158971,7 +159119,8 @@ window.searchData = [
       "nasopharyngeal epithelial cell",
       "hematopoietic stem cell",
       "dendritic cell",
-      "CD8-positive, alpha-beta T cell"
+      "CD8-positive, alpha-beta T cell",
+      "bronchial smooth muscle cell"
     ],
     "cell_type_ids": [
       "CL:0002368",
@@ -158980,7 +159129,8 @@ window.searchData = [
       "CL:1001573",
       "CL:0000037",
       "CL:0000451",
-      "CL:0000625"
+      "CL:0000625",
+      "CL:0002598"
     ],
     "biological_processes": [
       "peptide cross-linking",
@@ -159103,10 +159253,10 @@ window.searchData = [
     "source_file": "Formaldehyde_Poisoning.yaml",
     "page_url": "../pages/disorders/Formaldehyde_Poisoning.html",
     "num_phenotypes": 23,
-    "num_pathophysiology": 18,
+    "num_pathophysiology": 19,
     "num_genes": 3,
     "num_treatments": 8,
-    "causal_graph_edges": "40",
+    "causal_graph_edges": "41",
     "causal_graph_longest_path": "8"
   },
   {
@@ -195383,6 +195533,110 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Hypogonadotropic Hypogonadism 24 Without Anosmia",
+    "disease_id": "MONDO:0009239",
+    "category": "Mendelian",
+    "parents": [
+      "Hypogonadotropic hypogonadism"
+    ],
+    "creation_date": "2026-10-27T12:14:23Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive form of hypogonadism caused by biallelic inactivating variants in FSHB, the gene for the hormone-specific beta subunit of follicle-stimulating hormone (FSH). Only the FSH beta chain is affected, so the defect is selective: the pituitary still makes LH, and the common alpha subunit shared with LH, TSH and hCG is intact. Reported alleles are frameshift, nonsense and cysteine-substituting missense variants in exon 3; every allele tested in transfected cells yields no measurable immunoreactive or bioactive FSH.\nSerum FSH is undetectable and does not rise after GnRH, while LH is high and rises briskly. Women present with primary amenorrhoea, absent or partial breast development, low estradiol, a small uterus and small ovaries containing only small follicles, and infertility. Men present with infertility, small testes and azoospermia; several reported men went through normal puberty with normal testosterone, because LH and Leydig cell function are preserved. Some patients of both sexes have partial pubertal development.\nThe disorder is very rare: about a dozen genotyped patients had been published by 2019. The missing hormone can be replaced, and recombinant or urinary FSH has induced multifollicular development, ovulation and, in the first reported woman, pregnancy; in a treated man testicular volume increased and spermatocytes appeared in semen after a year.",
+    "pathophysiology": [
+      "Biallelic FSHB Loss-of-Function Variants",
+      "Loss of Bioactive FSH Secretion",
+      "Loss of FSH Signaling in Granulosa Cells",
+      "Arrested Ovarian Follicle Maturation",
+      "Deficient Ovarian Estradiol Production",
+      "Loss of FSH Signaling in Sertoli Cells",
+      "Impaired Spermatogenesis"
+    ],
+    "cell_types": [
+      "pituitary gonadotroph",
+      "granulosa cell",
+      "Sertoli cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000437",
+      "CL:0000501",
+      "CL:0000216"
+    ],
+    "biological_processes": [
+      "follicle-stimulating hormone secretion",
+      "follicle-stimulating hormone signaling pathway",
+      "ovarian follicle development",
+      "estrogen biosynthetic process",
+      "spermatogenesis"
+    ],
+    "phenotypes": [
+      "Hypogonadotropic Hypogonadism",
+      "Decreased Circulating FSH",
+      "Elevated Circulating LH",
+      "Decreased Circulating Inhibin B",
+      "Decreased Serum Estradiol",
+      "Primary Amenorrhea",
+      "Breast Hypoplasia",
+      "Delayed Puberty",
+      "Hypoplasia of the Uterus",
+      "Hypoplasia of the Ovary",
+      "Female Infertility",
+      "Azoospermia",
+      "Decreased Testicular Size",
+      "Male Infertility",
+      "Cryptorchidism"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Integumentary"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000044",
+      "HP:0030341",
+      "HP:0011969",
+      "HP:0031100",
+      "HP:0008214",
+      "HP:0000786",
+      "HP:0003187",
+      "HP:0000823",
+      "HP:0000013",
+      "HP:0008724",
+      "HP:0008222",
+      "HP:0000027",
+      "HP:0008734",
+      "HP:0003251",
+      "HP:0000028"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "FSHB"
+    ],
+    "treatments": [
+      "FSH Replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypogonadotropic_Hypogonadism_24_Without_Anosmia.yaml",
+    "page_url": "../pages/disorders/Hypogonadotropic_Hypogonadism_24_Without_Anosmia.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Hypogonadotropic Hypogonadism 26 With or Without Anosmia",
     "disease_id": "MONDO:0030534",
     "category": "Mendelian",
@@ -204858,6 +205112,148 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Immunodeficiency 133 With Ectodermal Dysplasia With Or Without Peripheral Neuropathy",
+    "disease_id": "MONDO:0979570",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Immunodeficiency 133 is a syndromic combined immunodeficiency caused by de novo heterozygous missense variants in ITPR3, which encodes the type 3 inositol 1,4,5-trisphosphate receptor (IP3R3) subunit of the endoplasmic reticulum calcium-release channel. The receptor is a homo- or heterotetramer of the IP3R1-3 isoforms, and the disease-causing substitutions act on the assembled channel rather than by reducing gene dosage: pathogenicity is explicitly not haploinsufficiency, and a knockout of the gene does not reproduce the calcium defect.\nThe mechanism places the lesion one step upstream of the CRAC channelopathies. In ORAI1 and STIM1 deficiency the failure is in store-operated calcium entry itself; here the primary defect is in releasing endoplasmic reticulum calcium at all, which depletes the store and so blunts the store-operated entry that depends on prior depletion. Patient T cells therefore show reduced NFAT- and NF-kB-dependent, proliferative and metabolic responses to receptor stimulation, with T-cell lymphopenia and defects in the late stages of thymic T-cell development.\nTwo features make the entry worth separating from the broader calcium-signalling immunodeficiencies. First, the non-immune involvement is real but incompletely penetrant, which is why the disease name carries the \"with or without\" clause: in the five-patient defining cohort four had variable ectodermal features and only two had a peripheral neuropathy, and a patient who inherited a milder allele from an asymptomatic parent had neither. Second, the extra-immune features do not respond to the treatment that rescues the immune phenotype - haematopoietic cell transplantation corrects the immunodeficiency and leaves the ectodermal and neurological disease untouched - so transplantation is not a cure for the syndrome as a whole.\nA separate, recessive ITPR3 immunodeficiency exists and should not be merged into this entry: compound heterozygous hypomorphic ITPR3 variants cause a combined immunodeficiency of variable severity by a different genetic mechanism (reduced channel sensitivity from two partial-loss alleles rather than interference with the tetramer by one).",
+    "pathophysiology": [
+      "Impaired IP3-Gated Endoplasmic Reticulum Calcium Release",
+      "Endoplasmic Reticulum Calcium Store Depletion",
+      "Blunted Store-Operated Calcium Entry",
+      "Impaired NFAT and NF-kB Dependent T Cell Activation",
+      "Defective Late Thymic T Cell Development",
+      "Impaired Peripheral T Cell Proliferation and Metabolism",
+      "Defective Control of Epstein-Barr Virus Infection",
+      "Impaired IP3R-Dependent Enamel Formation",
+      "Peripheral Nerve Maintenance Failure"
+    ],
+    "cell_types": [
+      "T cell",
+      "thymocyte",
+      "CD4-positive, alpha-beta T cell",
+      "ameloblast",
+      "Schwann cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000893",
+      "CL:0000624",
+      "CL:0000059",
+      "CL:0002573"
+    ],
+    "biological_processes": [
+      "release of endoplasmic reticulum calcium into the cytosol",
+      "store-operated calcium entry",
+      "calcineurin-NFAT signalling downstream of the T cell receptor",
+      "T cell differentiation in thymus",
+      "T cell proliferation",
+      "enamel mineralization",
+      "peripheral nervous system myelin maintenance"
+    ],
+    "phenotypes": [
+      "Combined immunodeficiency",
+      "Decreased total T cell count",
+      "Decreased total CD4+ T cell count",
+      "Recurrent viral infections",
+      "Hemophagocytosis",
+      "Ectodermal dysplasia",
+      "Enamel hypoplasia",
+      "Hypodontia",
+      "Conical tooth",
+      "Microdontia",
+      "Nail dystrophy",
+      "Peripheral neuropathy",
+      "Short stature",
+      "Bone marrow hypocellularity",
+      "Hypohidrosis",
+      "Fine hair",
+      "Sparse eyebrow",
+      "B-cell lymphoma",
+      "Autoimmune thrombocytopenia",
+      "Lymphoproliferative disorder",
+      "Recurrent bacterial infections",
+      "Recurrent pneumonia",
+      "Verrucae",
+      "Unusual molluscum contagiosum",
+      "Global developmental delay"
+    ],
+    "phenotype_categories": [
+      "Immunologic",
+      "Laboratory",
+      "Hematologic",
+      "Integumentary",
+      "Dental",
+      "Neurologic",
+      "Growth",
+      "Neoplasm",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0005387",
+      "HP:0005403",
+      "HP:5210418",
+      "HP:0004429",
+      "HP:0012156",
+      "HP:0000968",
+      "HP:0006297",
+      "HP:0000668",
+      "HP:0000698",
+      "HP:0000691",
+      "HP:0008404",
+      "HP:0009830",
+      "HP:0004322",
+      "HP:0005528",
+      "HP:0000966",
+      "HP:0002213",
+      "HP:0045075",
+      "HP:0012191",
+      "HP:0001973",
+      "HP:0005523",
+      "HP:0002718",
+      "HP:0006532",
+      "HP:0200043",
+      "HP:0032163",
+      "HP:0001263"
+    ],
+    "frequencies": [
+      "4 of 5 patients in the defining cohort",
+      "2 of 5 patients in the defining cohort",
+      "3 patients had features of immune dysregulation"
+    ],
+    "genes": [
+      "ITPR3"
+    ],
+    "treatments": [
+      "Haematopoietic Cell Transplantation",
+      "Immunoglobulin Replacement Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Immunodeficiency_133_With_Ectodermal_Dysplasia_With_Or_Without_Peripheral_Neuropathy.yaml",
+    "page_url": "../pages/disorders/Immunodeficiency_133_With_Ectodermal_Dysplasia_With_Or_Without_Peripheral_Neuropathy.html",
+    "num_phenotypes": 25,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Immunodeficiency 14B, Autosomal Recessive",
@@ -240037,37 +240433,63 @@ window.searchData = [
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [
-      "oligosaccharide catabolic process"
+      "oligosaccharide catabolic process",
+      "protein deglycosylation",
+      "nervous system development",
+      "telencephalon development"
     ],
     "phenotypes": [
       "Intellectual disability",
       "Polymicrogyria",
-      "Callosal anomalies"
+      "Callosal anomalies",
+      "Cerebellar vermis hypoplasia",
+      "Facial dysmorphism",
+      "Tongue hamartoma",
+      "Interhemispheric cyst",
+      "Hypothalamic hamartoma",
+      "Brainstem hypoplasia",
+      "Hydrocephalus"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Neurologic",
+      "Craniofacial"
+    ],
     "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Neoplasm",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0001249",
       "HP:0002126",
-      "HP:0001273"
+      "HP:0001273",
+      "HP:0001320",
+      "HP:0001999",
+      "HP:0011802",
+      "HP:0032327",
+      "HP:0002444",
+      "HP:0002365",
+      "HP:0000238"
     ],
     "frequencies": [],
     "genes": [
       "MAN2C1"
     ],
-    "treatments": [],
+    "treatments": [
+      "Ventriculoperitoneal Shunt Placement",
+      "Multidisciplinary Supportive Care"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "MAN2C1-congenital_disorder_of_deglycosylation_2.yaml",
     "page_url": "../pages/disorders/MAN2C1-congenital_disorder_of_deglycosylation_2.html",
-    "num_phenotypes": 3,
+    "num_phenotypes": 10,
     "num_pathophysiology": 3,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 2,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "MBD4-Related Tumor Predisposition Syndrome",
@@ -295117,7 +295539,8 @@ window.searchData = [
       "Third-Space Fluid Shift and Intravascular Volume Depletion",
       "Hypercoagulability and Thromboembolism",
       "Renal Hypoperfusion and Oliguria",
-      "Pleural Effusion and Respiratory Failure"
+      "Pleural Effusion and Respiratory Failure",
+      "Inflammatory Cytokine Amplification"
     ],
     "cell_types": [
       "Granulosa cell",
@@ -295161,7 +295584,13 @@ window.searchData = [
       "Dyspnea",
       "Hepatic Involvement in Severe Disease",
       "Rapid Weight Gain",
-      "Pelvic Pain from Adnexal Torsion"
+      "Pelvic Pain from Adnexal Torsion",
+      "Abdominal Pain",
+      "Acute Respiratory Distress Syndrome",
+      "Ovarian Torsion",
+      "Hypercoagulability",
+      "Increased Serum Estradiol",
+      "Hypoalbuminemia"
     ],
     "phenotype_categories": [
       "Reproductive",
@@ -295179,6 +295608,7 @@ window.searchData = [
       "Cardiovascular",
       "Constitutional",
       "Digestive",
+      "Endocrine",
       "Genitourinary",
       "Growth",
       "Immune",
@@ -295205,7 +295635,13 @@ window.searchData = [
       "HP:0002094",
       "HP:0031865",
       "HP:0004324",
-      "HP:0034267"
+      "HP:0034267",
+      "HP:0002027",
+      "HP:0033677",
+      "HP:0034503",
+      "HP:0100724",
+      "HP:0025134",
+      "HP:0003073"
     ],
     "frequencies": [],
     "genes": [
@@ -295224,18 +295660,19 @@ window.searchData = [
       "Thromboprophylaxis",
       "Therapeutic Paracentesis and Thoracentesis",
       "Supportive Care of Established OHSS",
-      "Risk Stratification Before Ovarian Stimulation"
+      "Risk Stratification Before Ovarian Stimulation",
+      "GnRH Antagonist Stimulation Protocol"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Ovarian_Hyperstimulation_Syndrome.yaml",
     "page_url": "../pages/disorders/Ovarian_Hyperstimulation_Syndrome.html",
-    "num_phenotypes": 20,
-    "num_pathophysiology": 16,
+    "num_phenotypes": 26,
+    "num_pathophysiology": 17,
     "num_genes": 1,
-    "num_treatments": 13,
-    "causal_graph_edges": "30",
-    "causal_graph_longest_path": "9"
+    "num_treatments": 14,
+    "causal_graph_edges": "53",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Ovarian Mucinous Carcinoma",
@@ -381353,21 +381790,24 @@ window.searchData = [
       "Deep Airway Deposition of Paucimicronic Allergen Particles",
       "Bronchial Epithelial Barrier Dysfunction Facilitating Allergen Access",
       "IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation",
-      "Bronchoconstriction and Acute Airflow Obstruction"
+      "Bronchoconstriction and Acute Airflow Obstruction",
+      "Beta2 Agonist Occupancy of Airway Smooth Muscle Receptors"
     ],
     "cell_types": [
       "bronchial epithelial cell",
       "mast cell",
       "eosinophil",
       "T-helper 2 cell",
-      "goblet cell"
+      "goblet cell",
+      "bronchial smooth muscle cell"
     ],
     "cell_type_ids": [
       "CL:0002328",
       "CL:0000097",
       "CL:0000771",
       "CL:0000546",
-      "CL:0000160"
+      "CL:0000160",
+      "CL:0002598"
     ],
     "biological_processes": [
       "response to osmotic stress (pollen grain rupture)",
@@ -381423,10 +381863,10 @@ window.searchData = [
     "source_file": "Thunderstorm_Asthma.yaml",
     "page_url": "../pages/disorders/Thunderstorm_Asthma.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
   },
   {
@@ -404809,17 +405249,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3753,
+  "total_disorder_pages": 3757,
   "total_subtypes": 4923,
-  "total_disorders_and_subtypes": 8676,
-  "total_unique_evidence_sources": 55868,
-  "total_unique_publications": 52201,
+  "total_disorders_and_subtypes": 8680,
+  "total_unique_evidence_sources": 55927,
+  "total_unique_publications": 52260,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3751,
-  "total_unique_pathological_events": 24709,
-  "total_modules": 211,
-  "total_research_reports": 3870,
+  "total_pathographs": 3755,
+  "total_unique_pathological_events": 24731,
+  "total_modules": 213,
+  "total_research_reports": 3874,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 127
