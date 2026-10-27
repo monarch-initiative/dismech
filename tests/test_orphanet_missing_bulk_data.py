@@ -88,7 +88,7 @@ def test_empty_data_dir_names_every_product(tmp_path: Path):
 def test_cli_rebuild_prints_the_remedy_instead_of_a_traceback(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(cli, "_DEFAULT_DATA_DIR", tmp_path)
+    monkeypatch.setattr(cli, "_data_dir", lambda: tmp_path)
 
     result = CliRunner().invoke(
         cli.app,
