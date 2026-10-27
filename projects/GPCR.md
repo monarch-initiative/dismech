@@ -25,6 +25,8 @@ diseases:
 - Restless_Legs_Syndrome
 - Peripartum_Cardiomyopathy
 - Asthma
+- Thunderstorm_Asthma
+- Formaldehyde_Poisoning
 - Chronic_Obstructive_Pulmonary_Disease
 - Urticaria
 - Alpha-gal_Syndrome
@@ -59,6 +61,7 @@ modules:
 - cgrp_receptor_antagonism
 - h1_receptor_antagonism
 - h2_receptor_antagonism
+- beta2_adrenergic_receptor_agonism
 ---
 
 # GPCRs: Drug Mechanisms and Disease Modules
@@ -128,8 +131,8 @@ conform:
 | CGRP receptor antagonism | CALCRL, RAMP1 | gepants, erenumab | Migraine, pseudotumor_cerebri. Scoped to receptor antagonism, so the peptide-directed antibodies are out; `Migraine_with_Aura` was assessed and rejected because its only CGRP treatment names no agent |
 | H1 receptor antagonism | HRH1 | antihistamines | Urticaria, Alpha-gal_Syndrome. Two modules rather than one: see the Decisions below. `allergic rhinitis` was listed here as a candidate and has no dismech entry, so `Alpha-gal_Syndrome` was wired instead, which also keeps the module indication-independent |
 | H2 receptor antagonism | HRH2 | H2 blockers | Gastroesophageal_Reflux_Disease. Scoped to H2 blockade, so the proton-pump inhibitors are out: they block the same terminal pump non-competitively and the H2RA mechanism is upstream of it |
-| beta2 adrenergic receptor agonism | ADRB2 | SABA, LABA | Asthma, Chronic_Obstructive_Pulmonary_Disease |
-| muscarinic receptor antagonism (airway) | CHRM3 | SAMA, LAMA | Chronic_Obstructive_Pulmonary_Disease, Asthma |
+| beta2 adrenergic receptor agonism | ADRB2 | SABA, LABA | Asthma, Thunderstorm_Asthma, Formaldehyde_Poisoning. Airway-scoped: the receptor's neuromuscular-transmission and potassium-shift effector chains are a separate question, below. `Chronic_Obstructive_Pulmonary_Disease` and `Cough_Variant_Asthma` were assessed and could not be wired -- each binds the generic `Bronchodilator` agent in one treatment covering both drug classes |
+| muscarinic receptor antagonism (airway) | CHRM3 | SAMA, LAMA | Chronic_Obstructive_Pulmonary_Disease, Asthma -- but both candidate conformers are blocked by the same bundling as above: COPD's and `Cough_Variant_Asthma`'s single `Bronchodilators` treatment covers beta2 agonists and muscarinic antagonists together, so splitting those treatments is this module's prerequisite |
 | CaSR positive allosteric modulation | CASR | calcimimetics | secondary hyperparathyroidism in CKD |
 | S1P receptor modulation | S1PR1 | fingolimod, siponimod | Multiple_Sclerosis |
 | P2Y12 receptor antagonism | P2RY12 | clopidogrel, ticagrelor | Coronary_Artery_Disease |
@@ -249,6 +252,18 @@ mechanism-level rather than disease-level.
   - [x] One H2-blocker-treated entry, in #15689: `Gastroesophageal_Reflux_Disease`
         against `h2_receptor_antagonism`, at the trigger. Its existing H2 antagonist
         treatment was wired rather than a new one added
+  - [x] Three beta2-agonist-treated entries, in #15706: `Asthma` (both its pre-existing
+        short- and long-acting treatments wired to one node, since the receptor is the
+        same and only the route and duration differ), `Thunderstorm_Asthma` and
+        `Formaldehyde_Poisoning` against `beta2_adrenergic_receptor_agonism`, all at the
+        trigger. The third is a toxicological entry rather than an airway disease, so the
+        module is not tied to asthma; its link carries receptor-level evidence only,
+        because that treatment's own notes record that no formaldehyde-specific efficacy
+        publication exists. `Chronic_Obstructive_Pulmonary_Disease` and
+        `Cough_Variant_Asthma` are deliberately not wired, and `Sulfur_Mustard_Poisoning`
+        likewise: the first two bind the generic `Bronchodilator` agent in a treatment
+        covering both airway drug classes, and the third's salmeterol sits in a bundled
+        supportive-care treatment with no agent-level binding
 - [ ] Remaining Workstream A modules
   - [x] D2 receptor antagonism — `d2_receptor_antagonism` (#15299)
   - [x] AT1 receptor blockade — `at1_receptor_blockade` (#15271)
@@ -257,7 +272,7 @@ mechanism-level rather than disease-level.
   - [x] CGRP receptor antagonism — `cgrp_receptor_antagonism` (#15624)
   - [x] H1 receptor antagonism — `h1_receptor_antagonism` (#15686)
   - [x] H2 receptor antagonism — `h2_receptor_antagonism` (#15689)
-  - [ ] beta2 adrenergic receptor agonism
+  - [x] beta2 adrenergic receptor agonism — `beta2_adrenergic_receptor_agonism` (#15706)
   - [ ] muscarinic receptor antagonism (airway)
   - [ ] CaSR positive allosteric modulation
   - [ ] S1P receptor modulation
@@ -377,3 +392,31 @@ they are not lost. None blocks anything.
   it deliberately rather than fold them in. `Migraine`'s anti-CGRP antibody
   treatment bundles one receptor-directed and two peptide-directed agents and
   wants splitting either way.
+- **Is tissue a third scoping axis?** The rule above is one receptor family plus
+  one direction of action. Beta2 agonism does not fit it: the corpus uses the
+  class for three mechanistically disjoint purposes that share one trigger and
+  one transducer and diverge only at the effector — airway smooth muscle
+  relaxation (`Asthma`, `Thunderstorm_Asthma`, `Cough_Variant_Asthma`,
+  `Formaldehyde_Poisoning`, `Sulfur_Mustard_Poisoning`); enhancing neuromuscular
+  transmission (`Congenital_Myasthenic_Syndrome` and its `_6` and `_7` entries,
+  `ALG2-Congenital_Disorder_of_Glycosylation`,
+  `Combined_Oxidative_Phosphorylation_Deficiency_58`, `RYR1-Related_Myopathy`);
+  and driving potassium intracellularly (`Hyperkalemic_Periodic_Paralysis`).
+  `beta2_adrenergic_receptor_agonism` is scoped to the airway on this table's own
+  wording plus the tissue-scoped precedent of
+  `cardiac_camp_pka_calcium_handling` and `spinal_hsp90_opioid_enhancement`, and
+  that scope does not settle the question. Either the other two chains become
+  their own modules, or they become further effector arms off a shared trigger —
+  in which case one module would serve about ten conformers instead of three.
+  **MC4R and V2 have the same shape**, so this is worth deciding before either.
+- **May a module PR split another entry's bundled treatment?** Three modules have
+  now been blocked by one treatment covering two drug classes: the muscarinic
+  module cannot take `Chronic_Obstructive_Pulmonary_Disease` or
+  `Cough_Variant_Asthma` until their single `Bronchodilators` treatment is split,
+  and both histamine modules are blocked the same way by the four bundled H1+H2
+  antihistamine treatments listed under Deferred follow-ups. Splitting a bundled
+  treatment is arguably a modelling fix rather than a clinical one — it separates
+  two mechanisms without changing which agents are listed — but it is adjacent to
+  changing an agent roster, which this project has treated as belonging to
+  whoever curated the entry (see the ranitidine item under Deferred follow-ups).
+  Deciding this unblocks the muscarinic module and several conformers.
