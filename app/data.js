@@ -47051,6 +47051,71 @@ window.searchData = [
     "causal_graph_longest_path": "13"
   },
   {
+    "name": "Autosomal Recessive Spinocerebellar Ataxia 17",
+    "disease_id": "MONDO:0014503",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal recessive cerebellar ataxia"
+    ],
+    "creation_date": "2026-10-26T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Biallelic loss-of-function variants in CWF19L1 (splice-site, frameshift, and nonsense alleles, as well as damaging missense alleles) abolish or reduce the protein. The normal biological function of the evolutionarily highly conserved CWF19L1 protein is unknown; its name reflects homology to the yeast Cwf19 spliceosome-associated protein (complexed with cdc5), but a specific molecular function has not been established, so none is asserted here.",
+    "pathophysiology": [
+      "CWF19L1 Loss of Function",
+      "Cerebellar Hypoplasia",
+      "Progressive Cerebellar Degeneration"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Cerebellar ataxia",
+      "Cerebellar atrophy",
+      "Cerebellar vermis hypoplasia",
+      "Intellectual disability",
+      "Global developmental delay",
+      "Developmental regression",
+      "Extrapyramidal movement disorder",
+      "Hypotonia",
+      "Seizures"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Imaging"
+    ],
+    "phenotype_hpo_categories": [
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001251",
+      "HP:0001272",
+      "HP:0001320",
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0002376",
+      "HP:0002071",
+      "HP:0001252",
+      "HP:0001250"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CWF19L1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Recessive_Spinocerebellar_Ataxia_17.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Spinocerebellar_Ataxia_17.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Autosomal Recessive Spinocerebellar Ataxia 20",
     "disease_id": "MONDO:0014601",
     "category": "Mendelian",
@@ -404809,17 +404874,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3753,
+  "total_disorder_pages": 3754,
   "total_subtypes": 4923,
-  "total_disorders_and_subtypes": 8676,
-  "total_unique_evidence_sources": 55868,
-  "total_unique_publications": 52201,
+  "total_disorders_and_subtypes": 8677,
+  "total_unique_evidence_sources": 55873,
+  "total_unique_publications": 52206,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3751,
-  "total_unique_pathological_events": 24709,
+  "total_pathographs": 3752,
+  "total_unique_pathological_events": 24711,
   "total_modules": 211,
-  "total_research_reports": 3870,
+  "total_research_reports": 3871,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 127
