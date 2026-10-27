@@ -1081,7 +1081,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1130,6 +1130,35 @@ drug-exposure-query *args="":
 [group('QC')]
 chemical-binding-inventory *args="":
     uv run python scripts/chemical_binding_inventory.py {{args}}
+
+# Inventory of every assay in the KB by the route that reaches it: the five
+# `assays:` routes (dismech#15354), the distinct assay names, and a reverse
+# lookup from an assay name to the entries recording it. An assay on a proposed
+# experiment is a measurement somebody suggested, not one that was made, so the
+# routes are never summed into a single figure. Also reports names that differ
+# only mechanically, and separately flags names one of which contains the
+# other, which only a curator can resolve. Report-only, exits 0.
+#   just assay-inventory
+#   just assay-inventory --assay "multielectrode array recording"
+#   just assay-inventory --format tsv --out docs/reports/data/assays-<date>.tsv
+[group('QC')]
+assay-inventory *args="":
+    uv run python scripts/assay_inventory.py {{args}}
+
+# Inventory of the three model sections and every ModelMechanismLink reaching
+# the pathograph, counted by relationship, fidelity, model_scale and the detail
+# each link carries. Walks all four homes of a link through
+# `dismech.model_links`, including the model systems of a proposed experiment
+# (dismech#13427); `--curated-only` drops those. A missing fidelity or scale is
+# reported as not recorded, never as a verdict. For species normalised into
+# clades use `just model-taxon-census`, and for the scale comparison itself use
+# `just model-scale-audit`. Report-only, exits 0.
+#   just model-inventory
+#   just model-inventory --node "Neuronal Hyperexcitability"
+#   just model-inventory --format tsv --table models
+[group('QC')]
+model-inventory *args="":
+    uv run python scripts/model_inventory.py {{args}}
 
 # For a named entity, the schema path of every string match, whether the holding
 # object carries a bound term, and whether the mention is identity, prose or
@@ -2070,6 +2099,17 @@ check-reference-titles:
 [group('QC')]
 list-reference-title-mismatches:
     uv run python scripts/check_reference_titles.py --all
+
+# Fail on any evidence item with no `reference_title` (presence; the recipe
+# above checks correctness). Holds the backlog at zero ahead of making the slot
+# `required` in the schema, so open curation PRs are told now rather than all
+# going red when that change merges. No baseline. Fill gaps from the cache with
+# `uv run python scripts/backfill_reference_titles.py <file>`. ~30s, offline.
+#   just check-reference-titles-present
+#   just check-reference-titles-present kb/disorders/Asthma.yaml --details
+[group('QC')]
+check-reference-titles-present *args:
+    uv run python scripts/find_missing_reference_titles.py {{args}}
 
 # Regenerate the reference-title baseline after intentionally changing the set
 # (e.g. fixing backlog entries). Review the diff before committing.
