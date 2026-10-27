@@ -295539,7 +295539,8 @@ window.searchData = [
       "Third-Space Fluid Shift and Intravascular Volume Depletion",
       "Hypercoagulability and Thromboembolism",
       "Renal Hypoperfusion and Oliguria",
-      "Pleural Effusion and Respiratory Failure"
+      "Pleural Effusion and Respiratory Failure",
+      "Inflammatory Cytokine Amplification"
     ],
     "cell_types": [
       "Granulosa cell",
@@ -295583,7 +295584,13 @@ window.searchData = [
       "Dyspnea",
       "Hepatic Involvement in Severe Disease",
       "Rapid Weight Gain",
-      "Pelvic Pain from Adnexal Torsion"
+      "Pelvic Pain from Adnexal Torsion",
+      "Abdominal Pain",
+      "Acute Respiratory Distress Syndrome",
+      "Ovarian Torsion",
+      "Hypercoagulability",
+      "Increased Serum Estradiol",
+      "Hypoalbuminemia"
     ],
     "phenotype_categories": [
       "Reproductive",
@@ -295601,6 +295608,7 @@ window.searchData = [
       "Cardiovascular",
       "Constitutional",
       "Digestive",
+      "Endocrine",
       "Genitourinary",
       "Growth",
       "Immune",
@@ -295627,7 +295635,13 @@ window.searchData = [
       "HP:0002094",
       "HP:0031865",
       "HP:0004324",
-      "HP:0034267"
+      "HP:0034267",
+      "HP:0002027",
+      "HP:0033677",
+      "HP:0034503",
+      "HP:0100724",
+      "HP:0025134",
+      "HP:0003073"
     ],
     "frequencies": [],
     "genes": [
@@ -295646,18 +295660,19 @@ window.searchData = [
       "Thromboprophylaxis",
       "Therapeutic Paracentesis and Thoracentesis",
       "Supportive Care of Established OHSS",
-      "Risk Stratification Before Ovarian Stimulation"
+      "Risk Stratification Before Ovarian Stimulation",
+      "GnRH Antagonist Stimulation Protocol"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Ovarian_Hyperstimulation_Syndrome.yaml",
     "page_url": "../pages/disorders/Ovarian_Hyperstimulation_Syndrome.html",
-    "num_phenotypes": 20,
-    "num_pathophysiology": 16,
+    "num_phenotypes": 26,
+    "num_pathophysiology": 17,
     "num_genes": 1,
-    "num_treatments": 13,
-    "causal_graph_edges": "30",
-    "causal_graph_longest_path": "9"
+    "num_treatments": 14,
+    "causal_graph_edges": "53",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Ovarian Mucinous Carcinoma",
@@ -405237,13 +405252,13 @@ window.searchMetrics = {
   "total_disorder_pages": 3757,
   "total_subtypes": 4923,
   "total_disorders_and_subtypes": 8680,
-  "total_unique_evidence_sources": 55915,
-  "total_unique_publications": 52248,
+  "total_unique_evidence_sources": 55927,
+  "total_unique_publications": 52260,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
   "total_pathographs": 3755,
-  "total_unique_pathological_events": 24730,
-  "total_modules": 212,
+  "total_unique_pathological_events": 24731,
+  "total_modules": 213,
   "total_research_reports": 3874,
   "total_classifications": 21,
   "total_comorbidities": 51,
