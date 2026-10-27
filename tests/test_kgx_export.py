@@ -1593,6 +1593,29 @@ class TestDatasetAndTrialEdges:
         assert dataset_to_edge("MONDO:1", {"accession": "not a curie: x"}) is None
 
     @pytest.mark.parametrize(
+        "accession",
+        [
+            "PMID:34908184",
+            "DOI:10.1111/liv.15963",
+            "doi:10.1111/liv.15963",
+            "https://data.ghga.de/dataset/GHGAD98802067102801",
+            "clinicaltrials:NCT01238250",
+            "geo:",
+        ],
+    )
+    def test_publication_url_and_trial_accessions_are_not_datasets(self, accession):
+        from dismech.export.kgx_export import dataset_id
+
+        assert dataset_id({"accession": accession}) is None
+
+    def test_accession_prefix_is_lowercased(self):
+        from dismech.export.kgx_export import dataset_id
+
+        assert dataset_id({"accession": "GEO:GSE225435"}) == "geo:GSE225435"
+        assert dataset_id({"accession": "SRA:SRR18749879"}) == "sra:SRR18749879"
+        assert dataset_id({"accession": "ega:EGAS50000000217"}) == "ega:EGAS50000000217"
+
+    @pytest.mark.parametrize(
         ("trial", "expected"),
         [
             ({"name": "NCT05813288"}, "clinicaltrials:NCT05813288"),
@@ -1642,6 +1665,14 @@ class TestDatasetAndTrialEdges:
         ]
         categories = {n.id: n.category for n in extract_nodes(record)}
         assert categories["clinicaltrials:NCT05813288"] == ["biolink:ClinicalTrial"]
+
+    def test_mondo_trial_target_is_a_disease(self):
+        from dismech.export.kgx_export import clinical_trial_target_phenotype_to_edge
+
+        edge = clinical_trial_target_phenotype_to_edge(
+            "clinicaltrials:NCT05813288", {"term": {"id": "MONDO:0005148"}}
+        )
+        assert edge.object_category == "biolink:Disease"
 
 
 class TestPathophysiologyLayer:
@@ -1757,8 +1788,11 @@ def test_semicircular_canal_dehiscence_reproductions():
         assert (scds, "biolink:similar_to", differential) in edges
     for procedure in ("NCIT:C17204", "NCIT:C38036"):
         assert (scds, "biolink:is_diagnosed_by", procedure) in edges
+    # SCDS's two `datasets:` are cohorts identified only by their publication's
+    # PMID, which is not exported as a Dataset node (it is already the id of the
+    # publication other edges cite).
     for dataset in ("PMID:16222184", "PMID:36742050"):
-        assert (dataset, "biolink:mentions", scds) in edges
+        assert (dataset, "biolink:mentions", scds) not in edges
     assert (node("Developmental_Otic_Capsule_Bone_Deficiency"), "biolink:causes", node("Bony_Dehiscence_of_Semicircular_Canal")) in edges
     assert (node("Bony_Dehiscence_of_Semicircular_Canal"), "biolink:causes", node("Third_Window_Effect")) in edges
     assert ("HP:0002321", "biolink:causes", "HP:0002141") in edges  # Vertigo -> Chronic Disequilibrium

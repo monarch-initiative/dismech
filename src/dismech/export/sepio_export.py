@@ -313,7 +313,7 @@ def statement_from_association(
     )
 
 
-def _causal_link_curie(causal_link_type: str | None) -> str | None:
+def causal_link_curie(causal_link_type: str | None) -> str | None:
     """CURIE for a ``CausalLinkTypeEnum`` value, for the ``qualifiers`` list.
 
     Biolink types that slot as ``range: ontology class``, so a bare ``DIRECT``
@@ -479,7 +479,7 @@ def pathophysiology_statements(record: dict[str, Any]) -> Iterator[Statement]:
         edge_lines = evidence_to_lines(edge.get("evidence"), assertion.statement_id)
         if not edge_lines:
             continue
-        causal_link_type = _causal_link_curie(edge.get("causal_link_type"))
+        causal_link_type = causal_link_curie(edge.get("causal_link_type"))
         yield Statement(
             id=assertion.statement_id,
             subject=node_id,

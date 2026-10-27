@@ -195,14 +195,30 @@ canonical one:
   the predicate's declared range.
 - **Datasets.** `mentions` is Biolink's predicate for an information content
   entity, which `dataset` is, referring to a named thing when the context is not
-  modelled. The node id is the `accession` CURIE; the dataset's `publication`
-  is added to the edge's `publications`.
+  modelled. The node id is the `accession` CURIE with its prefix lowercased
+  (`GEO:GSE1` and `geo:GSE1` are one node); the dataset's `publication` is added
+  to the edge's `publications`. An accession that is a publication (`PMID:`,
+  `PMC:`, `DOI:`), a URL, or a `clinicaltrials:` id is not exported as a
+  dataset: a publication is already cited in edges' `publications`, a DOI does
+  not say whether it names a paper or a dataset, a URL is not a CURIE, and a
+  trial is exported from `clinical_trials`.
 - **Trials.** Biolink models a trial's conditions as a node property, and its
   trial predicates take a chemical as subject, so the edge is the generic
   instance-level one. An NCT id becomes `clinicaltrials:NCT…`. A trial on
   another registry is keyed on the `ICTRP:` record the entry cites. A trial with
   neither gets no node, because the exporter does not extract registry ids from
   free text.
+
+### One id, one category
+
+`extract_nodes` writes a node the first time a record names its id, with that
+section's category. An NCIT term curated as both a treatment and a diagnostic
+procedure in one entry (`NCIT:C15240` Genetic Counseling, `NCIT:C15329` Surgical
+Procedure) is therefore written as `biolink:Treatment`, while its
+`is_diagnosed_by` edge says `object_category: biolink:Procedure`. Across entries
+the node file carries both. This is the same first-section-wins behaviour that
+already gives some CHEBI ids both `ChemicalEntity` and `MolecularEntity`, and is
+not specific to the new sections.
 
 ## What is not exported
 

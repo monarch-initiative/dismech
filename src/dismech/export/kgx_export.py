@@ -1181,12 +1181,24 @@ def diagnosis_to_edge(disease_id: str, diagnosis: dict[str, Any]) -> Association
     )
 
 
+# Accession prefixes that do not name a dataset node. A publication (PMID, DOI)
+# is cited elsewhere as an edge's `publications`, so typing it `biolink:Dataset`
+# would give one id two categories; a DOI can name a dataset, but nothing in the
+# record says which kind this one is. A URL is not a CURIE. A trial is exported
+# from `clinical_trials` as a `biolink:ClinicalTrial`.
+NON_DATASET_ACCESSION_PREFIXES = frozenset(
+    {"pmid", "pmc", "doi", "http", "https", "url", "clinicaltrials"}
+)
+
+
 def dataset_id(dataset: dict[str, Any]) -> str | None:
     """
-    The KGX node id for a ``datasets[]`` entry: its accession, when it is a CURIE.
+    The KGX node id for a ``datasets[]`` entry: its accession, when it names a dataset.
 
-    Accessions are already CURIEs (``geo:GSE…``, ``ega:EGAS…``, ``PMID:…``); a
-    value with whitespace or no prefix is not an identifier and is skipped.
+    Accessions are CURIEs into a data repository (``geo:GSE…``, ``ega:EGAS…``).
+    The prefix is lowercased, the KB's own convention, so ``GEO:GSE1`` and
+    ``geo:GSE1`` are one node. A value with whitespace, no prefix, or a prefix in
+    ``NON_DATASET_ACCESSION_PREFIXES`` is skipped.
     """
     accession = dataset.get("accession")
     if not isinstance(accession, str):
@@ -1194,7 +1206,11 @@ def dataset_id(dataset: dict[str, Any]) -> str | None:
     accession = accession.strip()
     if ":" not in accession or any(ch.isspace() for ch in accession):
         return None
-    return accession
+    prefix, local_id = accession.split(":", 1)
+    prefix = prefix.lower()
+    if prefix in NON_DATASET_ACCESSION_PREFIXES or not local_id:
+        return None
+    return f"{prefix}:{local_id}"
 
 
 def dataset_to_edge(disease_id: str, dataset: dict[str, Any]) -> Association | None:
@@ -1336,7 +1352,9 @@ def clinical_trial_target_phenotype_to_edge(
         predicate="biolink:related_to_at_instance_level",
         object=phenotype_id,
         subject_category="biolink:ClinicalTrial",
-        object_category="biolink:PhenotypicFeature",
+        object_category=(
+            "biolink:Disease" if phenotype_id.startswith("MONDO:") else "biolink:PhenotypicFeature"
+        ),
         publications=publications if publications else None,
         supporting_text=supporting_text if supporting_text else None,
         primary_knowledge_source=KNOWLEDGE_SOURCE,
@@ -1598,7 +1616,12 @@ def extract_nodes(record: dict[str, Any]) -> Iterator[NamedThing]:
         for phenotype in trial.get("target_phenotypes") or []:
             term_id = _get_term_id(phenotype, ["term", "id"])
             label = _get_term_id(phenotype, ["term", "label"])
-            node = _emit(term_id, phenotype.get("preferred_term") or label, "biolink:PhenotypicFeature")
+            category = (
+                "biolink:Disease"
+                if term_id and term_id.startswith("MONDO:")
+                else "biolink:PhenotypicFeature"
+            )
+            node = _emit(term_id, phenotype.get("preferred_term") or label, category)
             if node:
                 yield node
 
@@ -1742,7 +1765,7 @@ def pathophysiology_layer_edges(record: dict[str, Any]) -> Iterator[EdgeWithEvid
         target_id, target_category = resolved
         evidence = edge.get("evidence")
         publications, supporting_text = _format_evidence(evidence, indirect=False)
-        causal_link_type = sepio_export._causal_link_curie(edge.get("causal_link_type"))
+        causal_link_type = sepio_export.causal_link_curie(edge.get("causal_link_type"))
         association = Association(
             id=assertion.statement_id,
             subject=node_id,
