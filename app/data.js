@@ -117780,6 +117780,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "NADP+ biosynthetic process",
+      "NADPH regeneration",
       "Fatty acid beta-oxidation",
       "Unsaturated fatty acid metabolic process",
       "L-lysine catabolic process"
@@ -117861,7 +117862,8 @@ window.searchData = [
     "biochemical": [
       "Elevated C10:2 (decadienoyl) acylcarnitine",
       "Hyperlysinemia",
-      "Elevated lactate"
+      "Elevated lactate",
+      "Decreased mitochondrial NADP(H)"
     ],
     "source_file": "DECR_Deficiency.yaml",
     "page_url": "../pages/disorders/DECR_Deficiency.html",
@@ -117869,7 +117871,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "26",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "4"
   },
   {
@@ -128769,8 +128771,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Dilated Cardiomyopathy 1DD",
@@ -135672,9 +135674,11 @@ window.searchData = [
       "Cerebellar Purkinje Cell Dendritic and Synaptic Deficit"
     ],
     "cell_types": [
+      "neuron",
       "Purkinje cell"
     ],
     "cell_type_ids": [
+      "CL:0000540",
       "CL:0000121"
     ],
     "biological_processes": [
@@ -135714,7 +135718,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "3"
   },
   {
@@ -137039,7 +137043,8 @@ window.searchData = [
     ],
     "biological_processes": [
       "translational elongation",
-      "selenocysteine incorporation"
+      "selenocysteine incorporation",
+      "cerebellum development"
     ],
     "phenotypes": [
       "Global developmental delay",
@@ -137049,7 +137054,9 @@ window.searchData = [
       "Cerebellar hypoplasia",
       "Progressive cerebellar atrophy"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Neurological"
+    ],
     "phenotype_hpo_categories": [
       "Musculoskeletal",
       "Nervous System"
@@ -137075,8 +137082,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "EFL1-related Shwachman-Diamond syndrome",
@@ -138772,6 +138779,80 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Ectodermal Dysplasia 13 Hair Tooth Type",
+    "disease_id": "MONDO:0044305",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "developmental disorder"
+    ],
+    "creation_date": "2026-10-26T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Ectodermal dysplasia 13, hair/tooth type (ECTD13; OMIM 617392) is a rare autosomal recessive ectodermal dysplasia caused by biallelic variants in KREMEN1, which encodes Kringle-containing transmembrane protein 1, a transmembrane receptor that binds Dickkopf-1 (DKK1) and the Wnt co-receptors LRP5/6 and participates in regulation of canonical Wnt/beta-catenin signaling. The disorder predominantly affects the teeth and hair: the core feature is oligodontia (severe tooth agenesis) of both primary and permanent dentition, accompanied by mild ectodermal features such as sparse scalp hair, sparse eyebrows and eyelashes, and variable skin changes. It was first described in consanguineous Palestinian families and has since been confirmed in Turkish and Thai families, and functionally characterized as a disorder of KREMEN1 loss of function with reduced KREMEN1-DKK1-LRP6 ternary complex formation and general deregulation of the Wnt pathway.",
+    "pathophysiology": [
+      "KREMEN1 Loss of Function",
+      "Impaired KREMEN1-DKK1-LRP6 Ternary Complex Formation",
+      "Deregulated Canonical Wnt Signaling",
+      "Disrupted Ectodermal Appendage Morphogenesis"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "canonical Wnt signaling pathway",
+      "odontogenesis",
+      "hair follicle development"
+    ],
+    "phenotypes": [
+      "Oligodontia",
+      "Sparse scalp hair",
+      "Sparse eyebrow",
+      "Sparse eyelashes",
+      "Curly hair",
+      "Brittle hair",
+      "Dry skin",
+      "Hyperpigmentation of the skin",
+      "Heat intolerance"
+    ],
+    "phenotype_categories": [
+      "Dental",
+      "Integumentary"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000677",
+      "HP:0002209",
+      "HP:0045075",
+      "HP:0000653",
+      "HP:0002212",
+      "HP:0002299",
+      "HP:0000958",
+      "HP:0000953",
+      "HP:0002046"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KREMEN1"
+    ],
+    "treatments": [
+      "Prosthodontic and restorative dental management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Ectodermal_Dysplasia_13_Hair_Tooth_Type.yaml",
+    "page_url": "../pages/disorders/Ectodermal_Dysplasia_13_Hair_Tooth_Type.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Ectodermal Dysplasia and Immunodeficiency 2",
@@ -192774,7 +192855,7 @@ window.searchData = [
       "CL:0002548"
     ],
     "biological_processes": [
-      "Sarcomere Organization",
+      "cardiac muscle contraction",
       "Regulation of Cardiac Muscle Contraction by Calcium",
       "Cardiac Muscle Hypertrophy in Response to Stress",
       "Extracellular Matrix Organization",
@@ -192815,8 +192896,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Hypertrophic Cardiomyopathy 14",
@@ -253994,7 +254075,7 @@ window.searchData = [
     "creation_date": "2026-03-04T18:40:20Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Metatropic dysplasia is a TRPV4-associated autosomal dominant skeletal dysplasia with short-limbed disproportionate stature, progressive spinal deformity, and severe metaphyseal and vertebral abnormalities that can range from nonlethal to perinatal lethal forms.\n",
+    "description": "Metatropic dysplasia is a TRPV4-associated autosomal dominant skeletal dysplasia with short-limbed disproportionate stature, progressive spinal deformity, and severe metaphyseal and vertebral abnormalities that can range from nonlethal to perinatal lethal forms.",
     "pathophysiology": [
       "TRPV4 Channel Hyperactivity in Growth Plate Chondrocytes",
       "SOX9-Mediated Blocked Terminal Chondrocyte Differentiation",
@@ -254065,7 +254146,7 @@ window.searchData = [
     ],
     "frequencies": [],
     "genes": [
-      "TRPV4 Pathogenic Variants"
+      "TRPV4"
     ],
     "treatments": [
       "Cervical Spine and Odontoid Surveillance",
@@ -290120,8 +290201,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Oral Cavity Squamous Cell Carcinoma",
@@ -404242,17 +404323,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3748,
+  "total_disorder_pages": 3749,
   "total_subtypes": 4919,
-  "total_disorders_and_subtypes": 8667,
-  "total_unique_evidence_sources": 55809,
-  "total_unique_publications": 52145,
+  "total_disorders_and_subtypes": 8668,
+  "total_unique_evidence_sources": 55814,
+  "total_unique_publications": 52150,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3746,
-  "total_unique_pathological_events": 24677,
+  "total_pathographs": 3747,
+  "total_unique_pathological_events": 24681,
   "total_modules": 209,
-  "total_research_reports": 3865,
+  "total_research_reports": 3866,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 127
