@@ -240,11 +240,12 @@ mechanism-level rather than disease-level.
   - [x] Two antihistamine-treated entries, in #15686: `Urticaria` and
         `Alpha-gal_Syndrome` against `h1_receptor_antagonism`, both at the trigger.
         The second is not an urticaria entry on purpose, so the module is
-        indication-independent. Three entries that bundle an H1 and an H2 agent into one
-        treatment (`Mast_Cell_Activation_Syndrome`, `Maculopapular_Cutaneous_Mastocytosis`
-        and the related systemic mastocytosis entries) are deliberately not wired:
-        neither module can take them without asserting one receptor's action for the
-        other receptor's drug, so splitting those treatments is the prerequisite
+        indication-independent. Four entries that bundle an H1 and an H2 agent into one
+        treatment (`Mast_Cell_Activation_Syndrome`, `Maculopapular_Cutaneous_Mastocytosis`,
+        `Systemic_Mastocytosis` and `Monoclonal_Mast_Cell_Activation_Syndrome`) are
+        deliberately not wired: neither module can take them without asserting one
+        receptor's action for the other receptor's drug, so splitting those treatments is
+        the prerequisite
   - [x] One H2-blocker-treated entry, in #15689: `Gastroesophageal_Reflux_Disease`
         against `h2_receptor_antagonism`, at the trigger. Its existing H2 antagonist
         treatment was wired rather than a new one added
@@ -333,12 +334,30 @@ they are not lost. None blocks anything.
   takes it should also delete the trailing clause "Whether to drop it from the
   roster is a clinical-content decision and has not been made here", which
   describes a pull request rather than the treatment.
-- **Split the three entries that bundle an H1 and an H2 antihistamine into one
-  treatment** (`Mast_Cell_Activation_Syndrome`, with cetirizine and famotidine
-  together; `Maculopapular_Cutaneous_Mastocytosis`; and the related systemic
-  mastocytosis entries). Neither histamine module can take them without
-  asserting one receptor's action for the other receptor's drug, so this is the
-  prerequisite for conforming them.
+- **Split the four entries that bundle an H1 and an H2 antihistamine into one
+  treatment.** Neither histamine module can take them without asserting one
+  receptor's action for the other receptor's drug, so this is the prerequisite
+  for conforming them. They do not all need the same work, because they bundle
+  to different degrees:
+    - `Mast_Cell_Activation_Syndrome` — `H1/H2 Antihistamines`, binding
+      cetirizine and famotidine. Both agents are bound, so splitting the
+      treatment in two is mechanical.
+    - `Systemic_Mastocytosis` — `Anti-Mediator Symptomatic Therapy`, binding an
+      H1 and an H2 receptor-antagonist class term plus cromoglicate and
+      adrenaline. Four modalities in one treatment, not two.
+    - `Maculopapular_Cutaneous_Mastocytosis` — `H1 and H2 Antihistamines`, whose
+      name and description cover both but which binds only the H1 class term, so
+      the H2 half is asserted in prose and nowhere else.
+    - `Monoclonal_Mast_Cell_Activation_Syndrome` — `Anti-mediator Therapy`, which
+      names H1 and H2 antagonists, anti-leukotrienes and stabilisers in its
+      description and binds **no** agent at all. The hardest of the four, and the
+      one a conformance pass would silently skip.
+- **Correct the same count in both histamine modules' `notes`.** The `notes` of
+  `h1_receptor_antagonism` and `h2_receptor_antagonism` both say "three entries"
+  and name two of them plus "the related systemic mastocytosis entries". That is
+  the error corrected on this page: there are four, and
+  `Monoclonal_Mast_Cell_Activation_Syndrome` is unnamed in both. A `kb/` change,
+  so it could not ride the `projects/`-only pull request that fixed the page.
 
 ## Open questions
 
