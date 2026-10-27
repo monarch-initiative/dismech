@@ -178,15 +178,13 @@ those abbreviations are filtered.
 | `PMM2-Congenital_Disorder_of_Glycosylation` | Serum transferrin isoform pattern | Bound to HP:0003642 Type I transferrin isoform profile |
 
 Glycan structures go in the `biochemical[].mappings_list` slot with ChEBI
-CURIEs. GlyTouCan and bGSL identifiers are **not** written into the KB yet:
-no dismech validator resolves either prefix, and GlyTouCan and GlyGen were not
-reachable from the curation environment to verify an accession. They are
-recorded in the crosswalk below instead.
+CURIEs. GlyTouCan and bGSL identifiers are **not** written into the KB yet.
+They are recorded in the crosswalk below instead, for the reason given under
+*Validating GlyTouCan accessions*.
 
 ### Crosswalk
 
-GlyTouCan accessions are as given by bGSL and have not been independently
-resolved.
+Every GlyTouCan accession in this table resolves in GNOme (see below).
 
 | dismech biomarker | ChEBI (dismech) | bGSL term | bGSL ChEBI | GlyTouCan (bGSL) | Agreement |
 |---|---|---|---|---|---|
@@ -214,6 +212,32 @@ resolved.
   glycoconjugate measurements rather than free glycans, which may be outside
   bGSL's intended scope; either way they are the biomarkers this KB most
   needs to represent.
+
+### Validating GlyTouCan accessions
+
+GNOme, the Glycan Naming and Subsumption Ontology, uses GlyTouCan accessions
+as its identifiers (`GNO:G00059MO` is GlyTouCan `G00059MO`) and is served by
+the EBI Ontology Lookup Service (release V2.7.0, 2026-07-24, at the time of
+this pilot). `runoak -i ols:gno labels GNO:<accession>` therefore confirms
+that an accession exists, and an unknown accession returns HTTP 404. GNOme
+term labels are the accession itself, so this checks existence, not the
+name. Recursive lookups (`ancestors`) are not available through the OLS
+adapter.
+
+Of the 534 distinct GlyTouCan accessions in bGSL 2026-10-08, 508 resolve in
+GNOme. The 26 that do not are all polysaccharides or repeat-unit glycans
+(chondroitin sulfates, hyaluronan, keratan sulfate, amylose, xyloglucan and
+similar), which appear to be outside GNOme's coverage rather than invalid
+accessions.
+
+Adding `GNO: ols:gno` to `conf/oak_config.yaml` is not enough on its own to
+validate a GlyTouCan CURIE in the KB. The term validator checks only slots
+bound to a dynamic enum, and `biochemical[].mappings_list` is deliberately
+unbound. A test with a wrong label and a nonexistent accession in
+`mappings_list` passed with and without the `GNO` line. Validated GlyTouCan
+identifiers need a bound slot: for example a label-match `GlycanTerm` enum on
+a new `Biochemical` slot, the same pattern as `LoincTerm`. That is a schema
+change and goes through the `extend-schema` process.
 
 Concrete corrections and additions for the bGSL maintainers are in
 [`GLYGEN_bGSL_dictionary_suggestions.md`](GLYGEN_bGSL_dictionary_suggestions.md).

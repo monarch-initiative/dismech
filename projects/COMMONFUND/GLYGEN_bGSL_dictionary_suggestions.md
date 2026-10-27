@@ -118,7 +118,19 @@ help consumers.
 identifier, although it is the lipid-linked oligosaccharide whose truncation
 defines several N-glycosylation CDGs.
 
-## 7. Release and format
+## 7. GlyTouCan accessions outside GNOme
+
+All 534 distinct GlyTouCan accessions in the release were looked up in GNOme
+(V2.7.0, through the EBI Ontology Lookup Service). 508 resolve. The 26 that
+do not are all polysaccharides or repeat-unit glycans, for example
+acharan sulfate (G25575JK), chondroitin sulfate A, C and D, hyaluronan
+(G29086KO), keratan sulfate (G82109MW), poly-N-acetylneuraminic acid
+(G80631ZD), amylose (G05740LL), xyloglucan (G25326UC) and the plant
+galactans, arabinans and pectins. This looks like GNOme coverage rather than
+bad accessions. It does mean consumers that validate through GNOme cannot
+check these terms, which a note in the README would make clear.
+
+## 8. Release and format
 
 - 485 of 909 visible terms carry no GlyTouCan, GSD or GlycoMotif identifier.
   A column stating why (no structure defined, a class term, not yet mapped)
@@ -144,4 +156,5 @@ least 5 characters, case-insensitive) and abbreviation (at least 3
 characters, case-sensitive) was matched against tokenized text, excluding
 rows with `hidden` set. Counts in this file come from that scan and from the
 TSV itself; ChEBI terms and labels were read from the EBI Ontology Lookup
-Service. GlyTouCan accessions were not independently resolved.
+Service. GlyTouCan accessions were resolved as `GNO:` terms through the same
+service.
