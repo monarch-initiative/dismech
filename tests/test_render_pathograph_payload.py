@@ -842,11 +842,11 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
             "Metatropic_Dysplasia.yaml",
             {
                 (
-                    "TRPV4 Pathogenic Variants",
+                    "TRPV4",
                     "TRPV4 Channel Hyperactivity in Growth Plate Chondrocytes",
                 )
             },
-            {"TRPV4 Pathogenic Variants": "genetic"},
+            {"TRPV4": "genetic"},
             {
                 "TRPV4 Channel Hyperactivity in Growth Plate Chondrocytes": [
                     "calcium channel activity"
