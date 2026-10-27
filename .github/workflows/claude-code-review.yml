@@ -299,6 +299,13 @@ jobs:
       - name: Install project
         run: uv sync --dev --group export
 
+      # Timestamp for "Check a review verdict was published" below: a review
+      # submitted at or after this instant belongs to this run.
+      - name: Record review start time
+        id: review-start
+        if: steps.diff-scale.outputs.oversized != 'true'
+        run: echo "at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - name: Run Claude Code Review
         id: claude-review
         if: steps.diff-scale.outputs.oversized != 'true'
@@ -310,6 +317,11 @@ jobs:
           CC_LANGFUSE_TRACE_TAGS: >-
             ["repo:${{ github.repository }}", "workflow:claude-code-review",
             "run:${{ github.run_id }}", "attempt:${{ github.run_attempt }}", "job:${{ github.job }}"]
+          # A Bash command that outlives its timeout is otherwise moved to the
+          # background. In a headless run the agent can then end its turn to
+          # "wait for the notification", which ends the session with a clean
+          # result and no verdict posted. Keep every command in the foreground.
+          CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1"
         with:
           # Keep the .git suffix: the action validates marketplace URLs.
           plugin_marketplaces: |
@@ -534,3 +546,32 @@ jobs:
           summary("### ❌ Claude review errored\n\n" + msg)
           sys.exit(1)
           PY
+
+      # The verify step above only asks whether the agent *errored*. A run can
+      # also finish cleanly (is_error=false, subtype=success, real turns and
+      # cost) and still publish nothing: PR #15393 got three such runs in a
+      # row, each a green check holding no verdict. Green is the one state
+      # pr-shepherd's retry-reviews never revisits, so those PRs sat blocked
+      # until a human noticed. Ask GitHub whether a bot review landed during
+      # this run, and turn the job red when none did, so retry picks it up.
+      # A review submitted by a person in the same window would mask the miss;
+      # that is rare enough not to be worth an author-identity lookup here.
+      - name: Check a review verdict was published
+        if: success() && steps.diff-scale.outputs.oversized != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          STARTED_AT: ${{ steps.review-start.outputs.at }}
+        run: |
+          set -euo pipefail
+          found="$(gh api --paginate "repos/${REPO}/pulls/${PR_NUMBER}/reviews" \
+            --jq ".[] | select(.user.type == \"Bot\" and .submitted_at >= \"${STARTED_AT}\") | .state" \
+            | wc -l)"
+          if [[ "$found" -gt 0 ]]; then
+            echo "Review verdict published on PR #${PR_NUMBER} (${found} bot review(s) since ${STARTED_AT})."
+            exit 0
+          fi
+          msg="The review agent finished without error but submitted no PR review on #${PR_NUMBER} since ${STARTED_AT}. The PR is still unreviewed. The agent's transcript is hidden (show_full_output is off); its Langfuse trace for this run has the turn where it stopped. Re-run this job, or comment /review on the PR."
+          echo "::error title=Claude review published no verdict::${msg}"
+          printf '### ❌ Claude review published no verdict\n\n%s\n' "$msg" >> "$GITHUB_STEP_SUMMARY"
+          exit 1

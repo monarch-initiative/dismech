@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C1s Deficiency · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>C1s Deficiency</span>
+            </div>
+
+            <header class="report-header">
+                <h1>C1s Deficiency</h1>
+                
+                <p class="report-subtitle">C1s Deficiency (MONDO:1060176): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-10-23</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0013419" target="_blank" rel="noopener noreferrer">MONDO:0013419</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">17 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>C1s Deficiency (<a href="http://purl.obolibrary.org/obo/MONDO_1060176" target="_blank" rel="noopener noreferrer">MONDO:1060176</a>): A Comprehensive Disease Characteristics Report</h1>
+<p><strong>Causal gene:</strong> <em>C1S</em> (complement C1s subcomponent; <a href="https://bioregistry.io/HGNC:1247" target="_blank" rel="noopener noreferrer">HGNC:1247</a>; NCBI Gene 716; UniProt P09871; chromosome 12p13.31)
+<strong>Disease category:</strong> Mendelian, autosomal recessive inborn error of immunity / classical-complement-pathway deficiency</p>
+<hr />
+<h2>Summary</h2>
+<p><strong>C1s deficiency is a rare autosomal-recessive inborn error of immunity caused by biallelic loss-of-function (truncating) variants in the <em>C1S</em> gene on chromosome 12p13.31.</strong> <em>C1S</em> encodes the catalytic serine protease of the first complement complex (C1). When C1s is absent, the C1 complex is enzymatically dead: it can no longer cleave complement components C4 and C2, so the entire classical complement pathway fails to propagate. The biochemical hallmark is an <strong>immeasurably low total hemolytic complement activity (CH50) with a normal alternative-pathway activity</strong>, normal C3, and normal/elevated C4 and C2. Only about 9–10 cases of complete C1s deficiency have been reported worldwide, making it one of the rarest of the inherited complement deficiencies.</p>
+<p>Clinically, the disease produces a characteristic <strong>two-branch phenotype</strong>. First, defective opsonization predisposes to <strong>recurrent, invasive pyogenic infections with encapsulated bacteria</strong>, especially <em>Streptococcus pneumoniae</em> and <em>Neisseria meningitidis</em>. Second, failure of complement-dependent clearance of apoptotic cells and immune complexes — compounded by loss of a complement-independent C1s function (proteolytic inactivation of the nuclear alarmin HMGB1) — drives <strong>systemic lupus erythematosus (SLE) or an SLE-like syndrome, including proliferative lupus nephritis</strong>. The autoimmune branch shows <strong>incomplete penetrance and variable expressivity</strong>: in one consanguineous family, all four C1s-deficient siblings shared the same genotype but only two developed SLE, indicating that additional predisposing/modifier genes are required.</p>
+<p>Management is <strong>supportive and preventive</strong>: vaccination against encapsulated organisms (pneumococcus, meningococcus, <em>Haemophilus influenzae</em> type b), antibiotic prophylaxis, and standard immunosuppression for lupus manifestations (hydroxychloroquine, corticosteroids, and — for refractory proliferative lupus nephritis — rituximab). A crucial allelic distinction must be made: <strong>heterozygous missense (gain-of-function-like) variants in <em>C1S</em> (and its partner <em>C1R</em>) cause a mechanistically opposite dominant disorder, periodontal Ehlers-Danlos syndrome (EDSPD2/EDSPD1)</strong>, not complement deficiency. Confusing these two allelic disorders is the principal diagnostic pitfall for this gene.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — C1s deficiency is a rare autosomal-recessive classical-complement-pathway defect caused by loss-of-function <em>C1S</em> variants</h3>
+<p>Complete C1s deficiency is caused by <strong>biallelic truncating / loss-of-function variants</strong> in the <em>C1S</em> gene (<a href="https://bioregistry.io/HGNC:1247" target="_blank" rel="noopener noreferrer">HGNC:1247</a>; chromosome 12p13.31), which encodes the serine protease C1s (UniProt P09871). Reported molecular lesions span frameshift, nonsense, and compound-truncating classes:</p>
+<ul>
+<li>A <strong>homozygous 4-bp deletion (TTTG, nucleotides 1087–1090) in exon 10</strong> creating a premature stop codon. As reported, <em>"Sequence analysis of C1s cDNA revealed a deletion at nucleotides 1087-1090 (TTTG), creating a stop codon (TGA) at position 94 downstream of the mutation site"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/9856483/">PMID: 9856483</a>).</li>
+<li>A <strong>homozygous nonsense/premature-stop mutation at position 938 in exon 6</strong>, segregating in a consanguineous family with four affected siblings — <em>"all four siblings are homozygous for a mutation at position 938 in exon 6 of the C1s cDNA that creates a premature stop codon"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/18062908/">PMID: 18062908</a>).</li>
+<li><strong>Compound truncating variants identified by whole-genome sequencing</strong> in a male Caucasian patient — <em>"The genome of the patient was analyzed by whole genome sequencing showing two truncating variants"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/38469558/">PMID: 38469558</a>).</li>
+</ul>
+<p>The biochemical signature across cases is consistent: an <strong>isolated early classical-pathway defect</strong> with immeasurably low CH50, normal alternative-pathway function, undetectable C1s, normal C3, and normal/elevated C4 and C2. Fewer than ~10 complete C1s-deficient cases are reported worldwide.</p>
+<p><strong>Variant classification:</strong> The reported truncating variants are pathogenic under ACMG/AMP criteria (PVS1 loss-of-function in a gene where LOF is the disease mechanism, plus segregation). <strong>Allele frequencies</strong> in population databases (gnomAD) are correspondingly very low/absent for these private variants. Origin is <strong>germline</strong>.</p>
+<h3>Finding 2 — Presentation: early-onset SLE / SLE-like disease (including lupus nephritis) plus recurrent pyogenic infections</h3>
+<p>Across the small case literature, complete C1s deficiency is strongly associated with <strong>SLE or SLE-like syndromes and severe pyogenic infections</strong>. The best-characterized modern case is a 34-year-old man with compound truncating <em>C1S</em> variants who had recurrent infections since childhood (pneumococcal and meningococcal meningitis, erysipelas, subcutaneous abscess, recurrent upper-airway infections) plus adult-onset SLE and proliferative lupus nephritis: <em>"The patient also exhibited adult-onset SLE, meeting 7/11 of the ACR criteria and 34 of the 2019 EULAR/ACR classification criteria, along with class IV-G (A) proliferative lupus nephritis (LN)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/38469558/">PMID: 38469558</a>). The renal biopsy showed C1q positivity along glomerular basement membranes.</p>
+<p>The autoimmune branch is <strong>incompletely penetrant</strong>: in the consanguineous family, <em>"all four children are deficient in C1s but only two of them developed SLE"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/18062908/">PMID: 18062908</a>), demonstrating variable expressivity. The infection branch reflects impaired opsonophagocytosis: deficiencies of early classical-pathway components <em>"predispose to severe infections, particularly with encapsulated bacteria such as Neisseria meningitidis and Streptococcus pneumoniae"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41421099/">PMID: 41421099</a>).</p>
+<p><strong>Suggested HPO terms:</strong> <a href="http://purl.obolibrary.org/obo/HP_0002725" target="_blank" rel="noopener noreferrer">HP:0002725</a> (Systemic lupus erythematosus), <a href="http://purl.obolibrary.org/obo/HP_0001970" target="_blank" rel="noopener noreferrer">HP:0001970</a> (lupus nephritis/nephritis), <a href="http://purl.obolibrary.org/obo/HP_0002721" target="_blank" rel="noopener noreferrer">HP:0002721</a> (Immunodeficiency), <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" rel="noopener noreferrer">HP:0002718</a> (Recurrent bacterial infections), <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" rel="noopener noreferrer">HP:0002090</a> (Pneumonia), <a href="http://purl.obolibrary.org/obo/HP_0001287" target="_blank" rel="noopener noreferrer">HP:0001287</a> (Meningitis), <a href="http://purl.obolibrary.org/obo/HP_0100658" target="_blank" rel="noopener noreferrer">HP:0100658</a> (Cellulitis/erysipelas), <a href="http://purl.obolibrary.org/obo/HP_0003261" target="_blank" rel="noopener noreferrer">HP:0003261</a> (Abnormality of complement system), <a href="http://purl.obolibrary.org/obo/HP_0005356" target="_blank" rel="noopener noreferrer">HP:0005356</a> (Decreased complement activity).</p>
+<h3>Finding 3 — Mechanism: beyond C4/C2 cleavage, C1s inactivates nuclear alarmins (HMGB1), linking its loss to lupus</h3>
+<p>The archetypal role of C1s is as the <strong>catalytic arm of the C1 complex</strong>, cleaving C4 and C2 to propagate the classical pathway. Beyond this, C1s has a <strong>complement-independent proteolytic function</strong>: purified C1s and the physiological C1 complex cleave the nuclear alarmin <strong>HMGB1</strong> into defined 19- and 12-kDa fragments during apoptosis, diminishing HMGB1's ability to enhance LPS-mediated pro-inflammatory cytokine production — <em>"C1s, both in its purified and physiological form as C1 complex, cleaving HMGB1 into defined fragments of 19 and 12 kDa"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27648302/">PMID: 27648302</a>). Because HMGB1 can induce antinuclear autoantibodies and lupus-like disease in mice, loss of C1s removes a brake on alarmin-driven autoimmunity — an additional mechanistic link between C1s deficiency and SLE.</p>
+<p>That C1s is the specific missing catalytic component was confirmed functionally: in a C4d-deposition assay, <em>"the patient's absent complement activity was fully restored by adding C1s"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/38469558/">PMID: 38469558</a>).</p>
+<p>Importantly, C1r/C1s loss is <strong>necessary but not sufficient</strong> for lupus. A congenic mouse lacking C1r/C1s (with low C1q) did not spontaneously develop SLE: <em>"These results suggest that C1r/C1s deficiency is not sufficient to drive murine SLE and also that other predisposing genes exist in ICGN mice"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29550838/">PMID: 29550838</a>). This directly explains the incomplete penetrance seen in human families.</p>
+<h3>Finding 4 — Classical-pathway deficiencies impair waste-disposal (apoptotic-cell clearance), with a severity hierarchy explaining the SLE link</h3>
+<p>Inherited classical-pathway deficiencies are among the <strong>strongest known single-gene susceptibility factors for SLE</strong>, following a well-established hierarchy: risk is highest for C1q deficiency (&gt;90% develop SLE), high for C1r/C1s and C4 deficiency, and lower for C2 deficiency — <em>"This hierarchy of disease associations suggests the importance of an intact early classic activation pathway in preventing systemic lupus erythematosus"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/8907066/">PMID: 8907066</a>).</p>
+<p>Functionally, the classical pathway predominates in opsonizing apoptotic and secondary-necrotic cells: <em>"the components of the complement classical pathway, including C1q, were equally important in clearance of apoptotic cells"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/19302245/">PMID: 19302245</a>). Failure of this "waste-disposal" function allows accumulation of nuclear autoantigens, driving autoantibody formation. Clinically, early complement/immunodeficiency in SLE associates with worse organ damage — in juvenile SLE, <em>"the median of Systemic Lupus International Collaborating Clinics/ACR-damage index (SLICC/ACR-DI) was significantly higher in JSLE patients with PID compared with patients without these abnormalities (p = 0.0033)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/21813590/">PMID: 21813590</a>). C1s deficiency sits within this hierarchy as a proximal classical-pathway defect.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Deficient component</th>
+<th>Approx. SLE risk</th>
+<th>Position in pathway</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C1q</td>
+<td>&gt;90%</td>
+<td>Recognition subunit</td>
+</tr>
+<tr>
+<td><strong>C1r / C1s</strong></td>
+<td><strong>High</strong></td>
+<td><strong>Catalytic proteases of C1</strong></td>
+</tr>
+<tr>
+<td>C4</td>
+<td>High</td>
+<td>Downstream of C1</td>
+</tr>
+<tr>
+<td>C2</td>
+<td>Lower (~10–30%)</td>
+<td>Downstream of C4</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Finding 5 — Allelic distinction: heterozygous <em>C1S/C1R</em> missense variants cause periodontal Ehlers-Danlos syndrome, NOT complement deficiency</h3>
+<p>The same gene harbors a <strong>mechanistically opposite class of variants</strong>. <strong>Periodontal Ehlers-Danlos syndrome (pEDS; EDSPD2 for <em>C1S</em>, EDSPD1 for <em>C1R</em>)</strong> is an autosomal-dominant disorder caused by <strong>heterozygous missense (and in-frame indel) variants</strong> — <em>"Periodontal Ehlers-Danlos syndrome (pEDS) is a rare condition caused by pathogenic variants in the C1R and C1S genes, encoding subunits C1r and C1s of the first component of the classical complement pathway"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/33890303/">PMID: 33890303</a>). As of 2022, <em>"148 cases have been described in the literature"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36348983/">PMID: 36348983</a>).</p>
+<p>pEDS is characterized by early-onset periodontitis with premature tooth loss, lack of attached gingiva, thin/fragile gums, easy bruising, pretibial hyperpigmentation/plaques, distal joint hypermobility, hoarse voice, and occasional vascular complications. Crucially, these variants are <strong>not loss-of-function</strong>: activated/dysregulated C1s acquires aberrant activity — <em>"Degradation of collagen I by activated C1s in periodontal Ehlers-Danlos Syndrome"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36960056/">PMID: 36960056</a>). This stands in direct contrast to complete C1s deficiency (biallelic truncating LOF → SLE + infections), and the two must never be conflated.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th><strong>C1s deficiency (<a href="http://purl.obolibrary.org/obo/MONDO_1060176" target="_blank" rel="noopener noreferrer">MONDO:1060176</a>)</strong></th>
+<th><strong>pEDS / EDSPD2</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Variant type</td>
+<td>Biallelic truncating (LOF)</td>
+<td>Heterozygous missense (gain/dysregulated activity)</td>
+</tr>
+<tr>
+<td>Inheritance</td>
+<td>Autosomal recessive</td>
+<td>Autosomal dominant</td>
+</tr>
+<tr>
+<td>Molecular effect</td>
+<td>No C1s protein / enzymatically dead C1</td>
+<td>Aberrantly active C1s degrades collagen I</td>
+</tr>
+<tr>
+<td>Complement activity</td>
+<td>CH50 absent</td>
+<td>Normal</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td>SLE + encapsulated-bacterial infections</td>
+<td>Periodontitis, tooth loss, skin/vascular fragility</td>
+</tr>
+<tr>
+<td>Approx. cases</td>
+<td>~9–10</td>
+<td>~148</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Finding 6 — Diagnosis and management: CH50 functional screen + sequencing; prophylaxis/vaccination + lupus immunosuppression</h3>
+<p>Classical-pathway defects <em>"result from deficiencies of complement proteins C1q, C1r, C1s, C2, and C4, and typically manifest with features of systemic lupus erythematosus and infections with encapsulated organisms"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39294906/">PMID: 39294906</a>). The specific laboratory signature of C1s deficiency is an <strong>absent/immeasurably low CH50 with a normal alternative-pathway (AH50) activity</strong> — <em>"A screening of the complement cascade showed immeasurably low CH50, while the alternative pathway (AP) function was normal"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/38469558/">PMID: 38469558</a>). Component quantitation then shows undetectable C1s with normal C3 and normal/elevated C4 and C2 (corroborated in the C1r/C1s case of <a href="https://pubmed.ncbi.nlm.nih.gov/7939409/">PMID: 7939409</a>, which noted <em>"persistently depressed levels of haemolytic complement activity (CH50)... associated with normal levels of C3, C4 and C2 components, and normal alternative pathway haemolytic activity"</em>).</p>
+<p><strong>Definitive diagnosis</strong> uses genetic sequencing (single-gene <em>C1S</em>, complement gene panels, WES, or WGS); the index modern patient was diagnosed by whole-genome sequencing (<a href="https://pubmed.ncbi.nlm.nih.gov/38469558/">PMID: 38469558</a>). <strong>Management</strong> emphasizes anticipatory care — <em>"the importance of anticipatory care, vaccination, and prophylaxis as new complement-targeted drugs continue to emerge"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41421099/">PMID: 41421099</a>) — i.e., vaccination against pneumococcus, meningococcus, and Hib plus antibiotic prophylaxis. Lupus manifestations are treated with standard immunosuppression; <strong>refractory/proliferative lupus nephritis in complete C1s deficiency responded to rituximab (anti-CD20)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/20191570/">PMID: 20191570</a>).</p>
+<p><strong>Suggested NCIT terms:</strong> Rituximab (NCIT:C1702), Hydroxychloroquine (NCIT:C509), Corticosteroid therapy, Pneumococcal/Meningococcal vaccination, Antibiotic prophylaxis.</p>
+<h3>Finding 7 — C1s is the catalytic serine protease of the ~790-kDa C1 complex (C1q·C1r₂·C1s₂)</h3>
+<p>Complement component C1 is a <strong>~790-kDa assembly</strong> of the recognition subcomponent C1q (a hexamer of heterotrimers, 18 chains) bound to a tetramer of the modular proteases C1r and C1s (C1r₂s₂) — <em>"Complement component C1... is a 790-kDa assembly formed from the target-recognition subcomponent C1q and the modular proteases C1r and C1s"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/23922389/">PMID: 23922389</a>). C1q/C1s binding is Ca²⁺-dependent. C1s (domain architecture CUB-EGF-CUB-CCP-CCP-serine protease; peptidase clan PA, family S1; EC 3.4.21.42) is the catalytic arm: <em>"Enzymatically active C1s provides the catalytic basis for cleavage of the downstream CP components, C4 and C2"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/38149922/">PMID: 38149922</a>). Its loss renders the entire C1 complex enzymatically dead. Notably, C1s is <strong>druggable</strong> — an FDA-approved anti-C1s mAb and small-molecule inhibitors block the classical pathway — relevant to C1s-overactivity diseases, the opposite of the deficiency state.</p>
+<p><strong>Suggested ontology terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006958" target="_blank" rel="noopener noreferrer">GO:0006958</a> (complement activation, classical pathway), <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" rel="noopener noreferrer">GO:0045087</a> (innate immune response), <a href="http://purl.obolibrary.org/obo/GO_0004252" target="_blank" rel="noopener noreferrer">GO:0004252</a> (serine-type endopeptidase activity); GO cellular component <a href="http://purl.obolibrary.org/obo/GO_0005615" target="_blank" rel="noopener noreferrer">GO:0005615</a> (extracellular space)/<a href="http://purl.obolibrary.org/obo/GO_0005576" target="_blank" rel="noopener noreferrer">GO:0005576</a> (extracellular region); CHEBI relevance: Ca²⁺ (<a href="http://purl.obolibrary.org/obo/CHEBI_29108" target="_blank" rel="noopener noreferrer">CHEBI:29108</a>) cofactor.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<h3>Ordered causal chain (from mutation to clinical manifestation)</h3>
+<pre><code>1. Biallelic truncating variant in C1S (12p13.31)
+│  leads to
+2. Absent or non-functional C1s serine protease (premature stop → no protein)
+│  results in
+3. Enzymatically dead C1 complex (C1q·C1r2·C1s2 cannot cleave substrates)
+│  results in
+4. Failure to cleave C4 and C2 → no classical-pathway C3 convertase (C4b2a)
+│  branches into two downstream arms ↓
+│
+ ┌──────┴───────────────────────────────┐
+ │ BRANCH A (infection)                  │ BRANCH B (autoimmunity)
+ │                                       │
+5A. Impaired opsonization (less C3b/C4b  5B. Defective complement-dependent
+    deposition on encapsulated bacteria) │    clearance of apoptotic &amp; secondary-
+│ leads to                       │    necrotic cells (loss of classical-
+6A. Reduced opsonophagocytosis           │    pathway opsonization)
+│ results in                     │        │ plus (complement-independent)
+7A. Recurrent invasive pyogenic          │    5B'. Loss of C1s-mediated proteolytic
+    infections (S. pneumoniae,           │        inactivation of HMGB1 alarmin
+    N. meningitidis)                     │        │ leads to
+                         │ 6B. Accumulation of nuclear autoantigens
+                         │     &amp; pro-inflammatory alarmin signaling
+                         │        │ results in (if modifier genes present)
+                         │ 7B. Loss of tolerance → antinuclear
+                         │     autoantibodies → immune-complex
+                         │     deposition → SLE / lupus nephritis
+</code></pre>
+<p><strong>Inferred vs demonstrated:</strong> Steps 1–4 and Branch A (5A–7A) are well demonstrated (functional CH50/AP assays, C1s add-back restoration). Step 5B (apoptotic-cell clearance) is demonstrated in vitro for classical-pathway components generally (<a href="https://pubmed.ncbi.nlm.nih.gov/19302245/">PMID: 19302245</a>). Step 5B' (HMGB1 inactivation) is demonstrated biochemically (<a href="https://pubmed.ncbi.nlm.nih.gov/27648302/">PMID: 27648302</a>) but its quantitative contribution to human lupus is <strong>inferred</strong>. The requirement for modifier genes at step 7B is demonstrated in mouse (<a href="https://pubmed.ncbi.nlm.nih.gov/29550838/">PMID: 29550838</a>) and inferred in humans from incomplete penetrance.</p>
+<p><strong>Upstream vs downstream:</strong> The mutation and loss of C1s catalytic activity are the upstream lesion; impaired opsonization and impaired waste clearance are intermediate; infection and autoimmunity are the downstream clinical endpoints. The branch point is the failed C3 convertase assembly.</p>
+<p><strong>Cell types / biological processes (suggested CL/GO terms):</strong> monocyte-derived macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>) and phagocytes performing apoptotic-cell clearance (<a href="http://purl.obolibrary.org/obo/GO_0043277" target="_blank" rel="noopener noreferrer">GO:0043277</a>, apoptotic cell clearance; <a href="http://purl.obolibrary.org/obo/GO_0006911" target="_blank" rel="noopener noreferrer">GO:0006911</a>, phagocytosis, engulfment); complement activation, classical pathway (<a href="http://purl.obolibrary.org/obo/GO_0006958" target="_blank" rel="noopener noreferrer">GO:0006958</a>). <strong>Anatomy (UBERON):</strong> blood/serum (<a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a>), kidney glomerulus (<a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" rel="noopener noreferrer">UBERON:0000074</a>) in lupus nephritis, skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>) in cutaneous lupus/erysipelas, meninges (<a href="http://purl.obolibrary.org/obo/UBERON_0002360" target="_blank" rel="noopener noreferrer">UBERON:0002360</a>) in meningitis.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Evidence type</th>
+<th>Supports</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38469558/">38469558</a></td>
+<td><em>C1s deficiency in a male with SLE: case report</em></td>
+<td>Human clinical</td>
+<td>Compound truncating variants by WGS; SLE + lupus nephritis + infections; CH50 absent/AP normal; C1s add-back restoration (F1, F2, F3, F6)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18062908/">18062908</a></td>
+<td><em>Genetic analysis of C1s deficiency with SLE</em></td>
+<td>Human clinical/genetic</td>
+<td>Homozygous premature-stop (exon 6); AR inheritance; incomplete penetrance (2/4 SLE) (F1, F2)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9856483/">9856483</a></td>
+<td><em>Selective C1s deficiency, 4-bp deletion</em></td>
+<td>Human genetic</td>
+<td>Homozygous TTTG frameshift → stop codon (F1)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27648302/">27648302</a></td>
+<td><em>C1s inactivation of HMGB1 during apoptosis</em></td>
+<td>In vitro</td>
+<td>Complement-independent C1s function linking loss to lupus (F3)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29550838/">29550838</a></td>
+<td><em>C1r/C1s deficiency insufficient for murine SLE</em></td>
+<td>Model organism</td>
+<td>Necessary-but-not-sufficient; modifier genes required (F3)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19302245/">19302245</a></td>
+<td><em>Classical pathway in clearance of apoptotic cells</em></td>
+<td>In vitro</td>
+<td>Waste-disposal mechanism for SLE link (F4)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8907066/">8907066</a></td>
+<td><em>Inherited complement deficiencies in rheumatic disease</em></td>
+<td>Review</td>
+<td>SLE-susceptibility hierarchy C1q&gt;C1r/s/C4&gt;C2 (F4)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21813590/">21813590</a></td>
+<td><em>Complement/antibody PID in juvenile SLE</em></td>
+<td>Human cohort</td>
+<td>Early complement PID → worse damage (p=0.0033) (F4)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33890303/">33890303</a></td>
+<td><em>Periodontal EDS: 13 novel cases</em></td>
+<td>Human clinical</td>
+<td>pEDS caused by C1R/C1S variants (F5)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36348983/">36348983</a></td>
+<td><em>Periapical dysplasia in pEDS</em></td>
+<td>Human clinical</td>
+<td>pEDS dominant, 148 cases (F5)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36960056/">36960056</a></td>
+<td><em>Collagen I degradation by activated C1s in pEDS</em></td>
+<td>In vitro</td>
+<td>pEDS variants confer aberrant activity (F5)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39294906/">39294906</a></td>
+<td><em>Immunodeficiency: complement disorders</em></td>
+<td>Review</td>
+<td>Diagnostic category &amp; presentation (F6)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41421099/">41421099</a></td>
+<td><em>Complement deficiencies and infections</em></td>
+<td>Review</td>
+<td>Encapsulated-bacteria risk; prevention strategy (F2, F6)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20191570/">20191570</a></td>
+<td><em>Lupus nephritis in C1s deficiency treated with rituximab</em></td>
+<td>Human clinical</td>
+<td>Rituximab efficacy in refractory LN (F6)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/7939409/">7939409</a></td>
+<td><em>C1r/C1s deficiency biosynthesis</em></td>
+<td>Human clinical</td>
+<td>Laboratory signature (CH50↓, C3/C4/C2 normal, AP normal) (F6)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23922389/">23922389</a></td>
+<td><em>Structural basis of C1q/C1s interaction</em></td>
+<td>Structural</td>
+<td>C1 complex architecture (F7)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38149922/">38149922</a></td>
+<td><em>Inhibition of C1s protease</em></td>
+<td>Biochemical</td>
+<td>C1s is catalytic for C4/C2; druggable (F7)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25414705/">25414705</a></td>
+<td><em>C1 assembly and activation</em></td>
+<td>Review</td>
+<td>C1r₂s₂ tetramer architecture (F7)</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Section-by-Section Coverage</h2>
+<h3>1. Disease Information</h3>
+<ul>
+<li><strong>Overview:</strong> A rare autosomal-recessive deficiency of complement C1s, the catalytic protease of the C1 complex, abolishing classical-pathway activation and producing SLE-like autoimmunity plus susceptibility to encapsulated-bacterial infection.</li>
+<li><strong>Identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_1060176" target="_blank" rel="noopener noreferrer">MONDO:1060176</a>; causal gene <em>C1S</em> (<a href="https://bioregistry.io/HGNC:1247" target="_blank" rel="noopener noreferrer">HGNC:1247</a>; NCBI Gene 716; UniProt P09871; 12p13.31). OMIM phenotype not formally recorded for the deficiency (gene <em>C1S</em> OMIM 120580). MeSH: Hereditary Complement Deficiency Diseases. Orphanet category: hereditary complement deficiency. ICD-10: D84.1 (defects in the complement system).</li>
+<li><strong>Synonyms:</strong> complement component 1s deficiency; hereditary C1s deficiency; SLE related to <em>C1S</em>.</li>
+<li><strong>Data source:</strong> Disease-level aggregated resources plus individual case reports (not large EHR cohorts), reflecting extreme rarity.</li>
+</ul>
+<h3>2. Etiology</h3>
+<p>Primary cause is monogenic (biallelic LOF <em>C1S</em>). Genetic risk = the causal variants themselves; <strong>consanguinity</strong> is a strong contributor (homozygous cases in consanguineous families, <a href="https://pubmed.ncbi.nlm.nih.gov/18062908/">PMID: 18062908</a>). Modifier/predisposing genes are required for the lupus branch (<a href="https://pubmed.ncbi.nlm.nih.gov/29550838/">PMID: 29550838</a>). No established protective alleles or environmental protective factors; UV light and infection act as general lupus/flare triggers (environmental, inferred by analogy to SLE). Gene-environment interaction: a "two-hit" model in which the complement defect (hit 1) plus modifier genes/triggers (hit 2) determine whether SLE manifests.</p>
+<h3>3. Phenotypes</h3>
+<p>Two phenotypic domains: (a) <strong>laboratory abnormality</strong> — absent CH50, undetectable C1s (<a href="http://purl.obolibrary.org/obo/HP_0005356" target="_blank" rel="noopener noreferrer">HP:0005356</a>, <a href="http://purl.obolibrary.org/obo/HP_0003261" target="_blank" rel="noopener noreferrer">HP:0003261</a>); (b) <strong>clinical disease</strong> — recurrent bacterial infections (<a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" rel="noopener noreferrer">HP:0002718</a>; childhood onset, episodic, potentially severe/fatal), and SLE/lupus nephritis (<a href="http://purl.obolibrary.org/obo/HP_0002725" target="_blank" rel="noopener noreferrer">HP:0002725</a>, <a href="http://purl.obolibrary.org/obo/HP_0001970" target="_blank" rel="noopener noreferrer">HP:0001970</a>; adult-onset, variable severity, chronic-relapsing, incomplete penetrance). Quality-of-life impact is driven by recurrent infections and by lupus organ damage; formal QoL instruments have not been applied in this ultra-rare population.</p>
+<h3>4. Genetic/Molecular Information</h3>
+<p>Causal gene <em>C1S</em>; variant types reported = frameshift deletion, nonsense, and compound truncating (all LOF). ClinVar/ACMG: pathogenic. gnomAD allele frequencies: very rare/absent (private variants). Germline origin. Functional consequence: complete loss of function. Modifier genes: implicated but unidentified in humans; demonstrated to exist in the ICGN mouse. No epigenetic or chromosomal-abnormality mechanism reported. The index case's genetic analysis also highlighted <strong>alternative splicing of the normal C1s gene</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/18062908/">PMID: 18062908</a>).</p>
+<h3>5. Environmental Information</h3>
+<p>No specific toxin/occupational cause. <strong>Infectious agents</strong> are downstream consequences rather than causes — encapsulated bacteria (<em>S. pneumoniae</em>, <em>N. meningitidis</em>, <em>H. influenzae</em> type b). Lifestyle factors are not established disease determinants.</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p>Presented as the ordered causal chain above. Molecular pathway: complement classical pathway (Reactome/KEGG). Cellular processes: opsonophagocytosis, apoptotic-cell clearance, inflammation. Protein dysfunction: loss of function (no catalytic C1s). Immune involvement: combined immunodeficiency (opsonization failure) + autoimmunity (SLE). Tissue damage: immune-complex-mediated glomerulonephritis (lupus nephritis). Biochemical defect: absent serine-protease activity for C4/C2 cleavage.</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ level:</strong> kidney (lupus nephritis, <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a> / glomerulus <a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" rel="noopener noreferrer">UBERON:0000074</a>), skin (cutaneous lupus, erysipelas; <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>), meninges/CNS (meningitis; <a href="http://purl.obolibrary.org/obo/UBERON_0002360" target="_blank" rel="noopener noreferrer">UBERON:0002360</a>), respiratory tract (recurrent infections). Body systems: immune, renal, integumentary, nervous.</li>
+<li><strong>Tissue/cell level:</strong> phagocytes/macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>); serum/plasma complement.</li>
+<li><strong>Subcellular:</strong> C1s is a secreted extracellular protein (<a href="http://purl.obolibrary.org/obo/GO_0005615" target="_blank" rel="noopener noreferrer">GO:0005615</a>/<a href="http://purl.obolibrary.org/obo/GO_0005576" target="_blank" rel="noopener noreferrer">GO:0005576</a>).</li>
+<li><strong>Localization:</strong> systemic/bilateral (immune-complex disease affects paired organs symmetrically).</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<p>Infections typically begin in <strong>childhood</strong>; SLE often <strong>adult-onset</strong> (index case 34 y). Course is <strong>chronic/lifelong</strong> with episodic infective and lupus flares. Penetrance of autoimmunity is <strong>incomplete and age-dependent</strong>. Treatment-induced remission of lupus nephritis achievable (rituximab).</p>
+<h3>9. Inheritance and Population</h3>
+<p><strong>Autosomal recessive</strong>; carrier frequency unknown (ultra-rare, private variants, largely absent from gnomAD). ~9–10 reported complete cases worldwide; prevalence/incidence never formally established. <strong>Consanguinity</strong> prominent. No defined ethnic predilection beyond consanguineous pedigrees. Penetrance incomplete (2/4 siblings SLE); variable expressivity. No anticipation (not a repeat disorder). Sex ratio not established given small numbers.</p>
+<h3>10. Diagnostics</h3>
+<p>CH50 absent + AH50 normal → quantify C1s (undetectable), C3 normal, C4/C2 normal-to-elevated; confirm by sequencing (single-gene <em>C1S</em> / complement panel / WES / WGS). Biomarkers: anti-nuclear, anti-dsDNA antibodies (in SLE cases). Biopsy: lupus-nephritis histology with C1q deposition. Differential diagnosis: other early-pathway deficiencies (C1q, C1r, C4, C2), each distinguished by component assays, and idiopathic SLE. Screening: cascade testing of relatives via CH50 + sequencing.</p>
+<h3>11. Outcome/Prognosis</h3>
+<p>Driven by infection severity and lupus organ damage; invasive infections (meningitis, sepsis) are potentially fatal (a historical C1r/C1s case died of septic shock, <a href="https://pubmed.ncbi.nlm.nih.gov/7939409/">PMID: 7939409</a>). Prophylaxis and vaccination substantially mitigate infectious mortality. Lupus nephritis can respond to immunosuppression/rituximab. Early complement PID associates with greater cumulative organ damage in SLE (<a href="https://pubmed.ncbi.nlm.nih.gov/21813590/">PMID: 21813590</a>). No formal survival statistics exist.</p>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy / immunosuppression:</strong> hydroxychloroquine, corticosteroids, and conventional immunosuppressants for lupus; <strong>rituximab (anti-CD20)</strong> effective for refractory proliferative lupus nephritis (<a href="https://pubmed.ncbi.nlm.nih.gov/20191570/">PMID: 20191570</a>).</li>
+<li><strong>Anti-infective:</strong> antibiotic prophylaxis; prompt treatment of infections.</li>
+<li><strong>Advanced/experimental:</strong> No gene therapy; plasma/C1s replacement is conceptual. (Anti-C1s drugs target overactivity, not deficiency.)</li>
+<li><strong>NCIT terms:</strong> Rituximab (NCIT:C1702), Hydroxychloroquine (NCIT:C509).</li>
+</ul>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary:</strong> vaccination against encapsulated bacteria (pneumococcal, meningococcal, Hib) and antibiotic prophylaxis (<a href="https://pubmed.ncbi.nlm.nih.gov/41421099/">PMID: 41421099</a>).</li>
+<li><strong>Secondary:</strong> cascade CH50/genetic screening of relatives; early detection of lupus.</li>
+<li><strong>Tertiary:</strong> immunosuppression to prevent lupus-nephritis progression; infection surveillance.</li>
+<li><strong>Counseling:</strong> genetic counseling for AR recurrence risk (25% per pregnancy for carrier couples).</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<p><em>C1s</em> orthologs exist across mammals (mouse <em>C1s1</em>/<em>C1s2</em>; NCBI Gene for mouse C1s1 = 50909). No prominent naturally occurring companion-animal C1s-deficiency disease is catalogued (OMIA), though complement biology is evolutionarily conserved. Disease mechanisms (classical pathway) are broadly conserved in mammals.</p>
+<h3>15. Model Organisms</h3>
+<p>The most informative model is the <strong>ICGN congenic mouse lacking C1r/C1s</strong> (with low C1q), which does <strong>not</strong> spontaneously develop SLE — recapitulating the complement defect but <em>not</em> the autoimmune phenotype in isolation, confirming the requirement for additional predisposing genes (<a href="https://pubmed.ncbi.nlm.nih.gov/29550838/">PMID: 29550838</a>). <strong>Phenotype recapitulation:</strong> complement-deficiency phenotype reproduced; lupus phenotype NOT reproduced without modifiers — this is the model's key limitation and simultaneously its key scientific insight. In vitro systems (purified C1s, C1 complex, patient sera with C1s add-back) model the catalytic defect precisely.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Extreme rarity (~9–10 cases):</strong> All clinical inferences rest on case reports and small pedigrees; no cohort, prevalence, incidence, survival, or quality-of-life data exist. Penetrance and expressivity estimates are qualitative.</li>
+<li><strong>No OMIM phenotype MIM</strong> formally recorded for the deficiency; nosology partly inferred from the broader complement-deficiency literature.</li>
+<li><strong>HMGB1-inactivation mechanism</strong> is biochemically demonstrated but its <em>quantitative</em> contribution to human lupus relative to apoptotic-cell-clearance failure is unquantified.</li>
+<li><strong>Modifier genes</strong> that convert C1s deficiency into overt SLE in humans are unidentified.</li>
+<li><strong>No C1s-specific knockout mouse study</strong> of the full disease; existing model (ICGN) is combined C1r/C1s with low C1q.</li>
+<li><strong>Treatment evidence</strong> (rituximab) derives from single cases; no controlled data.</li>
+<li><strong>Allelic confusion risk:</strong> Literature searches for "<em>C1S</em>" readily return the far more numerous pEDS cases (~148), which must be excluded when curating the deficiency entry.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Curate variant-level data</strong> into ClinVar for all reported truncating <em>C1S</em> alleles with ACMG classifications and confirm absence in gnomAD.</li>
+<li><strong>Generate/obtain a C1s-specific knockout mouse</strong> on a lupus-prone background to dissect the autoimmune branch and identify modifier loci (QTL mapping).</li>
+<li><strong>Quantify HMGB1 fragment levels</strong> in C1s-deficient patient sera vs controls to test the alarmin hypothesis in humans.</li>
+<li><strong>Establish an international registry</strong> for complete classical-pathway deficiencies to capture natural history, penetrance, and treatment outcomes.</li>
+<li><strong>Assess C1s/FFP or recombinant-C1s replacement</strong> feasibility as a mechanistic therapy; evaluate whether plasma-derived C1 could transiently restore CH50.</li>
+<li><strong>Systematic cascade screening</strong> (CH50 + sequencing) of relatives in reported pedigrees to refine carrier and penetrance estimates.</li>
+<li><strong>Comparative curation review</strong> clearly separating <em>C1S</em> LOF (deficiency) from <em>C1S/C1R</em> missense (pEDS) for knowledge-base disambiguation.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 7 confirmed findings and 27 reviewed papers over 5 investigation iterations. Evidence types: human clinical case reports, in vitro biochemistry, model-organism (mouse), structural biology, and review literature.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/C1s_Deficiency-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/C1s_Deficiency-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>18</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>5</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:1060176</code> (3 mentions) - the report calls it "C1s deficiency"; MONDO calls it <strong>systemic lupus erythematosus related to C1S</strong></li>
+<li><code>HP:0003261</code> (2 mentions) - the report calls it "Abnormality of complement system"; HP calls it <strong>Increased circulating IgA concentration</strong></li>
+<li><code>CL:0000235</code> (2 mentions) - the report calls it "Tissue/cell level:<strong> phagocytes/macrophages"; CL calls it </strong>macrophage**</li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0005615</code> (obsolete extracellular space) (2 mentions) - replaced by <code>GO:0005576</code></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0001970</code> (2 mentions) - the report calls it "lupus nephritis/nephritis"; HP calls it <strong>Tubulointerstitial nephritis</strong>, and lists "Nephritis, Tubulointerstitial" among its other names</li>
+<li><code>HP:0100658</code> (1 mention) - the report calls it "Cellulitis/erysipelas"; HP calls it <strong>Cellulitis</strong></li>
+<li><code>HP:0005356</code> (2 mentions) - the report calls it "Decreased complement activity"; HP calls it <strong>Decreased circulating complement factor I concentration</strong>, and lists "Decreased serum complement factor I" among its other names</li>
+<li><code>NCIT:C1702</code> (2 mentions) - the report calls it "NCIT terms:<strong> Rituximab"; NCIT calls it </strong>Rituximab**</li>
+<li><code>GO:0005615</code> (2 mentions) - the report calls it "extracellular space"; GO calls it <strong>obsolete extracellular space</strong>, and lists "intercellular space" among its other names</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="C1Q_Deficiency-openscientist.html">← C1Q Deficiency (OpenScientist)</a>
+                
+                
+                <a href="CACNA1A_Related_Disorder-falcon.html">CACNA1A-Related Disorder (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/C1s_Deficiency.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/C1s_Deficiency-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

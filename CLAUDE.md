@@ -1476,7 +1476,7 @@ just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
 just validate-grouping-batch kb/groupings/Mucopolysaccharidoses.yaml   # what CI runs
 just grouping-nesting-audit          # declared tree + undeclared containments
 just grouping-mondo-consistency      # does each MONDO predicate survive its own members?
-just grouping-gene-go-audit          # do members' causal genes carry the GO activity in GO itself?
+just grouping-gene-go-audit          # do members' causal genes carry the GO activity (GO or ai-gene-review)?
 ```
 
 Membership criteria are audited over the HP/GO closure committed in
@@ -4065,12 +4065,36 @@ spaces Nature journals put around `=`, and a hyphen matches an en dash or
 unicode minus in a range: `"AUC = 0.933"` typed normally matches the source. In
 the #9308 tranche 8 of 15 snippets were not byte-exact and all 15 verified.
 
-Prefer plain ASCII in new snippets anyway — an invisible character in a quote is
-a trap for the next curator, and it buys nothing. Existing snippets that copied
+**Greek letters are transliterated, so both spellings verify.** `normalize_text`
+maps them through `greek_map` on both sides: `α3β3` becomes `alpha3beta3`, `γ`
+becomes `gamma`, and `NF-κB` becomes `nf kappab`. A snippet reading `α3β3` and
+one reading `alpha3beta3` both match a source reading `α3β3`. Prefer copying the
+source's own letter when it is visible and part of the nomenclature, so the
+quote reads as the source does (#9433); the ASCII spelling is the fallback when
+copying is awkward, and must keep the source's spacing (`kappaB`, not
+`kappa B`, which normalizes to `kappa b` and fails).
+
+**Never truncate a snippet to avoid a character.** A quote that stops just
+before the word it was cited for still verifies, and still clears
+`check-snippet-length`, whose floor is `MIN_SNIPPET_WORDS = 5` — so a six-word
+fragment such as `Mutations in this region in the` passes every gate and
+supports nothing (#15607). Only a reviewer catches it. That is a worse defect
+than any typography.
+
+Prefer plain ASCII for characters that are **invisible or lookalikes** — those
+are a trap for the next curator, and they buy nothing. Existing snippets that copied
 the source's thin spaces and en dashes verbatim are equally valid and need no
 repair. The characters that do **not** fold are `x` typed for `×`, mid-word soft
 hyphens and zero-width spaces, `ﬁ`-style ligatures, and the U+00B5 micro sign.
 Full detail, including why this matters, in `.claude/skills/dismech-references`.
+
+To check how a candidate will compare, call the real normalizer rather than a
+hand-rolled one (a re-implementation that skips `greek_map` hides the ASCII
+option):
+
+```bash
+uv run python -c "from linkml_reference_validator.validation.supporting_text_validator import SupportingTextValidator as V; print(V.normalize_text('the α3β3 assembly'))"
+```
 
 Example:
 
@@ -4922,6 +4946,21 @@ worktree's reads and writes there (#15051, #15109). In `src/dismech/` and
 `repo_root()` (or `LazyRepoPaths` for a module-level constant) for checkout
 paths; `Path(__file__)` is only for resources inside the package, such as
 `schema/` and `templates/`. `tests/test_repo_root_sweep.py` enforces this.
+
+**Each worktree would otherwise build its own ~1 GB environment.** `uv run` in a
+worktree with no `.venv` builds one there, and parallel curation in five
+worktrees has filled the disk that way (#13119). Share the primary checkout's
+environment by exporting `UV_PROJECT_ENVIRONMENT=<primary>/.venv` in your
+shell. The pre-edit validation hook does not inherit that variable, so it
+applies the same rule itself: it uses the primary's `.venv`, with
+`UV_NO_SYNC=1`, when the worktree has no `.venv` of its own and its
+`pyproject.toml` and `uv.lock` match the primary's byte for byte. A branch that
+changes dependencies gets its own environment, as it needs to. If the disk
+fills anyway, the baseline gates that extract `origin/main` to TMPDIR
+(`check-snippet-length`, `check-title-snippets`, `check-snippet-grading`,
+`check-reference-titles`) say `ENVIRONMENT ERROR, not a content finding` and
+exit 74 (`dismech.disk_full`), so free space and rerun rather than editing KB
+content.
 
 ### What to commit
 
