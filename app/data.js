@@ -82489,7 +82489,8 @@ window.searchData = [
       "DNMBP"
     ],
     "treatments": [
-      "Cataract Surgery"
+      "Cataract Surgery",
+      "Genetic Counseling"
     ],
     "environmental": [],
     "biochemical": [],
@@ -82498,8 +82499,8 @@ window.searchData = [
     "num_phenotypes": 2,
     "num_pathophysiology": 3,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "7",
+    "num_treatments": 2,
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "4"
   },
   {
