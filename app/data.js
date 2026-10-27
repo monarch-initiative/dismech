@@ -39140,6 +39140,78 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Autosomal Dominant Lamellar Ichthyosis",
+    "disease_id": "MONDO:0007812",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited Ichthyosis"
+    ],
+    "creation_date": "2026-10-26T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "ASPRV1 ADLI",
+      "NKPD1 ADLI"
+    ],
+    "description": "Autosomal dominant lamellar ichthyosis (ADLI) is a rare non-syndromic congenital ichthyosis in which large, dark, plate-like scales cover the whole body, including the flexures, palms and soles, from birth. It was first recognized as a dominantly transmitted counterpart of recessive lamellar ichthyosis in a three-generation German family. Most molecularly solved families carry heterozygous missense variants in ASPRV1, which encodes the granular-layer-specific retroviral-like aspartic protease SASPase. SASPase matures by autocatalytic cleavage and then cleaves the linker peptides of profilaggrin to release filaggrin monomers. The disease variants cluster near the autocatalytic cleavage sites and disturb both autoprocessing and filaggrin processing, and the stratum corneum is thick and abnormally cornified, with a prominent transforming zone between the granular and cornified layers and an abnormal scale lipid profile. A second dominant locus, NKPD1, was reported in 2024 in one family with a clinically similar phenotype but distinct ultrastructure and altered ceramide balance.",
+    "pathophysiology": [
+      "ASPRV1 Missense Variants",
+      "Aberrant SASPase Autoprocessing",
+      "Impaired Profilaggrin-to-Filaggrin Processing",
+      "Abnormal Granular-to-Cornified Layer Transition",
+      "Abnormal Stratum Corneum Lipid Composition",
+      "Thickened, Poorly Hydrated Stratum Corneum",
+      "NKPD1 Missense Variant",
+      "Altered Protein-Bound Ceramide Balance"
+    ],
+    "cell_types": [
+      "granular-layer keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "SASPase autoactivation by self-cleavage",
+      "cornification",
+      "establishment of skin barrier"
+    ],
+    "phenotypes": [
+      "Generalized lamellar scaling",
+      "Palmoplantar keratoderma"
+    ],
+    "phenotype_categories": [
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Integument",
+      "Limbs"
+    ],
+    "phenotype_ids": [
+      "HP:0007503",
+      "HP:0000982"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "ASPRV1",
+      "NKPD1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [
+      "Abnormal scale lipid pattern",
+      "Elevated protein-bound to omega-esterified ceramide ratio"
+    ],
+    "source_file": "Autosomal_Dominant_Lamellar_Ichthyosis.yaml",
+    "page_url": "../pages/disorders/Autosomal_Dominant_Lamellar_Ichthyosis.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 8,
+    "num_genes": 2,
+    "num_treatments": 0,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Autosomal Dominant Mendelian Susceptibility To Mycobacterial Diseases Due To Partial IFNgammaR1 Deficiency",
     "disease_id": "MONDO:0014429",
     "category": "Mendelian",
@@ -90129,6 +90201,121 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Chitayat Syndrome",
+    "disease_id": "MONDO:0014956",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia",
+      "Limb Development Disorders"
+    ],
+    "creation_date": "2026-10-26T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Chitayat syndrome is an ultrarare autosomal dominant developmental disorder defined by a single recurrent heterozygous missense variant in ERF, NM_006494.2:c.266A>G p.(Tyr89Cys), which lies in the DNA-binding ETS domain of the ETS2 repressor factor. The core features are hand hyperphalangism, in which an accessory phalanx shortens the index finger and deviates it toward the ulna, hallux valgus, mild facial dysmorphism, and neonatal respiratory compromise, frequently from bronchomalacia or tracheobronchomalacia, that may require assisted ventilation. The respiratory phenotype ranges from fatal infantile disease to no obvious pulmonary involvement, and about half of reported individuals have developmental or growth delay. Chitayat syndrome is allelic to, but clinically distinct from, ERF-related craniosynostosis: truncating ERF variants that reduce gene dosage cause craniosynostosis and a Noonan-like phenotype, whereas no individual with p.(Tyr89Cys) has had craniosynostosis. How this one substitution produces a different disorder is not known.\n",
+    "pathophysiology": [
+      "ERF p.Tyr89Cys ETS-Domain Missense Variant",
+      "Predicted Impairment of ERF DNA Binding"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Finger Hyperphalangy",
+      "Short Index Finger",
+      "Ulnar Deviation of the Index Finger",
+      "Clinodactyly of the Fifth Finger",
+      "Finger Syndactyly",
+      "Hallux Valgus",
+      "Pectus Carinatum",
+      "Bronchomalacia",
+      "Neonatal Respiratory Distress",
+      "Alveolar Septal Thickening",
+      "Recurrent Respiratory Infections",
+      "Facial Dysmorphism",
+      "Hypertelorism",
+      "Wide Anterior Fontanel",
+      "Anteverted Nares",
+      "Depressed Nasal Bridge",
+      "Low Posterior Hairline",
+      "Epicanthus",
+      "Feeding Difficulties",
+      "Low-Set Ears",
+      "Hypotonia",
+      "Global Developmental Delay",
+      "Growth Delay"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Respiratory",
+      "Craniofacial",
+      "Gastrointestinal",
+      "Neurological",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0030367",
+      "HP:0009536",
+      "HP:0009464",
+      "HP:0004209",
+      "HP:0006101",
+      "HP:0001822",
+      "HP:0000768",
+      "HP:0002780",
+      "HP:0002643",
+      "HP:0033376",
+      "HP:0002205",
+      "HP:0001999",
+      "HP:0000316",
+      "HP:0000260",
+      "HP:0000463",
+      "HP:0005280",
+      "HP:0002162",
+      "HP:0000286",
+      "HP:0011968",
+      "HP:0000369",
+      "HP:0001252",
+      "HP:0001263",
+      "HP:0001510"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OBLIGATE"
+    ],
+    "genes": [
+      "ERF"
+    ],
+    "treatments": [
+      "Respiratory Support",
+      "Tracheotomy",
+      "Nutritional Support",
+      "Developmental Rehabilitation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Chitayat_Syndrome.yaml",
+    "page_url": "../pages/disorders/Chitayat_Syndrome.html",
+    "num_phenotypes": 23,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Chlamydia Pneumoniae Pneumonia",
     "disease_id": null,
     "category": "Infectious Disease",
@@ -131783,6 +131970,158 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 5,
     "causal_graph_edges": "37",
+    "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Distal Arthrogryposis Type 5",
+    "disease_id": "MONDO:0007158",
+    "category": "Mendelian",
+    "parents": [
+      "distal arthrogryposis"
+    ],
+    "creation_date": "2026-10-27T12:16:53Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Distal arthrogryposis type 5 (DA5) is a rare autosomal dominant congenital contracture syndrome defined by contractures of the hands and feet together with limited eye movements (ophthalmoplegia), usually with ptosis. Short stature, deep-set eyes, a triangular face, firm muscles, pectus excavatum and stiffness of small and large joints are common, abnormal electroretinograms and other ocular findings are recorded, and restrictive chest disease can lead to alveolar hypoventilation, pulmonary hypertension and, rarely, fatal respiratory insufficiency. Intelligence is normal. DA5 is caused by heterozygous germline variants in PIEZO2, the mechanically activated cation channel of proprioceptive and touch sensory neurons; the variants characterized electrophysiologically slow channel inactivation or speed its recovery, so the channel passes more current for a given stimulus. In mice, the recurrent DA5 allele p.Glu2727del acting only in proprioceptive sensory neurons is sufficient to shorten tendons and cause limb contractures. How PIEZO2 gain of function produces the ocular and respiratory features is not known. DA5 is allelic with Gordon syndrome (distal arthrogryposis type 3) and Marden-Walker syndrome, which may be variable expressions of one condition.",
+    "pathophysiology": [
+      "PIEZO2 Gain-of-Function and Mechanotransduction Defect",
+      "Excessive Mechanotransduction in Proprioceptive Sensory Neurons",
+      "Tendon Shortening and Disrupted Musculoskeletal Development",
+      "Congenital Distal Joint Contractures",
+      "Restrictive Chest Disease",
+      "Chronic Alveolar Hypoventilation"
+    ],
+    "cell_types": [
+      "proprioceptive sensory neuron"
+    ],
+    "cell_type_ids": [
+      "CL:1001451"
+    ],
+    "biological_processes": [
+      "detection of mechanical stimulus",
+      "tendon development"
+    ],
+    "phenotypes": [
+      "Distal arthrogryposis",
+      "Congenital finger flexion contractures",
+      "Bilateral talipes equinovarus",
+      "Ulnar deviation of the hands",
+      "Joint stiffness",
+      "Absent palmar crease",
+      "Arachnodactyly",
+      "Firm muscles",
+      "Pectus excavatum",
+      "Synostosis of metacarpals/metatarsals",
+      "Toe syndactyly",
+      "Absent cruciate knee ligaments",
+      "Back pain",
+      "Ophthalmoplegia",
+      "Ptosis",
+      "Strabismus",
+      "Astigmatism",
+      "Keratoconus",
+      "Abnormal electroretinogram",
+      "Optic disc excavation",
+      "Ocular hypertension",
+      "Deeply set eye",
+      "Triangular face",
+      "Trismus",
+      "Webbed neck",
+      "Short stature",
+      "Restrictive ventilatory defect",
+      "Hypoventilation",
+      "Pulmonary hypertension",
+      "Respiratory insufficiency",
+      "Neonatal respiratory distress",
+      "Feeding difficulties",
+      "Dysphagia",
+      "Hypotonia",
+      "Sensorineural hearing impairment"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Ophthalmologic",
+      "Craniofacial",
+      "Growth",
+      "Respiratory",
+      "Cardiovascular",
+      "Gastrointestinal",
+      "Neurologic",
+      "Otolaryngologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0005684",
+      "HP:0005879",
+      "HP:0001776",
+      "HP:0001193",
+      "HP:0001387",
+      "HP:0010489",
+      "HP:0001166",
+      "HP:0003725",
+      "HP:0000767",
+      "HP:0100265",
+      "HP:0001770",
+      "HP:0003418",
+      "HP:0000602",
+      "HP:0000508",
+      "HP:0000486",
+      "HP:0000483",
+      "HP:0000563",
+      "HP:0000512",
+      "HP:0012796",
+      "HP:0007906",
+      "HP:0000490",
+      "HP:0000325",
+      "HP:0000211",
+      "HP:0000465",
+      "HP:0004322",
+      "HP:0002091",
+      "HP:0002791",
+      "HP:0002092",
+      "HP:0002878",
+      "HP:0002643",
+      "HP:0011968",
+      "HP:0002015",
+      "HP:0001252",
+      "HP:0000407"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "PIEZO2"
+    ],
+    "treatments": [
+      "Physical and occupational therapy",
+      "Ponseti method for clubfoot",
+      "Treatment of chronic hypoxia",
+      "Non-invasive ventilatory support"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Distal_Arthrogryposis_Type_5.yaml",
+    "page_url": "../pages/disorders/Distal_Arthrogryposis_Type_5.html",
+    "num_phenotypes": 35,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "32",
     "causal_graph_longest_path": "6"
   },
   {
@@ -194948,6 +195287,80 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Hypoalphalipoproteinemia, Primary, 1",
+    "disease_id": "MONDO:0011393",
+    "category": "Mendelian",
+    "parents": [
+      "Hypoalphalipoproteinemia"
+    ],
+    "creation_date": "2026-10-27T12:14:04Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypoalphalipoproteinemia, primary, 1 (ABCA1-related familial HDL deficiency) is an autosomal dominant disorder of HDL biogenesis caused by a single pathogenic germline ABCA1 allele. Partial loss of ABCA1-mediated cholesterol and phospholipid efflux to lipid-poor apolipoprotein A-I limits nascent HDL formation, so carriers have roughly half-normal HDL cholesterol and apolipoprotein A-I, depletion of large alpha-migrating HDL particles, and often mildly raised triglycerides. Unlike the allelic recessive Tangier disease, carriers lack the cholesteryl-ester storage manifestations (orange tonsils, hepatosplenomegaly, neuropathy). Family-based cohorts report increased carotid intima-media thickness, arterial wall inflammation and premature coronary artery disease, whereas a large population study found no excess ischemic heart disease in heterozygous carriers, so the vascular risk is variable and contested.",
+    "pathophysiology": [
+      "ABCA1 Heterozygous Loss of Function",
+      "Reduced Cellular Cholesterol and Phospholipid Efflux",
+      "Impaired HDL Particle Assembly",
+      "Arterial Wall Inflammation"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "macrophage",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000235",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "cholesterol efflux",
+      "phospholipid efflux",
+      "high-density lipoprotein particle assembly",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Decreased HDL cholesterol concentration",
+      "Decreased circulating apolipoprotein A-I concentration",
+      "Hypertriglyceridemia",
+      "Increased carotid artery intimal medial thickness",
+      "Premature coronary artery atherosclerosis"
+    ],
+    "phenotype_categories": [
+      "Biochemical",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0003233",
+      "HP:0031799",
+      "HP:0002155",
+      "HP:0012273",
+      "HP:0005181"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ABCA1"
+    ],
+    "treatments": [
+      "LDL-Lowering and Non-HDL Risk Factor Management",
+      "HDL Mimetic Infusion (CER-001)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypoalphalipoproteinemia_Primary_1.yaml",
+    "page_url": "../pages/disorders/Hypoalphalipoproteinemia,_Primary,_1.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Hypobetalipoproteinemia",
     "disease_id": "MONDO:0017774",
     "category": "Mendelian",
@@ -217909,14 +218322,17 @@ window.searchData = [
       "Impaired Mandibular Outgrowth"
     ],
     "cell_types": [
-      "cranial neural crest cell"
+      "cranial neural crest cell",
+      "chondrocyte"
     ],
     "cell_type_ids": [
-      "CL:0000333"
+      "CL:0000333",
+      "CL:0000138"
     ],
     "biological_processes": [
       "SOX9 gene expression during cranial neural crest development",
-      "Embryonic mandibular morphogenesis"
+      "Embryonic mandibular morphogenesis",
+      "cartilage development"
     ],
     "phenotypes": [
       "Micrognathia",
@@ -217926,9 +218342,9 @@ window.searchData = [
       "Feeding Difficulties"
     ],
     "phenotype_categories": [
-      "Craniofacial",
+      "Head and Neck",
       "Respiratory",
-      "Gastrointestinal"
+      "Digestive"
     ],
     "phenotype_hpo_categories": [
       "Digestive",
@@ -217949,7 +218365,8 @@ window.searchData = [
     ],
     "treatments": [
       "Individualized airway support",
-      "Feeding assessment and nutritional support"
+      "Feeding assessment and nutritional support",
+      "Surgical Airway Management (Mandibular Distraction Osteogenesis or Tracheostomy)"
     ],
     "environmental": [],
     "biochemical": [],
@@ -217958,8 +218375,8 @@ window.searchData = [
     "num_phenotypes": 5,
     "num_pathophysiology": 3,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "8",
+    "num_treatments": 3,
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "5"
   },
   {
@@ -275573,6 +275990,7 @@ window.searchData = [
       "Reduced ATRX/DAXX Complex Abundance",
       "Intratumoral Lymphoid Infiltration with Lymphoid Follicles",
       "Cerebellar and Brainstem-Directed B- and T-Cell Autoimmunity",
+      "Replication-Stress Checkpoint Dependence",
       "Alternative Lengthening of Telomeres",
       "Spontaneous Tumor Regression",
       "NGF-TRKA Trophic Signaling Withdrawal",
@@ -275623,6 +276041,7 @@ window.searchData = [
       "signal transduction by p53 class mediator",
       "B cell activation",
       "T cell activation",
+      "DNA replication checkpoint signaling",
       "telomere maintenance via recombination",
       "neurotrophin TRK receptor signaling pathway",
       "vasoactive intestinal peptide secretion",
@@ -275716,6 +276135,7 @@ window.searchData = [
       "Naxitamab with GM-CSF",
       "Crizotinib",
       "Lorlatinib",
+      "Adavosertib (WEE1 Inhibition)",
       "Isotretinoin (Retinoic Acid)",
       "Eflornithine (DFMO) Maintenance Therapy",
       "131I-MIBG Therapy"
@@ -275728,10 +276148,10 @@ window.searchData = [
     "source_file": "Neuroblastoma.yaml",
     "page_url": "../pages/disorders/Neuroblastoma.html",
     "num_phenotypes": 16,
-    "num_pathophysiology": 36,
+    "num_pathophysiology": 37,
     "num_genes": 10,
-    "num_treatments": 11,
-    "causal_graph_edges": "61",
+    "num_treatments": 12,
+    "causal_graph_edges": "62",
     "causal_graph_longest_path": "7"
   },
   {
@@ -314609,6 +315029,7 @@ window.searchData = [
     "updated_date": null,
     "subtypes": [
       "DSAP",
+      "POROK8",
       "Mibelli",
       "Linear",
       "PPPD",
@@ -314622,6 +315043,7 @@ window.searchData = [
     "description": "Porokeratosis is a heterogeneous group of disorders of keratinization defined histologically by the cornoid lamella, a vertical column of parakeratotic cells overlying a diminished granular layer that marks the advancing edge of an expanding clone of mutant keratinocytes. Most familial and many sporadic forms arise from loss-of-function variants in mevalonate-pathway genes (MVK, PMVK, MVD, FDPS). In these hereditary forms a lesion appears only when the germline heterozygous variant is joined by a second somatic hit in the wild-type allele within lesional epidermis - the classic Knudson two-hit clonal model. A non-hereditary localized form reaches the same biallelic state by a different route, somatic promoter hypermethylation of FDFT1, with no germline variant at all. Because the second hit in linear porokeratosis occurs prenatally in a single keratinocyte clone, that variant follows the lines of Blaschko as post-zygotic mosaicism, whereas disseminated superficial actinic porokeratosis (DSAP) reflects many independent, often UV-signature, postnatal second hits. Reduced mevalonate flux depletes cholesterol and the non-sterol isoprenoids farnesyl- and geranylgeranyl-pyrophosphate while allowing upstream intermediates to accumulate, impairing keratinocyte differentiation and protein prenylation and increasing apoptosis. This directly motivates topical cholesterol plus lovastatin as pathogenesis-directed therapy. Long-standing lesions carry a real risk of squamous cell carcinoma, highest in the linear form.",
     "pathophysiology": [
       "Germline Heterozygous Mevalonate Pathway Variant",
+      "Germline SLC17A9 Variant",
       "Somatic Second Hit in Lesional Keratinocytes",
       "Somatic FDFT1 Promoter Hypermethylation",
       "Biallelic Mevalonate Pathway Enzyme Deficiency",
@@ -314693,7 +315115,8 @@ window.searchData = [
       "PMVK",
       "MVD",
       "FDPS",
-      "FDFT1"
+      "FDFT1",
+      "SLC17A9"
     ],
     "treatments": [
       "Topical Cholesterol Plus Lovastatin",
@@ -314713,8 +315136,8 @@ window.searchData = [
     "source_file": "Porokeratosis.yaml",
     "page_url": "../pages/disorders/Porokeratosis.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 12,
-    "num_genes": 5,
+    "num_pathophysiology": 13,
+    "num_genes": 6,
     "num_treatments": 8,
     "causal_graph_edges": "35",
     "causal_graph_longest_path": "10"
@@ -340823,7 +341246,7 @@ window.searchData = [
       "Developmental Delay"
     ],
     "phenotype_categories": [
-      "Clinical"
+      "Neurological"
     ],
     "phenotype_hpo_categories": [
       "Nervous System"
@@ -340850,7 +341273,7 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "7",
     "causal_graph_longest_path": "3"
   },
   {
@@ -385106,6 +385529,135 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Tricho-dento-osseous Syndrome",
+    "disease_id": "MONDO:0008592",
+    "category": "Genetic",
+    "parents": [
+      "Ectodermal Dysplasia"
+    ],
+    "creation_date": "2026-10-27T12:20:54Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Tricho-dento-osseous syndrome (TDO) is a rare, highly penetrant autosomal dominant ectodermal dysplasia caused by heterozygous variants in DLX3, the distal-less homeobox 3 transcription factor gene at 17q21. It is named for its three principal tissues: hair (kinky or curly hair at birth that straightens in about half of affected people by adolescence), teeth (generalized thin and pitted enamel hypoplasia with hypomineralization, and severe taurodontism with enlarged pulp chambers, most diagnostically in the mandibular first permanent molars), and bone (thickened, sclerotic calvarium and skull base, poor mastoid pneumatization, and increased appendicular and axial bone mineral density). Brittle nails, a Class III skeletal pattern with a short mandibular ramus, and periapical abscesses secondary to the weak enamel and large pulp chambers are common. The recurrent founder allele is a 4-bp deletion (c.571_574delGGGG) that frameshifts the C-terminal region just after the homeodomain; the mutant protein enters the nucleus but cannot bind DNA and suppresses wild-type DLX3 activity. Homeodomain missense, other frameshift, splice-site and whole-gene-deletion alleles are also reported, and several of them produce an attenuated, dental-predominant phenotype that overlaps DLX3-related amelogenesis imperfecta with taurodontism. Mechanistically, mutant DLX3 reduces enamel matrix gene transactivation in ameloblasts, disturbs odontoblast and dentin formation, and, in bone, suppresses osteoclast differentiation and resorption. Management is preventive and restorative dental care.",
+    "pathophysiology": [
+      "DLX3 Transcription Factor Dysfunction",
+      "Impaired Ameloblast Differentiation and Enamel Matrix Gene Transactivation",
+      "Disrupted Odontoblast Differentiation and Dentin Formation",
+      "Reduced Osteoclast Differentiation and Bone Resorption",
+      "Enhanced Osteoblast Lineage Commitment",
+      "Delayed Osteoprogenitor Senescence",
+      "Hair Follicle Dysplasia"
+    ],
+    "cell_types": [
+      "ameloblast",
+      "odontoblast",
+      "osteoclast",
+      "osteoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000059",
+      "CL:0000060",
+      "CL:0000092",
+      "CL:0000062"
+    ],
+    "biological_processes": [
+      "ameloblast differentiation",
+      "amelogenesis",
+      "odontoblast differentiation",
+      "dentinogenesis",
+      "osteoclast differentiation",
+      "bone resorption",
+      "osteoblast differentiation",
+      "hair follicle development"
+    ],
+    "phenotypes": [
+      "Generalized Enamel Hypoplasia",
+      "Dental Enamel Pits",
+      "Enamel Hypomineralization",
+      "Hypomature Enamel",
+      "Taurodontia",
+      "Periapical Tooth Abscess",
+      "Microdontia",
+      "Widely Spaced Teeth",
+      "Agenesis of Incisor",
+      "Curly Hair at Birth",
+      "Woolly Hair",
+      "Sparse Hair",
+      "Fragile Nails",
+      "Increased Bone Mineral Density",
+      "Thickened Calvaria",
+      "Obliteration of the Calvarial Diploe",
+      "Sclerosis of Skull Base",
+      "Dolichocephaly",
+      "Frontal Bossing",
+      "Mandibular Prognathia",
+      "Short Mandibular Rami",
+      "Finger Clinodactyly"
+    ],
+    "phenotype_categories": [
+      "Dental",
+      "Hair",
+      "Nails",
+      "Skeletal",
+      "Craniofacial",
+      "Limb"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0006282",
+      "HP:0009722",
+      "HP:0006285",
+      "HP:0033786",
+      "HP:0000679",
+      "HP:0030758",
+      "HP:0000691",
+      "HP:0000687",
+      "HP:0006485",
+      "HP:0002212",
+      "HP:0002224",
+      "HP:0008070",
+      "HP:0001808",
+      "HP:0011001",
+      "HP:0002684",
+      "HP:0030312",
+      "HP:0002694",
+      "HP:0000268",
+      "HP:0002007",
+      "HP:0000303",
+      "HP:0003778",
+      "HP:0040019"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "DLX3"
+    ],
+    "treatments": [
+      "Preventive and Restorative Dental Management",
+      "Endodontic Treatment",
+      "Implant-Supported Fixed Prosthodontic Rehabilitation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Tricho-dento-osseous_Syndrome.yaml",
+    "page_url": "../pages/disorders/Tricho-dento-osseous_Syndrome.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Trichohepatoenteric Syndrome",
     "disease_id": "MONDO:0009105",
     "category": "Mendelian",
@@ -405249,17 +405801,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3757,
-  "total_subtypes": 4923,
-  "total_disorders_and_subtypes": 8680,
-  "total_unique_evidence_sources": 55927,
-  "total_unique_publications": 52260,
+  "total_disorder_pages": 3762,
+  "total_subtypes": 4926,
+  "total_disorders_and_subtypes": 8688,
+  "total_unique_evidence_sources": 56011,
+  "total_unique_publications": 52342,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3755,
-  "total_unique_pathological_events": 24731,
+  "total_pathographs": 3760,
+  "total_unique_pathological_events": 24756,
   "total_modules": 213,
-  "total_research_reports": 3874,
+  "total_research_reports": 3879,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 127
