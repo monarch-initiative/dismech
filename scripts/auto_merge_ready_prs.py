@@ -774,8 +774,8 @@ EJECTION_HOLD_COMMENT = (
     "(its branch is `gh-readonly-queue/{base}/pr-{number}-…`).\n\n"
     "**To retry, push a commit.** Any new head clears this hold. If the "
     "failure came from another queued PR or an outage rather than from this "
-    "one, merging `{base}` into this branch gives it a new head and a fresh "
-    "attempt."
+    "one, merging `{base}` into this branch once `{base}` has moved on gives "
+    "it a new head and a fresh attempt."
 )
 
 

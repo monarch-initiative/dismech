@@ -5191,7 +5191,7 @@ Draft status is not a hold: anything opened as a PR is in the review queue. The
 controller marks an eligible draft ready, re-reads every guard, and restores
 draft state if that merge attempt aborts.
 
-**A third hold exists and is not visible from the PR page.** The controller
+**A third hold is announced on the PR, not set on it.** The controller
 also holds a PR back once it has failed the merge queue
 `--ejection-strike-limit` times (default 2) with no push in between. This
 exists because a queue ejection is otherwise invisible to eligibility: an
@@ -5214,7 +5214,7 @@ the push that clears the hold. Dry runs do not post, and a failed post is
 logged without failing the run, so the `SKIP` line in the run summary
 (suffixed with the notice outcome) stays the record of last resort.
 
-**A fourth hold is also invisible, and lasts one sweep.** When a merge queue is
+**A fourth hold is invisible from the PR page, and lasts one sweep.** When a merge queue is
 active, a candidate that adds a `cache/<prefix>/*.csv` term-cache row already
 added by a PR enqueued earlier in the *same* sweep is skipped, because the two
 would conflict in the queue and the second would be ejected. Only multi-field
