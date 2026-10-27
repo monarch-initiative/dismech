@@ -5251,7 +5251,7 @@ Draft status is not a hold: anything opened as a PR is in the review queue. The
 controller marks an eligible draft ready, re-reads every guard, and restores
 draft state if that merge attempt aborts.
 
-**A third hold exists and is not visible from the PR page.** The controller
+**A third hold is announced on the PR, not set on it.** The controller
 also holds a PR back once it has failed the merge queue
 `--ejection-strike-limit` times (default 2) with no push in between. This
 exists because a queue ejection is otherwise invisible to eligibility: an
@@ -5266,19 +5266,23 @@ is keyed on the head commit's `committedDate`, so rewriting the head — a push,
 amend, rebase, or merge of the base branch — resets it to zero.
 
 Unlike assignment or a CHANGES_REQUESTED review, this hold leaves no label,
-review, or assignee: its only trace is a `SKIP` line in the run summary naming
-the strike count. Until #10988's tier 2 posts a comment on the PR, that summary
-and this paragraph are the only places it is recorded.
+review, or assignee. Instead, the first sweep that holds a head posts one
+templated `🐑 PR Shepherd` comment on the PR saying why and how to clear it,
+deduplicated by a hidden marker keyed on the head SHA, so hourly sweeps do not
+repeat it. It is a comment and not a review on purpose: a review would outlive
+the push that clears the hold. Dry runs do not post, and a failed post is
+logged without failing the run, so the `SKIP` line in the run summary
+(suffixed with the notice outcome) stays the record of last resort.
 
-**A fourth hold is also invisible, and lasts one sweep.** When a merge queue is
+**A fourth hold is invisible from the PR page, and lasts one sweep.** When a merge queue is
 active, a candidate that adds a `cache/<prefix>/*.csv` term-cache row already
 added by a PR enqueued earlier in the *same* sweep is skipped, because the two
 would conflict in the queue and the second would be ejected. Only multi-field
 rows (`curie,label,retrieved_at`) count — a bare-CURIE enum row is identical
 bytes in both PRs and merges cleanly. The hold is within-run and queue-mode
 only, clears itself on the next sweep, and is disabled by
-`--no-conflict-batching`. Like the ejection hold, its only trace is a `SKIP`
-line in the run summary, which names the PR holding the contended row;
+`--no-conflict-batching`. Unlike the ejection hold, it posts nothing on the PR:
+its only trace is a `SKIP` line in the run summary, which names the PR holding the contended row;
 `just auto-merge-preview` reports it too.
 
 Immediately before each action, the controller re-reads every PR guard and pins
