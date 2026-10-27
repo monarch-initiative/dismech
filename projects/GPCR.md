@@ -433,9 +433,9 @@ they are not lost. None blocks anything.
 
   The three blocked airway entries are declared in this page's frontmatter, so they
   link from the prose above. The neuromuscular and potassium-shift entries
-  deliberately are not, pending this decision: declaring them would put nine
-  entries in the project's disease list on the strength of a scoping question
-  nobody has answered yet. Add them if the answer is one shared trigger.
+  deliberately are not, pending this decision: declaring them would put seven
+  more entries in the project's disease list on the strength of a scoping
+  question nobody has answered yet. Add them if the answer is one shared trigger.
 - **May a module PR split another entry's bundled treatment?** Three modules have
   now been blocked by one treatment covering two drug classes: the muscarinic
   module cannot take `Chronic_Obstructive_Pulmonary_Disease` or
