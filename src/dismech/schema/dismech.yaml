@@ -43,6 +43,7 @@ prefixes:
   SO: http://purl.obolibrary.org/obo/SO_
   PATO: http://purl.obolibrary.org/obo/PATO_
   HANCESTRO: http://purl.obolibrary.org/obo/HANCESTRO_
+  MRO: http://purl.obolibrary.org/obo/MRO_
   ECTO: http://purl.obolibrary.org/obo/ECTO_
   ExO: http://purl.obolibrary.org/obo/ExO_
   ENVO: http://purl.obolibrary.org/obo/ENVO_
@@ -1818,6 +1819,30 @@ enums:
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
+  MHCTerm:
+    description: >-
+      An MHC restriction term from MRO (MHC Restriction Ontology, the IEDB
+      native ontology for MHC/HLA restriction): an MHC presenting protein
+      complex (e.g. `MRO:0001284` HLA-DRB1*03:01 protein complex, `MRO:0001620`
+      HLA protein complex with DQ2 serotype), an MHC class I or class II chain
+      allele, an MHC serotype (e.g. `MRO:0000283` HLA-DQ2 serotype, `MRO:0000217`
+      HLA-B27 serotype), or an MHC haplotype.
+    comments:
+      - >-
+        MRO protein complexes sit under `GO:0042611` (MHC protein complex) ->
+        `GO:0032991` (protein-containing complex), so they can also be bound
+        directly in `Pathophysiology.protein_complexes` to represent the
+        physical antigen-presenting heterodimer on a pathophysiology node.
+    reachable_from:
+      source_nodes:
+        - GO:0042611  ## MHC protein complex
+        - MRO:0000775  ## MHC class I chain
+        - MRO:0000776  ## MHC class II chain
+        - MRO:0000007  ## MHC serotype
+        - MRO:0000005  ## MHC haplotype
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
   ExposureTerm:
     description: A term representing an exposure event (from ECTO or XCO)
     comments:
@@ -3363,6 +3388,11 @@ enums:
         description: >-
           Members involve a given biological process (biological_processes),
           optionally with a directional modifier.
+      HAS_MOLECULAR_FUNCTION:
+        description: >-
+          Members involve a given molecular function (molecular_functions),
+          matched over the GO is_a/part_of closure of the criterion term against
+          the GO terms curated in the member entry.
       HAS_CLASSIFICATION:
         description: >-
           Members carry a given nosology/classification assignment
@@ -4134,7 +4164,19 @@ slots:
       cross-disorder consistency checking: if a node declares conformance,
       it should include the expected cell types, biological processes, and
       causal edges defined in the referenced module node.
-    range: string
+
+      A node may conform to more than one module node when it is a genuine
+      instance of each (a germline first-hit node that is also loss of an
+      mTORC1 brake conforms to both the two-hit and the mTORC1 module). Write
+      a single reference as a plain string and several as a list of strings;
+      both spellings are valid, so the scalar form never needs migrating.
+      Code reads the value through `dismech.conformance.iter_conforms_to`,
+      which normalises either spelling to a list (dismech#13923).
+    range: Any
+    any_of:
+      - range: string
+      - range: string
+        multivalued: true
   consequence:
     examples:
       - value: Leads to abnormal sexual development and bone maturation.
@@ -4287,6 +4329,18 @@ slots:
   gene_term:
     description: The HGNC term for this gene
     range: GeneDescriptor
+    inlined: true
+  mhc_term:
+    description: >-
+      Optional MRO (MHC Restriction Ontology) term for an HLA/MHC allele,
+      serotype, haplotype, or presenting protein complex. On a Genetic entry,
+      complements `gene_term` (which binds the locus in HGNC, e.g. HLA-DQA1 or
+      HLA-B) with the allele, serotype, haplotype, or heterodimer specificity
+      (e.g. `MRO:0000283` HLA-DQ2 serotype, `MRO:0001284` HLA-DRB1*03:01 protein
+      complex). On a TreatmentEffectModifier with `effect_modifier_type: GENOTYPE`,
+      grounds an HLA-restricted vaccine or immunotherapy responder/non-responder
+      stratum.
+    range: MHCDescriptor
     inlined: true
   treatment_term:
     description: The NCIT term for this treatment/medical action
@@ -6868,6 +6922,19 @@ classes:
             range: AncestryTerm
             obligation_level: REQUIRED
 
+  MHCDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for an MHC/HLA allele, serotype, haplotype, or presenting
+      protein complex, bindable to MRO (MHC Restriction Ontology).
+    slot_usage:
+      term:
+        description: Optional MRO term reference
+        bindings:
+          - binds_value_of: id
+            range: MHCTerm
+            obligation_level: REQUIRED
+
   ExposureDescriptor:
     is_a: Descriptor
     description: A descriptor for exposure events, bindable to ECTO or XCO
@@ -8333,6 +8400,7 @@ classes:
       - assays
       - mechanisms
       - notes
+      - review_notes
       - frequency
       - genetic_context
       - pdb_structures
@@ -8469,6 +8537,7 @@ classes:
     slots:
       - name
       - gene_term
+      - mhc_term
       - affected_regions
       - presence
       - evidence
@@ -8743,6 +8812,7 @@ classes:
     slots:
       - effect_modifier_type
       - stratum
+      - mhc_term
       - comparator_stratum
       - modified_outcome
       - effect_in_stratum
@@ -9660,6 +9730,7 @@ classes:
       - inheritance_term
       - gene
       - biological_processes
+      - molecular_functions
       - module
       - classification
 

@@ -55,6 +55,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from dismech.conformance import iter_conforms_to
+
 DEFAULT_SEED = Path("kb/node_classes/pathograph_node_class_go_seed.tsv")
 DEFAULT_KB_DIRS = (Path("kb/disorders"), Path("kb/modules"))
 
@@ -82,8 +84,8 @@ class ScanResult:
     assignments: list[Assignment] = field(default_factory=list)
     #: (disease, node) -> assignment, for conformance lookups
     index: dict[tuple[str, str], Assignment] = field(default_factory=dict)
-    #: (disease, node) -> "module#Node Name"
-    conforms_to: dict[tuple[str, str], str] = field(default_factory=dict)
+    #: (disease, node) -> every "module#Node Name" the node conforms to
+    conforms_to: dict[tuple[str, str], list[str]] = field(default_factory=dict)
 
 
 def load_seed(path: Path = DEFAULT_SEED) -> dict[str, tuple[str, str]]:
@@ -164,9 +166,9 @@ def scan(
                 )
                 result.assignments.append(assignment)
                 result.index[(path.stem, assignment.node)] = assignment
-                ref = node.get("conforms_to")
-                if isinstance(ref, str) and "#" in ref:
-                    result.conforms_to[(path.stem, assignment.node)] = ref.strip()
+                refs = [ref for ref in iter_conforms_to(node) if "#" in ref]
+                if refs:
+                    result.conforms_to[(path.stem, assignment.node)] = refs
     return result
 
 
@@ -183,7 +185,12 @@ def conformance_pairs(
     quoting a figure from this docstring, which the KB's growth will outdate.
     """
     out = []
-    for key, ref in sorted(result.conforms_to.items()):
+    pairs = [
+        (key, ref)
+        for key, refs in sorted(result.conforms_to.items())
+        for ref in refs
+    ]
+    for key, ref in pairs:
         module_id, _, module_node = ref.partition("#")
         target = result.index.get((module_id.strip(), module_node.strip()))
         source = result.index[key]

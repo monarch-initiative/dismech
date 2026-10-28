@@ -118,6 +118,7 @@ if str(ROOT / "src") not in sys.path:  # pragma: no cover - import bootstrap
 if str(ROOT) not in sys.path:  # pragma: no cover - import bootstrap
     sys.path.insert(0, str(ROOT))
 
+from dismech.disk_full import reports_disk_full
 from dismech.reference_snippet_audit import (
     DEFAULT_SCHEMA,
     CachedReferenceIndex,
@@ -504,6 +505,7 @@ def _format(finding) -> str:
     )
 
 
+@reports_disk_full("check-reference-titles")
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group()

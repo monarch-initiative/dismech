@@ -228,9 +228,20 @@ jobs:
           # kb/disorders entry + history record + caches + `- stubs/<Disease>.yaml`
           # -- and demanded a scope-override label for doing exactly the right
           # thing (PR #9027).
+          #
+          # `tests/gene_activity_grounding_baseline.txt` is curation scope for the
+          # same reason. Since #13608 the "Check for newly ungrounded genes" gate
+          # honors lines a PR adds to that file, and its own docstring tells a
+          # curator to do exactly that when a new gene has no honest molecular
+          # function to bind (YIPF5, SSR4, EXOC6B: only `protein binding`). This
+          # check then rejected the file, so the sanctioned exemption still needed
+          # a scope-override label (PR #13814). Only that one path is allowed; the
+          # other tests/*_baseline.txt files are shrink-only and a curation PR has
+          # no business adding to them.
           if echo "$CHANGED" | grep -q '^kb/'; then
             INFRA=$(echo "$CHANGED" \
               | grep -vE '^(kb/|stubs/|history/|cache/|references_cache/|research/|pages/|dashboard/)' \
+              | grep -vxF 'tests/gene_activity_grounding_baseline.txt' \
               || true)
 
             if [ -n "$INFRA" ]; then
@@ -469,6 +480,12 @@ jobs:
           # which would otherwise let folded-scalar hyphen splits into kb/ files.
           Check for folded-scalar hyphen splits :: uv run python scripts/check_folded_hyphens.py
 
+          # Ungated for the same reason: an evidence item pasted inside a
+          # `notes: >-` scalar arrives in a kb/-only PR and parses as prose, so
+          # it validates while silently dropping out of the snippet count
+          # (issue #11230). No baseline; the tree was clean when it landed.
+          Check for YAML structure swallowed into block scalars :: uv run python scripts/check_folded_yaml.py
+
           # Also ungated: the pytest snippet-length ratchet only runs when src/tests
           # change, so kb-only curation PRs -- the ones that actually add short
           # snippets -- would otherwise never be checked. Grandfathered live against
@@ -494,6 +511,13 @@ jobs:
           # src/tests path filter would catch. Offline -- the correct title is
           # already in the reference's cache frontmatter (issue #9138).
           Check for new mismatched reference titles :: uv run python scripts/check_reference_titles.py --against-ref "origin/$BASE_REF"
+
+          # Ungated for the same reason as the title ratchet above, but a hard gate
+          # with no baseline: every evidence item must carry a reference_title.
+          # The backlog was backfilled from references_cache/ to zero, and this
+          # holds it there so `reference_title` can become `required` in the
+          # schema without the change turning every open PR red. ~30s, offline.
+          Check every evidence item has a reference title :: uv run python scripts/find_missing_reference_titles.py
 
           # Ungated for the same reason as the two ratchets above: an evidence-free
           # `environmental:` exposure is added by curation PRs touching only kb/,
@@ -615,6 +639,25 @@ jobs:
           # lane, not a replacement.
           Check entity references resolve :: uv run python scripts/check_entity_refs.py
 
+          # The coherence of a pathophysiology node's OWN annotations, which no
+          # other gate asks about: every one of them validates a single binding.
+          # So `CL:0000057 fibroblast` beside `GO:0001837 epithelial to
+          # mesenchymal transition` passes LinkML, term and reference validation
+          # while claiming a fibroblast -- which is not epithelium -- undergoes
+          # the epithelial transition. Curators already catch these by hand; the
+          # `notes` block on Hypoplastic_Left_Heart_Syndrome's endocardial node
+          # is ten lines of exactly this reasoning.
+          #
+          # Ungated and whole-KB for the same merge-shaped reason as its
+          # neighbours, and REPORT-ONLY: it exits 0 on findings, because CL's
+          # is_a graph cannot express every exception, so a finding is a
+          # question for a curator rather than a proven defect. A node judged
+          # correct answers it in `review_notes` on the node rather than in a
+          # baseline file. It does fail when a rule's closure is missing from
+          # cache/rule_closure/, which is a broken check rather than a clean
+          # one. ~25s over kb/, offline (issue #9905).
+          Report logically incoherent pathophysiology annotations :: uv run python scripts/check_logical_rules.py
+
           # The bare-name counterpart of the step above, and a genuinely separate
           # invariant. `downstream[].target`, `sequelae[].target`,
           # `reports_on[].target` and `target_mechanisms[].target` do NOT use the
@@ -632,6 +675,17 @@ jobs:
           # backlog is grandfathered in tests/causal_target_baseline.txt, so this
           # gates new breakage only.
           Check pathograph targets resolve :: uv run python scripts/check_causal_targets.py
+
+          # Two disorder entries on one `disease_term` must each record it in
+          # `mappings.mondo_mappings` as skos:exactMatch (at most one) or
+          # skos:narrowMatch (design decisions section 3a). Without this, two
+          # curators claiming one MONDO class under different filenames pass every
+          # gate -- #9618 nearly landed three duplicates that way (#10113).
+          # Ungated and whole-KB: the PR that creates a collision touches only
+          # kb/, and the entry it collides with is one it never opened. The
+          # existing backlog is grandfathered per member in
+          # tests/shared_disease_term_baseline.txt. ~30s, offline.
+          Check shared disease_terms are declared :: uv run python scripts/check_shared_disease_terms.py
 
           # The step above asks whether a declared causal target RESOLVES. This one
           # asks whether a phenotype is REACHED at all -- the failure it cannot see.
