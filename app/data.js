@@ -95839,7 +95839,8 @@ window.searchData = [
       "Pro-Inflammatory Macrophage Polarization",
       "Cellular Senescence",
       "SIRT1-Mediated NAD+ Signaling and Protective Deacetylation",
-      "Protease-Antiprotease Imbalance (MMP-2/TIMP-2 Axis)"
+      "Protease-Antiprotease Imbalance (MMP-2/TIMP-2 Axis)",
+      "Beta2 Agonist Occupancy of Airway Smooth Muscle Receptors"
     ],
     "cell_types": [
       "Epithelial Cell",
@@ -95855,7 +95856,8 @@ window.searchData = [
       "anti-inflammatory M2 macrophage",
       "pro-inflammatory M1 macrophage",
       "fibroblast",
-      "Airway Epithelial Cell"
+      "Airway Epithelial Cell",
+      "bronchial smooth muscle cell"
     ],
     "cell_type_ids": [
       "CL:0000066",
@@ -95870,7 +95872,8 @@ window.searchData = [
       "CL:0002063",
       "CL:0000890",
       "CL:0000863",
-      "CL:0000057"
+      "CL:0000057",
+      "CL:0002598"
     ],
     "biological_processes": [
       "inflammatory response",
@@ -95952,7 +95955,8 @@ window.searchData = [
     ],
     "treatments": [
       "Smoking Cessation",
-      "Bronchodilators",
+      "Long-Acting Beta-2 Agonist Therapy",
+      "Long-Acting Muscarinic Antagonist Therapy",
       "Inhaled Corticosteroids",
       "Phosphodiesterase-4 Inhibitors",
       "Oxygen Therapy",
@@ -95977,10 +95981,10 @@ window.searchData = [
     "source_file": "Chronic_Obstructive_Pulmonary_Disease.yaml",
     "page_url": "../pages/disorders/Chronic_Obstructive_Pulmonary_Disease.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 14,
+    "num_pathophysiology": 15,
     "num_genes": 7,
-    "num_treatments": 12,
-    "causal_graph_edges": "25",
+    "num_treatments": 13,
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "4"
   },
   {
@@ -113318,7 +113322,8 @@ window.searchData = [
       "Eosinophilic Airway Inflammation",
       "Airway Hyperresponsiveness",
       "Cough Reflex Hypersensitivity",
-      "Small Airway Dysfunction"
+      "Small Airway Dysfunction",
+      "Beta2 Agonist Occupancy of Airway Smooth Muscle Receptors"
     ],
     "cell_types": [
       "eosinophil",
@@ -113376,10 +113381,10 @@ window.searchData = [
     "source_file": "Cough_Variant_Asthma.yaml",
     "page_url": "../pages/disorders/Cough_Variant_Asthma.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "1",
+    "causal_graph_edges": "2",
     "causal_graph_longest_path": "1"
   },
   {
@@ -126426,6 +126431,143 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "30",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Developmental Delay With Short Stature, Dysmorphic Facial Features, And Sparse Hair 1",
+    "disease_id": "MONDO:0800438",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal recessive disease",
+      "Ribosomopathy"
+    ],
+    "creation_date": "2026-10-27T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive multisystem developmental disorder caused by biallelic hypomorphic variants in DPH1, the first enzyme of diphthamide biosynthesis. DPH1 and DPH2 form an iron-sulfur-cluster heterodimer that performs the first of four steps placing diphthamide on a single conserved histidine (His715) of translation elongation factor 2 (eEF2). Loss of that modification does not abolish translation; it degrades translational accuracy at the elongation step, permitting ribosomal frameshifting, and preactivates oxidative-stress and NF-kappaB stress programs. The disorder is therefore classified as a ribosomopathy of translational fidelity rather than of ribosome biogenesis. The clinical core is intellectual disability with short stature, an unusual skull shape, and ectodermal findings (sparse scalp hair and eyebrows, hypoplastic toenails); head circumference may be small or large rather than uniformly reduced. The entity is also called diphthamide deficiency syndrome 1, DPH1 syndrome, and Loucks-Innes syndrome, and fewer than twenty cases have been reported. Complete loss of diphthamide synthesis is lethal in animals, so every variant found in a living affected individual reduces rather than abolishes enzyme activity. DPH1 was first described as the candidate ovarian tumour suppressor OVCA1 and lies inside the Miller-Dieker syndrome critical deletion region, which is how its role in craniofacial development came to be tested.",
+    "pathophysiology": [
+      "DPH1 Loss of Function",
+      "Failure of eEF2 Diphthamide Synthesis",
+      "Reduced Translational Fidelity at Elongation",
+      "Preactivation of Oxidative Stress and NF-kappaB Responses",
+      "Impaired Craniofacial Neural Crest Development",
+      "Impaired Somatic Growth and Neurodevelopment"
+    ],
+    "cell_types": [
+      "cranial neural crest cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011012"
+    ],
+    "biological_processes": [
+      "diphthamide biosynthesis on eEF2 histidine 715",
+      "maintenance of translational reading frame during elongation",
+      "translational elongation",
+      "cellular response to oxidative stress",
+      "canonical NF-kappaB signal transduction",
+      "neural crest cell development"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Short stature",
+      "Sparse hair",
+      "Sparse eyebrow",
+      "Scaphocephaly",
+      "Craniosynostosis",
+      "Prominent forehead",
+      "Epicanthus",
+      "Abnormal toenail morphology",
+      "Seizure",
+      "Muscular hypotonia",
+      "Agenesis of corpus callosum",
+      "Cleft palate",
+      "Abnormal head circumference",
+      "Natal tooth",
+      "Reduced circulating growth hormone concentration",
+      "Cardiomyopathy",
+      "Hearing impairment",
+      "Morphological central nervous system abnormality",
+      "Abnormality of limbs",
+      "Abnormality of the dentition",
+      "Abnormal heart morphology",
+      "Abnormal external genitalia morphology",
+      "Abnormal renal morphology",
+      "Abnormal facial shape"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Growth",
+      "Integumentary",
+      "Skeletal",
+      "Craniofacial",
+      "Dental",
+      "Endocrine",
+      "Cardiovascular",
+      "Auditory",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0004322",
+      "HP:0008070",
+      "HP:0045075",
+      "HP:0030799",
+      "HP:0004442",
+      "HP:0011220",
+      "HP:0000286",
+      "HP:0008388",
+      "HP:0001250",
+      "HP:0001252",
+      "HP:0001274",
+      "HP:0000175",
+      "HP:0000240",
+      "HP:0000695",
+      "HP:0034323",
+      "HP:0001638",
+      "HP:0000365",
+      "HP:0002011",
+      "HP:0040064",
+      "HP:0000164",
+      "HP:0001627",
+      "HP:0000811",
+      "HP:0012210",
+      "HP:0001999"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "DPH1"
+    ],
+    "treatments": [
+      "Supportive and Developmental Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Developmental_Delay_With_Short_Stature_Dysmorphic_Facial_Features_And_Sparse_Hair_1.yaml",
+    "page_url": "../pages/disorders/Developmental_Delay_With_Short_Stature,_Dysmorphic_Facial_Features,_And_Sparse_Hair_1.html",
+    "num_phenotypes": 26,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Developmental Malformations-Deafness-Dystonia Syndrome",
@@ -247865,7 +248007,8 @@ window.searchData = [
     "pathophysiology": [
       "Constitutive KIT Activation in Skin Mast Cells",
       "Clonal Dermal Mast Cell Accumulation",
-      "Mast Cell Mediator Release"
+      "Mast Cell Mediator Release",
+      "Antihistamine Occupancy of Cutaneous H1 Receptors"
     ],
     "cell_types": [
       "skin mast cell",
@@ -247935,10 +248078,10 @@ window.searchData = [
     "source_file": "Maculopapular_Cutaneous_Mastocytosis.yaml",
     "page_url": "../pages/disorders/Maculopapular_Cutaneous_Mastocytosis.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
   },
   {
@@ -251500,7 +251643,8 @@ window.searchData = [
       "Mast Cell Surface Receptor Engagement",
       "Downstream Signaling Cascade Activation",
       "Mast Cell Degranulation and Mediator Release",
-      "Multisystem Mediator-Driven Symptom Generation"
+      "Multisystem Mediator-Driven Symptom Generation",
+      "Antihistamine Occupancy of H1 Receptors"
     ],
     "cell_types": [
       "mast cell"
@@ -251574,10 +251718,10 @@ window.searchData = [
     "source_file": "Mast_Cell_Activation_Syndrome.yaml",
     "page_url": "../pages/disorders/Mast_Cell_Activation_Syndrome.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "23",
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "5"
   },
   {
@@ -264865,7 +265009,8 @@ window.searchData = [
       "Constitutive KIT Downstream Signaling",
       "Lowered Mast Cell Activation Threshold",
       "Systemic Mast Cell Mediator Release",
-      "Sub-threshold Clonal Burden"
+      "Sub-threshold Clonal Burden",
+      "Antihistamine Occupancy of H1 Receptors"
     ],
     "cell_types": [
       "mast cell"
@@ -264923,10 +265068,10 @@ window.searchData = [
     "source_file": "Monoclonal_Mast_Cell_Activation_Syndrome.yaml",
     "page_url": "../pages/disorders/Monoclonal_Mast_Cell_Activation_Syndrome.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "5"
   },
   {
@@ -369720,8 +369865,12 @@ window.searchData = [
       "Enhanced PrP Misfolding and Aggregation",
       "Striatal and Neocortical Spongiform Degeneration"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
     "biological_processes": [
       "protein destabilization",
       "protein N-linked glycosylation",
@@ -374792,7 +374941,8 @@ window.searchData = [
     "pathophysiology": [
       "Constitutive KIT D816V Signaling",
       "Clonal Mast Cell Proliferation and Organ Infiltration",
-      "Mast Cell Mediator Release"
+      "Mast Cell Mediator Release",
+      "Antihistamine Occupancy of H1 Receptors"
     ],
     "cell_types": [
       "neoplastic mast cell",
@@ -374875,10 +375025,10 @@ window.searchData = [
     "source_file": "Systemic_Mastocytosis.yaml",
     "page_url": "../pages/disorders/Systemic_Mastocytosis.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 4,
     "num_genes": 6,
     "num_treatments": 6,
-    "causal_graph_edges": "18",
+    "causal_graph_edges": "19",
     "causal_graph_longest_path": "3"
   },
   {
@@ -407419,17 +407569,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3778,
+  "total_disorder_pages": 3779,
   "total_subtypes": 4929,
-  "total_disorders_and_subtypes": 8707,
-  "total_unique_evidence_sources": 56183,
-  "total_unique_publications": 52511,
+  "total_disorders_and_subtypes": 8708,
+  "total_unique_evidence_sources": 56196,
+  "total_unique_publications": 52524,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3776,
-  "total_unique_pathological_events": 24845,
+  "total_pathographs": 3777,
+  "total_unique_pathological_events": 24851,
   "total_modules": 213,
-  "total_research_reports": 3895,
+  "total_research_reports": 3896,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 127
