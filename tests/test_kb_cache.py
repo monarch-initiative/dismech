@@ -146,7 +146,7 @@ def test_default_off_sets_the_knob_but_never_overrides_the_operator(monkeypatch)
 
 
 def test_single_walk_cli_mains_default_the_cache_off():
-    """The four one-walk gates pay full retention for zero hits (PR #11185 review).
+    """The one-walk gates pay full retention for zero hits (PR #11185 review).
 
     Pinned by source rather than by running them: each main() then walks the
     whole corpus. The call must be in main(), not at import -- pytest imports
@@ -159,6 +159,7 @@ def test_single_walk_cli_mains_default_the_cache_off():
         "check_snippet_length",
         "check_title_snippets",
         "check_empty_snippets",
+        "find_missing_reference_titles",
         "nec_risk_audit",
     ):
         source = (ROOT / "scripts" / f"{name}.py").read_text(encoding="utf-8")
