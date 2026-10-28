@@ -61982,6 +61982,106 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Brain Malformation Renal Syndrome",
+    "disease_id": "MONDO:0975799",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian developmental disorder",
+      "Dandy-Walker malformation spectrum"
+    ],
+    "creation_date": "2026-10-13T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Brain malformation renal syndrome (OMIM 620943) is an ultra-rare autosomal recessive developmental disorder caused by biallelic loss-of-function or missense variants in EXOC3L2, a paralog of the exocyst subunit EXOC3 that associates with the exocyst complex and functions in post-Golgi vesicle trafficking to the plasma membrane. Few families have been reported, most affected individuals being fetuses identified on prenatal ultrasound. The hindbrain is the main target: severe Dandy-Walker malformation with cerebellar vermis hypoplasia, occasionally encephalocele. The kidneys are enlarged, hyperechogenic or dysplastic, and the resulting oligohydramnios or anhydramnios is accompanied by pulmonary hypoplasia. The one reported liveborn child had white matter abnormalities with enlarged ventricular trigones, developmental delay, pituitary hypoplasia, severe renal dysplasia and bone marrow failure. Because the fetal picture of cerebellar malformation plus enlarged kidneys resembles Meckel-Gruber syndrome, EXOC3L2 was first proposed as a ciliopathy candidate gene, but no ciliary defect has been demonstrated. In cultured endothelial cells EXOC3L2 is needed for VEGFA-induced VEGFR2 phosphorylation and directional migration, and Exoc3l2-null mice die in utero with hemorrhage, heart defects and brain anomalies driven by its loss from the endothelial and hematopoietic lineages. How loss of EXOC3L2 produces the human hindbrain and renal malformations is not established. No disease-specific therapy exists.",
+    "pathophysiology": [
+      "Biallelic EXOC3L2 Loss of Function",
+      "Impaired Post-Golgi Vesicle Trafficking",
+      "Defective Endothelial VEGFR2 Signaling and Directional Migration",
+      "Abnormal Hindbrain Development",
+      "Abnormal Kidney Development"
+    ],
+    "cell_types": [
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "exocytosis",
+      "vascular endothelial growth factor receptor signaling pathway",
+      "endothelial cell migration",
+      "hindbrain development",
+      "cerebellum development",
+      "kidney development"
+    ],
+    "phenotypes": [
+      "Dandy-Walker malformation",
+      "Cerebellar vermis hypoplasia",
+      "Encephalocele",
+      "Periventricular and cerebellar white matter abnormalities",
+      "Enlarged ventricular trigones",
+      "Developmental delay",
+      "Pituitary hypoplasia",
+      "Renal dysplasia",
+      "Enlarged hyperechogenic kidneys",
+      "Enlarged kidney",
+      "Oligohydramnios",
+      "Pulmonary hypoplasia",
+      "Bone marrow failure"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Neurodevelopmental",
+      "Endocrine",
+      "Renal",
+      "Pregnancy",
+      "Respiratory",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Endocrine",
+      "Genitourinary",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001305",
+      "HP:0001320",
+      "HP:0002084",
+      "HP:0002518",
+      "HP:0002119",
+      "HP:0001263",
+      "HP:0012506",
+      "HP:0000110",
+      "HP:0004719",
+      "HP:0000105",
+      "HP:0001562",
+      "HP:0002089",
+      "HP:0005528"
+    ],
+    "frequencies": [],
+    "genes": [
+      "EXOC3L2"
+    ],
+    "treatments": [
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Brain_Malformation_Renal_Syndrome.yaml",
+    "page_url": "../pages/disorders/Brain_Malformation_Renal_Syndrome.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Brain Malformations With Or Without Urinary Tract Defects",
     "disease_id": "MONDO:0100478",
     "category": "Mendelian",
@@ -78844,6 +78944,98 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "11",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Carbamate Poisoning",
+    "disease_id": null,
+    "category": "Environmental",
+    "parents": [],
+    "creation_date": "2026-10-28T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "N-methyl carbamate insecticides (and carbamate drugs) carbamylate the serine hydroxyl in the catalytic site of acetylcholinesterase, inactivating the enzyme that hydrolyses acetylcholine. Unlike the organophosphate adduct, the carbamyl-enzyme bond hydrolyses spontaneously (decarbamylation) and does not \"age\", so inhibition is reversible and recovery does not require synthesis of new enzyme.",
+    "pathophysiology": [
+      "Acetylcholinesterase carbamylation",
+      "Synaptic acetylcholine accumulation",
+      "Muscarinic receptor overstimulation",
+      "Nicotinic receptor overstimulation",
+      "Central cholinergic overstimulation",
+      "Cholinergic crisis and respiratory failure"
+    ],
+    "cell_types": [
+      "cholinergic neuron",
+      "muscle cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000108",
+      "CL:0000187",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "acetylcholine catabolic process",
+      "cholinergic synaptic transmission",
+      "G protein-coupled acetylcholine receptor signaling pathway",
+      "neuromuscular synaptic transmission",
+      "respiratory gaseous exchange by respiratory system"
+    ],
+    "phenotypes": [
+      "Miosis",
+      "Hyperhidrosis",
+      "Bronchospasm",
+      "Bradycardia",
+      "Seizure",
+      "Respiratory failure",
+      "Hypotension",
+      "Bronchorrhea",
+      "Muscle weakness",
+      "Reduced consciousness"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000616",
+      "HP:0000975",
+      "HP:0030828",
+      "HP:0001662",
+      "HP:0001250",
+      "HP:0002878",
+      "HP:0002615",
+      "HP:0001324",
+      "HP:0004372"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Muscarinic Antagonist (atropine)",
+      "Oxime reactivator (pralidoxime)",
+      "Benzodiazepine",
+      "Resuscitation and ventilatory support"
+    ],
+    "environmental": [
+      "Carbamate insecticide self-poisoning by ingestion",
+      "Occupational and agricultural carbamate insecticide exposure"
+    ],
+    "biochemical": [
+      "Red cell and plasma cholinesterase activity"
+    ],
+    "source_file": "Carbamate_Poisoning.yaml",
+    "page_url": "../pages/disorders/Carbamate_Poisoning.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Carbamoyl Phosphate Synthetase I Deficiency",
@@ -160289,6 +160481,115 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "61",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Food Allergy",
+    "disease_id": "MONDO:0700226",
+    "category": "Complex",
+    "parents": [
+      "Allergic Disease",
+      "Immune-Mediated Disease"
+    ],
+    "creation_date": "2026-10-23T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Food allergy is an adverse immune response to dietary antigens that is reproducible on re-exposure and distinct from food intolerance. The dominant form is IgE-mediated (type I) hypersensitivity to food proteins, in which failure of the default oral tolerance response to an ingested protein permits type 2 immune priming, allergen-specific IgE production, and arming of tissue mast cells and circulating basophils through the high-affinity IgE receptor FcepsilonRI. On re-exposure, multivalent allergen crosslinks receptor-bound IgE, aggregating FcepsilonRI and triggering degranulation with release of preformed and newly synthesised mediators that produce urticaria, angioedema, vomiting, bronchospasm, and in severe cases anaphylaxis. The characterised allergens of this form of disease are proteins, and their biochemical properties -- notably oligomeric assembly, which sets the number and spacing of IgE epitopes presented on one particle -- contribute to both sensitisation and effector potency. Management rests on avoidance of the culprit allergen and prompt epinephrine for systemic reactions.",
+    "pathophysiology": [
+      "Dietary Protein Allergen Exposure",
+      "Oligomeric Allergen Epitope Display",
+      "Failure of Oral Tolerance Induction",
+      "Type 2 Immune Reprogramming",
+      "IgE Class Switching and FcepsilonRI Arming",
+      "Multivalent FcepsilonRI Crosslinking",
+      "Mast Cell and Basophil Degranulation"
+    ],
+    "cell_types": [
+      "tolerogenic RORgt+ PRDM16+ intestinal antigen-presenting cell",
+      "peripherally induced regulatory T cell",
+      "allergen-specific T-helper 2 cell",
+      "group 2 innate lymphoid cell",
+      "IgE-secreting plasma cell",
+      "mast cell",
+      "basophil",
+      "mucosal mast cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000145",
+      "CL:0000815",
+      "CL:0000546",
+      "CL:0001069",
+      "CL:0000947",
+      "CL:0000097",
+      "CL:0000767",
+      "CL:0000485"
+    ],
+    "biological_processes": [
+      "allergen homo-oligomerisation",
+      "oral tolerance induction to dietary protein",
+      "type 2 immune response to dietary allergen",
+      "T-helper 2 cell differentiation",
+      "isotype switching to IgE",
+      "Fc-epsilon receptor signaling pathway",
+      "mast cell degranulation",
+      "IgE-mediated histamine secretion"
+    ],
+    "phenotypes": [
+      "Food-induced anaphylaxis",
+      "Urticaria",
+      "Angioedema",
+      "Vomiting",
+      "Wheezing",
+      "Hypotension"
+    ],
+    "phenotype_categories": [
+      "Systemic",
+      "Dermatologic",
+      "Gastrointestinal",
+      "Respiratory",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0500095",
+      "HP:0001025",
+      "HP:0100665",
+      "HP:0002013",
+      "HP:0030828",
+      "HP:0002615"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FLG",
+      "SERPINB10",
+      "IL4",
+      "EMSY"
+    ],
+    "treatments": [
+      "Culprit Allergen Avoidance",
+      "Epinephrine",
+      "Peanut Oral Immunotherapy (AR101)",
+      "Omalizumab"
+    ],
+    "environmental": [
+      "Early oral introduction of allergenic food",
+      "Cutaneous allergen exposure through an impaired skin barrier"
+    ],
+    "biochemical": [],
+    "source_file": "Food_Allergy.yaml",
+    "page_url": "../pages/disorders/Food_Allergy.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 7,
+    "num_genes": 4,
+    "num_treatments": 4,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Food Protein-Induced Enterocolitis Syndrome",
@@ -293031,8 +293332,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Opioid Use Disorder",
@@ -307393,15 +307694,27 @@ window.searchData = [
       "Single Large-Scale mtDNA Deletion",
       "Mitochondrial Translation and OXPHOS Deficiency",
       "Bone Marrow Failure and Sideroblastic Anemia",
-      "Exocrine Pancreatic and Multisystem Energy Failure"
+      "Pancreatic Acinar Dysfunction",
+      "Proximal Tubular Dysfunction",
+      "Hepatic Dysfunction"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "hematopoietic precursor cell",
+      "pancreatic acinar cell",
+      "epithelial cell of proximal tubule",
+      "erythroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0008001",
+      "CL:0002064",
+      "CL:0002306",
+      "CL:0000765"
+    ],
     "biological_processes": [
-      "mitochondrial DNA metabolic process",
       "mitochondrial translation",
       "oxidative phosphorylation",
-      "aerobic respiration"
+      "aerobic respiration",
+      "erythrocyte differentiation"
     ],
     "phenotypes": [
       "Sideroblastic anemia",
@@ -307409,21 +307722,36 @@ window.searchData = [
       "Exocrine pancreatic insufficiency",
       "Failure to thrive",
       "Renal tubular acidosis",
-      "Lactic acidosis"
+      "Lactic acidosis",
+      "Hypotonia",
+      "Elevated hepatic transaminases",
+      "Hepatomegaly",
+      "Short stature",
+      "Cardiac conduction defect",
+      "Diabetes mellitus",
+      "Adrenal insufficiency"
     ],
     "phenotype_categories": [
       "Hematologic",
       "Gastrointestinal",
       "Constitutional",
       "Renal",
-      "Metabolic"
+      "Metabolic",
+      "Neuromuscular",
+      "Hepatic",
+      "Growth",
+      "Cardiovascular",
+      "Endocrine"
     ],
     "phenotype_hpo_categories": [
       "Blood",
+      "Cardiovascular",
       "Digestive",
+      "Endocrine",
       "Genitourinary",
       "Growth",
-      "Metabolism"
+      "Metabolism",
+      "Musculoskeletal"
     ],
     "phenotype_ids": [
       "HP:0001924",
@@ -307431,12 +307759,23 @@ window.searchData = [
       "HP:0001738",
       "HP:0001508",
       "HP:0001947",
-      "HP:0003128"
+      "HP:0003128",
+      "HP:0001252",
+      "HP:0002910",
+      "HP:0002240",
+      "HP:0004322",
+      "HP:0031546",
+      "HP:0000819",
+      "HP:0000846"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
     "genes": [],
     "treatments": [
-      "Transfusion and multidisciplinary supportive care"
+      "Transfusion and multidisciplinary supportive care",
+      "Hematologic and pancreatic surveillance"
     ],
     "environmental": [],
     "biochemical": [
@@ -307444,12 +307783,12 @@ window.searchData = [
     ],
     "source_file": "Pearson_Syndrome.yaml",
     "page_url": "../pages/disorders/Pearson_syndrome.html",
-    "num_phenotypes": 6,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
     "num_genes": 0,
-    "num_treatments": 1,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 2,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Pediatric Acute-onset Neuropsychiatric Syndrome",
@@ -408974,17 +409313,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3790,
+  "total_disorder_pages": 3793,
   "total_subtypes": 4936,
-  "total_disorders_and_subtypes": 8726,
-  "total_unique_evidence_sources": 56372,
-  "total_unique_publications": 52691,
+  "total_disorders_and_subtypes": 8729,
+  "total_unique_evidence_sources": 56401,
+  "total_unique_publications": 52720,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 311,
-  "total_pathographs": 3788,
-  "total_unique_pathological_events": 24932,
-  "total_modules": 214,
-  "total_research_reports": 3903,
+  "total_pathographs": 3791,
+  "total_unique_pathological_events": 24947,
+  "total_modules": 215,
+  "total_research_reports": 3906,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 127
