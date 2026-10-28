@@ -666,6 +666,9 @@ class EjectionMemory:
     blocked: bool
     strikes: int = 0
     reason: str = ""
+    # The head the strikes were counted against. A held PR is told once per
+    # head (see notify_ejection_hold), so this is the key for that notice.
+    head_oid: str = ""
 
 
 def ejection_memory(
@@ -677,7 +680,7 @@ def ejection_memory(
         "query($owner:String!,$name:String!,$number:Int!){"
         "repository(owner:$owner,name:$name){"
         "pullRequest(number:$number){"
-        "commits(last:1){nodes{commit{committedDate}}} "
+        "commits(last:1){nodes{commit{oid committedDate}}} "
         "timelineItems(last:20,itemTypes:[REMOVED_FROM_MERGE_QUEUE_EVENT])"
         "{nodes{... on RemovedFromMergeQueueEvent{createdAt reason}}}}}}"
     )
@@ -702,8 +705,11 @@ def ejection_memory(
     pr = ((data.get("data") or {}).get("repository") or {}).get("pullRequest") or {}
     commits = ((pr.get("commits") or {}).get("nodes")) or []
     head_written = ""
+    head_oid = ""
     if commits and isinstance(commits[0], dict):
-        head_written = str((commits[0].get("commit") or {}).get("committedDate") or "")
+        head_commit = commits[0].get("commit") or {}
+        head_written = str(head_commit.get("committedDate") or "")
+        head_oid = str(head_commit.get("oid") or "")
     if not head_written:
         # Without the head's write time a strike cannot be attributed to the
         # current content, so fail open rather than hold on a guess.
@@ -740,13 +746,106 @@ def ejection_memory(
         strikes += 1
         latest = max(latest, when)
     if strike_limit <= 0 or strikes < strike_limit:
-        return EjectionMemory(False, strikes)
+        return EjectionMemory(False, strikes, head_oid=head_oid)
     return EjectionMemory(
         True,
         strikes,
         f"failed the merge queue {strikes} times since its head commit was "
         f"last written (most recently {latest}); push a fix to retry",
+        head_oid=head_oid,
     )
+
+
+# Hidden in the rendered comment; keyed on the held head so each held head is
+# announced exactly once, however many hourly sweeps keep it held.
+EJECTION_HOLD_MARKER = "<!-- pr-shepherd:ejection-hold:{head} -->"
+
+EJECTION_HOLD_COMMENT = (
+    "{marker}\n"
+    "🐑 **PR Shepherd** (deterministic sweep) — Not re-adding this PR to the "
+    "merge queue. It has failed the queue's checks {strikes} times since its "
+    "head commit (`{short}`) was written, so another attempt on the same "
+    "content would most likely fail the same way, and fail every PR queued "
+    "behind it.\n\n"
+    "The queue runs the full test suite, including tests a PR's own checks "
+    "skip when it only touches `kb/`, so a PR can be green here and still "
+    "fail there. The failing run is under "
+    "[Actions → merge_group](https://github.com/{repo}/actions?query=event%3Amerge_group) "
+    "(its branch is `gh-readonly-queue/{base}/pr-{number}-…`).\n\n"
+    "**To retry, push a commit.** Any new head clears this hold. If the "
+    "failure came from another queued PR or an outage rather than from this "
+    "one, merging `{base}` into this branch once `{base}` has moved on gives "
+    "it a new head and a fresh attempt."
+)
+
+
+def notify_ejection_hold(
+    repo: str,
+    number: int,
+    memory: EjectionMemory,
+    write_token: str,
+    *,
+    base_branch: str = "main",
+) -> str:
+    """Tell a held PR why it is held, once per held head. Returns the outcome.
+
+    Without this the hold's only trace is a SKIP line in a collapsed run
+    summary, while the PR page still shows the enqueue comment promising the
+    PR "stops being eligible and needs a look" -- with nobody told to look
+    (#10988). The notice is a comment, not a ``CHANGES_REQUESTED`` review: a
+    review is sticky past the push that fixes the PR, and the hold already
+    clears itself on that push.
+
+    Never raises: the hold is what protects the queue, and it has already been
+    applied. A failure here is reported and the sweep carries on.
+    """
+    head = memory.head_oid.strip()
+    if not head:
+        return "not notified (head commit unknown)"
+    marker = EJECTION_HOLD_MARKER.format(head=head)
+    try:
+        # Read with the discovery token; only the post below gets the writer.
+        bodies = _gh([
+            "api", f"repos/{repo}/issues/{number}/comments",
+            "--paginate", "--jq", ".[].body",
+        ])
+    except (subprocess.CalledProcessError, OSError) as exc:
+        detail = (
+            _gh_error(exc) if isinstance(exc, subprocess.CalledProcessError)
+            else str(exc)
+        )
+        # Fail closed on the comment, not on the hold: posting blind could
+        # repeat the notice every hour.
+        print(f"WARN  #{number}: could not read comments to check for an "
+              f"existing hold notice: {detail}", file=sys.stderr)
+        return "not notified (could not read existing comments)"
+    if marker in bodies:
+        return "already notified"
+    writer = write_token.strip()
+    if not writer:
+        return "not notified (no write token)"
+    body = EJECTION_HOLD_COMMENT.format(
+        marker=marker,
+        strikes=memory.strikes,
+        short=head[:7],
+        repo=repo,
+        base=base_branch,
+        number=number,
+    )
+    try:
+        _gh(
+            ["pr", "comment", str(number), "--repo", repo, "--body", body],
+            token=writer,
+        )
+    except (subprocess.CalledProcessError, OSError) as exc:
+        detail = (
+            _gh_error(exc) if isinstance(exc, subprocess.CalledProcessError)
+            else str(exc)
+        )
+        print(f"WARN  #{number}: held, but posting the hold notice failed: "
+              f"{detail}", file=sys.stderr)
+        return "not notified (posting failed)"
+    return "notified on the PR"
 
 
 # Term caches are the one file class nearly every curation PR writes to, and
@@ -1248,8 +1347,17 @@ def main(argv: list[str] | None = None) -> int:
         # in direct mode once per candidate skipped before a merge succeeds.
         memory = ejection_memory(args.repo, number, args.ejection_strike_limit)
         if memory.blocked:
-            print(f"SKIP  #{number}: {memory.reason}")
-            skipped.append({"number": number, "reason": memory.reason})
+            reason = memory.reason
+            if args.dry_run:
+                reason += " [dry run: hold notice not posted]"
+            else:
+                outcome = notify_ejection_hold(
+                    args.repo, number, memory, write_token,
+                    base_branch=args.base_branch,
+                )
+                reason += f" [{outcome}]"
+            print(f"SKIP  #{number}: {reason}")
+            skipped.append({"number": number, "reason": reason})
             continue
 
         # Alongside the ejection hold and before the draft transition, for the
