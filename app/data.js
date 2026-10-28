@@ -327837,6 +327837,7 @@ window.searchData = [
     "subtypes": [],
     "description": "Pure autonomic failure (PAF; Bradbury-Eggleston syndrome, idiopathic orthostatic hypotension) is a rare, sporadic, slowly progressive adult-onset alpha-synucleinopathy in which misfolded alpha-synuclein accumulates predominantly in peripheral autonomic neurons. Degeneration and dysfunction of postganglionic sympathetic noradrenergic neurons cause a profound deficit in norepinephrine synthesis and release, so that baroreflex-mediated vasoconstriction fails on standing. The clinical picture is dominated by disabling neurogenic orthostatic hypotension, often with paradoxical supine hypertension, accompanied by bladder, bowel, sexual and sudomotor failure, but without motor or cognitive signs of central neurodegeneration. PAF is frequently a prodromal state: about a third of patients phenoconvert to Parkinson disease, dementia with Lewy bodies, or multiple system atrophy over several years of follow-up. Treatment is symptomatic and aimed at orthostatic symptoms; no disease-modifying therapy exists.",
     "pathophysiology": [
+      "Catecholaldehyde (DOPAL) Autotoxicity in Noradrenergic Neurons",
       "Peripheral Autonomic Alpha-Synuclein Aggregation",
       "Preganglionic Lesion Without Postganglionic Lewy Pathology",
       "Preganglionic Intermediolateral Column Neuron Loss",
@@ -327875,6 +327876,7 @@ window.searchData = [
       "CL:0008025"
     ],
     "biological_processes": [
+      "monoamine oxidase-catalysed deamination of cytoplasmic dopamine",
       "inclusion body assembly",
       "norepinephrine biosynthetic process",
       "norepinephrine secretion, neurotransmission",
@@ -327973,6 +327975,7 @@ window.searchData = [
       "Fludrocortisone",
       "Pyridostigmine",
       "Atomoxetine",
+      "Ampreloxetine",
       "Recombinant Erythropoietin",
       "Nocturnal Treatment of Supine Hypertension",
       "Nocturnal Continuous Positive Airway Pressure",
@@ -327989,11 +327992,11 @@ window.searchData = [
     "source_file": "Pure_Autonomic_Failure.yaml",
     "page_url": "../pages/disorders/Pure_Autonomic_Failure.html",
     "num_phenotypes": 24,
-    "num_pathophysiology": 18,
+    "num_pathophysiology": 19,
     "num_genes": 0,
-    "num_treatments": 13,
-    "causal_graph_edges": "63",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 14,
+    "causal_graph_edges": "71",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Purine nucleoside phosphorylase deficiency",
@@ -408970,14 +408973,14 @@ window.searchMetrics = {
   "total_disorder_pages": 3790,
   "total_subtypes": 4936,
   "total_disorders_and_subtypes": 8726,
-  "total_unique_evidence_sources": 56346,
-  "total_unique_publications": 52668,
+  "total_unique_evidence_sources": 56367,
+  "total_unique_publications": 52687,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 311,
   "total_pathographs": 3788,
-  "total_unique_pathological_events": 24930,
+  "total_unique_pathological_events": 24931,
   "total_modules": 214,
-  "total_research_reports": 3902,
+  "total_research_reports": 3903,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 127
