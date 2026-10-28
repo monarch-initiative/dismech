@@ -1,6 +1,7 @@
 """Tests for KGX edge and node exporter."""
 
 from pathlib import Path
+from typing import Any, ClassVar
 
 import pytest
 
@@ -1176,8 +1177,9 @@ class TestTransform:
         # 1 cell_component + 1 chemical + 1 pathway + 1 protein_complex +
         # 1 treatment + 1 therapeutic_agent + 1 target_phenotype +
         # 1 gene + 1 inheritance + 1 infectious_agent +
-        # 1 histopathology + 1 biomarker = 18
-        assert len(edges) == 18
+        # 1 histopathology + 1 biomarker +
+        # 1 disease_has_basis_in for the pathophysiology node = 19
+        assert len(edges) == 19
 
         # All edges should be Association instances
         for edge in edges:
@@ -1198,6 +1200,7 @@ class TestTransform:
         assert predicates.count("biolink:has_mode_of_inheritance") == 1
         assert predicates.count("biolink:causes") == 1
         assert predicates.count("biolink:has_biomarker") == 1
+        assert predicates.count("biolink:disease_has_basis_in") == 1
 
     def test_transform_missing_disease_term(self):
         """Test that transform returns nothing if disease_term is missing."""
@@ -1367,8 +1370,9 @@ class TestExtractNodes:
         # 1 mol_function + 1 cell_component + 1 chemical + 1 pathway +
         # 1 protein_complex + 1 treatment + 1 therapeutic_agent +
         # 1 target_phenotype + 1 gene + 1 exposure + 1 inheritance +
-        # 1 infectious_agent + 1 histopathology + 1 biomarker = 20
-        assert len(nodes) == 20
+        # 1 infectious_agent + 1 histopathology + 1 biomarker +
+        # 1 pathophysiology node = 21
+        assert len(nodes) == 21
 
     def test_node_types(self, sample_disorder):
         """Test that nodes have correct biolink types."""
@@ -1526,3 +1530,269 @@ class TestExtractNodes:
         assert "hgnc:3690" in node_by_id
         assert "HGNC.SYMBOL:FGFR3" not in node_by_id
         assert isinstance(node_by_id["hgnc:3690"], Gene)
+
+
+class TestDifferentialAndDiagnosisEdges:
+    """differential_diagnoses and diagnosis (#2100)."""
+
+    def test_differential_is_similar_to(self):
+        from dismech.export.kgx_export import differential_diagnosis_to_edge
+
+        edge = differential_diagnosis_to_edge(
+            "MONDO:0018484",
+            {
+                "name": "Meniere Disease",
+                "disease_term": {"term": {"id": "MONDO:0007972", "label": "Meniere disease"}},
+                "evidence": [{"reference": "PMID:1", "supports": "SUPPORT", "snippet": "s"}],
+            },
+        )
+        assert edge.predicate == "biolink:similar_to"
+        assert (edge.subject, edge.object) == ("MONDO:0018484", "MONDO:0007972")
+        assert edge.object_category == "biolink:Disease"
+        assert edge.publications == ["PMID:1"]
+
+    def test_unbound_or_self_differential_is_skipped(self):
+        from dismech.export.kgx_export import differential_diagnosis_to_edge
+
+        assert differential_diagnosis_to_edge("MONDO:1", {"name": "Free text"}) is None
+        assert (
+            differential_diagnosis_to_edge("MONDO:1", {"disease_term": {"term": {"id": "MONDO:1"}}})
+            is None
+        )
+
+    def test_diagnosis_is_diagnosed_by_a_procedure(self):
+        from dismech.export.kgx_export import diagnosis_to_edge
+
+        edge = diagnosis_to_edge(
+            "MONDO:0018484",
+            {"name": "CT", "diagnosis_term": {"term": {"id": "NCIT:C17204", "label": "Computed Tomography"}}},
+        )
+        assert edge.predicate == "biolink:is_diagnosed_by"
+        assert edge.object == "NCIT:C17204"
+        assert edge.object_category == "biolink:Procedure"
+        assert diagnosis_to_edge("MONDO:0018484", {"name": "VEMP"}) is None
+
+
+class TestDatasetAndTrialEdges:
+    """datasets and clinical_trials (#2103)."""
+
+    def test_dataset_mentions_disease(self):
+        from dismech.export.kgx_export import dataset_to_edge
+
+        edge = dataset_to_edge(
+            "MONDO:1", {"accession": "geo:GSE1", "title": "T", "publication": "PMID:9"}
+        )
+        assert (edge.subject, edge.predicate, edge.object) == ("geo:GSE1", "biolink:mentions", "MONDO:1")
+        assert edge.subject_category == "biolink:Dataset"
+        assert edge.publications == ["PMID:9"]
+
+    def test_non_curie_accession_is_skipped(self):
+        from dismech.export.kgx_export import dataset_to_edge
+
+        assert dataset_to_edge("MONDO:1", {"accession": "GSE1"}) is None
+        assert dataset_to_edge("MONDO:1", {"accession": "not a curie: x"}) is None
+
+    @pytest.mark.parametrize(
+        "accession",
+        [
+            "PMID:34908184",
+            "DOI:10.1111/liv.15963",
+            "doi:10.1111/liv.15963",
+            "https://data.ghga.de/dataset/GHGAD98802067102801",
+            "clinicaltrials:NCT01238250",
+            "geo:",
+        ],
+    )
+    def test_publication_url_and_trial_accessions_are_not_datasets(self, accession):
+        from dismech.export.kgx_export import dataset_id
+
+        assert dataset_id({"accession": accession}) is None
+
+    def test_accession_prefix_is_lowercased(self):
+        from dismech.export.kgx_export import dataset_id
+
+        assert dataset_id({"accession": "GEO:GSE225435"}) == "geo:GSE225435"
+        assert dataset_id({"accession": "SRA:SRR18749879"}) == "sra:SRR18749879"
+        assert dataset_id({"accession": "ega:EGAS50000000217"}) == "ega:EGAS50000000217"
+
+    @pytest.mark.parametrize(
+        ("trial", "expected"),
+        [
+            ({"name": "NCT05813288"}, "clinicaltrials:NCT05813288"),
+            ({"name": "NCT05813288 — extension"}, "clinicaltrials:NCT05813288"),
+            ({"name": "clinicaltrials:NCT05813288"}, "clinicaltrials:NCT05813288"),
+            (
+                {"name": "EMERALD", "evidence": [{"reference": "clinicaltrials:NCT01234567"}]},
+                "clinicaltrials:NCT01234567",
+            ),
+            (
+                {
+                    "name": "ISRCTN92192408",
+                    "evidence": [
+                        {"reference": "ICTRP:ISRCTN54540667"},
+                        {"reference": "ICTRP:ISRCTN92192408"},
+                    ],
+                },
+                "ICTRP:ISRCTN92192408",
+            ),
+            ({"name": "TURING trial", "evidence": [{"reference": "ICTRP:KCT0004756"}]}, "ICTRP:KCT0004756"),
+            # No identifier is ever derived from free text.
+            ({"name": "DRKS00003136", "evidence": [{"reference": "PMID:1"}]}, None),
+            ({"name": "TURING trial"}, None),
+        ],
+    )
+    def test_clinical_trial_id(self, trial, expected):
+        from dismech.export.kgx_export import clinical_trial_id
+
+        assert clinical_trial_id(trial) == expected
+
+    def test_trial_edges_include_target_phenotypes(self):
+        record = {
+            "name": "X",
+            "disease_term": {"term": {"id": "MONDO:1"}},
+            "clinical_trials": [
+                {
+                    "name": "NCT05813288",
+                    "target_phenotypes": [{"term": {"id": "HP:0030828", "label": "Wheezing"}}, {"preferred_term": "unbound"}],
+                },
+                {"name": "acronym only"},
+            ],
+        }
+        edges = [(e.subject, e.object) for e in transform(record)]
+        assert edges == [
+            ("clinicaltrials:NCT05813288", "MONDO:1"),
+            ("clinicaltrials:NCT05813288", "HP:0030828"),
+        ]
+        categories = {n.id: n.category for n in extract_nodes(record)}
+        assert categories["clinicaltrials:NCT05813288"] == ["biolink:ClinicalTrial"]
+
+    def test_mondo_trial_target_is_a_disease(self):
+        from dismech.export.kgx_export import clinical_trial_target_phenotype_to_edge
+
+        edge = clinical_trial_target_phenotype_to_edge(
+            "clinicaltrials:NCT05813288", {"term": {"id": "MONDO:0005148"}}
+        )
+        assert edge.object_category == "biolink:Disease"
+
+
+class TestPathophysiologyLayer:
+    """The causal graph: pathophysiology nodes, downstream and sequelae (#2101)."""
+
+    RECORD: ClassVar[dict[str, Any]] = {
+        "name": "Test Disorder",
+        "disease_term": {"term": {"id": "MONDO:0000001"}},
+        "phenotypes": [
+            {
+                "name": "Vertigo",
+                "phenotype_term": {"term": {"id": "HP:0002321"}},
+                "sequelae": [{"target": "Disequilibrium"}, {"target": "Nothing by this name"}],
+            },
+            {"name": "Disequilibrium", "phenotype_term": {"term": {"id": "HP:0002141"}}},
+            {"name": "Unbound phenotype"},
+        ],
+        "pathophysiology": [
+            {
+                "name": "Bony Dehiscence",
+                "downstream": [
+                    {"target": "Third Window Effect", "causal_link_type": "DIRECT"},
+                    {"target": "Unbound phenotype"},
+                ],
+            },
+            {"name": "Third Window Effect", "downstream": [{"target": "Vertigo"}]},
+        ],
+    }
+
+    def _edges(self):
+        return [(e.subject, e.predicate, e.object) for e in transform(self.RECORD)]
+
+    def test_nodes_hang_off_the_disease(self):
+        edges = self._edges()
+        assert ("MONDO:0000001", "biolink:disease_has_basis_in", "dismech:Test_Disorder#Bony_Dehiscence") in edges
+        assert ("MONDO:0000001", "biolink:disease_has_basis_in", "dismech:Test_Disorder#Third_Window_Effect") in edges
+
+    def test_downstream_resolves_to_nodes_and_phenotype_terms(self):
+        edges = self._edges()
+        assert (
+            "dismech:Test_Disorder#Bony_Dehiscence",
+            "biolink:causes",
+            "dismech:Test_Disorder#Third_Window_Effect",
+        ) in edges
+        assert ("dismech:Test_Disorder#Third_Window_Effect", "biolink:causes", "HP:0002321") in edges
+
+    def test_sequelae_carry_disease_context(self):
+        sequelae = [e for e in transform(self.RECORD) if e.subject == "HP:0002321"]
+        assert len(sequelae) == 1
+        assert sequelae[0].object == "HP:0002141"
+        assert sequelae[0].disease_context_qualifier == "MONDO:0000001"
+
+    def test_unresolvable_targets_are_skipped_not_invented(self):
+        objects = {e.object for e in transform(self.RECORD)}
+        assert not any("Unbound" in o or "Nothing" in o for o in objects)
+
+    def test_causal_link_type_is_a_qualifier(self):
+        edge = next(
+            e for e in transform(self.RECORD)
+            if e.object == "dismech:Test_Disorder#Third_Window_Effect" and e.predicate == "biolink:causes"
+        )
+        assert edge.qualifiers == ["dismech:CausalLinkTypeEnum#DIRECT"]
+
+    def test_mechanism_edges_reuse_stable_sepio_ids(self):
+        """Same id every walk, and the same id the SEPIO statement carries."""
+        from dismech.export.sepio_export import pathophysiology_statement_id
+
+        def mechanism_ids():
+            return [
+                e.id
+                for e in transform(self.RECORD)
+                if e.predicate == "biolink:disease_has_basis_in" or e.subject.startswith("dismech:")
+            ]
+
+        assert mechanism_ids() == mechanism_ids()
+        assert pathophysiology_statement_id("Test Disorder", "Bony Dehiscence") in mechanism_ids()
+
+    def test_pathophysiology_nodes_are_pathological_processes(self):
+        categories = {n.id: n.category for n in extract_nodes(self.RECORD)}
+        assert categories["dismech:Test_Disorder#Bony_Dehiscence"] == ["biolink:PathologicalProcess"]
+
+    def test_sepio_sidecar_does_not_double_emit(self):
+        """statements_for_edges leaves the mechanism layer to pathophysiology_statements."""
+        from dismech.export.sepio_export import statements_from_record
+
+        evidence = [{"reference": "PMID:1", "supports": "SUPPORT", "snippet": "s"}]
+        record = {
+            "name": "Test Disorder",
+            "disease_term": {"term": {"id": "MONDO:0000001"}},
+            "pathophysiology": [
+                {"name": "A", "evidence": evidence, "downstream": [{"target": "B", "evidence": evidence}]},
+                {"name": "B"},
+            ],
+        }
+        statements = list(statements_from_record(record))
+        ids = [s.id for s in statements]
+        assert len(ids) == len(set(ids)) == 2
+        kgx_ids = {e.id for e in transform(record)}
+        assert set(ids) <= kgx_ids
+
+
+def test_semicircular_canal_dehiscence_reproductions():
+    """The reproduction every one of #2100, #2101 and #2103 was filed against."""
+    from dismech.yaml_io import safe_load_path
+
+    path = Path(__file__).resolve().parents[1] / "kb/disorders/Semicircular_Canal_Dehiscence_Syndrome.yaml"
+    record = safe_load_path(path)
+    edges = {(e.subject, e.predicate, e.object) for e in transform(record)}
+    scds = "MONDO:0018484"
+    node = "dismech:Semicircular_Canal_Dehiscence_Syndrome#{}".format
+
+    for differential in ("MONDO:0007972", "MONDO:0006530", "MONDO:0005349", "MONDO:8000018"):
+        assert (scds, "biolink:similar_to", differential) in edges
+    for procedure in ("NCIT:C17204", "NCIT:C38036"):
+        assert (scds, "biolink:is_diagnosed_by", procedure) in edges
+    # SCDS's two `datasets:` are cohorts identified only by their publication's
+    # PMID, which is not exported as a Dataset node (it is already the id of the
+    # publication other edges cite).
+    for dataset in ("PMID:16222184", "PMID:36742050"):
+        assert (dataset, "biolink:mentions", scds) not in edges
+    assert (node("Developmental_Otic_Capsule_Bone_Deficiency"), "biolink:causes", node("Bony_Dehiscence_of_Semicircular_Canal")) in edges
+    assert (node("Bony_Dehiscence_of_Semicircular_Canal"), "biolink:causes", node("Third_Window_Effect")) in edges
+    assert ("HP:0002321", "biolink:causes", "HP:0002141") in edges  # Vertigo -> Chronic Disequilibrium

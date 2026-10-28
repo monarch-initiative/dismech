@@ -160,6 +160,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "src") not in sys.path:  # pragma: no cover - import bootstrap
     sys.path.insert(0, str(ROOT / "src"))
 
+from dismech.disk_full import reports_disk_full
 from dismech.reference_snippet_audit import (
     DEFAULT_SCHEMA,
     discover_field_names,
@@ -715,6 +716,7 @@ def _resolve_fields(choice: str) -> tuple[str, ...]:
     return (choice,)
 
 
+@reports_disk_full("check-snippet-grading")
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group()
