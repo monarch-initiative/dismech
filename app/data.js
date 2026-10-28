@@ -166535,7 +166535,8 @@ window.searchData = [
       "Neoplastic Neuroblast Population",
       "Neuroblast-to-Ganglion Cell Maturation",
       "Schwannian Stromal Development",
-      "Schwannian Stroma-Poor Neuroblastomatous Nodule"
+      "Schwannian Stroma-Poor Neuroblastomatous Nodule",
+      "Telomere Maintenance Mechanism Activation"
     ],
     "cell_types": [
       "neoplastic neuroblast",
@@ -166549,7 +166550,9 @@ window.searchData = [
     ],
     "biological_processes": [
       "maturation of neuroblasts into ganglion cells",
-      "Schwann cell proliferation"
+      "Schwann cell proliferation",
+      "telomere maintenance via telomerase",
+      "telomere maintenance via recombination"
     ],
     "phenotypes": [
       "Abdominal Mass",
@@ -166602,7 +166605,7 @@ window.searchData = [
     "source_file": "Ganglioneuroblastoma.yaml",
     "page_url": "../pages/disorders/Ganglioneuroblastoma.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
     "causal_graph_edges": "9",
@@ -278561,7 +278564,8 @@ window.searchData = [
       "Chromothripsis",
       "TERT Rearrangement",
       "ATRX Mutation",
-      "PHOX2B"
+      "PHOX2B",
+      "TP53"
     ],
     "treatments": [
       "Risk-Adapted Chemotherapy",
@@ -278587,9 +278591,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Neuroblastoma.html",
     "num_phenotypes": 16,
     "num_pathophysiology": 38,
-    "num_genes": 10,
+    "num_genes": 11,
     "num_treatments": 13,
-    "causal_graph_edges": "64",
+    "causal_graph_edges": "66",
     "causal_graph_longest_path": "7"
   },
   {
@@ -408973,12 +408977,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3790,
   "total_subtypes": 4936,
   "total_disorders_and_subtypes": 8726,
-  "total_unique_evidence_sources": 56367,
-  "total_unique_publications": 52687,
+  "total_unique_evidence_sources": 56372,
+  "total_unique_publications": 52691,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 311,
   "total_pathographs": 3788,
-  "total_unique_pathological_events": 24931,
+  "total_unique_pathological_events": 24932,
   "total_modules": 214,
   "total_research_reports": 3903,
   "total_classifications": 21,
