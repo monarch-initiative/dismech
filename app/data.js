@@ -154163,20 +154163,29 @@ window.searchData = [
     ],
     "phenotypes": [
       "Isolated Renal Glucosuria",
-      "Mild Volume Depletion with Renin-Angiotensin-Aldosterone Activation"
+      "Mild Volume Depletion with Renin-Angiotensin-Aldosterone Activation",
+      "Polyuria",
+      "Recurrent Urinary Tract Infections",
+      "Ketosis During Pregnancy or Starvation"
     ],
     "phenotype_categories": [
-      "Renal"
+      "Renal",
+      "Metabolic"
     ],
     "phenotype_hpo_categories": [
       "Genitourinary",
+      "Immune",
       "Metabolism"
     ],
     "phenotype_ids": [
       "HP:0003076",
-      "HP:0001944"
+      "HP:0001944",
+      "HP:0000103",
+      "HP:0000010",
+      "HP:0001946"
     ],
     "frequencies": [
+      "OBLIGATE",
       "OCCASIONAL"
     ],
     "genes": [
@@ -154190,11 +154199,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Familial_Renal_Glucosuria.yaml",
     "page_url": "../pages/disorders/Familial_Renal_Glucosuria.html",
-    "num_phenotypes": 2,
+    "num_phenotypes": 5,
     "num_pathophysiology": 3,
     "num_genes": 2,
     "num_treatments": 1,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "7",
     "causal_graph_longest_path": "3"
   },
   {
@@ -201329,19 +201338,20 @@ window.searchData = [
       "Systemic Combined Immunodeficiency"
     ],
     "cell_types": [
-      "CD4-positive, alpha-beta T cell",
+      "T cell",
       "B cell",
       "regulatory T cell",
       "gamma-delta T cell"
     ],
     "cell_type_ids": [
-      "CL:0000624",
+      "CL:0000084",
       "CL:0000236",
       "CL:0000815",
       "CL:0000798"
     ],
     "biological_processes": [
-      "canonical NF-kappaB signal transduction"
+      "canonical NF-kappaB signal transduction",
+      "lymphocyte activation"
     ],
     "phenotypes": [
       "Recurrent infections",
@@ -201389,8 +201399,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "IKZF2-related Combined Immunodeficiency",
@@ -243296,7 +243306,7 @@ window.searchData = [
     "creation_date": "2026-07-31T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "MED27-related disorder (NEDSCAC) is a rare autosomal recessive neurodevelopmental disorder caused by biallelic variants in MED27, which encodes a subunit of the structural core of the Mediator transcriptional coactivator complex. The phenotype is highly homogeneous: global developmental delay, intellectual disability, axial hypotonia with distal spasticity, dystonic movements, and cerebellar hypoplasia, with congenital cataracts and seizures in severely affected individuals. Later international cohorts describe a variable ponto-cerebello-lental degeneration with movement disorders. Because MED27 acts in the constitutive core of Mediator rather than its dissociable kinase module, NEDSCAC is one of the recessive \"core-module\" MEDopathies, and MED27 appears particularly critical for cerebellar development.\n",
+    "description": "MED27-related disorder (NEDSCAC) is an autosomal recessive neurodevelopmental disorder caused by biallelic variants in MED27, which encodes subunit 27 of the Mediator transcriptional coactivator complex. Affected individuals present with global developmental delay, intellectual disability, axial hypotonia with distal spasticity, dystonic movements, and cerebellar hypoplasia, with seizures and cataracts in severely affected individuals and neuroimaging findings that can include pontine hypoplasia, basal ganglia signaling changes, and a 'hot cross bun' sign.",
     "pathophysiology": [
       "MED27 core Mediator dysfunction",
       "Neurodevelopmental and cerebellar developmental dysregulation"
@@ -243310,10 +243320,13 @@ window.searchData = [
     "biological_processes": [
       "transcription by RNA polymerase II",
       "regulation of gene expression",
-      "cerebellum development"
+      "cerebellum development",
+      "brain development"
     ],
     "phenotypes": [
+      "Global developmental delay",
       "Intellectual disability",
+      "Axial hypotonia",
       "Distal spasticity",
       "Dystonia",
       "Cerebellar hypoplasia",
@@ -243329,7 +243342,9 @@ window.searchData = [
       "Nervous System"
     ],
     "phenotype_ids": [
+      "HP:0001263",
       "HP:0001249",
+      "HP:0008936",
       "HP:0001257",
       "HP:0001332",
       "HP:0001321",
@@ -243348,12 +243363,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "MED27-Related_Disorder.yaml",
     "page_url": "../pages/disorders/MED27-Related_Disorder.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 8,
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "MEDNIK syndrome",
@@ -274680,7 +274695,9 @@ window.searchData = [
     "genes": [
       "NUP62 pathogenic germline variant"
     ],
-    "treatments": [],
+    "treatments": [
+      "Oral Biotin Supplementation"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "NUP62-Related_Infantile_Bilateral_Striatal_Necrosis.yaml",
@@ -274688,8 +274705,8 @@ window.searchData = [
     "num_phenotypes": 5,
     "num_pathophysiology": 3,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "8",
+    "num_treatments": 1,
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
   },
   {
@@ -388432,7 +388449,11 @@ window.searchData = [
     ],
     "cell_types": [],
     "cell_type_ids": [],
-    "biological_processes": [],
+    "biological_processes": [
+      "chromosome segregation",
+      "gene expression",
+      "forebrain development"
+    ],
     "phenotypes": [
       "Orofacial Cleft",
       "Microphthalmia/Anophthalmia",
@@ -388482,7 +388503,8 @@ window.searchData = [
       "Trisomy 13 (extra chromosome 13)"
     ],
     "treatments": [
-      "Supportive and Palliative Care"
+      "Supportive and Palliative Care",
+      "Genetic Counseling"
     ],
     "environmental": [],
     "biochemical": [],
@@ -388491,7 +388513,7 @@ window.searchData = [
     "num_phenotypes": 9,
     "num_pathophysiology": 3,
     "num_genes": 1,
-    "num_treatments": 1,
+    "num_treatments": 2,
     "causal_graph_edges": "6",
     "causal_graph_longest_path": "3"
   },
@@ -407572,8 +407594,8 @@ window.searchMetrics = {
   "total_disorder_pages": 3779,
   "total_subtypes": 4929,
   "total_disorders_and_subtypes": 8708,
-  "total_unique_evidence_sources": 56196,
-  "total_unique_publications": 52524,
+  "total_unique_evidence_sources": 56198,
+  "total_unique_publications": 52525,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
   "total_pathographs": 3777,
