@@ -33,6 +33,10 @@ diseases:
 - Urticaria
 - Alpha-gal_Syndrome
 - Gastroesophageal_Reflux_Disease
+- Mast_Cell_Activation_Syndrome
+- Systemic_Mastocytosis
+- Maculopapular_Cutaneous_Mastocytosis
+- Monoclonal_Mast_Cell_Activation_Syndrome
 - Multiple_Sclerosis
 - Glaucoma
 - Familial_Hypocalciuric_Hypercalcemia_1
@@ -64,6 +68,7 @@ modules:
 - h1_receptor_antagonism
 - h2_receptor_antagonism
 - beta2_adrenergic_receptor_agonism
+- muscarinic_receptor_antagonism
 ---
 
 # GPCRs: Drug Mechanisms and Disease Modules
@@ -133,8 +138,8 @@ conform:
 | CGRP receptor antagonism | CALCRL, RAMP1 | gepants, erenumab | Migraine, pseudotumor_cerebri. Scoped to receptor antagonism, so the peptide-directed antibodies are out; `Migraine_with_Aura` was assessed and rejected because its only CGRP treatment names no agent |
 | H1 receptor antagonism | HRH1 | antihistamines | Urticaria, Alpha-gal_Syndrome. Two modules rather than one: see the Decisions below. `allergic rhinitis` was listed here as a candidate and has no dismech entry, so `Alpha-gal_Syndrome` was wired instead, which also keeps the module indication-independent |
 | H2 receptor antagonism | HRH2 | H2 blockers | Gastroesophageal_Reflux_Disease. Scoped to H2 blockade, so the proton-pump inhibitors are out: they block the same terminal pump non-competitively and the H2RA mechanism is upstream of it |
-| beta2 adrenergic receptor agonism | ADRB2 | SABA, LABA | Asthma, Thunderstorm_Asthma, Formaldehyde_Poisoning. Airway-scoped: the receptor's neuromuscular-transmission and potassium-shift effector chains are a separate question, below. `Chronic_Obstructive_Pulmonary_Disease` and `Cough_Variant_Asthma` were assessed and could not be wired -- each binds the generic `Bronchodilator` agent in one treatment covering both drug classes |
-| muscarinic receptor antagonism (airway) | CHRM3 | SAMA, LAMA | Chronic_Obstructive_Pulmonary_Disease, Asthma -- but both candidate conformers are blocked by the same bundling as above: COPD's and `Cough_Variant_Asthma`'s single `Bronchodilators` treatment covers beta2 agonists and muscarinic antagonists together, so splitting those treatments is this module's prerequisite |
+| beta2 adrenergic receptor agonism | ADRB2 | SABA, LABA | Asthma, Thunderstorm_Asthma, Formaldehyde_Poisoning. Airway-scoped: the receptor's neuromuscular-transmission and potassium-shift effector chains are a separate question, below. `Chronic_Obstructive_Pulmonary_Disease` and `Cough_Variant_Asthma` were initially blocked by a generic `Bronchodilator` agent binding and were wired in #15777, which refined each to a beta-adrenergic agonist class term |
+| muscarinic receptor antagonism (airway) | CHRM3 | SAMA, LAMA | Chronic_Obstructive_Pulmonary_Disease. Airway-scoped, like the beta2 module and for the same reason; the module's own notes carry the census that makes the scope concrete. `Cough_Variant_Asthma` was assessed and rejected: its treatment is beta2-only in its own text, and the earlier assumption that it bundled a muscarinic antagonist was wrong |
 | CaSR positive allosteric modulation | CASR | calcimimetics | secondary hyperparathyroidism in CKD |
 | S1P receptor modulation | S1PR1 | fingolimod, siponimod | Multiple_Sclerosis |
 | P2Y12 receptor antagonism | P2RY12 | clopidogrel, ticagrelor | Coronary_Artery_Disease |
@@ -245,12 +250,16 @@ mechanism-level rather than disease-level.
   - [x] Two antihistamine-treated entries, in #15686: `Urticaria` and
         `Alpha-gal_Syndrome` against `h1_receptor_antagonism`, both at the trigger.
         The second is not an urticaria entry on purpose, so the module is
-        indication-independent. Four entries that bundle an H1 and an H2 agent into one
-        treatment (`Mast_Cell_Activation_Syndrome`, `Maculopapular_Cutaneous_Mastocytosis`,
-        `Systemic_Mastocytosis` and `Monoclonal_Mast_Cell_Activation_Syndrome`) are
-        deliberately not wired: neither module can take them without asserting one
-        receptor's action for the other receptor's drug, so splitting those treatments is
-        the prerequisite
+        indication-independent. Four further entries
+        (`Mast_Cell_Activation_Syndrome`, `Maculopapular_Cutaneous_Mastocytosis`,
+        `Systemic_Mastocytosis` and `Monoclonal_Mast_Cell_Activation_Syndrome`) were
+        recorded here as blocked by bundling an H1 and an H2 agent into one treatment.
+        That premise was wrong, and reading the four settled it: a treatment that binds
+        its components as *separate* agents can carry one `target_mechanisms` link per
+        receptor and assert nothing false, so bundling blocks nothing. Two of the four
+        already bound both classes separately; the other two had agents missing rather
+        than conflated. #15778 wired all four to `h1_receptor_antagonism` with no split,
+        adding the missing agent bindings
   - [x] One H2-blocker-treated entry, in #15689: `Gastroesophageal_Reflux_Disease`
         against `h2_receptor_antagonism`, at the trigger. Its existing H2 antagonist
         treatment was wired rather than a new one added
@@ -261,17 +270,41 @@ mechanism-level rather than disease-level.
         trigger. The third is a toxicological entry rather than an airway disease, so the
         module is not tied to asthma; its link carries receptor-level evidence only,
         because that treatment's own notes record that no formaldehyde-specific efficacy
-        publication exists. Three further entries treat with a beta2 agonist and are
-        deliberately not wired, each blocked by one treatment covering more than one drug
-        class. `Chronic_Obstructive_Pulmonary_Disease` and `Cough_Variant_Asthma` bind the
-        generic `NCIT:C319` Bronchodilator agent, which covers beta2 agonists and
-        muscarinic antagonists alike, so wiring either would assert beta2 action for a
-        LAMA. `Sulfur_Mustard_Poisoning` is a different shape: its salmeterol *is* bound at
-        agent level (`CHEBI:9011`), but inside `Macrolide and Inhaled Corticosteroid
-        Therapy for Bronchiolitis Obliterans` alongside azithromycin and fluticasone
-        propionate, so wiring that treatment would assert beta2 action for a macrolide and
-        a corticosteroid. That makes it the most tractable of the three to split, since the
-        agent it needs is already identified
+        publication exists. Three further entries treat with a beta2 agonist and were
+        not wired at the time, each blocked by one treatment covering more than one drug
+        class. Two of the three were since unblocked in #15777 and are now conformers;
+        the third should not be.
+        `Chronic_Obstructive_Pulmonary_Disease` bound the generic `NCIT:C319`
+        Bronchodilator agent in a single `Bronchodilators` treatment, so wiring it would
+        have asserted beta2 action for a LAMA. #15777 split that treatment into a
+        long-acting beta-2 agonist and a long-acting muscarinic antagonist, keeping all
+        four of its citations on both halves with per-class explanations, and wired the
+        beta2 half. `Cough_Variant_Asthma` turned out not to be bundled at all: its
+        treatment is beta2-only in its own description, and the generic agent was an
+        under-specific binding rather than a bundle, so #15777 refined the agent and wired
+        it with no split. `Sulfur_Mustard_Poisoning` is a third shape and is the one that
+        stays out: its salmeterol *is* bound at agent level (`CHEBI:9011`), but inside
+        `Macrolide and Inhaled Corticosteroid Therapy for Bronchiolitis Obliterans`
+        alongside azithromycin and fluticasone propionate, and that treatment's own
+        `target_mechanisms` says the combination is used for anti-inflammatory rather than
+        bronchodilator action. Splitting it would assert a bronchodilator mechanism the
+        entry explicitly disclaims, so it should be left alone
+  - [x] Four antihistamine-treated mastocytosis entries, in #15778:
+        `Mast_Cell_Activation_Syndrome`, `Systemic_Mastocytosis`,
+        `Maculopapular_Cutaneous_Mastocytosis` and
+        `Monoclonal_Mast_Cell_Activation_Syndrome` against `h1_receptor_antagonism`, all
+        at the trigger. `Maculopapular_Cutaneous_Mastocytosis`' node is the only one bound
+        to the dermis, since its entry is cutaneous-only; the other three carry no
+        location. Two of the four needed agent bindings added, and the anti-leukotriene
+        half of `Monoclonal_Mast_Cell_Activation_Syndrome`'s treatment is recorded in its
+        `notes` as deliberately unbound -- `CHEBI:49159` leukotriene antagonist is a CHEBI
+        *role* term and so sits outside the `ChemicalEntityTerm` enum, and no NCIT class
+        term for the drug class was found
+  - [x] One muscarinic-antagonist-treated entry, in #15795:
+        `Chronic_Obstructive_Pulmonary_Disease` against
+        `muscarinic_receptor_antagonism`, at the trigger. It is the second receptor
+        occupancy node in that entry, alongside the beta2 one from #15777, which is the
+        point of keeping the two modules separate
 - [ ] Remaining Workstream A modules
   - [x] D2 receptor antagonism — `d2_receptor_antagonism` (#15299)
   - [x] AT1 receptor blockade — `at1_receptor_blockade` (#15271)
@@ -281,7 +314,7 @@ mechanism-level rather than disease-level.
   - [x] H1 receptor antagonism — `h1_receptor_antagonism` (#15686)
   - [x] H2 receptor antagonism — `h2_receptor_antagonism` (#15689)
   - [x] beta2 adrenergic receptor agonism — `beta2_adrenergic_receptor_agonism` (#15706)
-  - [ ] muscarinic receptor antagonism (airway)
+  - [x] muscarinic receptor antagonism (airway) -- `muscarinic_receptor_antagonism` (#15795)
   - [ ] CaSR positive allosteric modulation
   - [ ] S1P receptor modulation
   - [ ] P2Y12 receptor antagonism
@@ -333,6 +366,27 @@ mechanism-level rather than disease-level.
   rule above names, so a bundled row there should be read as a candidate for
   splitting rather than as a decision already taken.
 
+- **A module pull request may split another entry's bundled treatment** (decided
+  2026-10-27 by doing it in #15777 and having it reviewed, rather than in
+  advance). The open question asked whether this is a modelling fix or a
+  clinical-content change belonging to whoever curated the entry. The split that
+  settled it kept every agent and every citation and only separated two
+  mechanisms that were asserted as one, carrying all four of the treatment's
+  references onto both halves with per-class explanations; nothing about which
+  drugs the entry recommends changed. Removing or adding an *agent* remains the
+  original curator's call (see the ranitidine item under Deferred follow-ups) —
+  the line is between restating what an entry already says and changing what it
+  says.
+
+  Two corrections to the question's own framing came out of the same work, and
+  both are recorded above: bundling two drug classes into one treatment does not
+  block conformance when the agents are bound separately, so five of the six
+  entries the question listed as blocked -- the four mastocytosis entries and
+  `Cough_Variant_Asthma` -- were never bundling problems at all; and the sixth,
+  `Chronic_Obstructive_Pulmonary_Disease`, was blocked by a *generic* agent term
+  covering more than one class rather than by bundling as such, which is what
+  actually blocks conformance.
+
 ## Deferred follow-ups
 
 Items raised in review and deliberately not done at the time, recorded here so
@@ -357,37 +411,35 @@ they are not lost. None blocks anything.
   takes it should also delete the trailing clause "Whether to drop it from the
   roster is a clinical-content decision and has not been made here", which
   describes a pull request rather than the treatment.
-- **Split the four entries that bundle an H1 and an H2 antihistamine into one
-  treatment.** Neither histamine module can take them without asserting one
-  receptor's action for the other receptor's drug, so this is the prerequisite
-  for conforming them. They do not all need the same work, because they bundle
-  to different degrees:
-    - `Mast_Cell_Activation_Syndrome` — `H1/H2 Antihistamines`, binding
-      cetirizine and famotidine. Both agents are bound, so splitting the
-      treatment in two is mechanical.
-    - `Systemic_Mastocytosis` — `Anti-Mediator Symptomatic Therapy`, binding an
-      H1 and an H2 receptor-antagonist class term plus cromoglicate and
-      adrenaline. Four modalities in one treatment, not two.
-    - `Maculopapular_Cutaneous_Mastocytosis` — `H1 and H2 Antihistamines`, whose
-      name and description cover both but which binds only the H1 class term, so
-      the H2 half is asserted in prose and nowhere else.
-    - `Monoclonal_Mast_Cell_Activation_Syndrome` — `Anti-mediator Therapy`, which
-      names H1 and H2 antagonists, anti-leukotrienes and stabilisers in its
-      description and binds **no** agent at all. The hardest of the four, and the
-      one a conformance pass would silently skip.
-- **Correct the same count in both histamine modules' `notes`.** Both say three
-  and both leave `Monoclonal_Mast_Cell_Activation_Syndrome` unnamed, but they
-  word it differently, so a single search will not find both:
-    - `h2_receptor_antagonism`: "Three entries bundle an H1 and an H2
-      antihistamine into a single treatment (… and the related systemic
-      mastocytosis entries)".
-    - `h1_receptor_antagonism`: "Three further entries treat with H1 and H2
-      antihistamines bundled into a single treatment (… and
-      `Systemic_Mastocytosis`' relatives)" — vaguer still, since it names one
-      entry and then gestures at unnamed relatives.
-
-  There are four, listed in the bullet above. A `kb/` change, so it could not
-  ride the `projects/`-only pull request that fixed this page.
+- ~~**Split the four entries that bundle an H1 and an H2 antihistamine into one
+  treatment.**~~ Done in #15778, and the premise did not survive contact with the
+  four entries: no split was needed. A treatment binding its components as
+  *separate* agents can carry one `target_mechanisms` link per receptor and
+  assert nothing false, so bundling two classes into one treatment does not block
+  conformance by itself — only a *generic* agent does, which is what actually
+  blocked `Chronic_Obstructive_Pulmonary_Disease`'s bronchodilator treatment.
+  What the four needed instead:
+    - `Mast_Cell_Activation_Syndrome` — `H1/H2 Antihistamines`, already binding
+      cetirizine and famotidine separately. Wired as it stood.
+    - `Systemic_Mastocytosis` — `Anti-Mediator Symptomatic Therapy`, already
+      binding an H1 and an H2 class term plus cromoglicate and adrenaline
+      separately. Wired as it stood; the H1 link names the H1 agent and says
+      nothing about the other three.
+    - `Maculopapular_Cutaneous_Mastocytosis` — `H1 and H2 Antihistamines`, bound
+      only the H1 class term. Gained `NCIT:C29702`.
+    - `Monoclonal_Mast_Cell_Activation_Syndrome` — `Anti-mediator Therapy`, bound
+      **no** agent at all. Gained `NCIT:C29578`, `NCIT:C29702` and
+      `NCIT:C29714`; still the hardest of the four, and the one a conformance pass
+      would have silently skipped.
+- **Correct `h2_receptor_antagonism`'s `notes`, which state the superseded premise
+  as fact.** The note says three entries bundle an H1 and an H2 antihistamine and
+  that "None can be routed to this module's occupancy node, or to the H1
+  module's, without asserting one receptor's action for the other receptor's
+  drug". Both halves are wrong: there are four, and #15778 routed all four to the
+  H1 module without asserting anything of the kind. `h1_receptor_antagonism`'s
+  equivalent passage was corrected in the same pull request; the two were worded
+  differently, so fixing one did not find the other. A `kb/` change, so it could
+  not ride this `projects/`-only pull request.
 
 ## Open questions
 
@@ -426,6 +478,20 @@ they are not lost. None blocks anything.
   make it thirteen. **MC4R and V2 have the same shape**, so this is worth deciding
   before either.
 
+  `muscarinic_receptor_antagonism` (#15795) put numbers on the same question, and
+  they are starker. A census taken while writing it found antimuscarinic drugs
+  used across the corpus for four mechanistically disjoint purposes sharing that
+  module's trigger and diverging at the effector: airway bronchodilation, 3
+  entries; detrusor overactivity and neurogenic bladder, 11; striatal cholinergic
+  blockade in dystonia and related movement disorders, chiefly trihexyphenidyl,
+  20; and reversal of a cholinergic crisis with atropine, 10. The module is scoped
+  to the airway because that is what this page's queue row named — which means it
+  is scoped to the *smallest* of the four arms, on the wording of a table rather
+  than on the biology, and the other 41 entries have no module. If tissue is a
+  scoping axis, that is three more muscarinic modules to write; if it is not, this
+  one should be widened into a shared trigger with four effector arms. Either way
+  the current state is an artefact, and the module's notes say so.
+
   A fourth group names a beta2 agonist without treating with one: several cardiac
   entries cite beta-adrenergic stimulation as an arrhythmia provocateur or a thing
   to avoid. Those are not conformer candidates in any scoping, and the count above
@@ -436,14 +502,14 @@ they are not lost. None blocks anything.
   deliberately are not, pending this decision: declaring them would put seven
   more entries in the project's disease list on the strength of a scoping
   question nobody has answered yet. Add them if the answer is one shared trigger.
-- **May a module PR split another entry's bundled treatment?** Three modules have
-  now been blocked by one treatment covering two drug classes: the muscarinic
-  module cannot take `Chronic_Obstructive_Pulmonary_Disease` or
-  `Cough_Variant_Asthma` until their single `Bronchodilators` treatment is split,
-  and both histamine modules are blocked the same way by the four bundled H1+H2
-  antihistamine treatments listed under Deferred follow-ups. Splitting a bundled
-  treatment is arguably a modelling fix rather than a clinical one — it separates
-  two mechanisms without changing which agents are listed — but it is adjacent to
-  changing an agent roster, which this project has treated as belonging to
-  whoever curated the entry (see the ranitidine item under Deferred follow-ups).
-  Deciding this unblocks the muscarinic module and several conformers.
+- **Should there be a module for the H2-mediated symptoms antihistamines treat?**
+  Raised by #15778. The four mastocytosis entries take an H2 antagonist for
+  flushing, gastric hypersecretion and hypotension in mast cell mediator release,
+  and `h2_receptor_antagonism` cannot hold that: it is scoped to the parietal-cell
+  acid-secretion chain, which is one of those symptoms and not the others. So the
+  H2 half of those four treatments is unwired for a reason unrelated to the
+  bundling premise above — it is module scope, and the remedy is either a second
+  H2 module scoped to mediator-release symptoms or a widening of the existing
+  one's effector arms. Both options cross the one-receptor-one-direction rule in
+  the same way the tissue question above does, which is a reason to decide them
+  together.
