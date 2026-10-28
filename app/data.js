@@ -163211,21 +163211,25 @@ window.searchData = [
     "creation_date": "2026-07-03T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "DFNB1 is the most common cause of autosomal recessive nonsyndromic prelingual sensorineural hearing loss and maps to a complex locus on chromosome 13q12 that contains two genes encoding cochlear gap-junction beta connexins: GJB2 (connexin 26) and GJB6 (connexin 30). Most DFNB1 disease is monogenic, caused by biallelic GJB2 mutations. However, a substantial fraction of patients carry only a single GJB2 mutant allele, and in many of these the second lesion is a large deletion in GJB6, del(GJB6-D13S1830). Because connexin 26 and connexin 30 co-assemble into the same cochlear gap-junction plaques required for potassium recycling, a GJB2 mutation on one allele together with a GJB6 deletion on the other can cause hearing loss digenically - the classic textbook example of digenic inheritance in nonsyndromic deafness. The GJB6 deletion may also act in cis by removing a GJB2 regulatory element; both routes converge on loss of cochlear connexin function.\n",
+    "description": "DFNB1 is the most common cause of autosomal recessive nonsyndromic prelingual sensorineural hearing loss and maps to a complex locus on chromosome 13q12 that contains two genes encoding cochlear gap-junction beta connexins: GJB2 (connexin 26) and GJB6 (connexin 30). Most DFNB1 disease is monogenic, caused by biallelic GJB2 mutations. However, a substantial fraction of patients carry only a single GJB2 mutant allele, and in many of these the second lesion is a large deletion in GJB6, del(GJB6-D13S1830). Because connexin 26 and connexin 30 co-assemble into the same cochlear gap-junction plaques required for potassium recycling, the GJB2 mutation / GJB6 deletion genotype was first interpreted (2002) as digenic inheritance, and it is still widely cited as the textbook example of digenic inheritance in nonsyndromic deafness. The current GeneReviews account reads the same genotype differently: the GJB6-containing deletions (and smaller deletions involving only CRYL1) remove upstream regulatory regions of GJB2 on the same allele and abolish GJB2 expression in cis, so a GJB2 variant in trans with such a deletion amounts to biallelic loss of GJB2 expression. On that reading the disease is monogenic GJB2 deficiency, and the digenic interpretation is historical. Both readings converge on loss of cochlear connexin gap-junction function.\n",
     "pathophysiology": [
+      "Deletion of GJB2 Upstream Regulatory Region",
       "Loss of Cochlear Connexin Gap-Junction Coupling",
       "Impaired Endocochlear Potassium Recycling",
       "Prelingual Sensorineural Hearing Loss"
     ],
     "cell_types": [
-      "Cochlear supporting cell"
+      "Cochlear supporting cell",
+      "Auditory hair cell"
     ],
     "cell_type_ids": [
-      "CL:0000630"
+      "CL:0000630",
+      "CL:0000202"
     ],
     "biological_processes": [
       "Gap junction assembly",
-      "Potassium ion recycling"
+      "Potassium ion recycling",
+      "Sensory perception of sound"
     ],
     "phenotypes": [
       "Congenital Sensorineural Hearing Loss"
@@ -163244,17 +163248,21 @@ window.searchData = [
       "GJB2",
       "GJB6"
     ],
-    "treatments": [],
+    "treatments": [
+      "Cochlear Implantation",
+      "Hearing Aids",
+      "Avoidance of Loud Noise Exposure"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "GJB2-GJB6_Digenic_Nonsyndromic_Hearing_Loss.yaml",
     "page_url": "../pages/disorders/GJB2-GJB6_Digenic_Nonsyndromic_Hearing_Loss.html",
     "num_phenotypes": 1,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 4,
     "num_genes": 2,
-    "num_treatments": 0,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 3,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "GLUT1 Deficiency Syndrome",
@@ -407594,12 +407602,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3779,
   "total_subtypes": 4929,
   "total_disorders_and_subtypes": 8708,
-  "total_unique_evidence_sources": 56198,
-  "total_unique_publications": 52525,
+  "total_unique_evidence_sources": 56199,
+  "total_unique_publications": 52526,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
   "total_pathographs": 3777,
-  "total_unique_pathological_events": 24851,
+  "total_unique_pathological_events": 24852,
   "total_modules": 213,
   "total_research_reports": 3896,
   "total_classifications": 21,
