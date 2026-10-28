@@ -109936,7 +109936,8 @@ window.searchData = [
       "CL:0008002"
     ],
     "biological_processes": [
-      "caveola assembly"
+      "caveola assembly",
+      "plasma membrane organization"
     ],
     "phenotypes": [
       "Myopathy",
@@ -109961,7 +109962,9 @@ window.searchData = [
     "genes": [
       "PACSIN3"
     ],
-    "treatments": [],
+    "treatments": [
+      "Supportive Care"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Congenital_Myopathy_27.yaml",
@@ -109969,7 +109972,7 @@ window.searchData = [
     "num_phenotypes": 3,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 0,
+    "num_treatments": 1,
     "causal_graph_edges": "9",
     "causal_graph_longest_path": "5"
   },
@@ -243878,7 +243881,8 @@ window.searchData = [
     "biological_processes": [
       "transcription by RNA polymerase II",
       "regulation of gene expression",
-      "neuron apoptotic process"
+      "neuron apoptotic process",
+      "brain development"
     ],
     "phenotypes": [
       "Microcephaly",
@@ -243922,8 +243926,8 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "MED13L Syndrome",
@@ -256585,10 +256589,17 @@ window.searchData = [
       "Loss of Heparan Sulfate 6-O-Endosulfatase Activity",
       "Mesomelic Shortening with Acral Synostoses"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "osteoblast",
+      "chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000062",
+      "CL:0000138"
+    ],
     "biological_processes": [
-      "glycosaminoglycan metabolic process"
+      "glycosaminoglycan metabolic process",
+      "skeletal system development"
     ],
     "phenotypes": [
       "Mesomelic Limb Shortening",
@@ -256621,7 +256632,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 2,
     "num_treatments": 0,
-    "causal_graph_edges": "6",
+    "causal_graph_edges": "7",
     "causal_graph_longest_path": "4"
   },
   {
@@ -263848,8 +263859,18 @@ window.searchData = [
       "Isolated ATP Synthase Deficiency",
       "Progressive Neurodegeneration with Energy Failure"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "hepatocyte",
+      "cardiac muscle cell",
+      "skeletal muscle fiber",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000746",
+      "CL:0008002",
+      "CL:0000540"
+    ],
     "biological_processes": [
       "mitochondrial ATP synthase complex assembly",
       "mitochondrial ATP synthesis"
@@ -263862,7 +263883,11 @@ window.searchData = [
       "Dysmorphic Facial Features",
       "Abnormal Basal Ganglia Morphology"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Neurological",
+      "Metabolic",
+      "Craniofacial"
+    ],
     "phenotype_hpo_categories": [
       "Genitourinary",
       "Head and Neck",
@@ -263892,7 +263917,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "5"
   },
   {
@@ -273287,6 +273312,119 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Myopathy Congenital Proximal With Minicore Lesions",
+    "disease_id": "MONDO:0032937",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital myopathy"
+    ],
+    "creation_date": "2026-10-27T14:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive congenital myopathy caused by homozygous frameshift variants at the 5' end of FXR1 exon 15, the 81-nucleotide exon that is spliced only into the muscle-specific FXR1P isoforms P82 and P84. Patients have neonatal hypotonia and delayed gross motor milestones, followed by slowly progressive neck and proximal limb-girdle weakness with survival into adulthood. Serum creatine kinase is normal, EMG is myopathic, and muscle MRI shows diffuse atrophy with relative sparing of the quadriceps femoris. Respiratory involvement (obstructive sleep apnea, respiratory insufficiency needing BiPAP) is variable even between patients homozygous for the same variant. Muscle biopsy shows multi-minicores, type 1 fiber predominance and increased internal nuclei. Facial, extraocular and cardiac muscles have been spared in every reported patient. Eight patients from four families have been reported.",
+    "pathophysiology": [
+      "Loss of Muscle-Specific FXR1 Isoforms",
+      "Disrupted FXR1-Mediated Translational Repression at the Z-Line",
+      "Z-Line and Sarcomere Disorganization",
+      "Multi-Minicore Lesion Formation",
+      "Myofiber Atrophy and Type 1 Fiber Predominance"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber",
+      "slow muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008002",
+      "CL:0000189"
+    ],
+    "biological_processes": [
+      "negative regulation of translation",
+      "sarcomere organization"
+    ],
+    "phenotypes": [
+      "Proximal muscle weakness",
+      "Neck muscle weakness",
+      "Neonatal hypotonia",
+      "Delayed gross motor development",
+      "Respiratory insufficiency",
+      "Obstructive sleep apnea",
+      "Recurrent respiratory infections",
+      "Calf muscle hypertrophy",
+      "Scoliosis",
+      "Spinal rigidity",
+      "Foot dorsiflexor weakness",
+      "Scapular winging",
+      "Joint hypermobility",
+      "Joint contracture",
+      "Gowers sign",
+      "Diffuse skeletal muscle atrophy",
+      "Myopathic EMG",
+      "Minicores on muscle biopsy",
+      "Z-band streaming",
+      "Type 1 muscle fiber predominance",
+      "Centrally nucleated skeletal muscle fibers",
+      "Fatty replacement of skeletal muscle"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Neurologic",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003701",
+      "HP:0000467",
+      "HP:0001319",
+      "HP:0002194",
+      "HP:0002093",
+      "HP:0002870",
+      "HP:0002205",
+      "HP:0008981",
+      "HP:0002650",
+      "HP:0003306",
+      "HP:0009027",
+      "HP:0003691",
+      "HP:0001382",
+      "HP:0034392",
+      "HP:0003391",
+      "HP:0003202",
+      "HP:0003458",
+      "HP:0003789",
+      "HP:0020203",
+      "HP:0003803",
+      "HP:0003687",
+      "HP:0012548"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "FXR1"
+    ],
+    "treatments": [
+      "Non-Invasive Ventilation",
+      "Scoliosis Surgery"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Myopathy_Congenital_Proximal_With_Minicore_Lesions.yaml",
+    "page_url": "../pages/disorders/Myopathy_Congenital_Proximal_With_Minicore_Lesions.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Myopathy Due To Calsequestrin And SERCA1 Protein Overload",
     "disease_id": "MONDO:0014546",
     "category": "Mendelian",
@@ -281268,6 +281406,8 @@ window.searchData = [
       "CL:0000057"
     ],
     "biological_processes": [
+      "chromatin remodeling",
+      "DNA damage response",
       "DNA repair",
       "double-strand break repair via homologous recombination"
     ],
@@ -281300,7 +281440,10 @@ window.searchData = [
     "genes": [
       "ZNF668"
     ],
-    "treatments": [],
+    "treatments": [
+      "Supportive Care",
+      "Genetic Counseling"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Neurodevelopmental_Disorder_With_Poor_Growth_Large_Ears_And_Dysmorphic_Facies.yaml",
@@ -281308,8 +281451,8 @@ window.searchData = [
     "num_phenotypes": 5,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "8",
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "4"
   },
   {
@@ -339273,8 +339416,14 @@ window.searchData = [
       "Perturbed Dishevelled-Level WNT/PCP Signalling",
       "Disrupted Planar Cell Polarity in Developing Skeleton and Face"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "chondrocyte",
+      "osteoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000138",
+      "CL:0000062"
+    ],
     "biological_processes": [
       "NXN redox regulation of Dishevelled",
       "non-canonical Wnt signaling pathway",
@@ -339284,23 +339433,40 @@ window.searchData = [
     "phenotypes": [
       "Mesomelic Limb Shortening",
       "Fetal Facies",
-      "Genital Hypoplasia"
+      "Genital Hypoplasia",
+      "Short Stature",
+      "Long Philtrum",
+      "Triangular Mouth",
+      "Dental Anomalies",
+      "Clinodactyly",
+      "Omphalocele"
     ],
     "phenotype_categories": [
       "Skeletal",
       "Craniofacial",
-      "Genitourinary"
+      "Genitourinary",
+      "Growth",
+      "Gastrointestinal"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
       "Eye",
       "Genitourinary",
+      "Growth",
+      "Head and Neck",
       "Limbs",
       "Musculoskeletal"
     ],
     "phenotype_ids": [
       "HP:0003027",
       "HP:0000316",
-      "HP:0000050"
+      "HP:0000050",
+      "HP:0004322",
+      "HP:0000343",
+      "HP:0000207",
+      "HP:0000164",
+      "HP:0030084",
+      "HP:0001539"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -339317,7 +339483,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Robinow_Syndrome_Autosomal_Recessive_2.yaml",
     "page_url": "../pages/disorders/Robinow_Syndrome,_Autosomal_Recessive_2.html",
-    "num_phenotypes": 3,
+    "num_phenotypes": 9,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 2,
@@ -408801,17 +408967,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3789,
+  "total_disorder_pages": 3790,
   "total_subtypes": 4936,
-  "total_disorders_and_subtypes": 8725,
-  "total_unique_evidence_sources": 56342,
-  "total_unique_publications": 52664,
+  "total_disorders_and_subtypes": 8726,
+  "total_unique_evidence_sources": 56346,
+  "total_unique_publications": 52668,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 311,
-  "total_pathographs": 3787,
-  "total_unique_pathological_events": 24925,
+  "total_pathographs": 3788,
+  "total_unique_pathological_events": 24930,
   "total_modules": 214,
-  "total_research_reports": 3901,
+  "total_research_reports": 3902,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 127
