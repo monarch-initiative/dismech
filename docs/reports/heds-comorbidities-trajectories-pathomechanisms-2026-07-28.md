@@ -335,6 +335,11 @@ causal pathway.
 
 ## 4. Implications for the dismech knowledge base
 
+> **Partly superseded as of 2026-10-28.** The gap list and candidate table below describe
+> the knowledge base as it stood on 2026-07-28. Much of what they propose has since been
+> curated — see §4.4 for what has landed and what remains open. The literature synthesis in
+> §§1–3 is unaffected; read §4 against §4.4 rather than as a current worklist.
+
 ### 4.1 Gaps in the current hEDS entry
 
 `kb/disorders/Hypermobile_Ehlers-Danlos_Syndrome.yaml` (655 lines) is well-evidenced but
@@ -384,8 +389,55 @@ which are distinct clonal entities), and the association is actively contested
 4. **Do not use Beighton score or hypermobility severity as a proxy for comorbidity
    burden** (PMID:38779137).
 5. **The skeptical position must be represented,** not filtered out — PMID:31267471 is a
-   peer-reviewed systematic review in a mainstream journal, and `supports: PARTIAL` or a
-   `REFUTE`-typed evidence item is the honest encoding.
+   peer-reviewed systematic review in a mainstream journal, and a `REFUTE`-typed evidence
+   item is the honest encoding. Where one source both supports a weaker form of the claim
+   and contradicts a stronger one, split it into two evidence items — a `SUPPORT` and a
+   `REFUTE`, each quoting the sentence that carries it — rather than reaching for a single
+   hedged grade. `supports` admits only `SUPPORT`, `REFUTE` and `NO_EVIDENCE`; the
+   `PARTIAL` value this report originally recommended here was retired by issue #7439, and
+   an inferential step is now carried by `directness: INDIRECT` instead.
+
+### 4.4 What has been curated since (state on 2026-10-28)
+
+**The hEDS entry has roughly tripled**, from 655 to 1,722 lines, and now cites four of
+this report's key references: PMID:40843452, PMID:40387691, PMID:40565051 and
+PMID:41001447.
+
+Of the nine §4.1 gaps, four are closed — **small fiber neuropathy**, **orthostatic
+cerebral hypoperfusion**, the **fascial-remodeling** mechanism branch, and the
+**common-variant/ACKR3** genetics. Four remain open: **central sensitization** as a
+pathophysiology node, **pelvic floor dysfunction / rectal hyposensitivity**, the
+**three-phase natural history** as a `mechanistic_hypotheses` entry, and the note that
+**Beighton score does not index multimorbidity**. PMID:35442549, PMID:35750466,
+PMID:20140961 and PMID:38779137 are still uncited by the entry, and are the sources those
+four gaps need.
+
+**Thirteen hEDS comorbidity entries now exist**, so §4.2's table is no longer a worklist.
+Five of its eight candidates are curated — POTS, irritable bowel syndrome, fibromyalgia,
+generalized anxiety disorder and migraine. Three are still open: **ME/CFS**, **autism
+spectrum disorder** and **celiac disease**. Eight further pairs this report did not
+anticipate have been curated as well: asthma, complex regional pain syndrome type 1,
+endometriosis, gastroesophageal reflux disease, major depressive disorder, mitral valve
+prolapse, panic disorder, and mast cell activation syndrome.
+
+**§4.2's judgement on MCAS no longer holds, and §1.4's sourcing has been superseded.**
+`Mast_Cell_Activation_Syndrome.yaml` and `Monoclonal_Mast_Cell_Activation_Syndrome.yaml`
+are both in `kb/disorders/`, so the blocker that report named — no MCAS disorder file to
+point at — is gone. The pair is curated as `curation_status: CANDIDATE` with
+`directionality: UNKNOWN`, which is what guardrail 1 asks for.
+
+It also handles the contested evidence better than §4.3 item 5 anticipated, and on a
+newer source than either paper §1.4 discusses. Rather than PMID:31267471 (2020), it rests
+on **PMID:40185471** — a 2025 four-database systematic review that found no study
+diagnosing both conditions under prespecified criteria — and splits that single paper into
+two evidence items: a `REFUTE` quoting its overall conclusion, and a `SUPPORT` with
+`directness: INDIRECT` quoting its own qualification that one study came close to meeting
+full MCAS criteria. That is exactly the split guardrail 5 prescribes, and it is a stronger
+encoding than the hedged single grade this report originally proposed.
+
+Neither PMID:33980338 nor PMID:31267471 is cited there, and on this evidence neither
+needs to be: the 2025 review covers the same question with a stricter protocol. §1.4's
+account of the dispute stands as of July, but cite PMID:40185471 ahead of it.
 
 ---
 
@@ -412,6 +464,7 @@ All references below were retrieved from PubMed and their abstracts read directl
 | 37847487 | Blitshteyn S. Dysautonomia, Hypermobility Spectrum Disorders and Mast Cell Activation Syndrome as Migraine Comorbidities. *Curr Neurol Neurosci Rep* 2023;23:769-76. | [10.1007/s11910-023-01307-w](https://doi.org/10.1007/s11910-023-01307-w) |
 | 38779137 | Petrucci T, et al. Phenotypic Clusters and Multimorbidity in Hypermobile Ehlers-Danlos Syndrome. *Mayo Clin Proc Innov Qual Outcomes* 2024;8:253-62. | [10.1016/j.mayocpiqo.2024.04.001](https://doi.org/10.1016/j.mayocpiqo.2024.04.001) |
 | 40145613 | Baeza-Velasco C, et al. Autism in the context of joint hypermobility, HSD, and EDS: A systematic review and prevalence meta-analyses. *Autism* 2025;29:1939-58. | [10.1177/13623613251328059](https://doi.org/10.1177/13623613251328059) |
+| 40185471 | Farley M, et al. Prevalence of mast cell activation disorders and hereditary alpha tryptasemia among patients with postural orthostatic tachycardia syndrome and Ehlers-Danlos syndrome: A systematic review. *Ann Allergy Asthma Immunol* 2025;135:97-102. *(added 2026-10-28, §4.4)* | [10.1016/j.anai.2025.03.022](https://doi.org/10.1016/j.anai.2025.03.022) |
 | 40387691 | Aziz Q, et al. AGA Clinical Practice Update on GI Manifestations and Autonomic or Immune Dysfunction in hEDS: Expert Review. *Clin Gastroenterol Hepatol* 2025;23:1291-1302. | [10.1016/j.cgh.2025.02.015](https://doi.org/10.1016/j.cgh.2025.02.015) |
 | 40565051 | Wang TJ, et al. Fascial Pathophysiology in HSD and hEDS: A Review of Emerging Evidence. *Int J Mol Sci* 2025;26:5587. | [10.3390/ijms26125587](https://doi.org/10.3390/ijms26125587) |
 | 40843452 | Novak P, et al. Hypermobile Ehlers-Danlos Syndrome: Cerebrovascular, Autonomic and Neuropathic Features. *Am J Med Open* 2025;14:100111. | [10.1016/j.ajmo.2025.100111](https://doi.org/10.1016/j.ajmo.2025.100111) |
