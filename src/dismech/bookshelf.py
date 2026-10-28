@@ -47,8 +47,16 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_INDEX_DIR = REPO_ROOT / "cache" / "bookshelf"
+from dismech.repo_root import LazyRepoPaths
+
+# Resolved from the working directory when read, so a worktree reads its own
+# committed index (#15109).
+_PATHS = LazyRepoPaths(
+    __name__,
+    REPO_ROOT=lambda root: root,
+    DEFAULT_INDEX_DIR=lambda root: root / "cache" / "bookshelf",
+)
+__getattr__ = _PATHS.module_getattr
 
 #: CSV stem -> the ``ReferenceTagEnum`` value that tags a chapter of it.
 SOURCE_TAGS: dict[str, str] = {
@@ -58,8 +66,11 @@ SOURCE_TAGS: dict[str, str] = {
 TAG_SOURCES: dict[str, str] = {tag: source for source, tag in SOURCE_TAGS.items()}
 
 #: Match kinds from strongest to weakest. ``EXACT`` is a normalised-title
-#: equality and is the only kind a gate should trust on its own.
-MATCH_KINDS = ("EXACT", "CONTAINS", "TITLE_IN_NAME", "NEAR")
+#: equality and is the only kind a gate should trust on its own. ``ONLINE`` is
+#: a live PubMed ``<name>[TI]`` hit on a chapter newer than the snapshot: PubMed
+#: matched the name's words somewhere in the title, and nothing here compared
+#: the two, so it ranks last and is only ever a candidate.
+MATCH_KINDS = ("EXACT", "CONTAINS", "TITLE_IN_NAME", "NEAR", "ONLINE")
 NEAR_THRESHOLD = 0.95
 
 #: Tokens that carry no disease identity on their own. A name made only of
@@ -159,7 +170,17 @@ class Match:
 
     @property
     def rank(self) -> int:
-        return MATCH_KINDS.index(self.kind)
+        return kind_rank(self.kind)
+
+
+def kind_rank(kind: str) -> int:
+    """Position of ``kind`` in :data:`MATCH_KINDS`; ``""`` (no title match) sorts last.
+
+    The one ordering every caller sorts by, so a title match and a row found
+    only by citation compare on the same scale. An unknown kind raises rather
+    than sorting somewhere arbitrary.
+    """
+    return MATCH_KINDS.index(kind) if kind else len(MATCH_KINDS)
 
 
 @dataclass
@@ -184,9 +205,11 @@ class BookshelfIndex:
     @classmethod
     def load(
         cls,
-        index_dir: Path = DEFAULT_INDEX_DIR,
+        index_dir: Path | None = None,
         sources: Iterable[str] = tuple(SOURCE_TAGS),
     ) -> BookshelfIndex:
+        if index_dir is None:
+            index_dir = _PATHS.get("DEFAULT_INDEX_DIR")
         index = cls()
         for source in sources:
             path = index_dir / f"{source}.csv"

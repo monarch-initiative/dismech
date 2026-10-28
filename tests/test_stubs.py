@@ -685,3 +685,144 @@ def test_tidy_survives_a_stub_that_is_stale_twice_over(tmp_path):
     assert result.exit_code == 0, result.output
     assert not stub.exists()
     assert "Deleted 1 stale stub" in result.output
+
+
+@pytest.fixture
+def next_cli(monkeypatch, coverage):
+    """`dismech-stubs next` against the live KB, without re-indexing it per call.
+
+    `next` reuses `check_stubs`, which builds the coverage index. The test
+    session's persistent cache starts empty, so the first build there is cold
+    (about half a minute on the current corpus). The module-scoped `coverage`
+    fixture is the same index, so injecting it keeps the classification real
+    and the test fast.
+    """
+    from typer.testing import CliRunner
+
+    from dismech.stubs import cli
+
+    monkeypatch.setattr(
+        cli, "check_stubs", lambda stub_dir: check_stubs(stub_dir, coverage=coverage)
+    )
+
+    def invoke(*args):
+        result = CliRunner().invoke(cli.app, ["next", *args])
+        assert result.exit_code == 0, result.output
+        return result.output
+
+    return invoke
+
+
+def test_next_leaves_out_a_stub_already_curated_as_a_subtype(tmp_path, next_cli):
+    """A stub `tidy` would delete must not be offered for claiming (#9415, #11616).
+
+    MONDO:0011346 is bound as a `has_subtypes[].subtype_term` in
+    `Hereditary_Xanthinuria.yaml`, so `check` already calls the stub
+    `already_curated`. `next` used to hand it out regardless.
+    """
+    (tmp_path / "Xanthinuria_Type_II.yaml").write_text(
+        "mondo_id: MONDO:0011346\nlabel: xanthinuria type II\n", encoding="utf-8"
+    )
+    (tmp_path / "Uncurated_Disease.yaml").write_text(
+        "mondo_id: MONDO:9999901\nlabel: uncurated test disease\n", encoding="utf-8"
+    )
+
+    default = next_cli("5", "--stub-dir", str(tmp_path))
+    assert "MONDO:0011346" not in default
+    assert "MONDO:9999901" in default
+
+    included = next_cli("5", "--stub-dir", str(tmp_path), "--include-stale")
+    assert "MONDO:0011346" in included
+    assert "already_curated" in included
+
+
+def test_next_keeps_and_annotates_a_possible_kb_duplicate(tmp_path, next_cli):
+    """A name collision is a lump/split question, so the stub stays in the pool.
+
+    It has to be visible in both output paths: `/claim-disease` reads `--json`,
+    so a warning printed only in the text output would reach no agent.
+    """
+    import json
+
+    (tmp_path / "Hereditary_Xanthinuria__MONDO_9999902.yaml").write_text(
+        "mondo_id: MONDO:9999902\nlabel: Hereditary Xanthinuria\n", encoding="utf-8"
+    )
+
+    text = next_cli("5", "--stub-dir", str(tmp_path))
+    assert "MONDO:9999902" in text
+    assert "[advisory] possible_kb_duplicate" in text
+
+    rows = json.loads(next_cli("5", "--stub-dir", str(tmp_path), "--json"))
+    assert [row["mondo_id"] for row in rows] == ["MONDO:9999902"]
+    kinds = [a["kind"] for a in rows[0]["advisories"]]
+    assert kinds == ["possible_kb_duplicate"]
+    assert "Hereditary_Xanthinuria.yaml" in rows[0]["advisories"][0]["message"]
+
+
+def test_next_json_carries_the_enrichment_fields_when_present(tmp_path, next_cli):
+    """`--json` must carry what the lump/split call turns on (#10180).
+
+    The fields are emitted only when the stub has them. The enrichment omits an
+    empty block rather than writing it empty, so absence means "MONDO records
+    none", and a `null` would blur that.
+    """
+    import json
+
+    (tmp_path / "Enriched_Test_Disease.yaml").write_text(
+        "mondo_id: MONDO:9999903\n"
+        "label: enriched test disease\n"
+        "synonyms:\n- ETD\n"
+        "mondo_parents:\n- id: MONDO:0002012\n  label: methylmalonic acidemia\n"
+        "mondo_descendants:\n- id: MONDO:9999904\n  label: enriched test disease 1\n"
+        "mondo_descendant_count: 1\n"
+        "genes:\n- id: hgnc:7526\n  label: MMUT\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "Bare_Test_Disease.yaml").write_text(
+        "mondo_id: MONDO:9999905\nlabel: bare test disease\n", encoding="utf-8"
+    )
+
+    rows = {
+        row["mondo_id"]: row
+        for row in json.loads(next_cli("5", "--stub-dir", str(tmp_path), "--json"))
+    }
+    enriched = rows["MONDO:9999903"]
+    assert enriched["mondo_parents"] == [
+        {"id": "MONDO:0002012", "label": "methylmalonic acidemia"}
+    ]
+    assert enriched["mondo_descendants"] == [
+        {"id": "MONDO:9999904", "label": "enriched test disease 1"}
+    ]
+    assert enriched["mondo_descendant_count"] == 1
+    assert enriched["genes"] == [{"id": "hgnc:7526", "label": "MMUT"}]
+    assert enriched["synonyms"] == ["ETD"]
+
+    bare = rows["MONDO:9999905"]
+    from dismech.stubs.cli import ENRICHMENT_KEYS
+
+    assert not set(ENRICHMENT_KEYS) & set(bare)
+    # The base record is unchanged for both.
+    for row in (enriched, bare):
+        assert {"mondo_id", "label", "priority", "stub_path", "advisories"} <= set(row)
+
+    text = next_cli("5", "--stub-dir", str(tmp_path))
+    assert "enriched test disease  (MONDO descendants: 1)" in text
+    assert "bare test disease\n" in text
+
+
+def test_next_reports_a_missing_claims_file_without_a_traceback(tmp_path):
+    """`--json` in the recipe's claims slot used to become a file path (#10180)."""
+    from typer.testing import CliRunner
+
+    from dismech.stubs.cli import app
+
+    missing = tmp_path / "no_such_claims.json"
+    for args in (
+        ["next", "3", "--stub-dir", str(tmp_path), "--claims", str(missing)],
+        ["claims", str(missing), "--stub-dir", str(tmp_path)],
+    ):
+        result = CliRunner().invoke(app, args)
+        assert result.exit_code == 2, result.output
+        assert not isinstance(result.exception, FileNotFoundError)
+        assert "claims file not found" in result.output
+        assert "just fetch-claims" in result.output
