@@ -238,9 +238,31 @@ every `=`. Neither checked, and it cost a curated entry — recovered only
 mid-review. A curator who believes a figure "cannot be quoted" paraphrases it
 into `explanation` prose or drops the claim, and nothing goes red.
 
-**Prefer ASCII in new snippets** — an invisible character in a quote is a trap
-for the next curator, and it buys nothing, since the source's typography folds
-anyway. Existing snippets that copied the source's thin spaces and en dashes
+**Greek letters verify in either spelling.** `greek_map` runs on both sides, so
+`α3β3` and `alpha3beta3` both normalize to `alpha3beta3`, `γ` to `gamma`, and
+`NF-κB` to `nf kappab`. Prefer copying the source's visible letter, so the quote
+reads as the source does (#9433). The ASCII spelling is an acceptable fallback,
+provided it keeps the source's spacing: `NF-kappa B` normalizes to
+`nf kappa b` and does not match.
+
+**Never truncate a quote to avoid a character.** A snippet that stops just
+before a Greek letter, `×`, or any other character it was cited for still
+verifies, and clears `check-snippet-length` once it has `MIN_SNIPPET_WORDS = 5`
+words, so the length gate is not a backstop. On #15493 two such fragments
+(`Leu335 lies close to the hydrophobic sleeve in the`, `Mutations in this region
+in the`) passed every gate and supported nothing (#15607). Quote through the
+character, or choose a different sentence.
+
+To test a candidate, call the real normalizer, not a re-implementation of it:
+
+```bash
+uv run python -c "from linkml_reference_validator.validation.supporting_text_validator import SupportingTextValidator as V; print(V.normalize_text('the α3β3 assembly'))"
+```
+
+**Prefer ASCII for invisible and lookalike characters** — an invisible character
+in a quote is a trap for the next curator, and it buys nothing, since the
+source's typography folds anyway. A visible Greek letter that is part of the
+nomenclature is not that case. Existing snippets that copied the source's thin spaces and en dashes
 verbatim are equally valid and need no repair; several hundred `kb/disorders`
 snippets do exactly that.
 
@@ -350,8 +372,10 @@ Copy it from there. `just check-reference-titles` gates new mismatches (offline,
 similarity-based, so punctuation, dashes, diacritics and source-XML markup do
 not trip it) and prints the cached title in the failure message, so the fix is a
 copy-paste. `just list-reference-title-mismatches` is the triage view;
-`scripts/find_missing_reference_titles.py` is the complementary check for
-*absent* titles.
+`just check-reference-titles-present` is the complementary gate for *absent*
+titles: every evidence item must carry one. Fill a gap with
+`uv run python scripts/backfill_reference_titles.py <file>`, which copies the
+cached title, rather than typing it.
 
 ## Frequency claims
 
