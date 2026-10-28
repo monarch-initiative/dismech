@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vaccine Mechanisms &amp; Immunization Curation - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+        a.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; text-decoration: none; }
+        a.tag-nih:hover { background: #dfeaff; }
+        span.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html" class="active" aria-current="true">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Vaccine Mechanisms &amp; Immunization Curation</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                <span class="tag">TREATMENTS</span><span class="tag">IMMUNOLOGY</span><span class="tag">INFECTIOUS_DISEASE</span><span class="tag">MODULES</span><span class="tag">VACCINES</span>
+                <a class="tag tag-nih" href="https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/22" target="_blank" rel="noopener" title="NIH Highlighted Topic">NIH: Research on Short-Lived and Long-Lived Plasma Cells in Humans</a>
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Vaccine Mechanisms &amp; Immunization Curation</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (46)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Rotaviral_Enteritis.html">Rotaviral Enteritis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Human_Papillomavirus_Infection.html">Human Papillomavirus Infection</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Immunodeficiency_74,_COVID-19-Related,_X-Linked.html">Immunodeficiency 74 COVID-19-related X-linked</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Diphtheria.html">Diphtheria</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Haemophilus_meningitis.html">Haemophilus Meningitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Pneumococcal_Meningitis.html">Pneumococcal Meningitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Streptococcal_meningitis.html">Streptococcal Meningitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Rabies.html">Rabies</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Anthrax.html">Anthrax</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hepatitis_A.html">Hepatitis A</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hepatitis_D.html">Hepatitis D</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Toxic_Shock_Syndrome.html">Toxic Shock Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Ricin_Poisoning.html">Ricin Poisoning</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/COVID-19.html">COVID-19</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Influenza.html">Influenza</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Respiratory_Syncytial_Virus_Infection.html">Respiratory Syncytial Virus Infection</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Measles.html">Measles</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Mumps.html">Mumps</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Rubella.html">Rubella</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chickenpox.html">Chickenpox</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Paralytic_Poliomyelitis.html">Paralytic Poliomyelitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Pertussis.html">Pertussis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Tetanus.html">Tetanus</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Pneumococcal_Pneumonia.html">Pneumococcal Pneumonia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hepatitis_B.html">Hepatitis B</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Cholera.html">Cholera</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Typhoid_Fever.html">Typhoid Fever</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Ebola_Virus_Disease_EVD.html">Ebola Virus Disease EVD</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Malaria.html">Malaria</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Dengue.html">Dengue</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chikungunya.html">Chikungunya</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Tuberculosis.html">Tuberculosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Monkeypox.html">Monkeypox</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Bacterial_meningitis.html">Bacterial meningitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Tick-Borne_Encephalitis.html">Tick-Borne Encephalitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Yellow_Fever.html">Yellow Fever</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Meningococcal_Meningitis.html">Meningococcal Meningitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Herpes_Zoster.html">Herpes Zoster</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Japanese_Encephalitis.html">Japanese Encephalitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/C1Q_Deficiency.html">C1Q Deficiency</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Complement_Component_2_Deficiency.html">Complement Component 2 Deficiency</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/MyD88_Deficiency.html">MyD88 Deficiency</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Fibrolamellar_Hepatocellular_Carcinoma.html">Fibrolamellar Hepatocellular Carcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Colon_Adenocarcinoma.html">Colon Adenocarcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Vulvar_Carcinoma.html">Vulvar Carcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Transitional_Cell_Carcinoma.html">Transitional Cell Carcinoma</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Modules (7)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../modules/germinal_center_reaction.html">germinal center reaction</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/cgas_sting_pathway_activation.html">cgas sting pathway activation</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/host_directed_antiviral_dependency.html">host directed antiviral dependency</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/innate_antiviral_interferon_response.html">innate antiviral interferon response</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/vaccine_induced_mucosal_iga_neutralization.html">vaccine induced mucosal iga neutralization</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/polysaccharide_conjugate_t_dependent_switching.html">polysaccharide conjugate t dependent switching</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/toxoid_neutralizing_humoral_immunity.html">toxoid neutralizing humoral immunity</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Groupings (5)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../groupings/Predominantly_Antibody_Deficiencies_IEIs.html">Predominantly Antibody Deficiencies IEIs</a>
+                            
+                        
+                            
+                            <a class="chip" href="../groupings/Complement_Deficiency_IEIs.html">Complement Deficiency IEIs</a>
+                            
+                        
+                            
+                            <a class="chip" href="../groupings/Intrinsic_and_Innate_Immunity_Defect_IEIs.html">Intrinsic and Innate Immunity Defect IEIs</a>
+                            
+                        
+                            
+                            <a class="chip" href="../groupings/Inborn_Errors_of_Immunity.html">Inborn Errors of Immunity</a>
+                            
+                        
+                            
+                            <a class="chip" href="../groupings/Viral_Hemorrhagic_Fevers.html">Viral Hemorrhagic Fevers</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Drugs (12)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip unresolved" href="http://purl.obolibrary.org/obo/NCIT_C15346">Vaccination</a>
+                            
+                        
+                            
+                            <a class="chip unresolved" href="http://purl.obolibrary.org/obo/NCIT_C15259">Passive Immunization</a>
+                            
+                        
+                            
+                            <a class="chip unresolved" href="http://purl.obolibrary.org/obo/NCIT_C96394">Rotavirus Vaccine</a>
+                            
+                        
+                            
+                            <a class="chip unresolved" href="http://purl.obolibrary.org/obo/NCIT_C181140">mRNA COVID-19 Vaccine</a>
+                            
+                        
+                            
+                            <a class="chip unresolved" href="http://purl.obolibrary.org/obo/NCIT_C1951">Human Papilloma Virus Vaccine</a>
+                            
+                        
+                            
+                            <a class="chip unresolved" href="http://purl.obolibrary.org/obo/NCIT_C198514">Rabies Vaccine</a>
+                            
+                        
+                            
+                            <a class="chip unresolved" href="http://purl.obolibrary.org/obo/NCIT_C91718">Diphtheria Toxoid/Tetanus Toxoid Vaccine Adsorbed</a>
+                            
+                        
+                            
+                            <a class="chip unresolved" href="http://purl.obolibrary.org/obo/NCIT_C298">BCG Vaccine</a>
+                            
+                        
+                            
+                            <a class="chip unresolved" href="http://purl.obolibrary.org/obo/NCIT_C96396">Yellow Fever Vaccine</a>
+                            
+                        
+                            
+                            <a class="chip unresolved" href="http://purl.obolibrary.org/obo/NCIT_C183179">Recombinant Vesicular Stomatitis Virus-Zaire Ebolavirus Envelope Glycoprotein Vaccine</a>
+                            
+                        
+                            
+                            <a class="chip unresolved" href="http://purl.obolibrary.org/obo/NCIT_C80473">Pneumococcal 7-Valent Conjugate Vaccine</a>
+                            
+                        
+                            
+                            <a class="chip unresolved" href="http://purl.obolibrary.org/obo/NCIT_C96387">Inactivated Poliovirus Vaccine</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/VACCINES.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="vaccine-mechanisms-immunization-curation">Vaccine Mechanisms &amp; Immunization Curation</h1>
+<h2 id="overview-design-principle">Overview &amp; Design Principle</h2>
+<p>In <strong>dismech</strong>, vaccines are not modeled as opaque "preventive checkboxes" detached from disease biology. Instead, every vaccine entry in a disorder's <code>treatments:</code> block is modeled as a <strong>causal intervention (<code>MechanismLink</code>) that inhibits, modulates, or activates a specific node in the disorder's <code>pathophysiology:</code> causal graph</strong>.</p>
+<p>Whether a vaccine induces secretory IgA that neutralizes viral attachment at the brush border, systemic IgG that neutralizes a bacterial exotoxin without preventing mucosal colonization, opsonizing antibodies against a polysaccharide capsule, or cytotoxic CD8+ T cells targeting viral oncoproteins or tumor neoantigens, the <code>target_mechanisms:</code> edge explicitly records <strong>which step of the pathograph the vaccine intercepts</strong> and <strong>why</strong>.</p>
+<hr />
+<h2 id="0-ontology-schema-architecture-why-not-vo">0. Ontology &amp; Schema Architecture (Why Not <code>VO</code>?)</h2>
+<h3 id="why-we-use-ncit-instead-of-the-vaccine-ontology-vo">Why We Use <code>NCIT</code> Instead of the Vaccine Ontology (<code>VO</code>)</h3>
+<p>Dismech deliberately consolidates all medical actions, procedures, and biological/vaccine agents onto <strong>NCI Thesaurus (<code>NCIT</code>)</strong>, <strong>ChEBI (<code>CHEBI</code>)</strong>, and <strong>MAXO (<code>MAXO</code>)</strong> rather than importing the OBO Vaccine Ontology (<code>VO</code>):</p>
+<ol>
+<li><strong>Unified medical action hierarchy (<code>TreatmentDescriptor</code>)</strong>: In <code>src/dismech/schema/model.yaml</code>, <code>treatment_term.term</code> is validated against <code>NCIT</code> medical procedures (<code>Vaccination</code> <code>NCIT:C15346</code>, <code>Passive Immunization</code> <code>NCIT:C15259</code>) or <code>MAXO</code>, while specific vaccine formulations and biologics sit under <code>NCIT:C1909</code> (<em>Pharmacologic Substance</em> $\rightarrow$ <code>NCIT:C923</code> <em>Vaccine</em>) in <code>treatment_term.therapeutic_agent</code>.</li>
+<li><strong>Avoids OAK / BioPortal cache fragmentation</strong>: Maintaining a single OAK validation surface (<code>cache/ncit/terms.csv</code>) covers small molecules, monoclonal antibodies, toxoids, conjugate vaccines, mRNA-LNP vaccines, and live-attenuated viral vaccines without cross-ontology duplication.</li>
+<li><strong>Environmental / adverse-event exposures use <code>ECTO</code></strong>: When vaccination is modeled as an environmental exposure or trigger (e.g., live-vaccine disseminated disease in an inborn error of immunity, or post-vaccination immune-mediated sequelae), dismech uses <code>ECTO:2000129</code> (<code>exposure to vaccination</code>) in the <code>environmental:</code> block.</li>
+</ol>
+<h3 id="canonical-yaml-pattern-for-vaccine-treatments">Canonical YAML Pattern for Vaccine Treatments</h3>
+<pre><code class="language-yaml">treatments:
+- name: Rotavirus Vaccination
+  description: Oral live-attenuated rotavirus vaccines (pentavalent human-bovine reassortant
+    RV5 or monovalent human-attenuated RV1) administered in infancy induce mucosal
+    secretory IgA and neutralizing antibodies against outer-capsid proteins VP4 and
+    VP7, preventing severe dehydrating rotaviral gastroenteritis.
+  therapeutic_modality: VACCINE
+  delivery_system: VIRAL_VECTOR # Optional: LIPID_NANOPARTICLE, VIRAL_VECTOR, PROTEIN_CONJUGATE, etc.
+  treatment_term:
+    preferred_term: vaccination
+    term:
+      id: NCIT:C15346
+      label: Vaccination
+    therapeutic_agent:
+    - preferred_term: rotavirus vaccine
+      term:
+        id: NCIT:C96394
+        label: Rotavirus Vaccine
+  target_mechanisms:
+  - target: Rotavirus Attachment and Mature Enterocyte Invasion
+    treatment_effect: INHIBITS
+    description: Mucosal secretory IgA and serum neutralizing antibodies against VP4
+      (VP8*/VP5*) and VP7 block virion attachment and entry into mature small-intestinal
+      villus enterocytes and neutralize NSP4 enterotoxin activity.
+    evidence:
+    - reference: PMID:32644377
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &quot;Vaccination is the best way to prevent rotavirus disease.&quot;
+      explanation: Supports oral rotavirus vaccination as the primary prophylactic
+        intervention preventing rotavirus infection and severe dehydrating enteritis.
+</code></pre>
+<h3 id="schema-slots-touching-vaccines">Schema Slots Touching Vaccines</h3>
+<table>
+<thead>
+<tr>
+<th>Schema Location</th>
+<th>Slot / Enum / Value</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Treatment.therapeutic_modality</code></td>
+<td><code>VACCINE</code>, <code>BIOLOGIC</code> (<code>TherapeuticModalityEnum</code>)</td>
+<td>Distinguishes active vaccines (<code>VACCINE</code>) from passive antibodies/antitoxins (<code>BIOLOGIC</code>).</td>
+</tr>
+<tr>
+<td><code>Treatment.delivery_system</code></td>
+<td><code>LIPID_NANOPARTICLE</code>, <code>VIRAL_VECTOR</code>, <code>PROTEIN_CONJUGATE</code>, <code>POLYMER_NANOPARTICLE</code></td>
+<td>Captures LNP-encapsulated mRNA vaccines, adenoviral/vesicular stomatitis vectors, or carrier-protein conjugates.</td>
+</tr>
+<tr>
+<td><code>TreatmentDescriptor.term</code></td>
+<td><code>NCIT:C15346</code> (<code>Vaccination</code>), <code>NCIT:C15259</code> (<code>Passive Immunization</code>)</td>
+<td>Primary medical-action term required on <code>treatment_term</code>.</td>
+</tr>
+<tr>
+<td><code>TreatmentDescriptor.therapeutic_agent</code></td>
+<td><code>NCIT:C96394</code> (<code>Rotavirus Vaccine</code>), <code>NCIT:C181140</code> (<code>mRNA COVID-19 Vaccine</code>), <code>NCIT:C1951</code> (<code>Human Papilloma Virus Vaccine</code>), <code>NCIT:C198514</code> (<code>Rabies Vaccine</code>), <code>NCIT:C91718</code> (<code>Diphtheria Toxoid/Tetanus Toxoid Vaccine Adsorbed</code>), <code>NCIT:C298</code> (<code>BCG Vaccine</code>)</td>
+<td>Specific vaccine formulation or agent under <code>NCIT:C1909</code> (<em>Pharmacologic Substance</em>).</td>
+</tr>
+<tr>
+<td><code>Treatment.target_mechanisms</code></td>
+<td><code>list[MechanismLink]</code> (<code>target</code>, <code>treatment_effect: INHIBITS \| ACTIVATES \| MODULATES</code>, <code>description</code>, <code>evidence</code>)</td>
+<td>Connects the vaccine directly to the named <code>Pathophysiology</code> node it blocks or modifies.</td>
+</tr>
+<tr>
+<td><code>TreatmentEffectModifier.mhc_term</code> &amp; <code>Genetic.mhc_term</code></td>
+<td><code>MHCDescriptor</code> (<code>MHCTerm</code>: <code>MRO</code> / <code>GO:0042611</code>)</td>
+<td>Binds HLA serotypes, heterodimers (<code>HLA-DQ2.5</code> <code>MRO:0000019</code>), and allele-specific MHC restriction complexes (<code>HLA-DRB1*03:01 protein complex</code> <code>MRO:0001284</code>) on genetic associations and vaccine subgroup effect modifiers (<code>effect_modifier_type: GENOTYPE</code>).</td>
+</tr>
+<tr>
+<td><code>Pathophysiology.protein_complexes</code></td>
+<td><code>ProteinComplexDescriptor</code> (<code>GO:0042611</code> + <code>MRO:*</code>)</td>
+<td>Because <code>MRO</code> roots its MHC protein complexes under <code>GO:0042611</code> (<em>MHC protein complex</em>), <code>protein_complexes</code> accepts allele-specific <code>MRO</code> complexes directly in antigen-presentation pathograph nodes.</td>
+</tr>
+<tr>
+<td><code>Environmental.exposure_term</code></td>
+<td><code>ECTO:2000129</code> (<code>exposure to vaccination</code>)</td>
+<td>Models vaccination as an exposure (e.g., protective epidemiological factor or live-vaccine adverse event).</td>
+</tr>
+<tr>
+<td><code>kb/surrogate_endpoints/fda_surrogate_endpoints.yaml</code></td>
+<td><code>vaccine_preventable_disease_neutralizing_titer</code></td>
+<td>Captures FDA traditional-approval surrogate correlates of protection (serum bactericidal antibody, anti-PRP IgG, hemagglutination inhibition, neutralizing titer, seroconversion).</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="0b-mhc-restriction-ontology-mro-iedb-integration">0b. MHC Restriction Ontology (<code>MRO</code>) &amp; IEDB Integration</h2>
+<h3 id="why-mro-iedbs-mhc-restriction-ontology-was-integrated">Why <code>MRO</code> (IEDB's MHC Restriction Ontology) Was Integrated</h3>
+<p>Across vaccine-preventable diseases, autoimmune diseases, infectious diseases, and drug hypersensitivity entries, MHC/HLA restriction is one of the strongest genetic determinants of both <strong>disease susceptibility</strong> and <strong>vaccine / immunotherapy responsiveness</strong>:
+- Many clinically important HLA entities are <strong>multi-gene heterodimers</strong> (<code>HLA-DQ2.5</code> encoded by <em>HLA-DQA1*05:01</em> + <em>HLA-DQB1*02:01</em>, <code>MRO:0000019</code>) or <strong>multi-locus serotypes</strong> (<code>HLA-DQ2 serotype</code> <code>MRO:0000283</code>, <code>HLA-B27 serotype</code> <code>MRO:0000129</code>, <code>HLA-DR4 serotype</code> <code>MRO:0000303</code>) that cannot be faithfully represented by a single HGNC gene CURIE.
+- <strong>IEDB (Immune Epitope Database)</strong> maintains <strong>MRO (<code>http://purl.obolibrary.org/obo/MRO_</code>)</strong> specifically to represent MHC protein complexes, serotypes, mutant complexes, and alpha/beta chains, and anchors its hierarchy directly under <strong><code>GO:0042611</code> (<code>MHC protein complex</code>)</strong>.</p>
+<h3 id="how-mro-works-in-the-dismech-schema">How <code>MRO</code> Works in the Dismech Schema</h3>
+<ol>
+<li><strong><code>Pathophysiology.protein_complexes</code> (<code>ProteinComplexTerm</code>)</strong>: Because <code>ProteinComplexTerm</code> already has <code>GO:0042611</code> (<em>MHC protein complex</em>) in <code>reachable_from</code>, routing <code>MRO: ols:mro</code> in <code>conf/oak_config.yaml</code> automatically enables <code>protein_complexes</code> to bind any <code>MRO</code> MHC class I/II protein complex (<code>MRO:0001284</code> <code>HLA-DRB1*03:01 protein complex</code>, <code>MRO:0001007</code> <code>HLA-B*57:01 protein complex</code>, <code>MRO:0000019</code> <code>HLA-DQA1*05:01/DQB1*02:01 protein complex</code>).</li>
+<li><strong><code>Genetic.mhc_term</code> (<code>MHCDescriptor</code> $\rightarrow$ <code>MHCTerm</code>)</strong>: Allows <code>genetic:</code> entries to pair a locus <code>gene_term</code> (<code>hgnc:4942</code> <code>HLA-DQA1</code>) with the exact serotype or heterodimer (<code>MRO:0000283</code> <code>HLA-DQ2 serotype</code>) or to bind a multi-locus serotype directly.</li>
+<li><strong><code>TreatmentEffectModifier.mhc_term</code> (<code>MHCDescriptor</code> $\rightarrow$ <code>MHCTerm</code>)</strong>: Allows <code>treatments[].effect_modifiers[]</code> with <code>effect_modifier_type: GENOTYPE</code> to bind the exact HLA restriction complex that modifies vaccine seroconversion (e.g., <code>HLA-DRB1*03:01</code> / <code>HLA-DRB1*07:01</code> non-responder haplotypes in <code>Hepatitis_B</code> vaccination) or requires an HLA-restricted peptide/TCR vaccine (e.g., <code>HLA-A*02:01</code>-restricted cancer vaccines).</li>
+</ol>
+<pre><code class="language-yaml">treatments:
+- name: Hepatitis B Vaccination
+  therapeutic_modality: VACCINE
+  effect_modifiers:
+  - effect_modifier_type: GENOTYPE
+    stratum: HLA-DRB1*03:01 carriers
+    mhc_term:
+      preferred_term: HLA-DRB1*03:01 protein complex
+      term:
+        id: MRO:0001284
+        label: HLA-DRB1*03:01 protein complex
+    comparator_stratum: non-carriers
+    modified_outcome: anti-HBs seroprotection rate
+    effect_in_stratum: SMALLER_EFFECT
+</code></pre>
+<h3 id="broader-iedb-opportunities">Broader IEDB Opportunities</h3>
+<ul>
+<li><strong>Structured Source (<code>IEDB:&lt;epitope_id&gt;</code>)</strong>: Extending <code>StructuredSourceId</code> in <code>src/dismech/schema/common.yaml</code> to support <code>IEDB:\d+</code> for experimentally validated neutralizing B-cell and T-cell epitopes (e.g., Rotavirus VP8*/VP7, SARS-CoV-2 Spike RBD, HPV E6/E7, <code>DNAJB1-PRKACA</code> fusion neoantigen).</li>
+<li><strong>Molecular Mimicry &amp; Cross-Reactivity</strong>: Linking pathogen epitope IDs to host autoantigen mimics in <code>Guillain-Barre_Syndrome</code>, <code>Acute_Rheumatic_Fever</code>, <code>Type_1_Diabetes</code>, and <code>Celiac_Disease</code>.</li>
+<li><strong>Cross-Repo Bridge to <code>~/repos/ai-gene-review</code></strong>: Mapping viral protein UniProt accessions (<code>ROTA/VP4</code>, <code>ROTA/VP7</code>, <code>SARS2/SPIKE</code>) to IEDB parent protein immunodominant regions.</li>
+</ul>
+<hr />
+<h2 id="1-six-mechanistic-archetypes-for-vaccines-in-dismech">1. Six Mechanistic Archetypes for Vaccines in Dismech</h2>
+<p>Connecting a vaccine via <code>target_mechanisms:</code> forces the curator to distinguish <em>where</em> in the pathograph immunity acts:</p>
+<ol>
+<li>
+<p><strong>Viral Attachment, Entry &amp; Mucosal Establishment Blockade</strong>
+   - <em>Mechanism</em>: Neutralizing antibodies (secretory IgA at mucosal surfaces or systemic IgG) bind viral attachment/fusion proteins (e.g., HPV L1 capsid, SARS-CoV-2 Spike RBD, Rotavirus VP4/VP7, <a href="../disorders/Rabies.html">Rabies</a> glycoprotein G, HAV capsid), blocking host-receptor engagement (<code>ACE2</code>, <code>HSPG</code>, <code>HBGA</code>, <code>NCAM1</code>/<code>CHRN</code>) and early cellular entry.
+   - <em>Exemplars</em>: <code>Human_Papillomavirus_Infection</code> (Prophylactic L1 VLP vaccine), <code>Immunodeficiency_74_COVID-19-related_X-linked</code> (SARS-CoV-2 mRNA vaccine), <code>Rabies</code> (post-exposure vaccine blocking retrograde axonal transport), <code>Hepatitis_A</code>, <code>Hepatitis_D</code> (HBV vaccine preventing HBsAg helper virus acquisition).</p>
+</li>
+<li>
+<p><strong>Toxoid / Antitoxin Neutralization (Disease Prevention Without Colonization Blockade)</strong>
+   - <em>Mechanism</em>: Formalin-inactivated or genetically detoxified bacterial/plant toxoids elicit systemic IgG against the secreted A-B exotoxin or superantigen (<code>Diphtheria toxin</code>, <code>Tetanus neurotoxin</code>, <code>Pertussis toxin</code>, <code>Anthrax protective antigen</code>, <code>TSST-1</code>, <code>Ricin A chain</code>). Crucially, the vaccine targets the <strong>toxin-mediated tissue injury or receptor-entry node</strong>, <em>not</em> the mucosal colonization node.
+   - <em>Exemplars</em>: <code>Diphtheria</code>, <code>Anthrax</code>, <code>Toxic_Shock_Syndrome</code>, <code>Ricin_Poisoning</code>.</p>
+</li>
+<li>
+<p><strong>Polysaccharide-Protein Conjugate Opsonophagocytosis &amp; Mucosal Carriage Reduction</strong>
+   - <em>Mechanism</em>: Conjugating a bacterial capsular polysaccharide (T-cell-independent antigen, e.g., Hib PRP, pneumococcal serotypes, meningococcal A/C/W/Y) to a carrier protein (<code>CRM197</code>, tetanus toxoid) recruits CD4+ Tfh cells (<code>germinal_center_reaction</code> module), driving class-switched, affinity-matured anti-capsular IgG and mucosal IgA that overcome capsular complement evasion and reduce nasopharyngeal carriage.
+   - <em>Exemplars</em>: <code>Haemophilus_Meningitis</code>, <code>Pneumococcal_Meningitis</code>, <code>Streptococcal_Meningitis</code>.</p>
+</li>
+<li>
+<p><strong>Therapeutic &amp; Neoantigen Vaccines (Cell-Mediated Clearance of Infected or Transformed Cells)</strong>
+   - <em>Mechanism</em>: Once viral genomes integrate or somatic driver mutations establish a clone, neutralizing antibodies against surface capsids are ineffective. Therapeutic peptide/mRNA/DC vaccines target intracellular oncoproteins or fusion neoantigens (<code>HPV E6/E7</code>, <code>DNAJB1-PRKACA</code> chimera, <code>MUC1</code>) presented on MHC class I/II to prime CD8+ cytotoxic T lymphocytes and Th1 cells.
+   - <em>Exemplars</em>: <code>Human_Papillomavirus_Infection</code> (<code>Therapeutic HPV Vaccination (E6/E7-directed)</code>), <code>Fibrolamellar_Hepatocellular_Carcinoma</code> (<code>DNAJB1-PRKACA Fusion-Neoantigen Peptide Vaccine</code>), <code>Colon_Adenocarcinoma</code> (<code>MUC1 Peptide Vaccine</code>).</p>
+</li>
+<li>
+<p><strong>Host-Vulnerability Bypass &amp; Decompensation-Trigger Prevention</strong>
+   - <em>Mechanism</em>: In inborn errors of immunity (<code>TLR7</code>, <code>MyD88</code>, <code>C1Q</code>, <code>C2</code> deficiencies) or acute febrile/viral decompensation syndromes (<code>RANBP2</code> ANE1, <code>LARS1</code> ILFS1, <code>TNNI3K</code> cardiomyopathy), vaccination either bypasses the defective innate sensor via an orthogonal adjuvant/PRR pathway (<code>MDA5</code>/<code>TLR3</code> for mRNA-LNP in <code>TLR7</code> deficiency) or prevents the upstream febrile/viral infection trigger that initiates organ failure.
+   - <em>Exemplars</em>: <code>Immunodeficiency_74_COVID-19-related_X-linked</code>, <code>C1Q_Deficiency</code>, <code>Complement_Component_2_Deficiency</code>, <code>MyD88_Deficiency</code>, <code>Familial_Acute_Necrotizing_Encephalopathy</code>, <code>Infantile_Liver_Failure_Syndrome_1</code>.</p>
+</li>
+<li>
+<p><strong>Live-Vaccine Pathogenicity &amp; Contraindication in Primary Immunodeficiencies</strong>
+   - <em>Mechanism</em>: Live-attenuated vaccines (<code>BCG</code>, oral poliovirus, rotavirus, MMR, yellow fever) replicate unchecked when a critical host restriction pathway is absent (e.g., <code>IFN-gamma</code>/<code>IL-12</code> axis in Mendelian Susceptibility to Mycobacterial Disease, <code>STAT1</code>/<code>STAT2</code>/<code>IRF9</code> type I IFN signaling, or severe combined immunodeficiency). Here, the vaccine strain is represented in <code>pathophysiology:</code> / <code>environmental:</code> (<code>ECTO:2000129</code>) as a causal trigger of disseminated vaccine-strain infection.</p>
+</li>
+</ol>
+<hr />
+<h2 id="2-exemplar-entries-currently-in-the-kb">2. Exemplar Entries Currently in the KB</h2>
+<table>
+<thead>
+<tr>
+<th>Disorder Entry</th>
+<th>Vaccine Treatment(s)</th>
+<th>Targeted Pathophysiology Node(s)</th>
+<th>Why It Is an Exemplar</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Human_Papillomavirus_Infection</code></td>
+<td><strong>Prophylactic HPV <a href="http://purl.obolibrary.org/obo/NCIT_C15346">Vaccination</a></strong> (L1 VLP) vs. <strong>Therapeutic HPV <a href="http://purl.obolibrary.org/obo/NCIT_C15346">Vaccination</a> (E6/E7-directed)</strong></td>
+<td><code>Basal Keratinocyte Infection and Genome Establishment</code> (prophylactic) vs. <code>High-Risk Persistence and Transformation</code> &amp; <code>Immune Evasion and Persistence</code> (therapeutic)</td>
+<td>Cleanly contrasts humoral capsid-neutralizing prophylaxis (ineffective after infection) with cell-mediated E6/E7 oncoprotein clearance in the same causal graph.</td>
+</tr>
+<tr>
+<td><code>Immunodeficiency_74_COVID-19-related_X-linked</code></td>
+<td><strong>SARS-CoV-2 mRNA vaccination</strong> (<code>NCIT:C181140</code>, <code>delivery_system: LIPID_NANOPARTICLE</code>)</td>
+<td><code>Unrestrained Early SARS-CoV-2 Replication in the Respiratory Tract</code></td>
+<td>Demonstrates how a vaccine bypasses a monogenic host innate defect (pDC <code>TLR7</code> loss) by priming adaptive anti-Spike IgG via LNP/cytosolic RNA sensing (<code>MDA5</code>), with full <code>therapeutic_agent</code> and <code>delivery_system</code> typing.</td>
+</tr>
+<tr>
+<td><code>Diphtheria</code></td>
+<td><strong><a href="../disorders/Diphtheria.html">Diphtheria</a> Toxoid <a href="http://purl.obolibrary.org/obo/NCIT_C15346">Vaccination</a></strong> (<code>NCIT:C91718</code>) &amp; <strong><a href="../disorders/Diphtheria.html">Diphtheria</a> Antitoxin</strong> (<code>NCIT:C15259</code>)</td>
+<td><code>Absent or Waning Antitoxin Immunity</code> $\rightarrow$ <code>Diphtheria Toxin Production and Local Tissue Necrosis</code></td>
+<td>Explicitly models how toxoid immunization neutralizes phage-encoded exotoxin pathology while leaving mucosal <em>C. diphtheriae</em> colonization intact; pairs active toxoid with passive antitoxin.</td>
+</tr>
+<tr>
+<td><code>Haemophilus_Meningitis</code></td>
+<td><strong>Hib PRP-protein conjugate vaccination</strong></td>
+<td><code>PRP Capsule Immune Evasion</code></td>
+<td>Captures the immunological mechanism of polysaccharide-protein conjugation (converting a T-independent capsule into a T-dependent antigen to restore opsonophagocytosis and eliminate carriage).</td>
+</tr>
+<tr>
+<td><code>Rabies</code></td>
+<td><strong><a href="../disorders/Rabies.html">Rabies</a> post-exposure vaccination</strong> (<code>NCIT:C198514</code>) &amp; <strong><a href="../disorders/Rabies.html">Rabies</a> immunoglobulin</strong> (<code>NCIT:C15259</code>)</td>
+<td><code>Retrograde Axonal Transport to the Central Nervous System</code></td>
+<td>Shows post-exposure prophylaxis intercepting a time-windowed anatomical transition node (peripheral muscle/nerve entry before CNS invasion).</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-flagship-new-disorder-trial-rotaviral-enteritis-mondo0005194">3. Flagship New-Disorder Trial: Rotaviral Enteritis (<code>MONDO:0005194</code>)</h2>
+<p><code>Rotaviral_Enteritis</code> (<code>MONDO:0005194</code>, <em>rotaviral enteritis</em>) is our primary end-to-end curation trial integrating:
+1. <strong>Viral pathogenesis</strong> across dual secretory + osmotic diarrhea mechanisms,
+2. <strong>Host genetic receptor dependency</strong> (<code>FUT2</code> secretor status), and
+3. <strong>Vaccine mechanism links</strong> (<code>NCIT:C96394</code> <code>Rotavirus Vaccine</code>).</p>
+<h3 id="planned-causal-pathograph-kbdisordersrotaviral_enteritisyaml">Planned Causal Pathograph (<code>kb/disorders/Rotaviral_Enteritis.yaml</code>)</h3>
+<pre><code class="language-mermaid">flowchart TD
+  G1[&quot;Host FUT2 Secretor Status (hgnc:4013)&lt;br/&gt;Alpha(1,2)-fucosylated HBGA expression on villus enterocytes&quot;] --&gt; N1
+  N1[&quot;Host Glycan Attachment and Mature Villus Enterocyte Entry&lt;br/&gt;VP4 (VP8*/VP5*) &amp; VP7 outer capsid bind HBGAs/sialoglycans&quot;]
+  N1 --&gt; N2[&quot;NSP4 Viroporin-Mediated Intracellular Calcium Mobilization&lt;br/&gt;Endoplasmic reticulum Ca2+ mobilization &amp; Calcium-Activated Chloride Secretion (ANO1) + ENS stimulation&quot;]
+  N1 --&gt; N3[&quot;Proteasomal DGAT1 Degradation and Villus Enterocyte Destruction&lt;br/&gt;Villus blunting, lactase/sucrase-isomaltase depletion, carbohydrate malabsorption&quot;]
+  N1 --&gt; N4[&quot;Cytoplasmic Replication and Innate Antiviral Antagonism&lt;br/&gt;Viroplasm assembly, NSP1 PRR antagonism &amp; Systemic Antigenemia and Transient Viremia&quot;]
+  N2 --&gt; P1[&quot;Secretory Diarrhea (HP:0005208)&quot;]
+  N3 --&gt; P3[&quot;Malabsorptive Osmotic Diarrhea (HP:0033310) &amp; Secondary Lactase Deficiency (HP:0002024)&quot;]
+  P1 --&gt; P2[&quot;Dehydration (HP:0001944) &amp; Metabolic Acidosis (HP:0001942)&quot;]
+  P3 --&gt; P2
+  V1[&quot;Oral Live-Attenuated Rotavirus Vaccine (NCIT:C96394)&lt;br/&gt;RV5 (RotaTeq) / RV1 (Rotarix)&quot;] -. &quot;INHIBITS (Mucosal sIgA anti-VP4/VP7 &amp; anti-VP6)&quot; .-&gt; N1
+  V1 -. &quot;INHIBITS (Prevents NSP4 enterotoxin activity)&quot; .-&gt; N2
+  V1 -. &quot;INHIBITS (Preserves DGAT1 &amp; villus enterocytes)&quot; .-&gt; N3
+</code></pre>
+<hr />
+<h2 id="4-coordination-with-reposai-gene-review-host-vs-viral-genes">4. Coordination with <code>~/repos/ai-gene-review</code> (Host vs. Viral Genes)</h2>
+<p>Dismech integrates with <code>~/repos/ai-gene-review</code> via <code>src/dismech/ingest/genes.py</code> (<code>just genes-ingest-build</code>, outputting <code>app/genes-data.js</code>), which joins gene symbols across both repositories. Because <code>dismech</code> currently validates <code>GeneDescriptor.term</code> against the <strong>human HGNC cache (<code>cache/hgnc/terms.csv</code>)</strong>, host and viral genes follow a coordinated two-sided convention:</p>
+<h3 id="side-a-host-receptor-restriction-susceptibility-genes-direct-hgnc-leftrightarrow-uniprot-join">Side A: Host Receptor, Restriction &amp; Susceptibility Genes (Direct HGNC $\leftrightarrow$ UniProt Join)</h3>
+<p>Human host genes that mediate viral attachment, entry, innate sensing, or vaccine responsiveness are curated in <code>kb/genes/&lt;SPECIES&gt;/&lt;SYMBOL&gt;/&lt;SYMBOL&gt;-ai-review.yaml</code> (<code>HUMAN</code> taxon <code>NCBITaxon:9606</code>) in <code>ai-gene-review</code> and referenced via <code>hgnc:&lt;ID&gt;</code> in the <code>dismech</code> disorder's <code>genetic:</code> and <code>pathophysiology[].genes:</code> blocks:</p>
+<table>
+<thead>
+<tr>
+<th>Disorder</th>
+<th>Human Host Gene (<code>hgnc</code>)</th>
+<th>Role in Pathograph &amp; Vaccine Biology</th>
+<th>Coordination Target in <code>ai-gene-review</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Rotaviral_Enteritis</code></td>
+<td><code>FUT2</code> (<code>hgnc:4013</code>, <code>Q10981</code>)</td>
+<td>Fucosyltransferase 2 synthesizes mucosal type 1 HBGAs bound by rotavirus P[8]/P[4] <code>VP8*</code>; non-secretors (<code>FUT2</code> null) are genetically resistant to P[8] infection <em>and</em> exhibit lower take/seroconversion to live oral P[8] vaccines (Rotarix).</td>
+<td><code>kb/genes/HUMAN/FUT2/</code> (<code>GO:0046718</code> viral entry into host cell; <code>GO:0008417</code> fucosyltransferase activity)</td>
+</tr>
+<tr>
+<td><code>Rotaviral_Enteritis</code></td>
+<td><code>ANO1</code> (<code>hgnc:21625</code>, <code>Q5XXA6</code>)</td>
+<td>Ca2+-activated chloride channel (<code>TMEM16A</code>) activated by rotavirus <code>NSP4</code> enterotoxin to drive secretory diarrhea.</td>
+<td><code>kb/genes/HUMAN/ANO1/</code> (<code>GO:0005229</code> intracellularly calcium-gated chloride channel activity)</td>
+</tr>
+<tr>
+<td><code>COVID-19</code></td>
+<td><code>ACE2</code> (<code>hgnc:13557</code>), <code>TMPRSS2</code> (<code>hgnc:11876</code>)</td>
+<td>Host entry receptor and Spike-priming serine protease blocked by anti-Spike vaccine antibodies.</td>
+<td><code>kb/genes/HUMAN/ACE2/</code>, <code>kb/genes/HUMAN/TMPRSS2/</code></td>
+</tr>
+<tr>
+<td><code>Immunodeficiency_74_COVID-19-related_X-linked</code></td>
+<td><code>TLR7</code> (<code>hgnc:15631</code>)</td>
+<td>Endosomal ssRNA sensor on pDCs; loss-of-function causes life-threatening <a href="../disorders/COVID-19.html">COVID-19</a> bypassed by mRNA-LNP vaccination.</td>
+<td><code>kb/genes/HUMAN/TLR7/</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="side-b-viral-antigen-effector-genes-viral-taxon-directories-in-ai-gene-review">Side B: Viral Antigen &amp; Effector Genes (Viral Taxon Directories in <code>ai-gene-review</code>)</h3>
+<p>In <code>~/repos/ai-gene-review/kb/genes/</code>, viral proteins are curated under their viral taxon proteome codes (e.g., <code>SARS2/SPIKE</code>, <code>TYPH/E6</code>, <code>TYPH/E7</code>, <code>EBVG/LMP1</code>, and for Rotavirus A: <code>ROTA/VP4</code>, <code>ROTA/VP7</code>, <code>ROTA/NSP4</code>, <code>ROTA/NSP1</code>).</p>
+<ul>
+<li><strong>Current Rule in Dismech</strong>: Never force a viral gene symbol into <code>genes:</code> with a fake <code>hgnc:</code> CURIE. Instead:
+  1. Name the viral protein and its UniProt accession in the <code>Pathophysiology.description</code> and <code>Treatment.target_mechanisms[].description</code> (e.g., <code>VP4 [VP8*/VP5*]</code>, <code>VP7</code>, <code>NSP4</code>).
+  2. Bind the <strong>exact shared GO biological_processes terms</strong> on the <code>Pathophysiology</code> node that <code>ai-gene-review</code> annotates as <code>core_functions</code> on the viral gene (<code>GO:0046718</code> <em>viral entry into host cell</em>, <code>GO:0019062</code> <em>virion attachment to host cell</em>, <code>GO:0039503</code> <em>suppression by virus of host innate immune response</em>).</li>
+<li><strong>Planned Schema &amp; Ingest Enhancement</strong>: Add an optional <code>pathogen_genes</code> (or <code>uniprot:</code>-backed <code>GeneDescriptor</code>) slot on <code>Pathophysiology</code> and <code>MechanismLink</code> and extend <code>src/dismech/ingest/genes.py</code> (<code>load_gene_kb</code>) to join non-human viral UniProt records from <code>ai-gene-review</code> directly onto disorder pathograph nodes and vaccine <code>target_mechanisms</code>.</li>
+</ul>
+<hr />
+<h2 id="5-conserved-mechanism-modules-kbmodules">5. Conserved Mechanism Modules (<code>kb/modules/</code>)</h2>
+<p>Vaccine mechanisms reuse and motivate conserved modules in <code>kb/modules/</code>:</p>
+<ul>
+<li><strong>Existing Modules</strong>:</li>
+<li><code>germinal_center_reaction</code>: Tfh-driven B-cell somatic hypermutation, affinity maturation, and generation of long-lived plasma cells (<code>NIH_HT_22_short_lived_long_lived_plasma_cells</code>) and memory B cells; underlies conjugate and protein/mRNA vaccine durability.</li>
+<li><code>cgas_sting_pathway_activation</code> &amp; <code>innate_antiviral_interferon_response</code>: Innate nucleic-acid sensing pathways activated by viral infection and vaccine adjuvants.</li>
+<li><code>host_directed_antiviral_dependency</code>: Host factor dependency (entry receptors, proteases, replication factors) shared with viral entry blockade.</li>
+<li><strong>Vaccine-Specific Modules (<code>kb/modules/</code>)</strong>:</li>
+<li><code>vaccine_induced_mucosal_iga_neutralization</code>: Oral/intranasal vaccine priming of Peyer's patch / NALT B cells, polymeric IgA transcytosis via <code>PIGR</code>, and luminal neutralization of enteric/respiratory pathogens (<code>Rotaviral_Enteritis</code>, <code>Cholera</code>, <code>Paralytic_Poliomyelitis</code>).</li>
+<li><code>polysaccharide_conjugate_t_dependent_switching</code>: Carrier-protein conjugation converting bacterial capsular polysaccharides from T-independent B-cell antigens into MHC-II-restricted Tfh-dependent germinal center responses (<code>Haemophilus_Meningitis</code>, <code>Meningococcal_Meningitis</code>, <code>Pneumococcal_Meningitis</code>, <code>Pneumococcal_Pneumonia</code>).</li>
+<li><code>toxoid_neutralizing_humoral_immunity</code>: Systemic IgG neutralization of secreted bacterial A-B exotoxins decoupling colonization from toxin-mediated organ injury (<code>Diphtheria</code>, <code>Tetanus</code>, <code>Pertussis</code>).</li>
+</ul>
+<hr />
+<h2 id="6-kb-audit-vaccine-preventable-diseases-wired-with-target_mechanisms">6. KB Audit: Vaccine-Preventable Diseases Wired with <code>target_mechanisms</code></h2>
+<p>We audited all disorder entries with vaccine treatments and curated/enriched <strong>28 vaccine-preventable disease (VPD) entries</strong> (including 6 newly curated VPD disorder entries: <code>Rotaviral_Enteritis</code>, <code>Tick-Borne_Encephalitis</code>, <code>Yellow_Fever</code>, <code>Meningococcal_Meningitis</code>, <code>Herpes_Zoster</code>, and <code>Japanese_Encephalitis</code>) so their vaccine treatments carry <code>therapeutic_modality: VACCINE</code> and explicit <code>target_mechanisms:</code> (<code>treatment_effect: INHIBITS</code>) pointing to the exact upstream nodes in <code>pathophysiology:</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Disorder (<code>kb/disorders/</code>)</th>
+<th>Vaccine Treatment(s)</th>
+<th>Status</th>
+<th>Targeted Pathophysiology Node(s)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Rotaviral_Enteritis</code></td>
+<td><code>Rotavirus Vaccination</code> (<code>NCIT:C96394</code>)</td>
+<td><strong>Completed (New Entry)</strong></td>
+<td><code>Host Glycan Attachment and Mature Villus Enterocyte Entry</code>, <code>NSP4 Viroporin-Mediated Intracellular Calcium Mobilization</code>, <code>Proteasomal DGAT1 Degradation and Villus Enterocyte Destruction</code> (+ <code>FUT2</code> <code>effect_modifiers</code>)</td>
+</tr>
+<tr>
+<td><code>Tick-Borne_Encephalitis</code></td>
+<td><code>Inactivated Tick-Borne Encephalitis Vaccination</code></td>
+<td><strong>Completed (New Entry)</strong></td>
+<td><code>Tick-Borne Cutaneous Inoculation and Primary Viremia</code>, <code>Blood-Brain Barrier Crossing and Neuronal Infection</code></td>
+</tr>
+<tr>
+<td><code>Yellow_Fever</code></td>
+<td><code>Yellow Fever 17D Live-Attenuated Vaccination</code> (<code>NCIT:C96396</code>)</td>
+<td><strong>Completed (New Entry)</strong></td>
+<td><code>Mosquito Inoculation, Dendritic Cell Infection, and Regional Lymphoid Replication</code>, <code>Hepatocyte Tropism, Midzonal Apoptosis, and Acute Hepatic Necrosis</code></td>
+</tr>
+<tr>
+<td><code>Meningococcal_Meningitis</code></td>
+<td><code>MenACWY Conjugate Vaccination</code>, <code>MenB Subunit Vaccination</code></td>
+<td><strong>Completed (New Entry)</strong></td>
+<td><code>Nasopharyngeal Invasion, Meningococcemia, and Terminal Complement Evasion</code></td>
+</tr>
+<tr>
+<td><code>Herpes_Zoster</code></td>
+<td><code>Recombinant Zoster Vaccine (RZV, Shingrix)</code></td>
+<td><strong>Completed (New Entry)</strong></td>
+<td><code>Waning VZV-Specific Cell-Mediated Immunity and Dorsal Root Ganglion Reactivation</code>, <code>Anterograde Axonal Transport and Cutaneous Dermatomal Replication</code></td>
+</tr>
+<tr>
+<td><code>Japanese_Encephalitis</code></td>
+<td><code>Japanese Encephalitis Vaccination</code></td>
+<td><strong>Completed (New Entry)</strong></td>
+<td><code>Mosquito Inoculation, Cutaneous Amplification, and Primary Viremia</code>, <code>Blood-Brain Barrier Disruption and Thalamic/Basal Ganglia Neuronal Tropism</code></td>
+</tr>
+<tr>
+<td><code>COVID-19</code></td>
+<td><code>COVID-19 Vaccination</code> (<code>NCIT:C181140</code>)</td>
+<td><strong>Completed</strong></td>
+<td><code>Viral Entry and Replication in Respiratory Epithelium</code></td>
+</tr>
+<tr>
+<td><code>Influenza</code></td>
+<td><code>Annual Vaccination</code></td>
+<td><strong>Completed</strong></td>
+<td><code>Respiratory Epithelial Infection and Cytopathic Effect</code>, <code>Triggering of Acute Myocardial Infarction</code></td>
+</tr>
+<tr>
+<td><code>Respiratory_Syncytial_Virus_Infection</code></td>
+<td><code>Vaccination</code></td>
+<td><strong>Completed</strong></td>
+<td><code>RSV Infection of Airway Epithelial Cells</code></td>
+</tr>
+<tr>
+<td><code>Measles</code></td>
+<td><code>Measles vaccination</code></td>
+<td><strong>Completed</strong></td>
+<td><code>Respiratory entry and SLAM-mediated immune cell infection</code>, <code>Lymphotropic replication and viremia</code>, <code>Immune amnesia (measles-induced immunosuppression)</code></td>
+</tr>
+<tr>
+<td><code>Mumps</code></td>
+<td><code>Mumps vaccination</code></td>
+<td><strong>Completed</strong></td>
+<td><code>Respiratory replication and lymphatic spread</code></td>
+</tr>
+<tr>
+<td><code>Rubella</code></td>
+<td><code>Rubella vaccination</code></td>
+<td><strong>Completed</strong></td>
+<td><code>Respiratory entry and lymphatic replication</code>, <code>Transplacental transmission and congenital rubella syndrome</code></td>
+</tr>
+<tr>
+<td><code>Chickenpox</code></td>
+<td><code>Varicella Vaccination</code></td>
+<td><strong>Completed</strong></td>
+<td><code>Primary Respiratory Entry and T-Cell-Associated Viremia</code>, <code>Latent Infection in Sensory Ganglia</code></td>
+</tr>
+<tr>
+<td><code>Paralytic_Poliomyelitis</code></td>
+<td><code>Poliovirus vaccination (IPV/OPV)</code> (<code>NCIT:C96387</code>)</td>
+<td><strong>Completed</strong></td>
+<td><code>Viremia and CNS Invasion</code>, <code>Anterior Horn Motor Neuron Tropism and Lysis</code></td>
+</tr>
+<tr>
+<td><code>Pertussis</code></td>
+<td><code>Maternal Tdap Vaccination</code>, <code>Pertussis Vaccination</code> (<code>NCIT:C91718</code>)</td>
+<td><strong>Completed</strong></td>
+<td><code>Bordetella pertussis Respiratory Colonization</code>, <code>Pertussis Toxin-Mediated Disruption of Host Gi Signaling</code></td>
+</tr>
+<tr>
+<td><code>Tetanus</code></td>
+<td><code>Active Immunization</code> (<code>NCIT:C91718</code>), <code>Tetanus Immunoglobulin</code> (<code>NCIT:C2701</code>)</td>
+<td><strong>Completed</strong></td>
+<td><code>Tetanospasmin Production and Retrograde Axonal Transport</code>, <code>SNARE Cleavage and Loss of Inhibitory Neurotransmission</code></td>
+</tr>
+<tr>
+<td><code>Pneumococcal_Pneumonia</code></td>
+<td><code>Pneumococcal Vaccination</code> (<code>NCIT:C80473</code>)</td>
+<td><strong>Completed</strong></td>
+<td><code>Pneumococcal Colonization and Lower Airway Invasion</code></td>
+</tr>
+<tr>
+<td><code>Hepatitis_B</code></td>
+<td><code>Vaccination</code> (+ <code>MRO:0001284</code> <code>effect_modifiers</code>), <code>Hepatitis B Immune Globulin (HBIG)</code> (<code>NCIT:C80829</code>)</td>
+<td><strong>Completed</strong></td>
+<td><code>Hepatocyte Infection and cccDNA Formation</code>, <code>HBV DNA Integration</code></td>
+</tr>
+<tr>
+<td><code>Cholera</code></td>
+<td><code>Oral Cholera Vaccination</code></td>
+<td><strong>Completed</strong></td>
+<td><code>Small Intestinal Colonization and Toxin Production</code>, <code>Cholera Toxin-Mediated Adenylate Cyclase Activation</code></td>
+</tr>
+<tr>
+<td><code>Typhoid_Fever</code></td>
+<td><code>Typhoid Vaccination</code></td>
+<td><strong>Completed</strong></td>
+<td><code>Intestinal Invasion via M Cells</code>, <code>Intracellular Survival in Macrophages and Systemic Dissemination</code></td>
+</tr>
+<tr>
+<td><code>Ebola_Virus_Disease_EVD</code></td>
+<td><code>rVSV-ZEBOV Vaccination (Ervebo)</code> (<code>NCIT:C183179</code>, <code>VIRAL_VECTOR</code>)</td>
+<td><strong>Completed</strong></td>
+<td><code>Initial Mononuclear Phagocyte Infection</code>, <code>Viral Entry via NPC1 Receptor</code></td>
+</tr>
+<tr>
+<td><code>Malaria</code></td>
+<td><code>Pre-erythrocytic malaria vaccination (RTS,S and R21)</code></td>
+<td><strong>Completed</strong></td>
+<td><code>Mosquito inoculation and pre-erythrocytic liver-stage infection</code></td>
+</tr>
+<tr>
+<td><code>Transitional_Cell_Carcinoma</code></td>
+<td><code>Intravesical BCG Immunotherapy</code> (<code>NCIT:C298</code>)</td>
+<td><strong>Completed</strong></td>
+<td><code>Immune Evasion</code></td>
+</tr>
+<tr>
+<td><code>Dengue</code></td>
+<td><code>Live-Attenuated Tetravalent Dengue Vaccination</code></td>
+<td><strong>Completed</strong></td>
+<td><code>Viral Entry and Primary Replication in Mononuclear Phagocytes</code>, <code>NS1-Mediated Endothelial Hyperpermeability</code> (+ baseline serostatus <code>effect_modifiers</code> referencing <code>Antibody-Dependent Enhancement (ADE)</code>)</td>
+</tr>
+<tr>
+<td><code>Chikungunya</code></td>
+<td><code>Chikungunya Vaccination (Live-Attenuated VLA1553 and VLP PXVX0317)</code></td>
+<td><strong>Completed</strong></td>
+<td><code>Viral Entry and Dermal Dissemination</code>, <code>Persistence in Joint-Associated Tissues</code></td>
+</tr>
+<tr>
+<td><code>Monkeypox</code></td>
+<td><code>MVA-BN Vaccination (Jynneos / Imvanex)</code></td>
+<td><strong>Completed</strong></td>
+<td><code>Viral Entry and Systemic Dissemination</code>, <code>Evasion of Host Antiviral Immunity</code></td>
+</tr>
+<tr>
+<td><code>Bacterial_meningitis</code></td>
+<td><code>Conjugate Vaccination (Hib, Pneumococcal, Meningococcal)</code> (<code>NCIT:C80473</code>)</td>
+<td><strong>Completed</strong></td>
+<td><code>Blood-Brain Barrier Penetration</code>, <code>Intrathecal Bacterial Replication</code></td>
+</tr>
+<tr>
+<td><code>Tuberculosis</code></td>
+<td><code>BCG Vaccination</code> (<code>NCIT:C298</code>)</td>
+<td><strong>Completed</strong></td>
+<td><code>Alveolar Macrophage Entry and Phagosome Maturation Arrest</code>, <code>Extrapulmonary Hematogenous Dissemination</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h1 id="status">STATUS</h1>
+<h2 id="phase-1-flagship-new-vaccine-preventable-disease-vpd-curations">Phase 1: Flagship New Vaccine-Preventable Disease (VPD) Curations</h2>
+<ul>
+<li>[x] Curate <code>Rotaviral_Enteritis</code> (<code>MONDO:0005194</code>) with <code>NCIT:C96394</code> (<code>Rotavirus Vaccine</code>), <code>FUT2</code> (<code>hgnc:4013</code>) host secretor receptor dependency, <code>ANO1</code> (<code>hgnc:21625</code>) chloride channel effector, and <code>NSP4</code>/<code>VP4</code>/<code>VP7</code> pathograph nodes</li>
+<li>[x] Curate <code>Yellow_Fever</code> (<code>MONDO:0020502</code>) with live-attenuated 17D vaccine (<code>NCIT:C96396</code>) and viscerotropic/hepatocyte pathograph</li>
+<li>[x] Curate <code>Herpes_Zoster</code> (<code>MONDO:0005609</code>) with recombinant gE/AS01B subunit vaccine (Shingrix) restoring VZV-specific CD4+ T-cell immunity to inhibit dorsal-root-ganglion reactivation</li>
+<li>[x] Curate <code>Meningococcal_Meningitis</code> (<code>MONDO:0018059</code>) with MenACWY polysaccharide-protein conjugate and MenB factor H-binding protein (<code>fHbp</code>) vaccines</li>
+<li>[x] Curate <code>Monkeypox</code> (<code>MONDO:0005849</code>) with MVA-BN (<code>Jynneos</code>) orthopoxvirus cross-protective vaccination</li>
+<li>[x] Curate <code>Japanese_Encephalitis</code> (<code>MONDO:0019209</code>) and <code>Tick-Borne_Encephalitis</code> (<code>MONDO:0017572</code>) with inactivated/live-attenuated flavivirus vaccines</li>
+</ul>
+<h2 id="phase-2-wire-existing-vpd-entries-with-target_mechanisms-therapeutic_agent">Phase 2: Wire Existing VPD Entries with <code>target_mechanisms</code> &amp; <code>therapeutic_agent</code></h2>
+<ul>
+<li>[x] <code>Human_Papillomavirus_Infection</code> — Prophylactic L1 VLP vs. Therapeutic E6/E7 vaccination wired to distinct pathograph nodes</li>
+<li>[x] <code>Immunodeficiency_74_COVID-19-related_X-linked</code> — <code>NCIT:C181140</code> (<code>mRNA COVID-19 Vaccine</code>) wired to early SARS-CoV-2 replication node</li>
+<li>[x] <code>Diphtheria</code> — <code>NCIT:C91718</code> (<code>Diphtheria Toxoid/Tetanus Toxoid Vaccine Adsorbed</code>) &amp; <code>NCIT:C15259</code> (<code>Passive Immunization</code>) wired to antitoxin immunity node</li>
+<li>[x] <code>Haemophilus_Meningitis</code>, <code>Pneumococcal_Meningitis</code>, <code>Streptococcal_Meningitis</code>, <code>Bacterial_meningitis</code> — Conjugate vaccines wired to capsular evasion / colonization / BBB invasion nodes</li>
+<li>[x] <code>Rabies</code>, <code>Anthrax</code>, <code>Hepatitis_A</code>, <code>Hepatitis_D</code>, <code>Toxic_Shock_Syndrome</code>, <code>Ricin_Poisoning</code> — Vaccines wired via <code>target_mechanisms</code></li>
+<li>[x] <code>Fibrolamellar_Hepatocellular_Carcinoma</code>, <code>Colon_Adenocarcinoma</code>, <code>Vulvar_Carcinoma</code> — Neoantigen / oncoviral cancer vaccines wired via <code>target_mechanisms</code></li>
+<li>[x] Enrich <code>COVID-19</code>, <code>Influenza</code>, and <code>Respiratory_Syncytial_Virus_Infection</code> vaccine treatments with <code>therapeutic_modality: VACCINE</code>, specific <code>NCIT</code> <code>therapeutic_agent</code> terms, and <code>target_mechanisms</code></li>
+<li>[x] Enrich childhood viral VPDs (<code>Measles</code>, <code>Mumps</code>, <code>Rubella</code>, <code>Chickenpox</code>, <code>Paralytic_Poliomyelitis</code>) with <code>target_mechanisms</code></li>
+<li>[x] Enrich bacterial toxoid &amp; enteric VPDs (<code>Pertussis</code>, <code>Tetanus</code>, <code>Pneumococcal_Pneumonia</code>, <code>Cholera</code>, <code>Typhoid_Fever</code>) with <code>target_mechanisms</code> and <code>NCIT</code> vaccine agent CURIEs</li>
+<li>[x] Enrich <code>Hepatitis_B</code>, <code>Ebola_Virus_Disease_EVD</code>, <code>Malaria</code>, and <code>Transitional_Cell_Carcinoma</code> (intravesical BCG) with <code>therapeutic_modality: VACCINE</code> and <code>target_mechanisms</code></li>
+<li>[x] Add vaccine treatments and <code>target_mechanisms</code> to <code>Dengue</code>, <code>Chikungunya</code>, <code>Monkeypox</code>, <code>Bacterial_meningitis</code>, and <code>Tuberculosis</code> (BCG)</li>
+</ul>
+<h2 id="phase-3-cross-repo-ai-gene-review-mro-iedb-module-integration">Phase 3: Cross-Repo <code>ai-gene-review</code>, <code>MRO</code> / IEDB &amp; Module Integration</h2>
+<ul>
+<li>[x] Integrate <code>MRO</code> (MHC Restriction Ontology, IEDB's native MHC ontology) into <code>conf/oak_config.yaml</code>, <code>src/dismech/schema/dismech.yaml</code> (<code>MHCTerm</code>, <code>MHCDescriptor</code>, <code>Genetic.mhc_term</code>, <code>TreatmentEffectModifier.mhc_term</code>, plus <code>ProteinComplexTerm</code> via <code>GO:0042611</code>), <code>src/dismech/term_tooltips.py</code>, and <code>src/dismech/templates/disorder.html.j2</code></li>
+<li>[x] Seed <code>cache/mro/terms.csv</code> and annotate <code>mhc_term</code> on key HLA-restricted vaccine effect modifiers (<code>Hepatitis_B</code> <code>HLA-DRB1*03:01</code> <code>MRO:0001284</code> and <code>HLA class II protein complex</code> <code>MRO:0001356</code>)</li>
+<li>[ ] Coordinate <code>HUMAN/FUT2</code> and <code>ROTA/VP4</code>, <code>ROTA/VP7</code>, <code>ROTA/NSP4</code> gene reviews in <code>~/repos/ai-gene-review</code> alongside <code>Rotaviral_Enteritis.yaml</code></li>
+<li>[x] Create <code>kb/modules/polysaccharide_conjugate_t_dependent_switching.yaml</code>, <code>kb/modules/vaccine_induced_mucosal_iga_neutralization.yaml</code>, and <code>kb/modules/toxoid_neutralizing_humoral_immunity.yaml</code> and wire <code>conforms_to</code> across 10 VPD entries</li>
+<li>[ ] Prototype optional <code>pathogen_genes</code> (<code>uniprot:</code> CURIE) support in <code>src/dismech/schema/model.yaml</code> and <code>src/dismech/ingest/genes.py</code> so viral antigen targets join directly to <code>ai-gene-review</code></li>
+</ul>
+<h1 id="notes">NOTES</h1>
+<h2 id="useful-commands">Useful Commands</h2>
+<pre><code class="language-bash"># Validate a disorder entry after adding vaccine target_mechanisms
+just validate kb/disorders/Rotaviral_Enteritis.yaml
+
+# Verify term labels against NCIT / HGNC / GO caches
+just validate-terms-file kb/disorders/Rotaviral_Enteritis.yaml
+
+# Rebuild browser + project pages
+just render-projects
+</code></pre>
+        </article>
+    </div>
+</body>
+</html>

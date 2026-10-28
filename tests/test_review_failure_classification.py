@@ -139,3 +139,32 @@ def test_max_turns_is_checked_before_quota_markers():
     phrasing like "turn limit reached" would otherwise match LIMIT_MARKERS."""
     pos = _branch_positions()
     assert pos["max_turns"] < pos["limit"]
+
+
+def test_a_clean_run_that_posts_no_review_fails_the_job():
+    """A clean agent result is not a published verdict (PR #15393).
+
+    Three runs there ended ``subtype=success`` with real turns and cost and
+    submitted no review. The verify step only inspects ``is_error``, so the
+    job went green, and retry-reviews never revisits a green run. A later step
+    has to ask GitHub for the review itself, timed from before the agent ran.
+    """
+    steps = safe_load_path(WORKFLOW)["jobs"]["claude-review"]["steps"]
+    names = [s.get("name", "") for s in steps]
+    start = names.index("Record review start time")
+    agent = names.index("Run Claude Code Review")
+    verify = next(i for i, n in enumerate(names) if n.startswith("Verify"))
+    check = names.index("Check a review verdict was published")
+    assert start < agent < verify < check
+
+    step = steps[check]
+    assert step["env"]["STARTED_AT"] == "${{ steps.review-start.outputs.at }}"
+    assert "/reviews" in step["run"]
+    assert "submitted_at >= " in step["run"]
+    assert "exit 1" in step["run"]
+
+
+def test_background_tasks_are_disabled_for_the_review_agent():
+    steps = safe_load_path(WORKFLOW)["jobs"]["claude-review"]["steps"]
+    agent = next(s for s in steps if s.get("name") == "Run Claude Code Review")
+    assert agent["env"]["CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"] == "1"
