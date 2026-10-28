@@ -15,6 +15,8 @@ import importlib
 import json
 import logging
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -73,13 +75,8 @@ def test_render_category_cache_follows_the_working_directory(
 ):
     """A memoised reader must not keep serving the first checkout's file."""
     from dismech import render
-    from dismech.export import browser_export
 
     monkeypatch.delenv(rr.ENV_VAR, raising=False)
-    # render resolves this path through browser_export, so a value an earlier
-    # test's monkeypatch left on either module would shadow the lazy lookup.
-    monkeypatch.delitem(vars(render), "_HPO_CATEGORY_CACHE_PATH", raising=False)
-    monkeypatch.delitem(vars(browser_export), "HPO_CATEGORY_CACHE_PATH", raising=False)
     for name, category in (("one", "Growth"), ("two", "Nervous System")):
         root = _make_tree(tmp_path / name)
         (root / "app").mkdir()
@@ -113,16 +110,75 @@ def test_render_category_cache_follows_the_working_directory(
     ],
 )
 def test_module_paths_follow_the_working_directory(
-    tree: Path, module: str, attribute: str, relative: str, monkeypatch
+    tree: Path, module: str, attribute: str, relative: str
 ):
-    mod = importlib.import_module(module)
-    # An earlier test in the same worker that monkeypatched this constant leaves
-    # the restored value behind as a plain module attribute, which shadows the
-    # lazy lookup. Drop it for this test so the lazy path is what is checked.
-    if attribute in vars(mod):
-        monkeypatch.delitem(vars(mod), attribute)
-    value = getattr(mod, attribute)
+    value = getattr(importlib.import_module(module), attribute)
     assert value == tree / relative
+
+
+def test_monkeypatch_undo_leaves_a_lazy_name_behind_until_cleared(
+    tree: Path, tmp_path: Path
+):
+    """Pins the pytest behaviour behind #15396 and the fix ``conftest`` applies.
+
+    Undoing a ``monkeypatch.setattr`` on a lazily served name writes the value
+    read before the patch into the module's ``__dict__``. Without
+    ``clear_all_overrides()`` that frozen value would shadow the lazy lookup for
+    every later test in the worker.
+    """
+    from dismech.export import browser_export
+
+    name = "HPO_CATEGORY_CACHE_PATH"
+    patch = pytest.MonkeyPatch()
+    patch.setattr(browser_export, name, tmp_path / "patched.json")
+    patch.undo()
+    assert name in vars(browser_export)
+
+    rr.LazyRepoPaths.clear_all_overrides()
+    assert name not in vars(browser_export)
+    assert browser_export.HPO_CATEGORY_CACHE_PATH == (
+        tree / "app" / "hpo_category_cache.json"
+    )
+
+
+def test_no_lazy_name_is_left_on_any_module_when_a_test_starts():
+    """The autouse fixture in ``conftest`` clears leftovers before each test."""
+    for paths in rr.LazyRepoPaths._instances:
+        module = importlib.import_module(paths._module_name)
+        leftover = set(paths._factories) & set(vars(module))
+        assert not leftover, f"{paths._module_name}: {sorted(leftover)}"
+
+
+def test_no_module_assigns_a_lazy_name_at_import():
+    """A declared name assigned at import would make its factory dead code.
+
+    The autouse fixture pops such an assignment before every test, so this is
+    checked in a fresh interpreter that no fixture has touched.
+    """
+    modules = sorted(
+        ".".join(path.relative_to(SRC_DIR.parent).with_suffix("").parts)
+        for path in SRC_DIR.rglob("*.py")
+        if path.name != "repo_root.py"
+        and "LazyRepoPaths(" in path.read_text(encoding="utf-8")
+    )
+    assert modules, "no module declares LazyRepoPaths"
+    script = (
+        "import importlib, sys\n"
+        "from dismech.repo_root import LazyRepoPaths\n"
+        f"for name in {modules!r}:\n"
+        "    importlib.import_module(name)\n"
+        "for paths in LazyRepoPaths._instances:\n"
+        "    module = sys.modules[paths._module_name]\n"
+        "    for name in sorted(set(paths._factories) & set(vars(module))):\n"
+        "        print(f'{paths._module_name}.{name}')\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout == "", f"assigned at import:\n{result.stdout}"
 
 
 @pytest.mark.parametrize(

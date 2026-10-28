@@ -21,7 +21,7 @@ import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 logger = logging.getLogger(__name__)
 
@@ -102,11 +102,22 @@ class LazyRepoPaths:
     Code inside the module reads ``_PATHS.get("DEFAULT_CACHE_DIR")``; a bare
     global would raise ``NameError``. A value assigned onto the module (as
     ``monkeypatch.setattr`` does) takes precedence over the factory.
+
+    That precedence outlives the patch: ``monkeypatch`` undoes a patch by
+    assigning the value it read beforehand, so the name stays in the module's
+    ``__dict__``, frozen to whichever tree was current then, and the lazy
+    lookup is never consulted again in that process (#15396).
+    ``clear_all_overrides()`` drops such leftovers; ``tests/conftest.py`` calls
+    it around every test.
     """
+
+    #: Every instance, so the test suite can clear leftovers across modules.
+    _instances: ClassVar[list[LazyRepoPaths]] = []
 
     def __init__(self, module_name: str, **factories: Callable[[Path], Any]):
         self._module_name = module_name
         self._factories = factories
+        LazyRepoPaths._instances.append(self)
 
     def get(self, name: str) -> Any:
         module = sys.modules.get(self._module_name)
@@ -120,3 +131,16 @@ class LazyRepoPaths:
         if name in self._factories:
             return self._factories[name](repo_root())
         raise AttributeError(f"module {self._module_name!r} has no attribute {name!r}")
+
+    def clear_overrides(self) -> None:
+        """Remove any declared name assigned onto the module, restoring the lazy lookup."""
+        module = sys.modules.get(self._module_name)
+        if module is not None:
+            for name in self._factories:
+                vars(module).pop(name, None)
+
+    @classmethod
+    def clear_all_overrides(cls) -> None:
+        """``clear_overrides()`` on every instance."""
+        for paths in cls._instances:
+            paths.clear_overrides()
