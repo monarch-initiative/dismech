@@ -380,9 +380,12 @@ mechanism-level rather than disease-level.
 
   Two corrections to the question's own framing came out of the same work, and
   both are recorded above: bundling two drug classes into one treatment does not
-  block conformance when the agents are bound separately, so three of the four
-  blocked cases were never bundling problems; and what does block it is a
-  *generic* agent term covering more than one class.
+  block conformance when the agents are bound separately, so five of the six
+  entries the question listed as blocked -- the four mastocytosis entries and
+  `Cough_Variant_Asthma` -- were never bundling problems at all; and the sixth,
+  `Chronic_Obstructive_Pulmonary_Disease`, was blocked by a *generic* agent term
+  covering more than one class rather than by bundling as such, which is what
+  actually blocks conformance.
 
 ## Deferred follow-ups
 
@@ -508,5 +511,5 @@ they are not lost. None blocks anything.
   bundling premise above — it is module scope, and the remedy is either a second
   H2 module scoped to mediator-release symptoms or a widening of the existing
   one's effector arms. Both options cross the one-receptor-one-direction rule in
-  the same way the tissue question below does, which is a reason to decide them
+  the same way the tissue question above does, which is a reason to decide them
   together.
