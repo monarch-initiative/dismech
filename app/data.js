@@ -82301,6 +82301,94 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Cataract 21 Multiple Types",
+    "disease_id": "MONDO:0012437",
+    "category": "Mendelian",
+    "parents": [
+      "Early-onset non-syndromic cataract"
+    ],
+    "creation_date": "2026-10-27T14:55:25Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant, usually non-syndromic early-onset cataract caused by heterozygous variants in MAF, which encodes c-MAF, a large-MAF basic leucine zipper (bZIP) transcription factor that drives crystallin gene expression and lens fiber cell differentiation. Disease alleles are almost all missense changes in the C-terminal DNA-binding domain (extended homology region, basic region and leucine zipper), inherited dominantly or arising de novo; the first family carried R288P, and a balanced and unbalanced t(5;16)(p15.3;q23.2) translocation that transects the MAF genomic-control domain has also been reported. Cataract morphology is unusually varied, even within one family: pulverulent (cortical or nuclear), cerulean, nuclear, lamellar and total opacities are all described, with onset from birth to juvenile age and variable progression. Microcornea and, less often, iris coloboma accompany the cataract in some relatives, and the translocation family also had anterior segment dysgenesis and microphthalmia. In reporter assays the disease alleles reduce MAF transactivation of crystallin and non-crystallin lens genes to different degrees, and Maf-deficient mice fail to elongate and differentiate lens fiber cells. The allelic Ayme-Gripp syndrome, caused by MAF transactivation-domain variants that impair GSK3 phosphorylation, adds hearing loss, seizures and developmental delay. Management is surgical lens extraction with optical and amblyopia care.",
+    "pathophysiology": [
+      "Pathogenic MAF Variant",
+      "Mutant MAF Sequestration in Nuclear Foci",
+      "Impaired MAF Transactivation of Crystallin and Lens Genes",
+      "Defective Lens Fiber Cell Differentiation",
+      "Lens Cell Oxidative Stress and Apoptosis",
+      "Lens Opacification",
+      "Abnormal Anterior Segment Development"
+    ],
+    "cell_types": [
+      "lens fiber cell",
+      "lens epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011004",
+      "CL:0002224"
+    ],
+    "biological_processes": [
+      "lens fiber cell differentiation",
+      "intrinsic apoptotic signaling pathway",
+      "maintenance of lens transparency",
+      "camera-type eye morphogenesis"
+    ],
+    "phenotypes": [
+      "Developmental cataract",
+      "Pulverulent cataract",
+      "Cerulean cataract",
+      "Nuclear cataract",
+      "Lamellar cataract",
+      "Microcornea",
+      "Iris coloboma",
+      "Ocular anterior segment dysgenesis",
+      "Peters anomaly",
+      "Microphthalmia",
+      "Glaucoma",
+      "Amblyopia",
+      "Esotropia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000519",
+      "HP:0010693",
+      "HP:0007976",
+      "HP:0100018",
+      "HP:0007971",
+      "HP:0000482",
+      "HP:0000612",
+      "HP:0007700",
+      "HP:0000659",
+      "HP:0000568",
+      "HP:0000501",
+      "HP:0000646",
+      "HP:0000565"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MAF"
+    ],
+    "treatments": [
+      "Cataract Surgery"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cataract_21_Multiple_Types.yaml",
+    "page_url": "../pages/disorders/Cataract_21_Multiple_Types.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Cataract 2, Multiple Types",
     "disease_id": "MONDO:0100436",
     "category": "Mendelian",
@@ -93568,12 +93656,8 @@ window.searchData = [
       "1p36 Terminal Deletion",
       "Haploinsufficiency of 1p36 Genes"
     ],
-    "cell_types": [
-      "neuron"
-    ],
-    "cell_type_ids": [
-      "CL:0000540"
-    ],
+    "cell_types": [],
+    "cell_type_ids": [],
     "biological_processes": [],
     "phenotypes": [
       "Global Developmental Delay",
@@ -93645,7 +93729,7 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "2"
   },
   {
@@ -276673,6 +276757,7 @@ window.searchData = [
       "Neural Crest Developmental Arrest",
       "Norepinephrine Transporter (NET/SLC6A2) Expression",
       "MYCN-Driven Proliferation",
+      "Aurora A-Mediated N-Myc Protein Stabilization",
       "Extrachromosomal MYCN Amplicon Architecture",
       "ecDNA Oncogene Dosage Heterogeneity",
       "c-MYC Activation by Enhancer Hijacking or Enhancer Amplification",
@@ -276730,6 +276815,8 @@ window.searchData = [
       "cell differentiation",
       "norepinephrine uptake",
       "cell population proliferation",
+      "N-Myc protein stabilization",
+      "proteasomal degradation of N-Myc",
       "MYC gene expression",
       "polyamine biosynthetic process",
       "polyamine import from the extracellular microenvironment",
@@ -276840,7 +276927,8 @@ window.searchData = [
       "Adavosertib (WEE1 Inhibition)",
       "Isotretinoin (Retinoic Acid)",
       "Eflornithine (DFMO) Maintenance Therapy",
-      "131I-MIBG Therapy"
+      "131I-MIBG Therapy",
+      "Alisertib (Aurora A Inhibition)"
     ],
     "environmental": [],
     "biochemical": [
@@ -276850,10 +276938,10 @@ window.searchData = [
     "source_file": "Neuroblastoma.yaml",
     "page_url": "../pages/disorders/Neuroblastoma.html",
     "num_phenotypes": 16,
-    "num_pathophysiology": 37,
+    "num_pathophysiology": 38,
     "num_genes": 10,
-    "num_treatments": 12,
-    "causal_graph_edges": "62",
+    "num_treatments": 13,
+    "causal_graph_edges": "64",
     "causal_graph_longest_path": "7"
   },
   {
@@ -406811,17 +406899,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3772,
+  "total_disorder_pages": 3773,
   "total_subtypes": 4928,
-  "total_disorders_and_subtypes": 8700,
-  "total_unique_evidence_sources": 56115,
-  "total_unique_publications": 52444,
+  "total_disorders_and_subtypes": 8701,
+  "total_unique_evidence_sources": 56135,
+  "total_unique_publications": 52464,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3770,
-  "total_unique_pathological_events": 24800,
+  "total_pathographs": 3771,
+  "total_unique_pathological_events": 24807,
   "total_modules": 213,
-  "total_research_reports": 3889,
+  "total_research_reports": 3890,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 127
