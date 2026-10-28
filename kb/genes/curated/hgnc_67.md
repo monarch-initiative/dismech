@@ -20,7 +20,7 @@ g = gene("hgnc:67")
 
 ## Normal function
 
-In the ai-gene-review snapshot the KB ingests, ABCD3's core molecular functions are <span class="result" data-compare="names" data-code="g.core_function_terms('molecular_function')">ATPase-coupled transmembrane transporter activity; fatty acyl-CoA hydrolase activity; and long-chain fatty acid transmembrane transporter activity<span class="method"></span></span>, at the <span class="result" data-compare="names" data-code="g.core_function_terms('locations')">peroxisomal membrane<span class="method"></span></span>. The upstream review is being updated to use the more specific ABC-type fatty-acyl-CoA transporter term, which is the term the KB binds.
+ai-gene-review gives ABCD3's core molecular functions as <span class="result" data-compare="names" data-code="g.core_function_terms('molecular_function')">ABC-type fatty-acyl-CoA transporter activity; fatty acyl-CoA hydrolase activity; and long-chain fatty acid transmembrane transporter activity<span class="method"></span></span>, acting in <span class="result" data-compare="names" data-code="g.core_function_terms('directly_involved_in')">bile acid and bile salt transport; bile acid biosynthetic process; fatty acid beta-oxidation; long-chain fatty acid import into peroxisome; and phytanic acid metabolic process<span class="method"></span></span>, at the <span class="result" data-compare="names" data-code="g.core_function_terms('locations')">peroxisomal membrane<span class="method"></span></span>. The transporter activity and the thioesterase activity are the two halves of substrate handling at the membrane, feeding the beta-oxidation and bile-acid processes the disease entry turns on.
 
 ## Disease records
 
