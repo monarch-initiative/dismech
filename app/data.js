@@ -96253,7 +96253,8 @@ window.searchData = [
       "Cellular Senescence",
       "SIRT1-Mediated NAD+ Signaling and Protective Deacetylation",
       "Protease-Antiprotease Imbalance (MMP-2/TIMP-2 Axis)",
-      "Beta2 Agonist Occupancy of Airway Smooth Muscle Receptors"
+      "Beta2 Agonist Occupancy of Airway Smooth Muscle Receptors",
+      "Muscarinic Antagonist Occupancy of Airway M3 Receptors"
     ],
     "cell_types": [
       "Epithelial Cell",
@@ -96394,10 +96395,10 @@ window.searchData = [
     "source_file": "Chronic_Obstructive_Pulmonary_Disease.yaml",
     "page_url": "../pages/disorders/Chronic_Obstructive_Pulmonary_Disease.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 15,
+    "num_pathophysiology": 16,
     "num_genes": 7,
     "num_treatments": 13,
-    "causal_graph_edges": "26",
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "4"
   },
   {
@@ -288274,16 +288275,18 @@ window.searchData = [
     "updated_date": null,
     "subtypes": [
       "Classical neonatal nonketotic hyperglycinemia",
-      "Attenuated nonketotic hyperglycinemia"
+      "Attenuated nonketotic hyperglycinemia",
+      "GlyT1 encephalopathy"
     ],
-    "description": "Nonketotic hyperglycinemia (NKH), also known as glycine encephalopathy, is a rare autosomal recessive inborn error of glycine metabolism caused by deficient activity of the mitochondrial glycine cleavage system (GCS). The GCS normally catabolizes glycine via decarboxylation and transfers a one-carbon unit to tetrahydrofolate to form 5,10-methylene-THF, supporting serine-glycine-one-carbon (SGOC) metabolism. Mutations in GLDC, AMT, or less commonly GCSH disrupt this pathway, producing systemic and CNS glycine accumulation and downstream one-carbon deficits. The disease is characterized biochemically by elevated glycine in blood and cerebrospinal fluid with an increased CSF-to-plasma glycine ratio. Clinical presentation ranges from severe neonatal encephalopathy with intractable seizures, apnea, and profound hypotonia to attenuated forms with variable developmental delay and behavioral phenotypes. Worldwide incidence is estimated at approximately 1 in 76,000, with higher prevalence in certain populations such as northern Finland (1 in 12,000).\n",
+    "description": "Nonketotic hyperglycinemia (NKH), also known as glycine encephalopathy, is a rare autosomal recessive inborn error of glycine metabolism caused by deficient activity of the mitochondrial glycine cleavage system (GCS). The GCS normally catabolizes glycine via decarboxylation and transfers a one-carbon unit to tetrahydrofolate to form 5,10-methylene-THF, supporting serine-glycine-one-carbon (SGOC) metabolism. Mutations in GLDC, AMT, or less commonly GCSH disrupt this pathway, producing systemic and CNS glycine accumulation and downstream one-carbon deficits. The disease is characterized biochemically by elevated glycine in blood and cerebrospinal fluid with an increased CSF-to-plasma glycine ratio. Clinical presentation ranges from severe neonatal encephalopathy with intractable seizures, apnea, and profound hypotonia to attenuated forms with variable developmental delay and behavioral phenotypes. Worldwide incidence is estimated at approximately 1 in 76,000, with higher prevalence in certain populations such as northern Finland (1 in 12,000). A rarer form, GlyT1 encephalopathy, is caused by biallelic loss-of-function variants in the glycine transporter gene SLC6A9 rather than in the cleavage system; it presents at birth with arthrogryposis, hypotonia and respiratory failure, and shows raised CSF glycine with normal serum glycine.\n",
     "pathophysiology": [
       "Glycine cleavage system dysfunction",
       "Systemic and CNS glycine accumulation",
       "Serine-glycine-one-carbon metabolic disruption",
       "NMDA receptor dysregulation and neurotransmission imbalance",
       "Altered glial lineage differentiation in GLDC-deficient neural progenitors",
-      "GCSH variant-driven lipoylation defects and bioenergetic failure"
+      "GCSH variant-driven lipoylation defects and bioenergetic failure",
+      "GlyT1 glycine transporter loss of function"
     ],
     "cell_types": [
       "astrocyte",
@@ -288303,7 +288306,8 @@ window.searchData = [
       "folic acid metabolic process",
       "glutamate receptor signaling pathway",
       "astrocyte differentiation",
-      "protein lipoylation"
+      "protein lipoylation",
+      "glycine transport"
     ],
     "phenotypes": [
       "Seizures",
@@ -288317,7 +288321,8 @@ window.searchData = [
       "EEG with burst suppression",
       "Attention deficit hyperactivity disorder",
       "Neonatal respiratory distress",
-      "Recurrent singultus"
+      "Recurrent singultus",
+      "Arthrogryposis multiplex congenita"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
@@ -288338,7 +288343,8 @@ window.searchData = [
       "HP:0010851",
       "HP:0007018",
       "HP:0002643",
-      "HP:0100247"
+      "HP:0100247",
+      "HP:0002804"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -288348,7 +288354,8 @@ window.searchData = [
     "genes": [
       "GLDC pathogenic variants",
       "AMT pathogenic variants",
-      "GCSH pathogenic variants (variant NKH)"
+      "GCSH pathogenic variants (variant NKH)",
+      "SLC6A9 pathogenic variants (GlyT1 encephalopathy)"
     ],
     "treatments": [
       "Sodium benzoate therapy",
@@ -288361,17 +288368,18 @@ window.searchData = [
     "environmental": [],
     "biochemical": [
       "Plasma glycine",
+      "Serum glycine in GlyT1 encephalopathy",
       "CSF glycine",
       "CSF-to-plasma glycine ratio",
       "D-serine"
     ],
     "source_file": "Nonketotic_Hyperglycinemia.yaml",
     "page_url": "../pages/disorders/Nonketotic_Hyperglycinemia.html",
-    "num_phenotypes": 12,
-    "num_pathophysiology": 6,
-    "num_genes": 3,
+    "num_phenotypes": 13,
+    "num_pathophysiology": 7,
+    "num_genes": 4,
     "num_treatments": 6,
-    "causal_graph_edges": "39",
+    "causal_graph_edges": "44",
     "causal_graph_longest_path": "6"
   },
   {
@@ -408794,15 +408802,15 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 3789,
-  "total_subtypes": 4935,
-  "total_disorders_and_subtypes": 8724,
-  "total_unique_evidence_sources": 56335,
-  "total_unique_publications": 52658,
+  "total_subtypes": 4936,
+  "total_disorders_and_subtypes": 8725,
+  "total_unique_evidence_sources": 56342,
+  "total_unique_publications": 52664,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 311,
   "total_pathographs": 3787,
-  "total_unique_pathological_events": 24923,
-  "total_modules": 213,
+  "total_unique_pathological_events": 24925,
+  "total_modules": 214,
   "total_research_reports": 3901,
   "total_classifications": 21,
   "total_comorbidities": 51,
