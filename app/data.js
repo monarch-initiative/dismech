@@ -66177,6 +66177,99 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "CACNA2D4-related Retinopathy",
+    "disease_id": "MONDO:0700244",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-10-27T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "RCD4"
+    ],
+    "description": "CACNA2D4-related retinopathy is a rare autosomal recessive inherited retinal disorder caused by biallelic loss-of-function variants in CACNA2D4, which encodes the alpha2delta-4 auxiliary subunit of the Cav1.4 L-type voltage-gated calcium channel at photoreceptor ribbon synapses. Loss of alpha2delta-4 reduces Cav1.4 channel abundance and calcium current at rod and cone terminals and so impairs glutamatergic signalling from photoreceptors to bipolar cells. Reported patients have a cone-dominant dysfunction with mildly to moderately reduced visual acuity, photophobia or light sensitivity, and a distinctive full-field electroretinogram in which light-adapted (cone) responses are most affected and the dark-adapted b-wave can be reduced relative to the a-wave. The original family was described as a slowly progressive cone dystrophy (retinal cone dystrophy 4, RCD4); in a later sibship one patient remained stable without retinal degeneration over 17 years of follow-up, and expression varied between the two siblings. Single reports of retinitis pigmentosa rest on weak genetic evidence. Only a few families are published; ClinGen counted over eight probands. Mouse knockouts show severe rod synapse failure and slow photoreceptor degeneration, which human patients largely do not show.",
+    "pathophysiology": [
+      "Biallelic CACNA2D4 Loss of Function",
+      "Reduced Cav1.4 Channel Abundance and Activity at Photoreceptor Terminals",
+      "Failure of Rod Ribbon Synapse Assembly",
+      "Reduced Photoreceptor-to-Bipolar Cell Synaptic Transmission",
+      "Ectopic Bipolar and Horizontal Cell Neurite Sprouting",
+      "Rod Internal Calcium Store Depletion",
+      "Photoreceptor Cell Loss"
+    ],
+    "cell_types": [
+      "photoreceptor cell",
+      "retinal rod cell",
+      "retinal cone cell",
+      "rod bipolar cell",
+      "ON-bipolar cell",
+      "cone retinal bipolar cell",
+      "retina horizontal cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000210",
+      "CL:0000604",
+      "CL:0000573",
+      "CL:0000751",
+      "CL:0000749",
+      "CL:0000752",
+      "CL:0000745"
+    ],
+    "biological_processes": [
+      "calcium ion transmembrane transport",
+      "synapse assembly",
+      "neurotransmitter secretion",
+      "glutamatergic synaptic transmission",
+      "endoplasmic reticulum calcium ion homeostasis",
+      "photoreceptor cell maintenance"
+    ],
+    "phenotypes": [
+      "Reduced Visual Acuity",
+      "Photophobia",
+      "Dyschromatopsia",
+      "Cone Dystrophy",
+      "Abnormal Light-Adapted Electroretinogram",
+      "Reduced Dark-Adapted b-Wave Relative to a-Wave",
+      "Rod-Cone Dystrophy",
+      "Foveal Hypoplasia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0007663",
+      "HP:0000613",
+      "HP:0007641",
+      "HP:0008020",
+      "HP:0008275",
+      "HP:0007984",
+      "HP:0000510",
+      "HP:0007750"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CACNA2D4"
+    ],
+    "treatments": [
+      "AAV CACNA2D4 Gene Supplementation (Preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CACNA2D4-related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/CACNA2D4-related_Retinopathy.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "CADASIL Type 1",
     "disease_id": "MONDO:0000914",
     "category": "Mendelian",
@@ -82466,6 +82559,81 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Cataract 31 Multiple Types",
+    "disease_id": "MONDO:0011547",
+    "category": "Mendelian",
+    "parents": [
+      "Early-onset non-syndromic cataract"
+    ],
+    "creation_date": "2026-10-27T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Non-syndromic early-onset cataract caused by heterozygous missense variants in CHMP4B, which encodes charged multivesicular body protein 4B, a core subunit of the ESCRT-III membrane remodeling and scission machinery. It is inherited as an autosomal dominant trait. The founding families had progressive childhood posterior subcapsular cataract (p.D129V, a white family) and progressive, disc-shaped posterior polar cataract (p.E161K, a four-generation Japanese family first mapped as CPP3 to 20p12-q12). Later single families carry p.H57R (posterior subcapsular), p.S196C (bilateral anterior subcapsular) and p.E161Q (congenital cataract), which is why the disease is labelled \"multiple types\". Truncated D129V protein inhibits release of virus-like particles in transfected cells and full-length D129V associates less with chromatin bridges and micronuclei, but how a dominant CHMP4B variant opacifies the lens is not established; heterozygous D129V knock-in mice have clear lenses.",
+    "pathophysiology": [
+      "CHMP4B Heterozygous Missense Variant",
+      "Impaired ESCRT-III Membrane Scission",
+      "Defective CHMP4B Association with Extranuclear Chromatin",
+      "Impaired Lens Fiber Cell Differentiation",
+      "Lens Light Scattering and Loss of Transparency"
+    ],
+    "cell_types": [
+      "lens epithelial cell",
+      "lens fiber cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002224",
+      "CL:0011004"
+    ],
+    "biological_processes": [
+      "viral budding via host ESCRT complex",
+      "membrane fission",
+      "autophagy",
+      "lens fiber cell differentiation",
+      "maintenance of lens transparency"
+    ],
+    "phenotypes": [
+      "Posterior subcapsular cataract",
+      "Posterior polar cataract",
+      "Progressive cataract",
+      "Anterior subcapsular cataract",
+      "Developmental cataract",
+      "Nystagmus",
+      "Posterior synechiae"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0007787",
+      "HP:0001115",
+      "HP:0007834",
+      "HP:0010923",
+      "HP:0000519",
+      "HP:0000639",
+      "HP:0011484"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CHMP4B"
+    ],
+    "treatments": [
+      "Cataract Surgery"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cataract_31_Multiple_Types.yaml",
+    "page_url": "../pages/disorders/Cataract_31_Multiple_Types.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Cataract 33",
     "disease_id": "MONDO:0012665",
     "category": "Mendelian",
@@ -82531,6 +82699,81 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "11",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Cataract 39, Multiple Types",
+    "disease_id": "MONDO:0014075",
+    "category": "Mendelian",
+    "parents": [
+      "Early-onset non-syndromic cataract"
+    ],
+    "creation_date": "2026-10-27T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Non-syndromic congenital cataract attributed to heterozygous variants in CRYGB, which encodes gamma-B crystallin, one of the monomeric beta-gamma crystallins of lens fiber cells. The human evidence is thin: the entity rests on one three-generation Kuwaiti family in which a frameshifting exon 2 deletion (g.167delC) was found in relatives with anterior polar cataract, an intron 1 deletion (g.67delG) in relatives with lamellar cataract, and both variants in a compound heterozygote with complete cataract. A curation of crystallin genes under ClinGen methods scored CRYGB as having only limited support, with the experimental evidence rather than the clinical evidence carrying it. That experimental evidence comes from mouse Crygb mutants. A truncating allele (Crygb nop) forms intranuclear amyloid-like inclusions in primary lens fiber cells; a missense allele (I4F, Clapper) is destabilized and binds alpha-crystallin into high-molecular-weight complexes, producing a lamellar cataract; and the S11R allele forms disulfide-crosslinked aggregates at fiber cell membranes, with loss of F-actin, raised lens calcium, crystallin degradation and degeneration of inner fiber cells, producing a dense nuclear cataract. Management is surgical lens extraction.",
+    "pathophysiology": [
+      "CRYGB Pathogenic Variant",
+      "Gamma-B Crystallin Misfolding and Destabilization",
+      "Cysteine Oxidation and Disulfide Crosslinking of Gamma-B Crystallin",
+      "Intranuclear Gamma-B Crystallin Inclusions in Primary Fiber Cells",
+      "Disorganization of Primary Lens Fiber Cells",
+      "Gamma-B Crystallin Binding to Alpha-Crystallin in High-Molecular-Weight Complexes",
+      "Lens Fiber Protein Aggregates and Enlarged Interfiber Spaces",
+      "Membrane-Associated Gamma-Crystallin Aggregates in Inner Fiber Cells",
+      "Loss of F-Actin in Inner Fiber Cells",
+      "Raised Lens Fiber Cell Calcium",
+      "Calcium-Dependent Crystallin Degradation",
+      "Inner Lens Fiber Cell Degeneration",
+      "Lens Light Scattering and Loss of Transparency"
+    ],
+    "cell_types": [
+      "lens fiber cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011004"
+    ],
+    "biological_processes": [
+      "protein folding",
+      "amyloid fibril formation",
+      "protein-containing complex assembly",
+      "actin filament organization",
+      "intracellular calcium ion homeostasis",
+      "proteolysis",
+      "maintenance of lens transparency"
+    ],
+    "phenotypes": [
+      "Developmental cataract",
+      "Lamellar cataract",
+      "Anterior polar cataract"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000519",
+      "HP:0007971",
+      "HP:0001134"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CRYGB"
+    ],
+    "treatments": [
+      "Cataract Surgery"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cataract_39_Multiple_Types.yaml",
+    "page_url": "../pages/disorders/Cataract_39,_Multiple_Types.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 13,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Cataract 40",
@@ -175148,7 +175391,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "4"
   },
   {
@@ -258060,6 +258303,105 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Microcephaly, Cataracts, Impaired Intellectual Development, and Dystonia with Abnormal Striatum",
+    "disease_id": "MONDO:0032656",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-27T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive syndrome described in four siblings of one consanguineous Saudi family, homozygous for the KCNA4 missense variant p.Arg89Gln. KCNA4 encodes Kv1.4, a rapidly inactivating (A-type) voltage-gated potassium channel. All four affected siblings had growth retardation, microcephaly, bilateral cataract, attention deficit hyperactivity disorder, impaired cognition (IQ 77-89), dystonia and an unusual MRI pattern of swollen caudate heads with thinned putamina; the neurological course was very slowly progressive. The variant reduces Kv1.4 whole-cell current in Xenopus oocytes. How a partial loss of Kv1.4 current produces the striatal and lens findings is not established. No second family has been reported, so every frequency in this entry comes from one sibship of four.",
+    "pathophysiology": [
+      "KCNA4 Loss of Function",
+      "Reduced Neuronal A-Type Potassium Current",
+      "Striatal Structural Abnormality",
+      "Loss of Lens Transparency"
+    ],
+    "cell_types": [
+      "neuron",
+      "lens fiber cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0011004"
+    ],
+    "biological_processes": [
+      "potassium ion transmembrane transport",
+      "maintenance of lens transparency"
+    ],
+    "phenotypes": [
+      "Congenital cataract",
+      "Glaucoma",
+      "Corneal opacity",
+      "Microcephaly",
+      "Growth delay",
+      "Motor delay",
+      "Intellectual disability",
+      "Attention deficit hyperactivity disorder",
+      "Delayed speech and language development",
+      "Dysarthria",
+      "Dystonia",
+      "Cogwheel rigidity",
+      "Hyperreflexia",
+      "Babinski sign",
+      "Spastic gait",
+      "Abnormal putamen morphology",
+      "Abnormal caudate nucleus morphology",
+      "Abnormal brain FDG positron emission tomography"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Growth",
+      "Neurological",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000519",
+      "HP:0000501",
+      "HP:0007957",
+      "HP:0000252",
+      "HP:0001510",
+      "HP:0001270",
+      "HP:0001249",
+      "HP:0007018",
+      "HP:0000750",
+      "HP:0001260",
+      "HP:0001332",
+      "HP:0002396",
+      "HP:0001347",
+      "HP:0003487",
+      "HP:0002064",
+      "HP:0031982",
+      "HP:0002339",
+      "HP:0012658"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "KCNA4"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Microcephaly_Cataracts_Impaired_Intellectual_Development_And_Dystonia_With_Abnormal_Striatum.yaml",
+    "page_url": "../pages/disorders/Microcephaly,_Cataracts,_Impaired_Intellectual_Development,_and_Dystonia_with_Abnormal_Striatum.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Microcephaly, Epilepsy, and Diabetes Syndrome 2",
     "disease_id": "MONDO:0025690",
     "category": "Mendelian",
@@ -276820,7 +277162,7 @@ window.searchData = [
       "MYC gene expression",
       "polyamine biosynthetic process",
       "polyamine import from the extracellular microenvironment",
-      "MAPK cascade",
+      "cell surface receptor protein tyrosine kinase signaling pathway",
       "antibody-dependent cellular cytotoxicity against neuroblastoma cells",
       "complement-dependent cytotoxicity against neuroblastoma cells",
       "antigen processing and presentation of endogenous peptide antigen via MHC class I on tumour cells",
@@ -364891,6 +365233,184 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Spinocerebellar Ataxia, Autosomal Recessive, With Axonal Neuropathy 3",
+    "disease_id": "MONDO:0020770",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Autosomal Recessive Cerebellar Ataxia",
+      "Hereditary Axonal Neuropathy"
+    ],
+    "creation_date": "2026-10-27T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spinocerebellar ataxia with axonal neuropathy type 3 (SCAN3) is an autosomal recessive mitochondrial disorder caused by biallelic loss-of-function variants in COA7, which encodes a metazoan-specific cytochrome c oxidase (complex IV) assembly factor of the mitochondrial intermembrane space. The core picture is an early-onset, slowly progressive axonal sensorimotor neuropathy resembling Charcot-Marie-Tooth disease combined with cerebellar ataxia and cerebellar atrophy. Leukoencephalopathy (cavitating in the first reported patient), spinal cord atrophy, mild cognitive impairment, subclinical mitochondrial myopathy, and, in a few patients, dystonia or levodopa-responsive parkinsonism make up a wider COA7-related spectrum; onset ranges from infancy to the fourth decade. Patient cells show isolated or predominant complex IV deficiency with reduced assembled complex IV that is rescued by wild-type COA7. Only a small number of patients, most of them Japanese, have been described.",
+    "pathophysiology": [
+      "Reduced Mitochondrial COA7 Protein",
+      "Loss of COA7 Disulfide Reductase Activity",
+      "Complex IV Assembly Stall After COX1 Module Formation",
+      "Deficient Cytochrome c Oxidase Electron Transfer and Respiration",
+      "Glycolytic Shift With Increased Lactate Production",
+      "Bioenergetic Failure in Energy-Demanding Neural and Muscle Tissue",
+      "Peripheral Nerve Bioenergetic Insult",
+      "Length-Dependent Peripheral Axonal Degeneration",
+      "Length-Dependent Sensorimotor Nerve Fiber Dysfunction",
+      "Cerebellar Neuron Bioenergetic Insult",
+      "Cerebellar Neurodegeneration",
+      "Cerebral White Matter Injury",
+      "Cerebral Neurodegeneration",
+      "Nigrostriatal Dopaminergic Terminal Loss",
+      "Striatal Dopamine Deficiency",
+      "Subclinical Mitochondrial Myopathy"
+    ],
+    "cell_types": [
+      "motor neuron",
+      "sensory neuron",
+      "Schwann cell",
+      "cerebellar neuron",
+      "dopaminergic neuron",
+      "skeletal muscle fibre"
+    ],
+    "cell_type_ids": [
+      "CL:0000100",
+      "CL:0000101",
+      "CL:0002573",
+      "CL:1001611",
+      "CL:0000700",
+      "CL:0000188"
+    ],
+    "biological_processes": [
+      "protein import into mitochondrial intermembrane space",
+      "proteasomal degradation of mislocalized COA7",
+      "mitochondrial respiratory chain complex IV assembly",
+      "mitochondrial electron transport, cytochrome c to oxygen",
+      "mitochondrial ATP synthesis coupled electron transport",
+      "lactate biosynthetic process",
+      "aerobic respiration",
+      "transmission of nerve impulse",
+      "synaptic transmission, dopaminergic"
+    ],
+    "phenotypes": [
+      "Progressive cerebellar ataxia",
+      "Peripheral axonal neuropathy",
+      "Decreased number of large peripheral myelinated nerve fibers",
+      "Distal muscle weakness",
+      "Distal amyotrophy",
+      "Distal sensory impairment",
+      "Hyporeflexia",
+      "Areflexia",
+      "Sensory ataxia",
+      "Steppage gait",
+      "Pes cavus",
+      "Cerebellar atrophy",
+      "Dysarthria",
+      "Intention tremor",
+      "Leukoencephalopathy",
+      "Cavitating leukodystrophy",
+      "Atrophy of the spinal cord",
+      "Cognitive impairment",
+      "Mild intellectual disability",
+      "Global developmental delay",
+      "Developmental regression",
+      "Lower limb spasticity",
+      "Cerebral atrophy",
+      "Parkinsonism",
+      "Dystonia",
+      "Respiratory failure",
+      "Feeding difficulties",
+      "Dysphagia",
+      "Vocal cord paralysis",
+      "Scoliosis",
+      "Decreased activity of mitochondrial complex IV",
+      "Decreased activity of mitochondrial complex I",
+      "Increased circulating lactate concentration",
+      "Increased CSF lactate",
+      "Increased circulating pyruvate concentration",
+      "Elevated circulating creatine kinase activity",
+      "Ragged-red muscle fibers",
+      "Cytochrome C oxidase-negative muscle fibers"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Neuromuscular",
+      "Musculoskeletal",
+      "Respiratory",
+      "Gastrointestinal",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cellular",
+      "Digestive",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0002073",
+      "HP:0003477",
+      "HP:0003387",
+      "HP:0002460",
+      "HP:0003693",
+      "HP:0002936",
+      "HP:0001265",
+      "HP:0001284",
+      "HP:0010871",
+      "HP:0003376",
+      "HP:0001761",
+      "HP:0001272",
+      "HP:0001260",
+      "HP:0002080",
+      "HP:0002352",
+      "HP:0033369",
+      "HP:0006827",
+      "HP:0100543",
+      "HP:0001256",
+      "HP:0001263",
+      "HP:0002376",
+      "HP:0002061",
+      "HP:0002059",
+      "HP:0001300",
+      "HP:0001332",
+      "HP:0002878",
+      "HP:0011968",
+      "HP:0002015",
+      "HP:0001605",
+      "HP:0002650",
+      "HP:0008347",
+      "HP:0011923",
+      "HP:0002151",
+      "HP:0002490",
+      "HP:0003542",
+      "HP:0003236",
+      "HP:0003200",
+      "HP:0003688"
+    ],
+    "frequencies": [],
+    "genes": [
+      "COA7"
+    ],
+    "treatments": [
+      "Levodopa",
+      "Deep Brain Stimulation",
+      "Baclofen",
+      "Protirelin Tartrate",
+      "Supportive Care and Orthoses"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spinocerebellar_Ataxia_Autosomal_Recessive_With_Axonal_Neuropathy_3.yaml",
+    "page_url": "../pages/disorders/Spinocerebellar_Ataxia,_Autosomal_Recessive,_With_Axonal_Neuropathy_3.html",
+    "num_phenotypes": 38,
+    "num_pathophysiology": 16,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "60",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Spinocerebellar Ataxia Type 1",
     "disease_id": "MONDO:0008119",
     "category": "Mendelian",
@@ -406899,17 +407419,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3773,
-  "total_subtypes": 4928,
-  "total_disorders_and_subtypes": 8701,
-  "total_unique_evidence_sources": 56135,
-  "total_unique_publications": 52464,
+  "total_disorder_pages": 3778,
+  "total_subtypes": 4929,
+  "total_disorders_and_subtypes": 8707,
+  "total_unique_evidence_sources": 56183,
+  "total_unique_publications": 52511,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 310,
-  "total_pathographs": 3771,
-  "total_unique_pathological_events": 24807,
+  "total_pathographs": 3776,
+  "total_unique_pathological_events": 24845,
   "total_modules": 213,
-  "total_research_reports": 3890,
+  "total_research_reports": 3895,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 127
