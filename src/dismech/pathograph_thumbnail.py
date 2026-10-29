@@ -43,6 +43,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from dismech.graph import CausalGraph
+from dismech.qc_plugins import CAUSAL_PREDICATES
 
 UPSTREAM_TYPES = frozenset({"genetic", "environmental", "pathophysiology"})
 OUTCOME_TYPES = frozenset({"biochemical", "phenotype"})
@@ -160,7 +161,9 @@ def _order_columns(
         for col in order if sweep % 2 == 0 else reversed(order):
             nodes = columns[col]
 
-            def barycentre(node: str) -> float:
+            def barycentre(
+                node: str, col: int = col, nodes: list[str] = nodes
+            ) -> float:
                 rel = [
                     position[x] / max(len(columns[column_of[x]]), 1)
                     for x in neighbours[node]
@@ -205,7 +208,17 @@ def render_thumbnail(
     ]
 
     connected = {node for edge in core_edges for node in edge}
-    explained = {target for _, target in core_edges}
+    # Same rule as qc_plugins.causal_inlink_coverage (the compliance gate and
+    # `just list-disconnected-phenotypes`): readout and non-causal environmental
+    # edges are drawn, but do not count a phenotype as connected.
+    explained = {
+        e.target
+        for e in graph.edges
+        if e.predicate in CAUSAL_PREDICATES
+        and e.source in core
+        and e.target in core
+        and e.source != e.target
+    }
     loose = sorted(n for n in core if n not in connected and core[n] in OUTCOME_TYPES)
     upstream = [n for n in core if core[n] in UPSTREAM_TYPES]
     outcomes = [n for n in core if core[n] in OUTCOME_TYPES and n in connected]
@@ -253,10 +266,12 @@ def render_thumbnail(
     height = loose_y + ((-(-len(loose) // per_row)) * 7 + 6 if loose else 0)
 
     parts = [
-        f'<svg class="pathograph-thumbnail" viewBox="0 0 {width} {height:.0f}" '
-        'xmlns="http://www.w3.org/2000/svg" role="img" '
-        f'aria-label="Pathograph thumbnail: {len(xy)} connected nodes, '
-        f'{len(loose)} unconnected outcomes">'
+        (
+            f'<svg class="pathograph-thumbnail" viewBox="0 0 {width} {height:.0f}" '
+            'xmlns="http://www.w3.org/2000/svg" role="img" '
+            f'aria-label="Pathograph thumbnail: {len(xy)} connected nodes, '
+            f'{len(loose)} unconnected outcomes">'
+        )
     ]
     parts.append(f'<g fill="none" stroke="{EDGE_COLOR}" stroke-width="0.8">')
     for source, target in core_edges:

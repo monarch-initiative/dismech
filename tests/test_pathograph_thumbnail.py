@@ -55,6 +55,26 @@ def test_thumbnail_counts(thumbnail) -> None:
     assert thumbnail.unconnected == 1  # Rash has no edge
 
 
+def test_connected_count_matches_the_causal_inlink_metric() -> None:
+    """A readout-only phenotype is drawn but not counted as connected (#11935)."""
+    from dismech.qc_plugins import causal_inlink_coverage
+
+    disorder = {
+        "name": "Readout Disorder",
+        "pathophysiology": [
+            {"name": "Mechanism", "downstream": [{"target": "Pain"}]},
+        ],
+        "phenotypes": [
+            {"name": "Pain"},
+            {"name": "Lab finding", "reports_on": [{"target": "Mechanism"}]},
+        ],
+    }
+    thumb = render_thumbnail(build_causal_graph(disorder))
+    connected, total, _ = causal_inlink_coverage(disorder)
+    assert (thumb.phenotypes_connected, thumb.phenotypes) == (connected, total)
+    assert thumb.phenotypes_connected == 1
+
+
 def test_thumbnail_has_no_visible_text(thumbnail) -> None:
     """Names appear only as hover titles, never as drawn labels."""
     assert "<text" not in thumbnail.svg
