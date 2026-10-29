@@ -21,6 +21,7 @@ diseases:
 - Parkinsons_Disease
 - Migraine
 - Migraine_with_Aura
+- Familial_Hemiplegic_Migraine
 - pseudotumor_cerebri
 - Restless_Legs_Syndrome
 - Peripartum_Cardiomyopathy
@@ -69,6 +70,7 @@ modules:
 - h2_receptor_antagonism
 - beta2_adrenergic_receptor_agonism
 - muscarinic_receptor_antagonism
+- migraine_neurovascular_mechanism
 ---
 
 # GPCRs: Drug Mechanisms and Disease Modules
@@ -305,6 +307,13 @@ mechanism-level rather than disease-level.
         `muscarinic_receptor_antagonism`, at the trigger. It is the second receptor
         occupancy node in that entry, alongside the beta2 one from #15777, which is the
         point of keeping the two modules separate
+  - [x] Nine nodes across the three migraine entries, in #15934: `Migraine` at four,
+        `Familial_Hemiplegic_Migraine` at three and `Migraine_with_Aura` at two, against
+        `migraine_neurovascular_mechanism`. This one adds no nodes at all — every node it
+        conforms was already in the entry, which is what makes it the cheapest kind of
+        conformance and the clearest demonstration of what conformance is for: the three
+        entries had modelled the same chain under different names, and nothing could compare
+        them until the module existed
 - [ ] Remaining Workstream A modules
   - [x] D2 receptor antagonism — `d2_receptor_antagonism` (#15299)
   - [x] AT1 receptor blockade — `at1_receptor_blockade` (#15271)
@@ -320,11 +329,14 @@ mechanism-level rather than disease-level.
   - [ ] P2Y12 receptor antagonism
   - [ ] V2 receptor antagonism
   - [ ] MC4R agonism
-  - [ ] migraine neurovascular mechanism — a *disease* module, not a drug one, factoring
-        the cortical spreading depolarization → trigeminovascular activation → central
-        sensitization chain out of `Migraine`, `Migraine_with_Aura` and
-        `Familial_Hemiplegic_Migraine`, which currently each re-derive it. Added from the
-        resolution of the CGRP open question below
+  - [x] migraine neurovascular mechanism — `migraine_neurovascular_mechanism` (#15934). A
+        *disease* module, not a drug one, factoring the cortical spreading depolarization →
+        trigeminovascular activation → central sensitization chain out of `Migraine`,
+        `Migraine_with_Aura` and `Familial_Hemiplegic_Migraine`, which each re-derived it under
+        different node namings. Added from the resolution of the CGRP open question below. It
+        carries no treatments block: the migraine pharmacology is already in
+        `serotonin_1b_1d_receptor_agonism` and `cgrp_receptor_antagonism`, which all three
+        entries reach through their own `therapeutic_vulnerability` nodes
 - [ ] Gs alpha defect module
 
 ## Decisions
