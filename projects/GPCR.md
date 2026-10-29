@@ -335,8 +335,13 @@ mechanism-level rather than disease-level.
         `Migraine_with_Aura` and `Familial_Hemiplegic_Migraine`, which each re-derived it under
         different node namings. Added from the resolution of the CGRP open question below. It
         carries no treatments block: the migraine pharmacology is already in
-        `serotonin_1b_1d_receptor_agonism` and `cgrp_receptor_antagonism`, which all three
-        entries reach through their own `therapeutic_vulnerability` nodes
+        `serotonin_1b_1d_receptor_agonism` and `cgrp_receptor_antagonism`, and the conformers
+        that use those drugs reach them through their own `therapeutic_vulnerability` nodes.
+        `Migraine` conforms to both, `Migraine_with_Aura` to the 5-HT1B/1D module only, and
+        `Familial_Hemiplegic_Migraine` to neither, because triptans and ergots are
+        contraindicated there for their vasoconstrictive effects. That last case is a second
+        reason the shared module carries no drug arm: it would attach a therapy to a conformer
+        that must avoid it
 - [ ] Gs alpha defect module
 
 ## Decisions
