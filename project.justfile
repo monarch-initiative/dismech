@@ -3533,8 +3533,10 @@ validate-research-terms +args:
 # Verdicts: PASS / WARN (contamination or OMIM mismatch) / FAIL (wrong entity —
 # discard the report, do not cherry-pick) / SKIP (MONDO records no causal gene).
 # Exits non-zero on FAIL, or on WARN too with --strict.
-# Needs the local MONDO build (`just fetch-ontology-dbs mondo`); exits 2 rather
-# than downloading it when absent (#12687). --no-hgnc also avoids the HGNC build.
+# Reads MONDO from the local build when present, otherwise from OLS (#15436);
+# never downloads the build, and exits 2 only when OLS is unreachable too
+# (#12687). Without hgnc.db it skips the HGNC lexicon (as --no-hgnc does) rather
+# than downloading it; `just fetch-ontology-dbs hgnc` gives the sharper lexicon.
 # Examples:
 #   just preflight-dr research/Marfan_Syndrome-deep-research-falcon.md MONDO:0007947
 #   just preflight-dr research/Foo-deep-research-falcon.md MONDO:0014572 --strict

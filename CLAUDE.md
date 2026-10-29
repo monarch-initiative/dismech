@@ -4420,6 +4420,16 @@ up from ones you do. That half is irreducibly a descendant query and still
 needs the local build. Before reaching for the build, ask which direction the
 question actually runs in.
 
+Facts about a single term need no closure at all, and OLS serves them too: its
+v2 entity endpoint returns a term's `RO:0004003` restrictions, `hasDbXref`
+values and exact synonyms in one request. `dismech.mondo_ols` reads them, so
+`just preflight-dr` and `dismech.research_anchors` use the local build when it
+is present and OLS otherwise, and the preflight names its source in a
+`MONDO source` line (#15436). The reverse question, which MONDO diseases a gene
+causes, is a per-gene query OLS cannot answer: over OLS the preflight reports
+that lookup as not run, so a never-named canonical gene with a matching OMIM
+citation stays `WARN` rather than being raised to `FAIL`.
+
 **Not everything that opens a build is a bug, so check before adding a guard.**
 `compare/mondo_export._materialize_default_mondo_db` opens `sqlite:obo:mondo` to
 download it on purpose — that is a CLI whose job is to export MONDO, and its own
@@ -4432,8 +4442,11 @@ ontology.
 `preflight_dr.open_mondo_adapter` (`just preflight-dr`) reads MONDO's
 `RO:0004003` causal gene and OMIM xrefs, which *are* the check, so there is no
 degradation path: an empty record would read as "MONDO records no causal gene"
-and come out as `SKIP`. With no local `mondo.db` it exits 2 naming
-`just fetch-ontology-dbs mondo`, before the HGNC lexicon is built (#12687).
+and come out as `SKIP`. With no local `mondo.db` and OLS unreachable as well, it
+exits 2 naming `just fetch-ontology-dbs mondo`, before the HGNC lexicon is built
+(#12687). HGNC only sharpens the check, so it degrades instead: without
+`hgnc.db` the lexicon and alias lookups are skipped as with `--no-hgnc`, with a
+note naming `just fetch-ontology-dbs hgnc`.
 
 **The `phenoagent` one is the case that shows why the two-guard rule exists.**
 Its tests are what actually pulled `hp.db` in the fast lane, and 21 of them
