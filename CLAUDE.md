@@ -332,7 +332,13 @@ correlates with being a grouping rather than with being worth curating
 (`already_curated`, `obsolete_term`), so the pool never offers a disease the KB
 already holds by MONDO ID; `--include-stale` puts them back. Other `check-stubs`
 advisories, such as `possible_kb_duplicate`, keep the stub in the pool and are
-printed beside it, and in `--json` as `advisories`. The check needs every KB
+printed beside it, and in `--json` as `advisories`. An advisory about a MONDO
+merge names the successor beside its kind (`obsolete_term_replaced ->
+MONDO:0980711`) and as `successor` in `--json`. `successor_already_stubbed`
+marks a stub whose successor already has its own stub: fold the two by hand
+rather than repointing, which would only make a duplicate ID (#15853). Both
+read the committed enrichment markers, so they are only as fresh as the last
+`just enrich-stubs`. The check needs every KB
 entry's MONDO IDs and labels; parsing them takes about half a minute, so the
 derived index persists in the gitignored `tmp/stub_coverage_index.json` and a
 warm run takes about a second and a half (#11616, #15116). Bump

@@ -159,7 +159,10 @@ def next_command(
     out, because `tidy` would delete them and nobody should claim one in the
     meantime. Every other advisory `check` raises on a stub, such as
     `possible_kb_duplicate`, keeps it in the pool and is printed beside it, so
-    the lump/split call is made before the claim rather than after.
+    the lump/split call is made before the claim rather than after. A finding
+    that points at a MONDO successor (`REPOINT_KINDS`, and
+    `successor_already_stubbed`) names it beside the kind and as `successor` in
+    `--json`, so nobody claims a disease under the identifier it is leaving.
     """
     # Read the claims first, so a missing file fails before the slow KB walk.
     claimed = _load_claim_index(claims_path)
@@ -205,8 +208,7 @@ def next_command(
                         if s.path.is_relative_to(Path.cwd())
                         else str(s.path),
                         "advisories": [
-                            {"kind": i.kind, "message": i.message}
-                            for i in advisories.get(s.path, [])
+                            _advisory_record(i) for i in advisories.get(s.path, [])
                         ],
                         **{
                             key: s.data[key]
@@ -232,7 +234,16 @@ def next_command(
         typer.echo(line)
         typer.echo(f"       {stub.path.name}")
         for issue in advisories.get(stub.path, []):
-            typer.echo(f"       [advisory] {issue.kind}: {issue.message}")
+            arrow = f" -> {issue.successor}" if issue.successor else ""
+            typer.echo(f"       [advisory] {issue.kind}{arrow}: {issue.message}")
+
+
+def _advisory_record(issue) -> dict:
+    """One `--json` advisory. `successor` appears only when the finding has one."""
+    record = {"kind": issue.kind, "message": issue.message}
+    if issue.successor:
+        record["successor"] = issue.successor
+    return record
 
 
 def _read_json_arg(path: str | None):
@@ -350,6 +361,11 @@ STALE_KINDS = ("already_curated", "obsolete_term")
 #: rather than a deletion.
 REPOINT_KINDS = ("obsolete_term_replaced", "obsoletion_candidate")
 
+#: A stub whose MONDO successor already has a stub of its own. Repointing it
+#: would collide with that stub, so the remedy is to fold the two by hand; `tidy`
+#: lists these and, as with `REPOINT_KINDS`, deletes nothing.
+FOLD_KINDS = ("successor_already_stubbed",)
+
 
 @app.command("tidy")
 def tidy_command(
@@ -367,7 +383,19 @@ def tidy_command(
     """
     findings = check_stubs(stub_dir)
     stale = [i for i in findings if i.kind in STALE_KINDS]
-    repoint = [i for i in findings if i.kind in REPOINT_KINDS]
+    fold = [i for i in findings if i.kind in FOLD_KINDS]
+    # A stub to fold is not also listed as one to repoint: repointing it at a
+    # successor that already has a stub would only create a duplicate ID.
+    folding = {i.path for i in fold}
+    repoint = [i for i in findings if i.kind in REPOINT_KINDS and i.path not in folding]
+    if fold:
+        typer.echo(
+            f"duplicates a stub for its MONDO successor ({len(fold)}) — fold the "
+            "two by hand, then delete this one:"
+        )
+        for issue in fold:
+            typer.echo(f"  {issue.format()}")
+        typer.echo("")
     if repoint:
         typer.echo(
             f"needs a repointed `mondo_id`, not deletion ({len(repoint)}) — "
