@@ -41,6 +41,12 @@ diseases:
 - Coronary_Artery_Disease
 - Carotid_Stenosis
 - CADASIL_Type_1
+- Peripheral_Artery_Disease
+- Carotid_Artery_Occlusion
+- Kawasaki_Disease
+- Grange_syndrome
+- Renal_Artery_Obstruction
+- Secondary_Erythromelalgia
 - Glaucoma
 - Familial_Hypocalciuric_Hypercalcemia_1
 - Autosomal_Dominant_Hypocalcemia_1
@@ -146,7 +152,7 @@ conform:
 | muscarinic receptor antagonism (airway) | CHRM3 | SAMA, LAMA | Chronic_Obstructive_Pulmonary_Disease. Airway-scoped, like the beta2 module and for the same reason; the module's own notes carry the census that makes the scope concrete. `Cough_Variant_Asthma` was assessed and rejected: its treatment is beta2-only in its own text, and the earlier assumption that it bundled a muscarinic antagonist was wrong |
 | CaSR positive allosteric modulation | CASR | calcimimetics | secondary hyperparathyroidism in CKD |
 | S1P receptor modulation | S1PR1 | fingolimod, siponimod | Multiple_Sclerosis |
-| P2Y12 receptor antagonism | P2RY12 | clopidogrel, ticagrelor | Coronary_Artery_Disease, Carotid_Stenosis, CADASIL_Type_1. Indication-independent, like the CaSR module: the three conformers span coronary, carotid and small-vessel cerebral disease, and the module is scoped to the receptor rather than to any of them. Six further entries treat with a P2Y12 antagonist and are not wired, because their treatment binds the generic `NCIT:C1327` Antiplatelet Agent rather than clopidogrel or ticagrelor |
+| P2Y12 receptor antagonism | P2RY12 | clopidogrel, ticagrelor | Coronary_Artery_Disease, Carotid_Stenosis, CADASIL_Type_1. Indication-independent, like the CaSR module: the three conformers span coronary, carotid and small-vessel cerebral disease, and the module is scoped to the receptor rather than to any of them. Six further entries name a P2Y12 antagonist and are not wired, because no treatment in any of them binds a P2Y12 antagonist as `therapeutic_agent`; the module's notes give the reason for each |
 | V2 receptor antagonism | AVPR2 | vaptans | SIADH, ADPKD |
 | MC4R agonism | MC4R | setmelanotide | Obesity_Due_to_MC4R_Pathway_Disruption |
 
@@ -311,11 +317,25 @@ mechanism-level rather than disease-level.
         point of keeping the two modules separate
   - [x] Three P2Y12-antagonist-treated entries, in #15928:
         `Coronary_Artery_Disease`, `Carotid_Stenosis` and `CADASIL_Type_1` against
-        `p2y12_receptor_antagonism`, all at the trigger. Nine entries treat with a P2Y12
-        antagonist; the other six name only the generic `NCIT:C1327` Antiplatelet Agent,
-        so a `target_mechanisms` link from them would assert a receptor action the entry
-        does not name. They are a wiring worklist, the same shape as the generic
-        `Bronchodilator` bindings #15777 had to refine first
+        `p2y12_receptor_antagonism`, all at the trigger. Those three are the only entries whose
+        treatment binds clopidogrel or ticagrelor as `therapeutic_agent`. Six others name a P2Y12
+        antagonist in a treatment context and are not wired, because none of them binds one as an
+        agent, so a `target_mechanisms` link would assert a receptor action the entry does not
+        name. They fail that test in four different ways, which is why the worklist has to be read
+        per entry rather than as one search: `Peripheral_Artery_Disease` binds the generic
+        `NCIT:C1327` Antiplatelet Agent, which covers aspirin as well;
+        `Carotid_Artery_Occlusion` names clopidogrel in its treatment prose but binds only
+        acetylsalicylic acid; `Grange_syndrome`, `Kawasaki_Disease` and
+        `Renal_Artery_Obstruction` bind no agent at all on the relevant treatment; and
+        `Secondary_Erythromelalgia` names ticlopidine only as one of the platelet inhibitors that
+        failed to relieve its pain, so it is not treated with the class at all. Only the first of
+        those is the generic-binding shape that the `Bronchodilator` refinements in #15777 fixed.
+        Five further entries mention a P2Y12 drug but are not candidates: `Alexander_Disease`
+        (clopidogrel as a mouse-model probe), `Atypical_Hemolytic_Uremic_Syndrome` (clopidogrel as
+        a precipitant), `CYCS-Related_Thrombocytopenia` (whose own notes say a carrier's
+        clopidogrel is not evidence that antiplatelet drugs treat the disease), and
+        `Platelet-type_Bleeding_Disorder_8` and `Platelet-type_Bleeding_Disorder_16`, where P2RY12
+        is the causal gene and loss of the receptor is the disease rather than the therapy
 - [ ] Remaining Workstream A modules
   - [x] D2 receptor antagonism — `d2_receptor_antagonism` (#15299)
   - [x] AT1 receptor blockade — `at1_receptor_blockade` (#15271)
