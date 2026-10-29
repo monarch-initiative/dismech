@@ -826,3 +826,133 @@ def test_next_reports_a_missing_claims_file_without_a_traceback(tmp_path):
         assert not isinstance(result.exception, FileNotFoundError)
         assert "claims file not found" in result.output
         assert "just fetch-claims" in result.output
+
+
+def _write_successor_fixture(stub_dir: Path) -> None:
+    """Stubs for the CARASAL shape (#15853): one disease queued under two IDs.
+
+    - `Merged_Test_Disease` was merged into MONDO:9999911, which has its own stub.
+    - `Scheduled_Test_Disease` is scheduled to merge into MONDO:9999913, which
+      also has its own stub; the successor comes from MONDO's note.
+    - `Orphan_Merge_Test_Disease` was merged into a term nobody has stubbed.
+    - `Retiring_Test_Disease` is scheduled with no replacement.
+    """
+    files = {
+        "Merged_Test_Disease.yaml": (
+            "mondo_id: MONDO:9999910\nlabel: merged test disease\n"
+            "mondo_obsolete: true\nmondo_replaced_by: MONDO:9999911\n"
+        ),
+        "Successor_Test_Disease.yaml": (
+            "mondo_id: MONDO:9999911\nlabel: successor test disease\n"
+        ),
+        "Scheduled_Test_Disease.yaml": (
+            "mondo_id: MONDO:9999912\nlabel: scheduled test disease\n"
+            "mondo_obsoletion_candidate: This term is scheduled to be merged with "
+            "MONDO:9999913. This ID will therefore be obsoleted and replaced with "
+            "MONDO:9999913 https://github.com/monarch-initiative/mondo/issues/1\n"
+        ),
+        "Scheduled_Successor_Test_Disease.yaml": (
+            "mondo_id: MONDO:9999913\nlabel: scheduled successor test disease\n"
+        ),
+        "Orphan_Merge_Test_Disease.yaml": (
+            "mondo_id: MONDO:9999914\nlabel: orphan merge test disease\n"
+            "mondo_obsolete: true\nmondo_replaced_by: MONDO:9999915\n"
+        ),
+        "Retiring_Test_Disease.yaml": (
+            "mondo_id: MONDO:9999916\nlabel: retiring test disease\n"
+            "mondo_obsoletion_candidate: 'This term is scheduled for obsoletion. "
+            "Term to consider: MONDO:9999911'\n"
+        ),
+    }
+    for name, text in files.items():
+        (stub_dir / name).write_text(text, encoding="utf-8")
+
+
+def test_a_stub_whose_successor_is_already_stubbed_is_a_queue_duplicate(
+    tmp_path, coverage
+):
+    """The CARASAL pair (#15853): repointing would only make a duplicate ID.
+
+    Reported on the stub that is leaving, naming the successor, for a merge that
+    has happened and for one MONDO has only scheduled. Never an error.
+    """
+    from dismech.stubs.cli import FOLD_KINDS, REPOINT_KINDS, STALE_KINDS
+
+    _write_successor_fixture(tmp_path)
+    findings = check_stubs(tmp_path, coverage=coverage)
+    assert not [i for i in findings if i.severity == "error"], findings
+
+    fold = {i.path.name: i for i in findings if i.kind == "successor_already_stubbed"}
+    assert set(fold) == {"Merged_Test_Disease.yaml", "Scheduled_Test_Disease.yaml"}
+    merged = fold["Merged_Test_Disease.yaml"]
+    assert merged.successor == "MONDO:9999911"
+    assert "Successor_Test_Disease.yaml" in merged.message
+    assert "was merged into" in merged.message
+    scheduled = fold["Scheduled_Test_Disease.yaml"]
+    assert scheduled.successor == "MONDO:9999913"
+    assert "is scheduled to merge into" in scheduled.message
+    for issue in fold.values():
+        assert issue.severity == "advisory"
+        assert issue.kind in FOLD_KINDS
+        assert issue.kind not in STALE_KINDS + REPOINT_KINDS
+
+    # The repoint findings carry the successor too, where there is one. A "term
+    # to consider" is not a successor.
+    successors = {i.path.name: i.successor for i in findings if i.kind in REPOINT_KINDS}
+    assert successors == {
+        "Merged_Test_Disease.yaml": "MONDO:9999911",
+        "Scheduled_Test_Disease.yaml": "MONDO:9999913",
+        "Orphan_Merge_Test_Disease.yaml": "MONDO:9999915",
+        "Retiring_Test_Disease.yaml": None,
+    }
+
+
+def test_next_names_the_successor_and_keeps_the_stub_in_the_pool(tmp_path, next_cli):
+    """A stub leaving its MONDO ID is offered with the live ID beside it (#15853).
+
+    Kept in the pool, because the disease is still uncurated, but a curator
+    reading the row sees where the identifier is going before claiming it, in
+    the text output and in `--json`, which is what `/claim-disease` reads.
+    """
+    import json
+
+    _write_successor_fixture(tmp_path)
+
+    text = next_cli("10", "--stub-dir", str(tmp_path))
+    for mondo_id in ("MONDO:9999910", "MONDO:9999912", "MONDO:9999914"):
+        assert f" {mondo_id}  " in text, f"{mondo_id} left the pool"
+    assert "[advisory] obsolete_term_replaced -> MONDO:9999911:" in text
+    assert "[advisory] obsoletion_candidate -> MONDO:9999913:" in text
+    assert "[advisory] successor_already_stubbed -> MONDO:9999911:" in text
+    assert "[advisory] obsolete_term_replaced -> MONDO:9999915:" in text
+    assert "[advisory] obsoletion_candidate: MONDO:9999916" in text
+
+    rows = {
+        row["mondo_id"]: row
+        for row in json.loads(next_cli("10", "--stub-dir", str(tmp_path), "--json"))
+    }
+    merged = {a["kind"]: a for a in rows["MONDO:9999910"]["advisories"]}
+    assert merged["obsolete_term_replaced"]["successor"] == "MONDO:9999911"
+    assert merged["successor_already_stubbed"]["successor"] == "MONDO:9999911"
+    retiring = rows["MONDO:9999916"]["advisories"]
+    assert [a["kind"] for a in retiring] == ["obsoletion_candidate"]
+    assert "successor" not in retiring[0], "absent rather than null"
+    assert rows["MONDO:9999911"]["advisories"] == []
+
+
+def test_tidy_lists_a_successor_duplicate_without_deleting_it(tmp_path):
+    from typer.testing import CliRunner
+
+    from dismech.stubs.cli import app
+
+    _write_successor_fixture(tmp_path)
+    result = CliRunner().invoke(app, ["tidy", "--stub-dir", str(tmp_path), "--apply"])
+    assert result.exit_code == 0, result.output
+    assert "duplicates a stub for its MONDO successor (2)" in result.output
+    # Listed once, under the remedy that applies: repointing would collide.
+    assert "needs a repointed `mondo_id`, not deletion (2)" in result.output
+    repoint_section = result.output.split("needs a repointed")[1]
+    assert "Merged_Test_Disease.yaml" not in repoint_section
+    assert "Orphan_Merge_Test_Disease.yaml" in repoint_section
+    assert (tmp_path / "Merged_Test_Disease.yaml").exists()
+    assert (tmp_path / "Scheduled_Test_Disease.yaml").exists()

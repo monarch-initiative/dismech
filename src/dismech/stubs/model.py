@@ -18,6 +18,8 @@ from dismech.compare.mondo_priority import iter_covered_mondo_ids
 from dismech.repo_root import repo_root
 from dismech.yaml_io import safe_load
 
+from .obsolescence import proposed_replacement_in
+
 logger = logging.getLogger(__name__)
 
 MONDO_ID_PATTERN = re.compile(r"^MONDO:[0-9]{7}$")
@@ -209,6 +211,21 @@ class Stub:
         return str(self.data.get("mondo_obsoletion_candidate") or "")
 
     @property
+    def mondo_successor(self) -> str:
+        """The MONDO term this stub's disease has moved, or is moving, to.
+
+        `mondo_replaced_by` once the merge has happened; before that, the
+        survivor MONDO's scheduled-merge note names. Empty for a live term with
+        no retirement decision, and for one retired or scheduled with no
+        replacement.
+        """
+        if self.mondo_obsolete and self.mondo_replaced_by:
+            return self.mondo_replaced_by
+        if self.mondo_obsoletion_candidate:
+            return proposed_replacement_in(self.mondo_obsoletion_candidate) or ""
+        return ""
+
+    @property
     def sort_key(self) -> tuple[int, str]:
         """Priority band, then a stable hash of the MONDO ID.
 
@@ -251,6 +268,11 @@ class StubIssue:
     kind: str
     message: str
     severity: str = "error"
+    #: The MONDO term the stub's disease has moved or is moving to, on the
+    #: findings whose remedy is to repoint or fold the stub there. `next` shows
+    #: it beside the kind (`obsolete_term_replaced -> MONDO:NNNNNNN`) and in
+    #: `--json`, so a curator sees the live ID before claiming the dead one.
+    successor: str | None = None
 
     def format(self) -> str:
         where = self.path.name if self.path else "stubs/"
@@ -592,6 +614,7 @@ def _obsolescence_issues(stub: Stub) -> list[StubIssue]:
                     f"{mondo_id} is obsolete; replaced by {stub.mondo_replaced_by} "
                     "— repoint `mondo_id`, do not delete",
                     severity="advisory",
+                    successor=stub.mondo_replaced_by,
                 )
             ]
         return [
@@ -612,6 +635,7 @@ def _obsolescence_issues(stub: Stub) -> list[StubIssue]:
                 f"{mondo_id} is scheduled for obsoletion by MONDO: "
                 f"{' '.join(stub.mondo_obsoletion_candidate.split())}",
                 severity="advisory",
+                successor=stub.mondo_successor or None,
             )
         )
     # Backstop for a stub the enrichment pass has not reached — or reached with
@@ -745,4 +769,42 @@ def check_stubs(
             )
             break
 
+    issues.extend(_successor_stub_issues(stubs, seen_ids))
+    return issues
+
+
+def _successor_stub_issues(
+    stubs: list[Stub], stub_paths: dict[str, Path]
+) -> list[StubIssue]:
+    """Advisories for a stub whose MONDO successor already has a stub (#15853).
+
+    MONDO merging term A into term B, with stubs for both, leaves one disease in
+    the queue twice. `obsolete_term_replaced` says to repoint A at B, which would
+    then be a `duplicate_mondo_id` error; the remedy is to fold A into B's stub
+    and delete A. Advisory like the rest of the drift findings, because the merge
+    is somebody else's change and the fold needs a person to carry over
+    anything hand-written in A.
+    """
+    issues = []
+    for stub in stubs:
+        successor = stub.mondo_successor
+        if not successor or successor == stub.mondo_id:
+            continue
+        other = stub_paths.get(successor)
+        if other is None or other == stub.path:
+            continue
+        moved = (
+            "was merged into" if stub.mondo_obsolete else "is scheduled to merge into"
+        )
+        issues.append(
+            StubIssue(
+                stub.path,
+                "successor_already_stubbed",
+                f"{stub.mondo_id} {moved} {successor}, which already has its own "
+                f"stub {other.name} — fold this stub into that one and delete it, "
+                "rather than repointing it",
+                severity="advisory",
+                successor=successor,
+            )
+        )
     return issues
