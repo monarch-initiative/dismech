@@ -66975,21 +66975,24 @@ window.searchData = [
       "Small Vessel Arteriopathy and Hypoperfusion",
       "Microvascular Fragility and Iron Deposition",
       "White Matter Ischemic Injury",
-      "Immune Activation and ECM Remodeling"
+      "Immune Activation and ECM Remodeling",
+      "P2Y12 Antagonist Occupancy of Platelet ADP Receptors"
     ],
     "cell_types": [
       "vascular associated smooth muscle cell",
       "pericyte",
       "endothelial cell",
       "microglial cell",
-      "oligodendrocyte"
+      "oligodendrocyte",
+      "platelet"
     ],
     "cell_type_ids": [
       "CL:0000359",
       "CL:0000669",
       "CL:0000115",
       "CL:0000129",
-      "CL:0000128"
+      "CL:0000128",
+      "CL:0000233"
     ],
     "biological_processes": [
       "Notch signaling pathway",
@@ -67059,10 +67062,10 @@ window.searchData = [
     "source_file": "CADASIL_Type_1.yaml",
     "page_url": "../pages/disorders/CADASIL_Type_1.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "21",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "5"
   },
   {
@@ -72025,7 +72028,8 @@ window.searchData = [
       "Calcitriol Deficiency",
       "Vascular Calcification",
       "Bone-Vascular Paradox (Sclerostin/Wnt Axis)",
-      "RANKL/OPG Imbalance"
+      "RANKL/OPG Imbalance",
+      "Calcimimetic Occupancy of Parathyroid Calcium-Sensing Receptors"
     ],
     "cell_types": [
       "Osteocyte",
@@ -72033,7 +72037,8 @@ window.searchData = [
       "Parathyroid Chief Cell",
       "Osteoclast",
       "Osteoblast",
-      "Vascular Smooth Muscle Cell"
+      "Vascular Smooth Muscle Cell",
+      "parathyroid chief cell"
     ],
     "cell_type_ids": [
       "CL:0000137",
@@ -72112,10 +72117,10 @@ window.searchData = [
     "source_file": "CKD-Mineral_Bone_Disorder.yaml",
     "page_url": "../pages/disorders/CKD-Mineral_Bone_Disorder.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 8,
     "num_genes": 2,
     "num_treatments": 6,
-    "causal_graph_edges": "18",
+    "causal_graph_edges": "19",
     "causal_graph_longest_path": "6"
   },
   {
@@ -82773,7 +82778,8 @@ window.searchData = [
       "Carotid plaque-surface thrombosis",
       "Artery-to-artery embolization",
       "Thromboembolic cerebral and retinal ischemia",
-      "Hemodynamic cerebral perfusion impairment"
+      "Hemodynamic cerebral perfusion impairment",
+      "P2Y12 Antagonist Occupancy of Platelet ADP Receptors"
     ],
     "cell_types": [
       "endothelial cell",
@@ -82841,10 +82847,10 @@ window.searchData = [
     "source_file": "Carotid_Stenosis.yaml",
     "page_url": "../pages/disorders/Carotid_Stenosis.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 13,
+    "num_pathophysiology": 14,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "29",
+    "causal_graph_edges": "30",
     "causal_graph_longest_path": "10"
   },
   {
@@ -108106,6 +108112,136 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Congenital Glutamine Synthetase Deficiency",
+    "disease_id": "MONDO:0012393",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn error of metabolism",
+      "Inborn error of amino acid metabolism",
+      "Disorder of glutamine metabolism"
+    ],
+    "creation_date": "2026-10-12T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Congenital glutamine synthetase deficiency is an ultra-rare autosomal recessive inborn error of amino acid synthesis caused by biallelic loss-of-function variants in GLUL. Glutamine synthetase condenses glutamate and ammonia into glutamine and is the only route by which the body makes glutamine, so the defect has two biochemical faces at once: systemic glutamine deficiency, with glutamine largely absent from serum, urine and cerebrospinal fluid in the most severe cases, and chronic moderate hyperammonemia, because the high-affinity perivenous hepatic and astrocytic ammonia-clearing step is lost.\nThe clinical picture is a neonatal-onset epileptic encephalopathy. The two index infants, homozygous for p.Arg324Cys and p.Arg341Cys, had prenatally evident brain malformation (abnormal or near-absent gyration, white matter immaturity, periventricular cysts), multiorgan failure and death at two days and four weeks of age. A patient homozygous for p.Arg324Ser, which retains more residual activity, survived to six years with refractory seizures, profound developmental delay, cerebral atrophy and hypomyelination. A homozygous whole-gene deletion diagnosed prenatally marks the most severe end, and a homozygous p.Arg41Cys patient with near-normal plasma glutamine marks the mildest. Necrolytic erythema with pellagra-like histology, during periods of very low glutamine, points to a secondary NAD+ deficiency, which has been measured in patient cells.\nThe leading mechanism is glutamine starvation: of the fetal brain during development, and postnatally of the astrocyte-neuron glutamine-glutamate-GABA cycle. Hyperammonemia is a contributing, not a sufficient, explanation, since mice lacking hepatic glutamine synthetase are hyperammonemic without brain malformation. Enteral glutamine supplementation normalized plasma glutamine, raised brain glutamine and improved the EEG in one patient without worsening hyperammonemia; there is no curative therapy.",
+    "pathophysiology": [
+      "Biallelic GLUL Loss of Function",
+      "Deficient Endogenous Glutamine Synthesis",
+      "Systemic Glutamine Deficiency",
+      "Impaired High-Affinity Ammonia Clearance",
+      "Glutamine Starvation of the Developing Brain",
+      "Astrocyte-Neuron Glutamine-Glutamate-GABA Cycle Failure",
+      "Excitation-Inhibition Imbalance from Astrocyte Dysfunction",
+      "Secondary Cellular NAD+ Deficiency"
+    ],
+    "cell_types": [
+      "perivenous hepatocyte",
+      "astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0019029",
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "L-glutamine biosynthetic process",
+      "ammonium homeostasis",
+      "brain development",
+      "NAD+ biosynthetic process"
+    ],
+    "phenotypes": [
+      "Hypoglutaminemia",
+      "Decreased CSF glutamine concentration",
+      "Reduced brain glutamine level by MRS",
+      "Hyperammonemia",
+      "Epileptic encephalopathy",
+      "Seizure",
+      "Abnormal cortical gyration",
+      "Periventricular cysts",
+      "Ventriculomegaly",
+      "CNS hypomyelination",
+      "Cerebral atrophy",
+      "Thin corpus callosum",
+      "Microcephaly",
+      "Global developmental delay",
+      "Generalized hypotonia",
+      "Apnea",
+      "Necrolytic migratory erythema",
+      "Diarrhea",
+      "Polyhydramnios",
+      "Low-set ears"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Neurologic",
+      "Respiratory",
+      "Dermatologic",
+      "Gastrointestinal",
+      "Prenatal",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Head and Neck",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0500147",
+      "HP:0500198",
+      "HP:0030980",
+      "HP:0001987",
+      "HP:0200134",
+      "HP:0001250",
+      "HP:0002536",
+      "HP:0007109",
+      "HP:0002119",
+      "HP:0003429",
+      "HP:0002059",
+      "HP:0033725",
+      "HP:0000252",
+      "HP:0001263",
+      "HP:0001290",
+      "HP:0002104",
+      "HP:0031181",
+      "HP:0002014",
+      "HP:0001561",
+      "HP:0000369"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "GLUL"
+    ],
+    "treatments": [
+      "Enteral glutamine supplementation",
+      "Nicotinamide supplementation",
+      "Carglumic acid",
+      "Anticonvulsant therapy",
+      "Supportive and palliative care"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma glutamine",
+      "Plasma ammonia"
+    ],
+    "source_file": "Congenital_Glutamine_Synthetase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Congenital_Glutamine_Synthetase_Deficiency.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "41",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Congenital Heart Defects And Ectodermal Dysplasia",
     "disease_id": "MONDO:0044303",
     "category": "Mendelian",
@@ -114074,14 +114210,16 @@ window.searchData = [
       "Monocyte Recruitment and Macrophage Foam Cell Formation",
       "Atherosclerotic Plaque Formation",
       "Advanced Atheroma with Necrotic Core and Fibrous Cap",
-      "Plaque Rupture and Thrombosis"
+      "Plaque Rupture and Thrombosis",
+      "P2Y12 Antagonist Occupancy of Platelet ADP Receptors"
     ],
     "cell_types": [
       "Endothelial Cell",
       "Macrophage",
       "Foam Cell",
       "Vascular Smooth Muscle Cell",
-      "Platelet"
+      "Platelet",
+      "platelet"
     ],
     "cell_type_ids": [
       "CL:0000115",
@@ -114154,10 +114292,10 @@ window.searchData = [
     "source_file": "Coronary_Artery_Disease.yaml",
     "page_url": "../pages/disorders/Coronary_Artery_Disease.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 7,
     "num_genes": 5,
     "num_treatments": 8,
-    "causal_graph_edges": "26",
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "7"
   },
   {
@@ -153426,7 +153564,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "21",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "8"
   },
   {
@@ -154693,7 +154831,8 @@ window.searchData = [
       "Reduced Renal Magnesium Excretion",
       "Hypercalcemia with Non-Suppressed PTH",
       "Hypermagnesemia",
-      "Preserved Bone Mineral Density Despite Chronic PTH Elevation"
+      "Preserved Bone Mineral Density Despite Chronic PTH Elevation",
+      "Calcimimetic Occupancy of Parathyroid Calcium-Sensing Receptors"
     ],
     "cell_types": [
       "parathyroid chief cell"
@@ -154761,10 +154900,10 @@ window.searchData = [
     "source_file": "Familial_Hypocalciuric_Hypercalcemia_1.yaml",
     "page_url": "../pages/disorders/Familial_Hypocalciuric_Hypercalcemia_1.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "19",
+    "causal_graph_edges": "21",
     "causal_graph_longest_path": "5"
   },
   {
@@ -154784,7 +154923,8 @@ window.searchData = [
       "Reduced CaSR-Coupled Phospholipase C Signaling",
       "Raised Extracellular Calcium Set Point",
       "Non-Suppressed Parathyroid Hormone Secretion",
-      "Increased Renal Tubular Calcium Reabsorption"
+      "Increased Renal Tubular Calcium Reabsorption",
+      "Calcimimetic Occupancy of Parathyroid Calcium-Sensing Receptors"
     ],
     "cell_types": [
       "ameloblast",
@@ -154845,10 +154985,10 @@ window.searchData = [
     "source_file": "Familial_Hypocalciuric_Hypercalcemia_2.yaml",
     "page_url": "../pages/disorders/Familial_Hypocalciuric_Hypercalcemia_2.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "18",
+    "causal_graph_edges": "19",
     "causal_graph_longest_path": "6"
   },
   {
@@ -250315,7 +250455,6 @@ window.searchData = [
     "phenotype_categories": [
       "Musculoskeletal",
       "Respiratory",
-      "Neurological",
       "Cardiovascular",
       "Laboratory",
       "Histopathology",
@@ -308264,7 +308403,8 @@ window.searchData = [
       "Autonomous Chief Cell Proliferation",
       "Unrestrained Parathyroid Hormone Secretion",
       "Local Invasive Growth",
-      "Distant Metastasis"
+      "Distant Metastasis",
+      "Calcimimetic Occupancy of Parathyroid Calcium-Sensing Receptors"
     ],
     "cell_types": [
       "parathyroid chief cell"
@@ -308318,10 +308458,10 @@ window.searchData = [
     "source_file": "Parathyroid_Gland_Carcinoma.yaml",
     "page_url": "../pages/disorders/Parathyroid_Gland_Carcinoma.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "5"
   },
   {
@@ -308344,10 +308484,15 @@ window.searchData = [
       "Parathyroid Cellular Hyperplasia",
       "CKD-Driven Secondary Parathyroid Stimulation",
       "SHPT Glandular Autonomy",
-      "Transcriptional Heterogeneity in Parathyroid Tumors"
+      "Transcriptional Heterogeneity in Parathyroid Tumors",
+      "Calcimimetic Occupancy of Parathyroid Calcium-Sensing Receptors"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "parathyroid chief cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000446"
+    ],
     "biological_processes": [
       "cell population proliferation",
       "parathyroid hormone secretion",
@@ -308408,10 +308553,10 @@ window.searchData = [
     "source_file": "Parathyroid_Hyperplasia.yaml",
     "page_url": "../pages/disorders/Parathyroid_Hyperplasia.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 6,
     "num_treatments": 4,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "6",
     "causal_graph_longest_path": "2"
   },
   {
@@ -411790,17 +411935,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3815,
+  "total_disorder_pages": 3816,
   "total_subtypes": 4954,
-  "total_disorders_and_subtypes": 8769,
-  "total_unique_evidence_sources": 56814,
-  "total_unique_publications": 53126,
+  "total_disorders_and_subtypes": 8770,
+  "total_unique_evidence_sources": 56833,
+  "total_unique_publications": 53145,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 311,
-  "total_pathographs": 3813,
-  "total_unique_pathological_events": 25082,
-  "total_modules": 216,
-  "total_research_reports": 3928,
+  "total_pathographs": 3814,
+  "total_unique_pathological_events": 25092,
+  "total_modules": 219,
+  "total_research_reports": 3929,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 128
