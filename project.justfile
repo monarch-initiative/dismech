@@ -1011,28 +1011,16 @@ stub-stats:
 # Where `fetch-claims` writes the open claim issues and the recipes below read them.
 claims_file := "tmp/claims.json"
 
-# Fetch every open claim issue in one list-API call (immediately consistent,
-# unlike a search) and write it where the other recipes can read it.
+# Fetch every open claim issue from the list API (immediately consistent,
+# unlike a search) and write it where the other recipes can read it. Tries
+# `gh issue list` (GraphQL, which reports linked PRs) and falls back to the
+# REST API when GraphQL is refused, as in Claude Code cloud sessions (#15854)
+# or on gh older than v2.73.0 (#11814). A failed fetch exits non-zero and
+# leaves the existing file untouched.
 # Fetch the open curation claims
 [group('Curation')]
 fetch-claims out=claims_file:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if ! command -v gh >/dev/null 2>&1; then
-      echo "fetch-claims needs the gh CLI, which is not installed in this environment." >&2
-      echo >&2
-      echo "Claude Code web/remote sessions have no gh, and cannot reach api.github.com" >&2
-      echo "directly either -- the agent proxy denies it even though GH_TOKEN is set." >&2
-      echo "Use the GitHub MCP server instead: see 'No gh CLI (web and remote sessions)'" >&2
-      echo "in .claude/skills/claim-disease/SKILL.md for the exact fallback, including" >&2
-      echo "the minimal titles-only claims file that is enough to pick from." >&2
-      exit 127
-    fi
-    mkdir -p "$(dirname {{out}})"
-    gh issue list --repo monarch-initiative/dismech --label claim --state open \
-      --json number,title,assignees,url,createdAt,closedByPullRequestsReferences \
-      --limit 1000 > {{out}}
-    echo "wrote {{out}}"
+    uv run dismech-stubs fetch-claims --out {{out}}
 
 # Reports double-claims, claims with no MONDO ID in the title (they lock
 # nothing), and stale claims — old with no PR. An open PR is never stale.

@@ -7,6 +7,7 @@ add the entry" a contract CI can check rather than a convention people remember.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -956,3 +957,188 @@ def test_tidy_lists_a_successor_duplicate_without_deleting_it(tmp_path):
     assert "Orphan_Merge_Test_Disease.yaml" in repoint_section
     assert (tmp_path / "Merged_Test_Disease.yaml").exists()
     assert (tmp_path / "Scheduled_Test_Disease.yaml").exists()
+
+
+# --- fetch-claims: GraphQL first, REST fallback, never an empty file (#15854) --
+
+_REST_ROWS = [
+    {
+        "number": 15898,
+        "title": "Curate CYP7B1-related disorder of oxysterol accumulation (MONDO:1060107)",
+        "created_at": "2026-04-01T03:51:23Z",
+        "html_url": "https://github.com/monarch-initiative/dismech/issues/15898",
+        "assignees": ["caufieldjh"],
+    },
+]
+
+
+def _fake_gh(graphql=None, rest=None):
+    """A `subprocess.run` stand-in. Each route is (returncode, stdout, stderr)."""
+    import subprocess
+
+    calls = []
+
+    def run(args, **kwargs):
+        calls.append(args)
+        route = graphql if args[1] == "issue" else rest
+        assert route is not None, f"unexpected call: {args}"
+        code, out, err = route
+        return subprocess.CompletedProcess(args, code, out, err)
+
+    run.calls = calls
+    return run
+
+
+_GRAPHQL_403 = (
+    1,
+    "",
+    "non-200 OK status code: 403 Forbidden body: GraphQL is not available",
+)
+_REST_OK = (0, "\n".join(json.dumps(r) for r in _REST_ROWS) + "\n", "")
+
+
+def test_fetch_claims_prefers_graphql_and_keeps_linked_pr_data():
+    from dismech.stubs.fetch import fetch_claims
+
+    rows = [dict(_GH_ROWS[0], closedByPullRequestsReferences=[])]
+    run = _fake_gh(graphql=(0, json.dumps(rows), ""))
+    result = fetch_claims(runner=run)
+    assert result.route == "graphql" and result.linked_prs_available
+    assert result.rows == rows
+    assert len(run.calls) == 1
+
+
+def test_fetch_claims_falls_back_to_rest_when_graphql_is_refused():
+    """Claude Code cloud sessions: gh is present, GraphQL answers 403."""
+    from dismech.stubs.fetch import fetch_claims
+
+    run = _fake_gh(graphql=_GRAPHQL_403, rest=_REST_OK)
+    result = fetch_claims(runner=run)
+    assert result.route == "rest" and not result.linked_prs_available
+    assert result.rows == _REST_ROWS
+    assert "403" in result.notes[0]
+    assert run.calls[1][:3] == ["gh", "api", "--paginate"]
+
+
+def test_fetch_claims_uses_rest_when_graphql_hits_the_limit():
+    """`gh issue list --limit N` truncates silently; REST paginates uncapped."""
+    from dismech.stubs.fetch import CLAIM_FETCH_LIMIT, fetch_claims
+
+    full = [{"number": i, "title": f"Curate x{i}"} for i in range(CLAIM_FETCH_LIMIT)]
+    run = _fake_gh(graphql=(0, json.dumps(full), ""), rest=_REST_OK)
+    result = fetch_claims(runner=run)
+    assert result.route == "rest"
+    assert "truncated" in result.notes[0]
+
+
+def _invoke_fetch(tmp_path, monkeypatch, run):
+    from typer.testing import CliRunner
+
+    import dismech.stubs.fetch as fetch_mod
+    from dismech.stubs.cli import app
+
+    monkeypatch.setattr(fetch_mod.subprocess, "run", run)
+    monkeypatch.setattr("dismech.stubs.cli.gh_available", lambda: True)
+    out = tmp_path / "tmp" / "claims.json"
+    return out, CliRunner().invoke(app, ["fetch-claims", "--out", str(out)])
+
+
+def test_failed_fetch_exits_nonzero_and_leaves_the_file_alone(tmp_path, monkeypatch):
+    run = _fake_gh(graphql=_GRAPHQL_403, rest=(1, "", "HTTP 502 Bad Gateway"))
+    out, result = _invoke_fetch(tmp_path, monkeypatch, run)
+    assert result.exit_code == 1, result.output
+    assert not out.exists()
+    assert "REST route also failed" in result.output
+
+    # An earlier good file survives a later failed fetch.
+    out.parent.mkdir(parents=True)
+    out.write_text('[{"title": "Curate x (MONDO:0000001)"}]\n')
+    before = out.read_text()
+    out, result = _invoke_fetch(tmp_path, monkeypatch, run)
+    assert result.exit_code == 1
+    assert out.read_text() == before
+
+
+def test_rest_output_that_is_not_json_is_a_failure(tmp_path, monkeypatch):
+    run = _fake_gh(graphql=_GRAPHQL_403, rest=(0, "<html>proxy error</html>\n", ""))
+    out, result = _invoke_fetch(tmp_path, monkeypatch, run)
+    assert result.exit_code == 1
+    assert not out.exists()
+
+
+def test_successful_rest_fetch_writes_and_says_linked_prs_are_missing(
+    tmp_path, monkeypatch
+):
+    run = _fake_gh(graphql=_GRAPHQL_403, rest=_REST_OK)
+    out, result = _invoke_fetch(tmp_path, monkeypatch, run)
+    assert result.exit_code == 0, result.output
+    assert json.loads(out.read_text()) == _REST_ROWS
+    assert "via the REST API" in result.output
+    assert "over-report" in result.output
+    assert not list(out.parent.glob(".claims.json.*"))  # no temp file left
+
+
+def test_fetch_claims_without_gh_points_at_the_mcp_fallback(tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+
+    from dismech.stubs.cli import app
+
+    monkeypatch.setattr("dismech.stubs.cli.gh_available", lambda: False)
+    out = tmp_path / "claims.json"
+    result = CliRunner().invoke(app, ["fetch-claims", "--out", str(out)])
+    assert result.exit_code == 127
+    assert "claim-disease/SKILL.md" in result.output
+    assert not out.exists()
+
+
+def test_an_empty_claims_file_is_rejected_not_read_as_no_claims(tmp_path):
+    """A zero-byte file is what a failed `gh ... > file` left (#15854, #11814)."""
+    from typer.testing import CliRunner
+
+    from dismech.stubs.cli import app
+
+    empty = tmp_path / "claims.json"
+    empty.write_text("")
+    for args in (
+        ["next", "3", "--stub-dir", str(tmp_path), "--claims", str(empty)],
+        ["claims", str(empty), "--stub-dir", str(tmp_path)],
+    ):
+        result = CliRunner().invoke(app, args)
+        assert result.exit_code == 2, result.output
+        assert "claims file is empty" in result.output
+        assert "just fetch-claims" in result.output
+
+
+def test_rest_shaped_rows_parse():
+    (claim,) = parse_claims(_REST_ROWS)
+    assert claim.mondo_id == "MONDO:1060107"
+    assert claim.url.endswith("/15898")
+    assert claim.created_at == "2026-04-01T03:51:23Z"
+    assert claim.assignees == ["caufieldjh"]
+    assert claim.linked_pr_known is False
+    assert claim.age_days(_NOW) is not None
+
+
+def test_graphql_rows_know_their_linked_prs():
+    (claim,) = parse_claims([dict(_GH_ROWS[0], closedByPullRequestsReferences=[])])
+    assert claim.linked_pr_known is True and claim.has_linked_pr is False
+
+
+def test_check_claims_warns_that_rest_stale_list_may_over_report(tmp_path):
+    from typer.testing import CliRunner
+
+    from dismech.stubs.cli import app
+
+    path = tmp_path / "claims.json"
+    old = {**_REST_ROWS[0], "created_at": "2020-01-01T00:00:00Z"}
+    path.write_text(json.dumps([old]))
+    result = CliRunner().invoke(app, ["claims", str(path), "--stub-dir", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert "stale" in result.output
+    assert "linked-PR data is unavailable for 1" in result.output
+
+    # With GraphQL-shaped data the note is absent.
+    path.write_text(json.dumps([{**old, "closedByPullRequestsReferences": []}]))
+    result = CliRunner().invoke(app, ["claims", str(path), "--stub-dir", str(tmp_path)])
+    assert "stale" in result.output
+    assert "linked-PR data is unavailable" not in result.output
