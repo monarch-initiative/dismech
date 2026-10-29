@@ -22526,6 +22526,7 @@ window.searchData = [
     "biological_processes": [
       "leukocyte migration",
       "neutrophil degranulation",
+      "protein polymerization",
       "response to endoplasmic reticulum stress",
       "endoplasmic reticulum unfolded protein response",
       "autophagy",
@@ -140131,7 +140132,7 @@ window.searchData = [
   },
   {
     "name": "EGFR-Mutant Non-Small Cell Lung Cancer",
-    "disease_id": "MONDO:0005061",
+    "disease_id": "MONDO:0005233",
     "category": "",
     "parents": [
       "non-small cell lung carcinoma"
@@ -168188,6 +168189,101 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Ganglioneuroma",
+    "disease_id": "MONDO:0005033",
+    "category": "",
+    "parents": [
+      "neuroblastic tumor"
+    ],
+    "creation_date": "2026-10-28T16:12:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Maturing",
+      "Mature"
+    ],
+    "description": "Ganglioneuroma is a benign peripheral neuroblastic tumor of the sympathetic nervous system and the most mature form in the family that also includes neuroblastoma and ganglioneuroblastoma. Its ganglion cells lie singly or in small clusters in Schwannian stroma, whose cells incorporate the neurites of the ganglion cells, so that no naked neurites are identified around them. The International Neuroblastoma Pathology Classification (INPC) makes ganglioneuroma its Schwannian stroma-dominant category, with a maturing subtype, which besides fully mature ganglion cells contains a minor component of scattered differentiating neuroblasts and/or maturing ganglion cells, and a mature subtype, whose ganglion cells are all completely mature; the INPC always classifies ganglioneuroma as favorable histology. Ganglioneuroma is usually diagnosed in older children and adults. In German trials of localized neuroblastic tumors in patients aged 21 years or younger, 144 of 162 ganglioneuromas (88.9%) were of the maturing subtype, and median age at diagnosis was 71 months for maturing and 125 months for mature ganglioneuroma, against 9 months for neuroblastoma and nodular ganglioneuroblastoma taken together. In the cited hospital series the tumors arose most often in the retroperitoneum or elsewhere in the abdomen, including the adrenal gland, and next in the thorax, mainly in the posterior mediastinum; fewer arose in the presacral space or the neck, and many were found incidentally. Pain was the commonest symptom leading to diagnosis in the German trials, and watery diarrhea that the authors attributed to tumor secretion of vasoactive intestinal peptide has been described in case reports. In two immunohistochemistry series every ganglioneuroma tested expressed PHOX2B, and in one hospital's tumors phosphorylated AKT, mTOR and S6 were detected more often in ganglioneuroma than in poorly differentiated neuroblastoma. No initiating lesion has been described; MYCN amplification has been found in a few maturing ganglioneuromas. In the German trials urinary catecholamine metabolites were raised, and MIBG was taken up, less often in ganglioneuroma than in intermixed ganglioneuroblastoma or in neuroblastoma. Treatment is surgical resection or, for selected asymptomatic tumors, observation. In the German trials no tumor progressed after complete resection or with residuals under 2 cm, chemotherapy had no substantial effect in the 11 patients who received it, 2 of them with ganglioneuroma, no patient died of tumor progression, and the one patient with ganglioneuroma who died had complications of surgery. The cited surgical series report postoperative complication rates of 19% to 43.1%, counted per patient or per operation and in two series pooled with intermixed ganglioneuroblastoma, and one patient in a 51-patient series of resected retroperitoneal tumors died after surgery. Whether every ganglioneuroma arises by maturation of a neuroblastoma is unproven (discussion gn_origin).",
+    "pathophysiology": [
+      "Neuroblast-to-Ganglion Cell Maturation",
+      "Schwannian Stromal Development",
+      "Tumoral Vasoactive Intestinal Peptide Secretion",
+      "Tumoral Catecholamine Secretion",
+      "AKT-mTOR-S6 Pathway Activation"
+    ],
+    "cell_types": [
+      "differentiating neuroblast",
+      "ganglion cell",
+      "Schwannian stromal cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002676",
+      "CL:0011103",
+      "CL:0002573"
+    ],
+    "biological_processes": [
+      "maturation of neuroblasts into ganglion cells",
+      "Schwann cell proliferation",
+      "vasoactive intestinal peptide (VIP) secretion by the tumor",
+      "catecholamine secretion by the tumor",
+      "AKT signaling, read as phosphorylated AKT (Ser473)",
+      "mTOR signaling, read as phosphorylated mTOR (Ser2448) and S6 (Ser235/236)"
+    ],
+    "phenotypes": [
+      "Retroperitoneal Mass",
+      "Posterior Mediastinal Mass",
+      "Pelvic Mass",
+      "Pain",
+      "Watery Diarrhea",
+      "Hypokalemia",
+      "Elevated Urinary Homovanillic Acid",
+      "Elevated Urinary Vanillylmandelic Acid"
+    ],
+    "phenotype_categories": [
+      "Abdominal",
+      "Thoracic",
+      "Constitutional",
+      "Gastrointestinal",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:6000285",
+      "HP:0033829",
+      "HP:0031501",
+      "HP:0012531",
+      "HP:0002014",
+      "HP:0002900",
+      "HP:0011977",
+      "HP:0011978"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "MYCN Amplification"
+    ],
+    "treatments": [
+      "Surgical Resection",
+      "Watchful Observation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Ganglioneuroma.yaml",
+    "page_url": "../pages/disorders/Ganglioneuroma.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Garg-Mishra Progeroid Syndrome",
     "disease_id": "MONDO:0957953",
     "category": "Mendelian",
@@ -178201,7 +178297,7 @@ window.searchData = [
   },
   {
     "name": "HER2-Positive Gastric Cancer",
-    "disease_id": "MONDO:0001056",
+    "disease_id": "MONDO:0005036",
     "category": "",
     "parents": [
       "gastric adenocarcinoma"
@@ -227264,7 +227360,7 @@ window.searchData = [
   },
   {
     "name": "KRAS G12C-Mutant Non-Small Cell Lung Cancer",
-    "disease_id": "MONDO:0005061",
+    "disease_id": "MONDO:0005233",
     "category": "",
     "parents": [
       "non-small cell lung carcinoma"
@@ -247490,7 +247586,7 @@ window.searchData = [
   },
   {
     "name": "MET Exon 14 Skipping Non-Small Cell Lung Cancer",
-    "disease_id": "MONDO:0005061",
+    "disease_id": "MONDO:0005233",
     "category": "",
     "parents": [
       "non-small cell lung carcinoma"
@@ -305704,7 +305800,7 @@ window.searchData = [
   },
   {
     "name": "Pacak-Zhuang syndrome",
-    "disease_id": "MONDO:0035540",
+    "disease_id": "MONDO:0017926",
     "category": "Genetic",
     "parents": [
       "pheochromocytoma-paraganglioma"
@@ -332629,7 +332725,7 @@ window.searchData = [
   },
   {
     "name": "RET-Rearranged Non-Small Cell Lung Cancer",
-    "disease_id": "MONDO:0005061",
+    "disease_id": "MONDO:0005233",
     "category": "",
     "parents": [
       "non-small cell lung carcinoma"
@@ -333496,7 +333592,7 @@ window.searchData = [
   },
   {
     "name": "ROS1-Rearranged Non-Small Cell Lung Cancer",
-    "disease_id": "MONDO:0005061",
+    "disease_id": "MONDO:0005233",
     "category": "",
     "parents": [
       "non-small cell lung carcinoma"
@@ -354318,6 +354414,7 @@ window.searchData = [
       "Cellular Schwannoma",
       "Plexiform Schwannoma",
       "Melanotic/Psammomatous Schwannoma",
+      "Neuroblastoma-like Schwannoma",
       "SMARCB1/LZTR1-Related"
     ],
     "description": "Schwannoma is a benign, usually encapsulated, slow-growing peripheral nerve-sheath tumor composed almost entirely of neoplastic Schwann cells. The central molecular event is biallelic inactivation of the NF2 tumor suppressor gene and loss of its product merlin/schwannomin, which removes contact-dependent growth inhibition and de-represses downstream proliferative signaling \u2014 Hippo/YAP-TAZ-TEAD transcriptional output, receptor tyrosine kinase (ErbB2/3, IGF1R, PDGFR) accumulation with RAS-MAPK and PI3K-AKT activation, and mTORC1 signaling. Most schwannomas are sporadic and solitary, but they also arise in NF2-related schwannomatosis (characteristically bilateral vestibular schwannomas, meningiomas, and ependymomas) and in SMARCB1- or LZTR1-related schwannomatosis. Histologically schwannomas show compact, spindle-cell Antoni A areas with nuclear-palisading Verocay bodies, looser myxoid Antoni B areas, diffuse S-100/SOX10 positivity, and an encapsulated growth pattern. Recognized histologic variants include cellular, plexiform, melanotic/psammomatous, and epithelioid (SMARCB1/INI1-deficient) schwannoma. Malignant transformation is rare.",
@@ -359013,6 +359110,132 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "39",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Shiga Toxin-Associated Hemolytic Uremic Syndrome",
+    "disease_id": "MONDO:0019536",
+    "category": "Infectious Disease",
+    "parents": [
+      "Thrombotic Microangiopathy",
+      "Post-Infectious Disorder",
+      "Renal Disease"
+    ],
+    "creation_date": "2026-10-28T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Shiga toxin-associated hemolytic uremic syndrome (STEC-HUS) is a thrombotic microangiopathy defined by the triad of microangiopathic hemolytic anemia, thrombocytopenia and acute kidney injury, arising typically about a week after an episode of diarrhea - often bloody - caused by Shiga toxin-producing Escherichia coli (classically serotype O157:H7, with non-O157 serogroups such as O26, O80, O104 and O111 also responsible) or by Shigella dysenteriae type 1. It is the leading cause of acute kidney injury in young children. The disease is acquired and toxin-mediated rather than inherited: the pathogenic determinant is the bacterial Shiga toxin, whose B pentamer binds host globotriaosylceramide (Gb3) and whose A subunit depurinates 28S rRNA and halts protein synthesis in Gb3-rich cells, chiefly the renal glomerular microvascular endothelium and podocytes. Toxin-injured endothelium loses its thromboresistance, activates the alternative complement pathway locally, and secretes ultra-large von Willebrand factor multimers, producing the platelet-fibrin thrombi that occlude glomerular capillaries and shear erythrocytes. Treatment is supportive; antibiotics given during the colitis prodrome are associated with increased progression to HUS. Most children recover kidney function, but a substantial minority carry renal sequelae years later. STEC-HUS must be distinguished from complement-mediated atypical HUS and from thrombotic thrombocytopenic purpura, which are managed differently.",
+    "pathophysiology": [
+      "Colonic Colonisation and Attaching-and-Effacing Lesion Formation",
+      "Shiga Toxin Translocation Across the Intestinal Epithelium",
+      "Shiga Toxin Binding to Globotriaosylceramide on Gb3-Rich Cells",
+      "Retrograde Trafficking to the Endoplasmic Reticulum",
+      "28S rRNA Depurination and Translational Arrest",
+      "Ribotoxic Stress Response and Target Cell Apoptosis",
+      "Endothelial Activation and Loss of Thromboresistance",
+      "Alternative Complement Pathway Activation on Injured Endothelium",
+      "Ultra-Large von Willebrand Factor Secretion and Platelet Capture",
+      "Glomerular Thrombotic Microangiopathy",
+      "Mechanical Erythrocyte Fragmentation",
+      "Platelet Consumption in Microvascular Thrombi",
+      "Extrarenal Microangiopathy in Gb3-Rich Vascular Beds"
+    ],
+    "cell_types": [
+      "colon epithelial cell",
+      "intestinal epithelial cell",
+      "glomerular endothelial cell",
+      "podocyte",
+      "platelet",
+      "erythrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0011108",
+      "CL:0002563",
+      "CL:0002188",
+      "CL:0000653",
+      "CL:0000233",
+      "CL:0000232"
+    ],
+    "biological_processes": [
+      "apoptotic process in intestinal epithelium",
+      "receptor-mediated endocytosis of Shiga toxin",
+      "retrograde transport, endosome to Golgi",
+      "inhibition of translation by 28S rRNA depurination",
+      "apoptotic process",
+      "inflammatory response",
+      "complement activation, alternative pathway",
+      "platelet activation",
+      "blood coagulation"
+    ],
+    "phenotypes": [
+      "Bloody diarrhea",
+      "Microangiopathic hemolytic anemia",
+      "Schistocytosis",
+      "Thrombocytopenia",
+      "Acute kidney injury",
+      "Oliguria",
+      "Elevated circulating creatinine concentration",
+      "Encephalopathy",
+      "Seizure",
+      "Hypertension",
+      "Proteinuria",
+      "Chronic kidney disease"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0025085",
+      "HP:0001937",
+      "HP:0001981",
+      "HP:0001873",
+      "HP:0001919",
+      "HP:0100520",
+      "HP:0003259",
+      "HP:0001298",
+      "HP:0001250",
+      "HP:0000822",
+      "HP:0000093",
+      "HP:0012622"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Supportive Care",
+      "Early Intravenous Volume Expansion",
+      "Renal Replacement Therapy",
+      "Packed Red Blood Cell Transfusion",
+      "Eculizumab",
+      "Therapeutic Plasma Exchange"
+    ],
+    "environmental": [
+      "Antibiotic administration during STEC colitis",
+      "Ingestion of STEC-contaminated food and water"
+    ],
+    "biochemical": [
+      "Lactate dehydrogenase"
+    ],
+    "source_file": "Shiga_Toxin-Associated_Hemolytic_Uremic_Syndrome.yaml",
+    "page_url": "../pages/disorders/Shiga_Toxin-Associated_Hemolytic_Uremic_Syndrome.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 13,
+    "num_genes": 0,
+    "num_treatments": 6,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Shigellosis",
@@ -367061,9 +367284,11 @@ window.searchData = [
       "Failure of Sperm Hyperactivation"
     ],
     "cell_types": [
+      "spermatid",
       "sperm"
     ],
     "cell_type_ids": [
+      "CL:0000018",
       "CL:0000019"
     ],
     "biological_processes": [
@@ -367090,7 +367315,10 @@ window.searchData = [
     "genes": [
       "CATSPERT"
     ],
-    "treatments": [],
+    "treatments": [
+      "Intracytoplasmic Sperm Injection (ICSI)",
+      "Genetic Counseling"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Spermatogenic_Failure_68.yaml",
@@ -367098,9 +367326,9 @@ window.searchData = [
     "num_phenotypes": 2,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 2,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Spermatogenic Failure 72",
@@ -391923,18 +392151,22 @@ window.searchData = [
     "description": "Trimethylaminuria (TMAU, \"fish-odour syndrome\") is an autosomal recessive inborn error of methylamine metabolism caused by biallelic loss-of-function variants in FMO3, which encodes hepatic flavin-containing monooxygenase 3. FMO3 normally N-oxidises the volatile, fishy-smelling amine trimethylamine (TMA) \u2014 produced by gut bacteria from dietary precursors such as choline and trimethylamine-N-oxide (TMAO) \u2014 to the odourless, water-soluble TMAO, which is excreted in urine. When FMO3 activity is deficient, unoxidised TMA accumulates and is excreted in the urine, sweat, saliva, and breath, producing a characteristic body odour reminiscent of rotting fish. The condition is biochemically benign but frequently causes serious psychosocial harm (social isolation, depression). Disease severity spans a spectrum from mild/transient forms (often associated with common hypomorphic FMO3 haplotypes, hormonal state, or high substrate load) to severe primary TMAU caused by two inactivating FMO3 alleles; secondary/acquired forms (e.g., hepatic disease, substrate overload) also occur and are not caused by FMO3 variants. This entry models the primary, FMO3-related disorder (OMIM:602079, Orphanet:468726).\n",
     "pathophysiology": [
       "Impaired hepatic trimethylamine N-oxidation (FMO3 deficiency)",
-      "Trimethylamine accumulation and excretion",
-      "Fishy body odour and psychosocial impact"
+      "Trimethylamine accumulation and excretion"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182"
+    ],
     "biological_processes": [
       "amine (trimethylamine) metabolic process"
     ],
     "phenotypes": [
       "Fish-like body odour",
       "Trimethylaminuria (urinary trimethylamine excretion)",
-      "Depression"
+      "Depression",
+      "Suicide attempt"
     ],
     "phenotype_categories": [
       "Physiological",
@@ -391950,7 +392182,8 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0410020",
       "HP:0003614",
-      "HP:0000716"
+      "HP:0000716",
+      "HP:5200330"
     ],
     "frequencies": [],
     "genes": [
@@ -391959,7 +392192,10 @@ window.searchData = [
     "treatments": [
       "Dietary precursor restriction",
       "Gut-flora-suppressing antibiotics",
-      "Trimethylamine sequestration (activated charcoal)"
+      "Trimethylamine sequestration (activated charcoal and copper chlorophyllin)",
+      "Genetic Counseling",
+      "Riboflavin supplementation",
+      "Acid soaps and body lotions"
     ],
     "environmental": [],
     "biochemical": [
@@ -391968,12 +392204,12 @@ window.searchData = [
     ],
     "source_file": "Trimethylaminuria.yaml",
     "page_url": "../pages/disorders/Trimethylaminuria.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 4,
+    "num_pathophysiology": 2,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 6,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Triosephosphate Isomerase Deficiency",
@@ -411554,17 +411790,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3813,
-  "total_subtypes": 4951,
-  "total_disorders_and_subtypes": 8764,
-  "total_unique_evidence_sources": 56777,
-  "total_unique_publications": 53089,
+  "total_disorder_pages": 3815,
+  "total_subtypes": 4954,
+  "total_disorders_and_subtypes": 8769,
+  "total_unique_evidence_sources": 56814,
+  "total_unique_publications": 53126,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 311,
-  "total_pathographs": 3811,
-  "total_unique_pathological_events": 25068,
-  "total_modules": 215,
-  "total_research_reports": 3926,
+  "total_pathographs": 3813,
+  "total_unique_pathological_events": 25082,
+  "total_modules": 216,
+  "total_research_reports": 3928,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 128
