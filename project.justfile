@@ -1266,9 +1266,11 @@ variant-mechanism-audit *args="":
     uv run python scripts/audit_variant_mechanism.py {{args}}
 
 # Ratchet on genetic[].mechanism_activity_grounding: a gene wired into the
-# pathograph whose landing node names no molecular function. Grandfathers
-# against origin/main in CI (GENE_ACTIVITY_BASELINE_REF), else against
-# tests/gene_activity_grounding_baseline.txt.
+# pathograph whose landing node names no molecular function. CI grandfathers
+# against origin/<base> (--against-ref). Locally, with no ref, it uses the
+# merge base of HEAD and origin/main, so a clean checkout passes; only when
+# that is missing (shallow clone) does it fall back to the committed, possibly
+# stale tests/gene_activity_grounding_baseline.txt, and it says so (#15446).
 # Fail on genes newly landing on a node with no molecular_functions
 [group('QC')]
 check-gene-activity-grounding *args="":
