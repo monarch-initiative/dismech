@@ -221914,6 +221914,101 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Isolated Hyperchlorhidrosis",
+    "disease_id": "MONDO:0007747",
+    "category": "Mendelian",
+    "parents": [
+      "autosomal recessive disease"
+    ],
+    "creation_date": "2026-10-13T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Isolated hyperchlorhidrosis (HYCHL; OMIM 143860) is a rare autosomal recessive disorder caused by biallelic loss-of-function variants in CA12, encoding the membrane-anchored carbonic anhydrase XII. Reduced CA XII activity in the reabsorptive duct of the eccrine sweat gland impairs bicarbonate-dependent chloride reabsorption, so sweat chloride and sodium are abnormally high while CFTR function is intact. Affected infants present with salt precipitates after sweating, recurrent hyponatremic (and often hypochloremic, hyperkalemic) dehydration, poor feeding and failure to thrive, and the disorder is readily mistaken for cystic fibrosis or pseudohypoaldosteronism. It is managed with dietary salt supplementation; heat and strenuous exercise provoke excessive salt loss and, in adolescents, exertional rhabdomyolysis.",
+    "pathophysiology": [
+      "CA12 Loss-of-Function Variants",
+      "Reduced Carbonic Anhydrase XII Catalysis in the Sweat Duct",
+      "Impaired Ductal Chloride Reabsorption",
+      "Elevated Sweat Chloride and Sodium",
+      "Systemic Salt and Water Depletion",
+      "Impaired Salivary Ductal Fluid and Bicarbonate Secretion"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "ductal bicarbonate supply to the Cl-/HCO3- exchanger AE2",
+      "chloride transmembrane transport in the sweat duct",
+      "chloride ion homeostasis in the sweat duct",
+      "salivary ductal bicarbonate secretion"
+    ],
+    "phenotypes": [
+      "Elevated sweat chloride",
+      "Hyponatremia",
+      "Hypochloremia",
+      "Hyperkalemia",
+      "Dehydration",
+      "Failure to thrive",
+      "Salt precipitates after sweating",
+      "Heat intolerance",
+      "Exertional rhabdomyolysis",
+      "Hypovolemic shock",
+      "Metabolic acidosis",
+      "Hyperhidrosis",
+      "Xerostomia"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Constitutional",
+      "Dermatologic",
+      "Musculoskeletal",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0012236",
+      "HP:0002902",
+      "HP:0003113",
+      "HP:0002153",
+      "HP:0001944",
+      "HP:0001508",
+      "HP:0040128",
+      "HP:0002046",
+      "HP:0009045",
+      "HP:0031274",
+      "HP:0001942",
+      "HP:0000975",
+      "HP:0000217"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CA12"
+    ],
+    "treatments": [
+      "Dietary salt supplementation",
+      "Avoidance of heat and strenuous exercise",
+      "Acute intravenous rehydration"
+    ],
+    "environmental": [
+      "Heat exposure",
+      "Strenuous exercise"
+    ],
+    "biochemical": [],
+    "source_file": "Isolated_Hyperchlorhidrosis.yaml",
+    "page_url": "../pages/disorders/Isolated_Hyperchlorhidrosis.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Isolated Pierre Robin Syndrome",
     "disease_id": "MONDO:0009869",
     "category": "Developmental",
@@ -411935,17 +412030,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3816,
+  "total_disorder_pages": 3817,
   "total_subtypes": 4954,
-  "total_disorders_and_subtypes": 8770,
-  "total_unique_evidence_sources": 56833,
-  "total_unique_publications": 53145,
+  "total_disorders_and_subtypes": 8771,
+  "total_unique_evidence_sources": 56841,
+  "total_unique_publications": 53153,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 311,
-  "total_pathographs": 3814,
-  "total_unique_pathological_events": 25092,
+  "total_pathographs": 3815,
+  "total_unique_pathological_events": 25098,
   "total_modules": 219,
-  "total_research_reports": 3929,
+  "total_research_reports": 3930,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 128
