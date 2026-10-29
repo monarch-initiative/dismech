@@ -822,10 +822,9 @@ grouping-mondo-consistency *args="":
 
 # For every grouping with a HAS_MOLECULAR_FUNCTION criterion, check that each
 # member's causal genes carry an activity under the criterion's GO roots in
-# GO's own annotations (QuickGO), not just in the entry's curated terms. Also
-# shows each gene's ai-gene-review core molecular-function terms, from the
-# pinned ingest table, as a lead. Needs network. Report-only; --strict exits 1
-# when a member has no causal gene annotated under a root.
+# GO's own annotations (QuickGO) or in the gene's ai-gene-review core functions
+# (pinned ingest table), not just in the entry's curated terms. Needs network.
+# Report-only; --strict exits 1 when no causal gene of a member is supported.
 [group('QC')]
 grouping-gene-go-audit *args="":
     uv run python scripts/grouping_gene_go_audit.py {{args}}
@@ -1012,28 +1011,16 @@ stub-stats:
 # Where `fetch-claims` writes the open claim issues and the recipes below read them.
 claims_file := "tmp/claims.json"
 
-# Fetch every open claim issue in one list-API call (immediately consistent,
-# unlike a search) and write it where the other recipes can read it.
+# Fetch every open claim issue from the list API (immediately consistent,
+# unlike a search) and write it where the other recipes can read it. Tries
+# `gh issue list` (GraphQL, which reports linked PRs) and falls back to the
+# REST API when GraphQL is refused, as in Claude Code cloud sessions (#15854)
+# or on gh older than v2.73.0 (#11814). A failed fetch exits non-zero and
+# leaves the existing file untouched.
 # Fetch the open curation claims
 [group('Curation')]
 fetch-claims out=claims_file:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if ! command -v gh >/dev/null 2>&1; then
-      echo "fetch-claims needs the gh CLI, which is not installed in this environment." >&2
-      echo >&2
-      echo "Claude Code web/remote sessions have no gh, and cannot reach api.github.com" >&2
-      echo "directly either -- the agent proxy denies it even though GH_TOKEN is set." >&2
-      echo "Use the GitHub MCP server instead: see 'No gh CLI (web and remote sessions)'" >&2
-      echo "in .claude/skills/claim-disease/SKILL.md for the exact fallback, including" >&2
-      echo "the minimal titles-only claims file that is enough to pick from." >&2
-      exit 127
-    fi
-    mkdir -p "$(dirname {{out}})"
-    gh issue list --repo monarch-initiative/dismech --label claim --state open \
-      --json number,title,assignees,url,createdAt,closedByPullRequestsReferences \
-      --limit 1000 > {{out}}
-    echo "wrote {{out}}"
+    uv run dismech-stubs fetch-claims --out {{out}}
 
 # Reports double-claims, claims with no MONDO ID in the title (they lock
 # nothing), and stale claims — old with no PR. An open PR is never stale.
@@ -1082,7 +1069,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-logical-rules check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1131,6 +1118,35 @@ drug-exposure-query *args="":
 [group('QC')]
 chemical-binding-inventory *args="":
     uv run python scripts/chemical_binding_inventory.py {{args}}
+
+# Inventory of every assay in the KB by the route that reaches it: the five
+# `assays:` routes (dismech#15354), the distinct assay names, and a reverse
+# lookup from an assay name to the entries recording it. An assay on a proposed
+# experiment is a measurement somebody suggested, not one that was made, so the
+# routes are never summed into a single figure. Also reports names that differ
+# only mechanically, and separately flags names one of which contains the
+# other, which only a curator can resolve. Report-only, exits 0.
+#   just assay-inventory
+#   just assay-inventory --assay "multielectrode array recording"
+#   just assay-inventory --format tsv --out docs/reports/data/assays-<date>.tsv
+[group('QC')]
+assay-inventory *args="":
+    uv run python scripts/assay_inventory.py {{args}}
+
+# Inventory of the three model sections and every ModelMechanismLink reaching
+# the pathograph, counted by relationship, fidelity, model_scale and the detail
+# each link carries. Walks all four homes of a link through
+# `dismech.model_links`, including the model systems of a proposed experiment
+# (dismech#13427); `--curated-only` drops those. A missing fidelity or scale is
+# reported as not recorded, never as a verdict. For species normalised into
+# clades use `just model-taxon-census`, and for the scale comparison itself use
+# `just model-scale-audit`. Report-only, exits 0.
+#   just model-inventory
+#   just model-inventory --node "Neuronal Hyperexcitability"
+#   just model-inventory --format tsv --table models
+[group('QC')]
+model-inventory *args="":
+    uv run python scripts/model_inventory.py {{args}}
 
 # For a named entity, the schema path of every string match, whether the holding
 # object carries a bound term, and whether the mention is identity, prose or
@@ -1238,9 +1254,13 @@ variant-mechanism-audit *args="":
     uv run python scripts/audit_variant_mechanism.py {{args}}
 
 # Ratchet on genetic[].mechanism_activity_grounding: a gene wired into the
-# pathograph whose landing node names no molecular function. Grandfathers
-# against origin/main in CI (GENE_ACTIVITY_BASELINE_REF), else against
-# tests/gene_activity_grounding_baseline.txt.
+# pathograph whose landing node names no molecular function. CI grandfathers
+# against origin/<base> (--against-ref). Locally, with no ref, it uses the
+# merge base of HEAD and origin/main, so a clean checkout passes; only when
+# that is missing (shallow clone) does it fall back to the committed, possibly
+# stale tests/gene_activity_grounding_baseline.txt, and it says so (#15446).
+# The merge-base run rescans kb/ at that commit (git archive), so it is
+# slower than reading the committed file.
 # Fail on genes newly landing on a node with no molecular_functions
 [group('QC')]
 check-gene-activity-grounding *args="":
@@ -1617,6 +1637,27 @@ check-delivery-system *args:
 [group('QC')]
 check-entity-refs *files:
     uv run python scripts/check_entity_refs.py "$@"
+
+# Check that a pathophysiology node's cell types and biological processes are
+# consistent WITH EACH OTHER (#9905). Every other gate validates one binding at
+# a time, so `CL:0000057 fibroblast` alongside `GO:0001837 epithelial to
+# mesenchymal transition` is green everywhere while claiming a fibroblast --
+# which is not epithelium -- undergoes the epithelial transition.
+#
+# Report-only by default, like check-source-defect-claims: CL's is_a graph
+# cannot express every exception, so a finding is a question for a curator. A
+# node judged correct records why in `review_notes`, not in a baseline file.
+# Pass --strict to gate. ~25s over the whole KB, offline.
+[group('QC')]
+check-logical-rules *files:
+    uv run python scripts/check_logical_rules.py "$@"
+
+# Regenerate cache/rule_closure/*.csv, the committed is_a closures the rules read.
+# Network-bound (OLS, via conf/oak_config.yaml) and slow; run it only after
+# editing conf/logical_rules.yaml, and commit the diff.
+[group('QC')]
+refresh-logical-rule-closures *args:
+    uv run python scripts/refresh_logical_rule_closures.py "$@"
 
 # Resolve every BARE-name pathograph target in kb/ (#10112, #9697). Distinct from
 # check-entity-refs: `downstream[].target`, `sequelae[].target`,
@@ -2071,6 +2112,17 @@ check-reference-titles:
 [group('QC')]
 list-reference-title-mismatches:
     uv run python scripts/check_reference_titles.py --all
+
+# Fail on any evidence item with no `reference_title` (presence; the recipe
+# above checks correctness). Holds the backlog at zero ahead of making the slot
+# `required` in the schema, so open curation PRs are told now rather than all
+# going red when that change merges. No baseline. Fill gaps from the cache with
+# `uv run python scripts/backfill_reference_titles.py <file>`. ~30s, offline.
+#   just check-reference-titles-present
+#   just check-reference-titles-present kb/disorders/Asthma.yaml --details
+[group('QC')]
+check-reference-titles-present *args:
+    uv run python scripts/find_missing_reference_titles.py {{args}}
 
 # Regenerate the reference-title baseline after intentionally changing the set
 # (e.g. fixing backlog entries). Review the diff before committing.
@@ -3469,8 +3521,10 @@ validate-research-terms +args:
 # Verdicts: PASS / WARN (contamination or OMIM mismatch) / FAIL (wrong entity —
 # discard the report, do not cherry-pick) / SKIP (MONDO records no causal gene).
 # Exits non-zero on FAIL, or on WARN too with --strict.
-# Needs the local MONDO build (`just fetch-ontology-dbs mondo`); exits 2 rather
-# than downloading it when absent (#12687). --no-hgnc also avoids the HGNC build.
+# Reads MONDO from the local build when present, otherwise from OLS (#15436);
+# never downloads the build, and exits 2 only when OLS is unreachable too
+# (#12687). Without hgnc.db it skips the HGNC lexicon (as --no-hgnc does) rather
+# than downloading it; `just fetch-ontology-dbs hgnc` gives the sharper lexicon.
 # Examples:
 #   just preflight-dr research/Marfan_Syndrome-deep-research-falcon.md MONDO:0007947
 #   just preflight-dr research/Foo-deep-research-falcon.md MONDO:0014572 --strict
