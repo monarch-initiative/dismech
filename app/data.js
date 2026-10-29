@@ -99190,6 +99190,88 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Clear Cell Sarcoma of Kidney",
+    "disease_id": "MONDO:0005006",
+    "category": "",
+    "parents": [
+      "kidney sarcoma"
+    ],
+    "creation_date": "2026-10-28T18:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Clear cell sarcoma of the kidney (CCSK) is a rare malignant renal sarcoma of early childhood. A 1985 clinicopathologic series concluded that, until it is shown to be related to nephroblastoma (Wilms tumour), identifying it as a non-Wilms sarcoma seems appropriate, and that it appears to be the most common renal sarcoma of childhood. In the US SEER 18 registries (2000 to 2017) its age-adjusted incidence among children and adolescents aged 0 to 19 years was 0.205 per million, reported as stable over the years and third among paediatric renal tumours, with incidence rate ratios of 2.5 for boys and 21.1 for children aged 4 years or younger. In a National Wilms Tumor Study Group Pathology Center review, mean age at diagnosis among the National Wilms Tumor Study trial patients was 36 months (range 2 months to 14 years), and the review reported a male to female ratio of 2:1. Abdominal mass and haematuria were the usual presenting signs in an early series, and the primary tumour is typically large and mucoid, with foci of necrosis and prominent cyst formation. Most tumours carry a somatic internal tandem duplication (ITD) clustering in the C terminus of BCOR, within the sequence encoding the PUFD domain, which is important for forming the variant polycomb repressive complex 1; in one series the ITD was found in all 20 CCSKs and in none of 193 other paediatric renal tumours tested. A minority instead carry a YWHAE-FAM22 fusion transcript from t(10;17)(q22;p13), detected in 6 of 50 further CCSKs in one cohort; the FAM22 members involved include FAM22B and FAM22E, now NUTM2B and NUTM2E. In a cohort of 159 CCSKs the BCOR ITD and the YWHAE fusion were mutually exclusive, and 11.8% of tumours carried neither when tested by those assays. In a 39-patient cohort BCOR ITD, YWHAE rearrangement and BCOR::CCNB3 fusion were mutually exclusive, one tumour carried the BCOR::CCNB3 fusion, and three had none of them detected. The skeleton, almost invariably including the skull, was the commonest metastatic site in the 1985 series. Among 37 relapses after treatment on SIOP and AIEOP protocols, 95% were metastatic and the brain was the commonest relapse site, and a review attributes to improved intensive chemotherapy a change in the clinical course, with late relapses now less frequent and the brain having overtaken bone as the most common site of relapse. Treatment combines nephrectomy, performed first on NWTS-based strategies and after preoperative chemotherapy in most patients on SIOP trials, with chemotherapy and radiotherapy. On the National Wilms Tumor Study-5, the 108 eligible patients, treated with vincristine, doxorubicin and cyclophosphamide alternating with cyclophosphamide and etoposide for 24 weeks (regimen I) with radiation to sites of disease, had five-year event-free and overall survival of 79% and 90%. The Children's Oncology Group study AREN0321 omitted radiotherapy for stage I disease when lymph nodes were sampled, with no local recurrences among the seven stage I patients treated without it, and added carboplatin for stage IV disease. Stage IV patients appeared to benefit from the carboplatin-containing regimen, although their outcomes remained unsatisfactory; only four were treated on AREN0321, and the apparent benefit rests on ten stage IV patients from AREN0321 and the AREN03B2 biology study combined, compared with earlier NWTS-5 results. After relapse in the SIOP and AIEOP series, five-year event-free and overall survival were 18% and 26%.",
+    "pathophysiology": [
+      "BCOR Internal Tandem Duplication",
+      "YWHAE::NUTM2 Fusion",
+      "Primary Renal Tumor Growth",
+      "Distant Metastasis to Bone, Brain and Lung"
+    ],
+    "cell_types": [
+      "putative renal mesenchymal cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008019"
+    ],
+    "biological_processes": [
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Renal Neoplasm",
+      "Abdominal Mass",
+      "Hematuria",
+      "Bone Metastases",
+      "Brain Metastases",
+      "Lung Metastases"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Abdominal",
+      "Genitourinary",
+      "Musculoskeletal",
+      "Neurologic",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0009726",
+      "HP:0031500",
+      "HP:0000790",
+      "HP:0010622",
+      "HP:0030692",
+      "HP:0100526"
+    ],
+    "frequencies": [],
+    "genes": [
+      "BCOR"
+    ],
+    "treatments": [
+      "Radical Nephrectomy",
+      "Regimen I Chemotherapy",
+      "Carboplatin-Containing Chemotherapy for Stage IV Disease",
+      "Radiation Therapy",
+      "Salvage Chemotherapy for Relapsed Disease",
+      "High-Dose Chemotherapy with Autologous Stem-Cell Rescue"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Clear_Cell_Sarcoma_of_Kidney.yaml",
+    "page_url": "../pages/disorders/Clear_Cell_Sarcoma_of_Kidney.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Cleft Lip/Palate",
     "disease_id": "MONDO:0016044",
     "category": "Complex",
@@ -106179,6 +106261,125 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "23",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Congenital Amegakaryocytic Thrombocytopenia 1",
+    "disease_id": "MONDO:0800452",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited bone marrow failure syndrome",
+      "Inherited thrombocytopenia"
+    ],
+    "creation_date": "2026-10-28T17:30:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "CAMT I",
+      "CAMT II"
+    ],
+    "description": "Autosomal recessive inherited bone marrow failure syndrome caused by homozygous or compound heterozygous loss-of-function variants in MPL, the gene for the thrombopoietin receptor. Without thrombopoietin signaling, megakaryocytes fail to develop, and affected children are born with (or develop in the first months of life) severe isolated thrombocytopenia with absent or reduced marrow megakaryocytes and markedly raised circulating thrombopoietin. Because MPL signaling also maintains hematopoietic stem and progenitor cells, the marrow progressively empties, and almost all patients progress to pancytopenia and aplastic anemia, usually in the first years of life. The main threats are pre- and perinatal intracranial hemorrhage, with its neurological and ocular sequelae, and later marrow aplasia. Patients with null alleles (CAMT type I) stay severely thrombocytopenic and progress early; some missense alleles with residual receptor function (CAMT type II) give a transient rise in platelets and later aplasia. Allogeneic hematopoietic stem cell transplantation is the only curative treatment.",
+    "pathophysiology": [
+      "Biallelic MPL Loss of Function",
+      "Loss of Thrombopoietin Receptor Signaling",
+      "Failure of Megakaryopoiesis",
+      "Hematopoietic Stem and Progenitor Cell Exhaustion"
+    ],
+    "cell_types": [
+      "megakaryocyte",
+      "hematopoietic stem cell",
+      "megakaryocyte-erythroid progenitor cell",
+      "hematopoietic multipotent progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000556",
+      "CL:0000037",
+      "CL:0000050",
+      "CL:0000837"
+    ],
+    "biological_processes": [
+      "thrombopoietin-mediated signaling pathway",
+      "megakaryocyte differentiation",
+      "platelet formation",
+      "hematopoietic stem cell homeostasis"
+    ],
+    "phenotypes": [
+      "Thrombocytopenia",
+      "Megakaryocytopenia",
+      "Elevated circulating thrombopoietin concentration",
+      "Petechiae",
+      "Intracranial hemorrhage",
+      "Gastrointestinal hemorrhage",
+      "Epistaxis",
+      "Pancytopenia",
+      "Aplastic anemia",
+      "Bone marrow hypocellularity",
+      "Anemia",
+      "Neutropenia",
+      "Myelodysplasia",
+      "Abnormal brain morphology",
+      "Strabismus",
+      "Nystagmus",
+      "Global developmental delay"
+    ],
+    "phenotype_categories": [
+      "Hematological",
+      "Neurological",
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001873",
+      "HP:0005548",
+      "HP:0034600",
+      "HP:0000967",
+      "HP:0002170",
+      "HP:0002239",
+      "HP:0000421",
+      "HP:0001876",
+      "HP:0001915",
+      "HP:0005528",
+      "HP:0001903",
+      "HP:0001875",
+      "HP:0002863",
+      "HP:0012443",
+      "HP:0000486",
+      "HP:0000639",
+      "HP:0001263"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "MPL"
+    ],
+    "treatments": [
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Platelet Transfusion",
+      "Thrombopoietin Receptor Agonists (investigational)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_Amegakaryocytic_Thrombocytopenia_1.yaml",
+    "page_url": "../pages/disorders/Congenital_Amegakaryocytic_Thrombocytopenia_1.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Congenital Aural Atresia",
@@ -125622,6 +125823,117 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Desmin-Related Myopathy",
+    "disease_id": "MONDO:0016187",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-29T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "MFM1",
+      "CMD1I",
+      "Kaeser scapuloperoneal syndrome",
+      "LGMD1E (DES)"
+    ],
+    "description": "A heterozygous rod-domain (usually coil 2B, e.g. R350P) missense variant in DES produces a mutant desmin that is still incorporated into heteropolymers with wild-type desmin.",
+    "pathophysiology": [
+      "DES Rod-Domain Variant",
+      "Dominant-Negative Filament Assembly Failure",
+      "Extrasarcomeric Desmin Network Collapse",
+      "Granulofilamentous Desmin Aggregation",
+      "Impaired Protein Quality Control",
+      "Myofibrillar Disintegration",
+      "Mitochondrial Dysfunction",
+      "Striated Muscle Cell Degeneration",
+      "Desmin-Related Cardiomyopathy",
+      "Cardiac Conduction System Degeneration"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber",
+      "cardiac muscle cell",
+      "Purkinje myocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0008002",
+      "CL:0000746",
+      "CL:0002068"
+    ],
+    "biological_processes": [
+      "intermediate filament organization",
+      "macroautophagy",
+      "mitochondrion organization",
+      "sarcomere organization",
+      "muscle contraction"
+    ],
+    "phenotypes": [
+      "Distal lower limb muscle weakness",
+      "Proximal muscle weakness",
+      "Respiratory insufficiency",
+      "Dysphagia",
+      "Elevated creatine kinase",
+      "Cardiomyopathy",
+      "Dilated cardiomyopathy",
+      "Restrictive cardiomyopathy",
+      "Hypertrophic cardiomyopathy",
+      "Arrhythmogenic right ventricular cardiomyopathy",
+      "Atrioventricular block",
+      "Ventricular arrhythmia",
+      "Congestive heart failure",
+      "Sudden cardiac death"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Laboratory",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0009053",
+      "HP:0003701",
+      "HP:0002747",
+      "HP:0002015",
+      "HP:0003236",
+      "HP:0001638",
+      "HP:0001644",
+      "HP:0001723",
+      "HP:0001639",
+      "HP:0011663",
+      "HP:0001678",
+      "HP:0004308",
+      "HP:0001635",
+      "HP:0001645"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DES"
+    ],
+    "treatments": [
+      "Supportive care",
+      "Cardiac device therapy (pacemaker / ICD)",
+      "AAV9-desmin gene transfer (experimental)",
+      "Heart transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Desmin-Related_Myopathy.yaml",
+    "page_url": "../pages/disorders/Desmin-Related_Myopathy.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Desmoid Tumor",
@@ -153043,6 +153355,80 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "Familial Encephalopathy With Neuroserpin Inclusion Bodies",
+    "disease_id": "MONDO:0011412",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-29T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A heterozygous SERPINI1 missense variant in the shutter/breach region of the serpin fold.",
+    "pathophysiology": [
+      "SERPINI1 Missense Variant",
+      "Neuroserpin Fold Destabilization",
+      "ER Loop-Sheet Polymerization",
+      "Collins Body Accumulation",
+      "ER Overload Response",
+      "Mitochondrial Dysfunction",
+      "Loss of Neuroserpin tPA Inhibition",
+      "Neuronal Loss and Neurodegeneration"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "protein folding",
+      "protein polymerization",
+      "ER overload response",
+      "mitochondrion organization"
+    ],
+    "phenotypes": [
+      "Impaired executive functioning",
+      "Dementia",
+      "Myoclonus",
+      "Seizure",
+      "Dyskinesia",
+      "Cerebral cortical atrophy"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0033051",
+      "HP:0000726",
+      "HP:0001336",
+      "HP:0001250",
+      "HP:0100660",
+      "HP:0002120"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SERPINI1"
+    ],
+    "treatments": [
+      "Antiseizure pharmacotherapy",
+      "Supportive and palliative care",
+      "Genetic counseling",
+      "Embelin (experimental anti-polymerization)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Familial_Encephalopathy_With_Neuroserpin_Inclusion_Bodies.yaml",
+    "page_url": "../pages/disorders/Familial_Encephalopathy_With_Neuroserpin_Inclusion_Bodies.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Familial_Episodic_Pain_Syndrome_With_Predominantly_Lower_Limb_Involvement",
     "disease_id": "MONDO:0014247",
     "category": "Mendelian",
@@ -154693,6 +155079,98 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "48",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Familial Juvenile Hyperuricemic Nephropathy Type 1",
+    "disease_id": "MONDO:0008073",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal dominant tubulointerstitial kidney disease"
+    ],
+    "creation_date": "2026-10-28T17:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant tubulointerstitial kidney disease caused by heterozygous, mostly missense UMOD variants, now named ADTKD-UMOD. Uromodulin is made only by epithelial cells of the thick ascending limb of the loop of Henle. Mutant uromodulin, usually missing a disulfide-bonded cysteine, misfolds and is retained in the endoplasmic reticulum, where it causes ER stress and the unfolded protein response and is not secreted. The retained protein damages thick ascending limb cells and leads to tubular atrophy, interstitial inflammation and fibrosis, while less functional uromodulin reaches the apical membrane. Patients have a bland urinalysis, impaired urinary concentration, hyperuricemia from low fractional excretion of urate (often in childhood), gout, and slowly progressive chronic kidney disease that reaches kidney failure between the third and seventh decades. Allopurinol controls hyperuricemia and prevents gout; kidney transplantation is curative for the kidney disease. Familial juvenile hyperuricemic nephropathy type 1, medullary cystic kidney disease type 2 and UMOD-related glomerulocystic kidney disease are names for the same disorder.",
+    "pathophysiology": [
+      "Heterozygous UMOD Missense Variant",
+      "Mutant Uromodulin Retention in the Endoplasmic Reticulum",
+      "ER Stress and Unfolded Protein Response in Thick Ascending Limb Cells",
+      "Tubulointerstitial Injury and Fibrosis",
+      "Impaired Thick Ascending Limb Salt Reabsorption",
+      "Increased Proximal Tubular Urate Reabsorption"
+    ],
+    "cell_types": [
+      "thick ascending limb epithelial cell",
+      "proximal convoluted tubule epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:1001106",
+      "CL:1000838"
+    ],
+    "biological_processes": [
+      "protein folding in endoplasmic reticulum",
+      "endoplasmic reticulum unfolded protein response",
+      "IRE1-mediated unfolded protein response",
+      "autophagy",
+      "renal sodium ion absorption",
+      "urate transport"
+    ],
+    "phenotypes": [
+      "Hyperuricemia",
+      "Gout",
+      "Chronic kidney disease",
+      "Stage 5 chronic kidney disease",
+      "Impaired renal concentrating ability",
+      "Tubulointerstitial fibrosis",
+      "Renal tubular atrophy",
+      "Renal cyst",
+      "Hypertension"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Musculoskeletal",
+      "Renal",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002149",
+      "HP:0001997",
+      "HP:0012622",
+      "HP:0003774",
+      "HP:0004727",
+      "HP:0005576",
+      "HP:0000092",
+      "HP:0000107",
+      "HP:0000822"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "UMOD"
+    ],
+    "treatments": [
+      "Allopurinol",
+      "Kidney Transplantation",
+      "Avoidance of Nephrotoxins and Volume Depletion"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Familial_Juvenile_Hyperuricemic_Nephropathy_Type_1.yaml",
+    "page_url": "../pages/disorders/Familial_Juvenile_Hyperuricemic_Nephropathy_Type_1.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Familial Juvenile Hyperuricemic Nephropathy Type 2",
@@ -156626,6 +157104,8 @@ window.searchData = [
       "Oral Leukoplakia and Erythroplakia",
       "Medulloblastoma",
       "Nephroblastoma",
+      "Neuroblastoma in FANCD1/BRCA2",
+      "Neuroblastoma in FANCN/PALB2",
       "Abnormal Rib Morphology",
       "Scapular Hypoplasia",
       "Pulmonary Fibrosis",
@@ -156853,6 +157333,7 @@ window.searchData = [
       "HP:0002745",
       "HP:0002885",
       "HP:0002667",
+      "HP:0003006",
       "HP:0000772",
       "HP:0000882",
       "HP:0002206",
@@ -156919,7 +157400,7 @@ window.searchData = [
     ],
     "source_file": "Fanconi_Anemia.yaml",
     "page_url": "../pages/disorders/Fanconi_Anemia.html",
-    "num_phenotypes": 185,
+    "num_phenotypes": 187,
     "num_pathophysiology": 22,
     "num_genes": 25,
     "num_treatments": 8,
@@ -325351,6 +325832,103 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Progressive External Ophthalmoplegia Autosomal Recessive 6",
+    "disease_id": "MONDO:0957993",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-29T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A biallelic loss-of-function missense variant at RRM1 Arg381 reduces the catalytic activity of ribonucleotide reductase.",
+    "pathophysiology": [
+      "RRM1 Loss-of-Function Variant",
+      "Imbalanced Mitochondrial dNTP Pools",
+      "Impaired mtDNA Replication",
+      "Multiple mtDNA Deletions",
+      "Mosaic Respiratory Chain Deficiency",
+      "Enteric Mitochondrial Involvement"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "mitochondrial DNA replication",
+      "oxidative phosphorylation"
+    ],
+    "phenotypes": [
+      "Progressive external ophthalmoplegia",
+      "Ptosis",
+      "Diplopia",
+      "Proximal muscle weakness",
+      "Elevated creatine kinase",
+      "Vomiting",
+      "Weight loss",
+      "Diarrhea",
+      "Gastrointestinal dysmotility",
+      "Cachexia",
+      "Generalized limb muscle atrophy",
+      "Peripheral axonal neuropathy",
+      "Areflexia",
+      "Cytochrome C oxidase-negative muscle fibers",
+      "Ragged-red muscle fibers"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Musculoskeletal",
+      "Laboratory",
+      "Gastrointestinal",
+      "Constitutional",
+      "Neurologic",
+      "Histopathologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000590",
+      "HP:0000508",
+      "HP:0000651",
+      "HP:0003701",
+      "HP:0003236",
+      "HP:0002013",
+      "HP:0001824",
+      "HP:0002014",
+      "HP:0002579",
+      "HP:0004326",
+      "HP:0009055",
+      "HP:0003477",
+      "HP:0001284",
+      "HP:0003688",
+      "HP:0003200"
+    ],
+    "frequencies": [],
+    "genes": [
+      "RRM1"
+    ],
+    "treatments": [
+      "Supportive care",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Progressive_External_Ophthalmoplegia_Autosomal_Recessive_6.yaml",
+    "page_url": "../pages/disorders/Progressive_External_Ophthalmoplegia_Autosomal_Recessive_6.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Progressive External Ophthalmoplegia with Mitochondrial DNA Deletions, Autosomal Recessive 4",
     "disease_id": "MONDO:0014899",
     "category": "Mendelian",
@@ -361046,6 +361624,7 @@ window.searchData = [
       "Polyhydramnios",
       "Nephroblastoma",
       "Hepatoblastoma",
+      "Neuroblastoma",
       "Congenital Heart Defect",
       "Genitourinary Anomaly",
       "Scoliosis",
@@ -361093,6 +361672,7 @@ window.searchData = [
       "HP:0001561",
       "HP:0002667",
       "HP:0002884",
+      "HP:0003006",
       "HP:0001627",
       "HP:0000119",
       "HP:0002650",
@@ -361103,7 +361683,8 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "VERY_RARE"
     ],
     "genes": [
       "GPC3"
@@ -361117,7 +361698,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Simpson-Golabi-Behmel_Syndrome_Type_1.yaml",
     "page_url": "../pages/disorders/Simpson-Golabi-Behmel_Syndrome_Type_1.html",
-    "num_phenotypes": 18,
+    "num_phenotypes": 19,
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 3,
@@ -363585,6 +364166,7 @@ window.searchData = [
       "High Arched Palate",
       "Hearing Impairment",
       "Neoplasia",
+      "Neuroblastoma",
       "Attention Deficit Hyperactivity Disorder",
       "Anxiety",
       "Ophthalmological Abnormalities",
@@ -363673,6 +364255,7 @@ window.searchData = [
       "HP:0000218",
       "HP:0000365",
       "HP:0002664",
+      "HP:0003006",
       "HP:0007018",
       "HP:0000739",
       "HP:0000478",
@@ -363724,7 +364307,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Sotos_Syndrome.yaml",
     "page_url": "../pages/disorders/Sotos_Syndrome.html",
-    "num_phenotypes": 52,
+    "num_phenotypes": 53,
     "num_pathophysiology": 13,
     "num_genes": 1,
     "num_treatments": 3,
@@ -410971,17 +411554,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3807,
-  "total_subtypes": 4945,
-  "total_disorders_and_subtypes": 8752,
-  "total_unique_evidence_sources": 56675,
-  "total_unique_publications": 52988,
+  "total_disorder_pages": 3813,
+  "total_subtypes": 4951,
+  "total_disorders_and_subtypes": 8764,
+  "total_unique_evidence_sources": 56777,
+  "total_unique_publications": 53089,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 311,
-  "total_pathographs": 3805,
-  "total_unique_pathological_events": 25034,
+  "total_pathographs": 3811,
+  "total_unique_pathological_events": 25068,
   "total_modules": 215,
-  "total_research_reports": 3920,
+  "total_research_reports": 3926,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 128

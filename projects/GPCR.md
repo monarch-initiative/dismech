@@ -37,6 +37,9 @@ diseases:
 - Systemic_Mastocytosis
 - Maculopapular_Cutaneous_Mastocytosis
 - Monoclonal_Mast_Cell_Activation_Syndrome
+- CKD-Mineral_Bone_Disorder
+- Parathyroid_Gland_Carcinoma
+- Parathyroid_Hyperplasia
 - Multiple_Sclerosis
 - Coronary_Artery_Disease
 - Carotid_Stenosis
@@ -49,6 +52,7 @@ diseases:
 - Secondary_Erythromelalgia
 - Glaucoma
 - Familial_Hypocalciuric_Hypercalcemia_1
+- Familial_Hypocalciuric_Hypercalcemia_2
 - Autosomal_Dominant_Hypocalcemia_1
 - X-Linked_Nephrogenic_Diabetes_Insipidus
 - Pseudohypoparathyroidism
@@ -78,6 +82,7 @@ modules:
 - h2_receptor_antagonism
 - beta2_adrenergic_receptor_agonism
 - muscarinic_receptor_antagonism
+- casr_positive_allosteric_modulation
 - p2y12_receptor_antagonism
 ---
 
@@ -150,7 +155,7 @@ conform:
 | H2 receptor antagonism | HRH2 | H2 blockers | Gastroesophageal_Reflux_Disease. Scoped to H2 blockade, so the proton-pump inhibitors are out: they block the same terminal pump non-competitively and the H2RA mechanism is upstream of it |
 | beta2 adrenergic receptor agonism | ADRB2 | SABA, LABA | Asthma, Thunderstorm_Asthma, Formaldehyde_Poisoning. Airway-scoped: the receptor's neuromuscular-transmission and potassium-shift effector chains are a separate question, below. `Chronic_Obstructive_Pulmonary_Disease` and `Cough_Variant_Asthma` were initially blocked by a generic `Bronchodilator` agent binding and were wired in #15777, which refined each to a beta-adrenergic agonist class term |
 | muscarinic receptor antagonism (airway) | CHRM3 | SAMA, LAMA | Chronic_Obstructive_Pulmonary_Disease. Airway-scoped, like the beta2 module and for the same reason; the module's own notes carry the census that makes the scope concrete. `Cough_Variant_Asthma` was assessed and rejected: its treatment is beta2-only in its own text, and the earlier assumption that it bundled a muscarinic antagonist was wrong |
-| CaSR positive allosteric modulation | CASR | calcimimetics | secondary hyperparathyroidism in CKD |
+| CaSR positive allosteric modulation | CASR | calcimimetics | CKD-Mineral_Bone_Disorder, Familial_Hypocalciuric_Hypercalcemia_1 and _2, Parathyroid_Gland_Carcinoma, Parathyroid_Hyperplasia. This row originally read "secondary hyperparathyroidism in CKD"; the module turned out to be indication-independent, since the drug acts at the same receptor on the same cell whether the hormone excess comes from renal handling, an inactivating receptor variant or autonomous parathyroid tissue. Not tissue-scoped, unlike the airway modules above |
 | S1P receptor modulation | S1PR1 | fingolimod, siponimod | Multiple_Sclerosis |
 | P2Y12 receptor antagonism | P2RY12 | clopidogrel, ticagrelor | Coronary_Artery_Disease, Carotid_Stenosis, CADASIL_Type_1. Indication-independent, like the CaSR module: the three conformers span coronary, carotid and small-vessel cerebral disease, and the module is scoped to the receptor rather than to any of them. Six further entries name a P2Y12 antagonist and are not wired, because no treatment in any of them binds a P2Y12 antagonist as `therapeutic_agent`; the module's notes give the reason for each |
 | V2 receptor antagonism | AVPR2 | vaptans | SIADH, ADPKD |
@@ -315,6 +320,25 @@ mechanism-level rather than disease-level.
         `muscarinic_receptor_antagonism`, at the trigger. It is the second receptor
         occupancy node in that entry, alongside the beta2 one from #15777, which is the
         point of keeping the two modules separate
+  - [x] Five calcimimetic-treated entries, in #15925: `CKD-Mineral_Bone_Disorder`,
+        `Familial_Hypocalciuric_Hypercalcemia_1` and `_2`, `Parathyroid_Gland_Carcinoma` and
+        `Parathyroid_Hyperplasia` against `casr_positive_allosteric_modulation`, all at the
+        trigger. The five span four different reasons parathyroid hormone is excessive --
+        reduced renal calcium and vitamin D handling, an inactivating *CASR* variant, a
+        *GNA11* signalling defect, and autonomous malignant or hyperplastic tissue -- which
+        is what makes this module indication-independent rather than a CKD module, and the
+        point is carried by a source rather than assumed: the cited case report states that
+        cinacalcet suppresses parathyroid hormone in parathyroid carcinoma in the same way
+        as in uraemic hyperplasia. Two further entries name a calcimimetic and are not
+        wired. `Multiple_Endocrine_Neoplasia_Type_1` has no calcimimetic treatment to wire,
+        only a mention inside a parathyroidectomy treatment that binds no agent of its own.
+        `Autosomal_Recessive_Hypophosphatemic_Rickets_1` records a single adjunctive course
+        in one adult that was stopped because higher doses were not tolerated, and its own
+        description says it does not establish routine efficacy, so wiring it would present
+        an abandoned single-patient trial as a therapeutic mechanism. The autosomal dominant
+        hypocalcaemia entries are recorded in the module as never-conformers: they are
+        caused by *activating* receptor variants, so a calcimimetic is the wrong direction
+        of action and those entries name it as something to avoid
   - [x] Three P2Y12-antagonist-treated entries, in #15928:
         `Coronary_Artery_Disease`, `Carotid_Stenosis` and `CADASIL_Type_1` against
         `p2y12_receptor_antagonism`, all at the trigger. Those three are the only entries whose
@@ -350,7 +374,7 @@ mechanism-level rather than disease-level.
   - [x] H2 receptor antagonism — `h2_receptor_antagonism` (#15689)
   - [x] beta2 adrenergic receptor agonism — `beta2_adrenergic_receptor_agonism` (#15706)
   - [x] muscarinic receptor antagonism (airway) -- `muscarinic_receptor_antagonism` (#15795)
-  - [ ] CaSR positive allosteric modulation
+  - [x] CaSR positive allosteric modulation -- `casr_positive_allosteric_modulation` (#15925)
   - [ ] S1P receptor modulation — deferred behind P2Y12: only `Multiple_Sclerosis`
         treats with an S1P modulator. Of the four other entries mentioning S1P, two are
         mouse models (Lafora disease, glaucoma), one uses a research-tool antagonist by
