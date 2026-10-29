@@ -24,10 +24,15 @@ protein of chylomicrons, VLDL and LDL particles.
 
 ## Normal function
 
-The pinned ai-gene-review snapshot that the ingest layer reads has no core
-functions for APOB
-(<span class="result" data-code="len(g.core_function_terms())">0<span class="method"></span></span>
-terms). An upstream review of the gene is being added or updated.
+ai-gene-review gives APOB's core molecular functions as
+<span class="result" data-compare="names" data-code="g.core_function_terms('molecular_function')">lipid carrier activity; and low-density lipoprotein particle receptor binding<span class="method"></span></span>,
+acting in
+<span class="result" data-compare="names" data-code="g.core_function_terms('directly_involved_in')">cholesterol homeostasis; cholesterol transport; lipoprotein transport; low-density lipoprotein particle clearance; and very-low-density lipoprotein particle assembly<span class="method"></span></span>,
+at the
+<span class="result" data-compare="names" data-code="g.core_function_terms('locations')">endoplasmic reticulum lumen; extracellular region; and smooth endoplasmic reticulum<span class="method"></span></span>.
+The two functions are the two halves of the particle's life: the structural
+lipid-carrier role it plays from assembly in the ER lumen onwards, and the
+receptor binding that clears it from circulation.
 
 ## Causative records
 
@@ -59,9 +64,11 @@ MEND Syndrome records APOB as
 The entries with a genetic record for APOB that carries no relationship type are
 <span class="result" data-compare="names" data-code="g.untyped()">Familial Hypercholesterolemia; Hyperlipidemia<span class="method"></span></span>.
 
-## Where the layers disagree
+## Where the layers agree
 
-Because the pinned ai-gene-review snapshot has no core functions for the gene,
-the KB and ai-gene-review currently share
-<span class="result" data-code="len(g.shared_processes())">0<span class="method"></span></span>
-GO process terms.
+The KB mechanism nodes and the ai-gene-review core functions share
+<span class="result" data-compare="names" data-code="g.shared_processes()">low-density lipoprotein particle clearance; and very-low-density lipoprotein particle assembly<span class="method"></span></span>
+by exact GO identifier. The nodes naming APOB carry
+<span class="result" data-compare="names" data-code="g.mechanism_processes()">cholesterol metabolic process; low-density lipoprotein particle clearance; receptor-mediated endocytosis; and very-low-density lipoprotein particle assembly<span class="method"></span></span>,
+so the two layers meet on the assembly and clearance steps and the KB adds the
+endocytic mechanism beneath the clearance one.

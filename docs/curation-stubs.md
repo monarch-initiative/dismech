@@ -208,7 +208,11 @@ do not remove a stub, because they need a person's call: a
 `possible_kb_duplicate` (an entry with the same name under a different MONDO
 ID), a scheduled obsoletion, or a merged term to repoint. They are printed under
 the stub, and listed as `advisories` in `--json` output, so the lump/split
-decision is made before the claim. Each `--json` record also carries the
+decision is made before the claim. When the finding points at a MONDO successor
+(the replacement of a merged term, or the one a scheduled-merge note names), the
+successor is printed beside the kind, as in
+`[advisory] obsolete_term_replaced -> MONDO:0980711`, and carried as `successor`
+in the `--json` advisory. Each `--json` record also carries the
 stub's `mondo_parents`, `mondo_descendants`, `mondo_descendant_count`, `genes`
 and `synonyms` when it has them (an absent field is left out, not written as
 `null`). Classifying the queue needs the MONDO IDs and
@@ -326,7 +330,7 @@ So `check-stubs` splits its findings, and only one kind gates:
 | Severity | Means | Gates? |
 |---|---|---|
 | **error** | the *file* is broken — unparseable YAML, a malformed MONDO ID, a duplicate of another stub, a bad enum value | **yes** — only the stub's own author sees it, and it is cheap to fix |
-| **advisory** | the *queue* has drifted — `already_curated`, `obsolete_term`, `obsolete_term_replaced`, `obsoletion_candidate`, `possible_kb_duplicate` | never |
+| **advisory** | the *queue* has drifted — `already_curated`, `obsolete_term`, `obsolete_term_replaced`, `obsoletion_candidate`, `successor_already_stubbed`, `possible_kb_duplicate` | never |
 
 ### Tidying up
 
@@ -347,6 +351,15 @@ It also does not delete a stub whose term was **merged** into a live one
 (`obsolete_term_replaced`), or one MONDO has only scheduled for retirement
 (`obsoletion_candidate`). Both name a disease nobody has curated; the remedy is
 to repoint `mondo_id`, and `tidy` lists them for a person to do that.
+
+The exception is a stub whose successor already has a stub of its own
+(`successor_already_stubbed`): one disease queued under two IDs, as happened to
+CARASAL (#15853). Repointing it would only produce a `duplicate_mondo_id`, so
+`tidy` lists it separately, and the remedy is to carry anything hand-written
+into the successor's stub and delete this one. The successor is read from
+`mondo_replaced_by`, or from a scheduled-merge note's "replaced with
+MONDO:NNNNNNN", so like the other obsolescence findings it is only as current as
+the last `just enrich-stubs`.
 
 Coverage means the entry's `disease_term`, any `has_subtypes[].subtype_term`, and
 any exact/narrow `mondo_mappings`.
