@@ -83,9 +83,15 @@ disease:
 just preflight-dr research/My_Disease-deep-research-falcon.md MONDO:XXXXXXX
 ```
 
-It reads the local MONDO build and exits 2 when that is absent rather than
-downloading it (about 1.3 GB on disk); run `just fetch-ontology-dbs mondo` once
-first. `--no-hgnc` also keeps it off the HGNC build.
+It reads the local MONDO build when it is on disk and the same term from OLS
+otherwise, and says which in its `MONDO source` line; it never downloads the
+build (about 1.3 GB on disk). It exits 2 only when OLS is unreachable too, and
+that is not a verdict: retry, or run `just fetch-ontology-dbs mondo` once. Over
+OLS the rival-gene disease lookup cannot run, so a report that never names the
+canonical gene but cites the right OMIM number comes back `WARN`, not `FAIL`.
+Without the local HGNC build it skips the HGNC lexicon and alias lookups, as
+`--no-hgnc` does, rather than downloading it; `just fetch-ontology-dbs hgnc`
+gives the sharper gene lexicon.
 
 Interpret the result as follows:
 
@@ -96,11 +102,20 @@ Interpret the result as follows:
 - `SKIP`: the automated check cannot discriminate; manually check disease
   identity before proceeding.
 
-For a `WARN` or `SKIP`, inspect the intended MONDO record directly:
+For a `WARN` or `SKIP`, inspect the intended MONDO record directly. This reads
+it from OLS and downloads nothing:
 
 ```bash
-uv run runoak -i sqlite:obo:mondo info MONDO:XXXXXXX -O obo
+uv run python -c "from dismech.mondo_ols import fetch_mondo_term; print(fetch_mondo_term('MONDO:XXXXXXX'))"
 ```
+
+It prints the label, the `RO:0004003` gene(s) with their symbols, every xref
+(OMIM among them), exact synonyms, and obsolescence. For related and broad
+synonyms, open the term in the OLS browser
+(`https://www.ebi.ac.uk/ols4/ontologies/mondo`, search the MONDO ID). Only if
+you already have the local build, `uv run runoak -i sqlite:obo:mondo info
+MONDO:XXXXXXX -O obo` shows the same record; without the build that command
+downloads about 1.3 GB.
 
 Compare its causal-gene relationship (`RO:0004003`), OMIM xref, and synonyms
 with the report. Look specifically for synonym aliasing, eponymic collision,

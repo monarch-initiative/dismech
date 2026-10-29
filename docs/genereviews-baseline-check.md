@@ -55,10 +55,31 @@ Syndrome` finds *FBN1-Related Marfan Syndrome* as `EXACT`.
 *Alpha-Thalassemia X-Linked Intellectual Disability Syndrome* and is not that
 disease's chapter; `Autosomal Dominant Robinow Syndrome 1` sits under *Autosomal
 Dominant Robinow Syndrome* and is. The check lists the title and the match kind
-(`CONTAINS`, `TITLE_IN_NAME`, `NEAR`) and leaves the call to a reader. Two guards
-keep this list short: a numbered title never stands in for a differently numbered
-name (*Usher Syndrome Type I* is not a candidate for `Usher Syndrome Type 4`),
-and two `<GENE>-Related …` forms must name the same gene.
+(`GENE_SUFFIX`, `CONTAINS`, `TITLE_IN_NAME`, `NEAR`) and leaves the call to a
+reader. Two guards keep this list short: a numbered title never stands in for a
+differently numbered name (*Usher Syndrome Type I* is not a candidate for `Usher
+Syndrome Type 4`), and two `<GENE>-Related …` forms must name the same gene.
+
+A few chapters put the gene *after* the disease, set off by a spaced dash:
+*Autosomal Dominant Tubulointerstitial Kidney Disease – REN*, with sibling
+chapters for `UMOD` and `MUC1`, *Autosomal Recessive Polycystic Kidney Disease –
+PKHD1*, and *Pyridoxine-Dependent Epilepsy – ALDH7A1*. Normalisation keeps the
+gene as a last word, so before #15904 such a title matched only a name equal to
+the whole title, gene included, or a name found inside it. The ADTKD-REN entry,
+whose synonyms include `ADTKD-REN` and `autosomal dominant tubulointerstitial
+kidney disease due to mutations in REN`, got `NO_CHAPTER`. Such a title is now also read as
+`<disease> – <gene>`, and is reported as `GENE_SUFFIX` when the disease part is
+a phrase in one of the entry's names **and** the gene symbol appears in one of
+its names or in its `genetic:` records (record `name`, `gene_term` preferred
+term or label). The gene condition is what stops the UMOD, REN and MUC1 chapters
+from being offered to each other's entries: the disease words are identical in
+all three. A `GENE_SUFFIX` hit is a candidate, never `EXACT`, so it does not make
+`--strict` fail; an entry whose name is the exact title, gene included, still
+gets `EXACT`. Only a single upper-case symbol after the dash counts as a gene,
+so *Udd Distal Myopathy – Tibial Muscular Dystrophy* is not read this way. An
+entry for the whole family with no gene in it (`Autosomal Dominant
+Tubulointerstitial Kidney Disease`) still sees all three chapters as `CONTAINS`
+candidates, which is the right answer for a grouping-level name.
 
 **A negative from an entry with no synonyms is not a verified negative.** GeneReviews
 often titles a chapter by a synonym: *17q12 Recurrent Duplication* is the chapter
