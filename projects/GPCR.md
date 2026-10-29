@@ -38,6 +38,9 @@ diseases:
 - Maculopapular_Cutaneous_Mastocytosis
 - Monoclonal_Mast_Cell_Activation_Syndrome
 - Multiple_Sclerosis
+- Coronary_Artery_Disease
+- Carotid_Stenosis
+- CADASIL_Type_1
 - Glaucoma
 - Familial_Hypocalciuric_Hypercalcemia_1
 - Autosomal_Dominant_Hypocalcemia_1
@@ -69,6 +72,7 @@ modules:
 - h2_receptor_antagonism
 - beta2_adrenergic_receptor_agonism
 - muscarinic_receptor_antagonism
+- p2y12_receptor_antagonism
 ---
 
 # GPCRs: Drug Mechanisms and Disease Modules
@@ -142,7 +146,7 @@ conform:
 | muscarinic receptor antagonism (airway) | CHRM3 | SAMA, LAMA | Chronic_Obstructive_Pulmonary_Disease. Airway-scoped, like the beta2 module and for the same reason; the module's own notes carry the census that makes the scope concrete. `Cough_Variant_Asthma` was assessed and rejected: its treatment is beta2-only in its own text, and the earlier assumption that it bundled a muscarinic antagonist was wrong |
 | CaSR positive allosteric modulation | CASR | calcimimetics | secondary hyperparathyroidism in CKD |
 | S1P receptor modulation | S1PR1 | fingolimod, siponimod | Multiple_Sclerosis |
-| P2Y12 receptor antagonism | P2RY12 | clopidogrel, ticagrelor | Coronary_Artery_Disease |
+| P2Y12 receptor antagonism | P2RY12 | clopidogrel, ticagrelor | Coronary_Artery_Disease, Carotid_Stenosis, CADASIL_Type_1. Indication-independent, like the CaSR module: the three conformers span coronary, carotid and small-vessel cerebral disease, and the module is scoped to the receptor rather than to any of them. Six further entries treat with a P2Y12 antagonist and are not wired, because their treatment binds the generic `NCIT:C1327` Antiplatelet Agent rather than clopidogrel or ticagrelor |
 | V2 receptor antagonism | AVPR2 | vaptans | SIADH, ADPKD |
 | MC4R agonism | MC4R | setmelanotide | Obesity_Due_to_MC4R_Pathway_Disruption |
 
@@ -305,6 +309,13 @@ mechanism-level rather than disease-level.
         `muscarinic_receptor_antagonism`, at the trigger. It is the second receptor
         occupancy node in that entry, alongside the beta2 one from #15777, which is the
         point of keeping the two modules separate
+  - [x] Three P2Y12-antagonist-treated entries, in #15928:
+        `Coronary_Artery_Disease`, `Carotid_Stenosis` and `CADASIL_Type_1` against
+        `p2y12_receptor_antagonism`, all at the trigger. Nine entries treat with a P2Y12
+        antagonist; the other six name only the generic `NCIT:C1327` Antiplatelet Agent,
+        so a `target_mechanisms` link from them would assert a receptor action the entry
+        does not name. They are a wiring worklist, the same shape as the generic
+        `Bronchodilator` bindings #15777 had to refine first
 - [ ] Remaining Workstream A modules
   - [x] D2 receptor antagonism — `d2_receptor_antagonism` (#15299)
   - [x] AT1 receptor blockade — `at1_receptor_blockade` (#15271)
@@ -316,8 +327,11 @@ mechanism-level rather than disease-level.
   - [x] beta2 adrenergic receptor agonism — `beta2_adrenergic_receptor_agonism` (#15706)
   - [x] muscarinic receptor antagonism (airway) -- `muscarinic_receptor_antagonism` (#15795)
   - [ ] CaSR positive allosteric modulation
-  - [ ] S1P receptor modulation
-  - [ ] P2Y12 receptor antagonism
+  - [ ] S1P receptor modulation — deferred behind P2Y12: only `Multiple_Sclerosis`
+        treats with an S1P modulator. Of the four other entries mentioning S1P, two are
+        mouse models (Lafora disease, glaucoma), one uses a research-tool antagonist by
+        rat knockdown, and one lists fingolimod only in prose about MS immunotherapies
+  - [x] P2Y12 receptor antagonism — `p2y12_receptor_antagonism` (#15928)
   - [ ] V2 receptor antagonism
   - [ ] MC4R agonism
   - [ ] migraine neurovascular mechanism — a *disease* module, not a drug one, factoring
