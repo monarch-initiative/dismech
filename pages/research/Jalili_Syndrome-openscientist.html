@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jalili Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Jalili Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Jalili Syndrome</h1>
+                
+                <p class="report-subtitle">Key Findings</p>
+                
+                
+                <div class="report-date">2026-10-28</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0009007" target="_blank" rel="noopener noreferrer">MONDO:0009007</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">15 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>Key Findings</h2>
+<h3>Finding 1 — Jalili syndrome is an autosomal-recessive oculo-dental disorder caused by biallelic <em>CNNM4</em> variants</h3>
+<p>Jalili syndrome (OMIM #217080; <a href="http://purl.obolibrary.org/obo/MONDO_0009007" target="_blank" rel="noopener noreferrer">MONDO:0009007</a>) combines <strong>cone-rod dystrophy</strong> and <strong>amelogenesis imperfecta</strong> and is inherited in an autosomal-recessive fashion. The causal gene is <em>CNNM4</em> (cyclin and CBS domain divalent metal cation transport mediator 4, also known historically as ACDP4 / ancient conserved domain protein 4), located at chromosome <strong>2q11.2</strong>. Multiple independent families worldwide carry homozygous or compound-heterozygous variants, and consanguinity is common among affected kindreds — consistent with a rare recessive trait enriched in populations with high rates of cousin marriage.</p>
+<blockquote>
+<p><em>"Jalili syndrome, an autosomal recessive disorder causing cone-rod dystrophy and amelogenesis imperfecta, is a rare genetic disorder impacting visual and dental development."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/39580587/">PMID: 39580587</a></p>
+<p><em>"Genetic mechanism entails a mutation in the CNNM4, a metal transporter gene located on Chromosome 2q11.2."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/38151709/">PMID: 38151709</a></p>
+</blockquote>
+<p><strong>Evidence type:</strong> human clinical / genetic.</p>
+<h3>Finding 2 — CNNM4 is a basolateral Mg²⁺/Na⁺-exchange extrusion transporter; its loss underlies both the enamel and retinal defects</h3>
+<p>CNNM4 is the molecule responsible for basolateral magnesium extrusion in transporting epithelia. In a mouse model, CNNM4 localizes to the basolateral membrane of intestinal epithelia and of ameloblasts, and CNNM4-knockout mice develop <strong>hypomagnesemia from intestinal Mg malabsorption</strong> together with <strong>defective amelogenesis</strong> — directly recapitulating the human enamel defect. Mechanistically, CNNM4 extrudes intracellular Mg²⁺ by exchanging it for extracellular Na⁺, and disease-associated missense mutations abolish this Mg²⁺ extrusion activity. On the retinal side, defective magnesium transport by photoreceptors is the assumed basis of the progressive visual impairment; magnesium is also a component of the mineral phase of dental enamel, linking a single transport defect to both affected tissues.</p>
+<blockquote>
+<p><em>"CNNM4 is the basolaterally located Mg(2+) extrusion molecule"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/24339795/">PMID: 24339795</a></p>
+<p><em>"CNNM4-knockout mice showed defective amelogenesis, and CNNM4 again localizes to the basolateral membrane of ameloblasts"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/24339795/">PMID: 24339795</a></p>
+<p><em>"A defective transport of magnesium ions by the photoreceptors of the retina is assumed to account for the progressive visual impairment."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/24194943/">PMID: 24194943</a></p>
+</blockquote>
+<p><strong>Evidence type:</strong> model organism (knockout mouse) + human inference.</p>
+<h3>Finding 3 — The <em>CNNM4</em> variant spectrum spans missense, frameshift, nonsense, splice, and founder/UPD mechanisms</h3>
+<p>Reported pathogenic <em>CNNM4</em> variants (reference transcript NM_020184.3) include a broad allelic series acting through loss of function:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant (cDNA)</th>
+<th>Protein</th>
+<th>Class</th>
+<th>Notable feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>c.1475G&gt;A</td>
+<td>p.(Gly492Asp)</td>
+<td>Missense</td>
+<td>CBS-domain hotspot; reduced stability, increased mRNA decay</td>
+</tr>
+<tr>
+<td>c.1474G&gt;T</td>
+<td>p.(Gly492Cys)</td>
+<td>Missense</td>
+<td>CBS-domain hotspot</td>
+</tr>
+<tr>
+<td>c.971T&gt;C</td>
+<td>p.(Leu324Pro)</td>
+<td>Missense</td>
+<td>Recurrent across unrelated families</td>
+</tr>
+<tr>
+<td>c.949A&gt;C</td>
+<td>p.(Ser317Arg)</td>
+<td>Missense</td>
+<td>—</td>
+</tr>
+<tr>
+<td>c.706C&gt;T</td>
+<td>p.(Arg236Trp)</td>
+<td>Missense</td>
+<td>Recurrent in Guatemalan ancestry</td>
+</tr>
+<tr>
+<td>c.598T&gt;C</td>
+<td>p.(Ser200Pro)</td>
+<td>Missense</td>
+<td>Chinese family</td>
+</tr>
+<tr>
+<td>c.1423G&gt;A</td>
+<td>—</td>
+<td>Missense</td>
+<td>Egyptian family</td>
+</tr>
+<tr>
+<td>c.1312dupC</td>
+<td>frameshift</td>
+<td>Frameshift</td>
+<td>Kosovan founder, loss-of-function</td>
+</tr>
+<tr>
+<td>c.279delC</td>
+<td>p.(Phe93Leufs*31)</td>
+<td>Frameshift</td>
+<td>Arose via paternal uniparental isodisomy of chromosome 2</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The CBS-domain p.(Gly492Asp/Cys) variants are notable because they impair function primarily by <strong>reducing protein stability and accelerating mRNA decay</strong> rather than by directly abolishing magnesium handling. All variants are germline and recessive.</p>
+<blockquote>
+<p><em>"these variants exhibit significantly reduced protein stability and increased mRNA decay rates compared with wild type"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/39580587/">PMID: 39580587</a></p>
+<p><em>"An additional patient had a homozygous deleterious variant in CNNM4 (c.279delC p.Phe93Leufs</em>31), which resulted from paternal uniparental isodisomy for chromosome 2p22-2q37."* — <a href="https://pubmed.ncbi.nlm.nih.gov/32022389/">PMID: 32022389</a></p>
+<p><em>"A mutational analysis revealed a c.1312 dupC homozygous mutation in CNNM4, a genetic defect which had already been identified in other Kosovan families"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/24194943/">PMID: 24194943</a></p>
+</blockquote>
+<p><strong>Evidence type:</strong> human clinical/genetic + in vitro functional.</p>
+<h3>Finding 4 — Clinical phenotype: progressive cone-rod dystrophy with bull's-eye maculopathy plus hypoplastic/hypomineralized amelogenesis imperfecta</h3>
+<p><strong>Ocular features:</strong> cone-rod dystrophy with bull's-eye maculopathy, photophobia, nystagmus, reduced or non-detectable light-adapted (photopic) ERGs, progressive loss of visual acuity (mean logMAR ≈ 1.15, worsening with age), and macular RPE atrophy. Histopathology reveals loss of photoreceptors and accumulation of autofluorescent material in the subretinal space, with partial preservation of the inner retina.</p>
+<p><strong>Dental features:</strong> hypoplastic–hypocalcified amelogenesis imperfecta with thin, poorly mineralized enamel, discoloration, irregular tooth shape, decay, and tooth loss.</p>
+<p><strong>Additional/variable features</strong> reported across cohorts: hyperopia, advanced dental age, crossbite, and developmental delay (sometimes attributable to other loci).</p>
+<blockquote>
+<p><em>"determined to have cone-rod dystrophy with bull's eye maculopathy, photophobia, and nystagmus. All patients had amelogenesis imperfecta."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/32022389/">PMID: 32022389</a></p>
+<p><em>"The mean logarithm of the minimum angle of resolution (logMAR) visual acuity was 1.15 (range: 0.69-2.00)"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41280631/">PMID: 41280631</a></p>
+<p><em>"The histopathologic analyses revealed loss of photoreceptor cells, accumulation of autofluorescent material in the subretinal space, partial preservation of the inner retinal lamination"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/39522753/">PMID: 39522753</a></p>
+</blockquote>
+<p><strong>Suggested HPO terms:</strong> <a href="http://purl.obolibrary.org/obo/HP_0000548" target="_blank" rel="noopener noreferrer">HP:0000548</a> (Cone/cone-rod dystrophy), <a href="http://purl.obolibrary.org/obo/HP_0007641" target="_blank" rel="noopener noreferrer">HP:0007641</a> (Bull's eye maculopathy), <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" rel="noopener noreferrer">HP:0000613</a> (Photophobia), <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a> (Nystagmus), <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" rel="noopener noreferrer">HP:0000505</a> (Visual impairment), <a href="http://purl.obolibrary.org/obo/HP_0000705" target="_blank" rel="noopener noreferrer">HP:0000705</a> (Amelogenesis imperfecta), <a href="http://purl.obolibrary.org/obo/HP_0000670" target="_blank" rel="noopener noreferrer">HP:0000670</a> (Carious teeth), <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" rel="noopener noreferrer">HP:0006297</a> (Hypoplastic dental enamel).</p>
+<p><strong>Evidence type:</strong> human clinical (cohort + histopathology).</p>
+<h3>Finding 5 — CNNM4 biology extends to PRL phosphatase interaction, AMPK/mTOR energy metabolism, tumor suppression, and fertility</h3>
+<p>Beyond the oculo-dental phenotype, CNNM4-dependent Mg²⁺ efflux regulates cellular energy metabolism through <strong>AMPK/mTOR signaling</strong>. The phosphatases of regenerating liver (PRL) bind CNNM4 and inhibit its Mg²⁺ efflux, and PRL overexpression drives cancer progression (rapamycin suppressed growth of PRL-overexpressing cells). In <em>Apc^Δ14/+</em> mice, deletion of <em>Cnnm4</em> promoted malignant progression of intestinal polyps to adenocarcinomas, and human colon cancer shows an inverse relationship between CNNM4 expression and malignancy — consistent with a tumor-suppressor role. CNNM4 suppression is additionally linked to infertility in mice. CNNM4 is highly expressed in brain and intestinal tract. These pleiotropic roles are mostly observed in cancer/metabolism models rather than in Jalili patients, but they illuminate why a magnesium transporter is biologically critical.</p>
+<blockquote>
+<p><em>"regulation of intracellular Mg(2+) levels by PRL and CNNM4 is linked to energy metabolism and AMPK/mTOR signaling"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/25347473/">PMID: 25347473</a></p>
+<p><em>"deletion of Cnnm4 promoted malignant progression of intestinal polyps to adenocarcinomas"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/25347473/">PMID: 25347473</a></p>
+<p><em>"suppression of CNNM4 in mice promotes malignant progression of intestinal polyps and is linked to infertility"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/31842432/">PMID: 31842432</a></p>
+</blockquote>
+<p><strong>Evidence type:</strong> model organism + in vitro (cancer/metabolism context).</p>
+<h3>Finding 6 — Expanded variant classes and a candidate downstream mechanism via IQCB1 interaction and apoptosis</h3>
+<p>Additional pathogenic <em>CNNM4</em> variants broaden every mutation class: the nonsense c.1813C&gt;T p.(Arg605X) is the first probable founder mutation identified in the Amish community (<a href="https://pubmed.ncbi.nlm.nih.gov/29322253/">PMID: 29322253</a>); nonsense c.1743C&gt;G p.(Tyr581*) (<a href="https://pubmed.ncbi.nlm.nih.gov/29421602/">PMID: 29421602</a>); splice-acceptor c.1682-1G&gt;C in intron 3 (<a href="https://pubmed.ncbi.nlm.nih.gov/28246031/">PMID: 28246031</a>); missense c.1076T&gt;C p.(Leu359Pro) (<a href="https://pubmed.ncbi.nlm.nih.gov/28586144/">PMID: 28586144</a>); and recurrent missense c.971T&gt;C p.(Leu324Pro) across unrelated families (<a href="https://pubmed.ncbi.nlm.nih.gov/29421602/">PMID: 29421602</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39522753/">PMID: 39522753</a>).</p>
+<p>Mechanistically, the truncated p.R605X protein <strong>significantly increased apoptosis</strong> and <strong>increased CNNM4's interaction with IQCB1</strong> (nephrocystin-5), an LCA (Leber congenital amaurosis) gene. This suggests p.R605X may act — via nonsense-mediated decay affecting IQCB1 function and/or through pro-apoptotic activity — through a route partly independent of simple magnesium-transport loss, providing a candidate explanation for photoreceptor degeneration.</p>
+<blockquote>
+<p><em>"identified a homozygous nonsense mutation (c.C1813T, p.R605X) in the cyclin and CBS domain divalent metal cation transport mediator 4 (CNNM4) gene"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/29322253/">PMID: 29322253</a></p>
+<p><em>"A truncated CNNM4 protein starting at R605 significantly increased the rate of apoptosis, and significantly increased the interaction between CNNM4 and IQCB1."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/29322253/">PMID: 29322253</a></p>
+<p><em>"these patients are carrying a novel homozygous mutation in the splice site acceptor of intron 3 (c.1682-1G &gt; C) in the CNNM4 gene"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/28246031/">PMID: 28246031</a></p>
+</blockquote>
+<p><strong>Evidence type:</strong> human genetic + in vitro functional.</p>
+<h3>Finding 7 — Variable expressivity and phenotypic expansion: muscle overgrowth/myopathy and genotype-dependent dental sparing</h3>
+<p>Phenotypic expressivity varies with genotype. Homozygous p.Leu324Pro produces the <strong>complete phenotype</strong> (CRD + AI), whereas a compound heterozygote (p.Leu324Pro / p.Tyr581<em>) showed CRD and AI in the proband but </em><em>only ocular alterations (no dental phenotype)</em><em> in her father — direct evidence of variable expressivity and genotype-dependent dental sparing. Separately, three brothers homozygous for c.1076T&gt;C p.(Leu359Pro) had classic Jalili syndrome </em><em>plus muscle overgrowth of the legs with myopathic changes on needle EMG</em>*, proposed as a newly identified manifestation after exome sequencing excluded other causes.</p>
+<blockquote>
+<p><em>"the p.Leu324Pro mutation in homozygosis induces a complete phenotype with both CRD and AI, but in heterozygosis and in composition with the novel p.Tyr581</em> nonsense mutation in CNNM4 promotes variable clinical expressivity, particularly with lack of dental phenotypes"* — <a href="https://pubmed.ncbi.nlm.nih.gov/29421602/">PMID: 29421602</a></p>
+<p><em>"mild myopathy with muscle overgrowth of the legs could be a newly identified manifestation of the disorder"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/28586144/">PMID: 28586144</a></p>
+</blockquote>
+<p><strong>Evidence type:</strong> human clinical/genetic.</p>
+<h3>Finding 8 — Pathogenic variants cluster in the functional core (DUF21–CBS–CNBH), most are missense, concentrated in the CBS-pair domain</h3>
+<p>Synthesizing 13 reported pathogenic <em>CNNM4</em> variants (NM_020184.3 / UniProt Q6P4Q7, 775 aa) across Jalili families yields a clear structural pattern:</p>
+<ul>
+<li><strong>By class:</strong> 8 missense, 2 nonsense (p.Tyr581<em>, p.Arg605X), 2 frameshift (p.Phe93Leufs</em>31, c.1312dupC), 1 splice (c.1682-1G&gt;C).</li>
+<li><strong>By domain:</strong> 5 in the CBS-pair (Bateman) module, 4 in the DUF21/transmembrane region, 3 in the CNBH (cyclic-nucleotide-binding homology) domain, and 1 N-terminal.</li>
+<li><strong>12/13 (92%)</strong> fall within the functional core (transmembrane + CBS + CNBH); only the frameshift p.Phe93Leufs*31 lies N-terminal.</li>
+<li><strong>Recurrent hotspot:</strong> codon 492 (Gly492Asp/Cys) in the CBS domain.</li>
+</ul>
+<p>The CNBH domain, where several nonsense/splice variants cluster, is itself functionally required: it mediates dimerization and is required for Mg handling.</p>
+<blockquote>
+<p><em>"p.(Gly492Cys) and p.(Gly492Asp) substitutions within the CBS domain of the CNNM4 protein"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/39580587/">PMID: 39580587</a></p>
+<p><em>"The cyclic nucleotide-binding homology domain of the integral membrane protein CNNM mediates dimerization and is required for Mg"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/30341174/">PMID: 30341174</a></p>
+</blockquote>
+<p>{{figure:cnnm4_variant_map.png|caption=Map of reported pathogenic CNNM4 variants in Jalili syndrome onto the protein's domain architecture (UniProt Q6P4Q7, 775 aa). ~92% of variants fall within the functional core — the DUF21 transmembrane region, the CBS-pair Bateman module, and the CNBH domain — with a recurrent hotspot at codon 492 in the CBS domain.}}</p>
+<p><strong>Evidence type:</strong> computational synthesis + structural literature.</p>
+<h3>Finding 9 — Jalili CRD can mimic incomplete achromatopsia; genetic testing resolves the differential</h3>
+<p>In a United Arab Emirates cohort of cone-disorder patients clinically suspected of achromatopsia (ACHM), one proband's diagnosis was revised to <em>CNNM4</em>-related Jalili syndrome after genetic testing and phenotypic reassessment. The authors note that <strong>"Bradyopsia and Jalili syndrome can resemble incomplete ACHM,"</strong> and that macular discoloration helped distinguish Jalili from classic ACHM. A dedicated systematic review consolidates Jalili features and genetics (first described by Jalili in Gaza, with AI and cone-rod dystrophy as the primary manifestations). A 2025 pooled analysis of 53 patients with detailed visual-acuity and mutation records found that visual acuity (logMAR) correlated positively with age (progressive disease) and examined correlation with mutation domain. The practical message is that <strong>genetic testing plus dental examination is decisive</strong> — the dental phenotype and molecular result resolve what the retinal picture alone can leave ambiguous.</p>
+<blockquote>
+<p><em>"Bradyopsia and Jalili syndrome can resemble incomplete ACHM."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/39024658/">PMID: 39024658</a></p>
+<p><em>"Two probands had their diagnoses revised after genetic testing and phenotypic reassessment to RGS9BP -related bradyopsia and CNNM4 -related Jalili syndrome."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/39024658/">PMID: 39024658</a></p>
+<p><em>"Spearman's correlation analysis showed a positive correlation between visual acuity (logMAR) and age"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41280631/">PMID: 41280631</a></p>
+</blockquote>
+<p><strong>Evidence type:</strong> human clinical + systematic review/meta-analysis.</p>
+<hr />
+<h2>Full Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> Jalili syndrome is a rare autosomal-recessive <strong>oculo-dental</strong> disorder characterized by the simultaneous occurrence of <strong>cone-rod dystrophy (CRD)</strong> and <strong>amelogenesis imperfecta (AI)</strong>. It was first described by Jalili in a large consanguineous Arab kindred in the Gaza Strip. The retinal component causes progressive loss of central and color vision with photophobia and nystagmus; the dental component causes thin, poorly mineralized, discolored enamel prone to rapid decay and tooth loss.</p>
+<p><strong>Key identifiers.</strong>
+- <strong>OMIM:</strong> #217080 (Cone-rod dystrophy and amelogenesis imperfecta / Jalili syndrome)
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0009007" target="_blank" rel="noopener noreferrer">MONDO:0009007</a>
+- <strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:1388" target="_blank" rel="noopener noreferrer">ORPHA:1388</a>
+- <strong>Gene:</strong> <em>CNNM4</em> (<a href="https://bioregistry.io/HGNC:2751" target="_blank" rel="noopener noreferrer">HGNC:2751</a>), chromosome 2q11.2; UniProt Q6P4Q7
+- <strong>ICD-10/ICD-11:</strong> No dedicated code; mapped under hereditary retinal dystrophy (ICD-10 H35.5) and disorders of tooth development / amelogenesis imperfecta (ICD-10 K00.5). ICD-11 ~ 9B70 (retinal dystrophy) / DA05 (tooth development disorders). <em>(No specific Jalili code — indicate not available.)</em>
+- <strong>MeSH:</strong> No dedicated descriptor; indexed under "Amelogenesis Imperfecta" and "Cone-Rod Dystrophies."</p>
+<p><strong>Synonyms / alternative names:</strong> Cone-rod dystrophy and amelogenesis imperfecta; CRDAI; dystrophic retinitis pigmentosa with amelogenesis imperfecta (historical). The gene has historical aliases ACDP4 / ancient conserved domain protein 4.</p>
+<p><strong>Information source.</strong> The knowledge here is derived primarily from <strong>aggregated disease-level resources</strong> (OMIM, Orphanet) and from <strong>individual patient case reports and small cohorts</strong> in the primary literature — not from EHR-scale datasets. The disease is too rare for registry/EHR aggregation; most evidence is family-based.</p>
+<h3>2. Etiology</h3>
+<p><strong>Disease causal factors.</strong> Jalili syndrome is <strong>monogenic and entirely genetic</strong> — caused by biallelic (homozygous or compound-heterozygous) loss-of-function variants in <em>CNNM4</em>. There is no known infectious, environmental, or acquired cause.</p>
+<p><strong>Genetic risk factors.</strong> The causal variants are the pathogenic <em>CNNM4</em> alleles themselves (see Section 4). The principal "risk factor" at the population level is <strong>consanguinity</strong>, which raises the probability of homozygosity for a rare recessive allele. <strong>Founder effects</strong> exist (e.g., the Kosovan c.1312dupC allele and the Amish p.Arg605X allele), concentrating risk in specific communities. No common susceptibility loci or polygenic modifiers have been established.</p>
+<p><strong>Environmental risk factors.</strong> None identified. Age and sex do not modify disease risk (recessive Mendelian); family history / carrier parentage is the operative risk factor.</p>
+<p><strong>Protective factors.</strong> No genetic or environmental protective factors have been reported. In principle, outbreeding reduces homozygosity risk in founder populations.</p>
+<p><strong>Gene–environment interactions.</strong> None documented for Jalili syndrome. The phenotype is driven by genotype; environmental modifiers (e.g., diet, magnesium intake) have not been shown to alter the course, though dietary/fluoride and dental-hygiene measures influence secondary dental outcomes.</p>
+<h3>3. Phenotypes</h3>
+<p><strong>Ocular (cone-rod dystrophy).</strong>
+- <em>Phenotype type:</em> clinical sign + laboratory (electrophysiology) abnormality.
+- <em>Features:</em> photophobia, nystagmus, reduced visual acuity, bull's-eye maculopathy, macular RPE atrophy, reduced/non-detectable photopic (cone) ERG, later rod involvement, color-vision loss, sometimes hyperopia.
+- <em>Onset:</em> early childhood (often from infancy/first years).
+- <em>Severity:</em> moderate to severe; mean logMAR ≈ 1.15 (range 0.69–2.00).
+- <em>Progression:</em> progressive, worsening with age (visual acuity correlates positively with age).
+- <em>Frequency:</em> ~100% of patients (defining feature).
+- <em>QoL impact:</em> substantial — progressive low vision affects education, mobility, independence.
+- <em>HPO:</em> <a href="http://purl.obolibrary.org/obo/HP_0000548" target="_blank" rel="noopener noreferrer">HP:0000548</a> (Cone/cone-rod dystrophy), <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" rel="noopener noreferrer">HP:0000613</a> (Photophobia), <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a> (Nystagmus), <a href="http://purl.obolibrary.org/obo/HP_0007641" target="_blank" rel="noopener noreferrer">HP:0007641</a> (Bull's eye maculopathy), <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" rel="noopener noreferrer">HP:0000505</a> (Visual impairment), <a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" rel="noopener noreferrer">HP:0000510</a> (Rod-cone dystrophy).</p>
+<p><strong>Dental (amelogenesis imperfecta).</strong>
+- <em>Phenotype type:</em> physical manifestation / clinical sign.
+- <em>Features:</em> hypoplastic–hypocalcified enamel, thin and poorly mineralized, yellow-brown discoloration, irregular tooth shape, rapid caries, tooth loss; advanced dental age and crossbite reported.
+- <em>Onset:</em> affects both primary and permanent dentition from eruption (childhood).
+- <em>Severity:</em> moderate to severe.
+- <em>Progression:</em> structurally stable developmental defect, but secondary decay/tooth loss progress.
+- <em>Frequency:</em> ~100% in classic cases (genotype-dependent sparing is documented).
+- <em>QoL impact:</em> pain, chewing difficulty, aesthetic/psychosocial burden, repeated dental interventions.
+- <em>HPO:</em> <a href="http://purl.obolibrary.org/obo/HP_0000705" target="_blank" rel="noopener noreferrer">HP:0000705</a> (Amelogenesis imperfecta), <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" rel="noopener noreferrer">HP:0006297</a> (Hypoplastic dental enamel), <a href="http://purl.obolibrary.org/obo/HP_0000670" target="_blank" rel="noopener noreferrer">HP:0000670</a> (Carious teeth), <a href="http://purl.obolibrary.org/obo/HP_0000684" target="_blank" rel="noopener noreferrer">HP:0000684</a> (Dental malocclusion/crossbite).</p>
+<p><strong>Variable / expanded phenotypes.</strong> Muscle overgrowth of the legs with myopathic EMG changes (three brothers, p.Leu359Pro); developmental delay (sometimes attributable to other loci); hyperopia (proposed as a possibly constant feature in one report).</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>Causal gene.</strong> <em>CNNM4</em> (<a href="https://bioregistry.io/HGNC:2751" target="_blank" rel="noopener noreferrer">HGNC:2751</a>; NCBI Gene 26504; Ensembl ENSG00000158158; UniProt Q6P4Q7), chromosome 2q11.2; reference transcript NM_020184.3; protein 775 aa.</p>
+<p><strong>Pathogenic variants.</strong> See the catalog in Findings 3, 6, and 8. Classes include missense (majority), nonsense, frameshift, splice-site, and a case arising from uniparental isodisomy. Per ACMG/AMP, the recurrent and functionally characterized variants (e.g., p.Gly492Asp/Cys, p.Arg605X, c.1312dupC) are classified <strong>pathogenic/likely pathogenic</strong>; newly reported private missense variants are often initially VUS pending segregation and functional data.</p>
+<ul>
+<li><strong>Variant type/class distribution (13 synthesized):</strong> 8 missense, 2 nonsense, 2 frameshift, 1 splice.</li>
+<li><strong>Domain distribution:</strong> 5 CBS-pair, 4 DUF21/TM, 3 CNBH, 1 N-terminal.</li>
+<li><strong>Allele frequency:</strong> All are rare/private; absent or ultra-rare in gnomAD. Founder alleles are enriched locally (Kosovo, Amish, Guatemala).</li>
+<li><strong>Somatic vs germline:</strong> <strong>germline</strong>, recessive.</li>
+<li><strong>Functional consequence:</strong> <strong>loss of function</strong> — abolished Mg²⁺ extrusion (TM/CBS missense), reduced protein stability + increased mRNA decay (codon-492 CBS variants), protein truncation (nonsense/frameshift/splice). A truncated allele (p.R605X) additionally increases apoptosis and IQCB1 interaction.</li>
+</ul>
+<p><strong>Modifier genes.</strong> Not firmly established. Variable expressivity (dental sparing) appears <strong>allele-dependent</strong> (genotype itself), and some reported developmental delay was attributed to separate loci, implying modifier/second-locus contributions in individual families.</p>
+<p><strong>Epigenetic information.</strong> No disease-specific DNA-methylation or histone-modification signature has been reported for Jalili syndrome. <em>(Not available.)</em></p>
+<p><strong>Chromosomal abnormalities.</strong> No recurrent large structural changes; however, <strong>paternal uniparental isodisomy of chromosome 2</strong> was the mechanism producing homozygosity for c.279delC in one patient — a notable cytogenetic mechanism.</p>
+<h3>5. Environmental Information</h3>
+<p>No environmental factors, lifestyle factors, or infectious agents cause or trigger Jalili syndrome. It is a purely Mendelian recessive disorder. <em>(Not applicable.)</em> Secondary dental outcomes are modifiable by oral hygiene, fluoride, and diet, but these do not influence the underlying enamel defect.</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<ol>
+<li><strong>Biallelic loss-of-function variants in <em>CNNM4</em></strong> (missense/nonsense/frameshift/splice) — <em>the initiating lesion.</em></li>
+<li>→ <strong>leads to</strong> loss or destabilization of the CNNM4 protein (reduced stability + increased mRNA decay for CBS-domain variants; truncation for nonsense/frameshift/splice; abolished transport for TM/CBS missense). <em>(Demonstrated in vitro for several variants.)</em></li>
+<li>→ <strong>results in</strong> loss of basolateral <strong>Mg²⁺/Na⁺-exchange magnesium extrusion</strong> across affected epithelia. <em>(Demonstrated in mouse + cell models.)</em></li>
+<li><strong>Branch A (dental):</strong> → impaired magnesium handling by <strong>ameloblasts</strong> → <strong>defective enamel mineralization</strong> → <strong>hypoplastic/hypocalcified amelogenesis imperfecta</strong> → discoloration, decay, tooth loss. <em>(Demonstrated — CNNM4-knockout mouse recapitulates defective amelogenesis.)</em></li>
+<li><strong>Branch B (retinal):</strong> → impaired magnesium transport in <strong>retinal photoreceptors</strong> → photoreceptor stress/dysfunction → <strong>progressive photoreceptor loss with subretinal autofluorescent-material accumulation</strong> → <strong>cone-rod dystrophy</strong> (photophobia, nystagmus, bull's-eye maculopathy, reduced photopic ERG, declining acuity). <em>(The Mg-transport step is inferred/assumed for photoreceptors; photoreceptor loss is demonstrated histopathologically.)</em></li>
+<li><strong>Candidate parallel branch (inferred):</strong> truncated CNNM4 (p.R605X) → <strong>increased apoptosis</strong> and <strong>increased interaction with IQCB1/nephrocystin-5</strong> (an LCA gene) → possible additional, magnesium-independent route to <strong>photoreceptor degeneration</strong>. <em>(Candidate mechanism, in vitro; not proven as the primary driver.)</em></li>
+</ol>
+<p><strong>Upstream vs downstream.</strong> The <em>CNNM4</em> mutation and loss of Mg²⁺ extrusion are the shared <strong>upstream</strong> events; the ameloblast and photoreceptor failures are <strong>downstream, tissue-specific</strong> branches. The apoptosis/IQCB1 route is a proposed parallel downstream mechanism specific to truncating alleles.</p>
+<p><strong>Molecular pathways / processes.</strong> CNNM4-dependent Mg²⁺ efflux intersects <strong>AMPK/mTOR</strong> energy-metabolism signaling and is negatively regulated by <strong>PRL phosphatases</strong>. Cellular processes implicated include transcellular Mg²⁺ transport (<a href="http://purl.obolibrary.org/obo/GO_0015693" target="_blank" rel="noopener noreferrer">GO:0015693</a> magnesium ion transport; <a href="http://purl.obolibrary.org/obo/GO_1990034" target="_blank" rel="noopener noreferrer">GO:1990034</a> cation export), enamel mineralization (<a href="http://purl.obolibrary.org/obo/GO_0070166" target="_blank" rel="noopener noreferrer">GO:0070166</a> enamel mineralization; <a href="http://purl.obolibrary.org/obo/GO_0031214" target="_blank" rel="noopener noreferrer">GO:0031214</a> biomineral tissue development), photoreceptor maintenance, and apoptosis (<a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a>).</p>
+<p><strong>Protein dysfunction.</strong> Loss of function via destabilization, truncation, or abolished transport activity; CBS-domain and CNBH-domain integrity are required for Mg handling and dimerization.</p>
+<p><strong>Metabolic changes.</strong> Systemic hypomagnesemia (in knockout mice via intestinal malabsorption); local Mg deficiency in enamel mineral and photoreceptors. A saliva-proteomics study of female JS patients described increased innate-immune and carbohydrate-metabolism proteins, interpreted as a descriptive oral molecular shift (hypothesis-generating only).</p>
+<p><strong>Cell types (CL suggestions):</strong> ameloblast (<a href="http://purl.obolibrary.org/obo/CL_0000059" target="_blank" rel="noopener noreferrer">CL:0000059</a>); retinal cone cell (<a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a>); retinal rod cell (<a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a>); photoreceptor cell (<a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" rel="noopener noreferrer">CL:0000210</a>); retinal pigment epithelial cell (<a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" rel="noopener noreferrer">CL:0002586</a>).</p>
+<p><strong>Subcellular compartments.</strong> CNNM4 is an integral <strong>plasma-membrane (basolateral)</strong> protein (<a href="http://purl.obolibrary.org/obo/GO_0016323" target="_blank" rel="noopener noreferrer">GO:0016323</a> basolateral plasma membrane; <a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a> plasma membrane). Magnesium homeostasis also engages mitochondrial/cytosolic Mg pools.</p>
+<h3>7. Anatomical Structures Affected</h3>
+<p><strong>Organ level.</strong>
+- <em>Primary:</em> <strong>retina</strong> (photoreceptor layer / macula) — <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a> (retina), <a href="http://purl.obolibrary.org/obo/UBERON_0005421" target="_blank" rel="noopener noreferrer">UBERON:0005421</a> (macula lutea); <strong>teeth / dental enamel</strong> — <a href="http://purl.obolibrary.org/obo/UBERON_0001091" target="_blank" rel="noopener noreferrer">UBERON:0001091</a> (tooth), <a href="http://purl.obolibrary.org/obo/UBERON_0001752" target="_blank" rel="noopener noreferrer">UBERON:0001752</a> (enamel).
+- <em>Secondary / variable:</em> <strong>skeletal muscle</strong> (leg overgrowth/myopathy in one family) — <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a> (skeletal muscle tissue).
+- <em>Body systems:</em> <strong>visual/nervous system</strong> and <strong>digestive/oral (odontogenic) system</strong>; CNNM4 is also abundant in brain and intestinal tract.</p>
+<p><strong>Tissue and cell level.</strong>
+- Retinal <strong>cone and rod photoreceptors</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a>, <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a>) and retinal pigment epithelium (<a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" rel="noopener noreferrer">CL:0002586</a>).
+- <strong>Ameloblasts</strong> (enamel-forming epithelial cells, <a href="http://purl.obolibrary.org/obo/CL_0000059" target="_blank" rel="noopener noreferrer">CL:0000059</a>) in developing teeth.
+- Epithelial (enamel organ) and nervous (photoreceptor) tissue types.</p>
+<p><strong>Subcellular level.</strong> Basolateral <strong>plasma membrane</strong> (<a href="http://purl.obolibrary.org/obo/GO_0016323" target="_blank" rel="noopener noreferrer">GO:0016323</a>) — site of CNNM4-mediated Mg²⁺ extrusion.</p>
+<p><strong>Localization / lateralization.</strong> Ocular and dental involvement is <strong>bilateral and generally symmetric</strong>; the maculopathy is bilateral (bull's-eye pattern).</p>
+<h3>8. Temporal Development</h3>
+<p><strong>Onset.</strong> <strong>Congenital/pediatric.</strong> Visual symptoms (photophobia, nystagmus, poor vision) and dental enamel defects both manifest in early childhood. Onset pattern is <strong>insidious/chronic</strong>.</p>
+<p><strong>Progression.</strong> The <strong>retinal disease is progressive</strong> — visual acuity worsens with age (positive logMAR–age correlation), moving from predominantly cone dysfunction toward added rod involvement and macular atrophy. The <strong>enamel defect is a fixed developmental lesion</strong>, but secondary caries and tooth loss progress over time. Disease course is <strong>chronic and lifelong</strong>; there is no remission.</p>
+<p><strong>Patterns.</strong> No spontaneous or treatment-induced remission. The <strong>critical window</strong> for intervention is developmental (enamel mineralization occurs before eruption; restorative dentistry and low-vision rehabilitation are the available interventions once disease is established).</p>
+<h3>9. Inheritance and Population</h3>
+<p><strong>Epidemiology.</strong> <strong>Very rare</strong>; exact prevalence/incidence are not precisely established (Orphanet lists it among rare disorders; no reliable per-100,000 figure). Most knowledge comes from individual families and small cohorts.</p>
+<p><strong>Inheritance.</strong> <strong>Autosomal recessive.</strong> Penetrance appears <strong>complete</strong> for the retinal phenotype in biallelic carriers, but <strong>expressivity is variable</strong> — notably the dental phenotype can be absent in certain genotypes (e.g., compound-heterozygous p.Leu324Pro/p.Tyr581*). No genetic anticipation (not a repeat-expansion disorder). Germline mosaicism not specifically reported.</p>
+<p><strong>Founder effects / consanguinity.</strong> Founder alleles include the <strong>Kosovan c.1312dupC</strong> and the <strong>Amish p.Arg605X</strong>, and a recurrent <strong>Guatemalan p.Arg236Trp</strong>. <strong>Consanguinity is common</strong> and underlies many homozygous cases. <strong>Uniparental isodisomy</strong> of chromosome 2 produced homozygosity in one patient without two carrier parents.</p>
+<p><strong>Carrier frequency.</strong> Not established at population scale; alleles are individually rare. gnomAD frequencies are negligible except where founder effects apply locally.</p>
+<p><strong>Population demographics.</strong> Reported families span diverse ancestries — Gaza/Arab (original), Kosovan, Amish (North American), Guatemalan, Egyptian, Chinese, Korean, Thai (Lua ethnic group), UAE. No strong sex bias (recessive; one saliva study was female-only by design). Geographic clustering reflects founder/consanguinity patterns rather than endemicity.</p>
+<h3>10. Diagnostics</h3>
+<p><strong>Clinical/ophthalmic tests.</strong> Visual acuity, color vision, fundus examination (bull's-eye maculopathy, macular RPE atrophy), <strong>fundus autofluorescence</strong> (subretinal autofluorescent material), <strong>SD-OCT</strong> (photoreceptor/ONL loss, RPE atrophy, in severe cases staphyloma/retinoschisis), and <strong>full-field ERG</strong> (reduced/non-detectable photopic/cone responses, later rod involvement). <strong>Electrophysiology (ERG)</strong> is a key functional test.</p>
+<p><strong>Dental assessment.</strong> Clinical exam and <strong>orthopantomogram (OPG)</strong> demonstrate hypoplastic/hypocalcified amelogenesis imperfecta, thin enamel, decay, and tooth loss.</p>
+<p><strong>Biomarkers / labs.</strong> No validated circulating biomarker. Serum magnesium may be low in some contexts but is not a reliable diagnostic marker in humans (hypomagnesemia is prominent in the knockout mouse). Saliva proteomics is investigational only.</p>
+<p><strong>Genetic testing (definitive).</strong>
+- <strong>Approach:</strong> targeted single-gene testing of <em>CNNM4</em>, retinal-dystrophy/IRD <strong>gene panels</strong> (which include <em>CNNM4</em>), or <strong>WES/WGS</strong>. NGS panels have confirmed diagnoses in multiple reports.
+- <strong>CMA/karyotype/FISH:</strong> generally not needed, but CMA/SNP-array can detect uniparental disomy (as in the UPD case).
+- Prenatal genetic testing has been used in an affected family to avoid unnecessary pregnancy termination.</p>
+<p><strong>Clinical criteria / differential diagnosis.</strong> Diagnosis rests on the <strong>combination of cone-rod dystrophy + amelogenesis imperfecta + biallelic <em>CNNM4</em> variants</strong>. Differentials include: <strong>incomplete achromatopsia</strong> (Jalili can mimic it — macular discoloration and the dental phenotype distinguish), <strong>bradyopsia (RGS9BP)</strong>, other cone/cone-rod dystrophies, and syndromic IRDs. The <strong>dental examination and genetic testing are decisive</strong>.</p>
+<p><strong>Screening.</strong> Cascade carrier testing in families; prenatal/preimplantation testing where a familial variant is known. No population newborn screening.</p>
+<h3>11. Outcome / Prognosis</h3>
+<p><strong>Survival/mortality.</strong> <strong>Normal life expectancy</strong>; Jalili syndrome is not life-limiting. No disease-specific mortality.</p>
+<p><strong>Morbidity/function.</strong> Principal morbidity is <strong>progressive low vision/blindness</strong> and <strong>dental disability</strong> (pain, chewing difficulty, tooth loss, aesthetic/psychosocial impact). Visual acuity declines with age (logMAR worsening), producing long-term functional visual impairment.</p>
+<p><strong>Disease course/complications.</strong> Chronic, lifelong. Complications are secondary dental decay and tooth loss, and the consequences of low vision. Recovery of lost photoreceptor function is not expected; dental complications are manageable with restorative care.</p>
+<p><strong>Prognostic factors.</strong> <strong>Age</strong> is the main correlate of visual severity (older = worse acuity). Mutation domain has been examined for genotype–phenotype correlation in a pooled 53-patient analysis; genotype also predicts dental involvement (sparing in some alleles). No validated prognostic biomarker.</p>
+<h3>12. Treatment</h3>
+<p><strong>No disease-modifying therapy exists.</strong> Management is <strong>supportive and multidisciplinary</strong>:</p>
+<ul>
+<li><strong>Low-vision rehabilitation / ophthalmology:</strong> low-vision aids, magnifiers, tinted lenses and <strong>photoprotection</strong> (sunglasses) for photophobia, educational/occupational support. <em>NCIT: Supportive Care (C15277); Low Vision Aid.</em></li>
+<li><strong>Restorative/prosthetic dentistry:</strong> crowns, composite restorations, prostheses to manage AI; preventive dental care (fluoride, hygiene) to limit caries and tooth loss. <em>NCIT: Dental Procedure.</em></li>
+<li><strong>Genetic counseling:</strong> recurrence-risk assessment, carrier testing, prenatal/PGD options. <em>NCIT: Genetic Counseling (C15587).</em></li>
+<li><strong>Other:</strong> physiotherapy/monitoring if myopathy present (rare).</li>
+</ul>
+<p><strong>Pharmacotherapy / advanced therapeutics.</strong> No approved drugs, gene therapy, cell therapy, or RNA-based therapies for Jalili syndrome. Magnesium supplementation has not been demonstrated to correct the photoreceptor or enamel phenotype in humans. The CNNM4–PRL axis and AMPK/mTOR link are of research interest (and relevant to cancer biology) but have not been translated into Jalili treatment.</p>
+<p><strong>Experimental / clinical trials.</strong> No disease-specific interventional trials identified (no NCT). Gene-replacement strategies are conceptually plausible for a recessive loss-of-function retinal gene but remain untested for <em>CNNM4</em>.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention:</strong> not possible for a Mendelian recessive disorder other than through <strong>reproductive counseling</strong> — carrier screening in at-risk/consanguineous families, prenatal diagnosis, and preimplantation genetic diagnosis where the familial variant is known.</li>
+<li><strong>Secondary prevention:</strong> early ophthalmologic and dental diagnosis to initiate low-vision support and preventive dentistry before complications accrue.</li>
+<li><strong>Tertiary prevention:</strong> restorative dentistry and caries prevention to avert tooth loss; low-vision rehabilitation to preserve function.</li>
+<li><strong>Counseling:</strong> genetic counseling is central, especially in founder/consanguineous communities (Kosovan, Amish, etc.).</li>
+<li><strong>Immunization / public health / environmental interventions:</strong> not applicable.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy / orthologs:</strong> <em>CNNM4</em> is conserved across vertebrates; mouse <em>Cnnm4</em> (NCBI Gene 232801) is the principal experimental ortholog. The family extends to a prokaryotic ortholog <strong>CorC</strong> (Mg transporter), indicating deep evolutionary conservation of the magnesium-transport function.</li>
+<li><strong>Natural disease in other species:</strong> No well-characterized naturally occurring Jalili-equivalent oculo-dental disease has been reported in companion animals or wildlife (OMIA entry not established for this specific syndrome). <em>(Not available.)</em></li>
+<li><strong>Comparative biology:</strong> The <strong>CNNM4-knockout mouse</strong> reproduces defective amelogenesis and hypomagnesemia, confirming mechanistic conservation. Evolutionary conservation of the CBS/CNBH magnesium-transport machinery (through CorC) supports cross-species mechanistic relevance.</li>
+<li><strong>Transmission / zoonosis:</strong> not applicable (genetic disease).</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Mouse (primary model):</strong> <em>Cnnm4</em>-knockout mice show <strong>defective amelogenesis</strong>, basolateral ameloblast localization of CNNM4, and <strong>hypomagnesemia</strong> from intestinal Mg malabsorption — strongly recapitulating the dental and systemic-magnesium aspects of human disease (<a href="https://pubmed.ncbi.nlm.nih.gov/24339795/">PMID: 24339795</a>). <em>Cnnm4</em> deletion in <em>Apc^Δ14/+</em> mice reveals tumor-suppressor function (<a href="https://pubmed.ncbi.nlm.nih.gov/25347473/">PMID: 25347473</a>).</li>
+<li><em>Genetic model types:</em> knockout (and compound with <em>Apc</em>).</li>
+<li><em>Phenotype recapitulation:</em> excellent for enamel/magnesium biology; the <strong>retinal cone-rod dystrophy phenotype is less emphasized</strong> in published mouse work, a notable gap.</li>
+<li><em>Resources:</em> MGI (<em>Cnnm4</em>).</li>
+<li><strong>In vitro / cellular models:</strong> heterologous expression systems have characterized Mg²⁺ extrusion, variant destabilization/mRNA decay (codon-492 CBS variants), PRL–CNNM interaction, CNBH-mediated dimerization, and the p.R605X apoptosis/IQCB1 interaction. Structural studies of the intracellular region (CBS/CNBH) inform variant interpretation.</li>
+<li><strong>Applications:</strong> mechanism of magnesium transport, variant functional classification, CNNM4–PRL/AMPK-mTOR signaling, and tumor biology.</li>
+<li><strong>Limitations:</strong> no published model fully recapitulates the <strong>human cone-rod dystrophy</strong> progression; the apoptosis/IQCB1 retinal mechanism remains to be validated in vivo.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model (Synthesis Diagram)</h2>
+<pre><code>Biallelic LoF variants in CNNM4 (2q11.2)
+ (missense / nonsense / frameshift / splice; UPD)
+         │
+         ▼
+     Loss/destabilization of CNNM4 protein
+   (↓stability + ↑mRNA decay for CBS variants;
+    truncation; abolished transport for TM/CBS missense)
+         │
+         ▼
+   Loss of basolateral Mg2+/Na+ exchange (Mg2+ extrusion)
+[AMPK/mTOR link; PRL-regulated]
+         │
+┌────────────────┴───────────────────┐
+▼                                     ▼
+  BRANCH A: Ameloblasts                 BRANCH B: Photoreceptors
+  impaired Mg handling                 impaired Mg handling (inferred)
+│                                     │
+▼                                     ▼
+  Defective enamel mineralization      Photoreceptor stress &amp; loss;
+  (demonstrated in KO mouse)           subretinal autofluorescent material
+│                                     │
+▼                                     ▼
+  Amelogenesis imperfecta              Cone-rod dystrophy
+  (hypoplastic/hypocalcified;          (photophobia, nystagmus, bull's-eye
+   decay, tooth loss)                   maculopathy, ↓photopic ERG, ↓acuity)
+
+ CANDIDATE PARALLEL (truncating alleles, e.g. p.R605X):
+ ↑apoptosis + ↑CNNM4–IQCB1 (nephrocystin-5) interaction
+ → possible Mg-independent photoreceptor degeneration (inferred)
+</code></pre>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Dental branch</th>
+<th>Retinal branch</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cell type</td>
+<td>Ameloblast (<a href="http://purl.obolibrary.org/obo/CL_0000059" target="_blank" rel="noopener noreferrer">CL:0000059</a>)</td>
+<td>Cone/rod photoreceptor (<a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a> / <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a>)</td>
+</tr>
+<tr>
+<td>Tissue/organ</td>
+<td>Dental enamel, tooth (<a href="http://purl.obolibrary.org/obo/UBERON_0001752" target="_blank" rel="noopener noreferrer">UBERON:0001752</a> / :0001091)</td>
+<td>Retina, macula (<a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a> / :0005421)</td>
+</tr>
+<tr>
+<td>Process (GO)</td>
+<td>Enamel mineralization (<a href="http://purl.obolibrary.org/obo/GO_0070166" target="_blank" rel="noopener noreferrer">GO:0070166</a>)</td>
+<td>Photoreceptor maintenance; apoptosis (<a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a>)</td>
+</tr>
+<tr>
+<td>Clinical sign</td>
+<td>Amelogenesis imperfecta (<a href="http://purl.obolibrary.org/obo/HP_0000705" target="_blank" rel="noopener noreferrer">HP:0000705</a>)</td>
+<td>Cone-rod dystrophy (<a href="http://purl.obolibrary.org/obo/HP_0000548" target="_blank" rel="noopener noreferrer">HP:0000548</a>)</td>
+</tr>
+<tr>
+<td>Evidence</td>
+<td>Demonstrated (KO mouse)</td>
+<td>Mg step inferred; photoreceptor loss demonstrated</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Role in this report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39580587/">39580587</a></td>
+<td>Defines Jalili (AR, CRD+AI, CNNM4); functional characterization of CBS codon-492 variants (↓stability, ↑mRNA decay).</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38151709/">38151709</a></td>
+<td>Confirms CNNM4 as a metal transporter at 2q11.2; dentofacial manifestations.</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24339795/">24339795</a></td>
+<td>Mouse model: CNNM4 = basolateral Mg²⁺ extrusion molecule; KO → defective amelogenesis + hypomagnesemia.</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24194943/">24194943</a></td>
+<td>Kosovan founder c.1312dupC; links defective photoreceptor Mg transport to visual impairment.</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32022389/">32022389</a></td>
+<td>North American cohort; novel variants; frameshift via paternal UPD of chr 2; core ocular triad + universal AI.</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41280631/">41280631</a></td>
+<td>Pooled 53-patient analysis; mean logMAR 1.15; VA correlates with age; genotype–domain correlation.</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39522753/">39522753</a></td>
+<td>Histopathology: photoreceptor loss, subretinal autofluorescent material, inner-retina preservation; recurrent p.Leu324Pro.</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25347473/">25347473</a></td>
+<td>CNNM4 Mg²⁺ efflux links AMPK/mTOR; Cnnm4 deletion → polyp-to-adenocarcinoma progression (tumor suppressor).</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31842432/">31842432</a></td>
+<td>Structural insight into CNNM4 intracellular region; CNNM4 suppression → tumor progression + infertility.</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29322253/">29322253</a></td>
+<td>Amish p.Arg605X nonsense founder; truncated protein ↑apoptosis + ↑IQCB1 interaction (candidate mechanism).</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29421602/">29421602</a></td>
+<td>Novel p.Tyr581*; variable expressivity and dental sparing with p.Leu324Pro compound heterozygosity.</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28246031/">28246031</a></td>
+<td>Splice-site c.1682-1G&gt;C variant class.</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28586144/">28586144</a></td>
+<td>p.Leu359Pro; phenotypic expansion to muscle overgrowth/myopathy.</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30341174/">30341174</a></td>
+<td>CNBH domain mediates dimerization and is required for Mg handling.</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39024658/">39024658</a></td>
+<td>Jalili can mimic incomplete achromatopsia; genetic testing revises diagnosis to CNNM4/Jalili.</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30705057/">30705057</a></td>
+<td>Systematic review of Jalili features/genetics (first described in Gaza).</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36354001/">36354001</a></td>
+<td>Thai Lua family; p.Gly492Asp; advanced dental age, crossbite; prenatal testing.</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40232358/">40232358</a></td>
+<td>First Egyptian case; novel c.1423G&gt;A; hyperopia proposed as constant feature.</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35150469/">35150469</a></td>
+<td>Chinese family; novel p.Ser200Pro; severe macular/chorioretinal involvement.</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41876952/">41876952</a></td>
+<td>Saliva proteomics (female JS): innate-immune + carbohydrate-metabolism shifts (descriptive).</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40764063/">40764063</a></td>
+<td>CNNM4 in cholangiocarcinoma/ferroptosis — pleiotropy in cancer (not Jalili pathology).</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Evidence-type distribution:</strong> human clinical/genetic case reports and cohorts dominate; mechanistic claims rest on <strong>mouse knockout</strong> (dental/magnesium) and <strong>in vitro</strong> functional/structural studies (variant stability, transport, dimerization, apoptosis/IQCB1). The retinal magnesium step is an <strong>inference</strong> bridging human phenotype and transporter biology.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Retinal mechanism is inferred, not demonstrated.</strong> The step from CNNM4 loss to photoreceptor magnesium failure is assumed; no in vivo retinal model convincingly reproduces the human cone-rod dystrophy. The apoptosis/IQCB1 branch is a candidate requiring validation.</li>
+<li><strong>Epidemiology is unquantified.</strong> No reliable prevalence/incidence/carrier-frequency estimates; the disease is known only from scattered families.</li>
+<li><strong>Genotype–phenotype correlation is incomplete.</strong> Dental sparing is allele-dependent in anecdotes; the pooled analysis examined but did not definitively establish domain–severity relationships. Modifier genes are unproven.</li>
+<li><strong>No therapeutic evidence.</strong> No trials; magnesium supplementation unproven; gene therapy untested for CNNM4.</li>
+<li><strong>Variant classification.</strong> Several private missense variants remain VUS pending functional data; ACMG classification depends on the few functionally characterized alleles.</li>
+<li><strong>Pleiotropy interpretation.</strong> CNNM4's roles in cancer/metabolism/fertility derive from non-Jalili models and should not be over-extrapolated to patient prognosis.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Retina-specific CNNM4 model.</strong> Generate a photoreceptor-conditional <em>Cnnm4</em> knockout (or patient-iPSC-derived retinal organoids) and perform ERG, OCT-equivalent histology, and intracellular Mg²⁺ imaging to test whether photoreceptor degeneration is Mg-dependent and/or apoptosis/IQCB1-driven.</li>
+<li><strong>Test the IQCB1/apoptosis branch in vivo.</strong> Determine whether truncating alleles (p.R605X) drive a distinct, more apoptosis-/ciliopathy-like retinal course than transport-null missense alleles.</li>
+<li><strong>Systematic genotype–phenotype study.</strong> Pool international families to statistically test domain/mutation-class vs. dental sparing, visual-acuity trajectory, and age of onset; refine ACMG classification of private variants with standardized functional assays (stability, mRNA decay, Mg-extrusion).</li>
+<li><strong>Natural-history registry.</strong> Establish a multi-center registry with longitudinal ERG/OCT/visual-acuity and dental outcomes to define progression rate and prognostic factors.</li>
+<li><strong>Therapeutic feasibility.</strong> Assess AAV-mediated <em>CNNM4</em> gene replacement in retinal models; evaluate whether magnesium modulation or AMPK/mTOR-axis agents affect photoreceptor/ameloblast endpoints.</li>
+<li><strong>Carrier screening in founder communities.</strong> Offer targeted carrier screening and counseling for the Kosovan (c.1312dupC), Amish (p.R605X), and Guatemalan (p.Arg236Trp) alleles.</li>
+<li><strong>Validate biomarkers.</strong> Follow up the saliva-proteomics signal with larger, sex-balanced cohorts to test whether any salivary/serum marker tracks disease activity.</li>
+</ol>
+<hr />
+<p><em>Report prepared from a 5-iteration autonomous investigation: 9 confirmed findings, 27 papers reviewed. Causal gene: </em><em>CNNM4</em><em> (<a href="http://purl.obolibrary.org/obo/MONDO_0009007" target="_blank" rel="noopener noreferrer">MONDO:0009007</a>; OMIM #217080; <a href="https://bioregistry.io/ORPHA:1388" target="_blank" rel="noopener noreferrer">ORPHA:1388</a>).</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Jalili_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Jalili_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+<li><a href="../../research/Jalili_Syndrome-deep-research-openscientist_artifacts/provenance_cnnm4_variant_map.json">OpenScientist cnnm4 variant map</a>
+<img alt="OpenScientist cnnm4 variant map" src="../../research/Jalili_Syndrome-deep-research-openscientist_artifacts/provenance_cnnm4_variant_map.png" /></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.4.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>21</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0007641</code> (2 mentions) - the report calls it "Bull's eye maculopathy"; HP calls it <strong>Dyschromatopsia</strong></li>
+<li><code>HP:0000684</code> (1 mention) - the report calls it "Dental malocclusion/crossbite"; HP calls it <strong>Delayed eruption of teeth</strong></li>
+<li><code>UBERON:0005421</code> (1 mention) - the report calls it "macula lutea"; UBERON calls it <strong>pectoral appendage apical ectodermal ridge</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0006297</code> (2 mentions) - the report calls it "Hypoplastic dental enamel"; HP calls it <strong>Enamel hypoplasia</strong>, and lists "Hypoplasia of dental enamel" among its other names</li>
+<li><code>GO:0016323</code> (2 mentions) - the report calls it "plasma membrane"; GO calls it <strong>basolateral plasma membrane</strong></li>
+<li><code>UBERON:0001091</code> (1 mention) - the report calls it "tooth"; UBERON calls it <strong>calcareous tooth</strong>, and lists "tooth" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>HP:0000548</code> - called "Cone/cone-rod dystrophy", "Cone-rod dystrophy"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Jackson-Weiss_Syndrome-perplexity.html">← Jackson-Weiss Syndrome (Perplexity)</a>
+                
+                
+                <a href="Japanese_Spotted_Fever-openscientist.html">Japanese Spotted Fever (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Jalili_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Jalili_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

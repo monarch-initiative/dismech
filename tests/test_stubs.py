@@ -7,6 +7,7 @@ add the entry" a contract CI can check rather than a convention people remember.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -685,3 +686,459 @@ def test_tidy_survives_a_stub_that_is_stale_twice_over(tmp_path):
     assert result.exit_code == 0, result.output
     assert not stub.exists()
     assert "Deleted 1 stale stub" in result.output
+
+
+@pytest.fixture
+def next_cli(monkeypatch, coverage):
+    """`dismech-stubs next` against the live KB, without re-indexing it per call.
+
+    `next` reuses `check_stubs`, which builds the coverage index. The test
+    session's persistent cache starts empty, so the first build there is cold
+    (about half a minute on the current corpus). The module-scoped `coverage`
+    fixture is the same index, so injecting it keeps the classification real
+    and the test fast.
+    """
+    from typer.testing import CliRunner
+
+    from dismech.stubs import cli
+
+    monkeypatch.setattr(
+        cli, "check_stubs", lambda stub_dir: check_stubs(stub_dir, coverage=coverage)
+    )
+
+    def invoke(*args):
+        result = CliRunner().invoke(cli.app, ["next", *args])
+        assert result.exit_code == 0, result.output
+        return result.output
+
+    return invoke
+
+
+def test_next_leaves_out_a_stub_already_curated_as_a_subtype(tmp_path, next_cli):
+    """A stub `tidy` would delete must not be offered for claiming (#9415, #11616).
+
+    MONDO:0011346 is bound as a `has_subtypes[].subtype_term` in
+    `Hereditary_Xanthinuria.yaml`, so `check` already calls the stub
+    `already_curated`. `next` used to hand it out regardless.
+    """
+    (tmp_path / "Xanthinuria_Type_II.yaml").write_text(
+        "mondo_id: MONDO:0011346\nlabel: xanthinuria type II\n", encoding="utf-8"
+    )
+    (tmp_path / "Uncurated_Disease.yaml").write_text(
+        "mondo_id: MONDO:9999901\nlabel: uncurated test disease\n", encoding="utf-8"
+    )
+
+    default = next_cli("5", "--stub-dir", str(tmp_path))
+    assert "MONDO:0011346" not in default
+    assert "MONDO:9999901" in default
+
+    included = next_cli("5", "--stub-dir", str(tmp_path), "--include-stale")
+    assert "MONDO:0011346" in included
+    assert "already_curated" in included
+
+
+def test_next_keeps_and_annotates_a_possible_kb_duplicate(tmp_path, next_cli):
+    """A name collision is a lump/split question, so the stub stays in the pool.
+
+    It has to be visible in both output paths: `/claim-disease` reads `--json`,
+    so a warning printed only in the text output would reach no agent.
+    """
+    import json
+
+    (tmp_path / "Hereditary_Xanthinuria__MONDO_9999902.yaml").write_text(
+        "mondo_id: MONDO:9999902\nlabel: Hereditary Xanthinuria\n", encoding="utf-8"
+    )
+
+    text = next_cli("5", "--stub-dir", str(tmp_path))
+    assert "MONDO:9999902" in text
+    assert "[advisory] possible_kb_duplicate" in text
+
+    rows = json.loads(next_cli("5", "--stub-dir", str(tmp_path), "--json"))
+    assert [row["mondo_id"] for row in rows] == ["MONDO:9999902"]
+    kinds = [a["kind"] for a in rows[0]["advisories"]]
+    assert kinds == ["possible_kb_duplicate"]
+    assert "Hereditary_Xanthinuria.yaml" in rows[0]["advisories"][0]["message"]
+
+
+def test_next_json_carries_the_enrichment_fields_when_present(tmp_path, next_cli):
+    """`--json` must carry what the lump/split call turns on (#10180).
+
+    The fields are emitted only when the stub has them. The enrichment omits an
+    empty block rather than writing it empty, so absence means "MONDO records
+    none", and a `null` would blur that.
+    """
+    import json
+
+    (tmp_path / "Enriched_Test_Disease.yaml").write_text(
+        "mondo_id: MONDO:9999903\n"
+        "label: enriched test disease\n"
+        "synonyms:\n- ETD\n"
+        "mondo_parents:\n- id: MONDO:0002012\n  label: methylmalonic acidemia\n"
+        "mondo_descendants:\n- id: MONDO:9999904\n  label: enriched test disease 1\n"
+        "mondo_descendant_count: 1\n"
+        "genes:\n- id: hgnc:7526\n  label: MMUT\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "Bare_Test_Disease.yaml").write_text(
+        "mondo_id: MONDO:9999905\nlabel: bare test disease\n", encoding="utf-8"
+    )
+
+    rows = {
+        row["mondo_id"]: row
+        for row in json.loads(next_cli("5", "--stub-dir", str(tmp_path), "--json"))
+    }
+    enriched = rows["MONDO:9999903"]
+    assert enriched["mondo_parents"] == [
+        {"id": "MONDO:0002012", "label": "methylmalonic acidemia"}
+    ]
+    assert enriched["mondo_descendants"] == [
+        {"id": "MONDO:9999904", "label": "enriched test disease 1"}
+    ]
+    assert enriched["mondo_descendant_count"] == 1
+    assert enriched["genes"] == [{"id": "hgnc:7526", "label": "MMUT"}]
+    assert enriched["synonyms"] == ["ETD"]
+
+    bare = rows["MONDO:9999905"]
+    from dismech.stubs.cli import ENRICHMENT_KEYS
+
+    assert not set(ENRICHMENT_KEYS) & set(bare)
+    # The base record is unchanged for both.
+    for row in (enriched, bare):
+        assert {"mondo_id", "label", "priority", "stub_path", "advisories"} <= set(row)
+
+    text = next_cli("5", "--stub-dir", str(tmp_path))
+    assert "enriched test disease  (MONDO descendants: 1)" in text
+    assert "bare test disease\n" in text
+
+
+def test_next_reports_a_missing_claims_file_without_a_traceback(tmp_path):
+    """`--json` in the recipe's claims slot used to become a file path (#10180)."""
+    from typer.testing import CliRunner
+
+    from dismech.stubs.cli import app
+
+    missing = tmp_path / "no_such_claims.json"
+    for args in (
+        ["next", "3", "--stub-dir", str(tmp_path), "--claims", str(missing)],
+        ["claims", str(missing), "--stub-dir", str(tmp_path)],
+    ):
+        result = CliRunner().invoke(app, args)
+        assert result.exit_code == 2, result.output
+        assert not isinstance(result.exception, FileNotFoundError)
+        assert "claims file not found" in result.output
+        assert "just fetch-claims" in result.output
+
+
+def _write_successor_fixture(stub_dir: Path) -> None:
+    """Stubs for the CARASAL shape (#15853): one disease queued under two IDs.
+
+    - `Merged_Test_Disease` was merged into MONDO:9999911, which has its own stub.
+    - `Scheduled_Test_Disease` is scheduled to merge into MONDO:9999913, which
+      also has its own stub; the successor comes from MONDO's note.
+    - `Orphan_Merge_Test_Disease` was merged into a term nobody has stubbed.
+    - `Retiring_Test_Disease` is scheduled with no replacement.
+    """
+    files = {
+        "Merged_Test_Disease.yaml": (
+            "mondo_id: MONDO:9999910\nlabel: merged test disease\n"
+            "mondo_obsolete: true\nmondo_replaced_by: MONDO:9999911\n"
+        ),
+        "Successor_Test_Disease.yaml": (
+            "mondo_id: MONDO:9999911\nlabel: successor test disease\n"
+        ),
+        "Scheduled_Test_Disease.yaml": (
+            "mondo_id: MONDO:9999912\nlabel: scheduled test disease\n"
+            "mondo_obsoletion_candidate: This term is scheduled to be merged with "
+            "MONDO:9999913. This ID will therefore be obsoleted and replaced with "
+            "MONDO:9999913 https://github.com/monarch-initiative/mondo/issues/1\n"
+        ),
+        "Scheduled_Successor_Test_Disease.yaml": (
+            "mondo_id: MONDO:9999913\nlabel: scheduled successor test disease\n"
+        ),
+        "Orphan_Merge_Test_Disease.yaml": (
+            "mondo_id: MONDO:9999914\nlabel: orphan merge test disease\n"
+            "mondo_obsolete: true\nmondo_replaced_by: MONDO:9999915\n"
+        ),
+        "Retiring_Test_Disease.yaml": (
+            "mondo_id: MONDO:9999916\nlabel: retiring test disease\n"
+            "mondo_obsoletion_candidate: 'This term is scheduled for obsoletion. "
+            "Term to consider: MONDO:9999911'\n"
+        ),
+    }
+    for name, text in files.items():
+        (stub_dir / name).write_text(text, encoding="utf-8")
+
+
+def test_a_stub_whose_successor_is_already_stubbed_is_a_queue_duplicate(
+    tmp_path, coverage
+):
+    """The CARASAL pair (#15853): repointing would only make a duplicate ID.
+
+    Reported on the stub that is leaving, naming the successor, for a merge that
+    has happened and for one MONDO has only scheduled. Never an error.
+    """
+    from dismech.stubs.cli import FOLD_KINDS, REPOINT_KINDS, STALE_KINDS
+
+    _write_successor_fixture(tmp_path)
+    findings = check_stubs(tmp_path, coverage=coverage)
+    assert not [i for i in findings if i.severity == "error"], findings
+
+    fold = {i.path.name: i for i in findings if i.kind == "successor_already_stubbed"}
+    assert set(fold) == {"Merged_Test_Disease.yaml", "Scheduled_Test_Disease.yaml"}
+    merged = fold["Merged_Test_Disease.yaml"]
+    assert merged.successor == "MONDO:9999911"
+    assert "Successor_Test_Disease.yaml" in merged.message
+    assert "was merged into" in merged.message
+    scheduled = fold["Scheduled_Test_Disease.yaml"]
+    assert scheduled.successor == "MONDO:9999913"
+    assert "is scheduled to merge into" in scheduled.message
+    for issue in fold.values():
+        assert issue.severity == "advisory"
+        assert issue.kind in FOLD_KINDS
+        assert issue.kind not in STALE_KINDS + REPOINT_KINDS
+
+    # The repoint findings carry the successor too, where there is one. A "term
+    # to consider" is not a successor.
+    successors = {i.path.name: i.successor for i in findings if i.kind in REPOINT_KINDS}
+    assert successors == {
+        "Merged_Test_Disease.yaml": "MONDO:9999911",
+        "Scheduled_Test_Disease.yaml": "MONDO:9999913",
+        "Orphan_Merge_Test_Disease.yaml": "MONDO:9999915",
+        "Retiring_Test_Disease.yaml": None,
+    }
+
+
+def test_next_names_the_successor_and_keeps_the_stub_in_the_pool(tmp_path, next_cli):
+    """A stub leaving its MONDO ID is offered with the live ID beside it (#15853).
+
+    Kept in the pool, because the disease is still uncurated, but a curator
+    reading the row sees where the identifier is going before claiming it, in
+    the text output and in `--json`, which is what `/claim-disease` reads.
+    """
+    import json
+
+    _write_successor_fixture(tmp_path)
+
+    text = next_cli("10", "--stub-dir", str(tmp_path))
+    for mondo_id in ("MONDO:9999910", "MONDO:9999912", "MONDO:9999914"):
+        assert f" {mondo_id}  " in text, f"{mondo_id} left the pool"
+    assert "[advisory] obsolete_term_replaced -> MONDO:9999911:" in text
+    assert "[advisory] obsoletion_candidate -> MONDO:9999913:" in text
+    assert "[advisory] successor_already_stubbed -> MONDO:9999911:" in text
+    assert "[advisory] obsolete_term_replaced -> MONDO:9999915:" in text
+    assert "[advisory] obsoletion_candidate: MONDO:9999916" in text
+
+    rows = {
+        row["mondo_id"]: row
+        for row in json.loads(next_cli("10", "--stub-dir", str(tmp_path), "--json"))
+    }
+    merged = {a["kind"]: a for a in rows["MONDO:9999910"]["advisories"]}
+    assert merged["obsolete_term_replaced"]["successor"] == "MONDO:9999911"
+    assert merged["successor_already_stubbed"]["successor"] == "MONDO:9999911"
+    retiring = rows["MONDO:9999916"]["advisories"]
+    assert [a["kind"] for a in retiring] == ["obsoletion_candidate"]
+    assert "successor" not in retiring[0], "absent rather than null"
+    assert rows["MONDO:9999911"]["advisories"] == []
+
+
+def test_tidy_lists_a_successor_duplicate_without_deleting_it(tmp_path):
+    from typer.testing import CliRunner
+
+    from dismech.stubs.cli import app
+
+    _write_successor_fixture(tmp_path)
+    result = CliRunner().invoke(app, ["tidy", "--stub-dir", str(tmp_path), "--apply"])
+    assert result.exit_code == 0, result.output
+    assert "duplicates a stub for its MONDO successor (2)" in result.output
+    # Listed once, under the remedy that applies: repointing would collide.
+    assert "needs a repointed `mondo_id`, not deletion (2)" in result.output
+    repoint_section = result.output.split("needs a repointed")[1]
+    assert "Merged_Test_Disease.yaml" not in repoint_section
+    assert "Orphan_Merge_Test_Disease.yaml" in repoint_section
+    assert (tmp_path / "Merged_Test_Disease.yaml").exists()
+    assert (tmp_path / "Scheduled_Test_Disease.yaml").exists()
+
+
+# --- fetch-claims: GraphQL first, REST fallback, never an empty file (#15854) --
+
+_REST_ROWS = [
+    {
+        "number": 15898,
+        "title": "Curate CYP7B1-related disorder of oxysterol accumulation (MONDO:1060107)",
+        "created_at": "2026-04-01T03:51:23Z",
+        "html_url": "https://github.com/monarch-initiative/dismech/issues/15898",
+        "assignees": ["caufieldjh"],
+    },
+]
+
+
+def _fake_gh(graphql=None, rest=None):
+    """A `subprocess.run` stand-in. Each route is (returncode, stdout, stderr)."""
+    import subprocess
+
+    calls = []
+
+    def run(args, **kwargs):
+        calls.append(args)
+        route = graphql if args[1] == "issue" else rest
+        assert route is not None, f"unexpected call: {args}"
+        code, out, err = route
+        return subprocess.CompletedProcess(args, code, out, err)
+
+    run.calls = calls
+    return run
+
+
+_GRAPHQL_403 = (
+    1,
+    "",
+    "non-200 OK status code: 403 Forbidden body: GraphQL is not available",
+)
+_REST_OK = (0, "\n".join(json.dumps(r) for r in _REST_ROWS) + "\n", "")
+
+
+def test_fetch_claims_prefers_graphql_and_keeps_linked_pr_data():
+    from dismech.stubs.fetch import fetch_claims
+
+    rows = [dict(_GH_ROWS[0], closedByPullRequestsReferences=[])]
+    run = _fake_gh(graphql=(0, json.dumps(rows), ""))
+    result = fetch_claims(runner=run)
+    assert result.route == "graphql" and result.linked_prs_available
+    assert result.rows == rows
+    assert len(run.calls) == 1
+
+
+def test_fetch_claims_falls_back_to_rest_when_graphql_is_refused():
+    """Claude Code cloud sessions: gh is present, GraphQL answers 403."""
+    from dismech.stubs.fetch import fetch_claims
+
+    run = _fake_gh(graphql=_GRAPHQL_403, rest=_REST_OK)
+    result = fetch_claims(runner=run)
+    assert result.route == "rest" and not result.linked_prs_available
+    assert result.rows == _REST_ROWS
+    assert "403" in result.notes[0]
+    assert run.calls[1][:3] == ["gh", "api", "--paginate"]
+
+
+def test_fetch_claims_uses_rest_when_graphql_hits_the_limit():
+    """`gh issue list --limit N` truncates silently; REST paginates uncapped."""
+    from dismech.stubs.fetch import CLAIM_FETCH_LIMIT, fetch_claims
+
+    full = [{"number": i, "title": f"Curate x{i}"} for i in range(CLAIM_FETCH_LIMIT)]
+    run = _fake_gh(graphql=(0, json.dumps(full), ""), rest=_REST_OK)
+    result = fetch_claims(runner=run)
+    assert result.route == "rest"
+    assert "truncated" in result.notes[0]
+
+
+def _invoke_fetch(tmp_path, monkeypatch, run):
+    from typer.testing import CliRunner
+
+    import dismech.stubs.fetch as fetch_mod
+    from dismech.stubs.cli import app
+
+    monkeypatch.setattr(fetch_mod.subprocess, "run", run)
+    monkeypatch.setattr("dismech.stubs.cli.gh_available", lambda: True)
+    out = tmp_path / "tmp" / "claims.json"
+    return out, CliRunner().invoke(app, ["fetch-claims", "--out", str(out)])
+
+
+def test_failed_fetch_exits_nonzero_and_leaves_the_file_alone(tmp_path, monkeypatch):
+    run = _fake_gh(graphql=_GRAPHQL_403, rest=(1, "", "HTTP 502 Bad Gateway"))
+    out, result = _invoke_fetch(tmp_path, monkeypatch, run)
+    assert result.exit_code == 1, result.output
+    assert not out.exists()
+    assert "REST route also failed" in result.output
+
+    # An earlier good file survives a later failed fetch.
+    out.parent.mkdir(parents=True)
+    out.write_text('[{"title": "Curate x (MONDO:0000001)"}]\n')
+    before = out.read_text()
+    out, result = _invoke_fetch(tmp_path, monkeypatch, run)
+    assert result.exit_code == 1
+    assert out.read_text() == before
+
+
+def test_rest_output_that_is_not_json_is_a_failure(tmp_path, monkeypatch):
+    run = _fake_gh(graphql=_GRAPHQL_403, rest=(0, "<html>proxy error</html>\n", ""))
+    out, result = _invoke_fetch(tmp_path, monkeypatch, run)
+    assert result.exit_code == 1
+    assert not out.exists()
+
+
+def test_successful_rest_fetch_writes_and_says_linked_prs_are_missing(
+    tmp_path, monkeypatch
+):
+    run = _fake_gh(graphql=_GRAPHQL_403, rest=_REST_OK)
+    out, result = _invoke_fetch(tmp_path, monkeypatch, run)
+    assert result.exit_code == 0, result.output
+    assert json.loads(out.read_text()) == _REST_ROWS
+    assert "via the REST API" in result.output
+    assert "over-report" in result.output
+    assert not list(out.parent.glob(".claims.json.*"))  # no temp file left
+
+
+def test_fetch_claims_without_gh_points_at_the_mcp_fallback(tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+
+    from dismech.stubs.cli import app
+
+    monkeypatch.setattr("dismech.stubs.cli.gh_available", lambda: False)
+    out = tmp_path / "claims.json"
+    result = CliRunner().invoke(app, ["fetch-claims", "--out", str(out)])
+    assert result.exit_code == 127
+    assert "claim-disease/SKILL.md" in result.output
+    assert not out.exists()
+
+
+def test_an_empty_claims_file_is_rejected_not_read_as_no_claims(tmp_path):
+    """A zero-byte file is what a failed `gh ... > file` left (#15854, #11814)."""
+    from typer.testing import CliRunner
+
+    from dismech.stubs.cli import app
+
+    empty = tmp_path / "claims.json"
+    empty.write_text("")
+    for args in (
+        ["next", "3", "--stub-dir", str(tmp_path), "--claims", str(empty)],
+        ["claims", str(empty), "--stub-dir", str(tmp_path)],
+    ):
+        result = CliRunner().invoke(app, args)
+        assert result.exit_code == 2, result.output
+        assert "claims file is empty" in result.output
+        assert "just fetch-claims" in result.output
+
+
+def test_rest_shaped_rows_parse():
+    (claim,) = parse_claims(_REST_ROWS)
+    assert claim.mondo_id == "MONDO:1060107"
+    assert claim.url.endswith("/15898")
+    assert claim.created_at == "2026-04-01T03:51:23Z"
+    assert claim.assignees == ["caufieldjh"]
+    assert claim.linked_pr_known is False
+    assert claim.age_days(_NOW) is not None
+
+
+def test_graphql_rows_know_their_linked_prs():
+    (claim,) = parse_claims([dict(_GH_ROWS[0], closedByPullRequestsReferences=[])])
+    assert claim.linked_pr_known is True and claim.has_linked_pr is False
+
+
+def test_check_claims_warns_that_rest_stale_list_may_over_report(tmp_path):
+    from typer.testing import CliRunner
+
+    from dismech.stubs.cli import app
+
+    path = tmp_path / "claims.json"
+    old = {**_REST_ROWS[0], "created_at": "2020-01-01T00:00:00Z"}
+    path.write_text(json.dumps([old]))
+    result = CliRunner().invoke(app, ["claims", str(path), "--stub-dir", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert "stale" in result.output
+    assert "linked-PR data is unavailable for 1" in result.output
+
+    # With GraphQL-shaped data the note is absent.
+    path.write_text(json.dumps([{**old, "closedByPullRequestsReferences": []}]))
+    result = CliRunner().invoke(app, ["claims", str(path), "--stub-dir", str(tmp_path)])
+    assert "stale" in result.output
+    assert "linked-PR data is unavailable" not in result.output

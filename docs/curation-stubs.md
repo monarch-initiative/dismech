@@ -199,6 +199,34 @@ like a recommendation for whatever family of diseases sorts first. Pick the
 disease you know something about rather than the first row. `--alpha` gives
 alphabetical order if you want it.
 
+The pool leaves out stubs that `just tidy-stubs` would delete: a disease the KB
+already covers by MONDO ID (as a `disease_term`, a `has_subtypes[].subtype_term`,
+or an exact/narrow MONDO mapping) and a term MONDO has retired with no
+replacement. Until a sweep removes them, nobody should claim one. Pass
+`--include-stale` to see them anyway. Other advisories from `just check-stubs`
+do not remove a stub, because they need a person's call: a
+`possible_kb_duplicate` (an entry with the same name under a different MONDO
+ID), a scheduled obsoletion, or a merged term to repoint. They are printed under
+the stub, and listed as `advisories` in `--json` output, so the lump/split
+decision is made before the claim. When the finding points at a MONDO successor
+(the replacement of a merged term, or the one a scheduled-merge note names), the
+successor is printed beside the kind, as in
+`[advisory] obsolete_term_replaced -> MONDO:0980711`, and carried as `successor`
+in the `--json` advisory. Each `--json` record also carries the
+stub's `mondo_parents`, `mondo_descendants`, `mondo_descendant_count`, `genes`
+and `synonyms` when it has them (an absent field is left out, not written as
+`null`). Classifying the queue needs the MONDO IDs and
+labels of every KB entry, and parsing them all takes about half a minute, so the
+derived index is kept between runs in the gitignored
+`tmp/stub_coverage_index.json` (#15116). The first run in a checkout is cold;
+after that `next-stubs` and `next-unclaimed` take about a second and a half, and
+an edited entry costs one re-parse. A file is re-read only when its size or
+mtime changes and re-parsed only when its content hash does; deleted entries
+drop out. `DISMECH_KB_CACHE=0` turns the cache off, and
+`DISMECH_STUB_COVERAGE_CACHE` moves it. Bump `COVERAGE_CACHE_VERSION` in
+`src/dismech/stubs/model.py` when a change to the label or ID extraction would
+derive something different from the same file.
+
 If you want a disease curated sooner, open a PR raising its `priority` and say
 why in `notes`. That is a reviewable claim other people can disagree with, which
 a weight in a YAML config file was not.
@@ -302,7 +330,7 @@ So `check-stubs` splits its findings, and only one kind gates:
 | Severity | Means | Gates? |
 |---|---|---|
 | **error** | the *file* is broken — unparseable YAML, a malformed MONDO ID, a duplicate of another stub, a bad enum value | **yes** — only the stub's own author sees it, and it is cheap to fix |
-| **advisory** | the *queue* has drifted — `already_curated`, `obsolete_term`, `obsolete_term_replaced`, `obsoletion_candidate`, `possible_kb_duplicate` | never |
+| **advisory** | the *queue* has drifted — `already_curated`, `obsolete_term`, `obsolete_term_replaced`, `obsoletion_candidate`, `successor_already_stubbed`, `possible_kb_duplicate` | never |
 
 ### Tidying up
 
@@ -323,6 +351,15 @@ It also does not delete a stub whose term was **merged** into a live one
 (`obsolete_term_replaced`), or one MONDO has only scheduled for retirement
 (`obsoletion_candidate`). Both name a disease nobody has curated; the remedy is
 to repoint `mondo_id`, and `tidy` lists them for a person to do that.
+
+The exception is a stub whose successor already has a stub of its own
+(`successor_already_stubbed`): one disease queued under two IDs, as happened to
+CARASAL (#15853). Repointing it would only produce a `duplicate_mondo_id`, so
+`tidy` lists it separately, and the remedy is to carry anything hand-written
+into the successor's stub and delete this one. The successor is read from
+`mondo_replaced_by`, or from a scheduled-merge note's "replaced with
+MONDO:NNNNNNN", so like the other obsolescence findings it is only as current as
+the last `just enrich-stubs`.
 
 Coverage means the entry's `disease_term`, any `has_subtypes[].subtype_term`, and
 any exact/narrow `mondo_mappings`.
@@ -384,6 +421,7 @@ Other nomination lists can be added by writing a parser in
 ```bash
 just fetch-claims          # open claim issues -> tmp/claims.json (one API call)
 just next-unclaimed 5      # the two-phase pick: claims, then stubs
+just next-unclaimed 5 --json  # same, machine-readable (reads tmp/claims.json)
 just check-claims          # double-claims, unkeyed titles, stale claims
 just next-stubs 5          # stubs only, no claim filter
 just next-stubs 5 --json   # same, machine-readable

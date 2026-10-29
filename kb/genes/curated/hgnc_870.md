@@ -25,10 +25,13 @@ is named by <span class="result" data-code="g.disorder_count()">2<span class="me
 ai-gene-review gives ATP7B's core molecular function as
 <span class="result" data-compare="names" data-code="g.core_function_terms('molecular_function')">P-type monovalent copper transporter activity<span class="method"></span></span>,
 acting in
-<span class="result" data-compare="names" data-code="g.core_function_terms('directly_involved_in')">cellular detoxification of copper ion; copper ion export; copper ion transport; and intracellular copper ion homeostasis<span class="method"></span></span>,
+<span class="result" data-compare="names" data-code="g.core_function_terms('directly_involved_in')">cellular detoxification of copper ion; copper ion export; copper ion import; and intracellular copper ion homeostasis<span class="method"></span></span>,
 at the
-<span class="result" data-compare="names" data-code="g.core_function_terms('locations')">cytoplasmic vesicle; and trans-Golgi network membrane<span class="method"></span></span>.
-The upstream review is being updated; this summary reflects the pinned ingest.
+<span class="result" data-compare="names" data-code="g.core_function_terms('locations')">late endosome; and trans-Golgi network membrane<span class="method"></span></span>.
+The two compartments are the two halves of the review's account: the
+trans-Golgi network, where the pump loads copper onto secretory cuproproteins,
+and the post-Golgi compartment it redistributes to when copper rises, where
+sequestration and exocytosis carry out detoxification.
 
 ## Causative record
 
@@ -45,12 +48,21 @@ and including
 <span class="result" data-code="g.node('Wilson Disease', 'Impaired Biliary Copper Excretion')">Impaired Biliary Copper Excretion<span class="method"></span></span>
 and <span class="result" data-code="g.node('Wilson Disease', 'Impaired Ceruloplasmin Loading')">Impaired Ceruloplasmin Loading<span class="method"></span></span>.
 
-## Where the layers agree and disagree
+## Where the layers disagree
 
-The KB mechanism nodes and the ai-gene-review core functions share
-<span class="result" data-compare="names" data-code="g.shared_processes()">copper ion transport<span class="method"></span></span>
-by exact GO identifier; the Wilson Disease nodes also mark the review's core molecular function,
-the P-type copper transporter activity, as decreased.
+The KB mechanism nodes and the ai-gene-review core functions share no process
+term by exact GO identifier
+(<span class="result" data-compare="names" data-code="g.shared_processes()"><span class="method"></span></span>).
+The nodes naming ATP7B carry
+<span class="result" data-compare="names" data-code="g.mechanism_processes()">copper ion homeostasis; copper ion transmembrane transport; and copper ion transport<span class="method"></span></span>,
+while the review's processes are
+<span class="result" data-compare="names" data-code="g.core_function_terms('directly_involved_in')">cellular detoxification of copper ion; copper ion export; copper ion import; and intracellular copper ion homeostasis<span class="method"></span></span>.
+The two layers are describing the same copper handling at different points:
+the KB stays with the generic transport and homeostasis terms, while the review
+names the direction of movement and the detoxification it serves. The one point
+they do meet on is not a process at all — the Wilson Disease nodes mark the
+review's core molecular function, the P-type copper transporter activity, as
+decreased.
 
 Liver Cirrhosis types ATP7B as a
 <span class="result" data-code="g.relationship('Liver Cirrhosis')">risk factor<span class="method"></span></span>

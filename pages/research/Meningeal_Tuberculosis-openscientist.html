@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meningeal tuberculosis · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Meningeal tuberculosis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Meningeal tuberculosis</h1>
+                
+                <p class="report-subtitle">Meningeal Tuberculosis (Tuberculous Meningitis) — Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-09-29</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0006042" target="_blank" rel="noopener noreferrer">MONDO:0006042</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">34 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Meningeal Tuberculosis (Tuberculous Meningitis) — Comprehensive Disease Characterization Report</h1>
+<p><strong>Target Disease:</strong> Meningeal tuberculosis / Tuberculous meningitis (TBM)
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0006042" target="_blank" rel="noopener noreferrer">MONDO:0006042</a>
+<strong>Category:</strong> Infectious Disease
+<strong>Report basis:</strong> 15 confirmed findings, 68 papers reviewed across 5 investigation iterations</p>
+<hr />
+<h2>Summary</h2>
+<p>Meningeal tuberculosis (tuberculous meningitis, TBM) is the most lethal and disabling form of tuberculosis, arising when <em>Mycobacterium tuberculosis</em> infects the meninges and subarachnoid space of the central nervous system. It is fundamentally an <strong>infectious disease with a strong immunopathological component</strong>: the initiating lesion is a subpial or subependymal caseous granuloma (the <strong>Rich focus</strong>) that ruptures into the subarachnoid space, seeding a dense basal meningeal exudate. This exudate drives the three cardinal complications that define the disease's morbidity and mortality — <strong>vasculitis with cerebral infarction, hydrocephalus, and cranial neuropathy</strong> — together with blood-brain-barrier (BBB) breakdown mediated by matrix metalloproteinase-9 (MMP-9) (<a href="https://pubmed.ncbi.nlm.nih.gov/7610242/">PMID: 7610242</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/19789647/">PMID: 19789647</a>).</p>
+<p>TBM accounts for roughly 1% of all active TB cases (1–5% of TB, ~14% of all meningitis) but carries an in-hospital mortality near 42%, rising toward 70% in HIV co-infection, and left ~78,200 adults dead in 2019 alone (<a href="https://pubmed.ncbi.nlm.nih.gov/35288778/">PMID: 35288778</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36795648/">PMID: 36795648</a>). Survivors frequently suffer multidomain cognitive impairment and focal neurological deficits. Diagnosis remains a central challenge because no single test is both sensitive and specific: clinicians rely on a composite of CSF findings (lymphocytic pleocytosis, elevated protein, low glucose, elevated adenosine deaminase), molecular testing (Xpert MTB/RIF Ultra, ~77% sensitive), and the neuroimaging triad of basal meningeal enhancement, hydrocephalus, and basal-ganglia infarction (<a href="https://pubmed.ncbi.nlm.nih.gov/31924549/">PMID: 31924549</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28281443/">PMID: 28281443</a>).</p>
+<p>Treatment is prolonged multidrug antituberculous therapy — the WHO-standard 12-month HRZE-based regimen (2HRZE/10HR) — because standard 6-month pulmonary regimens penetrate the CNS poorly. Adjunctive corticosteroids are standard, but their survival benefit is now understood to be <strong>host-genotype-dependent</strong>: leukotriene A4 hydrolase (<em>LTA4H</em>) promoter genotype defines hyper-, intermediate-, and low-inflammatory phenotypes, and the phase 3 LAST ACT trial found no dexamethasone benefit in the CC/CT (lower-inflammation) genotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/41540106/">PMID: 41540106</a>). Prevention rests principally on neonatal BCG vaccination, which is ~90% protective against the meningeal and miliary childhood forms (<a href="https://pubmed.ncbi.nlm.nih.gov/24336911/">PMID: 24336911</a>).</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> TBM is a subacute-to-chronic granulomatous meningitis caused by <em>Mycobacterium tuberculosis</em> reaching the CNS, usually via hematogenous dissemination from a primary (typically pulmonary) focus. It is the most severe manifestation of extrapulmonary TB. Untreated, it "presents as a subacute to chronic meningitis syndrome with a prodrome of malaise, fever, and headache progressing to altered mentation and focal neurologic signs, followed by stupor, coma, and death within five to eight weeks of onset" (<a href="https://pubmed.ncbi.nlm.nih.gov/28281443/">PMID: 28281443</a>).</p>
+<p><strong>Key identifiers:</strong>
+| Resource | Identifier |
+|---|---|
+| MONDO | <a href="http://purl.obolibrary.org/obo/MONDO_0006042" target="_blank" rel="noopener noreferrer">MONDO:0006042</a> |
+| MeSH | Tuberculosis, Meningeal (D014390) |
+| ICD-10 | A17.0 (Tuberculous meningitis) |
+| ICD-11 | 1B41 (Tuberculosis of the nervous system) |
+| SNOMED CT | Tuberculous meningitis (disorder) |</p>
+<p><strong>Synonyms / alternative names:</strong> tuberculous meningitis, TB meningitis, TBM, meningeal tuberculosis, tuberculosis of the meninges, CNS tuberculosis (broader — includes tuberculoma and spinal arachnoiditis).</p>
+<p><strong>Information source type.</strong> This report aggregates <strong>disease-level</strong> evidence from systematic reviews, meta-analyses, randomized controlled trials, and cohort studies, supplemented by mechanistic model-organism and in-vitro work. It is not derived from individual EHR records.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause (infectious).</strong> TBM is caused by <em>Mycobacterium tuberculosis</em> (NCBI Taxonomy 1773; complex 77643). The mechanistic trigger is the <strong>Rich focus</strong> — a caseating granuloma seeded during bacillemia that lodges subpially/subependymally and later ruptures into the subarachnoid space (<a href="https://pubmed.ncbi.nlm.nih.gov/7610242/">PMID: 7610242</a>).</p>
+<p><strong>Genetic risk factors (host susceptibility).</strong> Susceptibility and severity are shaped by host genetic polymorphisms and by pathogen lineage. "Pathogen lineage (Beijing genotype) and host genetics (polymorphisms in TLR2, TIRAP and LTA4H genes) can influence susceptibility to TBM" (<a href="https://pubmed.ncbi.nlm.nih.gov/22953709/">PMID: 22953709</a>). The <em>LTA4H</em> (leukotriene A4 hydrolase; <a href="https://bioregistry.io/HGNC:6710" target="_blank" rel="noopener noreferrer">HGNC:6710</a>) promoter genotype is the best-characterized modifier, defining three intracerebral inflammatory phenotypes: <strong>TT (hyperinflammatory), CT (intermediate), CC (low inflammation)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41540106/">PMID: 41540106</a>).</p>
+<p><strong>Environmental / demographic risk factors.</strong> HIV co-infection is the dominant risk factor and outcome modifier. Other risks include young age (children &lt;5 years present with more advanced disease), high community TB burden, low Human Development Index, malnutrition, and lack of BCG vaccination (<a href="https://pubmed.ncbi.nlm.nih.gov/36795648/">PMID: 36795648</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41639788/">PMID: 41639788</a>).</p>
+<p><strong>Protective factors.</strong> Neonatal BCG vaccination is strongly protective against meningeal/miliary TB (~90%) (<a href="https://pubmed.ncbi.nlm.nih.gov/24336911/">PMID: 24336911</a>). No robustly validated protective human genetic variant is established for TBM specifically.</p>
+<p><strong>Gene-environment interaction.</strong> The clearest GxE relationship is <em>LTA4H</em> genotype × corticosteroid therapy: the anti-inflammatory (steroid) intervention interacts with the host inflammatory set-point, so benefit is expected in the hyperinflammatory TT genotype but is uncertain/absent in CC/CT (<a href="https://pubmed.ncbi.nlm.nih.gov/41540106/">PMID: 41540106</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/22304914/">PMID: 22304914</a>).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>TBM produces symptoms/signs (clinical), physical manifestations, behavioral/cognitive change, and laboratory abnormalities. Onset is subacute (typically days-to-weeks). Frequencies below are drawn from cohort and review data.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency / notes</th>
+<th>Suggested HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever</td>
+<td>Symptom</td>
+<td>~67–80%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a></td>
+</tr>
+<tr>
+<td>Headache</td>
+<td>Symptom</td>
+<td>~33–63%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a></td>
+</tr>
+<tr>
+<td>Vomiting / nausea</td>
+<td>Symptom</td>
+<td>~52–92% (children higher)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" rel="noopener noreferrer">HP:0002013</a></td>
+</tr>
+<tr>
+<td>Altered mental status / consciousness</td>
+<td>Sign</td>
+<td>~55–78%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011446" target="_blank" rel="noopener noreferrer">HP:0011446</a></td>
+</tr>
+<tr>
+<td>Meningismus / nuchal rigidity</td>
+<td>Sign</td>
+<td>~38% +</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" rel="noopener noreferrer">HP:0002829</a></td>
+</tr>
+<tr>
+<td>Seizures</td>
+<td>Sign</td>
+<td>~72% (children)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></td>
+</tr>
+<tr>
+<td>Cranial neuropathy (e.g., optic, oculomotor)</td>
+<td>Sign</td>
+<td>common (basal exudate entrapment)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000496" target="_blank" rel="noopener noreferrer">HP:0000496</a></td>
+</tr>
+<tr>
+<td>Focal deficit / hemiparesis (stroke)</td>
+<td>Sign</td>
+<td>~30% (stroke)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001269" target="_blank" rel="noopener noreferrer">HP:0001269</a></td>
+</tr>
+<tr>
+<td>Hydrocephalus</td>
+<td>Manifestation</td>
+<td>26–63% imaging</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" rel="noopener noreferrer">HP:0000238</a></td>
+</tr>
+<tr>
+<td>Cognitive impairment (memory, attention, executive)</td>
+<td>Behavioral/cognitive</td>
+<td>12–&gt;90% survivors</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" rel="noopener noreferrer">HP:0100543</a></td>
+</tr>
+<tr>
+<td>Lymphocytic CSF pleocytosis</td>
+<td>Lab</td>
+<td>classic</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012229" target="_blank" rel="noopener noreferrer">HP:0012229</a> (abnormal CSF)</td>
+</tr>
+<tr>
+<td>Hyponatremia</td>
+<td>Lab</td>
+<td>~46–93%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" rel="noopener noreferrer">HP:0002902</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Characteristics.</strong> Onset spans neonatal through geriatric, with a pediatric predilection for severe meningoencephalitis. Severity is graded by the British Medical Research Council (BMRC) stages I–III. Progression is typically progressive if untreated. Cognitive sequelae "most consistently affected memory, attention, and executive function" (<a href="https://pubmed.ncbi.nlm.nih.gov/41629635/">PMID: 41629635</a>). Younger children carry a disproportionate burden: "The &lt; 5 years group had a higher proportion of TBM stage III cases (29.5% vs. 2.2%, p &lt;0.001)" (<a href="https://pubmed.ncbi.nlm.nih.gov/41639788/">PMID: 41639788</a>).</p>
+<p><strong>Quality of life.</strong> Survivors face substantial disability from motor deficits, epilepsy, hydrocephalus-related morbidity, and cognitive dysfunction spanning mild deficits to severe global dysfunction (<a href="https://pubmed.ncbi.nlm.nih.gov/41629635/">PMID: 41629635</a>).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p>TBM is <strong>not a Mendelian genetic disease</strong> — there are no causal genes, pathogenic ACMG-classified variants, chromosomal abnormalities, or germline/somatic driver mutations. Host genetics act as <strong>susceptibility/modifier factors</strong>, not as causes:</p>
+<ul>
+<li><strong><em>LTA4H</em></strong> (<a href="https://bioregistry.io/HGNC:6710" target="_blank" rel="noopener noreferrer">HGNC:6710</a>) — promoter polymorphism defines inflammatory phenotype and modifies corticosteroid response (<a href="https://pubmed.ncbi.nlm.nih.gov/41540106/">PMID: 41540106</a>).</li>
+<li><strong><em>TLR2</em></strong> (Toll-like receptor 2) and <strong><em>TIRAP</em></strong> (TIR domain adaptor) — susceptibility polymorphisms (<a href="https://pubmed.ncbi.nlm.nih.gov/22953709/">PMID: 22953709</a>).</li>
+</ul>
+<p><strong>Epigenetic information:</strong> No TBM-specific human epigenomic signature is established in the reviewed literature.</p>
+<p>The relevant "molecular" pathology is therefore host-inflammatory rather than genomic. The <em>LTA4H</em>-encoded enzyme sits at the eicosanoid branch point governing the balance of pro-inflammatory leukotriene B4 versus anti-inflammatory lipoxins (<a href="https://pubmed.ncbi.nlm.nih.gov/22304914/">PMID: 22304914</a>).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Infectious agent:</strong> <em>Mycobacterium tuberculosis</em> (NCBI Taxon 1773); the <strong>Beijing lineage</strong> is associated with increased TBM susceptibility (<a href="https://pubmed.ncbi.nlm.nih.gov/22953709/">PMID: 22953709</a>). CHEBI-relevant host mediators include leukotriene B4 (<a href="http://purl.obolibrary.org/obo/CHEBI_15514" target="_blank" rel="noopener noreferrer">CHEBI:15514</a>) and lipoxins.</li>
+<li><strong>Environmental/lifestyle contributors:</strong> crowding and airborne transmission of TB, malnutrition, immunosuppression (notably HIV), and absence of BCG vaccination. HIV co-infection modifies presentation — persons living with HIV "exhibited lower frequencies of vomiting, nuchal rigidity, signs of meningeal inflammation, and coma, along with lower leukocyte counts in cerebrospinal fluid" (<a href="https://pubmed.ncbi.nlm.nih.gov/40589807/">PMID: 40589807</a>).</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li><strong>Inhalation of <em>M. tuberculosis</em></strong> → primary (usually pulmonary) infection → hematogenous dissemination <strong>leads to</strong> seeding of subpial/subependymal caseous granulomas (<strong>Rich foci</strong>). <em>(Demonstrated — classic neuropathology.)</em></li>
+<li><strong>Rupture of a Rich focus</strong> into the subarachnoid space <strong>results in</strong> release of bacilli and antigen into CSF (<a href="https://pubmed.ncbi.nlm.nih.gov/7610242/">PMID: 7610242</a>).</li>
+<li>Antigen release <strong>triggers</strong> a dense <strong>basal meningeal exudate</strong> of mononuclear/epithelioid cells and Langhans giant cells around the basal cisterns (<a href="https://pubmed.ncbi.nlm.nih.gov/7610242/">PMID: 7610242</a>).</li>
+<li>The exudate <strong>branches</strong> into three parallel injury pathways:</li>
+<li><strong>(4a) Vasculitis branch:</strong> exudate encases perforating arteries → arteritis → "arteritic occlusion of larger arteries, such as the middle cerebral" → <strong>infarction</strong>, characteristically in the basal ganglia (lateral striate, MCA, medial striate territory) (<a href="https://pubmed.ncbi.nlm.nih.gov/7610242/">PMID: 7610242</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36048445/">PMID: 36048445</a>).</li>
+<li><strong>(4b) CSF-flow branch:</strong> "Blockage of the basal subarachnoid cisterns ... or narrowing of aqueduct and third ventricle by a small tuberculoma causes consequent <strong>hydrocephalus</strong>" (<a href="https://pubmed.ncbi.nlm.nih.gov/7610242/">PMID: 7610242</a>).</li>
+<li><strong>(4c) Cranial-nerve branch:</strong> entrapment of optic nerves and other cranial nerves in the interpeduncular fossa → <strong>cranial neuropathies</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/7610242/">PMID: 7610242</a>).</li>
+<li><strong>In parallel</strong>, neutrophil-driven and macrophage-driven secretion of <strong>MMP-9</strong> (a zinc-dependent gelatinase) <strong>degrades basement membrane/extracellular matrix</strong> → <strong>blood-brain-barrier disruption</strong> and neuroinflammatory injury (<a href="https://pubmed.ncbi.nlm.nih.gov/19789647/">PMID: 19789647</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39536643/">PMID: 39536643</a>).</li>
+<li>Host <strong>inflammatory set-point (LTA4H genotype)</strong> modulates the magnitude of steps 3–5: both inadequate and excessive inflammation converge on <strong>dysregulated TNF</strong>, worsening outcome (<em>inferred from zebrafish/human correlation</em>) (<a href="https://pubmed.ncbi.nlm.nih.gov/22304914/">PMID: 22304914</a>).</li>
+<li>Combined ischemia, hydrocephalus, BBB breakdown and edema <strong>result in</strong> raised intracranial pressure, coma, and death, or — in survivors — cognitive and focal neurological sequelae (<a href="https://pubmed.ncbi.nlm.nih.gov/41629635/">PMID: 41629635</a>).</li>
+</ol>
+<h3>Detail by category</h3>
+<p><strong>Cellular / immune processes.</strong> Granulomatous inflammation (epithelioid macrophages, Langhans giant cells, lymphocytes) is the dominant tissue response (<a href="https://pubmed.ncbi.nlm.nih.gov/7610242/">PMID: 7610242</a>). Early pathogenesis has a neutrophilic component: "The strong correlation between CSF MMP-9 and neutrophil count suggests that polymorphonuclear leukocytes may play a central role in the early pathogenesis of TBM" (<a href="https://pubmed.ncbi.nlm.nih.gov/19789647/">PMID: 19789647</a>). Specialized pro-resolving mediators (resolvins, lipoxins) decline with severity, and their CSF concentrations associate with 80-day survival (<a href="https://pubmed.ncbi.nlm.nih.gov/31500466/">PMID: 31500466</a>).</p>
+<p><strong>Protein dysfunction / biochemical abnormality.</strong> MMP-9 over-activity is central to matrix destruction. In a mouse CNS-TB model, SHH-pathway antagonism "upregulated Matrix Metalloproteinase-9 (MMP-9) secretion, a key contributor to BBB disruption," severe gliosis, and a 99% increase in brain bacillary load (<a href="https://pubmed.ncbi.nlm.nih.gov/39536643/">PMID: 39536643</a>). Dexamethasone "significantly reduced CSF MMP-9 concentrations in early follow up samples" (<a href="https://pubmed.ncbi.nlm.nih.gov/19789647/">PMID: 19789647</a>).</p>
+<p><strong>Molecular pathway.</strong> The eicosanoid/LTA4H axis (leukotriene B4 vs lipoxin balance) tunes TNF signaling: "inadequate inflammation caused by excess lipoxins and hyperinflammation driven by excess leukotriene B(4)" both cause susceptibility (<a href="https://pubmed.ncbi.nlm.nih.gov/22304914/">PMID: 22304914</a>). The sonic hedgehog (SHH) pathway is implicated in BBB integrity (<a href="https://pubmed.ncbi.nlm.nih.gov/39536643/">PMID: 39536643</a>).</p>
+<p><strong>Suggested ontology terms.</strong> GO: inflammatory response (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>), extracellular matrix disassembly (<a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" rel="noopener noreferrer">GO:0022617</a>), blood-brain barrier maintenance (<a href="http://purl.obolibrary.org/obo/GO_0035633" target="_blank" rel="noopener noreferrer">GO:0035633</a>), leukotriene metabolic process (<a href="http://purl.obolibrary.org/obo/GO_0006691" target="_blank" rel="noopener noreferrer">GO:0006691</a>). CL: macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), epithelioid cell, Langhans giant cell, neutrophil (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>), T lymphocyte (<a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a>).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ / system level.</strong> Primary organ: <strong>brain and meninges</strong> (nervous system). The basal meninges, subarachnoid cisterns, and CSF pathways are the epicenter. Secondary involvement: cerebral parenchyma (infarcts, tuberculomas, encephalitis), ventricular system (hydrocephalus), cranial nerves, and spinal cord/arachnoid (spinal arachnoiditis). Systemic dissemination (miliary TB) is common in children.</p>
+<p><strong>Vascular territory.</strong> Basal-ganglia perforators are characteristically affected: "The lateral striate, middle cerebral, and medial striate arteries were typically affected" — the perforator "TB zone" encased by exudate (<a href="https://pubmed.ncbi.nlm.nih.gov/36048445/">PMID: 36048445</a>).</p>
+<p><strong>Tissue / cell level.</strong> Leptomeninges (pia-arachnoid), cerebral arterial walls (arteritis), ependyma, and choroid/aqueductal structures. Cell populations: macrophages, epithelioid and Langhans giant cells, lymphocytes, neutrophils.</p>
+<p><strong>Localization / UBERON:</strong> meninges (<a href="http://purl.obolibrary.org/obo/UBERON_0002360" target="_blank" rel="noopener noreferrer">UBERON:0002360</a>), leptomeninges/subarachnoid space (<a href="http://purl.obolibrary.org/obo/UBERON_0002450" target="_blank" rel="noopener noreferrer">UBERON:0002450</a>), basal cistern, brain (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>), cerebrospinal fluid (<a href="http://purl.obolibrary.org/obo/UBERON_0001359" target="_blank" rel="noopener noreferrer">UBERON:0001359</a>), middle cerebral artery (<a href="http://purl.obolibrary.org/obo/UBERON_0001627" target="_blank" rel="noopener noreferrer">UBERON:0001627</a>), basal ganglia (<a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" rel="noopener noreferrer">UBERON:0002420</a>), cerebral ventricle (<a href="http://purl.obolibrary.org/obo/UBERON_0002285" target="_blank" rel="noopener noreferrer">UBERON:0002285</a>). Lateralization is typically <strong>bilateral/basal</strong> but infarcts may be focal/asymmetric.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> any age, with pediatric predilection; onset is <strong>subacute to chronic</strong> (prodrome of days to weeks).</li>
+<li><strong>Staging:</strong> BMRC grades I (alert, no deficit), II (altered consciousness/focal signs), III (stupor/coma, dense deficit). Advanced stage predicts poor outcome — up to 100% fatality in stage III in one pediatric series (<a href="https://pubmed.ncbi.nlm.nih.gov/41288109/">PMID: 41288109</a>).</li>
+<li><strong>Untreated course:</strong> progression from "malaise, fever, and headache progressing to altered mentation and focal neurologic signs, followed by stupor, coma, and death within five to eight weeks of onset" (<a href="https://pubmed.ncbi.nlm.nih.gov/28281443/">PMID: 28281443</a>).</li>
+<li><strong>Treated course:</strong> prolonged (≥12 months therapy); paradoxical reactions may occur during treatment in ~21% of CNS-TB (<a href="https://pubmed.ncbi.nlm.nih.gov/42242389/">PMID: 42242389</a>).</li>
+<li><strong>Critical period:</strong> early diagnosis and treatment initiation is the key intervention window; delay strongly worsens outcome.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population (Epidemiology)</h2>
+<ul>
+<li><strong>Proportion of TB:</strong> "Tuberculosis meningitis (TBM) accounts for approximately 1% of all active TB cases" (1–5% of TB) (<a href="https://pubmed.ncbi.nlm.nih.gov/36795648/">PMID: 36795648</a>).</li>
+<li><strong>Prevalence:</strong> CNS-TB ~2 per 100,000 inhabitants; represents "13.91% of all cases of meningitis and 4.55% of all cases of TB" (<a href="https://pubmed.ncbi.nlm.nih.gov/35288778/">PMID: 35288778</a>).</li>
+<li><strong>Mortality:</strong> in-hospital mortality "rose up to 42.12% in hospitalized patients" (<a href="https://pubmed.ncbi.nlm.nih.gov/35288778/">PMID: 35288778</a>); ~40% HIV-negative, up to ~70% with HIV. In 2019, "78,200 adults died of TB meningitis" (<a href="https://pubmed.ncbi.nlm.nih.gov/36795648/">PMID: 36795648</a>). An estimated 24,000 children &lt;15 years developed TBM in 2019, of whom ~16,100 died (<a href="https://pubmed.ncbi.nlm.nih.gov/39706662/">PMID: 39706662</a>).</li>
+<li><strong>Inheritance:</strong> Not applicable (infectious disease). Host susceptibility is <strong>multifactorial/polygenic</strong> (TLR2, TIRAP, LTA4H).</li>
+<li><strong>Geographic distribution:</strong> burden concentrated in high-TB-incidence, low-HDI settings and areas of high HIV prevalence.</li>
+<li><strong>Demographics:</strong> male predominance in many cohorts; younger children over-represented among severe cases.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<p>No single test reliably rules TBM in or out; diagnosis is a composite.</p>
+<p><strong>CSF profile.</strong> "Cerebrospinal fluid (CSF) analysis showed lymphocytic pleocytosis, elevated protein, low glucose levels, and cobweb coagulum indicative of TBM" (<a href="https://pubmed.ncbi.nlm.nih.gov/37915698/">PMID: 37915698</a>).</p>
+<p><strong>Adenosine deaminase (ADA).</strong> A useful adjunct with high specificity but limited sensitivity: "ADA was the best performing parameter. It attained a specificity of 95%, a positive likelihood ratio of 10.7, and an area under the receiver operating characteristics curve of 82.1%, but had a low sensitivity (55%)" (<a href="https://pubmed.ncbi.nlm.nih.gov/23973430/">PMID: 23973430</a>).</p>
+<p><strong>Molecular tests.</strong> Xpert MTB/RIF Ultra is the WHO first-choice test: "Xpert Ultra had 76·5% sensitivity (95% CI 62·5-87·2 ...) and a negative predictive value of 92·7%," superior to Xpert (~56%) and MGIT culture (~61%) (<a href="https://pubmed.ncbi.nlm.nih.gov/31924549/">PMID: 31924549</a>). Metagenomic NGS reaches ~84% sensitivity and CSF pyrosequencing higher still, but "mNGS cannot be used as a rule-out test" (<a href="https://pubmed.ncbi.nlm.nih.gov/35202495/">PMID: 35202495</a>).</p>
+<p><strong>Culture.</strong> Confirmatory but insensitive: "The overall pooled estimates of CSF culture positive TBM was 29.72%" (<a href="https://pubmed.ncbi.nlm.nih.gov/36795648/">PMID: 36795648</a>).</p>
+<p><strong>Drug-resistance testing.</strong> Targeted NGS on CSF (e.g., Deeplex Myc-TB) enables rapid resistance detection: "Targeted next-generation sequencing (tNGS) produces high read depths, allowing the detection of DR-associated alleles with low frequencies" (<a href="https://pubmed.ncbi.nlm.nih.gov/38466092/">PMID: 38466092</a>).</p>
+<p><strong>Neuroimaging.</strong> The <strong>TBM triad</strong> — basal meningeal enhancement + hydrocephalus + basal-ganglia infarction — is diagnostically valuable: "the combination of meningeal enhancement and any degree of hydrocephalus is strongly suggestive of TBM" (<a href="https://pubmed.ncbi.nlm.nih.gov/28281443/">PMID: 28281443</a>). In a 559-case series: tuberculomas 40%, basal meningeal enhancement 41%, infarction 27%, hydrocephalus 26% (<a href="https://pubmed.ncbi.nlm.nih.gov/31115112/">PMID: 31115112</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Sensitivity</th>
+<th>Specificity/NPV</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CSF Xpert Ultra</td>
+<td>~77%</td>
+<td>NPV 92.7%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31924549/" target="_blank" rel="noopener noreferrer">PMID:31924549</a></td>
+</tr>
+<tr>
+<td>CSF Xpert (original)</td>
+<td>~56%</td>
+<td>—</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31924549/" target="_blank" rel="noopener noreferrer">PMID:31924549</a></td>
+</tr>
+<tr>
+<td>MGIT culture</td>
+<td>~25–61%</td>
+<td>culture-positive ~30%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36795648/" target="_blank" rel="noopener noreferrer">PMID:36795648</a></td>
+</tr>
+<tr>
+<td>CSF mNGS</td>
+<td>~84%</td>
+<td>not rule-out</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35202495/" target="_blank" rel="noopener noreferrer">PMID:35202495</a></td>
+</tr>
+<tr>
+<td>CSF pyrosequencing</td>
+<td>~98%</td>
+<td>NPV ~98%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33421910/" target="_blank" rel="noopener noreferrer">PMID:33421910</a></td>
+</tr>
+<tr>
+<td>CSF ADA</td>
+<td>~55%</td>
+<td>~95% spec</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23973430/" target="_blank" rel="noopener noreferrer">PMID:23973430</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Clinical criteria.</strong> The Marais/uniform case definition (definite/probable/possible) and Thwaites score are used to classify cases. <strong>Differential diagnosis</strong> includes cryptococcal meningitis, bacterial/partially-treated bacterial meningitis, viral meningoencephalitis, carcinomatous meningitis, and neurosarcoidosis (<a href="https://pubmed.ncbi.nlm.nih.gov/41788392/">PMID: 41788392</a>).</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Mortality:</strong> ~40% overall (HIV-negative), up to ~70% with HIV co-infection; in-hospital ~42% (<a href="https://pubmed.ncbi.nlm.nih.gov/35288778/">PMID: 35288778</a>).</li>
+<li><strong>Morbidity:</strong> high rates of long-term neurological and cognitive sequelae. "Cognitive impairment ranging from 12% to over 90% was found across studies ... The most consistently affected domains were memory, attention, and executive function" (<a href="https://pubmed.ncbi.nlm.nih.gov/41629635/">PMID: 41629635</a>).</li>
+<li><strong>Complications:</strong> stroke/infarction (~30%), hydrocephalus, seizures/epilepsy, cranial neuropathies, hyponatremia, paradoxical reactions, IRIS (in HIV).</li>
+<li><strong>Prognostic factors:</strong> BMRC stage at presentation (dominant), age (&lt;5 years worse), HIV status, drug resistance, hyponatremia severity/persistence, low albumin/hemoglobin, delayed treatment. "Persistent hyponatraemia and increasing urinary output during treatment associate with worse clinical out[come]" (<a href="https://pubmed.ncbi.nlm.nih.gov/42167495/">PMID: 42167495</a>).</li>
+<li><strong>Stroke burden:</strong> "The frequency of stroke in TBM showed an estimate of 0.30 (95% CI, 0.26-0.33)" (<a href="https://pubmed.ncbi.nlm.nih.gov/36048445/">PMID: 36048445</a>).</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Standard antituberculous therapy.</strong> WHO recommends <strong>12 months</strong> of therapy for TBM: "the World Health Organization recommends 12 months of treatment for TBM. The drugs used in the treatment are rifampicin, isoniazid, ethambutol, and pyrazinamide" (regimen 2HRZE/10HR) (<a href="https://pubmed.ncbi.nlm.nih.gov/39752122/">PMID: 39752122</a>). CNS penetration differs by drug: "pyrazinamide penetrates the brain better than other drugs and kills TB bacteria more effectively. In addition, ethambutol does not get into the brain" (<a href="https://pubmed.ncbi.nlm.nih.gov/39752122/">PMID: 39752122</a>). Rifampicin CNS penetration is limited, motivating high-dose (25–35 mg/kg) trials (<a href="https://pubmed.ncbi.nlm.nih.gov/34494572/">PMID: 34494572</a>). Suggested NCIT terms: Isoniazid (C557), Rifampicin/Rifampin (C608), Pyrazinamide (C777), Ethambutol (C486), Dexamethasone (C405).</p>
+<p><strong>Pediatric intensified regimen.</strong> A 6-month intensified regimen (higher-dose H/R, pyrazinamide, ethionamide replacing ethambutol; 6HRZEto) markedly improved outcomes: "death, 5.5% ... vs 23.9% ...; treatment success (survival with or without sequelae), 94.6% ... vs 75.4%" (<a href="https://pubmed.ncbi.nlm.nih.gov/35673608/">PMID: 35673608</a>).</p>
+<p><strong>Adjunctive corticosteroids (NCIT: dexamethasone, prednisolone).</strong> Standard of care for HIV-negative adults and children — but benefit is host-genotype-dependent. In the phase 3 LAST ACT trial (HIV-negative, CC/CT genotypes), "the primary endpoint of all-cause death or new neurological event over 12 months from randomization occurred in 108/305 (35.4%) given dexamethasone and 110/308 (35.7%) given placebo (hazard ratio of 0.99)" — i.e., no benefit in lower-inflammation genotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/41540106/">PMID: 41540106</a>). In HIV-positive adults, adjunctive dexamethasone "did not confer a benefit with respect to survival" (<a href="https://pubmed.ncbi.nlm.nih.gov/37819954/">PMID: 37819954</a>).</p>
+<p><strong>Host-directed / adjunctive therapy.</strong> Aspirin, high-dose rifampicin, and linezolid are under trial (LASER-TBM, INTENSE-TBM, INSHORT, SURE). MMP inhibition (e.g., doxycycline) is a preclinical host-directed strategy (<a href="https://pubmed.ncbi.nlm.nih.gov/41819159/">PMID: 41819159</a>).</p>
+<p><strong>HIV co-management.</strong> ART improves survival but timing is critical — early ART increases IRIS/adverse events in TBM; prednisone "is effective in both preventing and treating the paradoxical tuberculosis-associated immune reconstitution inflammatory syndrome" (<a href="https://pubmed.ncbi.nlm.nih.gov/31272663/">PMID: 31272663</a>).</p>
+<p><strong>Supportive / surgical.</strong> Management of hydrocephalus (CSF diversion/shunting), seizure control, hyponatremia correction (distinguishing SIADH from cerebral salt wasting, which require opposite fluid strategies), and rehabilitation.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary — BCG vaccination.</strong> The cornerstone. "Protection against meningeal and miliary tuberculosis was also high in infants (RR, 0.1; 95% CI, .01-.77)" — ~90% efficacy (<a href="https://pubmed.ncbi.nlm.nih.gov/24336911/">PMID: 24336911</a>). "the neonatal Bacillus Calmette-Guérin (BCG) is the only vaccine against TB and offers significant efficacy against disseminated and meningeal disease in children" (<a href="https://pubmed.ncbi.nlm.nih.gov/40498907/">PMID: 40498907</a>). Protection against pulmonary TB is weaker and more variable.</li>
+<li><strong>Secondary.</strong> Early case detection and prompt treatment initiation; TB preventive therapy in high-risk (e.g., HIV) individuals; contact tracing.</li>
+<li><strong>Tertiary.</strong> Corticosteroids to limit inflammatory injury (genotype-informed), hydrocephalus management, and prevention/treatment of IRIS.</li>
+<li><strong>Public health.</strong> TB control programs, HIV control, nutrition, and reduction of transmission.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>TBM is fundamentally a human disease. <em>M. tuberculosis</em> has limited natural host range, though <em>M. bovis</em> (zoonotic) can cause CNS TB. Experimental infection with <em>Mycobacterium marinum</em> in zebrafish reproduces key inflammatory susceptibility biology (<a href="https://pubmed.ncbi.nlm.nih.gov/22304914/">PMID: 22304914</a>). Zoonotic potential exists for bovine TB. No dedicated companion-animal natural-TBM literature was identified in this review.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Zebrafish (<em>Danio rerio</em>) / <em>M. marinum</em>.</strong> Establishes the "inverted-U" inflammation model: "susceptibility to Mycobacterium marinum can result from either inadequate or excessive acute inflammation," driven by the LTA4H eicosanoid balance; the human LTA4H polymorphism "is associated with inflammatory cell recruitment, patient survival and response to adjunctive anti-inflammatory therapy" (<a href="https://pubmed.ncbi.nlm.nih.gov/22304914/">PMID: 22304914</a>). <strong>Strength:</strong> models host-genotype-directed therapy. <strong>Limitation:</strong> does not reproduce full basal-exudate neuropathology.</li>
+<li><strong>Mouse CNS-TB model.</strong> SHH-modulated rapid CNS-TB model recapitulates MMP-9-driven BBB breakdown, reactive gliosis, and increased brain bacillary load (<a href="https://pubmed.ncbi.nlm.nih.gov/39536643/">PMID: 39536643</a>). <strong>Application:</strong> BBB pathology and drug/host-directed therapy discovery.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code> M. tuberculosis (Beijing lineage)
+│  hematogenous spread
+▼
+   RICH FOCUS (subpial/subependymal caseous granuloma)
+│  rupture into subarachnoid space
+▼
+   DENSE BASAL MENINGEAL EXUDATE ──────────────┐
+│              │              │        │
+   (4a) arteritis  (4b) CSF-flow  (4c) CN     (5) MMP-9 ↑
+│              block       entrapment  │ (neutrophil/macrophage)
+▼              ▼              ▼         ▼
+   INFARCTION     HYDROCEPHALUS   CRANIAL     BBB DISRUPTION
+   (basal ganglia)                NEUROPATHY  + neuroinflammation
+└──────────────┴──────────────┴─────────┘
+                ▼
+RAISED ICP, COMA, DEATH  /  survivor sequelae
+(cognitive impairment, focal deficit, epilepsy)
+
+   HOST MODIFIER: LTA4H genotype (TT hyper- / CT / CC low-inflammation)
+   → tunes exudate &amp; MMP-9 magnitude, TNF balance
+   → determines corticosteroid benefit
+</code></pre>
+<p>The disease is best understood as a <strong>two-hit process</strong>: (1) the mechanical/infectious hit of the Rich focus rupturing and generating a strategically located basal exudate, and (2) the immunopathological hit of dysregulated host inflammation (eicosanoid/TNF imbalance, MMP-9-mediated matrix destruction). The exudate's anatomical location — around the basal cisterns and perforating arteries — explains why the three cardinal complications are stereotyped (basal-ganglia stroke, obstructive hydrocephalus, cranial neuropathy). The host-inflammatory hit explains why anti-inflammatory adjunctive therapy helps some patients (hyperinflammatory TT) but not others (CC/CT), and why both too little and too much inflammation are harmful.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/7610242/">7610242</a></td>
+<td><em>Neuropathology</em> — establishes Rich focus → basal exudate → vasculitis/hydrocephalus/CN entrapment chain</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22953709/">22953709</a></td>
+<td>Host (TLR2, TIRAP, LTA4H) and pathogen (Beijing) susceptibility factors</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41540106/">41540106</a></td>
+<td>LAST ACT phase 3 — genotype-stratified dexamethasone; null in CC/CT</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22304914/">22304914</a></td>
+<td>Zebrafish LTA4H inverted-U inflammation model; links to human steroid response</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19789647/">19789647</a></td>
+<td>Dexamethasone lowers CSF MMP-9; MMP-9/neutrophil link</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39536643/">39536643</a></td>
+<td>Mouse model — MMP-9 drives BBB disruption</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31924549/">31924549</a></td>
+<td>Xpert Ultra diagnostic performance (~77%)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23973430/">23973430</a></td>
+<td>CSF ADA performance (spec 95%, sens 55%)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35288778/">35288778</a></td>
+<td>Epidemiology &amp; mortality meta-analysis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36795648/">36795648</a></td>
+<td>Microbiological diagnosis &amp; mortality; 78,200 adult deaths (2019)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36048445/">36048445</a></td>
+<td>Stroke frequency (~30%) and vascular territory</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41629635/">41629635</a></td>
+<td>Cognitive sequelae meta-analysis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35673608/">35673608</a></td>
+<td>Pediatric 6-month intensified regimen outcomes</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39752122/">39752122</a></td>
+<td>WHO 12-month regimen &amp; CNS drug penetration</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42167495/">42167495</a></td>
+<td>Hyponatremia prevalence &amp; prognostic value</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34510291/">34510291</a></td>
+<td>SIADH vs cerebral salt wasting frequencies</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24336911/">24336911</a></td>
+<td>BCG ~90% protection vs meningeal/miliary TB</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28281443/">28281443</a></td>
+<td>Untreated temporal course; imaging triad value</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31115112/">31115112</a></td>
+<td>Imaging finding frequencies (559 cases)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38466092/">38466092</a></td>
+<td>tNGS for rapid CSF drug-resistance detection</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37819954/">37819954</a></td>
+<td>Dexamethasone no benefit in HIV-positive adults</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42242389/">42242389</a></td>
+<td>Paradoxical reactions (~21%) in CNS-TB</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Diagnostic gap.</strong> No test reliably excludes TBM; culture confirms only ~30%, and even Xpert Ultra misses ~1 in 4 cases. Delayed diagnosis remains a leading cause of death.</li>
+<li><strong>Corticosteroid uncertainty.</strong> The genotype-stratified null result in CC/CT and the HIV-positive null challenge decades of blanket steroid use; optimal, genotype-informed anti-inflammatory strategy is unresolved.</li>
+<li><strong>Drug penetration.</strong> Standard regimens penetrate the CNS poorly; optimal doses of rifampicin/linezolid and duration are still under trial.</li>
+<li><strong>Host-directed therapy.</strong> MMP-9 inhibition, aspirin, and resolvin biology are promising but not yet standard.</li>
+<li><strong>Pediatric/HIV evidence.</strong> Much mechanistic and trial data derive from adult, HIV-negative Vietnamese cohorts; generalizability to children and HIV-endemic African settings is incomplete.</li>
+<li><strong>No omics disease signature.</strong> TBM-specific transcriptomic/proteomic/metabolomic diagnostic biomarkers are not yet validated for routine use.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Genotype-guided steroid trials</strong> extending LAST ACT to pediatric and HIV-positive populations, testing whether the TT (hyperinflammatory) genotype specifically benefits.</li>
+<li><strong>Host-directed therapy trials</strong> of MMP-9 inhibitors (doxycycline) and pro-resolving mediators, using CSF MMP-9 and resolvin profiles as pharmacodynamic biomarkers.</li>
+<li><strong>Optimized antibiotic PK/PD</strong> — complete high-dose rifampicin + linezolid intensification trials (INTENSE-TBM, INSHORT, SURE) with CSF drug-exposure endpoints.</li>
+<li><strong>Rapid molecular diagnostics scale-up</strong> — deploy CSF tNGS/pyrosequencing for simultaneous detection and resistance profiling; develop a rule-out biomarker panel.</li>
+<li><strong>CSF biomarker discovery</strong> — multi-omic (proteomic/metabolomic/lipidomic) profiling to build a validated early-diagnosis and prognostic signature.</li>
+<li><strong>Improved vaccines</strong> — evaluate next-generation TB vaccines specifically for prevention of childhood meningeal/miliary disease.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 15 confirmed findings and 68 reviewed papers. Evidence sources span human clinical (RCTs, cohorts, meta-analyses), model-organism (zebrafish, mouse), and in-vitro studies, as annotated by PMID throughout.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Meningeal_Tuberculosis-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Meningeal_Tuberculosis-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc3.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>35</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>35</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>2</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>35</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:41629635</code> <em>(abstract only)</em>: "most consistently affected memory, attention, and executive function"</li>
+<li>closest text in source: "The most consistently affected domains were memory, attention, and executive function, followed by language and visuospatial"</li>
+<li><code>PMID:39752122</code> <em>(abstract only)</em>: "pyrazinamide penetrates the brain better than other drugs and kills TB bacteria more effectively. In addition, ethambutol does not get into the brain"</li>
+<li>closest text in source: "However, pyrazinamide, with higher penetration into the central nervous system, is generally overlooked"</li>
+</ul>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:35673608</code> (4 mentions) - Comparative Effectiveness of Regimens for Drug-Susceptible Tuberculous Meningitis in Children and Adolescents: A Systematic Review and Aggregate-Level Data Meta-Analysis.</li>
+<li>shared terms: children</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>tbm</code>, <code>disease</code>, <code>meningeal</code>, <code>csf</code>, <code>hydrocephalus</code>, <code>tuberculosis</code>, <code>therapy</code>, <code>hiv</code>, <code>lta4h</code>, <code>host</code>, <code>susceptibility</code>, <code>inflammatory</code>, <code>basal</code>, <code>children</code>, <code>inflammation</code>, <code>human</code>, <code>mmp-9</code>, <code>exudate</code>, <code>cns</code>, <code>cranial</code>.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0006042</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>meningeal tuberculosis</strong></li>
+<li><code>HP:0002013</code> (1 mention) - the report calls it "~52–92% (children higher)"; HP calls it <strong>Vomiting</strong></li>
+<li><code>HP:0001250</code> (1 mention) - the report calls it "~72% (children)"; HP calls it <strong>Seizure</strong></li>
+<li><code>HP:0001269</code> (1 mention) - the report calls it "~30% (stroke)"; HP calls it <strong>Hemiparesis</strong></li>
+<li><code>HP:0000238</code> (1 mention) - the report calls it "26–63% imaging"; HP calls it <strong>Hydrocephalus</strong></li>
+<li><code>HP:0100543</code> (1 mention) - the report calls it "12–&gt;90% survivors"; HP calls it <strong>Cognitive impairment</strong></li>
+<li><code>HP:0012229</code> (1 mention) - the report calls it "abnormal CSF"; HP calls it <strong>CSF pleocytosis</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0000496</code> (1 mention) - the report calls it "common (basal exudate entrapment)"; HP calls it <strong>Abnormality of eye movement</strong>, and lists "Abnormal eye movement" among its other names</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Meningeal_Melanocytoma-falcon.html">← Meningeal Melanocytoma (Falcon)</a>
+                
+                
+                <a href="Meningioma-falcon.html">Meningioma (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Meningeal_tuberculosis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Meningeal_Tuberculosis-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

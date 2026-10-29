@@ -87,6 +87,33 @@ as a triage view, and only ``evidence_source`` is gated. Whether the
 ``supports``-on-one-sentence rule should ever become a gate needs a curator to
 look at that 7,960 first; this is the measurement, not the answer.
 
+Across files (#11221)
+---------------------
+The same reasoning holds across entries: the grading belongs to the quoted
+sentence, so the same sentence of the same reference cited from two different
+files should carry one ``evidence_source``. The KB-wide comparison groups every
+evidence item by reference, compares items from *different* files with the same
+same-quote rule, and sorts each divergent pair into one of two classes:
+
+* **gated** -- ``HUMAN_CLINICAL`` against ``IN_VITRO``, ``MODEL_ORGANISM`` or
+  ``COMPUTATIONAL``. A sentence describing a cell assay, an animal result or a
+  simulation cannot also be a human clinical observation, so one of the two
+  files is wrong. These fail the gate unless grandfathered.
+* **report-only** -- every other divergent pair, chiefly any pair involving
+  ``OTHER``. Whether a review, a database lookup or a structured-source row is
+  ``HUMAN_CLINICAL`` or ``OTHER`` is the open convention question in #10273, so
+  gating it now would freeze an undecided call into a baseline. These are
+  listed by ``--all --cross-file`` and never fail.
+
+Its limits are the same as the per-file check's, widened to the corpus: it
+compares one verbatim sentence (or a contained extent of it). Two *different*
+sentences making the same claim are not compared, and neither are two
+sentences of one reference that carry different values, which is the
+documented outcome for a paper that mixes sources.
+
+Neither class decides which of the two files is right. That is a curator's
+call, made by reading the cited paper; the check never re-grades anything.
+
 Baseline ratchet
 ----------------
 A pre-existing backlog already lives in ``kb/``. As with the length and title
@@ -99,11 +126,18 @@ without requiring the backlog be cleaned first. Two baseline sources:
 * ``tests/snippet_grading_baseline.txt`` is the committed fallback for local
   runs, shallow checkouts, and forks.
 
+The gated cross-file pairs have their own baseline,
+``tests/snippet_grading_cross_file_baseline.txt``, keyed on both paths, and are
+grandfathered against the same ref. A PR therefore fails only on a pair it
+introduces, never on one already present in two files it did not touch.
+Renaming or moving an entry changes its key, so its pairs read as new.
+
 Usage
 -----
     python scripts/check_snippet_grading.py                            # gate
     python scripts/check_snippet_grading.py --against-ref origin/main  # vs a ref
     python scripts/check_snippet_grading.py --all                      # list all
+    python scripts/check_snippet_grading.py --all --cross-file         # across files
     python scripts/check_snippet_grading.py --count --fields all       # census
     python scripts/check_snippet_grading.py --update-baseline
 """
@@ -126,6 +160,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "src") not in sys.path:  # pragma: no cover - import bootstrap
     sys.path.insert(0, str(ROOT / "src"))
 
+from dismech.disk_full import reports_disk_full
 from dismech.reference_snippet_audit import (
     DEFAULT_SCHEMA,
     discover_field_names,
@@ -134,6 +169,7 @@ from dismech.yaml_io import safe_load
 
 SCAN_DIR = ROOT / "kb"
 BASELINE_PATH = ROOT / "tests" / "snippet_grading_baseline.txt"
+CROSS_FILE_BASELINE_PATH = ROOT / "tests" / "snippet_grading_cross_file_baseline.txt"
 
 # When set (CI sets it to ``origin/<base>``), the grandfather baseline is derived
 # live from that git ref instead of the committed snapshot -- see
@@ -158,6 +194,14 @@ GATED_FIELDS: tuple[str, ...] = ("evidence_source",)
 #: inside a longer quote of the same paper is more plausibly a coincidence than a
 #: re-quote, and the length guard already rejects snippets that short.
 MIN_OVERLAP_WORDS = 5
+
+#: ``evidence_source`` pairs that cannot both be right for one sentence, and so
+#: gate when they appear in two different files. Every other divergent pair is
+#: reported only -- see "Across files (#11221)".
+GATED_CROSS_FILE_PAIRS: frozenset[frozenset[str]] = frozenset(
+    frozenset({"HUMAN_CLINICAL", other})
+    for other in ("IN_VITRO", "MODEL_ORGANISM", "COMPUTATIONAL")
+)
 
 _WORD_RE = re.compile(r"[^\s]*[A-Za-z0-9][^\s]*")
 
@@ -278,22 +322,18 @@ def find_violations(data, excerpt_fields, reference_fields, fields=GATED_FIELDS)
                     )
 
 
-def scan_repo(
+def collect_items(
     scan_dir: Path = SCAN_DIR,
     schema_path: Path | None = None,
     rel_to: Path = ROOT,
-    fields=GATED_FIELDS,
 ):
-    """Return sorted ``(relpath, field, reference, a, b, quote, loc_a, loc_b)``.
+    """Return ``[(relpath, data)]`` for every parseable YAML file under *scan_dir*.
 
     ``rel_to`` is the base the reported relative paths are computed against, so
     :func:`baseline_from_ref` can scan an extracted copy of ``kb/`` under a temp
     dir and still report ``kb/disorders/X.yaml`` keys.
     """
-    excerpt_fields, reference_fields = discover_field_names(
-        schema_path if schema_path is not None else ROOT / DEFAULT_SCHEMA
-    )
-    findings = []
+    documents = []
     for path in sorted(scan_dir.rglob("*.yaml")):
         try:
             with path.open(encoding="utf-8") as handle:
@@ -308,12 +348,144 @@ def scan_repo(
                 file=sys.stderr,
             )
             continue
-        rel = path.relative_to(rel_to).as_posix()
+        documents.append((path.relative_to(rel_to).as_posix(), data))
+    return documents
+
+
+def _field_names(schema_path: Path | None):
+    return discover_field_names(
+        schema_path if schema_path is not None else ROOT / DEFAULT_SCHEMA
+    )
+
+
+def within_file_findings(documents, excerpt_fields, reference_fields, fields):
+    findings = []
+    for rel, data in documents:
         for finding in find_violations(
             data, excerpt_fields, reference_fields, fields=fields
         ):
             findings.append((rel, *finding))
     return sorted(findings)
+
+
+def scan_repo(
+    scan_dir: Path = SCAN_DIR,
+    schema_path: Path | None = None,
+    rel_to: Path = ROOT,
+    fields=GATED_FIELDS,
+):
+    """Return sorted ``(relpath, field, reference, a, b, quote, loc_a, loc_b)``."""
+    excerpt_fields, reference_fields = _field_names(schema_path)
+    documents = collect_items(scan_dir, schema_path, rel_to)
+    return within_file_findings(documents, excerpt_fields, reference_fields, fields)
+
+
+# --- across files (#11221) ----------------------------------------------------
+
+
+class CrossFileFinding(NamedTuple):
+    """One sentence graded two ways in two different files.
+
+    The two sides are ordered by path so the finding does not depend on which
+    file was scanned first.
+    """
+
+    reference: str
+    quote: str
+    path_a: str
+    value_a: str
+    location_a: str
+    path_b: str
+    value_b: str
+    location_b: str
+
+    @property
+    def gated(self) -> bool:
+        return frozenset({self.value_a, self.value_b}) in GATED_CROSS_FILE_PAIRS
+
+
+def find_cross_file_violations(documents, excerpt_fields, reference_fields):
+    """Yield :class:`CrossFileFinding` for divergent ``evidence_source`` pairs.
+
+    Only pairs of items in *different* files are compared; pairs inside one file
+    are :func:`find_violations`' job, and reporting them twice would double the
+    backlog. ``supports`` is not compared across files: it is claim-relative even
+    within one entry, and more so between two.
+    """
+    by_reference: dict[str, list[tuple[str, GradedSnippet]]] = {}
+    for rel, data in documents:
+        for item in iter_graded_snippets(data, excerpt_fields, reference_fields):
+            by_reference.setdefault(item.reference.casefold(), []).append((rel, item))
+
+    field = "evidence_source"
+    for items in by_reference.values():
+        if len({rel for rel, _ in items}) < 2:
+            continue
+        for index, (rel_a, first) in enumerate(items):
+            for rel_b, second in items[index + 1 :]:
+                if rel_a == rel_b:
+                    continue
+                left, right = first.gradings[field], second.gradings[field]
+                if left is None or right is None or left == right:
+                    continue
+                quote = _same_quote(first, second)
+                if quote is None:
+                    continue
+                side_a = (rel_a, left, first.location)
+                side_b = (rel_b, right, second.location)
+                if side_b < side_a:
+                    side_a, side_b = side_b, side_a
+                yield CrossFileFinding(first.reference, quote, *side_a, *side_b)
+
+
+def scan_repo_cross_file(
+    scan_dir: Path = SCAN_DIR,
+    schema_path: Path | None = None,
+    rel_to: Path = ROOT,
+):
+    """Every divergent cross-file pair, gated and report-only, sorted."""
+    excerpt_fields, reference_fields = _field_names(schema_path)
+    documents = collect_items(scan_dir, schema_path, rel_to)
+    return sorted(
+        find_cross_file_violations(documents, excerpt_fields, reference_fields)
+    )
+
+
+def format_cross_file_finding(finding: CrossFileFinding) -> str:
+    label = "gated" if finding.gated else "report-only"
+    return (
+        f"[{label}] {finding.reference} evidence_source={finding.value_a} in "
+        f"{finding.path_a} ({finding.location_a}) but "
+        f"evidence_source={finding.value_b} in {finding.path_b} "
+        f"({finding.location_b})\n    quote: {finding.quote!r}"
+    )
+
+
+def _cross_file_key(finding: CrossFileFinding) -> str:
+    """``path_a<TAB>path_b<TAB>reference<TAB>a|b<TAB>quote``, sides sorted by path."""
+    return (
+        f"{finding.path_a}\t{finding.path_b}\t{finding.reference}\t"
+        f"{finding.value_a}|{finding.value_b}\t{' '.join(finding.quote.split())}"
+    )
+
+
+def count_cross_file(findings) -> Counter:
+    """Occurrence counts of the *gated* cross-file pairs (the baseline's content)."""
+    return Counter(_cross_file_key(f) for f in findings if f.gated)
+
+
+def new_cross_file_findings(findings, baseline: Counter):
+    """Gated pairs not covered by *baseline*, including extra repeats."""
+    seen: Counter = Counter()
+    new = []
+    for finding in findings:
+        if not finding.gated:
+            continue
+        key = _cross_file_key(finding)
+        seen[key] += 1
+        if seen[key] > baseline.get(key, 0):
+            new.append(finding)
+    return new
 
 
 def format_finding(finding) -> str:
@@ -385,15 +557,62 @@ def write_baseline(findings, path: Path = BASELINE_PATH) -> None:
     path.write_text(header + "\n".join(lines) + "\n", encoding="utf-8")
 
 
+def write_cross_file_baseline(findings, path: Path = CROSS_FILE_BASELINE_PATH) -> None:
+    counts = count_cross_file(findings)
+    header = (
+        "# Grandfathered cross-file snippet-grading divergences (see\n"
+        "# scripts/check_snippet_grading.py and issue #11221).\n"
+        "# Each line is `count<TAB>path_a<TAB>path_b<TAB>reference<TAB>a|b<TAB>quote`,\n"
+        "# where a is the grading in path_a and b the grading in path_b. Only the\n"
+        "# gated pairs live here: HUMAN_CLINICAL against IN_VITRO, MODEL_ORGANISM or\n"
+        "# COMPUTATIONAL, which cannot both be right for one sentence. Pairs\n"
+        "# involving OTHER are report-only pending #10273 and never recorded. Fix\n"
+        "# by reading the cited paper and correcting whichever file is wrong;\n"
+        "# remove entries as the backlog is fixed and do not add new ones.\n"
+        "# Regenerate with:\n"
+        "#   just update-snippet-grading-baseline\n"
+    )
+    lines = [f"{counts[key]}\t{key}" for key in sorted(counts)]
+    path.write_text(header + "\n".join(lines) + "\n", encoding="utf-8")
+
+
+#: In-process memo for :func:`_findings_at_ref`, so the per-file and cross-file
+#: baselines share one ``git archive`` and one parse of the ref's ``kb/``.
+_REF_FINDINGS: dict[tuple[str, str, tuple[str, ...]], tuple[list, list] | None] = {}
+
+
+def _findings_at_ref(ref: str, root: Path, fields) -> tuple[list, list] | None:
+    """``(within_file, cross_file)`` findings for ``kb/`` at *ref*, or ``None``."""
+    memo_key = (ref, str(root), tuple(fields))
+    if memo_key in _REF_FINDINGS:
+        return _REF_FINDINGS[memo_key]
+    result = _scan_ref(ref, root, fields)
+    _REF_FINDINGS[memo_key] = result
+    return result
+
+
 def baseline_from_ref(
-    ref: str, root: Path = ROOT, fields=GATED_FIELDS
+    ref: str, root: Path = ROOT, fields=GATED_FIELDS, cross_file: bool = False
 ) -> Counter | None:
     """Grandfather baseline derived live from a git *ref* (e.g. ``origin/main``).
 
     Returns ``None`` if *ref* cannot be read (no git, ref absent in a shallow
     checkout, path missing at the ref), so the caller can fall back to the
-    committed baseline. git's own stderr is surfaced on failure so a CI
-    misconfiguration is diagnosable rather than a silent capability downgrade.
+    committed baseline. With ``cross_file`` the gated cross-file pairs at the
+    ref are returned instead of the per-file divergences.
+    """
+    found = _findings_at_ref(ref, root, fields)
+    if found is None:
+        return None
+    within, cross = found
+    return count_cross_file(cross) if cross_file else count_by_key(within)
+
+
+def _scan_ref(ref: str, root: Path, fields) -> tuple[list, list] | None:
+    """git-archive ``kb/`` at *ref* and scan it both ways.
+
+    git's own stderr is surfaced on failure so a CI misconfiguration is
+    diagnosable rather than a silent capability downgrade.
     """
     # Relative to the real ROOT (always ``kb``), not *root*: tests pass a
     # throwaway repo as *root* while the layout under it is still ``kb/``.
@@ -433,25 +652,41 @@ def baseline_from_ref(
                 file=sys.stderr,
             )
             return None
-        findings = scan_repo(
-            scan_dir=tmp_path / scan_rel, rel_to=tmp_path, fields=fields
+        excerpt_fields, reference_fields = _field_names(None)
+        documents = collect_items(tmp_path / scan_rel, rel_to=tmp_path)
+        within = within_file_findings(
+            documents, excerpt_fields, reference_fields, fields
         )
-    return count_by_key(findings)
+        cross = sorted(
+            find_cross_file_violations(documents, excerpt_fields, reference_fields)
+        )
+    return within, cross
 
 
-def resolve_baseline(ref: str | None = None, fields=GATED_FIELDS) -> Counter:
-    """Live from *ref* when given (env ``SNIPPET_GRADING_BASELINE_REF``), else file."""
+def resolve_baseline(
+    ref: str | None = None, fields=GATED_FIELDS, cross_file: bool = False
+) -> Counter:
+    """Live from *ref* when given (env ``SNIPPET_GRADING_BASELINE_REF``), else file.
+
+    ``cross_file`` selects the gated cross-file baseline instead of the per-file
+    one; the ref and the fallback behave the same way for both.
+    """
     if ref is None:
         ref = os.environ.get(BASELINE_REF_ENV) or None
     if ref:
-        from_ref = baseline_from_ref(ref, fields=fields)
+        from_ref = (
+            baseline_from_ref(ref, fields=fields, cross_file=True)
+            if cross_file
+            else baseline_from_ref(ref, fields=fields)
+        )
         if from_ref is not None:
             # State which baseline engaged: the gate behaves differently
             # depending on whether the ref was reachable, so make that legible
             # in CI logs instead of leaving it to be inferred.
+            kind = "cross-file " if cross_file else ""
             print(
                 f"snippet grading baseline: grandfathered against ref {ref!r} "
-                f"({len(from_ref)} distinct divergence(s))",
+                f"({len(from_ref)} distinct {kind}divergence(s))",
                 file=sys.stderr,
             )
             return from_ref
@@ -460,7 +695,7 @@ def resolve_baseline(ref: str | None = None, fields=GATED_FIELDS) -> Counter:
             "falling back to the committed baseline",
             file=sys.stderr,
         )
-    return load_baseline()
+    return load_baseline(CROSS_FILE_BASELINE_PATH if cross_file else BASELINE_PATH)
 
 
 def new_findings(findings, baseline: Counter):
@@ -481,6 +716,7 @@ def _resolve_fields(choice: str) -> tuple[str, ...]:
     return (choice,)
 
 
+@reports_disk_full("check-snippet-grading")
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group()
@@ -492,7 +728,7 @@ def main(argv=None) -> int:
     group.add_argument(
         "--update-baseline",
         action="store_true",
-        help="rewrite the baseline from current findings",
+        help="rewrite both baselines (per-file and cross-file) from current findings",
     )
     parser.add_argument(
         "--against-ref",
@@ -515,26 +751,72 @@ def main(argv=None) -> int:
             "only, so --update-baseline ignores this."
         ),
     )
+    parser.add_argument(
+        "--cross-file",
+        action="store_true",
+        help=(
+            "with --all or --count, report the KB-wide comparison of one sentence "
+            "across different files instead of the per-file one: gated pairs "
+            "(HUMAN_CLINICAL against IN_VITRO, MODEL_ORGANISM or COMPUTATIONAL) "
+            "and report-only pairs (anything involving OTHER, pending #10273). "
+            "The default check always runs both."
+        ),
+    )
     args = parser.parse_args(argv)
 
     fields = GATED_FIELDS if args.update_baseline else _resolve_fields(args.fields)
-    findings = scan_repo(fields=fields)
+    excerpt_fields, reference_fields = _field_names(None)
+    documents = collect_items()
+    findings = within_file_findings(documents, excerpt_fields, reference_fields, fields)
+    cross = sorted(
+        find_cross_file_violations(documents, excerpt_fields, reference_fields)
+    )
 
     if args.update_baseline:
         write_baseline(findings)
+        write_cross_file_baseline(cross)
+        gated = sum(1 for finding in cross if finding.gated)
         print(
             f"Wrote baseline with {len(findings)} finding(s) to "
-            f"{BASELINE_PATH.relative_to(ROOT)}"
+            f"{BASELINE_PATH.relative_to(ROOT)} and {gated} gated cross-file "
+            f"pair(s) to {CROSS_FILE_BASELINE_PATH.relative_to(ROOT)}"
         )
         return 0
 
     if args.all:
+        if args.cross_file:
+            for finding in cross:
+                print(format_cross_file_finding(finding))
+            gated = sum(1 for finding in cross if finding.gated)
+            print(
+                f"\n{len(cross)} cross-file divergence(s): {gated} gated, "
+                f"{len(cross) - gated} report-only."
+            )
+            return 0
         for finding in findings:
             print(format_finding(finding))
         print(f"\n{len(findings)} snippet-grading divergence(s).")
         return 0
 
     if args.count:
+        if args.cross_file:
+            baseline = resolve_baseline(args.against_ref, cross_file=True)
+            pairs = Counter("|".join(sorted((f.value_a, f.value_b))) for f in cross)
+            gated = sum(1 for finding in cross if finding.gated)
+            print(
+                f"cross-file divergences: {len(cross)} "
+                f"({gated} gated, {len(cross) - gated} report-only)"
+            )
+            for pair, count in sorted(pairs.items()):
+                print(f"  {pair}: {count}")
+            print(
+                f"baseline: {len(baseline)} distinct gated pair(s), "
+                f"{sum(baseline.values())} grandfathered occurrence(s)"
+            )
+            print(
+                f"new (non-baselined): {len(new_cross_file_findings(cross, baseline))}"
+            )
+            return 0
         baseline = resolve_baseline(args.against_ref, fields=fields)
         files = {finding[0] for finding in findings}
         fields = Counter(finding[1] for finding in findings)
@@ -550,6 +832,9 @@ def main(argv=None) -> int:
 
     baseline = resolve_baseline(args.against_ref, fields=fields)
     new = new_findings(findings, baseline)
+    cross_baseline = resolve_baseline(args.against_ref, cross_file=True)
+    new_cross = new_cross_file_findings(cross, cross_baseline)
+    against_ref = bool(args.against_ref or os.environ.get(BASELINE_REF_ENV))
     if new:
         print("New snippet-grading divergence(s) detected.")
         print("`evidence_source` classifies the cited publication, so it cannot")
@@ -561,7 +846,19 @@ def main(argv=None) -> int:
         for finding in new:
             print(format_finding(finding))
         print(f"\n{len(new)} new finding(s).")
-        if args.against_ref or os.environ.get(BASELINE_REF_ENV):
+    if new_cross:
+        if new:
+            print()
+        print("New cross-file snippet-grading divergence(s) detected.")
+        print("The same sentence of the same reference is graded HUMAN_CLINICAL in")
+        print("one entry and IN_VITRO, MODEL_ORGANISM or COMPUTATIONAL in another.")
+        print("Both cannot be right. Read the cited paper and correct whichever")
+        print("file is wrong, which may be the one this change did not touch.\n")
+        for finding in new_cross:
+            print(format_cross_file_finding(finding))
+        print(f"\n{len(new_cross)} new cross-file finding(s).")
+    if new or new_cross:
+        if against_ref:
             # A ref baseline (CI) never reads the committed file, so
             # --update-baseline would pass locally, still fail CI, and commit
             # churn to a snapshot this ratchet exists to stop touching.
@@ -572,10 +869,13 @@ def main(argv=None) -> int:
             print("If a finding is genuinely unavoidable, run --update-baseline")
             print("to grandfather it.")
         return 1
+    report_only = sum(1 for finding in cross if not finding.gated)
     print(
         "OK: no new snippet-grading divergences "
         f"({sum(baseline.values())} occurrence(s) of {len(baseline)} distinct "
-        "divergence(s) grandfathered in baseline)."
+        "divergence(s) grandfathered in baseline; "
+        f"{sum(cross_baseline.values())} gated cross-file pair(s) grandfathered, "
+        f"{report_only} report-only cross-file pair(s), see --all --cross-file)."
     )
     return 0
 
