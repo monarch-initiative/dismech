@@ -37,6 +37,7 @@ GENE_RELATION = "RO:0004003"
 EXACT_SYNONYM = "http://www.geneontology.org/formats/oboInOwl#hasExactSynonym"
 DBXREF = "http://www.geneontology.org/formats/oboInOwl#hasDbXref"
 HGNC_IRI_PREFIX = "http://identifiers.org/hgnc/"
+REPLACED_BY = OBO_PURL + "IAO_0100001"
 
 __all__ = [
     "DEFAULT_TIMEOUT",
@@ -73,6 +74,8 @@ class MondoTermFacts:
     #: Every ``hasDbXref`` value, e.g. ``OMIM:614321``.
     xrefs: tuple[str, ...] = ()
     exact_synonyms: tuple[str, ...] = ()
+    #: For an obsolete term, the term MONDO says replaced it (``IAO:0100001``).
+    replaced_by: tuple[str, ...] = ()
 
     @property
     def omim_ids(self) -> tuple[str, ...]:
@@ -127,9 +130,16 @@ def _text(value) -> str:
     return value.strip() if isinstance(value, str) else ""
 
 
+def _obo_curie(iri: str) -> str:
+    """``http://purl.obolibrary.org/obo/MONDO_0009299`` -> ``MONDO:0009299``."""
+    if iri.startswith(OBO_PURL) and "_" in iri[len(OBO_PURL) :]:
+        return iri[len(OBO_PURL) :].replace("_", ":", 1)
+    return iri
+
+
 def _gene_curie(iri: str) -> str:
     if iri.startswith(HGNC_IRI_PREFIX):
-        return "HGNC:" + iri[len(HGNC_IRI_PREFIX):]
+        return "HGNC:" + iri[len(HGNC_IRI_PREFIX) :]
     return iri
 
 
@@ -177,6 +187,12 @@ def parse_mondo_entity(payload: dict, mondo_id: str) -> MondoTermFacts:
         if text and text not in synonyms:
             synonyms.append(text)
 
+    replaced_by: list[str] = []
+    for value in _as_list(payload.get(REPLACED_BY)):
+        text = _text(value)
+        if text and _obo_curie(text) not in replaced_by:
+            replaced_by.append(_obo_curie(text))
+
     return MondoTermFacts(
         id=mondo_id,
         label=label,
@@ -185,10 +201,13 @@ def parse_mondo_entity(payload: dict, mondo_id: str) -> MondoTermFacts:
         gene_labels=tuple(gene_labels.items()),
         xrefs=tuple(xrefs),
         exact_synonyms=tuple(synonyms),
+        replaced_by=tuple(replaced_by),
     )
 
 
-def fetch_mondo_term(mondo_id: str, *, timeout: float = DEFAULT_TIMEOUT) -> MondoTermFacts:
+def fetch_mondo_term(
+    mondo_id: str, *, timeout: float = DEFAULT_TIMEOUT
+) -> MondoTermFacts:
     """Fetch one MONDO term from OLS.
 
     Raises :class:`OlsTermNotFound` when OLS has no such term and
@@ -248,7 +267,9 @@ class OlsMondoAdapter:
         """Where the facts came from, for the preflight output."""
         if self._release is None:
             self._release = fetch_mondo_release(timeout=self.timeout)
-        release = f"MONDO release {self._release}" if self._release else "release unknown"
+        release = (
+            f"MONDO release {self._release}" if self._release else "release unknown"
+        )
         return f"OLS ({OLS_API}, {release}); no local MONDO build"
 
     @staticmethod
@@ -280,6 +301,11 @@ class OlsMondoAdapter:
             for gene in self.term(subject).genes:
                 if objects is None or gene in objects:
                     yield subject, GENE_RELATION, gene
+
+    def obsolescence(self, curie: str) -> tuple[bool, tuple[str, ...]]:
+        """``(obsolete, replaced_by)`` for a MONDO term."""
+        facts = self.term(curie)
+        return facts.obsolete, facts.replaced_by
 
     def simple_mappings_by_curie(self, curie: str):
         if not self._is_mondo(curie):

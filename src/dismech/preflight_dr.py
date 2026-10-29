@@ -90,6 +90,7 @@ import argparse
 import itertools
 import json
 import re
+import sys
 from collections import Counter
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -213,6 +214,10 @@ class MondoRecord:
     gene_curies: dict[str, str] = field(default_factory=dict)
     #: Where these facts were read: the local build or OLS (#15436).
     source: str = ""
+    #: The term is obsolete in MONDO, and what replaced it, where the source
+    #: says (the OLS path reads both; see :mod:`dismech.mondo_ols`).
+    obsolete: bool = False
+    replaced_by: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -266,6 +271,8 @@ class PreflightResult:
     gene_identifier_findings: list[GeneIdentifierFinding] = field(default_factory=list)
     #: Where the MONDO facts were read: the local build or OLS (#15436).
     mondo_source: str = ""
+    mondo_obsolete: bool = False
+    mondo_replaced_by: list[str] = field(default_factory=list)
 
     @property
     def expected_absent(self) -> bool:
@@ -290,6 +297,27 @@ class LexiconUnavailable(RuntimeError):
     """
 
 
+HGNC_ADAPTER = "sqlite:obo:hgnc"
+
+
+def hgnc_build_missing() -> str:
+    """Why HGNC is skipped, or ``""`` when the local ``hgnc.db`` build is on disk.
+
+    Opening ``sqlite:obo:hgnc`` on a missing build downloads it (#12687), so
+    every opener asks this first and, without the build, does what
+    ``--no-hgnc`` would do for that piece instead.
+    """
+    from dismech.oak_db import local_build_path, local_build_present
+
+    if local_build_present(HGNC_ADAPTER):
+        return ""
+    return (
+        f"the local HGNC build is not present at {local_build_path('hgnc')}, so the "
+        "HGNC lexicon and gene-alias lookups were skipped (as with --no-hgnc) rather "
+        "than downloading it; fetch it with `just fetch-ontology-dbs hgnc`"
+    )
+
+
 class HgncLexicon:
     """Gene-symbol membership test backed by the OAK HGNC adapter.
 
@@ -309,10 +337,13 @@ class HgncLexicon:
 
     def _get_adapter(self):
         if self._adapter is None:
+            missing = hgnc_build_missing()
+            if missing:
+                raise LexiconUnavailable(missing)
             try:
                 from oaklib import get_adapter
 
-                self._adapter = get_adapter("sqlite:obo:hgnc")
+                self._adapter = get_adapter(HGNC_ADAPTER)
             except Exception as exc:  # pragma: no cover - install/network failure
                 raise LexiconUnavailable(
                     f"could not open the HGNC adapter (sqlite:obo:hgnc): {exc}"
@@ -472,7 +503,13 @@ def open_mondo_adapter(mondo_id: str | None = None):
     if local_build_present(MONDO_ADAPTER):
         from oaklib import get_adapter
 
-        return get_adapter(MONDO_ADAPTER)
+        adapter = get_adapter(MONDO_ADAPTER)
+        try:
+            # Read back by :func:`_mondo_source` to name the source honestly.
+            adapter._dismech_mondo_source = LOCAL_MONDO_SOURCE
+        except Exception:  # pragma: no cover - an adapter that refuses attributes
+            pass
+        return adapter
 
     from dismech.mondo_ols import OlsLookupError, OlsMondoAdapter
 
@@ -493,14 +530,21 @@ def open_mondo_adapter(mondo_id: str | None = None):
 
 
 def _mondo_source(adapter) -> str:
-    """Name the source an adapter reads MONDO from, for the output."""
+    """Name the source an adapter reads MONDO from, for the output.
+
+    Only the adapter :func:`open_mondo_adapter` opened on the local build is
+    called the local build; any other adapter handed in is named by its class.
+    """
     describe = getattr(adapter, "source_description", None)
     if callable(describe):
         try:
             return str(describe())
         except Exception:  # pragma: no cover - a label must never fail the run
             return "unknown"
-    return LOCAL_MONDO_SOURCE
+    tagged = getattr(adapter, "_dismech_mondo_source", None)
+    if isinstance(tagged, str) and tagged:
+        return tagged
+    return f"adapter: {type(adapter).__name__}"
 
 
 def fetch_mondo_record(
@@ -544,10 +588,14 @@ def fetch_mondo_record(
     def _hgnc():
         if not hgnc_state["tried"]:
             hgnc_state["tried"] = True
+            if hgnc_build_missing():
+                # As --no-hgnc: no symbol repair or aliases, and not an error.
+                # The CLI says so once on stderr (see ``main``).
+                return None
             try:
                 from oaklib import get_adapter
 
-                hgnc_state["adapter"] = get_adapter("sqlite:obo:hgnc")
+                hgnc_state["adapter"] = get_adapter(HGNC_ADAPTER)
             except Exception as exc:  # pragma: no cover - install/network failure
                 errors.append(f"HGNC adapter unavailable for symbol resolution: {exc}")
                 hgnc_state["adapter"] = None
@@ -599,6 +647,14 @@ def fetch_mondo_record(
         if digits.isdigit() and digits not in omim_ids:
             omim_ids.append(digits)
 
+    obsolete, replaced_by = False, ()
+    obsolescence = getattr(adapter, "obsolescence", None)
+    if callable(obsolescence):
+        try:
+            obsolete, replaced_by = obsolescence(mondo_id)
+        except Exception as exc:
+            errors.append(f"obsolescence lookup for {mondo_id} failed: {exc}")
+
     return MondoRecord(
         id=mondo_id,
         label=label,
@@ -609,6 +665,8 @@ def fetch_mondo_record(
         lookup_errors=tuple(errors),
         gene_curies=gene_curies,
         source=_mondo_source(adapter),
+        obsolete=bool(obsolete),
+        replaced_by=tuple(replaced_by),
     )
 
 
@@ -829,16 +887,13 @@ def _default_rival_lookup(adapter, use_hgnc: bool):
             )
             return {}, [reason]
         hgnc = None
-        if use_hgnc:
-            from dismech.oak_db import local_build_present
+        if use_hgnc and not hgnc_build_missing():
+            try:
+                from oaklib import get_adapter
 
-            if local_build_present("sqlite:obo:hgnc"):
-                try:
-                    from oaklib import get_adapter
-
-                    hgnc = get_adapter("sqlite:obo:hgnc")
-                except Exception:  # pragma: no cover - install/network failure
-                    hgnc = None
+                hgnc = get_adapter(HGNC_ADAPTER)
+            except Exception:  # pragma: no cover - install/network failure
+                hgnc = None
         return find_rival_diseases(symbols, exclude, mondo, hgnc)
 
     return _lookup
@@ -1154,7 +1209,19 @@ def _assess_gene_mentions(
         alias_mentions=alias_mentions,
         lookup_errors=list(record.lookup_errors),
         mondo_source=record.source,
+        mondo_obsolete=record.obsolete,
+        mondo_replaced_by=list(record.replaced_by),
     )
+    if record.obsolete:
+        replacement = (
+            f"; MONDO replaced it with {', '.join(record.replaced_by)}"
+            if record.replaced_by
+            else "; MONDO names no replacement"
+        )
+        result.reasons.append(
+            f"{record.id} is obsolete in MONDO{replacement}. Re-run the preflight "
+            "against the current term before curating from this report."
+        )
 
     def _cap_at_warn() -> None:
         """A lookup that errored must never leave the run looking clean."""
@@ -1430,6 +1497,11 @@ def format_report(result: PreflightResult) -> str:
     ]
     if result.mondo_source:
         lines.append(f"  MONDO source    : {result.mondo_source}")
+    if result.mondo_obsolete:
+        status = "obsolete"
+        if result.mondo_replaced_by:
+            status += f"; replaced by {', '.join(result.mondo_replaced_by)}"
+        lines.append(f"  MONDO status    : {status}")
     lines.append(
         f"  canonical gene  : {'/'.join(result.expected_genes) or '(none recorded)'}"
     )
@@ -1538,6 +1610,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.no_hgnc:
         lexicon = HeuristicLexicon()
     else:
+        missing = hgnc_build_missing()
+        if missing and not args.require_hgnc:
+            print(f"note: {missing}", file=sys.stderr)
         try:
             lexicon = default_lexicon(allow_fallback=not args.require_hgnc)
         except LexiconUnavailable as exc:

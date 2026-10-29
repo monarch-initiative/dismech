@@ -11,6 +11,7 @@ The OLS responses are recorded fixtures under ``tests/data/ols``, trimmed to the
 fields :mod:`dismech.mondo_ols` reads. Nothing here touches the network or opens
 an ontology build.
 """
+
 from __future__ import annotations
 
 import json
@@ -43,6 +44,7 @@ from dismech.research_anchors import collect_anchors
 FIXTURES = Path(__file__).parent / "data" / "ols"
 TATEYAMA = "MONDO:0013686"  # distal myopathy, Tateyama type: CAV3, OMIM:614321
 MRD64 = "MONDO:0030934"  # intellectual developmental disorder, AD 64: ZNF292
+OBSOLETE = "MONDO:0000002"  # obsolete 46,XX sex reversal, replaced by MONDO:0009299
 
 
 def _fixture(curie: str) -> dict:
@@ -53,7 +55,7 @@ def _fixture(curie: str) -> dict:
 def ols_calls(monkeypatch):
     """Serve the recorded fixtures in place of OLS, recording each URL asked for."""
     calls: list[str] = []
-    responses = {entity_url(c): _fixture(c) for c in (TATEYAMA, MRD64)}
+    responses = {entity_url(c): _fixture(c) for c in (TATEYAMA, MRD64, OBSOLETE)}
     responses[f"{ols.OLS_API}/ontologies/mondo"] = {"config": {"version": "2026-10-06"}}
 
     def _get_json(url, timeout):
@@ -174,7 +176,9 @@ def test_the_adapter_fetches_each_term_once(ols_calls):
         (TATEYAMA, "RO:0004003", "HGNC:1529")
     ]
     assert adapter.label("HGNC:1529") == "CAV3"
-    assert ("oio:hasDbXref", "OMIM:614321") in adapter.simple_mappings_by_curie(TATEYAMA)
+    assert ("oio:hasDbXref", "OMIM:614321") in adapter.simple_mappings_by_curie(
+        TATEYAMA
+    )
     assert ols_calls == [entity_url(TATEYAMA)]
 
 
@@ -236,7 +240,9 @@ def test_cli_gives_a_verdict_through_ols(no_local_builds, ols_calls, tmp_path, c
     assert "OMIM (MONDO)    : 614321" in out
 
 
-def test_cli_json_records_the_mondo_source(no_local_builds, ols_calls, tmp_path, capsys):
+def test_cli_json_records_the_mondo_source(
+    no_local_builds, ols_calls, tmp_path, capsys
+):
     report = tmp_path / "report.md"
     report.write_text("CAV3 " * 5 + "\n", encoding="utf-8")
     assert main([str(report), TATEYAMA, "--no-hgnc", "--json"]) == 0
@@ -307,7 +313,9 @@ def test_a_never_named_gene_with_a_matching_omim_stays_a_warn_over_ols(
 # --------------------------------------------------------------------------
 
 
-def test_research_anchors_get_omim_and_genes_via_ols(no_local_builds, ols_calls, tmp_path):
+def test_research_anchors_get_omim_and_genes_via_ols(
+    no_local_builds, ols_calls, tmp_path
+):
     anchors = collect_anchors(
         {"name": "Distal Myopathy, Tateyama Type"}, TATEYAMA, stubs_dir=tmp_path
     )
@@ -363,3 +371,109 @@ def test_gene_labels_answer_either_hgnc_casing_and_nothing_else(ols_calls):
 
 def test_a_lowercase_mondo_prefix_still_names_the_mondo_iri():
     assert entity_url("mondo:0013686") == entity_url(TATEYAMA)
+
+
+# --------------------------------------------------------------------------
+# Obsolete terms, and naming the MONDO source honestly
+# --------------------------------------------------------------------------
+
+
+def test_parse_reads_obsolescence_and_the_replacement():
+    facts = parse_mondo_entity(_fixture(OBSOLETE), OBSOLETE)
+    assert facts.obsolete is True
+    assert facts.replaced_by == ("MONDO:0009299",)
+    assert facts.genes == ()
+
+
+def test_an_obsolete_term_is_named_as_such_not_only_as_geneless(
+    no_local_builds, ols_calls, tmp_path, capsys
+):
+    report = tmp_path / "report.md"
+    report.write_text("SOX9 SOX9 SOX9\n", encoding="utf-8")
+    assert main([str(report), OBSOLETE, "--no-hgnc"]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith(SKIP)  # the verdict rules are unchanged
+    assert "MONDO status    : obsolete; replaced by MONDO:0009299" in out
+    assert (
+        f"{OBSOLETE} is obsolete in MONDO; MONDO replaced it with MONDO:0009299" in out
+    )
+
+
+def test_a_current_term_reports_no_obsolescence(no_local_builds, ols_calls):
+    record = fetch_mondo_record(TATEYAMA, use_hgnc=False)
+    assert record.obsolete is False
+    assert record.replaced_by == ()
+
+
+def test_an_adapter_handed_in_is_not_called_the_local_build():
+    class SomeAdapter:
+        def label(self, curie):
+            return None
+
+        def relationships(self, subjects=None, predicates=None, objects=None):
+            return []
+
+        def simple_mappings_by_curie(self, curie):
+            return []
+
+    record = fetch_mondo_record(TATEYAMA, adapter=SomeAdapter(), use_hgnc=False)
+    assert record.source == "adapter: SomeAdapter"
+
+
+def test_the_adapter_opened_on_the_local_build_is_named_as_such(monkeypatch, tmp_path):
+    monkeypatch.setenv("PYSTOW_HOME", str(tmp_path))
+    (tmp_path / "oaklib").mkdir()
+    (tmp_path / "oaklib" / "mondo.db").write_bytes(b"")
+
+    class LocalAdapter:
+        pass
+
+    monkeypatch.setattr("oaklib.get_adapter", lambda spec, *a, **k: LocalAdapter())
+    adapter = P.open_mondo_adapter(TATEYAMA)
+    assert P._mondo_source(adapter) == P.LOCAL_MONDO_SOURCE
+
+
+# --------------------------------------------------------------------------
+# HGNC is never downloaded either (#12687)
+# --------------------------------------------------------------------------
+
+
+def test_the_hgnc_lexicon_refuses_a_missing_build(no_local_builds):
+    with pytest.raises(P.LexiconUnavailable, match="just fetch-ontology-dbs hgnc"):
+        P.HgncLexicon().probe()
+    lexicon = P.default_lexicon()
+    assert lexicon.name == "heuristic"
+    assert "just fetch-ontology-dbs hgnc" in lexicon.reason
+
+
+def test_alias_lookup_is_skipped_without_the_hgnc_build(no_local_builds, ols_calls):
+    """As --no-hgnc: no aliases, no HGNC opened, and no failed-lookup error."""
+    record = fetch_mondo_record(TATEYAMA, use_hgnc=True)
+    assert record.genes == ("CAV3",)
+    assert record.gene_aliases == {}
+    assert record.lookup_errors == ()
+
+
+def test_cli_without_no_hgnc_skips_a_missing_hgnc_build_with_one_note(
+    no_local_builds, ols_calls, tmp_path, capsys
+):
+    report = tmp_path / "report.md"
+    report.write_text("CAV3 " * 5 + "\n", encoding="utf-8")
+    assert main([str(report), TATEYAMA]) == 0
+    captured = capsys.readouterr()
+    assert captured.out.startswith(PASS)
+    assert "lexicon         : heuristic" in captured.out
+    notes = [line for line in captured.err.splitlines() if line.startswith("note:")]
+    assert len(notes) == 1
+    assert "just fetch-ontology-dbs hgnc" in notes[0]
+
+
+def test_require_hgnc_still_fails_loudly_without_the_build(
+    no_local_builds, ols_calls, tmp_path, capsys
+):
+    report = tmp_path / "report.md"
+    report.write_text("CAV3\n", encoding="utf-8")
+    with pytest.raises(SystemExit) as excinfo:
+        main([str(report), TATEYAMA, "--require-hgnc"])
+    assert excinfo.value.code == 2
+    assert "just fetch-ontology-dbs hgnc" in capsys.readouterr().err
