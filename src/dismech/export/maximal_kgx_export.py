@@ -1,12 +1,11 @@
 """
 Maximal KGX export: the whole KB as one knowledge graph, pathograph nodes included.
 
-The biolink-conformant export (``kgx_export.py``) flattens each disorder's
-mechanism layer away: pathophysiology nodes have no ontology identity, so their
-constituents are re-attached to the disease and the ``downstream`` causal chain
-survives only in the SEPIO sidecar. This module is the complementary
-experiment: promote every entry-local causal-graph node to a first-class KG
-node using the SEPIO id scheme (``dismech:<entry_stem>#<node_slug>``, minted by
+The biolink-conformant export (``kgx_export.py``) exports each disorder's
+pathophysiology nodes and their ``downstream`` / ``sequelae`` edges, but keeps
+to Biolink predicates and to what a disorder file alone can say. This module is
+the complementary experiment: promote every entry-local causal-graph node to a
+first-class KG node using the SEPIO id scheme (``dismech:<entry_stem>#<node_slug>``, minted by
 :func:`dismech.export.sepio_export.pathophysiology_node_id` with the entry's
 file stem as the base) and emit one graph covering:
 
@@ -54,6 +53,7 @@ from pathlib import Path
 from typing import Any
 
 from dismech import kb_cache
+from dismech.conformance import iter_conforms_to
 from dismech.export.sepio_export import _slug, pathophysiology_node_id
 from dismech.graph import build_causal_graph
 
@@ -385,14 +385,16 @@ def process_entry(
                 acc.add_edge(entry_id, "dismech:has_graph_node", node_id, section, stem)
             _grounding_edges(acc, stem, section, item, node_id)
 
-            if section == "pathophysiology" and item.get("conforms_to"):
-                ref = str(item["conforms_to"])
-                if "#" in ref:
-                    module, target = ref.split("#", 1)
-                    obj = pathophysiology_node_id(module, target)
-                else:
-                    obj = f"dismech:{_slug(ref)}"
-                acc.add_edge(node_id, "dismech:conforms_to", obj, "conforms_to", stem)
+            if section == "pathophysiology":
+                for ref in iter_conforms_to(item):
+                    if "#" in ref:
+                        module, target = ref.split("#", 1)
+                        obj = pathophysiology_node_id(module, target)
+                    else:
+                        obj = f"dismech:{_slug(ref)}"
+                    acc.add_edge(
+                        node_id, "dismech:conforms_to", obj, "conforms_to", stem
+                    )
 
     # Subtypes.
     for subtype in record.get("has_subtypes") or []:
