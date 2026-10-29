@@ -251,6 +251,7 @@ defence against schema-valid but content-incomplete entries.
 - Do not make distinct entries for e.g. severity types
 - Align with clingen where possible
 - Lumping and splitting can be hard and ambiguous - it is OK to summon a human to help you resolve, and hold off on approving until the human approves
+- The entry `name` must be no broader than the entry (see the `entry-naming` skill and design decisions §18). A single-gene entry named after a phenotype or a broad clinical label is a defect. Where an established `<GENE>-Related <Phenotype>` name exists, suggest it, and if the PR mentions a more specific name used in the literature, ask whether it was considered. Do not suggest an umbrella name (`GENE-Related Disorders`) for one entry on that spectrum. Prior names, including the MONDO label, should be kept in `synonyms`.
 
 15. GeneReviews Baseline Completeness
 
