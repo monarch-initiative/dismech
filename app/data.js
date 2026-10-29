@@ -105986,7 +105986,8 @@ window.searchData = [
     "updated_date": null,
     "subtypes": [
       "Neonatal-onset CCHS",
-      "Later-onset CCHS"
+      "Later-onset CCHS",
+      "Haddad Syndrome"
     ],
     "description": "Congenital central hypoventilation syndrome (historically Ondine's curse) is a rare disorder of autonomic control in which the automatic drive to breathe fails during sleep. The lesion is not in the lung, the chest wall, the airway, or the respiratory muscles: it is the loss of central chemoreception, so rising carbon dioxide and falling oxygen no longer generate a corrective ventilatory response, and breathing during sleep - which depends entirely on that automatic loop - becomes inadequate or ceases. Wakeful, cortically driven breathing is comparatively preserved, which is why affected infants can appear normal when awake and hypoventilate every time they fall asleep. Almost all cases are caused by de novo heterozygous mutation of PHOX2B, usually an expansion of a 20-residue polyalanine tract, and in mouse models the specific neuronal casualty is the retrotrapezoid nucleus - the principal central chemoreceptor site - with no other identified neuronal loss. Because PHOX2B is a master regulator of visceral reflex circuits generally, the disorder extends beyond breathing to a wider autonomic dysregulation, and to neural-crest derived complications: Hirschsprung disease and neuroblastic tumours. There is no treatment for the chemoreceptive lesion; management is lifelong assisted ventilation during sleep.",
     "pathophysiology": [
@@ -255663,6 +255664,82 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Melanotic Neuroectodermal Tumor of Infancy",
+    "disease_id": "MONDO:0002072",
+    "category": "",
+    "parents": [
+      "primitive neuroectodermal tumor"
+    ],
+    "creation_date": "2026-10-28T18:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Melanotic neuroectodermal tumor of infancy (MNTI) is a rare pigmented tumour whose origin is attributed to the neural crest. It most often affects the maxilla of infants in the first year of life, and less often the skull, mandible, brain, epididymis or other rare sites, where its expansive, destructive and rapid growth forms a mass that may be lobulated, non-ulcerated and painless. It is biphasic: large epithelioid cells that contain variable melanin and smaller neuroblast-like round cells lie in a fibrocollagenous stroma. MNTI has generally been regarded as benign, although it recurs locally and rarely behaves malignantly, and the 5th edition of the WHO classification of paediatric tumours is reported to treat MNTI of the head and neck as malignant (see notes). Its small round blue cell morphology can lead to misdiagnosis as a malignant neoplasm; metastatic neuroblastoma is one differential diagnosis, excluded in one series by imaging and negative PHOX2B immunostaining. Surgery is the mainstay of treatment, and chemotherapy may be considered for inoperable, metastatic or persistently recurring tumours, with neoadjuvant regimens based mainly on neuroblastoma protocols. MONDO files MNTI (MONDO:0002072) under primitive neuroectodermal tumor, beside neuroblastic tumor rather than within it.",
+    "pathophysiology": [
+      "Biphasic Melanocyte-Like and Neuroblast-Like Tumor Cell Population",
+      "Expansile Destructive Local Growth"
+    ],
+    "cell_types": [
+      "melanin-containing epithelioid tumor cell",
+      "neuroblast-like small round tumor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000147"
+    ],
+    "biological_processes": [
+      "melanin production by the large epithelioid tumor cells"
+    ],
+    "phenotypes": [
+      "Rapidly Growing Jaw Mass",
+      "Bluish-Black Pigmented Swelling",
+      "Facial Asymmetry",
+      "Feeding Difficulties",
+      "Epistaxis",
+      "Osteolytic Bone Destruction",
+      "Elevated Urinary Vanillylmandelic Acid"
+    ],
+    "phenotype_categories": [
+      "Craniofacial",
+      "Gastrointestinal",
+      "Skeletal",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0030792",
+      "HP:0000324",
+      "HP:0011968",
+      "HP:0000421",
+      "HP:0002797",
+      "HP:0011978"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Surgical Excision",
+      "Chemotherapy for Inoperable, Metastatic or Recurrent Disease"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Melanotic_Neuroectodermal_Tumor_of_Infancy.yaml",
+    "page_url": "../pages/disorders/Melanotic_Neuroectodermal_Tumor_of_Infancy.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 2,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Melioidosis",
     "disease_id": "MONDO:0017775",
     "category": "Infectious Disease",
@@ -285540,6 +285617,7 @@ window.searchData = [
       "Attention Deficit Hyperactivity Disorder",
       "Macrocephaly",
       "Pheochromocytoma",
+      "Neuroblastoma",
       "Gastrointestinal Stromal Tumor",
       "Breast Neoplasm"
     ],
@@ -285577,6 +285655,7 @@ window.searchData = [
       "HP:0007018",
       "HP:0000256",
       "HP:0002666",
+      "HP:0003006",
       "HP:0100723",
       "HP:0100013"
     ],
@@ -285584,7 +285663,8 @@ window.searchData = [
       "OBLIGATE",
       "FREQUENT",
       "VERY_FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "VERY_RARE"
     ],
     "genes": [
       "NF1"
@@ -285602,7 +285682,7 @@ window.searchData = [
     ],
     "source_file": "Neurofibromatosis_Type_1.yaml",
     "page_url": "../pages/disorders/Neurofibromatosis_Type_1.html",
-    "num_phenotypes": 16,
+    "num_phenotypes": 17,
     "num_pathophysiology": 12,
     "num_genes": 1,
     "num_treatments": 5,
@@ -313734,6 +313814,8 @@ window.searchData = [
       "Pheochromocytoma",
       "Sympathetic Paraganglioma",
       "Parasympathetic Paraganglioma",
+      "Composite Pheochromocytoma",
+      "Composite Paraganglioma",
       "PGL1",
       "PGL2",
       "PGL3",
@@ -409991,19 +410073,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3798,
-  "total_subtypes": 4939,
-  "total_disorders_and_subtypes": 8737,
-  "total_unique_evidence_sources": 56519,
-  "total_unique_publications": 52838,
+  "total_disorder_pages": 3799,
+  "total_subtypes": 4942,
+  "total_disorders_and_subtypes": 8741,
+  "total_unique_evidence_sources": 56548,
+  "total_unique_publications": 52866,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 311,
-  "total_pathographs": 3796,
-  "total_unique_pathological_events": 24985,
+  "total_pathographs": 3797,
+  "total_unique_pathological_events": 24987,
   "total_modules": 215,
-  "total_research_reports": 3911,
+  "total_research_reports": 3912,
   "total_classifications": 21,
   "total_comorbidities": 51,
-  "total_groupings": 127
+  "total_groupings": 128
 };
 window.dispatchEvent(new Event('searchDataReady'));
