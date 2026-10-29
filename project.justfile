@@ -1271,6 +1271,8 @@ variant-mechanism-audit *args="":
 # merge base of HEAD and origin/main, so a clean checkout passes; only when
 # that is missing (shallow clone) does it fall back to the committed, possibly
 # stale tests/gene_activity_grounding_baseline.txt, and it says so (#15446).
+# The merge-base run rescans kb/ at that commit (git archive), so it is
+# slower than reading the committed file.
 # Fail on genes newly landing on a node with no molecular_functions
 [group('QC')]
 check-gene-activity-grounding *args="":

@@ -466,7 +466,10 @@ def main(argv=None) -> int:
         print("Many of these in entries your change does not touch? Then they")
         print("were compared against a stale baseline: check the stderr line")
         print("above saying which one was used. Run `git fetch origin main` and")
-        print("rerun with --against-ref origin/main.")
+        print("rerun with no ref, which compares against the merge base. Only")
+        print("use --against-ref origin/main after rebasing onto it: on a branch")
+        print("that is behind main, the tip of main blames you for genes main")
+        print("grounded after you branched.")
         return 1
     print(
         f"OK: no newly ungrounded genes ({sum(baseline.values())} "
