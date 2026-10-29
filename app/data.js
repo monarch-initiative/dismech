@@ -106181,6 +106181,125 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Congenital Amegakaryocytic Thrombocytopenia 1",
+    "disease_id": "MONDO:0800452",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited bone marrow failure syndrome",
+      "Inherited thrombocytopenia"
+    ],
+    "creation_date": "2026-10-28T17:30:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "CAMT I",
+      "CAMT II"
+    ],
+    "description": "Autosomal recessive inherited bone marrow failure syndrome caused by homozygous or compound heterozygous loss-of-function variants in MPL, the gene for the thrombopoietin receptor. Without thrombopoietin signaling, megakaryocytes fail to develop, and affected children are born with (or develop in the first months of life) severe isolated thrombocytopenia with absent or reduced marrow megakaryocytes and markedly raised circulating thrombopoietin. Because MPL signaling also maintains hematopoietic stem and progenitor cells, the marrow progressively empties, and almost all patients progress to pancytopenia and aplastic anemia, usually in the first years of life. The main threats are pre- and perinatal intracranial hemorrhage, with its neurological and ocular sequelae, and later marrow aplasia. Patients with null alleles (CAMT type I) stay severely thrombocytopenic and progress early; some missense alleles with residual receptor function (CAMT type II) give a transient rise in platelets and later aplasia. Allogeneic hematopoietic stem cell transplantation is the only curative treatment.",
+    "pathophysiology": [
+      "Biallelic MPL Loss of Function",
+      "Loss of Thrombopoietin Receptor Signaling",
+      "Failure of Megakaryopoiesis",
+      "Hematopoietic Stem and Progenitor Cell Exhaustion"
+    ],
+    "cell_types": [
+      "megakaryocyte",
+      "hematopoietic stem cell",
+      "megakaryocyte-erythroid progenitor cell",
+      "hematopoietic multipotent progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000556",
+      "CL:0000037",
+      "CL:0000050",
+      "CL:0000837"
+    ],
+    "biological_processes": [
+      "thrombopoietin-mediated signaling pathway",
+      "megakaryocyte differentiation",
+      "platelet formation",
+      "hematopoietic stem cell homeostasis"
+    ],
+    "phenotypes": [
+      "Thrombocytopenia",
+      "Megakaryocytopenia",
+      "Elevated circulating thrombopoietin concentration",
+      "Petechiae",
+      "Intracranial hemorrhage",
+      "Gastrointestinal hemorrhage",
+      "Epistaxis",
+      "Pancytopenia",
+      "Aplastic anemia",
+      "Bone marrow hypocellularity",
+      "Anemia",
+      "Neutropenia",
+      "Myelodysplasia",
+      "Abnormal brain morphology",
+      "Strabismus",
+      "Nystagmus",
+      "Global developmental delay"
+    ],
+    "phenotype_categories": [
+      "Hematological",
+      "Neurological",
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001873",
+      "HP:0005548",
+      "HP:0034600",
+      "HP:0000967",
+      "HP:0002170",
+      "HP:0002239",
+      "HP:0000421",
+      "HP:0001876",
+      "HP:0001915",
+      "HP:0005528",
+      "HP:0001903",
+      "HP:0001875",
+      "HP:0002863",
+      "HP:0012443",
+      "HP:0000486",
+      "HP:0000639",
+      "HP:0001263"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "MPL"
+    ],
+    "treatments": [
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Platelet Transfusion",
+      "Thrombopoietin Receptor Agonists (investigational)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_Amegakaryocytic_Thrombocytopenia_1.yaml",
+    "page_url": "../pages/disorders/Congenital_Amegakaryocytic_Thrombocytopenia_1.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Congenital Aural Atresia",
     "disease_id": "MONDO:0011921",
     "category": "Mendelian",
@@ -154693,6 +154812,98 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "48",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Familial Juvenile Hyperuricemic Nephropathy Type 1",
+    "disease_id": "MONDO:0008073",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal dominant tubulointerstitial kidney disease"
+    ],
+    "creation_date": "2026-10-28T17:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant tubulointerstitial kidney disease caused by heterozygous, mostly missense UMOD variants, now named ADTKD-UMOD. Uromodulin is made only by epithelial cells of the thick ascending limb of the loop of Henle. Mutant uromodulin, usually missing a disulfide-bonded cysteine, misfolds and is retained in the endoplasmic reticulum, where it causes ER stress and the unfolded protein response and is not secreted. The retained protein damages thick ascending limb cells and leads to tubular atrophy, interstitial inflammation and fibrosis, while less functional uromodulin reaches the apical membrane. Patients have a bland urinalysis, impaired urinary concentration, hyperuricemia from low fractional excretion of urate (often in childhood), gout, and slowly progressive chronic kidney disease that reaches kidney failure between the third and seventh decades. Allopurinol controls hyperuricemia and prevents gout; kidney transplantation is curative for the kidney disease. Familial juvenile hyperuricemic nephropathy type 1, medullary cystic kidney disease type 2 and UMOD-related glomerulocystic kidney disease are names for the same disorder.",
+    "pathophysiology": [
+      "Heterozygous UMOD Missense Variant",
+      "Mutant Uromodulin Retention in the Endoplasmic Reticulum",
+      "ER Stress and Unfolded Protein Response in Thick Ascending Limb Cells",
+      "Tubulointerstitial Injury and Fibrosis",
+      "Impaired Thick Ascending Limb Salt Reabsorption",
+      "Increased Proximal Tubular Urate Reabsorption"
+    ],
+    "cell_types": [
+      "thick ascending limb epithelial cell",
+      "proximal convoluted tubule epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:1001106",
+      "CL:1000838"
+    ],
+    "biological_processes": [
+      "protein folding in endoplasmic reticulum",
+      "endoplasmic reticulum unfolded protein response",
+      "IRE1-mediated unfolded protein response",
+      "autophagy",
+      "renal sodium ion absorption",
+      "urate transport"
+    ],
+    "phenotypes": [
+      "Hyperuricemia",
+      "Gout",
+      "Chronic kidney disease",
+      "Stage 5 chronic kidney disease",
+      "Impaired renal concentrating ability",
+      "Tubulointerstitial fibrosis",
+      "Renal tubular atrophy",
+      "Renal cyst",
+      "Hypertension"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Musculoskeletal",
+      "Renal",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002149",
+      "HP:0001997",
+      "HP:0012622",
+      "HP:0003774",
+      "HP:0004727",
+      "HP:0005576",
+      "HP:0000092",
+      "HP:0000107",
+      "HP:0000822"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "UMOD"
+    ],
+    "treatments": [
+      "Allopurinol",
+      "Kidney Transplantation",
+      "Avoidance of Nephrotoxins and Volume Depletion"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Familial_Juvenile_Hyperuricemic_Nephropathy_Type_1.yaml",
+    "page_url": "../pages/disorders/Familial_Juvenile_Hyperuricemic_Nephropathy_Type_1.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Familial Juvenile Hyperuricemic Nephropathy Type 2",
@@ -410971,17 +411182,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3807,
-  "total_subtypes": 4945,
-  "total_disorders_and_subtypes": 8752,
-  "total_unique_evidence_sources": 56675,
-  "total_unique_publications": 52988,
+  "total_disorder_pages": 3809,
+  "total_subtypes": 4947,
+  "total_disorders_and_subtypes": 8756,
+  "total_unique_evidence_sources": 56707,
+  "total_unique_publications": 53020,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 311,
-  "total_pathographs": 3805,
-  "total_unique_pathological_events": 25034,
+  "total_pathographs": 3807,
+  "total_unique_pathological_events": 25043,
   "total_modules": 215,
-  "total_research_reports": 3920,
+  "total_research_reports": 3922,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 128
