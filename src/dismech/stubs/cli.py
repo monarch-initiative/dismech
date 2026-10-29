@@ -16,6 +16,15 @@ from .claims import (
     parse_claims,
     unkeyed_claims,
 )
+from .fetch import (
+    CLAIM_FETCH_LIMIT,
+    CLAIMS_REPO,
+    NO_GH_MESSAGE,
+    ClaimFetchError,
+    fetch_claims,
+    gh_available,
+    write_claims_file,
+)
 from .model import (
     build_coverage_index,
     check_stubs,
@@ -25,9 +34,6 @@ from .model import (
 )
 from .obsolescence import default_mondo_db, load_obsolescence
 from .seed import seed_stubs
-
-#: Must match the `--limit` in the `just fetch-claims` recipe.
-CLAIM_FETCH_LIMIT = 1000
 
 app = typer.Typer(
     name="dismech-stubs",
@@ -137,8 +143,8 @@ def next_command(
         "--claims",
         help=(
             "Open claim issues as JSON, to exclude already-claimed diseases. "
-            "Use '-' for stdin. Produce it with: gh issue list --label claim "
-            "--state open --json number,title,assignees,url,createdAt --limit 1000"
+            "Use '-' for stdin. Produce it with `just fetch-claims` "
+            "(`dismech-stubs fetch-claims`)."
         ),
     ),
     as_json: bool = typer.Option(False, "--json", help="Emit JSON instead of text."),
@@ -249,10 +255,10 @@ def _advisory_record(issue) -> dict:
 def _read_json_arg(path: str | None):
     if not path:
         return None
-    if path == "-":
-        return json.loads(sys.stdin.read())
     try:
-        return json.loads(Path(path).read_text(encoding="utf-8"))
+        text = (
+            sys.stdin.read() if path == "-" else Path(path).read_text(encoding="utf-8")
+        )
     except FileNotFoundError:
         typer.echo(
             f"claims file not found: {path}. Write it with `just fetch-claims`, "
@@ -261,6 +267,18 @@ def _read_json_arg(path: str | None):
             err=True,
         )
         raise typer.Exit(2) from None
+    if not text.strip():
+        # What a failed `gh ... > tmp/claims.json` used to leave behind
+        # (#15854, #11814). Reading it as "no claims" would offer every
+        # claimed disease as free, so it is an error, not an empty list.
+        typer.echo(
+            f"claims file is empty: {path}. An earlier fetch probably failed; "
+            "re-run `just fetch-claims` and check its output.",
+            err=True,
+        )
+        raise typer.Exit(2)
+    try:
+        return json.loads(text)
     except json.JSONDecodeError as exc:
         typer.echo(f"claims file is not valid JSON: {path}: {exc}", err=True)
         raise typer.Exit(2) from None
@@ -305,6 +323,8 @@ def claims_command(
     if len(claims) >= CLAIM_FETCH_LIMIT:
         # `gh issue list --limit N` truncates silently, and a truncated claim
         # list means the two-phase check can hand out a disease somebody holds.
+        # `fetch-claims` already switches to the uncapped REST route when it
+        # sees exactly this many; this catches a file produced some other way.
         typer.echo(
             f"WARNING: exactly {CLAIM_FETCH_LIMIT} claims returned — the fetch "
             "limit was probably hit and this list may be truncated. Re-fetch "
@@ -341,10 +361,60 @@ def claims_command(
         typer.echo(
             f"\nstale — over {stale_days}d old with no linked PR ({len(stale)}):"
         )
+        unknown = sum(1 for c in stale if not c.linked_pr_known)
+        if unknown:
+            typer.echo(
+                f"  NOTE: linked-PR data is unavailable for {unknown} of these "
+                "(the claims file was fetched over the REST API or the GitHub "
+                "MCP server, which cannot report PRs that close an issue), so "
+                "this list may over-report. Check an issue for an open PR "
+                "before treating its claim as stale."
+            )
         for claim in sorted(stale, key=lambda c: -(c.age_days() or 0)):
             age = claim.age_days()
             who = ", ".join(claim.assignees) or "unassigned"
             typer.echo(f"  #{claim.number} {int(age or 0):4d}d {who:20s} {claim.title}")
+
+
+@app.command("fetch-claims")
+def fetch_claims_command(
+    out: Path = typer.Option(
+        Path("tmp/claims.json"), "--out", help="Where to write the claims JSON."
+    ),
+    repo: str = typer.Option(CLAIMS_REPO, "--repo", help="owner/name to read."),
+) -> None:
+    """Fetch the open `claim` issues and write them to OUT.
+
+    Tries `gh issue list` (GraphQL, which reports linked PRs) and falls back
+    to `gh api --paginate` (REST) when that fails, as it does in Claude Code
+    cloud sessions and on gh older than v2.73.0. OUT is written only on
+    success; a failed fetch exits 1 and leaves any existing file as it was.
+    """
+    if not gh_available():
+        typer.echo(NO_GH_MESSAGE, err=True)
+        raise typer.Exit(127)
+    try:
+        result = fetch_claims(repo)
+    except ClaimFetchError as exc:
+        typer.echo(f"fetch-claims failed, {out} not written: {exc}", err=True)
+        raise typer.Exit(1) from None
+    for note in result.notes:
+        typer.echo(note, err=True)
+    if not result.rows:
+        typer.echo(
+            f"WARNING: GitHub reports no open `claim` issues in {repo}. That is "
+            "possible but unusual; check before trusting an empty claim list.",
+            err=True,
+        )
+    write_claims_file(result.rows, out)
+    route = "gh issue list" if result.route == "graphql" else "the REST API"
+    typer.echo(f"wrote {len(result.rows)} claims to {out} (via {route})")
+    if not result.linked_prs_available:
+        typer.echo(
+            "linked-PR data is not available over REST, so `check-claims` may "
+            "over-report stale claims.",
+            err=True,
+        )
 
 
 #: Findings that mean "the queue drifted", not "this file is broken". These are
