@@ -330,12 +330,16 @@ mechanism-level rather than disease-level.
         `Secondary_Erythromelalgia` names ticlopidine only as one of the platelet inhibitors that
         failed to relieve its pain, so it is not treated with the class at all. Only the first of
         those is the generic-binding shape that the `Bronchodilator` refinements in #15777 fixed.
-        Five further entries mention a P2Y12 drug but are not candidates: `Alexander_Disease`
-        (clopidogrel as a mouse-model probe), `Atypical_Hemolytic_Uremic_Syndrome` (clopidogrel as
-        a precipitant), `CYCS-Related_Thrombocytopenia` (whose own notes say a carrier's
-        clopidogrel is not evidence that antiplatelet drugs treat the disease), and
+        Five further entries name the class or one of its drugs but are not candidates:
+        `Alexander_Disease` (clopidogrel as a mouse-model probe),
+        `Atypical_Hemolytic_Uremic_Syndrome` (clopidogrel as a precipitant),
+        `CYCS-Related_Thrombocytopenia` (whose own notes say a carrier's clopidogrel is not
+        evidence that antiplatelet drugs treat the disease), and
         `Platelet-type_Bleeding_Disorder_8` and `Platelet-type_Bleeding_Disorder_16`, where P2RY12
-        is the causal gene and loss of the receptor is the disease rather than the therapy
+        is the causal gene and loss of the receptor is the disease rather than the therapy. Note
+        that a grep for drug names alone returns thirteen entries, not fourteen:
+        `Platelet-type_Bleeding_Disorder_16` names only "P2Y12 inhibitors" as a class, so searching
+        for `p2y12` as well as the drug names is what makes the two counts agree
 - [ ] Remaining Workstream A modules
   - [x] D2 receptor antagonism — `d2_receptor_antagonism` (#15299)
   - [x] AT1 receptor blockade — `at1_receptor_blockade` (#15271)
