@@ -11,6 +11,7 @@ from typing import Any
 from oaklib import get_adapter
 
 from dismech import oak_db
+from dismech.repo_root import repo_root
 from dismech.yaml_io import safe_load
 
 # Public so tests can ask `oak_db.local_build_present` about the same string
@@ -118,7 +119,7 @@ _HP_ISA = _HPOIsARelationshipResolver()
 
 def _default_kb_dir() -> Path:
     """Return the default disorder directory."""
-    return Path(__file__).resolve().parents[2] / "kb" / "disorders"
+    return repo_root() / "kb" / "disorders"
 
 
 def _iter_disease_files(kb_dir: Path) -> list[Path]:

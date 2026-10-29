@@ -374,6 +374,9 @@ def _collect_values(node, key: str) -> set[str]:
         for name, value in node.items():
             if name == key and isinstance(value, str):
                 found.add(value)
+            elif name == key and isinstance(value, list):
+                # conforms_to may list several module nodes (dismech#13923).
+                found |= {item for item in value if isinstance(item, str)}
             else:
                 found |= _collect_values(value, key)
     elif isinstance(node, list):

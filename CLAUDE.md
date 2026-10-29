@@ -332,8 +332,18 @@ correlates with being a grouping rather than with being worth curating
 (`already_curated`, `obsolete_term`), so the pool never offers a disease the KB
 already holds by MONDO ID; `--include-stale` puts them back. Other `check-stubs`
 advisories, such as `possible_kb_duplicate`, keep the stub in the pool and are
-printed beside it, and in `--json` as `advisories`. The check reads every KB
-file, so the command takes about half a minute (#11616).
+printed beside it, and in `--json` as `advisories`. An advisory about a MONDO
+merge names the successor beside its kind (`obsolete_term_replaced ->
+MONDO:0980711`) and as `successor` in `--json`. `successor_already_stubbed`
+marks a stub whose successor already has its own stub: fold the two by hand
+rather than repointing, which would only make a duplicate ID (#15853). Both
+read the committed enrichment markers, so they are only as fresh as the last
+`just enrich-stubs`. The check needs every KB
+entry's MONDO IDs and labels; parsing them takes about half a minute, so the
+derived index persists in the gitignored `tmp/stub_coverage_index.json` and a
+warm run takes about a second and a half (#11616, #15116). Bump
+`COVERAGE_CACHE_VERSION` in `src/dismech/stubs/model.py` when the label or ID
+extraction changes; `DISMECH_KB_CACHE=0` turns the cache off.
 
 **`entry_type` is the lump/split decision and is never pre-filled.** Seeded
 stubs are all `UNDECIDED`. Deciding is the curator's first job:
@@ -809,6 +819,7 @@ pathophysiology:
 - **Organ-specific substitution**: Module nodes define generic cell types (e.g., `fibroblast`); conforming disorder nodes substitute organ-specific types (e.g., `hepatic stellate cell`)
 - **Consistency checking**: If a node declares `conforms_to`, it should include the expected biological processes and causal edges from the module
 - **Reference format**: `"module_name#Node Name"` — module name matches the filename in `kb/modules/` (without `.yaml`), node name matches a pathophysiology `name` in that module
+- **More than one module**: a node that is a genuine instance of two module nodes lists both — `conforms_to:` followed by a YAML list of references — instead of picking one (dismech#13923). The plain-string form stays valid and needs no migration. In code, read the slot through `dismech.conformance.iter_conforms_to`, which returns a list for either spelling; an `isinstance(value, str)` check silently drops the list form
 - **Validated exactly like a disorder**: `just validate-module-batch <files>` (what CI runs on changed modules) and `just validate-modules` (all modules, in `just qc`) apply the `validate-disorders` gate, including abstract-only `--no-full-text` snippet matching; the pytest sweep runs every disorder structural check on modules too. What is *not* checked is conformance content: `conforms_to` must resolve to a real module node, but nothing compares the conforming node's processes or edges against it
 
 **Creating a module?** Use the `create-module` skill — it covers the module
@@ -1217,6 +1228,59 @@ The sibling metric `genetic[].mechanism_outlink` (causal genes wired to a
 mechanism, currently 48.9%) is deliberately still advisory — same recipe,
 `--genes-fail-under` to check it ad hoc.
 
+### Logical Rules: A Node's Annotations Must Agree With Each Other
+
+Every other gate validates one binding at a time. `CL:0000057 fibroblast` is a
+real term, `GO:0001837 epithelial to mesenchymal transition` is a real term, and
+a pathophysiology node asserting both passes LinkML validation, term validation,
+reference validation and every test in `tests/`. It is still incoherent: a
+fibroblast is not epithelium, so it is not the cell that undergoes EMT.
+
+```bash
+just check-logical-rules                            # whole KB, report-only
+just check-logical-rules kb/disorders/Asthma.yaml
+just check-logical-rules --strict                   # exit 1 on findings
+just refresh-logical-rule-closures                  # only after editing the rules
+```
+
+Rules live in `conf/logical_rules.yaml`; each names a process and the cell
+classes that **disqualify** a node's cell annotation from being that process's
+substrate, and fires only when *every* annotated cell type is disqualifying.
+Both halves of that are load-bearing:
+
+- **Disqualifying, not required.** "EMT requires an epithelial cell" reports
+  `CL:0000646 basal cell` and `CL:0008036 extravillous trophoblast` — textbook
+  EMT substrates that CL does not assert under `CL:0000066` — as defects. Stating
+  what the cells *are* makes an ontology gap cost a missed finding rather than a
+  false accusation.
+- **Every, not any.** A node annotating both ends of a transition (the alveolar
+  epithelial cell that starts it, the myofibroblast it becomes) is good curation.
+
+**Report-only, like `check-source-defect-claims`.** A finding is a question, and
+it gets answered one of two ways: repair the annotation (`GO:0036446`
+myofibroblast differentiation, `GO:0140074` cardiac EndMT — in the heart
+only, since GO has no general EndMT term — and `GO:0098609` decreased
+cell-cell adhesion are the usual right answers), **or** record why the
+pairing is correct in `review_notes` on the node:
+
+```yaml
+review_notes: >-
+  Logical rule waived: emt-without-epithelial-substrate. <at least 20 words
+  saying which biology or which ontology gap makes this pairing correct here.>
+```
+
+The sentinel must lead `review_notes`, name the rule id, and carry 20+ words —
+the same floor `check-environmental-evidence` uses, and for the same reason.
+`notes:` is disease content and cannot waive; a waiver naming another rule does
+not transfer. This is deliberately not a baseline file: a baseline records that a
+finding was seen, `review_notes` records why a curator decided it was fine, where
+the next curator reads it.
+
+Closures (`cache/rule_closure/*.csv`) are committed and regenerated through
+`conf/oak_config.yaml` adapters, so the check is offline and deterministic; do
+not hand-edit them, and re-run the refresher after changing a rule's roots. See
+[`docs/logical-rules.md`](docs/logical-rules.md) before adding a rule.
+
 ### Cancer Entry Granularity
 
 Somatic cancer entries follow the **granularity ladder** ratified in design
@@ -1418,6 +1482,7 @@ just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
 just validate-grouping-batch kb/groupings/Mucopolysaccharidoses.yaml   # what CI runs
 just grouping-nesting-audit          # declared tree + undeclared containments
 just grouping-mondo-consistency      # does each MONDO predicate survive its own members?
+just grouping-gene-go-audit          # do members' causal genes carry the GO activity (GO or ai-gene-review)?
 ```
 
 Membership criteria are audited over the HP/GO closure committed in
@@ -3982,6 +4047,13 @@ Non-negotiable rules:
   on an HGNC identifier written beside the wrong gene (#9845).
 - Never create or hand-edit `references_cache/*.md`; generate or regenerate an
   entry with `just fetch-reference <ID>`.
+- A reference first cached as an abstract stays `abstract_only` on later plain
+  fetches. To upgrade it, `just fetch-reference <ID> --force` (any `-`-prefixed
+  argument is passed to the validator rather than read as an ID, #13185). Use it
+  only when the content a claim needs, such as a phenotype table, is in the PMC
+  full text. A forced re-fetch rewrites the frontmatter and can add hundreds of
+  body lines (#10460, #10736), so stage only the `references_cache/` file you
+  meant to upgrade and re-run `just count-verified-snippets` afterwards.
 - **Re-derive the cited-PMID list immediately before pruning uncited caches.** A
   list built earlier in the session goes stale the moment you add a section, and
   pruning against it deletes a cache the entry now cites. CI does not catch this:
@@ -3999,12 +4071,36 @@ spaces Nature journals put around `=`, and a hyphen matches an en dash or
 unicode minus in a range: `"AUC = 0.933"` typed normally matches the source. In
 the #9308 tranche 8 of 15 snippets were not byte-exact and all 15 verified.
 
-Prefer plain ASCII in new snippets anyway — an invisible character in a quote is
-a trap for the next curator, and it buys nothing. Existing snippets that copied
+**Greek letters are transliterated, so both spellings verify.** `normalize_text`
+maps them through `greek_map` on both sides: `α3β3` becomes `alpha3beta3`, `γ`
+becomes `gamma`, and `NF-κB` becomes `nf kappab`. A snippet reading `α3β3` and
+one reading `alpha3beta3` both match a source reading `α3β3`. Prefer copying the
+source's own letter when it is visible and part of the nomenclature, so the
+quote reads as the source does (#9433); the ASCII spelling is the fallback when
+copying is awkward, and must keep the source's spacing (`kappaB`, not
+`kappa B`, which normalizes to `kappa b` and fails).
+
+**Never truncate a snippet to avoid a character.** A quote that stops just
+before the word it was cited for still verifies, and still clears
+`check-snippet-length`, whose floor is `MIN_SNIPPET_WORDS = 5` — so a six-word
+fragment such as `Mutations in this region in the` passes every gate and
+supports nothing (#15607). Only a reviewer catches it. That is a worse defect
+than any typography.
+
+Prefer plain ASCII for characters that are **invisible or lookalikes** — those
+are a trap for the next curator, and they buy nothing. Existing snippets that copied
 the source's thin spaces and en dashes verbatim are equally valid and need no
 repair. The characters that do **not** fold are `x` typed for `×`, mid-word soft
 hyphens and zero-width spaces, `ﬁ`-style ligatures, and the U+00B5 micro sign.
 Full detail, including why this matters, in `.claude/skills/dismech-references`.
+
+To check how a candidate will compare, call the real normalizer rather than a
+hand-rolled one (a re-implementation that skips `greek_map` hides the ASCII
+option):
+
+```bash
+uv run python -c "from linkml_reference_validator.validation.supporting_text_validator import SupportingTextValidator as V; print(V.normalize_text('the α3β3 assembly'))"
+```
 
 Example:
 
@@ -4025,39 +4121,69 @@ just count-verified-snippets kb/disorders/MyDisease.yaml
 just validate-terms kb/disorders/MyDisease.yaml
 ```
 
-CI also runs these offline gates without changed-path filtering. Run them after
-a tranche of curation edits; only the duplicate-key and entity-ref checks accept
-a file path:
+CI also runs these offline gates without changed-path filtering, in the `Run
+whole-repo gates` step of `.github/workflows/main.yaml`, so they run on a
+`kb/`-only PR. Run them after a tranche of curation edits; the ones shown with
+a path also accept file paths, and the rest always scan the whole tree:
 
 ```bash
 just check-folded-hyphens
 just check-folded-yaml
 just check-snippet-length
 just check-title-snippets
-just check-snippet-grading
+just check-reference-titles
 just check-retired-support-prose
 just check-environmental-evidence
 just check-duplicate-keys kb/disorders/MyDisease.yaml
+just check-block-scalar-comments kb/disorders/MyDisease.yaml
+just check-enum-values kb/disorders/MyDisease.yaml
+just check-delivery-system kb/disorders/MyDisease.yaml
 just check-entity-refs kb/disorders/MyDisease.yaml
+just check-logical-rules kb/disorders/MyDisease.yaml
 just check-causal-targets kb/disorders/MyDisease.yaml
+just check-shared-disease-terms
+just check-gene-activity-grounding
+just check-coarse-phenotypes kb/disorders/MyDisease.yaml
 just check-qualifier-terms kb/disorders/MyDisease.yaml
 just check-source-defect-claims  # report-only
 ```
 
+That is every `scripts/check_*` gate in that step that reads KB entries. The
+step also runs three that do not (`check-skill-files`, `check-case-collisions`,
+`check-reference-cache-nul-bytes`) and a few that are not `scripts/check_*`
+scripts, such as `compliance-connectivity`; the step itself is the
+authoritative list.
+
+**`just check-snippet-grading` is not in that list, because CI does not run it
+on a `kb/`-only PR.** It has no step of its own: it runs as
+`tests/test_snippet_grading.py` inside the `Run Python code/logic tests` step,
+which fires only when the `python` path filter matches (`src/`, `tests/`,
+workflows, the justfiles and a handful of named scripts, but no `kb/` path) or
+in the merge queue. A curation PR touches none of those paths, so
+a re-graded quote passes every check on the PR and is first caught when the
+merge queue runs the full suite and ejects it. This is the hazard described
+under *Why the entity-ref check is a CI step and not just a test* below. Run
+`just check-snippet-grading` yourself before pushing a curation PR.
+
 They catch folded-scalar word corruption, evidence items swallowed into a
 block scalar, non-propositional short snippets,
-paper titles used as findings, one quoted sentence graded with two different
-`evidence_source` values in the same file, prose arguing for a retired
+paper titles used as findings, a `reference_title` that does not match the
+cached title, prose arguing for a retired
 `supports` grade, environmental claims without
-entry-level evidence, duplicate YAML keys, broken `<kind>#<name>` entity
-references, broken bare-name pathograph targets, and prose claims about
-defective sources that the cache contradicts. Five of them carry a committed
-baseline file grandfathering a pre-existing backlog -- `check-snippet-length`,
-`check-title-snippets`, `check-snippet-grading`, `check-retired-support-prose`
-and `check-causal-targets`. Three further gates that are in `just qc` but not
-in the list above do too: `check-reference-titles`, `check-coarse-phenotypes`
-and `check-gene-activity-grounding`. The formatter-spacing gate adds a ninth backlog (see YAML Formatter Safety),
-with its shrink-only updater on `check-block-scalar-comments --update-baseline`.
+entry-level evidence, duplicate YAML keys, formatter-spacing corruption inside
+block scalars, enum values a schema change has retired, inconsistent
+`delivery_system` records, broken `<kind>#<name>` entity
+references, broken bare-name pathograph targets, shared `disease_term`s that do
+not say how they are shared, genes landing on a node that names no molecular
+function, coarse HPO bindings with no stated basis, wrong qualifier ontology
+labels, and prose claims about
+defective sources that the cache contradicts. Nine of the gates in the list
+carry a committed baseline file grandfathering a pre-existing backlog:
+`check-snippet-length`, `check-title-snippets`, `check-reference-titles`,
+`check-retired-support-prose`, `check-block-scalar-comments` (shrink-only, see
+YAML Formatter Safety), `check-causal-targets`, `check-shared-disease-terms`,
+`check-gene-activity-grounding` and `check-coarse-phenotypes`.
+`check-snippet-grading` has one too.
 Inspect `tests/*_baseline.txt` for the current set. Do not update a baseline
 to admit a defect introduced by the current change.
 
@@ -4178,6 +4304,12 @@ Treat committed CSVs under `cache/` as derived, authority-backed artifacts:
 - `cache/<prefix>/terms.csv` caches CURIE existence and canonical labels.
 - `cache/enums/*.csv` caches membership in schema dynamic enums. Presence in
   the label cache does not establish enum membership.
+- `cache/rule_closure/*.csv` caches the `is_a` closure of the roots named in
+  `conf/logical_rules.yaml`, so `just check-logical-rules` runs offline.
+  Regenerate with `just refresh-logical-rule-closures`, never by hand. This is
+  **not** `cache/closure/`, the grouping membership closure cache described
+  under *Disease Groupings*: different schema, different builder, deliberately
+  a different directory.
 - `cache/<prefix>/hierarchy.csv` caches the **ancestor path** the renderer draws
   as a mapping breadcrumb, for the strict-hierarchy prefixes only (ICD10CM,
   NCIT). It answers a different question from `terms.csv`: not "does this CURIE
@@ -4288,6 +4420,16 @@ up from ones you do. That half is irreducibly a descendant query and still
 needs the local build. Before reaching for the build, ask which direction the
 question actually runs in.
 
+Facts about a single term need no closure at all, and OLS serves them too: its
+v2 entity endpoint returns a term's `RO:0004003` restrictions, `hasDbXref`
+values and exact synonyms in one request. `dismech.mondo_ols` reads them, so
+`just preflight-dr` and `dismech.research_anchors` use the local build when it
+is present and OLS otherwise, and the preflight names its source in a
+`MONDO source` line (#15436). The reverse question, which MONDO diseases a gene
+causes, is a per-gene query OLS cannot answer: over OLS the preflight reports
+that lookup as not run, so a never-named canonical gene with a matching OMIM
+citation stays `WARN` rather than being raised to `FAIL`.
+
 **Not everything that opens a build is a bug, so check before adding a guard.**
 `compare/mondo_export._materialize_default_mondo_db` opens `sqlite:obo:mondo` to
 download it on purpose — that is a CLI whose job is to export MONDO, and its own
@@ -4300,8 +4442,11 @@ ontology.
 `preflight_dr.open_mondo_adapter` (`just preflight-dr`) reads MONDO's
 `RO:0004003` causal gene and OMIM xrefs, which *are* the check, so there is no
 degradation path: an empty record would read as "MONDO records no causal gene"
-and come out as `SKIP`. With no local `mondo.db` it exits 2 naming
-`just fetch-ontology-dbs mondo`, before the HGNC lexicon is built (#12687).
+and come out as `SKIP`. With no local `mondo.db` and OLS unreachable as well, it
+exits 2 naming `just fetch-ontology-dbs mondo`, before the HGNC lexicon is built
+(#12687). HGNC only sharpens the check, so it degrades instead: without
+`hgnc.db` the lexicon and alias lookups are skipped as with `--no-hgnc`, with a
+note naming `just fetch-ontology-dbs hgnc`.
 
 **The `phenoagent` one is the case that shows why the two-guard rule exists.**
 Its tests are what actually pulled `hp.db` in the fast lane, and 21 of them
@@ -4808,6 +4953,34 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 - Never leave the primary checkout on a feature branch.
 - If `git checkout main` fails with "already checked out at …", find which worktree holds `main` (`git worktree list | grep '\[main\]'`), switch that worktree to a feature branch, then retry.
 
+**Which checkout a command reads and writes.** `dismech` commands find the
+repository from the working directory, not from where the package is installed
+(`src/dismech/repo_root.py`): the nearest directory at or above it holding a
+`justfile` and `kb/`. Set `DISMECH_ROOT=/path/to/checkout` to choose one
+explicitly; outside any checkout they fall back to the installed tree and warn
+once. This matters because one virtualenv shared across worktrees installs the
+package from the primary checkout, so a path built from `__file__` sent a
+worktree's reads and writes there (#15051, #15109). In `src/dismech/` and
+`src/phenoagent/`, use
+`repo_root()` (or `LazyRepoPaths` for a module-level constant) for checkout
+paths; `Path(__file__)` is only for resources inside the package, such as
+`schema/` and `templates/`. `tests/test_repo_root_sweep.py` enforces this.
+
+**Each worktree would otherwise build its own ~1 GB environment.** `uv run` in a
+worktree with no `.venv` builds one there, and parallel curation in five
+worktrees has filled the disk that way (#13119). Share the primary checkout's
+environment by exporting `UV_PROJECT_ENVIRONMENT=<primary>/.venv` in your
+shell. The pre-edit validation hook does not inherit that variable, so it
+applies the same rule itself: it uses the primary's `.venv`, with
+`UV_NO_SYNC=1`, when the worktree has no `.venv` of its own and its
+`pyproject.toml` and `uv.lock` match the primary's byte for byte. A branch that
+changes dependencies gets its own environment, as it needs to. If the disk
+fills anyway, the baseline gates that extract `origin/main` to TMPDIR
+(`check-snippet-length`, `check-title-snippets`, `check-snippet-grading`,
+`check-reference-titles`) say `ENVIRONMENT ERROR, not a content finding` and
+exit 74 (`dismech.disk_full`), so free space and rerun rather than editing KB
+content.
+
 ### What to commit
 
 | Path | Commit? | Reason |
@@ -5097,7 +5270,7 @@ Draft status is not a hold: anything opened as a PR is in the review queue. The
 controller marks an eligible draft ready, re-reads every guard, and restores
 draft state if that merge attempt aborts.
 
-**A third hold exists and is not visible from the PR page.** The controller
+**A third hold is announced on the PR, not set on it.** The controller
 also holds a PR back once it has failed the merge queue
 `--ejection-strike-limit` times (default 2) with no push in between. This
 exists because a queue ejection is otherwise invisible to eligibility: an
@@ -5112,19 +5285,23 @@ is keyed on the head commit's `committedDate`, so rewriting the head — a push,
 amend, rebase, or merge of the base branch — resets it to zero.
 
 Unlike assignment or a CHANGES_REQUESTED review, this hold leaves no label,
-review, or assignee: its only trace is a `SKIP` line in the run summary naming
-the strike count. Until #10988's tier 2 posts a comment on the PR, that summary
-and this paragraph are the only places it is recorded.
+review, or assignee. Instead, the first sweep that holds a head posts one
+templated `🐑 PR Shepherd` comment on the PR saying why and how to clear it,
+deduplicated by a hidden marker keyed on the head SHA, so hourly sweeps do not
+repeat it. It is a comment and not a review on purpose: a review would outlive
+the push that clears the hold. Dry runs do not post, and a failed post is
+logged without failing the run, so the `SKIP` line in the run summary
+(suffixed with the notice outcome) stays the record of last resort.
 
-**A fourth hold is also invisible, and lasts one sweep.** When a merge queue is
+**A fourth hold is invisible from the PR page, and lasts one sweep.** When a merge queue is
 active, a candidate that adds a `cache/<prefix>/*.csv` term-cache row already
 added by a PR enqueued earlier in the *same* sweep is skipped, because the two
 would conflict in the queue and the second would be ejected. Only multi-field
 rows (`curie,label,retrieved_at`) count — a bare-CURIE enum row is identical
 bytes in both PRs and merges cleanly. The hold is within-run and queue-mode
 only, clears itself on the next sweep, and is disabled by
-`--no-conflict-batching`. Like the ejection hold, its only trace is a `SKIP`
-line in the run summary, which names the PR holding the contended row;
+`--no-conflict-batching`. Unlike the ejection hold, it posts nothing on the PR:
+its only trace is a `SKIP` line in the run summary, which names the PR holding the contended row;
 `just auto-merge-preview` reports it too.
 
 Immediately before each action, the controller re-reads every PR guard and pins

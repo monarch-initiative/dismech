@@ -45,10 +45,22 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 CURIE = re.compile(r"^([A-Za-z][A-Za-z0-9_.]*):([A-Za-z0-9][A-Za-z0-9_.\-]*)$")
 
 # The top-level Disease slot a path starts in tells you the role the term plays.
+#
+# For every block `drug_exposure_query.py` also probes, the role named here is
+# the one that script reports, so the two outputs can be read side by side or
+# joined on the role column -- which the recipe in
+# `docs/searching_drugs_and_exposures_in_dismech.md` asks a reader to do. A
+# test holds the two vocabularies together. Blocks only this script reaches
+# (phenotypes, trials, animal models, diagnosis, modules) name themselves.
 ROLE_BY_ROOT = {
     "treatments": "therapy",
     "environmental": "exposure",
-    "pathophysiology": "mechanism",
+    "pathophysiology": "mechanism_node",
+    "biochemical": "analyte",
+    "datasets": "dataset",
+    "computational_models": "model_variable",
+    "infectious_agent": "infectious_agent",
+    "discussions": "proposed",
     "phenotypes": "phenotype",
     "clinical_trials": "trial",
     "animal_models": "model",
