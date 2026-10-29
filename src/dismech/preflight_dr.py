@@ -211,6 +211,8 @@ class MondoRecord:
     #: at, kept so a report's own identifier for the gene can be compared
     #: with it (#9845). :attr:`genes` keeps only the symbol.
     gene_curies: dict[str, str] = field(default_factory=dict)
+    #: Where these facts were read: the local build or OLS (#15436).
+    source: str = ""
 
 
 @dataclass(frozen=True)
@@ -262,6 +264,8 @@ class PreflightResult:
     #: Gene identifiers in the report that name a different gene than the
     #: symbol beside them (see :func:`check_gene_identifiers`).
     gene_identifier_findings: list[GeneIdentifierFinding] = field(default_factory=list)
+    #: Where the MONDO facts were read: the local build or OLS (#15436).
+    mondo_source: str = ""
 
     @property
     def expected_absent(self) -> bool:
@@ -437,38 +441,66 @@ def _symbol_like(value: str) -> bool:
 
 MONDO_ADAPTER = "sqlite:obo:mondo"
 
+#: How :attr:`MondoRecord.source` names the local build.
+LOCAL_MONDO_SOURCE = f"local MONDO build ({MONDO_ADAPTER})"
+
 
 class MondoBuildUnavailable(RuntimeError):
-    """The local ``mondo.db`` build is absent, so the preflight cannot run.
+    """Neither the local ``mondo.db`` build nor OLS can answer, so the preflight cannot run.
 
-    Raised instead of opening the adapter, because opening it does not fail on a
-    missing build: semsql downloads ``mondo.db`` (232 MB compressed, 1.3 GB on
-    disk) with no prompt (#12687). Nor is an empty :class:`MondoRecord` an
-    acceptable answer, since it reads as "MONDO records no causal gene" and
-    turns into a ``SKIP`` verdict.
+    Raised instead of opening the local adapter, because opening it does not
+    fail on a missing build: semsql downloads ``mondo.db`` (232 MB compressed,
+    1.3 GB on disk) with no prompt (#12687). Without the build the term is read
+    from OLS (#15436), and this is raised only when OLS cannot answer either.
+    Nor is an empty :class:`MondoRecord` an acceptable answer, since it reads
+    as "MONDO records no causal gene" and turns into a ``SKIP`` verdict.
     """
 
 
-def open_mondo_adapter():
-    """Open the local MONDO build, refusing to download it.
+def open_mondo_adapter(mondo_id: str | None = None):
+    """Open MONDO for ``mondo_id``: the local build if present, otherwise OLS.
 
-    The build is fetched deliberately with ``just fetch-ontology-dbs mondo``.
-    ``conf/oak_config.yaml`` routes MONDO to ``ols:mondo`` for term validation,
-    but this check needs the ``RO:0004003`` causal-gene edges and OMIM xrefs,
-    which it reads from the local build.
+    The local build is preferred and is never downloaded; it is fetched
+    deliberately with ``just fetch-ontology-dbs mondo``. Without it, an
+    :class:`dismech.mondo_ols.OlsMondoAdapter` reads the same per-term facts
+    (``RO:0004003`` causal genes, OMIM xrefs, synonyms) from OLS. When
+    ``mondo_id`` is given that term is fetched here, so an unreachable OLS
+    raises :class:`MondoBuildUnavailable` before any verdict is attempted.
     """
     from dismech.oak_db import local_build_path, local_build_present
 
-    if not local_build_present(MONDO_ADAPTER):
-        raise MondoBuildUnavailable(
-            f"the local MONDO build is not present at {local_build_path('mondo')}. "
-            "preflight-dr reads the MONDO causal gene and OMIM xrefs from it and "
-            "will not download it implicitly (about 1.3 GB on disk). Fetch it "
-            "with `just fetch-ontology-dbs mondo`, then re-run."
-        )
-    from oaklib import get_adapter
+    if local_build_present(MONDO_ADAPTER):
+        from oaklib import get_adapter
 
-    return get_adapter(MONDO_ADAPTER)
+        return get_adapter(MONDO_ADAPTER)
+
+    from dismech.mondo_ols import OlsLookupError, OlsMondoAdapter
+
+    adapter = OlsMondoAdapter()
+    if mondo_id:
+        try:
+            adapter.term(mondo_id)
+        except OlsLookupError as exc:
+            raise MondoBuildUnavailable(
+                f"the local MONDO build is not present at {local_build_path('mondo')}, "
+                f"and the OLS fallback could not answer: {exc}. preflight-dr reads "
+                "the MONDO causal gene and OMIM xrefs from one of the two and gives "
+                "no verdict without them. Retry when OLS is reachable, or fetch the "
+                "local build with `just fetch-ontology-dbs mondo` (it is never "
+                "downloaded implicitly; about 1.3 GB on disk), then re-run."
+            ) from exc
+    return adapter
+
+
+def _mondo_source(adapter) -> str:
+    """Name the source an adapter reads MONDO from, for the output."""
+    describe = getattr(adapter, "source_description", None)
+    if callable(describe):
+        try:
+            return str(describe())
+        except Exception:  # pragma: no cover - a label must never fail the run
+            return "unknown"
+    return LOCAL_MONDO_SOURCE
 
 
 def fetch_mondo_record(
@@ -492,12 +524,13 @@ def fetch_mondo_record(
     so ``--no-hgnc`` really is an offline mode rather than only a swap of the
     token lexicon.
 
-    With no ``adapter`` given, the local MONDO build must already be on disk:
-    :class:`MondoBuildUnavailable` is raised rather than letting semsql
-    download it (see :func:`open_mondo_adapter`).
+    With no ``adapter`` given, the local MONDO build is used if it is on disk
+    and OLS otherwise; :class:`MondoBuildUnavailable` is raised when neither
+    answers, rather than letting semsql download the build (see
+    :func:`open_mondo_adapter`).
     """
     if adapter is None:
-        adapter = open_mondo_adapter()
+        adapter = open_mondo_adapter(mondo_id)
 
     errors: list[str] = []
 
@@ -575,6 +608,7 @@ def fetch_mondo_record(
         gene_aliases=aliases,
         lookup_errors=tuple(errors),
         gene_curies=gene_curies,
+        source=_mondo_source(adapter),
     )
 
 
@@ -778,10 +812,22 @@ def _default_rival_lookup(adapter, use_hgnc: bool):
     build is downloaded: MONDO goes through :func:`open_mondo_adapter`, and
     HGNC, only a fallback for genes MONDO does not label, is skipped when its
     build is absent.
+
+    OLS cannot answer this reverse query (see :mod:`dismech.mondo_ols`), so
+    when MONDO is read from OLS the lookup reports that it did not run, which
+    :func:`assess` treats as a failed lookup rather than as "no rival disease".
     """
 
     def _lookup(symbols, exclude):
         mondo = adapter if adapter is not None else open_mondo_adapter()
+        if getattr(mondo, "supports_reverse_relationships", True) is False:
+            reason = (
+                "rival-gene disease lookup not run: MONDO was read from OLS, which "
+                f"cannot list the diseases a gene causes (a reverse {GENE_RELATION} "
+                "query). Fetch the local build with `just fetch-ontology-dbs mondo` "
+                "to run it"
+            )
+            return {}, [reason]
         hgnc = None
         if use_hgnc:
             from dismech.oak_db import local_build_present
@@ -1107,6 +1153,7 @@ def _assess_gene_mentions(
         lexicon_note=lexicon_note,
         alias_mentions=alias_mentions,
         lookup_errors=list(record.lookup_errors),
+        mondo_source=record.source,
     )
 
     def _cap_at_warn() -> None:
@@ -1380,8 +1427,12 @@ def format_report(result: PreflightResult) -> str:
     lines = [
         f"{result.verdict}  {result.report}",
         f"  intended entity : {result.mondo} {result.mondo_label}".rstrip(),
-        f"  canonical gene  : {'/'.join(result.expected_genes) or '(none recorded)'}",
     ]
+    if result.mondo_source:
+        lines.append(f"  MONDO source    : {result.mondo_source}")
+    lines.append(
+        f"  canonical gene  : {'/'.join(result.expected_genes) or '(none recorded)'}"
+    )
     if result.expected_mentions:
         mentions = ", ".join(
             f"{g}={n}" for g, n in sorted(result.expected_mentions.items())
@@ -1476,11 +1527,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.no_hgnc and args.require_hgnc:
         parser.error("--no-hgnc and --require-hgnc are mutually exclusive")
 
-    # Open MONDO first: without it there is no verdict to give, and failing
-    # here also stops the HGNC lexicon below from fetching its own build for a
-    # run that cannot finish.
+    # Open MONDO first (the local build, or OLS without it): without it there
+    # is no verdict to give, and failing here also stops the HGNC lexicon below
+    # from fetching its own build for a run that cannot finish.
     try:
-        mondo_adapter = open_mondo_adapter()
+        mondo_adapter = open_mondo_adapter(mondo)
     except MondoBuildUnavailable as exc:
         parser.exit(2, f"error: {exc}\n")
 

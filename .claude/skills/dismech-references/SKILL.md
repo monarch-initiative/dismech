@@ -83,9 +83,13 @@ disease:
 just preflight-dr research/My_Disease-deep-research-falcon.md MONDO:XXXXXXX
 ```
 
-It reads the local MONDO build and exits 2 when that is absent rather than
-downloading it (about 1.3 GB on disk); run `just fetch-ontology-dbs mondo` once
-first. `--no-hgnc` also keeps it off the HGNC build.
+It reads the local MONDO build when it is on disk and the same term from OLS
+otherwise, and says which in its `MONDO source` line; it never downloads the
+build (about 1.3 GB on disk). It exits 2 only when OLS is unreachable too, and
+that is not a verdict: retry, or run `just fetch-ontology-dbs mondo` once. Over
+OLS the rival-gene disease lookup cannot run, so a report that never names the
+canonical gene but cites the right OMIM number comes back `WARN`, not `FAIL`.
+`--no-hgnc` also keeps it off the HGNC build.
 
 Interpret the result as follows:
 
