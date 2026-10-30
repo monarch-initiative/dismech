@@ -183067,6 +183067,107 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Heart-Hand Syndrome, Slovenian Type",
+    "disease_id": "MONDO:0012417",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal dominant disease",
+      "Laminopathy"
+    ],
+    "creation_date": "2026-10-27T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal dominant laminopathy pairing LMNA-related cardiac disease with a distinctive brachydactyly, also designated heart-hand syndrome type IV. The cardiac arm is the familiar LMNA picture: adult-onset progressive sinoatrial and atrioventricular conduction disease, atrial and ventricular tachyarrhythmia, dilated cardiomyopathy, and sudden death. The skeletal arm is what makes it a distinct syndrome: brachydactyly affecting all the tubular bones, with a characteristic wavy metacarpophalangeal pattern profile and disproportionate shortening of the distal phalanges. Two families are published. In the original Slovenian kindred, ten affected members across four generations, the foot involvement was the more severe (short or absent middle phalanges, short metatarsals, terminal symphalangism, syndactyly) and cardiac presentation came in the fourth to fifth decade. In the second family, carrying LMNA p.Arg335Trp, the hands were affected with normal feet and the cardiac disease declared itself much earlier - syncope at 12, cardiogenic shock at 27, sudden death at 23. Neither family showed myopathy or lipodystrophy, which separates this entity clinically from the other LMNA phenotypes. Heart-hand syndrome is a clinical grouping of several unrelated disorders, not a mechanism: HHS I is Holt-Oram syndrome (TBX5), HHS II Tabatznik syndrome and HHS III the Spanish type. Only Holt-Oram and this entity have an identified gene, and they are different genes.",
+    "pathophysiology": [
+      "LMNA Variant Producing Structurally Abnormal Lamin A/C",
+      "Weakened Nuclear Lamina",
+      "Microtubule-Driven Nuclear Damage in Cardiomyocytes",
+      "MAPK Pathway Hyperactivation",
+      "Reduced WNT/beta-catenin Signalling",
+      "Conduction System Degeneration and Myocardial Fibrosis",
+      "Disturbed Distal Limb Element Patterning"
+    ],
+    "cell_types": [
+      "cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "nuclear envelope organization",
+      "MAPK cascade",
+      "Wnt signaling pathway",
+      "cardiac conduction",
+      "limb development",
+      "embryonic digit morphogenesis"
+    ],
+    "phenotypes": [
+      "Sick sinus syndrome",
+      "Atrioventricular block",
+      "Dilated cardiomyopathy",
+      "Ventricular tachycardia",
+      "Supraventricular tachycardia",
+      "Sudden cardiac death",
+      "Syncope",
+      "Brachydactyly",
+      "Short distal phalanx of finger",
+      "Clinodactyly",
+      "Short metatarsal",
+      "Toe symphalangism",
+      "4-5 toe syndactyly"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011704",
+      "HP:0001678",
+      "HP:0001644",
+      "HP:0004756",
+      "HP:0004755",
+      "HP:0001645",
+      "HP:0001279",
+      "HP:0001156",
+      "HP:0009882",
+      "HP:0030084",
+      "HP:0010743",
+      "HP:0010179",
+      "HP:0004692"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "LMNA"
+    ],
+    "treatments": [
+      "Implantable Cardioverter-Defibrillator",
+      "Avoidance of Competitive Athletic Activity",
+      "Genetic Counseling and Cascade Testing",
+      "p38 MAPK Inhibition"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Heart-Hand_Syndrome_Slovenian_Type.yaml",
+    "page_url": "../pages/disorders/Heart-Hand_Syndrome,_Slovenian_Type.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Heart Defect-Tongue Hamartoma-Polysyndactyly Syndrome",
     "disease_id": "MONDO:0009008",
     "category": "Mendelian",
@@ -399157,6 +399258,107 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Vacuolar Neuromyopathy",
+    "disease_id": "MONDO:0011155",
+    "category": "Mendelian",
+    "parents": [
+      "Distal myopathy",
+      "Autophagic vacuolar myopathy"
+    ],
+    "creation_date": "2026-10-27T18:44:57Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Vacuolar neuromyopathy (OMIM:601846), now usually called PLIN4-related myopathy or myopathy with rimmed ubiquitin-positive autophagic vacuolation, is an adult-onset, slowly progressive, autosomal dominant skeletal myopathy caused by in-frame expansions or duplications of the 99-nucleotide coding repeat in PLIN4. The repeat encodes the 33-amino-acid units of the amphipathic lipid-droplet-binding domain of perilipin-4, the most abundant perilipin in muscle. Normal alleles carry about 31 units; disease alleles carry 37 to 50. The expanded protein accumulates beneath the sarcolemma and in vacuoles of predominantly type I fibres, where it co-localizes with ubiquitin, p62/SQSTM1 and NBR1 and drives sustained aggrephagy; failing autophagic vesicles fuse into rimmed vacuoles that disorganize the myofibre. Weakness begins between the third and seventh decade, distal-predominant in the Italian and Spanish families and limb-girdle in the Chinese families, and spreads slowly; about 40% of the largest family became wheelchair users. Myotonic discharges on EMG are reported in one family and absent in another, and mixed neurogenic-myogenic EMG patterns can lead to misdiagnosis as a motor neuronopathy. Cardiac involvement has not been found and respiratory involvement is late and uncommon. Short-read exome and genome sequencing miss the expansion; diagnosis rests on biopsy (rimmed vacuoles with subsarcolemmal p62 and perilipin-4) and long-range PCR or long-read sequencing of PLIN4.\n",
+    "pathophysiology": [
+      "PLIN4 Amphipathic Repeat Expansion",
+      "Perilipin-4 Subsarcolemmal Accumulation and Aggregation",
+      "Sustained Aggrephagy Activation",
+      "Rimmed Autophagic Vacuole Formation",
+      "Myofiber Disorganization and Atrophy"
+    ],
+    "cell_types": [
+      "type I skeletal muscle fiber",
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0002211",
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "aggrephagy",
+      "skeletal muscle atrophy"
+    ],
+    "phenotypes": [
+      "Distal lower limb muscle weakness",
+      "Proximal muscle weakness",
+      "Neck flexor weakness",
+      "Fatty replacement of skeletal muscle",
+      "Rimmed vacuoles",
+      "Increased variability in muscle fiber diameter",
+      "Centrally nucleated skeletal muscle fibers",
+      "Type 1 muscle fiber predominance",
+      "EMG myopathic abnormalities",
+      "EMG myotonic discharges",
+      "Percussion myotonia",
+      "EMG neuropathic changes",
+      "Areflexia",
+      "Elevated circulating creatine kinase activity",
+      "Ankle contracture",
+      "Loss of ambulation",
+      "Restrictive ventilatory defect"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Neuromuscular",
+      "Laboratory",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0009053",
+      "HP:0003701",
+      "HP:0003722",
+      "HP:0012548",
+      "HP:0003805",
+      "HP:0003557",
+      "HP:0003687",
+      "HP:0003803",
+      "HP:0003458",
+      "HP:0100284",
+      "HP:0010548",
+      "HP:0003445",
+      "HP:0001284",
+      "HP:0003236",
+      "HP:0034677",
+      "HP:0002505",
+      "HP:0002091"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "PLIN4"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Vacuolar_Neuromyopathy.yaml",
+    "page_url": "../pages/disorders/Vacuolar_Neuromyopathy.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Van Buchem Disease",
     "disease_id": "MONDO:0009395",
     "category": "Mendelian",
@@ -412514,17 +412716,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3821,
+  "total_disorder_pages": 3823,
   "total_subtypes": 4954,
-  "total_disorders_and_subtypes": 8775,
-  "total_unique_evidence_sources": 56941,
-  "total_unique_publications": 53252,
+  "total_disorders_and_subtypes": 8777,
+  "total_unique_evidence_sources": 56961,
+  "total_unique_publications": 53271,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 313,
-  "total_pathographs": 3819,
-  "total_unique_pathological_events": 25118,
+  "total_pathographs": 3821,
+  "total_unique_pathological_events": 25129,
   "total_modules": 220,
-  "total_research_reports": 3935,
+  "total_research_reports": 3937,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
