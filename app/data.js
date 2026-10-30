@@ -47736,6 +47736,154 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Autosomal Systemic Lupus Erythematosus Type 16",
+    "disease_id": "MONDO:0013743",
+    "category": "Mendelian",
+    "parents": [
+      "Systemic Lupus Erythematosus"
+    ],
+    "creation_date": "2026-10-29T18:17:57Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal systemic lupus erythematosus type 16 (SLEB16) is a rare monogenic form of lupus caused by biallelic loss-of-function variants in DNASE1L3, the gene encoding a secreted deoxyribonuclease produced mainly by macrophages and dendritic cells. DNASE1L3 is uniquely able to digest chromatin in the membrane-coated microparticles released by apoptotic cells and in neutrophil extracellular traps; when it is lost, undigested extracellular self-DNA and nucleosomal chromatin accumulate in the circulation, break B-cell tolerance, and drive high-titre anti-double-stranded-DNA and anti-chromatin autoantibodies with a transient type I interferon response. The resulting immune complexes deposit in tissue, consume complement, and produce an early-onset, often pediatric lupus dominated by lupus nephritis, hypocomplementemia, urticarial/skin vasculitis and, in a subset, ANCA positivity and pulmonary haemorrhage. The same gene and often the same variants also cause hypocomplementemic urticarial vasculitis syndrome (HUVS); because roughly half of HUVS patients go on to develop SLE, DNASE1L3 deficiency is best understood as a single autosomal-recessive disease spectrum ranging from organ-limited urticarial vasculitis to full SLE rather than as two distinct conditions. Disease is treated with standard lupus immunosuppression, and interferon-directed therapies such as JAK inhibition are an emerging option for refractory disease.",
+    "pathophysiology": [
+      "DNASE1L3 Loss of Function",
+      "Impaired Clearance of Extracellular Chromatin",
+      "Accumulation of Circulating Microparticle-Associated Self-DNA",
+      "Loss of B Cell Tolerance to DNA and Chromatin",
+      "Anti-dsDNA and Anti-Chromatin Autoantibody Production",
+      "Type I Interferon Pathway Activation",
+      "Immune Complex Formation and Tissue Deposition",
+      "Complement Consumption"
+    ],
+    "cell_types": [
+      "macrophage",
+      "dendritic cell",
+      "B cell",
+      "plasma cell",
+      "plasmacytoid dendritic cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000451",
+      "CL:0000236",
+      "CL:0000786",
+      "CL:0000784"
+    ],
+    "biological_processes": [
+      "DNA catabolic process",
+      "B cell activation",
+      "positive regulation of type I interferon production",
+      "immune complex clearance",
+      "complement activation, classical pathway"
+    ],
+    "phenotypes": [
+      "Systemic Lupus Erythematosus",
+      "Lupus Nephritis",
+      "Glomerular Immune-Complex Deposition",
+      "Proteinuria",
+      "Hematuria",
+      "Anti-dsDNA Antibody Positivity",
+      "Antinuclear Antibody Positivity",
+      "Decreased Circulating Complement C3 Concentration",
+      "Decreased Circulating Complement C4 Concentration",
+      "Urticarial Vasculitis",
+      "Arthritis",
+      "Pulmonary Hemorrhage",
+      "Autoimmune Hemolytic Anemia",
+      "Perinuclear ANCA Positivity",
+      "Recurrent Fever",
+      "Malar Rash",
+      "Discoid Lupus Rash",
+      "Photosensitivity",
+      "Inflammatory Eye Disease",
+      "Generalized Lymphadenopathy",
+      "Leukopenia",
+      "Abdominal Pain",
+      "Serositis",
+      "Antiphospholipid Antibody Positivity",
+      "Anti-C1q Antibody Positivity",
+      "Osteoporosis",
+      "Kidney Failure"
+    ],
+    "phenotype_categories": [
+      "Immunological",
+      "Renal",
+      "Laboratory",
+      "Dermatological",
+      "Musculoskeletal",
+      "Respiratory",
+      "Hematological",
+      "Constitutional",
+      "Ophthalmological",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002725",
+      "HP:0033726",
+      "HP:6000668",
+      "HP:0000093",
+      "HP:0002907",
+      "HP:0020151",
+      "HP:0003493",
+      "HP:0005421",
+      "HP:0045042",
+      "HP:0200029",
+      "HP:0001369",
+      "HP:0040223",
+      "HP:0001890",
+      "HP:0032229",
+      "HP:0001954",
+      "HP:0025300",
+      "HP:0007417",
+      "HP:0000992",
+      "HP:0100534",
+      "HP:0008940",
+      "HP:0001882",
+      "HP:0002027",
+      "HP:0045073",
+      "HP:0003613",
+      "HP:0034077",
+      "HP:0000939",
+      "HP:0003774"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "DNASE1L3"
+    ],
+    "treatments": [
+      "Immunosuppressive Therapy (hydroxychloroquine and mycophenolate mofetil)",
+      "JAK Inhibition (baricitinib)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Systemic_Lupus_Erythematosus_Type_16.yaml",
+    "page_url": "../pages/disorders/Autosomal_Systemic_Lupus_Erythematosus_Type_16.html",
+    "num_phenotypes": 27,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Avascular Necrosis of Femoral Head, Primary, 2",
     "disease_id": "MONDO:0054551",
     "category": "Mendelian",
@@ -124334,7 +124482,10 @@ window.searchData = [
       "Levodopa",
       "Symptomatic Management"
     ],
-    "environmental": [],
+    "environmental": [
+      "Caffeine Consumption",
+      "Cigarette Smoking"
+    ],
     "biochemical": [],
     "source_file": "Dementia_with_Lewy_Bodies.yaml",
     "page_url": "../pages/disorders/Dementia_with_Lewy_Bodies.html",
@@ -124342,7 +124493,7 @@ window.searchData = [
     "num_pathophysiology": 18,
     "num_genes": 3,
     "num_treatments": 3,
-    "causal_graph_edges": "52",
+    "causal_graph_edges": "53",
     "causal_graph_longest_path": "9"
   },
   {
@@ -142074,6 +142225,73 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Ectopia Lentis 1, Isolated, Autosomal Dominant",
+    "disease_id": "MONDO:0007514",
+    "category": "Mendelian",
+    "parents": [
+      "Isolated Ectopia Lentis",
+      "Type 1 Fibrillinopathy"
+    ],
+    "creation_date": "2026-10-29T18:16:38Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Ectopia lentis 1 (ECTOL1) is the autosomal dominant form of isolated ectopia lentis caused by heterozygous germline FBN1 variants: the crystalline lens is displaced because the fibrillin-1 microfibrils of the ciliary zonule are defective, while the aortic and systemic features required for a diagnosis of Marfan syndrome are absent. The disorder is usually bilateral and familial, with age at recognition ranging from early childhood to late adulthood. Its morbidity follows from the displaced lens: high myopia and irregular astigmatism, pupillary-block or secondary glaucoma, and retinal detachment. The causal variants are predominantly cysteine-involving missense changes rather than truncating alleles. Because many FBN1 variants reported in isolated ectopia lentis have also been found in patients with aortic dilation or dissection, the revised Ghent nosology treats FBN1-related ectopia lentis as part of the type 1 fibrillinopathy continuum with Marfan syndrome, and affected individuals warrant cardiovascular follow-up.",
+    "pathophysiology": [
+      "Germline Heterozygous FBN1 Variant",
+      "Defective Fibrillin-1 Microfibrils of the Ciliary Zonule"
+    ],
+    "cell_types": [
+      "non-pigmented ciliary epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002304"
+    ],
+    "biological_processes": [
+      "microfibril assembly"
+    ],
+    "phenotypes": [
+      "Ectopia lentis",
+      "High myopia",
+      "Astigmatism",
+      "Glaucoma",
+      "Rhegmatogenous retinal detachment"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0001083",
+      "HP:0011003",
+      "HP:0000483",
+      "HP:0000501",
+      "HP:0012230"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "FBN1"
+    ],
+    "treatments": [
+      "Pars plana vitreolensectomy with secondary intraocular lens",
+      "Echocardiographic aortic surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Ectopia_Lentis_1_Isolated_Autosomal_Dominant.yaml",
+    "page_url": "../pages/disorders/Ectopia_Lentis_1,_Isolated,_Autosomal_Dominant.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Ectopic Pregnancy",
     "disease_id": "MONDO:0000755",
     "category": "Complex",
@@ -152029,6 +152247,114 @@ window.searchData = [
     "num_treatments": 9,
     "causal_graph_edges": "52",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "FOXP2-Related Speech and Language Disorder",
+    "disease_id": "MONDO:0011184",
+    "category": "Mendelian",
+    "parents": [
+      "specific language disorder",
+      "hereditary neurological disease"
+    ],
+    "creation_date": "2026-10-29T18:22:29Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "FOXP2-related speech and language disorder (FOXP2-SLD; speech-language disorder type 1, SPCH1) is an autosomal dominant neurodevelopmental disorder caused by heterozygous disruption of FOXP2, a forkhead-box transcription factor, through intragenic missense or truncating variants, whole- or partial-gene deletions at 7q31, translocations through the gene, or loss of the paternal FOXP2 allele in maternal uniparental disomy of chromosome 7. It was the first monogenic cause identified for a developmental speech disorder, through the R553H forkhead-domain substitution segregating in the three-generation KE family. The core phenotype is childhood apraxia of speech (developmental verbal dyspraxia), a disorder of planning and programming the sequential orofacial movements of speech, accompanied by orofacial (oromotor) dyspraxia, often dysarthria, receptive and expressive language impairment, and reading and spelling difficulties, with nonverbal cognition relatively preserved. Affected KE-family members show bilateral grey matter changes in the caudate nucleus, cerebellum and inferior frontal gyrus and underactivation of Broca's area and the putamen, matching the corticostriatal and olivocerebellar sites where FOXP2 is expressed during brain development. Mice heterozygous for the equivalent Foxp2 R552H substitution have abnormal striatal and cerebellar synaptic plasticity and impaired motor-skill learning. Scope: this entry covers childhood apraxia of speech caused by FOXP2 disruption only, which is how MONDO:0011184 is defined (MONDO asserts FOXP2 as its causal gene). Childhood apraxia of speech as a clinical diagnosis is genetically heterogeneous, and apraxia of speech arising from other genes or copy-number variants is treated here as a differential diagnosis rather than as part of this entry.",
+    "pathophysiology": [
+      "Loss of the Paternal FOXP2 Allele",
+      "FOXP2 Haploinsufficiency",
+      "Dysregulation of FOXP2 Neural Target Genes",
+      "Abnormal Corticostriatal and Olivocerebellar Circuit Development",
+      "Impaired Striatal and Cerebellar Synaptic Plasticity",
+      "Impaired Motor Sequence Learning",
+      "Speech Motor Planning and Programming Deficit"
+    ],
+    "cell_types": [
+      "medium spiny neuron",
+      "Purkinje cell"
+    ],
+    "cell_type_ids": [
+      "CL:1001474",
+      "CL:0000121"
+    ],
+    "biological_processes": [
+      "negative regulation of transcription by RNA polymerase II",
+      "striatum development",
+      "cerebellum development",
+      "regulation of synaptic plasticity",
+      "motor learning"
+    ],
+    "phenotypes": [
+      "Childhood Apraxia of Speech",
+      "Orofacial Dyspraxia",
+      "Dysarthria",
+      "Receptive and Expressive Language Impairment",
+      "Reading and Spelling Impairment",
+      "Mildly Impaired Nonverbal Cognition",
+      "Fine Motor Impairment",
+      "Gross Motor Impairment",
+      "Feeding Difficulties in Infancy",
+      "Anxiety",
+      "Depression",
+      "Sleep Disturbance",
+      "Autistic Features",
+      "Abnormal caudate nucleus morphology",
+      "Abnormal cerebellum morphology"
+    ],
+    "phenotype_categories": [
+      "Speech",
+      "Language",
+      "Neurologic",
+      "Motor",
+      "Gastrointestinal",
+      "Behavioral",
+      "Neuroimaging"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011098",
+      "HP:0007301",
+      "HP:0001260",
+      "HP:0002463",
+      "HP:0010522",
+      "HP:0001256",
+      "HP:0007010",
+      "HP:0002194",
+      "HP:0008872",
+      "HP:0000739",
+      "HP:0000716",
+      "HP:0002360",
+      "HP:0000729",
+      "HP:0002339",
+      "HP:0001317"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "FOXP2"
+    ],
+    "treatments": [
+      "Speech and Language Therapy",
+      "Occupational Therapy",
+      "Mental Health Support",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "FOXP2-Related_Speech_and_Language_Disorder.yaml",
+    "page_url": "../pages/disorders/FOXP2-Related_Speech_and_Language_Disorder.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Fabry disease",
@@ -196661,14 +196987,17 @@ window.searchData = [
       "HP:0001645"
     ],
     "frequencies": [
-      "OBLIGATE"
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [
       "ACTC1"
     ],
     "treatments": [
       "Implantable Cardioverter-Defibrillator",
-      "Heart Failure Pharmacotherapy and Supportive Care"
+      "Heart Failure Pharmacotherapy and Supportive Care",
+      "Negative Inotropic Therapy for Obstructive Physiology"
     ],
     "environmental": [],
     "biochemical": [],
@@ -196677,9 +197006,9 @@ window.searchData = [
     "num_phenotypes": 4,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 3,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Hypertrophic Cardiomyopathy 12",
@@ -272990,6 +273319,9 @@ window.searchData = [
       "Speech and Language Therapy"
     ],
     "environmental": [
+      "Occupational Solvent, Plastics and Metal Exposure",
+      "Occupational Pesticide Exposure",
+      "Cigarette Smoking",
       "Unknown Environmental Triggers"
     ],
     "biochemical": [],
@@ -272999,7 +273331,7 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 2,
     "num_treatments": 8,
-    "causal_graph_edges": "21",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "5"
   },
   {
@@ -309125,6 +309457,16 @@ window.searchData = [
     "environmental": [
       "Pesticide Exposure",
       "Trifluralin Exposure",
+      "Chlorpyrifos Exposure",
+      "Trichloroethylene Exposure",
+      "Ambient Fine Particulate Matter",
+      "Lead Exposure",
+      "Dairy Consumption",
+      "Helicobacter pylori Infection",
+      "Hepatitis C Virus Infection",
+      "Truncal Vagotomy",
+      "Cigarette Smoking",
+      "Caffeine Consumption",
       "Rural Living",
       "Head Trauma"
     ],
@@ -309135,7 +309477,7 @@ window.searchData = [
     "num_pathophysiology": 32,
     "num_genes": 14,
     "num_treatments": 8,
-    "causal_graph_edges": "99",
+    "causal_graph_edges": "109",
     "causal_graph_longest_path": "14"
   },
   {
@@ -332870,7 +333212,14 @@ window.searchData = [
       "Clonazepam",
       "Immediate-Release Melatonin"
     ],
-    "environmental": [],
+    "environmental": [
+      "Cigarette Smoking",
+      "Occupational Pesticide Exposure",
+      "Farming Occupation",
+      "Head Injury",
+      "Caffeine Consumption",
+      "Alcohol Consumption"
+    ],
     "biochemical": [],
     "source_file": "REM_Sleep_Behavior_Disorder.yaml",
     "page_url": "../pages/disorders/REM_Sleep_Behavior_Disorder.html",
@@ -332878,8 +333227,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "RET Fusion-Positive Thyroid Cancer",
@@ -408790,6 +409139,141 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Xia-Gibbs Syndrome",
+    "disease_id": "MONDO:0014358",
+    "category": "Mendelian",
+    "parents": [
+      "Syndromic Intellectual Disability",
+      "Mendelian Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-10-29T18:16:21Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Xia-Gibbs syndrome (XGS) is a rare autosomal dominant neurodevelopmental disorder caused by heterozygous pathogenic variants in AHDC1 (1p36.11), which encodes the AT-hook DNA-binding motif containing protein 1 (Gibbin). Most variants are de novo nonsense or frameshift changes predicted to truncate the protein; de novo missense variants clustering near the second AT-hook and a REV3L-homologous region, and rare mosaic cases, have also been reported. Affected individuals present in infancy with hypotonia and delayed motor milestones, followed by speech delay (often severely limited or absent speech) and intellectual disability. Variable features include obstructive sleep apnea, structural brain anomalies (hypoplasia of the corpus callosum, posterior fossa or retrocerebellar cysts), seizures, ataxia and other movement disorders, autism spectrum features, strabismus, scoliosis, short stature, laryngomalacia and nonspecific mild facial dysmorphism. AHDC1 is a nuclear protein of largely undefined function; how its truncation produces the neurodevelopmental phenotype is not known.",
+    "pathophysiology": [
+      "AHDC1 Truncating Variant",
+      "Abnormal Nuclear Localization of Truncated AHDC1",
+      "Dysregulated Gibbin-Dependent Mesodermal Gene Expression",
+      "Disrupted Brain Development",
+      "Upper Airway Structural Abnormalities"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "mesoderm development"
+    ],
+    "phenotypes": [
+      "Motor Delay",
+      "Delayed Speech and Language Development",
+      "Absent Speech",
+      "Intellectual Disability",
+      "Global Developmental Delay",
+      "Hypotonia",
+      "Obstructive Sleep Apnea",
+      "Seizure",
+      "Ataxia",
+      "Tremor",
+      "Bradykinesia",
+      "Autistic Behavior",
+      "Hypoplasia of the Corpus Callosum",
+      "Retrocerebellar Cyst",
+      "Mild Facial Dysmorphism",
+      "Strabismus",
+      "Scoliosis",
+      "Short Stature",
+      "Failure to Thrive",
+      "Laryngomalacia",
+      "Attention Deficit Hyperactivity Disorder",
+      "Anxiety",
+      "Self-Injurious Behavior",
+      "Feeding Difficulties",
+      "Gastroesophageal Reflux",
+      "Stridor",
+      "Eye Anomalies",
+      "Hearing Impairment"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Cognitive",
+      "Developmental",
+      "Respiratory",
+      "Behavioral",
+      "Craniofacial",
+      "Ophthalmological",
+      "Musculoskeletal",
+      "Growth",
+      "Gastrointestinal",
+      "Auditory"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001270",
+      "HP:0000750",
+      "HP:0001344",
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0002870",
+      "HP:0001250",
+      "HP:0001251",
+      "HP:0001337",
+      "HP:0002067",
+      "HP:0000729",
+      "HP:0002079",
+      "HP:0006951",
+      "HP:0001999",
+      "HP:0000486",
+      "HP:0002650",
+      "HP:0004322",
+      "HP:0001508",
+      "HP:0001601",
+      "HP:0007018",
+      "HP:0000739",
+      "HP:0100716",
+      "HP:0011968",
+      "HP:0002020",
+      "HP:0010307",
+      "HP:0000478",
+      "HP:0000365"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "AHDC1"
+    ],
+    "treatments": [
+      "Speech and Language Therapy",
+      "Physical and Occupational Therapy",
+      "Continuous Positive Airway Pressure",
+      "Antiseizure Medication",
+      "Growth Hormone Therapy",
+      "Scoliosis Surgery",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Xia-Gibbs_Syndrome.yaml",
+    "page_url": "../pages/disorders/Xia-Gibbs_Syndrome.html",
+    "num_phenotypes": 28,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "YWHAG Syndrome",
     "disease_id": "MONDO:0033365",
     "category": "Mendelian",
@@ -412030,19 +412514,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3817,
+  "total_disorder_pages": 3821,
   "total_subtypes": 4954,
-  "total_disorders_and_subtypes": 8771,
-  "total_unique_evidence_sources": 56841,
-  "total_unique_publications": 53153,
+  "total_disorders_and_subtypes": 8775,
+  "total_unique_evidence_sources": 56941,
+  "total_unique_publications": 53252,
   "total_unique_disease_categories": 61,
-  "total_unique_phenotype_categories": 311,
-  "total_pathographs": 3815,
-  "total_unique_pathological_events": 25098,
-  "total_modules": 219,
-  "total_research_reports": 3930,
+  "total_unique_phenotype_categories": 313,
+  "total_pathographs": 3819,
+  "total_unique_pathological_events": 25118,
+  "total_modules": 220,
+  "total_research_reports": 3935,
   "total_classifications": 21,
   "total_comorbidities": 51,
-  "total_groupings": 128
+  "total_groupings": 129
 };
 window.dispatchEvent(new Event('searchDataReady'));
