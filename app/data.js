@@ -103915,6 +103915,131 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Combined Oxidative Phosphorylation Defect Type 3",
+    "disease_id": "MONDO:0012512",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-10-30T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Combined oxidative phosphorylation defect type 3 (COXPD3) is an autosomal recessive mitochondrial disease caused by biallelic variants in TSFM, which encodes mitochondrial translation elongation factor Ts (EF-Ts). EF-Ts is the guanine nucleotide exchange factor for elongation factor Tu (EF-Tu): after EF-Tu has delivered an aminoacyl-tRNA to the mitochondrial ribosome it is released bound to GDP, and EF-Ts regenerates the GTP-bound form so that the next round of elongation can proceed. The two factors also stabilise each other, so a destabilised EF-Ts lowers the steady-state level of EF-Tu as well.\nThe lesion therefore sits in the shared elongation machinery that makes all thirteen mtDNA-encoded respiratory chain subunits. Their synthesis falls together, and complexes I, III, IV and V, which each contain mtDNA-encoded subunits, are under-assembled while the wholly nuclear-encoded complex II is spared. That combined pattern is what names the disease.\nThe clinical range is unusually wide for so few patients. The recurrent p.Arg333Trp allele, homozygous, has produced a fatal neonatal encephalomyopathy, a fatal infantile hypertrophic cardiomyopathy, and infantile liver failure, all with death in infancy. Compound heterozygous genotypes have produced slower courses: infantile cardiomyopathy that stabilises, childhood-onset ataxia with cardiomyopathy, juvenile-onset Leigh syndrome with optic atrophy and peripheral neuropathy, an early-onset hyperkinetic movement disorder, and a dilated cardiomyopathy with fibro-adipose replacement that led to heart transplantation at 33. Hypertrophic cardiomyopathy, hypotonia, optic atrophy and lactic acidosis are the most frequently reported features. Fewer than twenty patients had been described by 2021, and there is no disease-specific treatment.",
+    "pathophysiology": [
+      "Biallelic TSFM Loss of Function",
+      "Destabilised EF-Ts and EF-Tu Elongation Factor Pool",
+      "Impaired Elongation of Mitochondrial Translation",
+      "Combined Respiratory Chain Complex Deficiency",
+      "Cellular Energy Failure",
+      "Lactate Accumulation",
+      "Mitochondrial Cardiomyopathy",
+      "Neuronal Energy Failure and Neurodegeneration",
+      "Hepatocellular Energy Failure"
+    ],
+    "cell_types": [
+      "cardiac muscle cell",
+      "fibroblast",
+      "neuron",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0000057",
+      "CL:0000540",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "mitochondrial translational elongation",
+      "mitochondrial translation",
+      "mitochondrial respiratory chain complex assembly",
+      "oxidative phosphorylation",
+      "aerobic respiration"
+    ],
+    "phenotypes": [
+      "Lactic acidosis",
+      "Hypertrophic cardiomyopathy",
+      "Dilated cardiomyopathy",
+      "Hypotonia",
+      "Optic atrophy",
+      "Encephalopathy",
+      "Leigh-like basal ganglia involvement",
+      "Ataxia",
+      "Peripheral neuropathy",
+      "Sensorineural hearing impairment",
+      "Chorea",
+      "Dystonia",
+      "Myoclonus",
+      "Global developmental delay",
+      "Hepatic failure",
+      "Intrauterine growth retardation"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Cardiovascular",
+      "Neuromuscular",
+      "Ophthalmological",
+      "Neurological",
+      "Otologic",
+      "Neurodevelopmental",
+      "Hepatic",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003128",
+      "HP:0001639",
+      "HP:0001644",
+      "HP:0001252",
+      "HP:0000648",
+      "HP:0001298",
+      "HP:0002134",
+      "HP:0001251",
+      "HP:0009830",
+      "HP:0000407",
+      "HP:0002072",
+      "HP:0001332",
+      "HP:0001336",
+      "HP:0001263",
+      "HP:0001399",
+      "HP:0001511"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TSFM"
+    ],
+    "treatments": [
+      "Heart Failure Pharmacotherapy",
+      "Heart Transplantation",
+      "Cannabinoid Therapy for Hyperkinetic Movement Disorder"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Blood lactate",
+      "Blood pyruvate"
+    ],
+    "source_file": "Combined_Oxidative_Phosphorylation_Defect_Type_3.yaml",
+    "page_url": "../pages/disorders/Combined_Oxidative_Phosphorylation_Defect_Type_3.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Combined Oxidative Phosphorylation Defect Type 30",
     "disease_id": "MONDO:0014856",
     "category": "Mendelian",
@@ -354130,6 +354255,64 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Sarcoma with BCOR Genetic Alterations",
+    "disease_id": "MONDO:0958159",
+    "category": "",
+    "parents": [
+      "undifferentiated small round cell sarcoma"
+    ],
+    "creation_date": "2026-10-30T15:30:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "BCOR-CCNB3",
+      "BCOR-ITD"
+    ],
+    "description": "Sarcoma with BCOR genetic alterations is one of the four entities of the undifferentiated small round cell sarcoma category introduced in the 2020 fifth edition of the World Health Organization classification of bone and soft tissue tumours, alongside Ewing sarcoma, CIC-rearranged sarcoma and sarcoma with EWSR1-non-ETS fusion genes. What the alterations have in common is not a single fusion but a shared consequence: BCOR, the BCL6 corepressor, ends up overexpressed.\nTwo alterations account for most cases and define the clinical poles of the entity. BCOR::CCNB3 arises from a paracentric inversion on the X chromosome that joins BCOR to the testis-specific cyclin CCNB3 about 10 Mb away; it occurs mainly in male adolescents, slightly more often in bone than soft tissue. A BCOR internal tandem duplication in the last exon instead occurs in infants, preferentially in the somatic soft tissue of trunk, abdomen and head and neck. BCOR::MAML3 and ZC3H7B::BCOR fusions are rarer members. By unsupervised clustering of RNA sequencing data the BCOR-altered tumours form one tight genomic group, distinct from both Ewing sarcoma and CIC-rearranged sarcoma, which is the evidence for treating them as a single entity.\nThe practical point of separating them from Ewing sarcoma is the opposite of the point for CIC-rearranged sarcoma. BCOR-altered sarcomas do about as well as Ewing sarcoma and much better than CIC-rearranged sarcoma: in one cohort five-year overall survival was 72 per cent against 79 per cent for Ewing sarcoma and 43 per cent for CIC-DUX4 sarcoma, and in a 148-patient multicentre series three-year overall survival was 92.2 per cent for BCOR::CCNB3 against 39.6 per cent for CIC-rearranged cases. Most patients are treated on Ewing sarcoma protocols, and histological response to them is usually good.",
+    "pathophysiology": [
+      "BCOR Genetic Alteration",
+      "BCOR Overexpression",
+      "Derepression of Polycomb Target Genes",
+      "Round to Spindle Cell Sarcomatous Proliferation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "positive regulation of cell population proliferation"
+    ],
+    "phenotypes": [
+      "Bone or Soft Tissue Sarcoma of Children and Young People",
+      "Metastatic Disease and Local Recurrence"
+    ],
+    "phenotype_categories": [
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0100242"
+    ],
+    "frequencies": [],
+    "genes": [
+      "BCOR",
+      "CCNB3"
+    ],
+    "treatments": [
+      "Wide Surgical Resection",
+      "Ewing Sarcoma-Type Multiagent Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Sarcoma_with_BCOR_Genetic_Alterations.yaml",
+    "page_url": "../pages/disorders/Sarcoma_with_BCOR_Genetic_Alterations.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 4,
+    "num_genes": 2,
+    "num_treatments": 2,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Sarcopenia",
     "disease_id": null,
     "category": "Complex",
@@ -413904,17 +414087,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3834,
-  "total_subtypes": 4957,
-  "total_disorders_and_subtypes": 8791,
-  "total_unique_evidence_sources": 57089,
-  "total_unique_publications": 53398,
+  "total_disorder_pages": 3836,
+  "total_subtypes": 4959,
+  "total_disorders_and_subtypes": 8795,
+  "total_unique_evidence_sources": 57110,
+  "total_unique_publications": 53418,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 313,
-  "total_pathographs": 3832,
-  "total_unique_pathological_events": 25179,
+  "total_pathographs": 3834,
+  "total_unique_pathological_events": 25187,
   "total_modules": 221,
-  "total_research_reports": 3950,
+  "total_research_reports": 3951,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
