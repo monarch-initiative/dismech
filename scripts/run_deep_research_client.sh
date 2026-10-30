@@ -39,5 +39,11 @@ from deep_research_client.client import REGISTRATION_GATES
 if not biomni_opted_in:
     REGISTRATION_GATES['biomni'] = BIOMNI_DISABLED_DETAIL
 
+# Stream Perplexity responses so an idle-timeout proxy does not drop a
+# multi-minute sonar-deep-research request (dismech#9357).
+from dismech.perplexity_streaming import install as install_perplexity_streaming
+
+install_perplexity_streaming()
+
 app()
 " "$@"
