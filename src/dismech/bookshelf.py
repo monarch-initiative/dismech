@@ -66,11 +66,14 @@ SOURCE_TAGS: dict[str, str] = {
 TAG_SOURCES: dict[str, str] = {tag: source for source, tag in SOURCE_TAGS.items()}
 
 #: Match kinds from strongest to weakest. ``EXACT`` is a normalised-title
-#: equality and is the only kind a gate should trust on its own. ``ONLINE`` is
+#: equality and is the only kind a gate should trust on its own.
+#: ``GENE_SUFFIX`` is a ``<Disease> – <GENE>`` title whose disease part is in
+#: the name and whose gene the entry names; it ranks next because the gene
+#: agreement is checked, but it is a candidate, not an equality. ``ONLINE`` is
 #: a live PubMed ``<name>[TI]`` hit on a chapter newer than the snapshot: PubMed
 #: matched the name's words somewhere in the title, and nothing here compared
 #: the two, so it ranks last and is only ever a candidate.
-MATCH_KINDS = ("EXACT", "CONTAINS", "TITLE_IN_NAME", "NEAR", "ONLINE")
+MATCH_KINDS = ("EXACT", "GENE_SUFFIX", "CONTAINS", "TITLE_IN_NAME", "NEAR", "ONLINE")
 NEAR_THRESHOLD = 0.95
 
 #: Tokens that carry no disease identity on their own. A name made only of
@@ -102,6 +105,17 @@ _STOPWORDS = frozenset(
 _RELATED_PREFIX = re.compile(r"^[a-z0-9]+ related ")
 _RELATED_GENE = re.compile(r"^([a-z0-9]+) related ")
 _OVERVIEW_SUFFIX = re.compile(r"\s+overview$")
+#: A trailing gene symbol set off by a spaced dash, read from the *raw* title
+#: because normalisation drops the case that tells a gene symbol from a word:
+#: ``Autosomal Dominant Tubulointerstitial Kidney Disease – REN.`` (#15904).
+#: ``Udd Distal Myopathy – Tibial Muscular Dystrophy`` is several words and
+#: ``RNU4-2–Related …`` has no spaces round its dash, so neither is read as one.
+_GENE_SUFFIX = re.compile(
+    r"^(?P<stem>.+?)\s+[\u2010-\u2015-]\s+(?P<gene>[A-Z][A-Z0-9]*[A-Z0-9](?:-[A-Z0-9]+)*)\.?$"
+)
+_RETIRED_RAW = re.compile(
+    r"\s+[\u2010-\u2015-]\s+RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY\.?$"
+)
 _NUMBERISH = re.compile(r"^(?:\d+[a-z]?|[ivx]+)$")
 _NBK = re.compile(r"NBK\d+")
 _PMID = re.compile(r"PMID:(\d+)")
@@ -142,6 +156,14 @@ def _genes_agree(name: str, title: str) -> bool:
 
 def _phrase_in(needle: str, haystack: str) -> bool:
     return re.search(rf"(^|\s){re.escape(needle)}(\s|$)", haystack) is not None
+
+
+def _gene_suffix(title: str) -> tuple[str, str]:
+    """``(stem, gene)`` of a ``<Disease> – <GENE>`` title, normalised; else ``("", "")``."""
+    found = _GENE_SUFFIX.match(_RETIRED_RAW.sub("", title.strip()))
+    if not found:
+        return "", ""
+    return normalize(found.group("stem")), normalize(found.group("gene"))
 
 
 @dataclass(frozen=True)
@@ -188,6 +210,8 @@ class _Row:
     chapter: Chapter
     norm_title: str
     stripped_title: str  #: with a leading ``<GENE>-related`` removed
+    gene_stem: str = ""  #: ``<Disease>`` of a ``<Disease> – <GENE>`` title
+    suffix_gene: str = ""  #: its ``<GENE>``, normalised
 
 
 @dataclass
@@ -197,6 +221,7 @@ class BookshelfIndex:
     by_nbk: dict[str, Chapter] = field(default_factory=dict)
     _exact: dict[str, list[int]] = field(default_factory=dict)
     _postings: dict[str, set[int]] = field(default_factory=dict)
+    _gene_suffixed: list[int] = field(default_factory=list)
     sources: set[str] = field(default_factory=set)
     snapshot_date: str = ""
 
@@ -242,8 +267,11 @@ class BookshelfIndex:
             r"\s+retired chapter for historical reference only$", "", norm_title
         )
         stripped = _RELATED_PREFIX.sub("", norm_title)
+        gene_stem, suffix_gene = _gene_suffix(chapter.title)
         idx = len(self.rows)
-        self.rows.append(_Row(chapter, norm_title, stripped))
+        self.rows.append(_Row(chapter, norm_title, stripped, gene_stem, suffix_gene))
+        if gene_stem:
+            self._gene_suffixed.append(idx)
         self.by_pmid[chapter.pmid] = chapter
         if chapter.nbk:
             self.by_nbk[chapter.nbk] = chapter
@@ -277,12 +305,27 @@ class BookshelfIndex:
 
     # -- title matching ---------------------------------------------------
 
-    def match(self, name: str, sources: Iterable[str] | None = None) -> list[Match]:
+    def match(
+        self,
+        name: str,
+        sources: Iterable[str] | None = None,
+        genes: Iterable[str] = (),
+    ) -> list[Match]:
         """Chapters whose title names ``name``, strongest kind first.
 
         ``EXACT``          normalised title == normalised name, optionally after
                            dropping a leading ``<GENE>-Related`` or trailing
                            ``Overview`` on the title.
+        ``GENE_SUFFIX``    a ``<Disease> – <GENE>`` title whose ``<Disease>``
+                           (>= 2 tokens, >= 8 chars) occurs as a phrase in the
+                           name, and whose ``<GENE>`` occurs as a phrase in the
+                           name or in one of ``genes``. ``genes`` is where the
+                           caller passes what the rest of the entry says -- its
+                           other names and its ``genetic:`` genes -- since one
+                           name alone often does not carry the symbol. Without
+                           the gene the three ``Autosomal Dominant
+                           Tubulointerstitial Kidney Disease – UMOD/REN/MUC1``
+                           chapters would be candidates for each other's entries.
         ``CONTAINS``       the name (>= 2 tokens, >= 8 chars, not all stopwords)
                            occurs as a phrase inside the title.
         ``TITLE_IN_NAME``  the title occurs as a phrase inside the name.
@@ -301,12 +344,24 @@ class BookshelfIndex:
         for idx in self._exact.get(norm_name, []):
             found[idx] = "EXACT"
         tokens = norm_name.split()
+        name_numbers = _number_tokens(norm_name)
+        gene_text = [norm_name, *(normalize(g) for g in genes)]
+        for idx in self._gene_suffixed:
+            row = self.rows[idx]
+            if (
+                idx not in found
+                and len(row.gene_stem.split()) >= 2
+                and len(row.gene_stem) >= 8
+                and _phrase_in(row.gene_stem, norm_name)
+                and _number_tokens(row.gene_stem) <= name_numbers
+                and any(_phrase_in(row.suffix_gene, text) for text in gene_text if text)
+            ):
+                found[idx] = "GENE_SUFFIX"
         content = [tok for tok in tokens if tok not in _STOPWORDS]
         if content:
             candidates = set.intersection(
                 *(self._postings.get(tok, set()) for tok in content)
             )
-            name_numbers = _number_tokens(norm_name)
             for idx in candidates:
                 if idx in found:
                     continue
@@ -398,3 +453,26 @@ def entry_names(document: dict) -> list[str]:
         if candidate and normalize(candidate) and candidate not in seen:
             seen[candidate] = None
     return list(seen)
+
+
+def entry_genes(document: dict) -> list[str]:
+    """Gene strings from the entry's ``genetic:`` block, for the ``GENE_SUFFIX`` gate.
+
+    Each record's ``name`` and its ``gene_term`` preferred term and label. The
+    record ``name`` is often prose ("REN variants"), which is fine: the gate
+    looks for the chapter's gene symbol as a phrase inside these strings.
+    """
+    genes: list[str] = []
+    for record in document.get("genetic") or []:
+        if not isinstance(record, dict):
+            continue
+        genes.append(record.get("name") or "")
+        gene_term = record.get("gene_term") or {}
+        if isinstance(gene_term, dict):
+            genes.append(gene_term.get("preferred_term") or "")
+            term = gene_term.get("term") or {}
+            if isinstance(term, dict):
+                genes.append(term.get("label") or "")
+    return list(
+        dict.fromkeys(g.strip() for g in genes if isinstance(g, str) and g.strip())
+    )

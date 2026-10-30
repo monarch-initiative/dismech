@@ -90,6 +90,7 @@ import argparse
 import itertools
 import json
 import re
+import sys
 from collections import Counter
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -211,6 +212,12 @@ class MondoRecord:
     #: at, kept so a report's own identifier for the gene can be compared
     #: with it (#9845). :attr:`genes` keeps only the symbol.
     gene_curies: dict[str, str] = field(default_factory=dict)
+    #: Where these facts were read: the local build or OLS (#15436).
+    source: str = ""
+    #: The term is obsolete in MONDO, and what replaced it, where the source
+    #: says (the OLS path reads both; see :mod:`dismech.mondo_ols`).
+    obsolete: bool = False
+    replaced_by: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -262,6 +269,10 @@ class PreflightResult:
     #: Gene identifiers in the report that name a different gene than the
     #: symbol beside them (see :func:`check_gene_identifiers`).
     gene_identifier_findings: list[GeneIdentifierFinding] = field(default_factory=list)
+    #: Where the MONDO facts were read: the local build or OLS (#15436).
+    mondo_source: str = ""
+    mondo_obsolete: bool = False
+    mondo_replaced_by: list[str] = field(default_factory=list)
 
     @property
     def expected_absent(self) -> bool:
@@ -286,6 +297,27 @@ class LexiconUnavailable(RuntimeError):
     """
 
 
+HGNC_ADAPTER = "sqlite:obo:hgnc"
+
+
+def hgnc_build_missing() -> str:
+    """Why HGNC is skipped, or ``""`` when the local ``hgnc.db`` build is on disk.
+
+    Opening ``sqlite:obo:hgnc`` on a missing build downloads it (#12687), so
+    every opener asks this first and, without the build, does what
+    ``--no-hgnc`` would do for that piece instead.
+    """
+    from dismech.oak_db import local_build_path, local_build_present
+
+    if local_build_present(HGNC_ADAPTER):
+        return ""
+    return (
+        f"the local HGNC build is not present at {local_build_path('hgnc')}, so the "
+        "HGNC lexicon and gene-alias lookups were skipped (as with --no-hgnc) rather "
+        "than downloading it; fetch it with `just fetch-ontology-dbs hgnc`"
+    )
+
+
 class HgncLexicon:
     """Gene-symbol membership test backed by the OAK HGNC adapter.
 
@@ -305,10 +337,13 @@ class HgncLexicon:
 
     def _get_adapter(self):
         if self._adapter is None:
+            missing = hgnc_build_missing()
+            if missing:
+                raise LexiconUnavailable(missing)
             try:
                 from oaklib import get_adapter
 
-                self._adapter = get_adapter("sqlite:obo:hgnc")
+                self._adapter = get_adapter(HGNC_ADAPTER)
             except Exception as exc:  # pragma: no cover - install/network failure
                 raise LexiconUnavailable(
                     f"could not open the HGNC adapter (sqlite:obo:hgnc): {exc}"
@@ -437,38 +472,79 @@ def _symbol_like(value: str) -> bool:
 
 MONDO_ADAPTER = "sqlite:obo:mondo"
 
+#: How :attr:`MondoRecord.source` names the local build.
+LOCAL_MONDO_SOURCE = f"local MONDO build ({MONDO_ADAPTER})"
+
 
 class MondoBuildUnavailable(RuntimeError):
-    """The local ``mondo.db`` build is absent, so the preflight cannot run.
+    """Neither the local ``mondo.db`` build nor OLS can answer, so the preflight cannot run.
 
-    Raised instead of opening the adapter, because opening it does not fail on a
-    missing build: semsql downloads ``mondo.db`` (232 MB compressed, 1.3 GB on
-    disk) with no prompt (#12687). Nor is an empty :class:`MondoRecord` an
-    acceptable answer, since it reads as "MONDO records no causal gene" and
-    turns into a ``SKIP`` verdict.
+    Raised instead of opening the local adapter, because opening it does not
+    fail on a missing build: semsql downloads ``mondo.db`` (232 MB compressed,
+    1.3 GB on disk) with no prompt (#12687). Without the build the term is read
+    from OLS (#15436), and this is raised only when OLS cannot answer either.
+    Nor is an empty :class:`MondoRecord` an acceptable answer, since it reads
+    as "MONDO records no causal gene" and turns into a ``SKIP`` verdict.
     """
 
 
-def open_mondo_adapter():
-    """Open the local MONDO build, refusing to download it.
+def open_mondo_adapter(mondo_id: str | None = None):
+    """Open MONDO for ``mondo_id``: the local build if present, otherwise OLS.
 
-    The build is fetched deliberately with ``just fetch-ontology-dbs mondo``.
-    ``conf/oak_config.yaml`` routes MONDO to ``ols:mondo`` for term validation,
-    but this check needs the ``RO:0004003`` causal-gene edges and OMIM xrefs,
-    which it reads from the local build.
+    The local build is preferred and is never downloaded; it is fetched
+    deliberately with ``just fetch-ontology-dbs mondo``. Without it, an
+    :class:`dismech.mondo_ols.OlsMondoAdapter` reads the same per-term facts
+    (``RO:0004003`` causal genes, OMIM xrefs, synonyms) from OLS. When
+    ``mondo_id`` is given that term is fetched here, so an unreachable OLS
+    raises :class:`MondoBuildUnavailable` before any verdict is attempted.
     """
     from dismech.oak_db import local_build_path, local_build_present
 
-    if not local_build_present(MONDO_ADAPTER):
-        raise MondoBuildUnavailable(
-            f"the local MONDO build is not present at {local_build_path('mondo')}. "
-            "preflight-dr reads the MONDO causal gene and OMIM xrefs from it and "
-            "will not download it implicitly (about 1.3 GB on disk). Fetch it "
-            "with `just fetch-ontology-dbs mondo`, then re-run."
-        )
-    from oaklib import get_adapter
+    if local_build_present(MONDO_ADAPTER):
+        from oaklib import get_adapter
 
-    return get_adapter(MONDO_ADAPTER)
+        adapter = get_adapter(MONDO_ADAPTER)
+        try:
+            # Read back by :func:`_mondo_source` to name the source honestly.
+            adapter._dismech_mondo_source = LOCAL_MONDO_SOURCE
+        except Exception:  # pragma: no cover - an adapter that refuses attributes
+            pass
+        return adapter
+
+    from dismech.mondo_ols import OlsLookupError, OlsMondoAdapter
+
+    adapter = OlsMondoAdapter()
+    if mondo_id:
+        try:
+            adapter.term(mondo_id)
+        except OlsLookupError as exc:
+            raise MondoBuildUnavailable(
+                f"the local MONDO build is not present at {local_build_path('mondo')}, "
+                f"and the OLS fallback could not answer: {exc}. preflight-dr reads "
+                "the MONDO causal gene and OMIM xrefs from one of the two and gives "
+                "no verdict without them. Retry when OLS is reachable, or fetch the "
+                "local build with `just fetch-ontology-dbs mondo` (it is never "
+                "downloaded implicitly; about 1.3 GB on disk), then re-run."
+            ) from exc
+    return adapter
+
+
+def _mondo_source(adapter) -> str:
+    """Name the source an adapter reads MONDO from, for the output.
+
+    Only the adapter :func:`open_mondo_adapter` opened on the local build is
+    called the local build; any other adapter handed in is named by its class.
+    """
+    describe = getattr(adapter, "source_description", None)
+    if callable(describe):
+        try:
+            return str(describe())
+        except Exception:  # pragma: no cover - a label must never fail the run
+            return "unknown"
+    tagged = getattr(adapter, "_dismech_mondo_source", None)
+    if isinstance(tagged, str) and tagged:
+        return tagged
+    return f"adapter: {type(adapter).__name__}"
 
 
 def fetch_mondo_record(
@@ -492,12 +568,13 @@ def fetch_mondo_record(
     so ``--no-hgnc`` really is an offline mode rather than only a swap of the
     token lexicon.
 
-    With no ``adapter`` given, the local MONDO build must already be on disk:
-    :class:`MondoBuildUnavailable` is raised rather than letting semsql
-    download it (see :func:`open_mondo_adapter`).
+    With no ``adapter`` given, the local MONDO build is used if it is on disk
+    and OLS otherwise; :class:`MondoBuildUnavailable` is raised when neither
+    answers, rather than letting semsql download the build (see
+    :func:`open_mondo_adapter`).
     """
     if adapter is None:
-        adapter = open_mondo_adapter()
+        adapter = open_mondo_adapter(mondo_id)
 
     errors: list[str] = []
 
@@ -511,10 +588,14 @@ def fetch_mondo_record(
     def _hgnc():
         if not hgnc_state["tried"]:
             hgnc_state["tried"] = True
+            if hgnc_build_missing():
+                # As --no-hgnc: no symbol repair or aliases, and not an error.
+                # The CLI says so once on stderr (see ``main``).
+                return None
             try:
                 from oaklib import get_adapter
 
-                hgnc_state["adapter"] = get_adapter("sqlite:obo:hgnc")
+                hgnc_state["adapter"] = get_adapter(HGNC_ADAPTER)
             except Exception as exc:  # pragma: no cover - install/network failure
                 errors.append(f"HGNC adapter unavailable for symbol resolution: {exc}")
                 hgnc_state["adapter"] = None
@@ -566,6 +647,14 @@ def fetch_mondo_record(
         if digits.isdigit() and digits not in omim_ids:
             omim_ids.append(digits)
 
+    obsolete, replaced_by = False, ()
+    obsolescence = getattr(adapter, "obsolescence", None)
+    if callable(obsolescence):
+        try:
+            obsolete, replaced_by = obsolescence(mondo_id)
+        except Exception as exc:
+            errors.append(f"obsolescence lookup for {mondo_id} failed: {exc}")
+
     return MondoRecord(
         id=mondo_id,
         label=label,
@@ -575,6 +664,9 @@ def fetch_mondo_record(
         gene_aliases=aliases,
         lookup_errors=tuple(errors),
         gene_curies=gene_curies,
+        source=_mondo_source(adapter),
+        obsolete=bool(obsolete),
+        replaced_by=tuple(replaced_by),
     )
 
 
@@ -778,21 +870,30 @@ def _default_rival_lookup(adapter, use_hgnc: bool):
     build is downloaded: MONDO goes through :func:`open_mondo_adapter`, and
     HGNC, only a fallback for genes MONDO does not label, is skipped when its
     build is absent.
+
+    OLS cannot answer this reverse query (see :mod:`dismech.mondo_ols`), so
+    when MONDO is read from OLS the lookup reports that it did not run, which
+    :func:`assess` treats as a failed lookup rather than as "no rival disease".
     """
 
     def _lookup(symbols, exclude):
         mondo = adapter if adapter is not None else open_mondo_adapter()
+        if getattr(mondo, "supports_reverse_relationships", True) is False:
+            reason = (
+                "rival-gene disease lookup not run: MONDO was read from OLS, which "
+                f"cannot list the diseases a gene causes (a reverse {GENE_RELATION} "
+                "query). Fetch the local build with `just fetch-ontology-dbs mondo` "
+                "to run it"
+            )
+            return {}, [reason]
         hgnc = None
-        if use_hgnc:
-            from dismech.oak_db import local_build_present
+        if use_hgnc and not hgnc_build_missing():
+            try:
+                from oaklib import get_adapter
 
-            if local_build_present("sqlite:obo:hgnc"):
-                try:
-                    from oaklib import get_adapter
-
-                    hgnc = get_adapter("sqlite:obo:hgnc")
-                except Exception:  # pragma: no cover - install/network failure
-                    hgnc = None
+                hgnc = get_adapter(HGNC_ADAPTER)
+            except Exception:  # pragma: no cover - install/network failure
+                hgnc = None
         return find_rival_diseases(symbols, exclude, mondo, hgnc)
 
     return _lookup
@@ -1107,7 +1208,20 @@ def _assess_gene_mentions(
         lexicon_note=lexicon_note,
         alias_mentions=alias_mentions,
         lookup_errors=list(record.lookup_errors),
+        mondo_source=record.source,
+        mondo_obsolete=record.obsolete,
+        mondo_replaced_by=list(record.replaced_by),
     )
+    if record.obsolete:
+        replacement = (
+            f"; MONDO replaced it with {', '.join(record.replaced_by)}"
+            if record.replaced_by
+            else "; MONDO names no replacement"
+        )
+        result.reasons.append(
+            f"{record.id} is obsolete in MONDO{replacement}. Re-run the preflight "
+            "against the current term before curating from this report."
+        )
 
     def _cap_at_warn() -> None:
         """A lookup that errored must never leave the run looking clean."""
@@ -1380,8 +1494,17 @@ def format_report(result: PreflightResult) -> str:
     lines = [
         f"{result.verdict}  {result.report}",
         f"  intended entity : {result.mondo} {result.mondo_label}".rstrip(),
-        f"  canonical gene  : {'/'.join(result.expected_genes) or '(none recorded)'}",
     ]
+    if result.mondo_source:
+        lines.append(f"  MONDO source    : {result.mondo_source}")
+    if result.mondo_obsolete:
+        status = "obsolete"
+        if result.mondo_replaced_by:
+            status += f"; replaced by {', '.join(result.mondo_replaced_by)}"
+        lines.append(f"  MONDO status    : {status}")
+    lines.append(
+        f"  canonical gene  : {'/'.join(result.expected_genes) or '(none recorded)'}"
+    )
     if result.expected_mentions:
         mentions = ", ".join(
             f"{g}={n}" for g, n in sorted(result.expected_mentions.items())
@@ -1476,17 +1599,20 @@ def main(argv: list[str] | None = None) -> int:
     if args.no_hgnc and args.require_hgnc:
         parser.error("--no-hgnc and --require-hgnc are mutually exclusive")
 
-    # Open MONDO first: without it there is no verdict to give, and failing
-    # here also stops the HGNC lexicon below from fetching its own build for a
-    # run that cannot finish.
+    # Open MONDO first (the local build, or OLS without it): without it there
+    # is no verdict to give, and failing here also stops the HGNC lexicon below
+    # from fetching its own build for a run that cannot finish.
     try:
-        mondo_adapter = open_mondo_adapter()
+        mondo_adapter = open_mondo_adapter(mondo)
     except MondoBuildUnavailable as exc:
         parser.exit(2, f"error: {exc}\n")
 
     if args.no_hgnc:
         lexicon = HeuristicLexicon()
     else:
+        missing = hgnc_build_missing()
+        if missing and not args.require_hgnc:
+            print(f"note: {missing}", file=sys.stderr)
         try:
             lexicon = default_lexicon(allow_fallback=not args.require_hgnc)
         except LexiconUnavailable as exc:
