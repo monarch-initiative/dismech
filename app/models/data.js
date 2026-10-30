@@ -3183,6 +3183,48 @@ window.searchData = [
     "source_file": "kb/disorders/CASQ2_CPVT.yaml"
   },
   {
+    "model_key": "CACNA1I-Related_Neurodevelopmental_Disorder--computational-model-neuron-thalamic-reticular-neuron-model-with-cav3-3-variant-gating--0",
+    "name": "NEURON thalamic reticular neuron model with Cav3.3 variant gating",
+    "description": "Hodgkin-Huxley simulation of a thalamic neuron in which the T-type conductance parameters are replaced by those measured for wild-type and variant Cav3.3, used to compare rheobase, firing frequency and burst duration across variants, including a simulated 1:1 heterozygous state.",
+    "model_type": "Physiological",
+    "model_type_raw": "PHYSIOLOGICAL",
+    "model_format": "Format not recorded",
+    "model_software": "NEURON",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:33704440",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "CACNA1I-Related Neurodevelopmental Disorder",
+    "disease_id": "MONDO:0859313",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian neurodevelopmental disorder",
+      "Calcium channelopathy"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Thalamic Reticular Neuron Hyperexcitability"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "",
+    "creation_date": "2026-10-23T17:31:43Z",
+    "page_url": "../../pages/disorders/CACNA1I-Related_Neurodevelopmental_Disorder.html#computational-model-neuron-thalamic-reticular-neuron-model-with-cav3-3-variant-gating",
+    "model_page_url": "",
+    "source_file": "kb/disorders/CACNA1I-Related_Neurodevelopmental_Disorder.yaml"
+  },
+  {
     "model_key": "Ataxia-telangiectasia--computational-model-normative-diffusion-perfusion-mri-autoencoder--2",
     "name": "Normative diffusion-perfusion MRI autoencoder",
     "description": "A seven-layer, fully connected PyTorch autoencoder trained only on healthy pediatric MRI features to detect individual deviations in A-T. Twenty inputs (13 regional diffusion/perfusion features plus seven demographic and volume covariates) are compressed and 13 imaging features are reconstructed. The paper reports a four-dimensional latent layer, whereas the released notebook instantiates five latent units. One hundred controls were used for training and validation, 10 controls for held-out testing, and 16 children with A-T for disease evaluation.",
@@ -6607,8 +6649,8 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 135,
-  "total_source_entries": 62,
+  "total_models": 136,
+  "total_source_entries": 63,
   "total_model_types": 11,
   "total_runnable": 4,
   "total_with_repository": 56

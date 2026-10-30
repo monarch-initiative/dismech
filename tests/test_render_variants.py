@@ -146,13 +146,13 @@ def test_variant_detail_fields_are_rendered(tmp_path: Path) -> None:
 
 
 def test_variants_stat_tile_counts_both_placements(tmp_path: Path) -> None:
-    """The stat bar counts disease-level plus gene-nested variants."""
+    """The section index counts disease-level plus gene-nested variants."""
     html = _render(tmp_path, DISORDER)
     stat = re.search(
-        r'<div class="stat-value">(\d+)</div>\s*<div class="stat-label">Variants</div>',
+        r'<span>Variants</span><span class="page-index-count">(\d+)</span>',
         html,
     )
-    assert stat, "expected a Variants stat tile"
+    assert stat, "expected a Variants pill"
     assert stat.group(1) == "2"
 
 
@@ -163,7 +163,7 @@ def test_variants_stat_links_to_genetic_without_a_variants_section(
     disorder = {k: v for k, v in DISORDER.items() if k != "variants"}
     html = _render(tmp_path, disorder)
     assert '<div class="card" id="variants">' not in html
-    assert '<a class="stat-link" href="#genetic">' in html
+    assert '<a class="page-index-pill" href="#genetic"><span>Variants</span>' in html
 
 
 def test_variant_anchor_ids_are_unique(tmp_path: Path) -> None:

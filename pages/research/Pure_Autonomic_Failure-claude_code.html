@@ -1,0 +1,1496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pure Autonomic Failure · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Pure Autonomic Failure</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Pure Autonomic Failure</h1>
+                
+                <p class="report-subtitle">Pure Autonomic Failure (PAF): Research Report</p>
+                
+                
+                <div class="report-date">2026-10-23</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0018608" target="_blank" rel="noopener noreferrer">MONDO:0018608</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-opus-5-5</span>
+                    
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Pure Autonomic Failure (PAF): Research Report</h1>
+<p><strong><a href="http://purl.obolibrary.org/obo/MONDO_0018608" target="_blank" rel="noopener noreferrer">MONDO:0018608</a></strong> · <a href="https://bioregistry.io/ORPHA:441" target="_blank" rel="noopener noreferrer">ORPHA:441</a> · MeSH D054970 · ICD-11 8D84 · ICD-10 G90.8 (Orphanet maps this as "Narrower") · UMLS C0393911 · GARD 10428
+<em>Report prepared 2026-10-23. Evidence comes from the abstracts and full texts already cached for this entry in <code>references_cache/</code>. Ontology CURIEs were checked against the repository's term caches (<code>cache/*/terms.csv</code>); terms that were not in the cache are marked "lookup needed".</em></p>
+<hr />
+<h2>1. Disease information</h2>
+<h3>Overview</h3>
+<p>Pure autonomic failure (PAF) is a rare, sporadic, adult-onset neurodegenerative disease of the peripheral autonomic nervous system. It is classed as an α-synucleinopathy. Its defining feature is chronic <strong>neurogenic orthostatic hypotension (nOH)</strong> with no identified secondary cause and no motor or cognitive signs of central neurodegeneration.</p>
+<p><strong>PAF has no causal gene, and no OMIM entry is recorded.</strong> It is not a Mendelian disease. Orphanet records its inheritance as "Not applicable". Its molecular substrate is aggregated α-synuclein, the protein encoded by <em>SNCA</em> (hgnc:11138). That makes SNCA the disease protein, not a germline causal gene, and this report found no source naming a PAF-specific variant.</p>
+<ul>
+<li>Orphanet definition: "A rare sporadic neurodegenerative disease characterized by slowly progressive symptoms of orthostatic hypotension (OH), and other symptoms of generalised dysautonomia related to the impairment of the sympathetic component of the autonomic nervous system." (<a href="https://bioregistry.io/ORPHA:441" target="_blank" rel="noopener noreferrer">ORPHA:441</a>)</li>
+<li>"Pure autonomic failure (PAF) is a rare sporadic neurodegenerative autonomic disorder characterized by slowly progressive pan autonomic failure without other features of neurologic dysfunctions." (<a href="https://pubmed.ncbi.nlm.nih.gov/27338613/" target="_blank" rel="noopener noreferrer">PMID:27338613</a>, 2016 review)</li>
+<li>Historical description: "A 1925 report by Bradbury and Eggleston first described patients with extreme orthostatic hypotension and a low, steady heart rate." (<a href="https://pubmed.ncbi.nlm.nih.gov/24095130/" target="_blank" rel="noopener noreferrer">PMID:24095130</a>)</li>
+</ul>
+<h3>Synonyms</h3>
+<p>Bradbury-Eggleston syndrome, idiopathic orthostatic hypotension, PAF, pure dysautonomia, and "pure idiopatic dysautonomia" (Orphanet's own spelling). Older literature also uses "asympathicotonic orthostatic hypotension" (<a href="https://pubmed.ncbi.nlm.nih.gov/34669076/" target="_blank" rel="noopener noreferrer">PMID:34669076</a>).</p>
+<h3>Nature of the data</h3>
+<p>Nearly all of the evidence is aggregated at the disease level: multicentre cohorts, single-centre retrospective series, autopsy case reports, and consensus statements. There are no EHR-derived phenotype profiles.</p>
+<h3>A conceptual caveat</h3>
+<p>PAF is diagnosed clinically, and autopsy and neurochemical data show that the clinical label covers two separate conditions (<a href="https://pubmed.ncbi.nlm.nih.gov/34669076/" target="_blank" rel="noopener noreferrer">PMID:34669076</a>, Goldstein 2021):</p>
+<blockquote>
+<p>"This approach lumps together two nOH syndromes that are pathologically and neurochemically distinct. One is characterized by intraneuronal cytoplasmic alpha-synuclein aggregates (i.e., Lewy bodies) and degeneration of postganglionic sympathetic neurons, as in PD and DLB; the other is not, as in MSA."</p>
+</blockquote>
+<p>One autopsied clinically diagnosed PAF case had <strong>no</strong> synuclein pathology anywhere (<a href="https://pubmed.ncbi.nlm.nih.gov/28188385/" target="_blank" rel="noopener noreferrer">PMID:28188385</a>):</p>
+<blockquote>
+<p>"In pure autonomic failure, sympathetic noradrenergic denervation can occur without concurrent Lewy bodies or alpha-synuclein deposition in the brain or sympathetic ganglion tissue."</p>
+</blockquote>
+<hr />
+<h2>2. Etiology</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Factor</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Primary cause</strong></td>
+<td>Idiopathic neurodegeneration with misfolded α-synuclein deposited mainly in peripheral autonomic neurons. "PAF is a peripheral autonomic neurodegenerative disease caused by alpha-synuclein deposition that is predominantly confined to peripheral autonomic neurons." (<a href="https://pubmed.ncbi.nlm.nih.gov/34392300/" target="_blank" rel="noopener noreferrer">PMID:34392300</a>)</td>
+</tr>
+<tr>
+<td><strong>Genetic risk</strong></td>
+<td>No causal genes, susceptibility loci, or GWAS signals specific to PAF were found in the cached literature. Orphanet: inheritance "Not applicable".</td>
+</tr>
+<tr>
+<td><strong>Environmental risk</strong></td>
+<td>None established. This report found no toxin, occupational, or infectious exposure linked to PAF.</td>
+</tr>
+<tr>
+<td><strong>Demographics</strong></td>
+<td>Age is the main correlate: onset is in adulthood or old age. Men predominate in pooled data (63.8% male; <a href="https://pubmed.ncbi.nlm.nih.gov/42081229/" target="_blank" rel="noopener noreferrer">PMID:42081229</a>), although one small Stanford series was 63% female (<a href="https://pubmed.ncbi.nlm.nih.gov/27757562/" target="_blank" rel="noopener noreferrer">PMID:27757562</a>).</td>
+</tr>
+<tr>
+<td><strong>Protective factors</strong></td>
+<td>None documented.</td>
+</tr>
+<tr>
+<td><strong>Gene–environment interaction</strong></td>
+<td>No data.</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The prion-like spreading model is the leading mechanistic hypothesis for the whole synucleinopathy family. It is cited as background in <a href="https://pubmed.ncbi.nlm.nih.gov/28093795/" target="_blank" rel="noopener noreferrer">PMID:28093795</a>: "α-Syn spreads from cell-to-cell in a 'prion-like fashion.'" No PAF-specific trigger has been identified.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Onset is in adulthood. The course is chronic and slowly progressive, and repeat testing shows worsening autonomic failure over time (<a href="https://pubmed.ncbi.nlm.nih.gov/40397689/" target="_blank" rel="noopener noreferrer">PMID:40397689</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO (cache-verified)</th>
+<th>Frequency / data</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Orthostatic hypotension (neurogenic, severe)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001278" target="_blank" rel="noopener noreferrer">HP:0001278</a></td>
+<td>Defining; Orphanet: very frequent (99–80%). Neurogenic OH: SBP fall −44 ± 25 mmHg with HR rise of only 8 ± 8 bpm (synucleinopathy cohort)</td>
+<td><a href="https://bioregistry.io/ORPHA:441" target="_blank" rel="noopener noreferrer">ORPHA:441</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/29405350/" target="_blank" rel="noopener noreferrer">PMID:29405350</a></td>
+</tr>
+<tr>
+<td>Syncope</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" rel="noopener noreferrer">HP:0001279</a></td>
+<td>91% of PAF patients</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10552235/" target="_blank" rel="noopener noreferrer">PMID:10552235</a></td>
+</tr>
+<tr>
+<td>Dizziness / light-headedness</td>
+<td>lookup needed</td>
+<td>84%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10552235/" target="_blank" rel="noopener noreferrer">PMID:10552235</a></td>
+</tr>
+<tr>
+<td>Visual disturbance on standing</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" rel="noopener noreferrer">HP:0000505</a> (Visual impairment; may be too coarse)</td>
+<td>75%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10552235/" target="_blank" rel="noopener noreferrer">PMID:10552235</a></td>
+</tr>
+<tr>
+<td>"Coat-hanger" suboccipital/paracervical neck pain</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030833" target="_blank" rel="noopener noreferrer">HP:0030833</a> Neck pain</td>
+<td>81%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10552235/" target="_blank" rel="noopener noreferrer">PMID:10552235</a></td>
+</tr>
+<tr>
+<td>Chest pain (orthostatic)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" rel="noopener noreferrer">HP:0100749</a></td>
+<td>44% (versus 13% in MSA)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10552235/" target="_blank" rel="noopener noreferrer">PMID:10552235</a></td>
+</tr>
+<tr>
+<td>Fatigue, weakness, lethargy</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a></td>
+<td>91%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10552235/" target="_blank" rel="noopener noreferrer">PMID:10552235</a></td>
+</tr>
+<tr>
+<td>Supine hypertension</td>
+<td>lookup needed</td>
+<td>"at least half"; "affects most patients"</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11927799/" target="_blank" rel="noopener noreferrer">PMID:11927799</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/26644241/" target="_blank" rel="noopener noreferrer">PMID:26644241</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36601916/" target="_blank" rel="noopener noreferrer">PMID:36601916</a></td>
+</tr>
+<tr>
+<td>Nocturia / nocturnal pressure natriuresis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000017" target="_blank" rel="noopener noreferrer">HP:0000017</a></td>
+<td>Mechanistically linked to supine hypertension</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11927799/" target="_blank" rel="noopener noreferrer">PMID:11927799</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36601916/" target="_blank" rel="noopener noreferrer">PMID:36601916</a></td>
+</tr>
+<tr>
+<td>Postprandial hypotension</td>
+<td>lookup needed</td>
+<td>Supine BP falls after a meal in PAF but not in controls</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8492945/" target="_blank" rel="noopener noreferrer">PMID:8492945</a></td>
+</tr>
+<tr>
+<td>Anhidrosis / hypohidrosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000970" target="_blank" rel="noopener noreferrer">HP:0000970</a> / <a href="http://purl.obolibrary.org/obo/HP_0000966" target="_blank" rel="noopener noreferrer">HP:0000966</a></td>
+<td>Orphanet: very frequent. Median 51% body-surface anhidrosis (IQR 3–93%) in stable PAF</td>
+<td><a href="https://bioregistry.io/ORPHA:441" target="_blank" rel="noopener noreferrer">ORPHA:441</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40053259/" target="_blank" rel="noopener noreferrer">PMID:40053259</a></td>
+</tr>
+<tr>
+<td>Bladder symptoms / urinary incontinence</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000020" target="_blank" rel="noopener noreferrer">HP:0000020</a>; <a href="http://purl.obolibrary.org/obo/HP_0000016" target="_blank" rel="noopener noreferrer">HP:0000016</a> (retention)</td>
+<td>59%; severe (catheter or incontinence) in 37.6%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40053259/" target="_blank" rel="noopener noreferrer">PMID:40053259</a></td>
+</tr>
+<tr>
+<td>Constipation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" rel="noopener noreferrer">HP:0002019</a></td>
+<td>45%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40053259/" target="_blank" rel="noopener noreferrer">PMID:40053259</a></td>
+</tr>
+<tr>
+<td>Sexual dysfunction / erectile dysfunction</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100639" target="_blank" rel="noopener noreferrer">HP:0100639</a>; <a href="http://purl.obolibrary.org/obo/HP_0000802" target="_blank" rel="noopener noreferrer">HP:0000802</a></td>
+<td>40%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40053259/" target="_blank" rel="noopener noreferrer">PMID:40053259</a></td>
+</tr>
+<tr>
+<td>Thermoregulatory dysfunction / heat intolerance</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002046" target="_blank" rel="noopener noreferrer">HP:0002046</a></td>
+<td>38%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40053259/" target="_blank" rel="noopener noreferrer">PMID:40053259</a></td>
+</tr>
+<tr>
+<td>REM sleep behavior disorder / dream enactment</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_5200291" target="_blank" rel="noopener noreferrer">HP:5200291</a></td>
+<td>52% endorsed (median 7 years after OH onset); 5 of 8 confirmed by vPSG. An earlier 1998 series of 6 found none.</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40053259/" target="_blank" rel="noopener noreferrer">PMID:40053259</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/27757562/" target="_blank" rel="noopener noreferrer">PMID:27757562</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/9598693/" target="_blank" rel="noopener noreferrer">PMID:9598693</a></td>
+</tr>
+<tr>
+<td>Hyposmia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004409" target="_blank" rel="noopener noreferrer">HP:0004409</a></td>
+<td>Mean UPSIT 22 ± 3 (similar to PD, lower than MSA); a second study found it milder than in PD</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19201246/" target="_blank" rel="noopener noreferrer">PMID:19201246</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/19433741/" target="_blank" rel="noopener noreferrer">PMID:19433741</a></td>
+</tr>
+<tr>
+<td>Bradycardia / slow steady heart rate</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001662" target="_blank" rel="noopener noreferrer">HP:0001662</a></td>
+<td>Typical of patients who keep the PAF phenotype</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28093795/" target="_blank" rel="noopener noreferrer">PMID:28093795</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/24095130/" target="_blank" rel="noopener noreferrer">PMID:24095130</a></td>
+</tr>
+<tr>
+<td>Low plasma norepinephrine</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012099" target="_blank" rel="noopener noreferrer">HP:0012099</a> (parent term)</td>
+<td>Very frequent; "very low plasma norepinephrine levels"</td>
+<td><a href="https://bioregistry.io/ORPHA:441" target="_blank" rel="noopener noreferrer">ORPHA:441</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28093795/" target="_blank" rel="noopener noreferrer">PMID:28093795</a></td>
+</tr>
+<tr>
+<td>Anemia (normocytic, low erythropoietin)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" rel="noopener noreferrer">HP:0001903</a></td>
+<td>38% of 84 patients with primary autonomic failure</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8017744/" target="_blank" rel="noopener noreferrer">PMID:8017744</a></td>
+</tr>
+<tr>
+<td>Sympathetic pupillary deficit</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007686" target="_blank" rel="noopener noreferrer">HP:0007686</a></td>
+<td>Frequent in PAF compared with MSA and LBD</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40696849/" target="_blank" rel="noopener noreferrer">PMID:40696849</a></td>
+</tr>
+<tr>
+<td>Left ventricular hypertrophy (from supine hypertension)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" rel="noopener noreferrer">HP:0001712</a></td>
+<td>Reported in supine hypertension; hypertensive organ disease in a 3-case series</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11927799/" target="_blank" rel="noopener noreferrer">PMID:11927799</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/15633433/" target="_blank" rel="noopener noreferrer">PMID:15633433</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Aggravating factors and quality of life.</strong> "Postural symptoms (mainly dizziness and neck pain) were worse in the morning and with warm temperature, straining, exertion, arm movements and food ingestion" (<a href="https://pubmed.ncbi.nlm.nih.gov/10552235/" target="_blank" rel="noopener noreferrer">PMID:10552235</a>). Compensatory palpitations and sweating were absent. Patients may only be able to stand for minutes at a time (<a href="https://pubmed.ncbi.nlm.nih.gov/21664375/" target="_blank" rel="noopener noreferrer">PMID:21664375</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/25185131/" target="_blank" rel="noopener noreferrer">PMID:25185131</a>). Falls and syncope drive disability (<a href="https://pubmed.ncbi.nlm.nih.gov/33705537/" target="_blank" rel="noopener noreferrer">PMID:33705537</a>).</p>
+<hr />
+<h2>4. Genetic and molecular information</h2>
+<ul>
+<li><strong>Causal genes:</strong> none. This is a sporadic, non-Mendelian disease.</li>
+<li><strong>Disease protein:</strong> α-synuclein (SNCA, hgnc:11138), present as phosphorylated or misfolded aggregates. CSF α-syn seeding assays (PMCA) are positive in 94% of PAF patients (<a href="https://pubmed.ncbi.nlm.nih.gov/33881777/" target="_blank" rel="noopener noreferrer">PMID:33881777</a>).</li>
+<li><strong>Molecular deficits in noradrenergic terminals.</strong> Forearm vein biopsies show "normal abundance of the NE transporter (NET) protein, together with very low levels of tyrosine hydroxylase (TH)... and reduced vesicular monoamine transporter 2 (VMAT2)" (<a href="https://pubmed.ncbi.nlm.nih.gov/29162745/" target="_blank" rel="noopener noreferrer">PMID:29162745</a>). The relevant genes are TH (hgnc:11782), SLC18A2/VMAT2 (lookup needed), and SLC6A2/NET (hgnc:11048).</li>
+<li><strong>Variants, allele frequencies, ClinVar entries, modifiers, epigenetics, chromosomal abnormalities:</strong> none reported in the sources reviewed. No ClinGen gene–disease validity applies.</li>
+</ul>
+<hr />
+<h2>5. Environmental information</h2>
+<p>No established environmental, lifestyle, or infectious cause. Factors that <em>aggravate symptoms</em> (not causes) are heat, meals, straining, exertion, and vasoactive drugs such as alpha-blockers (<a href="https://pubmed.ncbi.nlm.nih.gov/10552235/" target="_blank" rel="noopener noreferrer">PMID:10552235</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32979782/" target="_blank" rel="noopener noreferrer">PMID:32979782</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28717053/" target="_blank" rel="noopener noreferrer">PMID:28717053</a>).</p>
+<hr />
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Initiating event (unknown).</strong> α-Synuclein misfolds and aggregates in peripheral autonomic neurons. The trigger is unknown, and prion-like spread is a hypothesis carried over from the synucleinopathy literature rather than something shown in PAF.</li>
+<li><strong>This leads to Lewy bodies and neurites in sympathetic ganglia and distal autonomic axons</strong>, and degeneration of preganglionic intermediolateral-column neurons and postganglionic sympathetic neurons. <a href="https://pubmed.ncbi.nlm.nih.gov/9255396/" target="_blank" rel="noopener noreferrer">PMID:9255396</a>: "histopathologically by cell loss in intermediolateral columns and sympathetic ganglia"; Lewy bodies were found "in sympathetic ganglia, as well as in autonomic axons in the epicardial fat... and autonomic nerves in the muscularis of the urinary bladder." <a href="https://pubmed.ncbi.nlm.nih.gov/27338613/" target="_blank" rel="noopener noreferrer">PMID:27338613</a>: "neuronal degeneration of pre- and postganglionic sympathetic and parasympathetic neurons in the thoracic spinal cord and paravertebral autonomic ganglia."</li>
+<li><strong>Branch:</strong> the non-Lewy form, a preganglionic lesion only, carries a risk of premotor MSA (<a href="https://pubmed.ncbi.nlm.nih.gov/34669076/" target="_blank" rel="noopener noreferrer">PMID:34669076</a>).</li>
+<li><strong>This results in postganglionic noradrenergic denervation plus a vesicular storage defect in the surviving nerves.</strong> "PAF entails moderately decreased cardiac sympathetic innervation and a substantial vesicular storage defect in residual nerves" (<a href="https://pubmed.ncbi.nlm.nih.gov/32945121/" target="_blank" rel="noopener noreferrer">PMID:32945121</a>). Denervation is widespread, affecting the heart and renal cortex (<a href="https://pubmed.ncbi.nlm.nih.gov/16269589/" target="_blank" rel="noopener noreferrer">PMID:16269589</a>), and skin, where p-syn is found "in the postganglionic sympathetic adrenergic and cholinergic nerve fibers" (<a href="https://pubmed.ncbi.nlm.nih.gov/23390175/" target="_blank" rel="noopener noreferrer">PMID:23390175</a>).</li>
+<li><strong>This leads to failure of norepinephrine synthesis and release.</strong> TH is low and VMAT2 reduced (<a href="https://pubmed.ncbi.nlm.nih.gov/29162745/" target="_blank" rel="noopener noreferrer">PMID:29162745</a>). The lesions "are responsible for defects in the synthesis and release of norepinephrine from sympathetic nerve terminals, resulting in significant hypotension" (<a href="https://pubmed.ncbi.nlm.nih.gov/28717053/" target="_blank" rel="noopener noreferrer">PMID:28717053</a>). Plasma NE is very low.</li>
+<li><strong>This results in failed baroreflex-mediated vasoconstriction on standing</strong>, giving neurogenic OH with a blunted heart-rate response (ΔHR/ΔSBP &lt; 0.5 bpm/mmHg; <a href="https://pubmed.ncbi.nlm.nih.gov/29405350/" target="_blank" rel="noopener noreferrer">PMID:29405350</a>). Peripheral resistance is not maintained. <a href="https://pubmed.ncbi.nlm.nih.gov/39608812/" target="_blank" rel="noopener noreferrer">PMID:39608812</a> <em>infers</em> that "P-syn deposition on autonomic nerves may impair control of total peripheral resistance giving rise to symptomatic orthostatic hypotension."</li>
+<li><strong>Cerebral and muscle hypoperfusion</strong> follow, producing syncope, dizziness, visual disturbance, and coat-hanger pain (<a href="https://pubmed.ncbi.nlm.nih.gov/10552235/" target="_blank" rel="noopener noreferrer">PMID:10552235</a>).</li>
+<li><strong>Parallel branches from denervation:</strong></li>
+<li><strong>Denervation supersensitivity</strong> of β-adrenoceptors and pressor sensitivity: "supersensitivity of cardiac beta-adrenoreceptors" (<a href="https://pubmed.ncbi.nlm.nih.gov/18514012/" target="_blank" rel="noopener noreferrer">PMID:18514012</a>). This underlies exaggerated responses to pressor drugs and to the water-drinking osmopressor reflex (<a href="https://pubmed.ncbi.nlm.nih.gov/21048076/" target="_blank" rel="noopener noreferrer">PMID:21048076</a>).</li>
+<li><strong>Supine hypertension.</strong> The mechanism is incompletely understood. Plasma renin is suppressed, but angiotensin II is elevated and mineralocorticoid receptors are activated (<a href="https://pubmed.ncbi.nlm.nih.gov/26644241/" target="_blank" rel="noopener noreferrer">PMID:26644241</a>). Supine hypertension then drives <strong>nocturnal pressure natriuresis</strong>, which leads to volume depletion and worse morning OH (<a href="https://pubmed.ncbi.nlm.nih.gov/11927799/" target="_blank" rel="noopener noreferrer">PMID:11927799</a>), and also LVH.</li>
+<li><strong>Loss of sympathetic drive to erythropoiesis</strong>, giving low erythropoietin and anemia (<a href="https://pubmed.ncbi.nlm.nih.gov/8017744/" target="_blank" rel="noopener noreferrer">PMID:8017744</a>; the authors' hypothesis is that "the sympathetic nervous system stimulates erythropoiesis").</li>
+<li><strong>Sudomotor, bladder, bowel, and sexual dysfunction</strong> from involvement of the cholinergic sympathetic and parasympathetic pathways.</li>
+<li><strong>Central spread in a subset (phenoconversion).</strong> Nigral dopaminergic loss is already present: "PAF and PD entail similarly severe nigral and overall central dopaminergic denervation," with the striatum relatively spared (<a href="https://pubmed.ncbi.nlm.nih.gov/18363034/" target="_blank" rel="noopener noreferrer">PMID:18363034</a>). Neuromelanin MRI shows loss in the locus ceruleus and substantia nigra in high-risk PAF (<a href="https://pubmed.ncbi.nlm.nih.gov/39825743/" target="_blank" rel="noopener noreferrer">PMID:39825743</a>). Hyposmia and RBD are central markers. Progression leads to PD, DLB, or MSA (see §8).</li>
+</ol>
+<h3>Checklist mapping</h3>
+<ul>
+<li><strong>Cell types (cache-verified CL):</strong> sympathetic neuron <a href="http://purl.obolibrary.org/obo/CL_0011103" target="_blank" rel="noopener noreferrer">CL:0011103</a>; noradrenergic neuron <a href="http://purl.obolibrary.org/obo/CL_0008025" target="_blank" rel="noopener noreferrer">CL:0008025</a>; cholinergic neuron <a href="http://purl.obolibrary.org/obo/CL_0000108" target="_blank" rel="noopener noreferrer">CL:0000108</a>; dopaminergic neuron <a href="http://purl.obolibrary.org/obo/CL_0000700" target="_blank" rel="noopener noreferrer">CL:0000700</a>. A preganglionic neuron term needs lookup.</li>
+<li><strong>Processes (GO terms still need lookup; none were verified here):</strong> norepinephrine biosynthesis, catecholamine secretion and storage (vesicular monoamine transport), protein aggregation, baroreflex blood-pressure regulation, neuron death.</li>
+<li><strong>Chemicals (CHEBI):</strong> noradrenaline <a href="http://purl.obolibrary.org/obo/CHEBI_33569" target="_blank" rel="noopener noreferrer">CHEBI:33569</a>.</li>
+<li><strong>Immune involvement:</strong> none described.</li>
+<li><strong>Molecular profiling:</strong> no transcriptomic, proteomic, or single-cell PAF datasets were found in the cached sources. CSF NfL is elevated only in patients who later convert to MSA (<a href="https://pubmed.ncbi.nlm.nih.gov/33881777/" target="_blank" rel="noopener noreferrer">PMID:33881777</a>).</li>
+</ul>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<ul>
+<li><strong>Primary:</strong> the peripheral autonomic nervous system. This means the sympathetic ganglia (UBERON term lookup needed), the thoracic intermediolateral column, and postganglionic fibres.</li>
+<li><strong>End organs (UBERON, cache-verified):</strong> heart <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a> (cardiac denervation); kidney <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a> (renal cortex); skin of body <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> and sweat gland <a href="http://purl.obolibrary.org/obo/UBERON_0001820" target="_blank" rel="noopener noreferrer">UBERON:0001820</a>; urinary bladder (lookup needed).</li>
+<li><strong>Central nervous system (subclinical or in converters):</strong> substantia nigra <a href="http://purl.obolibrary.org/obo/UBERON_0002038" target="_blank" rel="noopener noreferrer">UBERON:0002038</a> and locus ceruleus <a href="http://purl.obolibrary.org/obo/UBERON_0002148" target="_blank" rel="noopener noreferrer">UBERON:0002148</a> (<a href="https://pubmed.ncbi.nlm.nih.gov/9255396/" target="_blank" rel="noopener noreferrer">PMID:9255396</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/18363034/" target="_blank" rel="noopener noreferrer">PMID:18363034</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39825743/" target="_blank" rel="noopener noreferrer">PMID:39825743</a>).</li>
+<li><strong>Subcellular:</strong> neuronal cytoplasmic inclusions (Lewy bodies) and synaptic or secretory vesicles (the storage defect).</li>
+<li><strong>Distribution:</strong> symmetric and length-dependent, with small-fibre loss (<a href="https://pubmed.ncbi.nlm.nih.gov/26606657/" target="_blank" rel="noopener noreferrer">PMID:26606657</a>). In PAF, p-syn is found at every biopsy site: "the site of analysis is irrelevant in PAF."</li>
+</ul>
+<hr />
+<h2>8. Temporal development</h2>
+<ul>
+<li><strong>Onset:</strong> insidious, in adulthood or old age. Pooled mean onset age is 63.1 ± 4.3 years (<a href="https://pubmed.ncbi.nlm.nih.gov/42081229/" target="_blank" rel="noopener noreferrer">PMID:42081229</a>). At enrollment in the US cohort, patients were 68 years old (median) and had had autonomic failure for 5 years (<a href="https://pubmed.ncbi.nlm.nih.gov/28093795/" target="_blank" rel="noopener noreferrer">PMID:28093795</a>). Most non-OH autonomic symptoms begin near OH onset, while RBD comes later (median 7 years; <a href="https://pubmed.ncbi.nlm.nih.gov/40053259/" target="_blank" rel="noopener noreferrer">PMID:40053259</a>).</li>
+<li><strong>Course:</strong> chronic and progressive, with no remission.</li>
+<li><strong>Phenoconversion (the central prognostic issue):</strong></li>
+</ul>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Study</th>
+<th>n</th>
+<th>Follow-up</th>
+<th>Converted</th>
+<th>Breakdown</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>US consortium (<a href="https://pubmed.ncbi.nlm.nih.gov/28093795/" target="_blank" rel="noopener noreferrer">PMID:28093795</a>)</td>
+<td>74</td>
+<td>≤4 y</td>
+<td>34%</td>
+<td>DLB 13, PD 6, MSA 6</td>
+</tr>
+<tr>
+<td>Mayo retrospective (<a href="https://pubmed.ncbi.nlm.nih.gov/28202694/" target="_blank" rel="noopener noreferrer">PMID:28202694</a>)</td>
+<td>78 assessable of 318</td>
+<td>≥3 y</td>
+<td>12% of possible PAF</td>
+<td>MSA 22, PD/DLB 11</td>
+</tr>
+<tr>
+<td>Mayo (<a href="https://pubmed.ncbi.nlm.nih.gov/32546656/" target="_blank" rel="noopener noreferrer">PMID:32546656</a>)</td>
+<td>275</td>
+<td>—</td>
+<td>24%</td>
+<td>MSA 34, PD/DLB 33</td>
+</tr>
+<tr>
+<td>8-centre prospective (<a href="https://pubmed.ncbi.nlm.nih.gov/38366572/" target="_blank" rel="noopener noreferrer">PMID:38366572</a>; NCT01799915)</td>
+<td>149</td>
+<td>mean 3 y</td>
+<td>33%</td>
+<td>PD 42%, DLB 35%, MSA 23%; <strong>~12% per year</strong></td>
+</tr>
+<tr>
+<td>Queen Square (<a href="https://pubmed.ncbi.nlm.nih.gov/40397689/" target="_blank" rel="noopener noreferrer">PMID:40397689</a>)</td>
+<td>281</td>
+<td>median 10 y</td>
+<td>33%</td>
+<td>53% of deaths still had the PAF phenotype</td>
+</tr>
+<tr>
+<td>UK multimodal (<a href="https://pubmed.ncbi.nlm.nih.gov/40696849/" target="_blank" rel="noopener noreferrer">PMID:40696849</a>)</td>
+<td>194</td>
+<td>median 13 y</td>
+<td>26%</td>
+<td>MSA or LBD</td>
+</tr>
+<tr>
+<td><strong>Meta-analysis (<a href="https://pubmed.ncbi.nlm.nih.gov/42081229/" target="_blank" rel="noopener noreferrer">PMID:42081229</a>)</strong></td>
+<td>900 (9 studies)</td>
+<td>6.4 y</td>
+<td><strong>30%</strong></td>
+<td>MSA 12%, DLB 11%, PD 7%; <strong>5.09 per 100 person-years</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The meta-analysis concludes that "PAF may be a prodromal presentation of PD, DLB, or MSA with phenoconversion incidence rates similar to those of RBD." MSA conversions cluster in the early years, while Lewy body conversions occur at a steady rate. Note that the annual-risk estimates differ: about 12% per year in <a href="https://pubmed.ncbi.nlm.nih.gov/38366572/" target="_blank" rel="noopener noreferrer">PMID:38366572</a> against about 5% per year in the pooled analysis.</p>
+<ul>
+<li><strong>Critical window:</strong> the pre-motor phase is the opportunity for disease-modifying trials (<a href="https://pubmed.ncbi.nlm.nih.gov/37843677/" target="_blank" rel="noopener noreferrer">PMID:37843677</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42444112/" target="_blank" rel="noopener noreferrer">PMID:42444112</a>).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and population</h2>
+<ul>
+<li><strong>Inheritance:</strong> sporadic, not applicable (<a href="https://bioregistry.io/ORPHA:441" target="_blank" rel="noopener noreferrer">ORPHA:441</a>). There is no penetrance, anticipation, founder effect, or carrier-frequency data.</li>
+<li><strong>Prevalence:</strong> Orphanet gives a point-prevalence class of <strong>1–9 per 1,000,000 (Europe)</strong>. The source field in that row reads "<a href="https://pubmed.ncbi.nlm.nih.gov/2007/" target="_blank" rel="noopener noreferrer">PMID:2007</a>", which looks malformed and should be checked before citing. No population-based incidence study was found.</li>
+<li><strong>Sex:</strong> male predominance in pooled cohorts (63.8%; <a href="https://pubmed.ncbi.nlm.nih.gov/42081229/" target="_blank" rel="noopener noreferrer">PMID:42081229</a>). In the Queen Square cohort, male sex was associated with conversion to Lewy body disease (<a href="https://pubmed.ncbi.nlm.nih.gov/40397689/" target="_blank" rel="noopener noreferrer">PMID:40397689</a>).</li>
+<li><strong>Geography and ethnicity:</strong> no data. Cohorts are mainly from the US and UK.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical criteria.</strong> OH is defined as a sustained fall of ≥20 mmHg systolic or ≥10 mmHg diastolic blood pressure within 3 minutes of standing or tilt (consensus statement, <a href="https://pubmed.ncbi.nlm.nih.gov/21431947/" target="_blank" rel="noopener noreferrer">PMID:21431947</a>). PAF additionally requires no secondary cause and no motor or cognitive CNS features (1996 consensus criteria, as cited in <a href="https://pubmed.ncbi.nlm.nih.gov/40696849/" target="_blank" rel="noopener noreferrer">PMID:40696849</a>). Neurogenic supine hypertension is defined as SBP ≥140 and/or DBP ≥90 mmHg after 5 minutes supine (<a href="https://pubmed.ncbi.nlm.nih.gov/29766366/" target="_blank" rel="noopener noreferrer">PMID:29766366</a>). Screening and treatment recommendations: <a href="https://pubmed.ncbi.nlm.nih.gov/28050656/" target="_blank" rel="noopener noreferrer">PMID:28050656</a>.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Finding in PAF</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tilt table / active stand</td>
+<td>nOH; <strong>ΔHR/ΔSBP &lt; 0.492 bpm/mmHg</strong> (sensitivity 91.3%, specificity 88.4%)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29405350/" target="_blank" rel="noopener noreferrer">PMID:29405350</a></td>
+</tr>
+<tr>
+<td>Supine plasma norepinephrine</td>
+<td>Very low. Values &gt;100 pg/mL (Mayo) or ≥200 pg/mL (UK, Queen Square) predict conversion</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28093795/" target="_blank" rel="noopener noreferrer">PMID:28093795</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28202694/" target="_blank" rel="noopener noreferrer">PMID:28202694</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40696849/" target="_blank" rel="noopener noreferrer">PMID:40696849</a></td>
+</tr>
+<tr>
+<td>Cardiac ¹⁸F-dopamine PET / ¹²³I-MIBG</td>
+<td>Denervated. MIBG abnormal in 84.6% of 39 cases. Low cardiac ¹⁸F-dopamine predicts conversion to LBD; normal uptake points toward MSA</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16269589/" target="_blank" rel="noopener noreferrer">PMID:16269589</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41072204/" target="_blank" rel="noopener noreferrer">PMID:41072204</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37843677/" target="_blank" rel="noopener noreferrer">PMID:37843677</a></td>
+</tr>
+<tr>
+<td><strong>Skin biopsy for phosphorylated α-synuclein</strong></td>
+<td>Positive in <strong>100%</strong> (22 of 22) in Synuclein-One versus 3.3% of controls. A total p-syn score &gt;3 separates PAF from MSA (specificity 100%, sensitivity 82%). Absent in acquired autonomic neuropathies</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38506839/" target="_blank" rel="noopener noreferrer">PMID:38506839</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39608812/" target="_blank" rel="noopener noreferrer">PMID:39608812</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/23390175/" target="_blank" rel="noopener noreferrer">PMID:23390175</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/26606657/" target="_blank" rel="noopener noreferrer">PMID:26606657</a></td>
+</tr>
+<tr>
+<td>Skin autonomic innervation, sympathetic skin responses</td>
+<td>Marked postganglionic denervation, whereas skin innervation is preserved in MSA</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20660924/" target="_blank" rel="noopener noreferrer">PMID:20660924</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/18805037/" target="_blank" rel="noopener noreferrer">PMID:18805037</a></td>
+</tr>
+<tr>
+<td>CSF α-syn PMCA and NfL</td>
+<td>PMCA positive in 94%. An MSA-like seeding profile or raised NfL predicts MSA</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33881777/" target="_blank" rel="noopener noreferrer">PMID:33881777</a></td>
+</tr>
+<tr>
+<td>Autonomic reflex screen / thermoregulatory sweat test</td>
+<td>Moderate to severe failure. A preganglionic sweat-loss pattern predicts MSA</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40053259/" target="_blank" rel="noopener noreferrer">PMID:40053259</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28202694/" target="_blank" rel="noopener noreferrer">PMID:28202694</a></td>
+</tr>
+<tr>
+<td>Smell test (UPSIT)</td>
+<td>Hyposmia, which points toward PD/DLB conversion</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19201246/" target="_blank" rel="noopener noreferrer">PMID:19201246</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42081229/" target="_blank" rel="noopener noreferrer">PMID:42081229</a></td>
+</tr>
+<tr>
+<td>DaTSCAN, FDOPA-PET, neuromelanin MRI</td>
+<td>Abnormal DaTSCAN in 39% of patients up to 7 years before conversion</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40397689/" target="_blank" rel="noopener noreferrer">PMID:40397689</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39825743/" target="_blank" rel="noopener noreferrer">PMID:39825743</a></td>
+</tr>
+<tr>
+<td>Polysomnography</td>
+<td>RBD confirmation</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27757562/" target="_blank" rel="noopener noreferrer">PMID:27757562</a></td>
+</tr>
+<tr>
+<td>Pupillometry</td>
+<td>Sympathetic deficits. Normal pupils predict conversion</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40696849/" target="_blank" rel="noopener noreferrer">PMID:40696849</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Genetic testing:</strong> not indicated for PAF itself. It can be used to exclude mimics.</p>
+<p><strong>Differential diagnosis:</strong> prodromal MSA, PD or DLB with OH, autoimmune autonomic ganglionopathy, amyloid and diabetic autonomic neuropathy, and non-neurogenic OH from volume depletion, anemia, or polypharmacy (<a href="https://pubmed.ncbi.nlm.nih.gov/34392300/" target="_blank" rel="noopener noreferrer">PMID:34392300</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/29405350/" target="_blank" rel="noopener noreferrer">PMID:29405350</a>). The MDS prodromal-MSA criteria are 92–100% sensitive in PAF but only 56–67% specific. Requiring UPSIT &gt;28 raises specificity to 90–97% (<a href="https://pubmed.ncbi.nlm.nih.gov/42444112/" target="_blank" rel="noopener noreferrer">PMID:42444112</a>).</p>
+<p><strong>Screening:</strong> no population or newborn screening exists.</p>
+<hr />
+<h2>11. Outcome and prognosis</h2>
+<ul>
+<li><strong>Survival:</strong> median <strong>15 years from orthostatic symptom onset</strong>, driven mainly by age and OH severity (<a href="https://pubmed.ncbi.nlm.nih.gov/40397689/" target="_blank" rel="noopener noreferrer">PMID:40397689</a>). In that cohort, 41% died during follow-up. Survival is better than in the other synucleinopathies (<a href="https://pubmed.ncbi.nlm.nih.gov/27338613/" target="_blank" rel="noopener noreferrer">PMID:27338613</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/24095130/" target="_blank" rel="noopener noreferrer">PMID:24095130</a>).</li>
+<li><strong>Patients who stay "pure"</strong> have very low NE, a slow resting heart rate, no RBD, and preserved smell (<a href="https://pubmed.ncbi.nlm.nih.gov/28093795/" target="_blank" rel="noopener noreferrer">PMID:28093795</a>). "not all patients with pure autonomic failure will develop motor or cognitive symptoms, even with prolonged follow-up" (<a href="https://pubmed.ncbi.nlm.nih.gov/40053259/" target="_blank" rel="noopener noreferrer">PMID:40053259</a>).</li>
+<li><strong>Predictors of conversion to MSA:</strong> younger onset, severe bladder dysfunction, preserved smell, HR rise on tilt &gt;10 bpm, higher NE, preganglionic anhidrosis, subtle motor signs, CSF NfL (<a href="https://pubmed.ncbi.nlm.nih.gov/28093795/" target="_blank" rel="noopener noreferrer">PMID:28093795</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38366572/" target="_blank" rel="noopener noreferrer">PMID:38366572</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33881777/" target="_blank" rel="noopener noreferrer">PMID:33881777</a>).</li>
+<li><strong>Predictors of conversion to PD/DLB:</strong> hyposmia, blunted tilt HR response (HR 6.1 for PD), RBD, low cardiac ¹⁸F-dopamine, male sex, older age (<a href="https://pubmed.ncbi.nlm.nih.gov/38366572/" target="_blank" rel="noopener noreferrer">PMID:38366572</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37843677/" target="_blank" rel="noopener noreferrer">PMID:37843677</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40397689/" target="_blank" rel="noopener noreferrer">PMID:40397689</a>).</li>
+<li><strong>Predictor of any conversion:</strong> RBD (odds ratio 7.1; <a href="https://pubmed.ncbi.nlm.nih.gov/28093795/" target="_blank" rel="noopener noreferrer">PMID:28093795</a>).</li>
+<li><strong>Complications:</strong> syncope, falls, injury, supine hypertension with end-organ damage (LVH, transient ischemic attack in one case series), anemia (<a href="https://pubmed.ncbi.nlm.nih.gov/15633433/" target="_blank" rel="noopener noreferrer">PMID:15633433</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/11927799/" target="_blank" rel="noopener noreferrer">PMID:11927799</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/8017744/" target="_blank" rel="noopener noreferrer">PMID:8017744</a>).</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p>There is no disease-modifying therapy: "There is currently no specific treatment to stop progression in PAF" (<a href="https://pubmed.ncbi.nlm.nih.gov/27338613/" target="_blank" rel="noopener noreferrer">PMID:27338613</a>). The goal of treatment is to relieve symptoms, not to normalize blood pressure (<a href="https://pubmed.ncbi.nlm.nih.gov/33705537/" target="_blank" rel="noopener noreferrer">PMID:33705537</a>).</p>
+<p><strong>Choosing a drug.</strong> Patients with low "sympathetic reserve", which includes PAF, "tend to respond better to 'norepinephrine replacers' (midodrine and droxidopa)" (<a href="https://pubmed.ncbi.nlm.nih.gov/32979782/" target="_blank" rel="noopener noreferrer">PMID:32979782</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Intervention</th>
+<th>Mechanism</th>
+<th>Evidence</th>
+<th>Suggested NCIT / CHEBI</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Non-pharmacologic: avoid triggers, high salt and fluid intake, counter-maneuvers, compression garments</td>
+<td>Volume and venous return</td>
+<td>First-line (<a href="https://pubmed.ncbi.nlm.nih.gov/21664375/" target="_blank" rel="noopener noreferrer">PMID:21664375</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28050656/" target="_blank" rel="noopener noreferrer">PMID:28050656</a>)</td>
+<td>Supportive Care NCIT:C15747</td>
+</tr>
+<tr>
+<td>Abdominal binder (40 mmHg)</td>
+<td>Raises stroke volume</td>
+<td>Standing BP +15/6 mmHg (<a href="https://pubmed.ncbi.nlm.nih.gov/15241645/" target="_blank" rel="noopener noreferrer">PMID:15241645</a>)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Rapid water drinking (~500 mL)</td>
+<td>Osmopressor reflex</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21048076/" target="_blank" rel="noopener noreferrer">PMID:21048076</a></td>
+<td>—</td>
+</tr>
+<tr>
+<td>Head-up tilt sleeping</td>
+<td>Reduces nocturnal natriuresis</td>
+<td>Scoping review (<a href="https://pubmed.ncbi.nlm.nih.gov/37626994/" target="_blank" rel="noopener noreferrer">PMID:37626994</a>)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Midodrine</strong></td>
+<td>α1-agonist (direct vasoconstriction)</td>
+<td>RCT, n=171: improved standing SBP and symptoms; adverse effects include supine hypertension, piloerection, urinary retention (<a href="https://pubmed.ncbi.nlm.nih.gov/9091692/" target="_blank" rel="noopener noreferrer">PMID:9091692</a>)</td>
+<td>Pharmacotherapy NCIT:C15986 + <a href="http://purl.obolibrary.org/obo/CHEBI_6933" target="_blank" rel="noopener noreferrer">CHEBI:6933</a></td>
+</tr>
+<tr>
+<td><strong>Droxidopa</strong></td>
+<td>Norepinephrine prodrug</td>
+<td>Phase 3: OHQ composite +0.90 (p=0.003), standing SBP +11.2 mmHg (<a href="https://pubmed.ncbi.nlm.nih.gov/24944260/" target="_blank" rel="noopener noreferrer">PMID:24944260</a>). Withdrawal trial missed its primary endpoint (<a href="https://pubmed.ncbi.nlm.nih.gov/25350981/" target="_blank" rel="noopener noreferrer">PMID:25350981</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_31524" target="_blank" rel="noopener noreferrer">CHEBI:31524</a></td>
+</tr>
+<tr>
+<td>Fludrocortisone</td>
+<td>Volume expansion (mineralocorticoid)</td>
+<td>Use with caution (<a href="https://pubmed.ncbi.nlm.nih.gov/33705537/" target="_blank" rel="noopener noreferrer">PMID:33705537</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/15633433/" target="_blank" rel="noopener noreferrer">PMID:15633433</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_50885" target="_blank" rel="noopener noreferrer">CHEBI:50885</a></td>
+</tr>
+<tr>
+<td>Pyridostigmine</td>
+<td>Ganglionic enhancer</td>
+<td>Reduced standing diastolic BP fall with no supine rise (<a href="https://pubmed.ncbi.nlm.nih.gov/16476804/" target="_blank" rel="noopener noreferrer">PMID:16476804</a>). Better suited to preserved reserve</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_8665" target="_blank" rel="noopener noreferrer">CHEBI:8665</a></td>
+</tr>
+<tr>
+<td>Atomoxetine</td>
+<td>NET inhibitor</td>
+<td>Acutely beat midodrine (<a href="https://pubmed.ncbi.nlm.nih.gov/25185131/" target="_blank" rel="noopener noreferrer">PMID:25185131</a>), but a 4-week RCT showed no benefit over placebo (<a href="https://pubmed.ncbi.nlm.nih.gov/39294522/" target="_blank" rel="noopener noreferrer">PMID:39294522</a>). Response depends on residual sympathetic tone (<a href="https://pubmed.ncbi.nlm.nih.gov/34176285/" target="_blank" rel="noopener noreferrer">PMID:34176285</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_127342" target="_blank" rel="noopener noreferrer">CHEBI:127342</a></td>
+</tr>
+<tr>
+<td>Recombinant erythropoietin</td>
+<td>Corrects anemia</td>
+<td>Hb 108 → 133 g/L in 5 of 5 patients (<a href="https://pubmed.ncbi.nlm.nih.gov/8017744/" target="_blank" rel="noopener noreferrer">PMID:8017744</a>)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Supine hypertension:</strong> avoid lying flat in the daytime, short-acting nighttime antihypertensives (e.g., transdermal nitroglycerin)</td>
+<td>—</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11927799/" target="_blank" rel="noopener noreferrer">PMID:11927799</a></td>
+<td>—</td>
+</tr>
+<tr>
+<td>Eplerenone (night dose)</td>
+<td>Mineralocorticoid receptor antagonist</td>
+<td>Supine SBP −32 mmHg (crossover, n=10, 7 with PAF) (<a href="https://pubmed.ncbi.nlm.nih.gov/26644241/" target="_blank" rel="noopener noreferrer">PMID:26644241</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_31547" target="_blank" rel="noopener noreferrer">CHEBI:31547</a></td>
+</tr>
+<tr>
+<td>CPAP (8–12 cmH₂O overnight)</td>
+<td>Valsalva-like fall in cardiac output</td>
+<td>Night SBP −23 mmHg, less nocturia, better morning orthostatic tolerance (<a href="https://pubmed.ncbi.nlm.nih.gov/36601916/" target="_blank" rel="noopener noreferrer">PMID:36601916</a>)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Pharmacogenomics:</strong> none described.</li>
+<li><strong>Gene, cell, and RNA therapies:</strong> none.</li>
+<li><strong>Trials:</strong> registered work is mostly observational, e.g., NCT01799915 (natural history) and NCT04700722 (Synuclein-One). Phenoconversion biomarkers are being developed specifically to select patients for future disease-modification trials (<a href="https://pubmed.ncbi.nlm.nih.gov/37843677/" target="_blank" rel="noopener noreferrer">PMID:37843677</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42444112/" target="_blank" rel="noopener noreferrer">PMID:42444112</a>).</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> none is possible, because the cause is unknown.</li>
+<li><strong>Secondary prevention:</strong> early detection through skin p-syn and autonomic testing, and stratifying conversion risk for trial enrollment.</li>
+<li><strong>Tertiary prevention:</strong> fall and syncope prevention through education about triggers and medications (<a href="https://pubmed.ncbi.nlm.nih.gov/33705537/" target="_blank" rel="noopener noreferrer">PMID:33705537</a>); treating supine hypertension to prevent LVH and nocturnal natriuresis (<a href="https://pubmed.ncbi.nlm.nih.gov/11927799/" target="_blank" rel="noopener noreferrer">PMID:11927799</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/29766366/" target="_blank" rel="noopener noreferrer">PMID:29766366</a>).</li>
+<li><strong>Genetic counseling:</strong> not applicable, since PAF is sporadic.</li>
+<li><strong>Vaccination, public-health, and environmental measures:</strong> not applicable.</li>
+</ul>
+<hr />
+<h2>14. Other species and natural disease</h2>
+<p>No naturally occurring PAF in animals was found in the cached literature, and there is no relevant OMIA entry. Not applicable for transmission or zoonosis.</p>
+<hr />
+<h2>15. Model organisms</h2>
+<p>There is <strong>no dedicated PAF animal model</strong> in the reviewed sources.</p>
+<ul>
+<li><strong>Related models:</strong> sinoaortic-denervated mice, which model loss of baroreflex buffering, show the osmopressor response. Trpv4 is implicated in that response (<a href="https://pubmed.ncbi.nlm.nih.gov/21048076/" target="_blank" rel="noopener noreferrer">PMID:21048076</a>, review, MODEL_ORGANISM).</li>
+<li><strong>What a model would need to capture:</strong> a peripherally restricted synucleinopathy with postganglionic noradrenergic degeneration and spared striatum. The SNCA-based models of the wider synucleinopathy literature were not reviewed here, and none in the cached sources was shown to reproduce PAF specifically. This is a candidate <code>KNOWLEDGE_GAP</code> / <code>HUMAN_MODEL_MISMATCH</code>.</li>
+</ul>
+<hr />
+<h2>Notes for knowledge-base curation</h2>
+<ol>
+<li><strong>Lump/split:</strong> a single Disease entry seems right. Two candidate subtypes or hypotheses could be modelled: Lewy-body PAF (postganglionic, converts to PD/DLB) and non-Lewy PAF (preganglionic, possible premotor MSA) (<a href="https://pubmed.ncbi.nlm.nih.gov/34669076/" target="_blank" rel="noopener noreferrer">PMID:34669076</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28188385/" target="_blank" rel="noopener noreferrer">PMID:28188385</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37843677/" target="_blank" rel="noopener noreferrer">PMID:37843677</a>).</li>
+<li><strong>Do not add <code>genetic:</code> causal genes.</strong> SNCA belongs on pathophysiology nodes (aggregation) as the disease protein.</li>
+<li><strong>Wire every phenotype into the pathograph.</strong> OH should be the hub, with branches to cerebral hypoperfusion (syncope, dizziness, visual symptoms), muscle hypoperfusion (neck pain), supine hypertension → nocturia/LVH, and denervation → anemia.</li>
+<li><strong>Conformance target:</strong> check <code>just list-modules</code> for an α-synuclein aggregation or autonomic module before adding one.</li>
+<li><strong>CURIEs still to look up:</strong> HP terms for supine hypertension, dizziness, and postprandial hypotension; UBERON terms for sympathetic ganglion, intermediolateral column, and urinary bladder; a CL term for preganglionic neuron; all GO process terms; HGNC for SLC18A2.</li>
+<li><strong>Orphanet epidemiology source:</strong> the "<a href="https://pubmed.ncbi.nlm.nih.gov/2007/" target="_blank" rel="noopener noreferrer">PMID:2007</a>" source in the <a href="https://bioregistry.io/ORPHA:441" target="_blank" rel="noopener noreferrer">ORPHA:441</a> epidemiology row looks malformed. Do not cite it as a PMID.</li>
+</ol>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>59</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>59</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>59</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>52</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>43</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>42</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>7</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0012378</code> (1 mention) - the report calls it "Fatigue, weakness, lethargy"; HP calls it <strong>Fatigue</strong></li>
+<li><code>HP:0000017</code> (1 mention) - the report calls it "Nocturia / nocturnal pressure natriuresis"; HP calls it <strong>Nocturia</strong></li>
+<li><code>HP:0001662</code> (1 mention) - the report calls it "Bradycardia / slow steady heart rate"; HP calls it <strong>Bradycardia</strong></li>
+<li><code>HP:0012099</code> (1 mention) - the report calls it "parent term"; HP calls it <strong>Abnormal circulating catecholamine concentration</strong></li>
+<li><code>HP:0001903</code> (1 mention) - the report calls it "Anemia (normocytic, low erythropoietin)"; HP calls it <strong>Anemia</strong></li>
+<li><code>UBERON:0000948</code> (1 mention) - the report calls it "cardiac denervation"; UBERON calls it <strong>heart</strong></li>
+<li><code>UBERON:0002113</code> (1 mention) - the report calls it "renal cortex"; UBERON calls it <strong>kidney</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0001278</code> (1 mention) - the report calls it "Orthostatic hypotension (neurogenic, severe)"; HP calls it <strong>Orthostatic hypotension</strong></li>
+<li><code>HP:0000505</code> (1 mention) - the report calls it "Visual impairment; may be too coarse"; HP calls it <strong>Visual impairment</strong></li>
+<li><code>HP:0100749</code> (1 mention) - the report calls it "Chest pain (orthostatic)"; HP calls it <strong>Chest pain</strong></li>
+<li><code>HP:0002046</code> (1 mention) - the report calls it "Thermoregulatory dysfunction / heat intolerance"; HP calls it <strong>Heat intolerance</strong></li>
+<li><code>HP:5200291</code> (1 mention) - the report calls it "REM sleep behavior disorder / dream enactment"; HP calls it <strong>REM sleep behavior disorder</strong></li>
+<li><code>HP:0007686</code> (1 mention) - the report calls it "Sympathetic pupillary deficit"; HP calls it <strong>Abnormal pupillary function</strong></li>
+<li><code>HP:0001712</code> (1 mention) - the report calls it "Left ventricular hypertrophy (from supine hypertension)"; HP calls it <strong>Left ventricular hypertrophy</strong></li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Punctate_Palmoplantar_Keratoderma-falcon.html">← Punctate Palmoplantar Keratoderma (Falcon)</a>
+                
+                
+                <a href="Pure_Autonomic_Failure-openscientist.html">Pure Autonomic Failure (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Pure_Autonomic_Failure.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Pure_Autonomic_Failure-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="Pure_Autonomic_Failure-openscientist.html"><span class="provider-pill provider-openscientist">OpenScientist</span></a>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
