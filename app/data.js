@@ -36111,6 +36111,150 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "Autoimmune Disease Multisystem Infantile-onset 3",
+    "disease_id": "MONDO:0957388",
+    "category": "Mendelian",
+    "parents": [
+      "Primary Immunodeficiency",
+      "Autoimmune Disease"
+    ],
+    "creation_date": "2026-10-30T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An early-onset multisystem autoimmune disease caused by biallelic loss-of-function variants in CBLB, which encodes the E3 ubiquitin ligase CBL-B. CBL-B ubiquitinates signalling proteins recruited by engaged antigen and Fc receptors so that they are degraded, and in doing so it sets the activation threshold of lymphocytes: a T cell lacking it proliferates and makes interleukin-2 in response to receptor cross-linking alone, without the CD28 costimulation a normal T cell requires. The patients' effector T cells hyperproliferate on anti-CD3 stimulation and, in the one patient in whom it was tested, resist suppression by healthy-donor regulatory T cells. Both properties are long-standing features of Cbl-b-deficient mice, which develop spontaneous autoimmunity, and the Treg-resistance property has since been reproduced by knocking CBLB out of primary human CD4+ T cells.\nThe reported presentation is autoimmunity rather than infection, and it is heterogeneous across organ systems: autoimmune polyendocrinopathy (hypothyroidism in the first years of life, then type I diabetes), vitiligo and chronic urticaria in one child; recurrent fevers with lung infiltrates, serositis, hepatomegaly and marrow hemophagocytosis alongside the same endocrinopathy in a second; and autoimmune cytopenias (hemolytic anemia then immune thrombocytopenia) from six months of age in a third. Serum IgG reactive against broad autoantigen panels, insulin and GAD65 among them, is raised. T, B and NK cell numbers are normal, which is the point of contrast with the receptor-proximal signalling deficiencies this disease otherwise sits beside. Only one of the three children had hypogammaglobulinemia and recurrent infection, and the published work does not explain that arm.\nThe knock-in mouse built to carry the patient allele reproduces the cellular phenotype and not the disease: it has T and B cell hyperproliferation and Treg-resistant effector T cells but, under specific-pathogen-free housing, no autoimmunity. Autoantibodies and spontaneous disease also differ between the two independently generated Cblb-null lines. So a second, non-genetic requirement for the autoimmune phenotype is proposed but not identified.",
+    "pathophysiology": [
+      "Biallelic CBLB Loss of Function",
+      "Loss of CBL-B Restraint on Antigen Receptor Signalling",
+      "T Cell Hyperproliferation Uncoupled from CD28 Costimulation",
+      "Effector T Cell Resistance to Regulatory T Cell Suppression",
+      "Breakdown of Peripheral T Cell Tolerance",
+      "B Cell Receptor Hyperresponsiveness",
+      "Mast Cell Hyperactivation",
+      "Multi-organ Autoantibody Production and Autoimmune Tissue Injury",
+      "Systemic Inflammatory Activation"
+    ],
+    "cell_types": [
+      "T cell",
+      "CD4-positive T cell",
+      "effector T cell",
+      "regulatory T cell",
+      "B cell",
+      "mast cell",
+      "plasma cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000624",
+      "CL:0000911",
+      "CL:0000815",
+      "CL:0000236",
+      "CL:0000097",
+      "CL:0000786"
+    ],
+    "biological_processes": [
+      "negative regulation of T cell receptor signaling by CBL-B",
+      "T cell proliferation",
+      "interleukin-2 production",
+      "regulatory T cell-mediated suppression of effector T cell proliferation",
+      "peripheral tolerance to self antigen",
+      "T cell anergy induction",
+      "B cell receptor signaling pathway",
+      "B cell proliferation",
+      "Fc-epsilon receptor signaling pathway",
+      "mast cell activation",
+      "autoantibody production",
+      "systemic inflammatory response"
+    ],
+    "phenotypes": [
+      "Hypothyroidism",
+      "Type I diabetes mellitus",
+      "Vitiligo",
+      "Chronic urticaria",
+      "Autoimmune hemolytic anemia",
+      "Autoimmune thrombocytopenia",
+      "Recurrent fever",
+      "Serositis",
+      "Ascites",
+      "Pulmonary infiltrates",
+      "Hepatomegaly",
+      "Arthralgia",
+      "Hemophagocytosis",
+      "Abnormal T cell proliferation",
+      "Decreased regulatory T cell proportion",
+      "Anti-insulin antibody positivity",
+      "Anti-glutamic acid decarboxylase antibody positivity",
+      "Increased circulating interleukin 6 concentration",
+      "Elevated circulating tumor necrosis factor alpha concentration",
+      "Increased circulating interleukin 10 concentration",
+      "Impaired specific antibody response",
+      "Decreased circulating immunoglobulin concentration",
+      "Recurrent otitis media",
+      "Recurrent lower respiratory tract infections"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Constitutional",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000821",
+      "HP:0100651",
+      "HP:0001045",
+      "HP:0410133",
+      "HP:0001890",
+      "HP:0001973",
+      "HP:0001954",
+      "HP:0045073",
+      "HP:0001541",
+      "HP:0002113",
+      "HP:0002240",
+      "HP:0002829",
+      "HP:0012156",
+      "HP:0031379",
+      "HP:0020113",
+      "HP:0034062",
+      "HP:0025329",
+      "HP:0030783",
+      "HP:6000239",
+      "HP:0033199",
+      "HP:0032140",
+      "HP:0004313",
+      "HP:0000403",
+      "HP:0002783"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CBLB"
+    ],
+    "treatments": [
+      "Corticosteroid and Azathioprine Immunosuppression",
+      "Intravenous Immunoglobulin",
+      "Abatacept"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autoimmune_Disease_Multisystem_Infantile-onset_3.yaml",
+    "page_url": "../pages/disorders/Autoimmune_Disease_Multisystem_Infantile-onset_3.html",
+    "num_phenotypes": 24,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "46",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Autoimmune Encephalitis",
     "disease_id": "MONDO:0020640",
     "category": "Autoimmune",
@@ -83548,6 +83692,82 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Cataract 12 Multiple Types",
+    "disease_id": "MONDO:0012701",
+    "category": "Mendelian",
+    "parents": [
+      "Early-onset non-syndromic cataract"
+    ],
+    "creation_date": "2026-10-30T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Non-syndromic cataract caused by pathogenic variants in BFSP2, which encodes phakinin (CP49), one of the two lens-specific intermediate filament proteins that co-assemble with BFSP1 (filensin) into the beaded filament of lens fiber cells. Most families show autosomal dominant inheritance of heterozygous missense or in-frame deletion alleles, most of them in the central rod domain; the recurrent in-frame deletion p.Glu233del has been found in several unrelated families in the United States and China. Morphology varies between and within families: congenital nuclear, sutural (often Y-sutural), pulverulent, spokelike cortical, lamellar, posterior polar radial or total cataract, and a juvenile-onset progressive form in which the lens is clear at birth. Myopia co-segregated with Y-sutural cataract in one family. One consanguineous family has a likely null allele causing autosomal recessive diffuse cortical cataract with unaffected heterozygous carriers. Mice lacking CP49, either by targeted deletion or through the natural Bfsp2 deletion carried by 129 and FVB/N strains, form no beaded filaments and lose lens optical quality progressively with age.",
+    "pathophysiology": [
+      "Heterozygous Dominant BFSP2 Variants",
+      "Biallelic BFSP2 Loss of Function",
+      "Beaded Filament Assembly Failure",
+      "Loss of Fiber Cell Architecture and Long-Range Order",
+      "Lens Light Scattering and Loss of Transparency"
+    ],
+    "cell_types": [
+      "lens fiber cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011004"
+    ],
+    "biological_processes": [
+      "intermediate filament organization",
+      "maintenance of lens transparency"
+    ],
+    "phenotypes": [
+      "Developmental cataract",
+      "Juvenile cataract",
+      "Progressive cataract",
+      "Sutural cataract",
+      "Nuclear cataract",
+      "Pulverulent cataract",
+      "Cortical cataract",
+      "Lamellar cataract",
+      "Posterior polar cataract",
+      "Myopia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000519",
+      "HP:0001118",
+      "HP:0007834",
+      "HP:0010695",
+      "HP:0100018",
+      "HP:0010693",
+      "HP:0100019",
+      "HP:0007971",
+      "HP:0001115",
+      "HP:0000545"
+    ],
+    "frequencies": [],
+    "genes": [
+      "BFSP2"
+    ],
+    "treatments": [
+      "Cataract Surgery"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cataract_12_Multiple_Types.yaml",
+    "page_url": "../pages/disorders/Cataract_12_Multiple_Types.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Cataract 13 With Adult I Phenotype",
     "disease_id": "MONDO:0007289",
     "category": "Mendelian",
@@ -111210,6 +111430,85 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Congenital Myopathy 28 With Rigid Spine",
+    "disease_id": "MONDO:0980756",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital myopathy"
+    ],
+    "creation_date": "2026-10-30T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive rigid spine myopathy caused by biallelic variants in HMGCS1, which encodes cytosolic 3-hydroxy-3-methylglutaryl-CoA synthase, the enzyme of the first step of the mevalonate pathway that supplies cholesterol and isoprenoids. The founding report described five patients from four unrelated families carrying six missense variants and one frameshift variant. All had spinal rigidity mainly of the cervical and dorsolumbar spine, scoliosis and respiratory insufficiency; creatine kinase was variably raised, and muscle biopsy showed irregular oxidative enzyme staining with occasional internal nuclei and rimmed vacuoles. The course worsened with intercurrent illness or certain drugs in some patients, and one patient died of respiratory failure after an infection. Recombinant missense proteins keep their dimeric state but are less thermostable or subtly altered in activity, and they rescue hmgcs1 mutant zebrafish less well than wild-type HMGCS1, so the missense alleles are hypomorphic. The disease sits with HMGCR and GGPS1 muscle disease as a mevalonate-pathway myopathy. Mevalonic acid lessens the severity of hmgcs1 mutant zebrafish, but no patient has been treated.",
+    "pathophysiology": [
+      "Hypomorphic HMGCS1 Variants",
+      "Reduced Mevalonate Pathway Output",
+      "Rigid Spine Myopathy"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "mevalonate pathway",
+      "isoprenoid biosynthesis",
+      "cholesterol biosynthesis"
+    ],
+    "phenotypes": [
+      "Spinal rigidity",
+      "Scoliosis",
+      "Respiratory insufficiency",
+      "Respiratory failure",
+      "Elevated circulating creatine kinase",
+      "Irregular oxidative enzyme staining",
+      "Internally nucleated muscle fibers",
+      "Rimmed vacuoles"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Respiratory",
+      "Laboratory",
+      "Histopathology"
+    ],
+    "phenotype_hpo_categories": [
+      "Metabolism",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003306",
+      "HP:0002650",
+      "HP:0002093",
+      "HP:0002878",
+      "HP:0003236",
+      "HP:0004303",
+      "HP:0031237",
+      "HP:0003805"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "HMGCS1"
+    ],
+    "treatments": [
+      "Mevalonic acid supplementation (preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_Myopathy_28_With_Rigid_Spine.yaml",
+    "page_url": "../pages/disorders/Congenital_Myopathy_28_With_Rigid_Spine.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Congenital Primary Lymphedema of Gordon",
     "disease_id": "MONDO:0035500",
     "category": "Mendelian",
@@ -113149,7 +113448,7 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "27",
+    "causal_graph_edges": "36",
     "causal_graph_longest_path": "8"
   },
   {
@@ -217940,6 +218239,100 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "19",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Intellectual Developmental Disorder With Macrocephaly Seizures And Speech Delay",
+    "disease_id": "MONDO:0032568",
+    "category": "Mendelian",
+    "parents": [
+      "Intellectual disability",
+      "Neurodevelopmental disorder"
+    ],
+    "creation_date": "2026-10-30T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant neurodevelopmental disorder caused by heterozygous, almost always de novo, missense variants in PAK1, which encodes p21-activated kinase 1, a serine/threonine kinase effector of the RHO GTPases RAC1 and CDC42. Affected children have global developmental delay, mild to profound intellectual disability, absent or severely delayed speech, and postnatal (secondary) macrocephaly from megalencephaly, often with ventriculomegaly and corpus callosum or white matter anomalies. Seizures are reported in most patients, frequently febrile, and are drug-resistant in some, alongside hypotonia, ataxic gait and autistic behaviour. The variants cluster in the autoinhibitory region and the kinase domain; those tested reduce the autoinhibitory homodimerization that normally keeps PAK1 inactive, and are regarded as activating, gain-of-function alleles.",
+    "pathophysiology": [
+      "PAK1 Autoinhibitory Homodimerization Loss",
+      "Constitutive PAK1 Kinase Activation",
+      "Enhanced PAK1 Downstream Kinase Signaling",
+      "Actin Cytoskeleton Dysregulation",
+      "Postnatal Megalencephaly",
+      "Structural Brain Anomalies",
+      "Impaired Neurodevelopment"
+    ],
+    "cell_types": [
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "JNK cascade",
+      "filopodium assembly"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Delayed speech and language development",
+      "Postnatal macrocephaly",
+      "Seizure",
+      "Febrile seizure",
+      "Infantile spasms",
+      "Autistic behavior",
+      "Hypotonia",
+      "Gait ataxia",
+      "Spastic tetraplegia",
+      "Ventriculomegaly",
+      "Abnormal corpus callosum morphology",
+      "Abnormal cerebral white matter morphology",
+      "Hydrocephalus"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0005490",
+      "HP:0001250",
+      "HP:0002373",
+      "HP:0012469",
+      "HP:0000729",
+      "HP:0001252",
+      "HP:0002066",
+      "HP:0002510",
+      "HP:0002119",
+      "HP:0001273",
+      "HP:0002500",
+      "HP:0000238"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "PAK1"
+    ],
+    "treatments": [
+      "Antiseizure Medication"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Developmental_Disorder_With_Macrocephaly_Seizures_And_Speech_Delay.yaml",
+    "page_url": "../pages/disorders/Intellectual_Developmental_Disorder_With_Macrocephaly_Seizures_And_Speech_Delay.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Intellectual Developmental Disorder With Muscle Tone Abnormalities And Distal Skeletal Defects",
@@ -408374,6 +408767,116 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "X-linked Intellectual Disability Van Esch Type",
+    "disease_id": "MONDO:0015601",
+    "category": "Mendelian",
+    "parents": [
+      "X-linked syndromic intellectual disability"
+    ],
+    "creation_date": "2026-10-30T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "X-linked recessive syndromic intellectual disability caused by hemizygous hypomorphic variants in POLA1, which encodes the p180 catalytic subunit of DNA polymerase alpha-primase, the enzyme that initiates DNA synthesis at replication origins and primes Okazaki fragments. Affected males have prenatal-onset proportionate short stature, microcephaly, intellectual disability or developmental delay of variable severity, and frequently hypogonadism; seizures, congenital heart malformation, reduced subcutaneous fat and recurrent infections are each reported in single individuals or families. The reported alleles are missense, splice-site and in-frame exon 6 deletion variants. Some lower POLA1 protein levels while others leave them intact; patient lymphoblastoid cells show reduced replication origin firing and hypersensitivity to replication stress, and the developmental growth failure is attributed to deficient DNA replication in proliferating cells during development. Obligate carrier females are unaffected and show skewed X inactivation. VEODS is allelic to, and clinically distinct from, X-linked reticulate pigmentary disorder, which is caused by a recurrent deep-intronic POLA1 variant and has an interferon-driven autoinflammatory mechanism.",
+    "pathophysiology": [
+      "Hypomorphic POLA1 Variants",
+      "Impaired Replication Origin Firing",
+      "Hypersensitivity to Replication Stress",
+      "Deficient DNA Replication in Proliferating Cells During Development",
+      "Selection Against POLA1-Deficient Cells in Heterozygous Females"
+    ],
+    "cell_types": [
+      "B-lymphoblastoid cell",
+      "neural progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0017006",
+      "CL:0011020"
+    ],
+    "biological_processes": [
+      "DNA replication initiation",
+      "replication fork restart after stalling",
+      "DNA replication under replication stress",
+      "proliferation of neural and somatic progenitors",
+      "neurogenesis"
+    ],
+    "phenotypes": [
+      "Intellectual disability",
+      "Global developmental delay",
+      "Microcephaly",
+      "Proportionate short stature",
+      "Intrauterine growth retardation",
+      "Hypogonadism",
+      "Hypogonadotropic hypogonadism",
+      "Seizure",
+      "Hypotonia",
+      "Cerebral atrophy",
+      "Behavioral abnormality",
+      "Congenital heart defect",
+      "Esophageal atresia",
+      "Recurrent infections",
+      "Upslanted palpebral fissure",
+      "Prominent nasal bridge",
+      "Reduced subcutaneous adipose tissue"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Growth",
+      "Endocrine",
+      "Behavioral",
+      "Cardiovascular",
+      "Gastrointestinal",
+      "Immunologic",
+      "Craniofacial",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0000252",
+      "HP:0003508",
+      "HP:0001511",
+      "HP:0000135",
+      "HP:0000044",
+      "HP:0001250",
+      "HP:0001252",
+      "HP:0002059",
+      "HP:0000708",
+      "HP:0001627",
+      "HP:0002032",
+      "HP:0002719",
+      "HP:0000582",
+      "HP:0000426",
+      "HP:0003758"
+    ],
+    "frequencies": [],
+    "genes": [
+      "POLA1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "X-linked_Intellectual_Disability_Van_Esch_Type.yaml",
+    "page_url": "../pages/disorders/X-linked_Intellectual_Disability_Van_Esch_Type.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "X-linked Lymphoproliferative Disease Due To SH2D1A Deficiency",
     "disease_id": "MONDO:0024551",
     "category": "Genetic",
@@ -412716,17 +413219,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3823,
+  "total_disorder_pages": 3828,
   "total_subtypes": 4954,
-  "total_disorders_and_subtypes": 8777,
-  "total_unique_evidence_sources": 56961,
-  "total_unique_publications": 53271,
+  "total_disorders_and_subtypes": 8782,
+  "total_unique_evidence_sources": 57024,
+  "total_unique_publications": 53334,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 313,
-  "total_pathographs": 3821,
-  "total_unique_pathological_events": 25129,
+  "total_pathographs": 3826,
+  "total_unique_pathological_events": 25153,
   "total_modules": 220,
-  "total_research_reports": 3937,
+  "total_research_reports": 3944,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
