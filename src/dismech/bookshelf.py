@@ -559,25 +559,50 @@ def entry_genes(document: dict) -> list[str]:
 _CAUSAL_RELATIONSHIPS = frozenset({None, "CAUSATIVE"})
 
 
+#: ``HP:0001442`` *Typified by somatic mosaicism*: the structured signal that an
+#: entry's causal variant is post-zygotic (see the ``somatic-mosaicism`` skill).
+SOMATIC_MOSAICISM = "HP:0001442"
+
+
+def is_somatic_mosaic(document: dict) -> bool:
+    """Whether an ``inheritance`` block, on the entry or a subtype, binds ``HP:0001442``."""
+    blocks = list(document.get("inheritance") or [])
+    for subtype in document.get("has_subtypes") or []:
+        if isinstance(subtype, dict):
+            blocks.extend(subtype.get("inheritance") or [])
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        term = (block.get("inheritance_term") or {}).get("term") or {}
+        if isinstance(term, dict) and term.get("id") == SOMATIC_MOSAICISM:
+            return True
+    return False
+
+
 def entry_causal_genes(document: dict) -> list[str]:
-    """Gene strings of the ``genetic:`` records that claim germline causation.
+    """Gene strings of the ``genetic:`` records that claim to cause the disease.
 
     The input to the ``GENE_SCOPED`` search (#9694). A record counts when its
-    ``relationship_type`` is ``CAUSATIVE`` or absent, its ``variant_origin`` is
-    not ``SOMATIC``, and its ``name`` and ``association`` do not call it
-    somatic: ``HRAS-Related Costello Syndrome`` is not a baseline for a thymoma
-    carrying a somatic HRAS mutation.
+    ``relationship_type`` is ``CAUSATIVE`` or absent and it is not a somatic
+    driver: ``variant_origin`` not ``SOMATIC``, and no "somatic" in its
+    ``name`` or ``association``. ``HRAS-Related Costello Syndrome`` is not a
+    baseline for a thymoma carrying a somatic HRAS mutation. A somatic-mosaic
+    disorder (:func:`is_somatic_mosaic`) is the exception: its causal variant is
+    somatic by definition, and the gene's chapter is the baseline
+    (*PIK3CA-Related Overgrowth Spectrum* for hemimegalencephaly).
     """
+    mosaic = is_somatic_mosaic(document)
     genes: list[str] = []
     for record in document.get("genetic") or []:
         if not isinstance(record, dict):
             continue
         if record.get("relationship_type") not in _CAUSAL_RELATIONSHIPS:
             continue
-        if str(record.get("variant_origin") or "").startswith("SOMATIC"):
-            continue
-        prose = f"{record.get('name') or ''} {record.get('association') or ''}"
-        if "somatic" in prose.lower():
-            continue
+        if not mosaic:
+            if str(record.get("variant_origin") or "").startswith("SOMATIC"):
+                continue
+            prose = f"{record.get('name') or ''} {record.get('association') or ''}"
+            if "somatic" in prose.lower():
+                continue
         genes.extend(entry_genes({"genetic": [record]}))
     return list(dict.fromkeys(genes))

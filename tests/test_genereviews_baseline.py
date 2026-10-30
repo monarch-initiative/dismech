@@ -30,6 +30,7 @@ from dismech.bookshelf import (
     entry_causal_genes,
     entry_genes,
     entry_names,
+    is_somatic_mosaic,
     kind_rank,
     normalize,
     source_from_cache_text,
@@ -994,6 +995,57 @@ def test_gene_scoped_keeps_causative_and_untyped_genes(spectrum_index):
     assert entry_causal_genes(doc) == ["HJV", "HAMP"]
 
 
+def _mosaic(doc: dict) -> dict:
+    doc["inheritance"] = [
+        {
+            "name": "Somatic mosaicism",
+            "inheritance_term": {
+                "preferred_term": "Somatic mosaicism",
+                "term": {"id": "HP:0001442", "label": "Typified by somatic mosaicism"},
+            },
+        }
+    ]
+    return doc
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"relationship_type": "CAUSATIVE", "variant_origin": "SOMATIC"},
+        {"name": "HRAS (somatic mosaic)"},
+    ],
+)
+def test_gene_scoped_keeps_somatic_genes_of_a_mosaic_disorder(
+    tmp_path, spectrum_index, extra
+):
+    """Hemimegalencephaly's PIK3CA is somatic, and its chapter is the baseline.
+
+    ``HP:0001442`` on the entry's inheritance is what tells a post-zygotic
+    disorder from a neoplasm carrying a somatic driver.
+    """
+    doc = _mosaic(_with_genes(_entry("Mosaic RASopathy"), _gene("HRAS", **extra)))
+    assert is_somatic_mosaic(doc)
+    gr = _assess(tmp_path, spectrum_index, doc).sources["genereviews"]
+    assert [(r.pmid, r.kind, r.name) for r in gr.chapters] == [
+        ("20301280", "GENE_SCOPED", "HRAS")
+    ]
+
+
+def test_mosaicism_bound_on_a_subtype_counts(spectrum_index):
+    doc = _with_genes(_entry("Overgrowth"), _gene("HRAS", variant_origin="SOMATIC"))
+    doc["has_subtypes"] = [_mosaic({"name": "Mosaic form"})]
+    assert entry_causal_genes(doc) == ["HRAS"]
+
+
+def test_mosaic_exception_still_skips_non_causal_records(spectrum_index):
+    doc = _mosaic(
+        _with_genes(
+            _entry("Mosaic disorder"), _gene("HRAS", relationship_type="MODIFIER")
+        )
+    )
+    assert entry_causal_genes(doc) == []
+
+
 def test_online_gene_search_keeps_hits_already_in_the_snapshot(spectrum_index):
     """A chapter naming the gene only in its abstract is reachable only online.
 
@@ -1033,6 +1085,34 @@ def test_online_gene_search_is_genereviews_only(spectrum_index):
     online.sources = ["statpearls"]
     assert online._search_genes(["TRPV4"]) == []
     assert online.client.terms == []
+
+
+def test_online_gene_search_skips_tokens_hgnc_does_not_know(
+    spectrum_index, monkeypatch
+):
+    """``II`` or ``CAG`` searched in abstracts would list unrelated chapters."""
+    monkeypatch.setattr(cgb, "_hgnc_symbols", lambda: frozenset({"TRPV4"}))
+    client = _RecordingNcbiClient({"idlist": []})
+    online = _online(spectrum_index, client)
+    online._search_genes(["TRPV4 type II variants", "CAG repeat"])
+    assert client.terms == ["TRPV4[TIAB] AND genereviews[book]"]
+
+
+def test_online_summary_failure_is_a_warning_not_a_crash(
+    spectrum_index, monkeypatch, capsys
+):
+    monkeypatch.setattr(cgb, "_hgnc_symbols", lambda: frozenset())
+
+    class _Client:
+        def call(self, endpoint, **params):
+            if endpoint == "esearch.fcgi":
+                return {"esearchresult": {"idlist": ["99999990"]}}
+            raise RuntimeError("E-utilities 500")
+
+    online = _online(spectrum_index, _Client())
+    assert online._search_genes(["TRPV4"]) == []
+    assert online._search_names(["Some Name"]) == []
+    assert capsys.readouterr().err.count("online summary failed") == 2
 
 
 # -- the committed index ----------------------------------------------------

@@ -77,6 +77,8 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import csv
+import functools
 import json
 import os
 import re
@@ -457,6 +459,20 @@ def assess_entry(
 # -- optional live supplement -------------------------------------------------
 
 
+HGNC_TERMS = REPO_ROOT / "cache" / "hgnc" / "terms.csv"
+
+
+@functools.cache
+def _hgnc_symbols() -> frozenset[str]:
+    """Approved symbols in the committed HGNC label cache; empty if it is absent."""
+    if not HGNC_TERMS.exists():
+        return frozenset()
+    with HGNC_TERMS.open(encoding="utf-8", newline="") as handle:
+        return frozenset(
+            row["label"] for row in csv.DictReader(handle) if row.get("label")
+        )
+
+
 def _bookaccession(record: dict) -> str:
     """The ``NBK`` accession of an ``esummary`` record, or ``""``."""
     return next(
@@ -509,6 +525,12 @@ class OnlineSearch:
         symbols: set[str] = set()
         for text in genes:
             symbols |= gene_symbols(text)
+        # A symbol-shaped token is not always a gene ("II", "CAG", "HLA"), and
+        # online it is searched in abstracts, where such a token matches
+        # unrelated chapters. Keep only symbols HGNC knows, when the cache is here.
+        hgnc = _hgnc_symbols()
+        if hgnc:
+            symbols &= hgnc
         found: list[Match] = []
         for symbol in sorted(symbols):
             term = f"{symbol}[TIAB] AND genereviews[book]"
@@ -524,13 +546,9 @@ class OnlineSearch:
                 continue
             ids = result.get("idlist", [])
             new = [pmid for pmid in ids if pmid not in self.index.by_pmid]
-            summaries = (
-                self.client.call("esummary.fcgi", db="pubmed", id=",".join(new))[
-                    "result"
-                ]
-                if new
-                else {}
-            )
+            summaries = self._summaries(new, term) if new else {}
+            if summaries is None:
+                continue
             for pmid in ids:
                 chapter = self.index.by_pmid.get(pmid)
                 if chapter is None:
@@ -546,6 +564,19 @@ class OnlineSearch:
                 if chapter.source == "genereviews":
                     found.append(Match(chapter, "ONLINE", symbol))
         return found
+
+    def _summaries(self, pmids: list[str], term: str) -> dict | None:
+        """``esummary`` records for ``pmids``, or ``None`` (with a warning) on failure."""
+        try:
+            return self.client.call("esummary.fcgi", db="pubmed", id=",".join(pmids))[
+                "result"
+            ]
+        except Exception as exc:  # network is optional; say so and move on
+            print(
+                f"warning: online summary failed for {term!r}: {exc}",
+                file=sys.stderr,
+            )
+            return None
 
     def _search_names(self, names: list[str]) -> list[Match]:
         found: list[Match] = []
@@ -579,9 +610,9 @@ class OnlineSearch:
                 new = [pmid for pmid in ids if pmid not in self.index.by_pmid]
                 if not new:
                     continue
-                result = self.client.call(
-                    "esummary.fcgi", db="pubmed", id=",".join(new)
-                )["result"]
+                result = self._summaries(new, term)
+                if result is None:
+                    continue
                 for pmid in new:
                     record = result.get(pmid, {})
                     found.append(

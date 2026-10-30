@@ -142,17 +142,26 @@ forms such as *HAMP- and HJV-Related Hemochromatosis* and *MCM8/MCM9-Related
 Syndromes*) is indexed under its gene symbols, and a chapter whose symbol
 matches one of the entry's causal genes is listed as a `GENE_SCOPED` candidate.
 
-The genes come from `genetic:` records that claim germline causation:
+The genes come from `genetic:` records that claim to cause the disease:
 `relationship_type` `CAUSATIVE` or absent, `variant_origin` not `SOMATIC`, and no
 "somatic" in the record's `name` or `association`. A susceptibility, modifier or
 somatic-driver gene's chapter is about another disease (*HRAS-Related Costello
 Syndrome* is not a thymoma baseline). Symbols are compared case and all, so
 `HFE` matches and a word does not.
 
+A somatic-mosaic disorder is the exception. When the entry's `inheritance`, or a
+subtype's, binds `HP:0001442` *Typified by somatic mosaicism* (the convention
+the `somatic-mosaicism` skill sets), its somatic causal genes are kept, because
+the variant is post-zygotic by definition and the gene's chapter is the
+baseline: `Hemimegalencephaly`, `angioosteohypertrophic_syndrome`
+(Klippel-Trenaunay) and `Focal_Cortical_Dysplasia_Type_II` all reach
+*PIK3CA-Related Overgrowth Spectrum* this way. Non-causal records stay out even
+then.
+
 `GENE_SCOPED` is a candidate, never a verdict, for the same reason as the other
 partial matches: *POLG-Related Disorders* covers every POLG disease, which may or
 may not include this one. It never changes a gating verdict. When it landed it
-moved 105 entries from `NO_CHAPTER` to `CANDIDATE_CHAPTER`, including
+moved 108 entries from `NO_CHAPTER` to `CANDIDATE_CHAPTER`, including
 `GM1_Gangliosidosis_Type_3` (*GLB1-Related Disorders*) and
 `Distal_Hereditary_Motor_Neuronopathy_Autosomal_Dominant` (the GARS1, BSCL2,
 DCTN1 and TRPV4 chapters).
@@ -160,7 +169,9 @@ DCTN1 and TRPV4 chapters).
 The index holds titles only, so a chapter that names the gene only in its
 abstract, usually an overview (*Nuclear Gene-Encoded Leigh Syndrome Spectrum
 Overview* for SURF1), is out of its reach. `--online` closes that gap with one
-`<GENE>[TIAB] AND genereviews[book]` search per causal symbol. Unlike the name
+`<GENE>[TIAB] AND genereviews[book]` search per causal symbol, limited to
+symbols in the committed HGNC label cache (`cache/hgnc/terms.csv`), since a token
+such as `II`, `CAG` or `HLA` would match unrelated abstracts. Unlike the name
 search it keeps hits already in the snapshot, since the title match never saw
 them, and it runs for GeneReviews only. A retired hit is marked
 `[retired chapter]`.

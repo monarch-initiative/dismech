@@ -4289,7 +4289,8 @@ of the entry's names). Partial title matches are `CANDIDATE_CHAPTER` and are
 listed for a person to read -- `Alpha Thalassemia` inside *Alpha-Thalassemia
 X-Linked Intellectual Disability Syndrome* is not that disease's chapter, and
 no string rule settles that. So are `GENE_SCOPED` rows, a `<GENE>-Related …`
-chapter for one of the entry's germline causal genes, found from the gene side
+chapter for one of the entry's causal genes (somatic ones only in a disorder
+bound to `HP:0001442`), found from the gene side
 because GeneReviews often covers a disease inside a gene's spectrum chapter
 (SED Maroteaux type in *Autosomal Dominant TRPV4-Related Disorders*, #9694).
 Searching PubMed by hand, use `genereviews[book]`, never `GeneReviews[TI]`,
