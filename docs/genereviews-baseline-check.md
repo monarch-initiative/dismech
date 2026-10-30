@@ -41,7 +41,8 @@ them apart:
 | `MISTAGGED` | a reference tagged `GeneReviews` (or `StatPearls`) is not a chapter of that collection | GeneReviews only |
 | `CITED_UNTAGGED` | a chapter PMID or `NBK` URL is cited somewhere in the file but not tagged in `references:` | GeneReviews only |
 | `UNTAGGED_CHAPTER` | a chapter whose title, normalised, **equals** one of the entry's names exists and is not tagged | GeneReviews only |
-| `TAGGED` | at least one tagged reference is a verified chapter | no |
+| `TAGGED` | at least one tagged reference is a verified, current chapter | no |
+| `TAGGED_RETIRED` | every tagged chapter is one GeneReviews has retired (below) | no |
 | `CANDIDATE_CHAPTER` | only partial title matches, or only a retired chapter | no, by design |
 | `NO_CHAPTER` | nothing in the snapshot names this entry | only when the entry has no synonyms (below) |
 
@@ -130,6 +131,27 @@ hit is listed with match kind `ONLINE`, after every index match: PubMed's
 normalised-title equality `EXACT` means, so an `ONLINE` hit makes the entry a
 `CANDIDATE_CHAPTER` and never gates. Read the title, and tag the chapter if it
 is this disease's.
+
+## Retired chapters
+
+GeneReviews withdraws a chapter by appending `– RETIRED CHAPTER, FOR HISTORICAL
+REFERENCE ONLY` to its title. The index records that as `retired = 1` (68 of the
+958 GeneReviews chapters in the 2026-09-10 snapshot). A retired chapter is still
+a GeneReviews article, so tagging it `GeneReviews` is correct, and removing the
+tag would only turn the citation into a `CITED_UNTAGGED` finding.
+
+What changes is the verdict. An entry whose tagged GeneReviews chapters are
+*all* retired gets `TAGGED_RETIRED` instead of `TAGGED`, so the entries resting
+on withdrawn content can be listed (#16018). One current chapter tagged beside
+the retired one makes the verdict `TAGGED` again. `TAGGED_RETIRED` never fails
+under `--strict`: most retired chapters have no successor, and a retired chapter
+can still be the fullest clinical description of its disease. The question it
+puts to a curator is whether a current chapter now covers the disease, often a
+spectrum or *Overview* chapter that a `GENE_SCOPED` row or a title search finds.
+If one does, cite and mine it, and re-quote evidence from it rather than
+carrying the retired abstract's sentences over. If none does, the retired
+chapter stays. The schema cannot yet record a source's standing (#9840), so
+say so in `notes:` when it matters to a claim.
 
 ## Gene-scoped chapters
 

@@ -413,7 +413,9 @@ just check-genereviews --online kb/disorders/<Entry>.yaml
 ```
 
 `UNTAGGED_CHAPTER` or `CITED_UNTAGGED` on the `GeneReviews` line names the
-chapter (PMID and title); `CANDIDATE_CHAPTER` lists partial title matches and
+chapter (PMID and title); `TAGGED_RETIRED` means the only chapter you tagged is
+one GeneReviews has retired, so look for a current chapter that covers the
+disease before relying on it; `CANDIDATE_CHAPTER` lists partial title matches and
 chapters scoped to one of the entry's causal genes (`GENE_SCOPED`) for you to
 read; `NO_CHAPTER` means none names the disease. If the report adds
 `note: entry has no synonyms`, the check matched only the name and
