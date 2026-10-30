@@ -2249,8 +2249,9 @@ procedure is the `entry-naming` skill.
 (PMID:33417889, PMID:39241757) names a monogenic disease by its gene and its
 phenotype. For a mechanism resource, the gene is the root of the pathograph, so
 a dyadic name tells a reader where the causal graph starts and separates
-entries that share a clinical label but not a mechanism. dismech already has
-about 360 entries named this way.
+entries that share a clinical label but not a mechanism. Several hundred
+dismech entries are already named this way (`ls kb/disorders | grep -ic
+related` gives the current filename count).
 
 **Why the MONDO label is not the default.** A scan in October 2026 found about
 30 single-gene MONDO classes whose label names a phenotype, tumour type or

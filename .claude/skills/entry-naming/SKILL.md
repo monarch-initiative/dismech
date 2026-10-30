@@ -20,15 +20,17 @@ The rules are recorded in design decisions §18
 
 1. **The name has the same scope as the entry.** Ask: could a patient have the
    condition this name describes without the entry's defining cause? If yes,
-   the name is too broad. A single-gene entry named `Cryptorchidism`,
-   `Trichotillomania` or `Normal Pressure Hydrocephalus` fails this test,
-   because each of those names also covers patients with other genes or with
-   no genetic cause at all.
+   the name is too broad. An entry bound to a single-gene term but named
+   after a phenotype (`Cryptorchidism`, `Trichotillomania`, `Normal Pressure
+   Hydrocephalus`) fails this test, because each of those names also covers
+   patients with other genes or with no genetic cause at all. Whether the fix
+   is a rename or a rebind depends on what the entry is actually about (see
+   the worked examples below).
 2. **A single-gene Mendelian entry is named `<GENE>-Related <Phenotype>` when
    that name is established.** "Established" means at least one of:
    - the MONDO label, or a MONDO EXACT synonym, of the bound term
-   - a ClinGen-preferred label (a MONDO synonym tagged
-     `OMO:0002001 ... clingen`)
+   - a ClinGen-preferred label (a MONDO synonym that MONDO attributes to
+     ClinGen)
    - a GeneReviews chapter title for the same scope
      (`cache/bookshelf/genereviews.csv`)
    - the current OMIM title
@@ -99,7 +101,7 @@ in the PR and either add the term to that issue or open a new MONDO issue (the
 | `Alpers-Huttenlocher Syndrome`, where the only gene-related title is `POLG-Related Disorders` | Keep the eponym; the umbrella belongs on a grouping |
 | `Cystic Fibrosis` (CFTR) | Keep. The name is already specific to one gene |
 | `Cryptorchidism`, bound to the INSL3 term | Scope test fails. Decide whether the entry is about INSL3 (rename) or about cryptorchidism generally (rebind) |
-| `Protein S Deficiency`, bound to AD thrombophilia due to protein S deficiency | The name dropped scope its own term has. Name it for the term |
+| `Protein S Deficiency`, covering PROS1-driven hereditary deficiency (AD and AR forms) | The name drops "hereditary", so it also covers acquired deficiency. Use `Hereditary Protein S Deficiency`; do not narrow it to the AD-only term, because the entry also covers the AR form |
 
 ## Renaming an existing entry
 

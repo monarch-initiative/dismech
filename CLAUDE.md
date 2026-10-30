@@ -3457,8 +3457,9 @@ name. Two rules, recorded in design decisions §18:
 
 - **The name covers exactly what the entry covers.** If a patient could have
   the named condition without the entry's defining cause, the name is too
-  broad. A single-gene entry named after a phenotype (`Cryptorchidism`,
-  `Trichotillomania`) fails this.
+  broad. An entry bound to a single-gene term but named after a phenotype
+  (`Cryptorchidism`, `Trichotillomania`) fails this; the fix is a rename or a
+  rebind, depending on what the entry is about.
 - **A single-gene Mendelian entry is named `<GENE>-Related <Phenotype>` when
   that name is established** (MONDO label or EXACT synonym, ClinGen-preferred
   label, GeneReviews title, OMIM title, or recurring literature use). Never use
