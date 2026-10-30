@@ -26,7 +26,9 @@ Deterministic
 
 Judgement
     * partial title matches -- the name inside a longer title, the title
-      inside a longer name, or a near-identical string -- are reported as
+      inside a longer name, a near-identical string, or a ``<Disease> –
+      <GENE>`` title whose disease part is in a name and whose gene the entry
+      names (``GENE_SUFFIX``, #15904) -- are reported as
       ``CANDIDATE_CHAPTER`` with the title and the match kind, for a person
       (or the reviewer) to read. ``Alpha Thalassemia`` inside ``Alpha-
       Thalassemia X-Linked Intellectual Disability Syndrome`` is such a
@@ -91,6 +93,7 @@ from dismech.bookshelf import (
     BookshelfIndex,
     Chapter,
     Match,
+    entry_genes,
     entry_names,
     kind_rank,
     source_from_cache_text,
@@ -125,9 +128,7 @@ class ChapterRow:
     nbk: str
     title: str
     retired: bool
-    kind: (
-        str  #: EXACT / CONTAINS / TITLE_IN_NAME / NEAR / ONLINE, or "" for tagged-only
-    )
+    kind: str  #: a ``MATCH_KINDS`` value, or "" for tagged-only
     name: str  #: entry name that matched ("" when found only by citation)
     tagged: bool
     cited: bool
@@ -289,6 +290,7 @@ def assess_source(
     index: BookshelfIndex,
     cache_dir: Path,
     online_matches: list[Match] = (),
+    genes: list[str] = (),
 ) -> SourceReport:
     report = SourceReport(source=source, verdict="NO_CHAPTER")
     rows: dict[str, ChapterRow] = {}
@@ -345,10 +347,13 @@ def assess_source(
             "NBK",
         )
 
-    # Chapters whose title names the entry.
+    # Chapters whose title names the entry. A ``<Disease> – <GENE>`` title is
+    # checked against the gene anywhere in the entry, not just in the one name
+    # that carries the disease words (#15904).
+    gene_context = [*names, *genes]
     matches: list[Match] = []
     for name in names:
-        matches.extend(index.match(name, sources=[source]))
+        matches.extend(index.match(name, sources=[source], genes=gene_context))
     matches.extend(m for m in online_matches if m.chapter.source == source)
     for match in sorted(matches, key=lambda m: (m.rank, int(m.chapter.pmid))):
         pmid = match.chapter.pmid
@@ -408,6 +413,7 @@ def assess_entry(
     rel_to: Path = REPO_ROOT,
 ) -> EntryReport:
     names = entry_names(document)
+    genes = entry_genes(document)
     tagged = tagged_references(document)
     cited_pmids, cited_nbks = cited_identifiers(text)
     online_matches = online.search(names) if online is not None else []
@@ -430,6 +436,7 @@ def assess_entry(
                 index,
                 cache_dir,
                 online_matches,
+                genes,
             )
             for source in (sources or list(SOURCE_TAGS))
         },

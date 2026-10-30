@@ -406,11 +406,12 @@ See CLAUDE.md §2b.
 `just research-disorder` now lowers the odds of this before the run starts: the
 disease prompt names the causal gene(s), OMIM entry and exact synonyms, so a
 serial-number name such as "spermatogenic failure 26" is no longer left for the
-provider to guess (issue #14907). These come from MONDO when the local build is
-on disk, otherwise from the curation stub's `genes:` block or the entry's own
-causative gene, and read "not recorded" when none of those has one. Running
-`just fetch-ontology-dbs mondo` before a paid run therefore gives the provider
-the most complete anchors. The preflight is still required afterwards.
+provider to guess (issue #14907). These come from MONDO: the local build when
+it is on disk, and OLS otherwise (#15436). Where MONDO records nothing, or
+cannot be read at all (which the recipe logs), they fall back to the curation
+stub's `genes:` block or the entry's own causative gene and synonyms, and read
+"not recorded" when none of those has one. The preflight is still required
+afterwards.
 
 **3. Misattribution.** A real, resolvable paper cited for a claim it does not
 make survives an existence check untouched. Quote checking catches some of this

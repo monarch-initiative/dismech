@@ -113,7 +113,9 @@ def _stub_adapter(monkeypatch, record):
     )
     # ``main`` opens MONDO before anything else; the record above stands in for
     # what that adapter would have returned.
-    monkeypatch.setattr("dismech.preflight_dr.open_mondo_adapter", lambda: object())
+    monkeypatch.setattr(
+        "dismech.preflight_dr.open_mondo_adapter", lambda *_a, **_k: object()
+    )
     # The rival-gene disease lookup would otherwise open the real MONDO build.
     monkeypatch.setattr(
         "dismech.preflight_dr._default_rival_lookup",
@@ -715,11 +717,13 @@ def test_no_hgnc_mode_never_opens_the_hgnc_adapter(monkeypatch):
     assert record.lookup_errors == ()
 
 
-def _no_local_builds(monkeypatch, tmp_path):
+def _no_local_builds(monkeypatch, tmp_path, *, ols_reachable=False):
     """Point OAK's build directory at an empty dir, and make opening fatal.
 
     Opening ``sqlite:obo:*`` on a missing build downloads it rather than
     failing, so the test must prove the adapter is never opened at all.
+    Without the build MONDO is read from OLS (#15436); unless the test says
+    otherwise, OLS is unreachable too, so nothing here touches the network.
     """
     monkeypatch.setenv("PYSTOW_HOME", str(tmp_path))
 
@@ -727,15 +731,23 @@ def _no_local_builds(monkeypatch, tmp_path):
         raise AssertionError(f"{spec} was opened; it would have been downloaded")
 
     monkeypatch.setattr("oaklib.get_adapter", _explode)
+    if not ols_reachable:
+        from dismech import mondo_ols
+
+        def _ols_down(url, timeout):
+            raise mondo_ols.OlsLookupError(f"could not reach OLS ({url}): offline")
+
+        monkeypatch.setattr(mondo_ols, "_get_json", _ols_down)
 
 
 def test_fetch_mondo_record_refuses_to_download_a_missing_mondo_build(
     monkeypatch, tmp_path
 ):
-    """#12687: no local ``mondo.db`` is a hard error, never a lazy download.
+    """#12687: no local ``mondo.db`` is never a lazy download.
 
-    Nor an empty record: that would read as "MONDO records no causal gene"
-    and come out as a SKIP verdict.
+    With OLS unreachable as well (#15436) it is a hard error, and not an empty
+    record: that would read as "MONDO records no causal gene" and come out as
+    a SKIP verdict.
     """
     _no_local_builds(monkeypatch, tmp_path)
     with pytest.raises(MondoBuildUnavailable, match="just fetch-ontology-dbs mondo"):
@@ -745,7 +757,8 @@ def test_fetch_mondo_record_refuses_to_download_a_missing_mondo_build(
 def test_cli_exits_2_without_the_mondo_build_before_opening_hgnc(
     monkeypatch, tmp_path, capsys
 ):
-    """The CLI fails fast, and before the HGNC lexicon can fetch its own build."""
+    """With neither the build nor OLS, the CLI fails fast, before the HGNC lexicon
+    can fetch its own build."""
     _no_local_builds(monkeypatch, tmp_path)
 
     def _no_lexicon(**_kwargs):  # pragma: no cover - must never run
@@ -952,11 +965,17 @@ def test_the_default_rival_lookup_never_downloads_a_build(monkeypatch, tmp_path)
 
 
 def test_the_default_rival_lookup_refuses_a_missing_mondo_build(monkeypatch, tmp_path):
-    """With no adapter passed it goes through open_mondo_adapter's guard."""
+    """With no adapter passed it goes through open_mondo_adapter's guard.
+
+    Without the build that guard hands back the OLS adapter (#15436), which
+    cannot answer the reverse query, so the lookup reports that it did not run
+    instead of downloading the build or returning an empty answer.
+    """
     _no_local_builds(monkeypatch, tmp_path)
     lookup = P._default_rival_lookup(None, use_hgnc=False)
-    with pytest.raises(MondoBuildUnavailable):
-        lookup(["TBK1"], "MONDO:0030717")
+    found, errors = lookup(["TBK1"], "MONDO:0030717")
+    assert found == {}
+    assert len(errors) == 1 and "just fetch-ontology-dbs mondo" in errors[0]
 
 
 def test_find_rival_diseases_excludes_the_intended_entity():
@@ -1017,7 +1036,9 @@ def test_cli_fails_the_12166_report_shape(monkeypatch, tmp_path, capsys):
         lambda adapter, use_hgnc: _imd97_lookup,
     )
     # ``main`` opens MONDO first; without this the test needs a local mondo.db.
-    monkeypatch.setattr("dismech.preflight_dr.open_mondo_adapter", lambda: object())
+    monkeypatch.setattr(
+        "dismech.preflight_dr.open_mondo_adapter", lambda *_a, **_k: object()
+    )
     report = tmp_path / "report.md"
     lines = ["OMIM 619802 and OMIM 604834."]
     for gene, n in IMD97_TBK1_COUNTS.items():

@@ -181,6 +181,24 @@ turns on. Enriching an issue body with a definition or an OMIM ID is not that.
    line under a candidate (`advisories` in `--json`) means an entry with the
    same name exists under another MONDO ID, so open that entry before choosing.
 
+   **`gh` present but GraphQL blocked (Claude Code cloud sessions).** These
+   sessions have an authenticated `gh`, but their proxy answers every GraphQL
+   call with HTTP 403, and `gh issue list` is GraphQL. `just fetch-claims`
+   handles this: when `gh issue list` fails it falls back to
+   `gh api --paginate` over REST, says so on stderr, and writes the file as
+   usual. The same fallback covers a `gh` older than v2.73.0, which rejects the
+   `closedByPullRequestsReferences` field (#11814). Nothing to do by hand.
+   What you lose is the linked-PR field, which REST has no equivalent for, so
+   `check-claims` prints a note that its **stale** list may over-report; check
+   an issue for an open PR before treating its claim as stale.
+
+   **If `just fetch-claims` exits non-zero, stop and read the error.** A failed
+   fetch leaves `tmp/claims.json` as it was (or absent) rather than writing an
+   empty file, and `next-unclaimed` / `check-claims` refuse an empty file, so a
+   failure can no longer pass as "nobody has claimed anything". Do not work
+   around it by writing `[]` by hand: an empty claims list offers every claimed
+   disease as free.
+
    **No `gh` CLI (web and remote sessions).** `just fetch-claims` shells out to
    `gh`, which is absent there — and `curl https://api.github.com` fails too:
    the agent proxy denies it even though `GH_TOKEN` is set. GitHub is reachable
