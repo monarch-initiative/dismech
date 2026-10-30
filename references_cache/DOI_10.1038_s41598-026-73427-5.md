@@ -1,39 +1,44 @@
 ---
-reference_id: PPR:PPR1284972
+reference_id: DOI:10.1038/s41598-026-73427-5
 extractor_version: 1
-title: "Effect of Deep Proprioceptive Stimulation via Weighted Blankets on Behavior, Sleep, and Body Composition in Adults with Prader–Willi Syndrome: A Randomized Crossover Trial"
+title: A randomized crossover trial with weighted blankets shows improvement in behavior and sleep outcomes in adults with Prader–Willi syndrome
 authors:
-- Pareja R
-- Moreno-Armengol A
-- Esteba-Castillo S
-- Vigil L
-- Blanco-Hinojo L
-- Coronas R
-- Giménez-Palop O
-- Deus J
-- Corripio R
-- Caixàs A
+- Rocío Pareja
+- Alex Moreno-Armengol
+- Susanna Esteba-Castillo
+- Laura Vigil
+- Laura Blanco-Hinojo
+- Ramon Coronas
+- Olga Giménez-Palop
+- Joan Deus
+- Raquel Corripio
+- Assumpta Caixàs
+journal: Scientific Reports
 year: '2026'
-doi: 10.21203/rs.3.rs-10202978/v1
+doi: 10.1038/s41598-026-73427-5
 content_type: full_text_pdf
-is_preprint: true
-peer_review_status: preprint
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41598-026-73427-5_reference.pdf"
 oa_status: gold
 license: cc-by
-local_pdf_path: files/PPR_PPR1284972.pdf
+local_pdf_path: files/DOI_10.1038_s41598-026-73427-5.pdf
 full_text_access_type: open
 ---
 
-# Effect of Deep Proprioceptive Stimulation via Weighted Blankets on Behavior, Sleep, and Body Composition in Adults with Prader–Willi Syndrome: A Randomized Crossover Trial
-**Authors:** Pareja R, Moreno-Armengol A, Esteba-Castillo S, Vigil L, Blanco-Hinojo L, Coronas R, Giménez-Palop O, Deus J, Corripio R, Caixàs A
-**DOI:** [10.21203/rs.3.rs-10202978/v1](https://doi.org/10.21203/rs.3.rs-10202978/v1)
+# A randomized crossover trial with weighted blankets shows improvement in behavior and sleep outcomes in adults with Prader–Willi syndrome
+**Authors:** Rocío Pareja, Alex Moreno-Armengol, Susanna Esteba-Castillo, Laura Vigil, Laura Blanco-Hinojo, Ramon Coronas, Olga Giménez-Palop, Joan Deus, Raquel Corripio, Assumpta Caixàs
+**Journal:** Scientific Reports (2026)
+**DOI:** [10.1038/s41598-026-73427-5](https://doi.org/10.1038/s41598-026-73427-5)
 
 ## Content
 
-<title>Abstract</title>  <p>Background  Prader–Willi syndrome (PWS) is a rare neurodevelopmental disorder characterized by hypotonia, hyperphagia, challenging behaviors, sleep abnormalities, and altered body composition. Non-pharmacological interventions targeting sensory modulation may represent a safe therapeutic strategy. Deep proprioceptive stimulation (DPS), delivered via weighted blankets, has shown anxiolytic and sleep-modulating effects in other neurogenetic and psychiatric populations; however, its efficacy has not been systematically evaluated in PWS. Objective  To evaluate the effects of DPS using weighted blankets on sleep, behavior, hyperphagia, and body composition in adults with PWS. Methods  In this randomized, crossover trial, 40 adults with genetically confirmed PWS underwent two 14-day intervention periods using either a weighted proprioceptive blanket or a visually identical placebo blanket, separated by a 4-week washout period. Behavioral outcomes (including anxiety, skin-picking, and hyperphagia scales), actigraphy-derived sleep and activity metrics, and body composition measured via bioelectrical impedance analysis were assessed. Results  Use of the weighted blanket was associated with significant improvements in anxiety, hyperphagia and self-injurious skin-picking behaviors (p < 0.05). Objective sleep efficiency improved, accompanied by reductions in nocturnal awakenings and daytime somnolence. Actigraphy showed reduced percentage of sedentary time and increased percentage of moderate physical activity, with concomitant increases in fat-free and skeletal muscle mass following weighted blanket use. No adverse events were reported. Conclusions  DPS via weighted blankets is a safe, well-tolerated, and effective non-pharmacological intervention for behavioral regulation, sleep efficiency, and body composition in adults with PWS. These findings support the integration of DPS as a complementary therapeutic tool in the multidisciplinary management of PWS.</p>
+Abstract
+
+                    Prader–Willi syndrome (PWS) is a rare neurodevelopmental disorder characterized by hypotonia, hyperphagia, challenging behaviors, sleep abnormalities, and altered body composition. Non-pharmacological interventions targeting sensory modulation may represent a safe therapeutic strategy. Deep proprioceptive stimulation (DPS), delivered via weighted blankets, has shown anxiolytic and sleep-modulating effects in other neurogenetic and psychiatric populations; however, its efficacy has not been systematically evaluated in PWS. To evaluate the effects of DPS using weighted blankets on sleep, behavior, hyperphagia, and body composition in adults with PWS. In this randomized, crossover trial, 40 adults with genetically confirmed PWS underwent two 14-day intervention periods using either a weighted proprioceptive blanket or a visually identical placebo blanket, separated by a 4-week washout period. Behavioral outcomes (including anxiety, skin-picking, and hyperphagia scales), actigraphy-derived sleep and activity metrics, and body composition measured via bioelectrical impedance analysis were assessed. Use of the weighted blanket was associated with significant improvements in anxiety, hyperphagia and self-injurious skin-picking behaviors (
+                    p
+                     < 0.05). Objective sleep efficiency improved, accompanied by reductions in nocturnal awakenings and daytime somnolence. Actigraphy showed reduced percentage of sedentary time and increased percentage of moderate physical activity, with concomitant increases in fat-free and skeletal muscle mass following weighted blanket use. No adverse events were reported. DPS via weighted blankets is a safe, well-tolerated, and effective non-pharmacological intervention for behavioral regulation, sleep efficiency, and body composition in adults with PWS. These findings support the integration of DPS as a complementary therapeutic tool in the multidisciplinary management of PWS.
 
 ARTICLE | Article in Press
 Scientific Reports https://doi.org/10.1038/s41598-026-73427-5
