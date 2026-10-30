@@ -214,13 +214,10 @@ stature* and *Broad thumb* satisfied the guard identically. Nothing converged,
 the entry held no specific eye findings, and the snippet was a GeneReviews list
 sentence. It is `SOURCE_UNSPECIFIED`.
 
-Noonan is the contrast: `RASopathy Neoplastic Predisposition` is the only node
-that targets that one, and its single other edge reaches *Neuroblastoma*, one
-specific tumour from the reported spectrum curated as its own phenotype, so the
-mechanism still converges on the hub rather than fanning out. The coarseness is
-a property of the biology rather than of the source — germline RAS/MAPK
-hyperactivation raises risk across lineages instead of producing one
-characteristic tumour.
+Noonan is the contrast: `RASopathy Neoplastic Predisposition` targets that node
+and nothing else, and the coarseness is a property of the biology rather than of
+the source — germline RAS/MAPK hyperactivation raises risk across lineages
+instead of producing one characteristic tumour.
 
 `just list-coarse-phenotypes` prints incoming-edge count and the widest fan-out
 among the sources for every declared hub, and flags a source fanning out past 3.
