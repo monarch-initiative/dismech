@@ -249830,6 +249830,74 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "MOS-related Oocyte Zygote Embryo Maturation Arrest",
+    "disease_id": "MONDO:0957278",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "female reproductive system disease"
+    ],
+    "creation_date": "2026-10-30T03:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "MOS-related oocyte/zygote/embryo maturation arrest is an autosomal-recessive form of primary female infertility caused by biallelic loss-of-function variants in MOS, the oocyte-specific serine/threonine kinase that phosphorylates MEK1/2 and so activates ERK1/2 during meiotic maturation. In vertebrate oocytes MOS-ERK signalling is the cytostatic factor that holds the mature egg at metaphase II until fertilization, and it also organizes the cortical actin and spindle that make the first meiotic division asymmetric. Affected women have normal menstrual cycles and hormone levels; they are identified after repeated IVF/ICSI failure. Most retrieved oocytes reach metaphase II, but embryos arrest at the cleavage stage, often with severe fragmentation, and in other families oocytes extrude an abnormally large first polar body or activate without fertilization. Patient variants lower MOS protein or weaken its binding to MEK1 and fail to activate ERK1/2 in cultured cells and mouse oocytes; patient oocytes show reduced phosphorylated ERK1/2, retarded maternal mRNA clearance, and loss of cortical F-actin. Female Mos-null mice show the parallel phenotype of spontaneous parthenogenetic egg activation and low fertility. Ten affected women have been reported, mostly from Chinese infertility cohorts, and no treatment is established.",
+    "pathophysiology": [
+      "Biallelic MOS Loss-of-Function Variants",
+      "Oocyte MEK-ERK1/2 Cascade Inactivation",
+      "Failed Metaphase II Arrest",
+      "Cortical Actin and Spindle Assembly Defects in Oocytes",
+      "Impaired Maternal mRNA Clearance During Oocyte Maturation",
+      "Oocyte Mitochondrial Dysfunction"
+    ],
+    "cell_types": [
+      "oocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000023"
+    ],
+    "biological_processes": [
+      "ERK1 and ERK2 cascade",
+      "premature metaphase/anaphase transition of meiosis II",
+      "cortical actin cytoskeleton organization",
+      "maternal mRNA clearance"
+    ],
+    "phenotypes": [
+      "Female Infertility",
+      "Embryo Developmental Arrest",
+      "Embryo Fragmentation",
+      "Large First Polar Body",
+      "Parthenogenetic Oocyte Activation"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cellular",
+      "Genitourinary",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0008222",
+      "HP:0020003",
+      "HP:0033335",
+      "HP:0020155",
+      "HP:0033338"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MOS"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "MOS-related_Oocyte_Zygote_Embryo_Maturation_Arrest.yaml",
+    "page_url": "../pages/disorders/MOS-related_Oocyte_Zygote_Embryo_Maturation_Arrest.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "MPDU1-congenital disorder of glycosylation",
     "disease_id": "MONDO:0012211",
     "category": "Mendelian",
@@ -267809,6 +267877,160 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "45",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Mitochondrial DNA Depletion Syndrome 6 (Hepatocerebral Type)",
+    "disease_id": "MONDO:0009747",
+    "category": "Mendelian",
+    "parents": [
+      "mitochondrial DNA depletion syndrome, hepatocerebral form",
+      "mitochondrial DNA maintenance defect"
+    ],
+    "creation_date": "2026-10-27T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Infantile Encephalohepatopathic",
+      "Navajo Neurohepatopathy",
+      "Later-Onset Neuromyopathic"
+    ],
+    "description": "Autosomal recessive mitochondrial DNA (mtDNA) maintenance disorder caused by biallelic MPV17 variants. MPV17 is a small inner mitochondrial membrane protein. Its loss leaves mitochondria short of deoxynucleotides (dGTP and dTTP) for mtDNA synthesis, which produces severe mtDNA depletion, most marked in the liver, and a combined deficiency of the mtDNA-encoded respiratory chain complexes. Most patients present in infancy with an encephalohepatopathic disease: cholestatic liver dysfunction progressing to liver failure, fasting hypoglycaemia, lactic acidosis, failure to thrive and feeding difficulty, with hypotonia, developmental delay and a motor and sensory peripheral neuropathy that becomes more prominent in survivors. Progressive liver disease usually causes death in infancy or early childhood; hepatocellular carcinoma has been reported. Navajo neurohepatopathy, caused by homozygous p.R50Q, is the same disease with a longer course and prominent neuropathy, corneal anaesthesia and leukoencephalopathy. A rare later-onset neuromyopathic presentation with multiple mtDNA deletions in muscle is also reported. Liver transplantation is the only treatment for liver failure and is contested because the disease is multisystemic; frequent feeding to avoid fasting is the main supportive measure.",
+    "pathophysiology": [
+      "MPV17 Loss of Function",
+      "Mitochondrial Deoxynucleotide Insufficiency",
+      "Liver-Predominant mtDNA Depletion",
+      "Combined Respiratory Chain Deficiency",
+      "Hepatocellular Injury and Progressive Liver Failure",
+      "Impaired Hepatic Fasting Glucose Homeostasis",
+      "Aberrant mtDNA Integrity",
+      "Peripheral Nerve Involvement",
+      "Central Nervous System Involvement"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "Schwann cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0002573",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "mitochondrial DNA replication",
+      "oxidative phosphorylation"
+    ],
+    "phenotypes": [
+      "Hepatic failure",
+      "Cholestasis",
+      "Hepatomegaly",
+      "Hepatic steatosis",
+      "Cirrhosis",
+      "Depletion of mitochondrial DNA in liver",
+      "Hepatocellular carcinoma",
+      "Hypermethioninemia",
+      "Elevated circulating S-adenosyl methionine concentration",
+      "Hypoglycemia",
+      "Lactic acidosis",
+      "Failure to thrive",
+      "Feeding difficulties",
+      "Gastrointestinal dysmotility",
+      "Hypotonia",
+      "Global developmental delay",
+      "Microcephaly",
+      "Sensorimotor neuropathy",
+      "Decreased corneal sensation",
+      "Acral mutilation",
+      "Leukoencephalopathy",
+      "Abnormal brainstem MRI signal intensity",
+      "Renal tubular dysfunction",
+      "Nephrocalcinosis",
+      "Hypoparathyroidism",
+      "Multiple mitochondrial DNA deletions",
+      "Ragged-red muscle fibers",
+      "Progressive external ophthalmoplegia"
+    ],
+    "phenotype_categories": [
+      "Hepatic",
+      "Neoplasm",
+      "Metabolic",
+      "Growth",
+      "Gastrointestinal",
+      "Neurological",
+      "Ophthalmological",
+      "Integument",
+      "Renal",
+      "Endocrine",
+      "Muscular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cellular",
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001399",
+      "HP:0001396",
+      "HP:0002240",
+      "HP:0001397",
+      "HP:0001394",
+      "HP:0006581",
+      "HP:0001402",
+      "HP:0003235",
+      "HP:0034617",
+      "HP:0001943",
+      "HP:0003128",
+      "HP:0001508",
+      "HP:0011968",
+      "HP:0002579",
+      "HP:0001252",
+      "HP:0001263",
+      "HP:0000252",
+      "HP:0007141",
+      "HP:0012155",
+      "HP:0002352",
+      "HP:0012747",
+      "HP:0000124",
+      "HP:0000121",
+      "HP:0000829",
+      "HP:0003689",
+      "HP:0003200",
+      "HP:0000590"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "MPV17"
+    ],
+    "treatments": [
+      "Liver Transplantation",
+      "Frequent Feeding and Fasting Avoidance",
+      "Deoxynucleoside Supplementation (preclinical)",
+      "Liver-Directed MPV17 Gene Replacement (preclinical)"
+    ],
+    "environmental": [
+      "Perinatal zidovudine prophylaxis",
+      "Intercurrent infection"
+    ],
+    "biochemical": [],
+    "source_file": "Mitochondrial_DNA_Depletion_Syndrome_6_Hepatocerebral_Type.yaml",
+    "page_url": "../pages/disorders/Mitochondrial_DNA_Depletion_Syndrome_6_Hepatocerebral_Type.html",
+    "num_phenotypes": 28,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "44",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Mitochondrial DNA Depletion Syndrome 7",
@@ -329760,6 +329982,135 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 5,
     "causal_graph_edges": "32",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Pseudohypoaldosteronism Type IB3 Autosomal Recessive",
+    "disease_id": "MONDO:0859318",
+    "category": "Mendelian",
+    "parents": [
+      "Pseudohypoaldosteronism type 1",
+      "Autosomal recessive disease"
+    ],
+    "creation_date": "2026-10-30T10:37:47Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Pseudohypoaldosteronism type IB3 (PHA1B3) is the SCNN1G-related form of autosomal recessive, systemic (multi-organ) pseudohypoaldosteronism type 1. Biallelic loss-of-function variants in SCNN1G, which encodes the gamma subunit of the amiloride-sensitive epithelial sodium channel (ENaC), abolish or reduce channel activity in aldosterone-responsive epithelia. Failure of ENaC-mediated sodium reabsorption in the distal nephron causes renal salt wasting, volume depletion and failure of potassium and hydrogen ion secretion, so affected infants present in the first weeks of life with vomiting, poor feeding, dehydration, life-threatening hyperkalemia and metabolic acidosis despite high renin and aldosterone and no response to mineralocorticoid therapy. Extra-renal ENaC loss adds salt loss through sweat and colon, and skin and airway manifestations are reported in systemic PHA1. Severe disease follows splice-site, frameshift and gross-deletion alleles, while at least one hypomorphic missense allele (p.Gly532Ser) produced a mild, salt-responsive course. Treatment is lifelong sodium chloride, alkali and potassium control; dietary potassium restriction reduces urinary sodium loss. The SCNN1A (PHA1B1) and SCNN1B (PHA1B2) forms share the mechanism and are separate MONDO concepts.",
+    "pathophysiology": [
+      "Biallelic SCNN1G loss of function",
+      "Distal nephron ENaC sodium reabsorption failure",
+      "Impaired distal potassium and hydrogen ion secretion",
+      "Extracellular volume depletion",
+      "Compensatory renin-angiotensin-aldosterone activation",
+      "Sweat duct sodium reabsorption failure",
+      "Colonic sodium absorption failure",
+      "Airway epithelial sodium absorption failure"
+    ],
+    "cell_types": [
+      "kidney collecting duct principal cell",
+      "epithelial cell of sweat gland",
+      "colon epithelial cell",
+      "bronchial epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:1001431",
+      "CL:1000448",
+      "CL:0011108",
+      "CL:0002328"
+    ],
+    "biological_processes": [
+      "renal sodium ion absorption",
+      "renal potassium excretion",
+      "sodium ion homeostasis",
+      "regulation of blood volume by renin-angiotensin",
+      "sodium ion transmembrane transport"
+    ],
+    "phenotypes": [
+      "Hyponatremia",
+      "Hyperkalemia",
+      "Metabolic acidosis",
+      "Renal salt wasting",
+      "Increased circulating renin concentration",
+      "Increased circulating aldosterone concentration",
+      "Dehydration",
+      "Hypotension",
+      "Vomiting",
+      "Failure to thrive in infancy",
+      "Cardiac arrest",
+      "Seizure",
+      "Elevated sweat chloride",
+      "Eczematous skin lesions",
+      "Wheezing",
+      "Cough",
+      "Recurrent upper and lower respiratory tract infections"
+    ],
+    "phenotype_categories": [
+      "Metabolic/Laboratory",
+      "Renal",
+      "Systemic",
+      "Cardiovascular",
+      "Gastrointestinal",
+      "Growth",
+      "Neurological",
+      "Integument",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002902",
+      "HP:0002153",
+      "HP:0001942",
+      "HP:0000127",
+      "HP:0000848",
+      "HP:0000859",
+      "HP:0001944",
+      "HP:0002615",
+      "HP:0002013",
+      "HP:0001531",
+      "HP:0001695",
+      "HP:0001250",
+      "HP:0012236",
+      "HP:0000964",
+      "HP:0030828",
+      "HP:0012735",
+      "HP:0200117"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "SCNN1G"
+    ],
+    "treatments": [
+      "High-dose sodium chloride supplementation",
+      "Dietary potassium restriction",
+      "Sodium bicarbonate",
+      "Potassium-binding resin",
+      "Mineralocorticoid and glucocorticoid replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Pseudohypoaldosteronism_Type_IB3_Autosomal_Recessive.yaml",
+    "page_url": "../pages/disorders/Pseudohypoaldosteronism_Type_IB3_Autosomal_Recessive.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "33",
     "causal_graph_longest_path": "5"
   },
   {
@@ -413219,17 +413570,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3828,
-  "total_subtypes": 4954,
-  "total_disorders_and_subtypes": 8782,
-  "total_unique_evidence_sources": 57024,
-  "total_unique_publications": 53334,
+  "total_disorder_pages": 3831,
+  "total_subtypes": 4957,
+  "total_disorders_and_subtypes": 8788,
+  "total_unique_evidence_sources": 57071,
+  "total_unique_publications": 53380,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 313,
-  "total_pathographs": 3826,
-  "total_unique_pathological_events": 25153,
+  "total_pathographs": 3829,
+  "total_unique_pathological_events": 25165,
   "total_modules": 220,
-  "total_research_reports": 3944,
+  "total_research_reports": 3947,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
