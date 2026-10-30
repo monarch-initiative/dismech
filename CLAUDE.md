@@ -45,6 +45,8 @@ Claude Code skills are available in `.claude/skills/`:
   curation need warrants a schema change at all.
 - **coarse-phenotype-bindings**: Use when choosing, reviewing, or repairing a
   `coarse_binding_basis` on a phenotype bound to a coarse HPO term.
+- **entry-naming**: Use when choosing, reviewing, or changing an entry's `name`,
+  including when creating an entry from a stub.
 
 **A skill file that is misnamed or missing its frontmatter is not an error — it
 is a skill that never loads.** Claude Code discovers a skill by looking for
@@ -3452,6 +3454,28 @@ baseline-function modifiers. It also shows what stays out: SPRINTT reported a
 grip and lean-mass benefit in women and none in men, but from separate
 within-sex results with no interaction test and for a multicomponent programme,
 so that result sits in the treatment's `evidence`, not in `effect_modifiers`.
+
+### Entry Names
+
+The `disease_term` binding fixes what an entry is; the `name` is dismech's own
+choice, and a stub's `label` (the MONDO label) is a queue key, not the entry
+name. Two rules, recorded in design decisions §18:
+
+- **The name covers exactly what the entry covers.** If a patient could have
+  the named condition without the entry's defining cause, the name is too
+  broad. An entry bound to a single-gene term but named after a phenotype
+  (`Cryptorchidism`, `Trichotillomania`) fails this; the fix is a rename or a
+  rebind, depending on what the entry is about.
+- **A single-gene Mendelian entry is named `<GENE>-Related <Phenotype>` when
+  that name is established** (MONDO label or EXACT synonym, ClinGen-preferred
+  label, GeneReviews title, OMIM title, or recurring literature use). Never use
+  an umbrella like `POLG-Related Disorders` for one point on the spectrum, and
+  never coin a dyad nobody uses. Keep prior names in `synonyms`.
+
+Use the `entry-naming` skill. MONDO labels can themselves be too broad or
+miscased (monarch-initiative/mondo#10836); report those upstream rather than
+copying them. Renames change `name` and `synonyms` only until dismech#15894
+decides how file slugs follow.
 
 ### Subtype Naming Conventions
 

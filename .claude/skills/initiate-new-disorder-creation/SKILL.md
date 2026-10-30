@@ -26,6 +26,10 @@ This skill can also be consulted for ongoing curation of existing disorders.
 ### Step 1: Select Disorder Name and Run Duplicate Preflight
 
 Choose the clinically preferred name for the disorder, use title case (e.g. `Foo Bar Syndrome`).
+Follow the `entry-naming` skill: the name must be no broader than the entry, and a
+single-gene Mendelian entry takes an established `<GENE>-Related <Phenotype>` name where
+one exists. A stub's `label` is the MONDO label; treat it as one candidate, not the
+answer, and keep it in `synonyms` if you choose a different name.
 For file names, spaces will. be replaced by underscores, and characters such as apostrophes removed.
 
 Before creating a new disorder file, check all three duplicate surfaces:
