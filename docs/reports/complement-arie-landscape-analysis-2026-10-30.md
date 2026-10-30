@@ -94,8 +94,10 @@ question's count may therefore not have been answered "no".
 Each paper answers between 1 and 17 of the 19 questions; most answer 8 to 12.
 Publication years run from 2004 to 2024, with 2,447 papers from 2023.
 
-The 294 keys without answers carry no title or accession, but 270 of them
-carry a DOI, so they can still be identified.
+The 294 keys without answers and the 20 keys grouping several papers are
+separate sets: no key is in both, which is why 3,051 − 294 − 20 = 2,737. The
+294 carry no title or accession, but 270 of them carry a DOI, so they can still
+be identified.
 
 ## Edge cases handled by the parser
 
@@ -123,10 +125,12 @@ records the source URL and the download's sha256. To rebuild:
 
 1. Download "Q&A-Question Details" from the dashboard's "Explore Questions"
    view into `data/complement-arie/`.
-2. Check `shasum -a 256` against the manifest.
-3. Run `python scripts/complement_arie_landscape.py`.
+2. Run `just complement-arie-parse`.
 
-This writes three files beside the download:
+The script checks the download's sha256 against the manifest first and stops
+if they differ, since a different snapshot would not give the counts in this
+report. `--no-verify` parses a different snapshot anyway. It then writes three
+files beside the download, all gitignored:
 
 - `papers.tsv`: one row per citation key, with authors, year, accession,
   PMID, DOI, title, and the flags above.

@@ -42,9 +42,13 @@ Edge cases in the export, all handled deterministically:
 * **NA placeholders.** ``NA`` titles, ``https://doi.org/NA`` and answers that
   begin ``NA`` are emitted as empty / ``answer_is_na``.
 
+The input's sha256 is checked against ``MANIFEST.yaml`` before parsing, so
+the tables always come from the snapshot the report describes.
+
 Usage:
+    just complement-arie-parse
     python scripts/complement_arie_landscape.py
-    python scripts/complement_arie_landscape.py --input PATH --out-dir DIR
+    python scripts/complement_arie_landscape.py --input PATH --out-dir DIR --no-verify
 """
 
 from __future__ import annotations
@@ -52,6 +56,7 @@ from __future__ import annotations
 import argparse
 import collections
 import csv
+import hashlib
 import io
 import json
 import re
@@ -61,6 +66,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data" / "complement-arie"
 DEFAULT_INPUT = DATA_DIR / "Q&A-Question Details_data.csv"
+MANIFEST = DATA_DIR / "MANIFEST.yaml"
+MANIFEST_SHA256_RE = re.compile(r"^sha256:\s*([0-9a-f]{64})\s*$", re.MULTILINE)
 
 COL_KEY = "Short Citation (Accession Number)"
 COL_QUESTION = "Question Column Name"
@@ -317,13 +324,35 @@ def write(papers: list[dict], answers: list[dict], out_dir: Path) -> None:
         writer.writerows(summarise_questions(answers))
 
 
+def verify_checksum(path: Path, manifest: Path) -> None:
+    """Stop unless ``path`` is the snapshot the manifest pins, so counts match the report."""
+    match = MANIFEST_SHA256_RE.search(manifest.read_text(encoding="utf-8"))
+    if not match:
+        sys.exit(f"{manifest} has no 'sha256:' line to check the download against")
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            digest.update(chunk)
+    if digest.hexdigest() != match.group(1):
+        sys.exit(
+            f"{path} has sha256 {digest.hexdigest()}, but {manifest} pins {match.group(1)}.\n"
+            "This is a different snapshot of the export. Rerun with --no-verify to parse it anyway, "
+            "and update the manifest if it is to replace the pinned one."
+        )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     parser.add_argument("--out-dir", type=Path, default=DATA_DIR)
+    parser.add_argument("--manifest", type=Path, default=MANIFEST)
+    parser.add_argument("--no-verify", action="store_true",
+                        help="parse the input even if its sha256 differs from the manifest's")
     args = parser.parse_args(argv)
     if not args.input.exists():
         sys.exit(f"{args.input} not found; see data/complement-arie/MANIFEST.yaml for its source")
+    if not args.no_verify:
+        verify_checksum(args.input, args.manifest)
     papers, answers, stats = build(read_rows(args.input))
     write(papers, answers, args.out_dir)
     for name, value in sorted(stats.items()):

@@ -4002,6 +4002,16 @@ toxcast-refresh *args="":
 toxcast-coverage *args="":
     uv run python scripts/toxcast_pathograph_coverage.py "$@"
 
+# Turn the Complement-ARIE Landscape Analysis "Q&A-Question Details" download
+# into papers.tsv, answers.jsonl and questions.tsv beside it. The download is
+# ~128 MB and not committed: fetch it from the dashboard named in
+# data/complement-arie/MANIFEST.yaml. The script checks its sha256 against the
+# manifest and stops on a mismatch (--no-verify to parse another snapshot).
+# See docs/reports/complement-arie-landscape-analysis-2026-10-30.md.
+[group('Research')]
+complement-arie-parse *args:
+    uv run python scripts/complement_arie_landscape.py "$@"
+
 # How far the DNT in vitro battery's endpoints reach into the pathograph: the 17
 # distinct processes of DNT-IVB v1.0 and v2.0 (doi:10.3389/ftox.2024.1359507),
 # matched against pathophysiology and phenotype node names, counted by node, by

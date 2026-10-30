@@ -9,6 +9,7 @@ not committed.
 """
 
 import csv
+import hashlib
 import io
 import json
 import sys
@@ -49,7 +50,7 @@ def write_export(path: Path, rows: list[list[str]]) -> Path:
 
 def parse(tmp_path: Path, rows: list[list[str]]):
     export = write_export(tmp_path / "export.csv", rows)
-    arie.main(["--input", str(export), "--out-dir", str(tmp_path)])
+    arie.main(["--input", str(export), "--out-dir", str(tmp_path), "--no-verify"])
     with (tmp_path / "papers.tsv").open(encoding="utf-8") as fh:
         papers = {p["citation_key"]: p for p in csv.DictReader(fh, delimiter="\t")}
     with (tmp_path / "answers.jsonl").open(encoding="utf-8") as fh:
@@ -144,7 +145,29 @@ def test_a_title_correction_that_no_longer_matches_stops_the_run(tmp_path):
         row("Barichello et al. 2018 (29648634)", "Q", "x", title="Personalizing therapy for atrial fibrillation"),
     ])
     with pytest.raises(SystemExit, match="TITLE_PREFIX_CORRECTIONS"):
-        arie.main(["--input", str(export), "--out-dir", str(tmp_path)])
+        arie.main(["--input", str(export), "--out-dir", str(tmp_path), "--no-verify"])
+
+
+def test_a_download_that_differs_from_the_manifest_pin_stops_the_run(tmp_path):
+    export = write_export(tmp_path / "export.csv", [row("Smith et al. 2023 (1)", "Q", "x")])
+    manifest = tmp_path / "MANIFEST.yaml"
+    manifest.write_text("sha256: " + "0" * 64 + "\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="--no-verify"):
+        arie.main(["--input", str(export), "--out-dir", str(tmp_path), "--manifest", str(manifest)])
+    assert not (tmp_path / "papers.tsv").exists()
+
+
+def test_a_download_matching_the_manifest_pin_is_parsed(tmp_path):
+    export = write_export(tmp_path / "export.csv", [row("Smith et al. 2023 (1)", "Q", "x")])
+    manifest = tmp_path / "MANIFEST.yaml"
+    manifest.write_text(f"sha256: {hashlib.sha256(export.read_bytes()).hexdigest()}\n", encoding="utf-8")
+    arie.main(["--input", str(export), "--out-dir", str(tmp_path), "--manifest", str(manifest)])
+    assert (tmp_path / "papers.tsv").exists()
+
+
+def test_the_committed_manifest_carries_a_pin_the_script_can_read():
+    text = (Path(__file__).resolve().parents[1] / "data" / "complement-arie" / "MANIFEST.yaml").read_text(encoding="utf-8")
+    assert arie.MANIFEST_SHA256_RE.search(text)
 
 
 def test_papers_tsv_has_one_line_per_paper(tmp_path):
