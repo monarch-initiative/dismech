@@ -276,6 +276,7 @@ informational; see below):
 | Verdict | What to do |
 |---|---|
 | `TAGGED` | proceed to Step 2 |
+| `TAGGED_RETIRED` | the only tagged chapter is a retired one (`[retired chapter]`), withdrawn by GeneReviews and kept for historical reference. Not blocking, and the tag itself is correct. If a current chapter covers the disease (a `GENE_SCOPED` row, an *Overview*), ask for it to be cited and mined; if none does, the retired chapter may stay as the baseline. Then proceed to Step 2 |
 | `UNTAGGED_CHAPTER` | a chapter whose title equals one of the entry's names exists and is not tagged: **blocking omission** for a new Mendelian entry → `REQUEST_CHANGES` |
 | `CITED_UNTAGGED` | the chapter is cited in the file but not tagged in `references:` — same, and `just tag-references FILE` fixes a PMID citation |
 | `MISTAGGED` | a reference tagged `GeneReviews` is not a GeneReviews chapter: **blocking** — say which |

@@ -4318,7 +4318,9 @@ bound to `HP:0001442`), found from the gene side
 because GeneReviews often covers a disease inside a gene's spectrum chapter
 (SED Maroteaux type in *Autosomal Dominant TRPV4-Related Disorders*, #9694).
 Searching PubMed by hand, use `genereviews[book]`, never `GeneReviews[TI]`,
-which matches nothing. Nothing gates on StatPearls: it is a point-of-care
+which matches nothing. An entry whose only tagged chapters are retired ones
+reports `TAGGED_RETIRED`, never gating: the tag is correct (a retired chapter is
+still GeneReviews), but the baseline is withdrawn content (#16018). Nothing gates on StatPearls: it is a point-of-care
 reference across all of medicine with a light editorial process, citable for
 orientation (and taggable as `StatPearls`) but never a baseline, and its absence
 is never a gap. `just tag-references` now decides chapter membership from the

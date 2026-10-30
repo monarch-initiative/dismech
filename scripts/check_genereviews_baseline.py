@@ -40,7 +40,8 @@ Verdict per collection, strongest first::
     MISTAGGED          a tagged reference is not a chapter of that collection
     CITED_UNTAGGED     a chapter PMID is cited in the file but not tagged
     UNTAGGED_CHAPTER   an exact-title chapter exists and is not tagged
-    TAGGED             at least one tagged reference is a verified chapter
+    TAGGED             at least one tagged reference is a verified, current chapter
+    TAGGED_RETIRED     every tagged chapter is one GeneReviews has retired
     CANDIDATE_CHAPTER  only partial matches, or only a retired chapter
     NO_CHAPTER         nothing in the snapshot names this entry
 
@@ -113,6 +114,7 @@ VERDICTS = (
     "CITED_UNTAGGED",
     "UNTAGGED_CHAPTER",
     "TAGGED",
+    "TAGGED_RETIRED",
     "CANDIDATE_CHAPTER",
     "NO_CHAPTER",
 )
@@ -398,7 +400,13 @@ def assess_source(
     ):
         report.verdict = "UNTAGGED_CHAPTER"
     elif verified_tagged:
-        report.verdict = "TAGGED"
+        # A retired chapter is still a GeneReviews article, so its tag is right,
+        # but it is withdrawn and "for historical reference only": an entry whose
+        # baseline rests on retired chapters alone is reported apart (#16018).
+        # Informational, never gating, since many retired chapters have no
+        # successor and remain the fullest description of their disease.
+        current = [p for p in verified_tagged if not rows[p].retired]
+        report.verdict = "TAGGED" if current else "TAGGED_RETIRED"
     elif report.chapters:
         report.verdict = "CANDIDATE_CHAPTER"
     return report
@@ -869,6 +877,17 @@ def main(argv: list[str] | None = None) -> int:
                 "(`just tag-references FILE` does it for a chapter cited by PMID; a chapter cited\n"
                 "only by its NBK url is tagged by hand) and mine it for evidence, or record in\n"
                 "`notes:` why the matched chapter is not this disease's."
+            )
+        if any(
+            report.sources.get("genereviews")
+            and report.sources["genereviews"].verdict == "TAGGED_RETIRED"
+            for report in reports
+        ):
+            print(
+                "\nTAGGED_RETIRED: the only GeneReviews chapters tagged are retired ones,\n"
+                "withdrawn and kept for historical reference. If a current chapter covers the\n"
+                "disease, cite and mine it; if none does, the retired chapter may stay. Not a\n"
+                "failure under --strict."
             )
         if any(r.has_unproven for r in reports):
             print(

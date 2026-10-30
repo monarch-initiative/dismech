@@ -313,6 +313,55 @@ def test_tagged_by_nbk_url_counts(tmp_path, index):
     assert _assess(tmp_path, index, doc).sources["genereviews"].verdict == "TAGGED"
 
 
+def test_only_retired_chapters_tagged_is_reported_apart(tmp_path, index, capsys):
+    """A retired chapter's tag is right, but it alone is not a current baseline (#16018)."""
+    doc = _entry(
+        "Chromosome 1p36 Deletion Syndrome",
+        ["1p36 deletion syndrome"],
+        references=[{"reference": "PMID:20301370", "tags": ["GeneReviews"]}],
+    )
+    report = _assess(tmp_path, index, doc)
+    gr = report.sources["genereviews"]
+    assert gr.verdict == "TAGGED_RETIRED"
+    (row,) = gr.chapters
+    assert row.tagged and row.retired
+    # Informational: many retired chapters have no successor.
+    assert not report.gating
+    assert report.noteworthy
+
+
+def test_a_current_chapter_beside_a_retired_one_is_plain_tagged(tmp_path, index):
+    doc = _entry(
+        "Chromosome 1p36 Deletion Syndrome",
+        references=[
+            {"reference": "PMID:20301370", "tags": ["GeneReviews"]},
+            {"reference": "PMID:27308687", "tags": ["GeneReviews"]},
+        ],
+    )
+    assert _assess(tmp_path, index, doc).sources["genereviews"].verdict == "TAGGED"
+
+
+def test_tagged_retired_prints_its_hint_and_passes_strict(tmp_path, index, capsys):
+    index_dir = _write_index(tmp_path, index)
+    entry = tmp_path / "Chromosome_1p36_Deletion_Syndrome.yaml"
+    entry.write_text(
+        "name: Chromosome 1p36 Deletion Syndrome\n"
+        "synonyms:\n- 1p36 deletion syndrome\n"
+        "references:\n- reference: PMID:20301370\n  tags:\n  - GeneReviews\n"
+    )
+    args = [
+        str(entry),
+        "--index-dir",
+        str(index_dir),
+        "--cache-dir",
+        str(tmp_path / "c"),
+    ]
+    assert cgb.main(args + ["--strict"]) == 0
+    out = capsys.readouterr().out
+    assert "GeneReviews  TAGGED_RETIRED" in out
+    assert "TAGGED_RETIRED: the only GeneReviews chapters tagged are retired" in out
+
+
 def test_mistagged_journal_article_is_reported(tmp_path, index):
     cache = tmp_path / "cache"
     cache.mkdir()
