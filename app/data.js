@@ -203306,6 +203306,88 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Hypotrichosis 14",
+    "disease_id": "MONDO:0032649",
+    "category": "Mendelian",
+    "parents": [
+      "Hypotrichosis Simplex",
+      "Disorder of Cholesterol Biosynthesis"
+    ],
+    "creation_date": "2026-10-30T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypotrichosis 14 (HYPT14; OMIM #618275) is an autosomal recessive form of nonsyndromic hypotrichosis simplex caused by homozygous or compound heterozygous variants in LSS (21q22.3), which encodes lanosterol synthase, the endoplasmic reticulum enzyme that cyclizes (S)-2,3-oxidosqualene to lanosterol in cholesterol biosynthesis. Affected individuals have sparse to absent, lanugo-like scalp hair from birth or early childhood, often with sparse and brittle eyebrows, sparse eyelashes and sparse body hair; hairs are short, thin and easily plucked, and scalp histology shows few, hypoplastic hair follicles with hyperplastic sebaceous glands. Intellectual development is normal, which separates HYPT14 from the allelic alopecia-intellectual disability syndrome 4 (APMR4). LSS variants also cause congenital cataract 44 and palmoplantar keratoderma-congenital alopecia syndrome type 2, and a minority of HYPT14 patients also have congenital cataract, so the LSS disorders form an allelic spectrum whose boundaries are drawn by phenotype rather than by gene.\nTwo mechanisms have been proposed. Missense LSS proteins were found partly outside the endoplasmic reticulum in keratinocytes, with normal protein levels and normal blood cholesterol. Later work showed loss of enzyme activity directly: an elevated (S)-2,3-epoxysqualene to lanosterol ratio in patient sebum, and hypoplastic hair follicles with hair loss after inducible epidermis-specific Lss deletion in mice. The defect therefore appears to be a local sterol-synthesis failure in the hair follicle and lens rather than a systemic cholesterol deficiency. Treatment is not established; topical minoxidil has not restored hair in reported patients.",
+    "pathophysiology": [
+      "Biallelic LSS Loss of Function",
+      "Mutant LSS Mislocalization Outside the Endoplasmic Reticulum",
+      "Impaired Local Lanosterol and Cholesterol Synthesis",
+      "Hair Follicle Hypoplasia"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "hair follicle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0002559"
+    ],
+    "biological_processes": [
+      "protein localization to endoplasmic reticulum",
+      "cholesterol biosynthetic process",
+      "hair follicle development"
+    ],
+    "phenotypes": [
+      "Sparse Scalp Hair",
+      "Sparse Eyebrows",
+      "Sparse Eyelashes",
+      "Sparse Body Hair",
+      "Brittle Hair",
+      "Congenital Cataract",
+      "Intellectual Disability"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002209",
+      "HP:0045075",
+      "HP:0000653",
+      "HP:0002231",
+      "HP:0002299",
+      "HP:0000519",
+      "HP:0001249"
+    ],
+    "frequencies": [
+      "EXCLUDED"
+    ],
+    "genes": [
+      "LSS"
+    ],
+    "treatments": [
+      "Topical Minoxidil",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Sebum (S)-2,3-Epoxysqualene to Lanosterol Ratio",
+      "Serum Cholesterol and Cholesterol Intermediates"
+    ],
+    "source_file": "Hypotrichosis_14.yaml",
+    "page_url": "../pages/disorders/Hypotrichosis_14.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Hypotrichosis 2",
     "disease_id": "MONDO:0007805",
     "category": "Mendelian",
@@ -330234,6 +330316,109 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Pseudohypoaldosteronism Type 2E",
+    "disease_id": "MONDO:0013782",
+    "category": "Mendelian",
+    "parents": [
+      "Pseudohypoaldosteronism type 2",
+      "Autosomal dominant disease"
+    ],
+    "creation_date": "2026-10-30T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Pseudohypoaldosteronism type 2E is the CUL3-related form of familial hyperkalaemic hypertension (FHHt, also called pseudohypoaldosteronism type 2 or Gordon syndrome), and the most severe of its four genetic subtypes. Heterozygous and frequently de novo CUL3 variants clustered around the exon 9 splice sites all converge on skipping of exon 9, producing an in-frame deletion of residues 403 to 459 from cullin-3 (CUL3-delta9). Cullin-3 is the scaffold of a cullin-RING E3 ubiquitin ligase that, bound to the substrate adaptor KLHL3, ubiquitinates WNK1 and WNK4 for proteasomal degradation in the distal convoluted tubule. CUL3-delta9 cannot ubiquitinate WNK kinases efficiently and also depletes KLHL3, so WNK kinases accumulate, activate the downstream kinases SPAK and OSR1, and these phosphorylate and activate the thiazide-sensitive Na-Cl cotransporter NCC. The resulting salt retention raises blood pressure while reducing potassium and hydrogen ion secretion, giving hypertension with hyperkalaemia, hyperchloraemic metabolic acidosis and suppressed renin despite a normal glomerular filtration rate. Cullin-3 also turns over RhoA and phosphodiesterase 5 in vascular smooth muscle, and a knock-in mouse model shows arterial pulse waveform changes, so a vascular contribution to the hypertension is recognised alongside the renal one. Children typically present earlier and more severely than in the WNK and KLHL3 subtypes, sometimes with short stature, and low-dose thiazide diuretics correct both the electrolyte disturbance and the blood pressure.",
+    "pathophysiology": [
+      "CUL3 Exon 9 Skipping",
+      "Loss of CUL3-delta9 Interaction with Cullin Regulators",
+      "CUL3-delta9 Ubiquitin Ligase Dysfunction",
+      "KLHL3 Depletion",
+      "WNK Kinase Accumulation",
+      "SPAK and OSR1 Activation",
+      "NCC Phosphorylation and Overactivity",
+      "Increased Distal Nephron Salt Reabsorption",
+      "RhoA Accumulation in Vascular Smooth Muscle",
+      "Impaired Vasodilation and Enhanced Vasoconstriction"
+    ],
+    "cell_types": [
+      "kidney distal convoluted tubule epithelial cell",
+      "vascular associated smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:1000849",
+      "CL:0000359"
+    ],
+    "biological_processes": [
+      "protein neddylation",
+      "protein ubiquitination",
+      "proteasome-mediated ubiquitin-dependent protein catabolic process",
+      "protein phosphorylation",
+      "sodium ion transmembrane transport",
+      "Rho protein signal transduction",
+      "vasodilation"
+    ],
+    "phenotypes": [
+      "Hypertension",
+      "Hyperkalemia",
+      "Hyperchloremic metabolic acidosis",
+      "Decreased circulating renin concentration",
+      "Decreased circulating aldosterone concentration",
+      "Hypercalciuria",
+      "Growth delay",
+      "Abnormality of the dentition",
+      "Short stature",
+      "Vomiting"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000822",
+      "HP:0002153",
+      "HP:0004918",
+      "HP:0003351",
+      "HP:0004319",
+      "HP:0002150",
+      "HP:0001510",
+      "HP:0000164",
+      "HP:0004322",
+      "HP:0002013"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "CUL3"
+    ],
+    "treatments": [
+      "Thiazide diuretic",
+      "Dietary salt restriction"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum potassium",
+      "Plasma renin"
+    ],
+    "source_file": "Pseudohypoaldosteronism_Type_2E.yaml",
+    "page_url": "../pages/disorders/Pseudohypoaldosteronism_Type_2E.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "12"
+  },
+  {
     "name": "Pseudohypoaldosteronism Type IB2 Autosomal Recessive",
     "disease_id": "MONDO:0859317",
     "category": "Mendelian",
@@ -383590,6 +383775,90 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "TPM4-related Platelet Disorder",
+    "disease_id": "MONDO:0100487",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "blood platelet disease"
+    ],
+    "creation_date": "2026-10-30T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "TPM4-related platelet disorder is a rare autosomal dominant inherited platelet disorder caused by heterozygous variants in TPM4, which encodes tropomyosin 4, a non-muscle tropomyosin that forms copolymers with actin filaments and regulates which other actin-binding proteins and myosin motors gain access to them. Expression of TPM4 rises in late megakaryopoiesis, and the protein colocalizes with filamentous actin in proplatelet shafts, swellings and tips.\nThe truncating alleles described so far (p.Arg69* in two British pedigrees and p.Gln108* in a Spanish pedigree) roughly halve platelet TPM4 and cause a lifelong, usually mild macrothrombocytopenia: fewer platelets, a raised mean platelet volume and marked heterogeneity of platelet size, with a normal leukocyte and erythrocyte count. The defect is one of platelet production rather than survival. Lowering TPM4 in human or mouse megakaryocytes reduces proplatelet formation in proportion to the amount of TPM4 left, the few proplatelets that form carry abnormally large tips, and platelet lifespan in Tpm4-deficient mice is normal. Platelet function is mildly affected: spreading is delayed or impaired and thrombus formation on collagen under flow is reduced, although aggregation and granule secretion to standard agonists are normal in truncating-allele carriers.\nBleeding is mild and variable, ranging from none despite surgery and dental extraction to bruising, gum bleeding and menorrhagia. Two missense variants (p.Arg182Cys and p.Ala183Val) have been reported with a different picture, normal or near-normal platelet counts, reduced granule secretion and aggregation, and more significant bleeding; whether they act by a mechanism other than haploinsufficiency is unresolved. ClinGen classifies the TPM4-disease relationship as Moderate. The disorder is catalogued by OMIM as bleeding disorder, platelet-type, 25 (BDPLT25).",
+    "pathophysiology": [
+      "Heterozygous TPM4 Loss of Function",
+      "Impaired Proplatelet Formation",
+      "Reduced Platelet Output with Enlarged Platelets",
+      "Platelet Cytoskeletal Remodeling Defect",
+      "Variant-Dependent Platelet Secretion and Aggregation Defect",
+      "Mild Failure of Primary Hemostatic Plug Formation"
+    ],
+    "cell_types": [
+      "megakaryocyte",
+      "platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000556",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "platelet formation",
+      "actin cytoskeleton organization",
+      "platelet spreading",
+      "platelet degranulation",
+      "platelet aggregation",
+      "primary hemostasis"
+    ],
+    "phenotypes": [
+      "Macrothrombocytopenia",
+      "Increased Mean Platelet Volume",
+      "Platelet Anisocytosis",
+      "Abnormal bleeding",
+      "Gingival bleeding",
+      "Menorrhagia",
+      "Impaired Platelet Aggregation",
+      "Abnormal Platelet Granule Secretion"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Genitourinary",
+      "Head and Neck"
+    ],
+    "phenotype_ids": [
+      "HP:0040185",
+      "HP:0011877",
+      "HP:0032438",
+      "HP:0001892",
+      "HP:0000225",
+      "HP:0000132",
+      "HP:0003540",
+      "HP:0030396"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TPM4"
+    ],
+    "treatments": [
+      "Genetic diagnosis and counselling",
+      "Iron and hormonal therapy for menorrhagia"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "TPM4-related_Platelet_Disorder.yaml",
+    "page_url": "../pages/disorders/TPM4-related_Platelet_Disorder.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "TRAF3 Haploinsufficiency",
     "disease_id": "MONDO:0100513",
     "category": "Mendelian",
@@ -414087,17 +414356,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3836,
+  "total_disorder_pages": 3839,
   "total_subtypes": 4959,
-  "total_disorders_and_subtypes": 8795,
-  "total_unique_evidence_sources": 57110,
-  "total_unique_publications": 53418,
+  "total_disorders_and_subtypes": 8798,
+  "total_unique_evidence_sources": 57147,
+  "total_unique_publications": 53452,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 313,
-  "total_pathographs": 3834,
-  "total_unique_pathological_events": 25187,
+  "total_pathographs": 3837,
+  "total_unique_pathological_events": 25206,
   "total_modules": 221,
-  "total_research_reports": 3951,
+  "total_research_reports": 3954,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
