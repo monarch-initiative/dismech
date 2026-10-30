@@ -45,6 +45,8 @@ Claude Code skills are available in `.claude/skills/`:
   curation need warrants a schema change at all.
 - **coarse-phenotype-bindings**: Use when choosing, reviewing, or repairing a
   `coarse_binding_basis` on a phenotype bound to a coarse HPO term.
+- **entry-naming**: Use when choosing, reviewing, or changing an entry's `name`,
+  including when creating an entry from a stub.
 
 **A skill file that is misnamed or missing its frontmatter is not an error — it
 is a skill that never loads.** Claude Code discovers a skill by looking for
@@ -3453,6 +3455,28 @@ grip and lean-mass benefit in women and none in men, but from separate
 within-sex results with no interaction test and for a multicomponent programme,
 so that result sits in the treatment's `evidence`, not in `effect_modifiers`.
 
+### Entry Names
+
+The `disease_term` binding fixes what an entry is; the `name` is dismech's own
+choice, and a stub's `label` (the MONDO label) is a queue key, not the entry
+name. Two rules, recorded in design decisions §18:
+
+- **The name covers exactly what the entry covers.** If a patient could have
+  the named condition without the entry's defining cause, the name is too
+  broad. An entry bound to a single-gene term but named after a phenotype
+  (`Cryptorchidism`, `Trichotillomania`) fails this; the fix is a rename or a
+  rebind, depending on what the entry is about.
+- **A single-gene Mendelian entry is named `<GENE>-Related <Phenotype>` when
+  that name is established** (MONDO label or EXACT synonym, ClinGen-preferred
+  label, GeneReviews title, OMIM title, or recurring literature use). Never use
+  an umbrella like `POLG-Related Disorders` for one point on the spectrum, and
+  never coin a dyad nobody uses. Keep prior names in `synonyms`.
+
+Use the `entry-naming` skill. MONDO labels can themselves be too broad or
+miscased (monarch-initiative/mondo#10836); report those upstream rather than
+copying them. Renames change `name` and `synonyms` only until dismech#15894
+decides how file slugs follow.
+
 ### Subtype Naming Conventions
 
 The `name` field on `Subtype` (in `has_subtypes`) serves as the **foreign key target** — other sections
@@ -4288,7 +4312,13 @@ chapter), `CITED_UNTAGGED` (a chapter PMID or NBK URL cited but not tagged in
 of the entry's names). Partial title matches are `CANDIDATE_CHAPTER` and are
 listed for a person to read -- `Alpha Thalassemia` inside *Alpha-Thalassemia
 X-Linked Intellectual Disability Syndrome* is not that disease's chapter, and
-no string rule settles that. Nothing gates on StatPearls: it is a point-of-care
+no string rule settles that. So are `GENE_SCOPED` rows, a `<GENE>-Related …`
+chapter for one of the entry's causal genes (somatic ones only in a disorder
+bound to `HP:0001442`), found from the gene side
+because GeneReviews often covers a disease inside a gene's spectrum chapter
+(SED Maroteaux type in *Autosomal Dominant TRPV4-Related Disorders*, #9694).
+Searching PubMed by hand, use `genereviews[book]`, never `GeneReviews[TI]`,
+which matches nothing. Nothing gates on StatPearls: it is a point-of-care
 reference across all of medicine with a light editorial process, citable for
 orientation (and taggable as `StatPearls`) but never a baseline, and its absence
 is never a gap. `just tag-references` now decides chapter membership from the
