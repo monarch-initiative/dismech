@@ -1,10 +1,17 @@
 """Tests for the streaming Perplexity request path (dismech#9357)."""
 
+import importlib
 import json
+import logging
 
 import pytest
 
-from dismech.perplexity_streaming import assemble_stream, install, strip_think_block
+from dismech.perplexity_streaming import (
+    assemble_stream,
+    install,
+    signature_drift,
+    strip_think_block,
+)
 
 
 def _sse(chunk: dict) -> str:
@@ -76,3 +83,24 @@ def test_install_replaces_the_upstream_method():
     assert install() is True
     assert install() is True
     assert perplexity.PerplexityProvider.research.__name__ == "streaming_research"
+
+
+def test_signature_drift_compares_parameter_names_not_annotations():
+    def annotated(self, query: str) -> dict:  # same parameters, annotated
+        return {}
+
+    def changed(self, query, *, stream=False):
+        return {}
+
+    assert signature_drift(annotated) is None
+    assert signature_drift(changed) is not None
+
+
+def test_install_logs_no_drift_warning_against_installed_version(caplog):
+    perplexity = pytest.importorskip("deep_research_client.providers.perplexity")
+    # Re-execute the module so the class carries the original, unpatched method.
+    perplexity = importlib.reload(perplexity)
+    assert not getattr(perplexity.PerplexityProvider, "_dismech_streaming", False)
+    with caplog.at_level(logging.WARNING, logger="dismech.perplexity_streaming"):
+        assert install() is True
+    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []

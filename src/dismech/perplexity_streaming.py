@@ -28,7 +28,7 @@ Three details differ from the non-streaming response:
   Rift Valley fever). That is a content decision, not a transport failure, so
   it is named as such in the raised error.
 
-This patch was written against ``deep-research-client`` 0.2.13, whose
+This patch was written against ``deep-research-client`` 0.2.12, whose
 ``PerplexityProvider.research(self, query)`` it replaces. If a later version
 changes that signature or starts streaming itself, :func:`install` logs a
 warning rather than silently overriding the newer method.
@@ -48,8 +48,26 @@ logger = logging.getLogger(__name__)
 THINK_BLOCK = re.compile(r"^\s*<think>.*?</think>\s*", re.DOTALL)
 UNCLOSED_THINK = re.compile(r"^\s*<think>(?!.*</think>)", re.DOTALL)
 
-# The upstream signature this patch was written to replace.
-_EXPECTED_SIGNATURE = "(self, query)"
+# Parameter names of the upstream method this patch was written to replace.
+# Names, not the signature string: ``str(inspect.signature(...))`` includes the
+# annotations (``(self, query: str) -> ResearchResult``), which would never
+# compare equal and would make the drift warning fire on every run.
+_EXPECTED_PARAMETERS = ("self", "query")
+
+
+def signature_drift(method: Any) -> str | None:
+    """Return the signature of ``method`` if its parameters differ from the expected ones.
+
+    Returns ``None`` when the parameter names match, or when the signature
+    cannot be introspected.
+    """
+    try:
+        sig = inspect.signature(method)
+    except (ValueError, TypeError):
+        return None
+    if tuple(sig.parameters) == _EXPECTED_PARAMETERS:
+        return None
+    return str(sig)
 
 
 def strip_think_block(content: str) -> str:
@@ -198,17 +216,14 @@ def install() -> bool:
         return False
     if getattr(PerplexityProvider, "_dismech_streaming", False):
         return True
-    try:
-        sig = str(inspect.signature(PerplexityProvider.research))
-    except (ValueError, TypeError):
-        sig = ""
-    if sig and sig != _EXPECTED_SIGNATURE:
+    drifted = signature_drift(PerplexityProvider.research)
+    if drifted is not None:
         logger.warning(
-            "PerplexityProvider.research signature is %s, expected %s; applying the "
-            "dismech streaming patch anyway, but upstream may have changed — re-check "
-            "whether this patch is still needed (dismech#9357)",
-            sig,
-            _EXPECTED_SIGNATURE,
+            "PerplexityProvider.research signature is %s, expected parameters %s; "
+            "applying the dismech streaming patch anyway, but upstream may have "
+            "changed — re-check whether this patch is still needed (dismech#9357)",
+            drifted,
+            ", ".join(_EXPECTED_PARAMETERS),
         )
     PerplexityProvider.research = streaming_research
     PerplexityProvider._dismech_streaming = True
