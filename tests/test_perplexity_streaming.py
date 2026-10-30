@@ -45,6 +45,32 @@ def test_think_block_only_stripped_at_start():
     assert strip_think_block(text) == text
 
 
+def test_unclosed_think_block_is_dropped_to_empty():
+    # A stream cut off mid-reasoning (no </think>) must not leak reasoning as report body.
+    assert strip_think_block("<think>still reasoning and then the stream died") == ""
+    assert assemble_stream(
+        [_sse({"choices": [{"delta": {"content": "<think>reasoning only"}}]})]
+    )["choices"][0]["message"]["content"] == ""
+
+
+def test_refusal_finish_reason_is_recorded():
+    lines = [
+        _sse({"choices": [{"delta": {"content": ""}, "finish_reason": "refusal"}]}),
+    ]
+    assert assemble_stream(lines).get("finish_reason") == "refusal"
+
+
+def test_last_finish_reason_wins_and_absent_when_none():
+    assert "finish_reason" not in assemble_stream(
+        [_sse({"choices": [{"delta": {"content": "ok"}}]})]
+    )
+    lines = [
+        _sse({"choices": [{"delta": {"content": "a"}, "finish_reason": "length"}]}),
+        _sse({"choices": [{"delta": {"content": "b"}, "finish_reason": "stop"}]}),
+    ]
+    assert assemble_stream(lines)["finish_reason"] == "stop"
+
+
 def test_install_replaces_the_upstream_method():
     perplexity = pytest.importorskip("deep_research_client.providers.perplexity")
     assert install() is True
