@@ -94883,6 +94883,162 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Chromosome 15q24 Deletion Syndrome",
+    "disease_id": "MONDO:0013256",
+    "category": "Chromosomal",
+    "parents": [
+      "Contiguous gene deletion syndrome",
+      "Chromosomal deletion syndrome"
+    ],
+    "creation_date": "2026-10-30T11:04:41Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Chromosome 15q24 deletion syndrome is a rare recurrent contiguous-gene microdeletion disorder. The deletions, typically 1.7-6.1 Mb, arise mostly by non-allelic homologous recombination (NAHR) between paralogous low-copy repeats (segmental duplications) clustered across the 15q24 region, labelled LCR15q24A to LCR15q24E; the smallest region of overlap spans roughly 1.1-1.2 Mb between LCR15q24B and LCR15q24C. Haploinsufficiency of one or more dosage-sensitive genes in the deleted interval produces a recognizable syndrome of global developmental delay and intellectual disability, growth retardation, a distinctive facial appearance (high anterior hairline, broad medial eyebrows, hypertelorism, downslanted palpebral fissures, long smooth philtrum, full lower lip), digital anomalies, genital anomalies in males, joint laxity and hypotonia. Less consistent features include recurrent infections, hearing loss, autism spectrum disorder and, rarely, severe congenital malformations such as congenital diaphragmatic hernia. Karyotype is usually normal and the diagnosis is made by chromosomal microarray. No single gene accounts for the phenotype; candidate dosage-sensitive genes in the critical region include SIN3A, CSK, STRA6, ARID3B, SEMA7A, CPLX3 and CYP11A1. SIN3A haploinsufficiency alone causes the clinically overlapping but distinct Witteveen-Kolk syndrome.",
+    "pathophysiology": [
+      "Recurrent 15q24 heterozygous deletion",
+      "Haploinsufficiency of dosage-sensitive genes in the critical region",
+      "Abnormal neurodevelopment",
+      "Abnormal craniofacial morphogenesis",
+      "Connective-tissue and skeletal abnormality",
+      "Abnormal male genital development",
+      "Abnormal growth regulation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "reduced gene expression from hemizygous loci"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Hypotonia",
+      "Autistic behavior",
+      "Short stature",
+      "Failure to thrive",
+      "Microcephaly",
+      "Hypertelorism",
+      "Downslanted palpebral fissures",
+      "High anterior hairline",
+      "Broad eyebrow",
+      "Long philtrum",
+      "Thick lower lip vermilion",
+      "Joint hypermobility",
+      "Hypospadias",
+      "Recurrent infections",
+      "Hearing impairment",
+      "Congenital diaphragmatic hernia",
+      "Myelodysplasia",
+      "Digit abnormalities",
+      "Clinodactyly",
+      "Toe syndactyly",
+      "Scoliosis",
+      "Behavioral abnormality",
+      "Epicanthus",
+      "Protruding ear",
+      "Congenital heart defect",
+      "Abnormal corpus callosum morphology",
+      "Micropenis",
+      "Cryptorchidism",
+      "Obesity",
+      "Strabismus",
+      "Nystagmus"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Growth",
+      "Craniofacial",
+      "Musculoskeletal",
+      "Genitourinary",
+      "Immunological",
+      "Auditory",
+      "Respiratory",
+      "Hematologic",
+      "Skeletal",
+      "Behavioral",
+      "Cardiovascular",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001252",
+      "HP:0000729",
+      "HP:0004322",
+      "HP:0001508",
+      "HP:0000252",
+      "HP:0000316",
+      "HP:0000494",
+      "HP:0009890",
+      "HP:0011229",
+      "HP:0000343",
+      "HP:0000179",
+      "HP:0001382",
+      "HP:0000047",
+      "HP:0002719",
+      "HP:0000365",
+      "HP:0000776",
+      "HP:0002863",
+      "HP:0011297",
+      "HP:0030084",
+      "HP:0001770",
+      "HP:0002650",
+      "HP:0000708",
+      "HP:0000286",
+      "HP:0000411",
+      "HP:0001627",
+      "HP:0001273",
+      "HP:0000054",
+      "HP:0000028",
+      "HP:0001513",
+      "HP:0000486",
+      "HP:0000639"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "Recurrent 15q24 contiguous-gene deletion",
+      "SIN3A",
+      "CSK",
+      "STRA6"
+    ],
+    "treatments": [
+      "Speech and language therapy",
+      "Physical therapy",
+      "Occupational therapy",
+      "Developmental surveillance and multidisciplinary care",
+      "Behavioral therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Chromosome_15q24_Deletion_Syndrome.yaml",
+    "page_url": "../pages/disorders/Chromosome_15q24_Deletion_Syndrome.html",
+    "num_phenotypes": 33,
+    "num_pathophysiology": 7,
+    "num_genes": 4,
+    "num_treatments": 5,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Chromosome 16p12.2-p11.2 Deletion Syndrome",
     "disease_id": "MONDO:0013320",
     "category": "Mendelian",
@@ -104908,6 +105064,100 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "23",
     "causal_graph_longest_path": "11"
+  },
+  {
+    "name": "Combined Oxidative Phosphorylation Deficiency 52",
+    "disease_id": "MONDO:0030311",
+    "category": "Mendelian",
+    "parents": [
+      "Combined Oxidative Phosphorylation Deficiency",
+      "Mitochondrial Disease"
+    ],
+    "creation_date": "2026-10-27T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "COXPD52 is the combined oxidative phosphorylation deficiency caused by biallelic variants in NFS1, the mitochondrial cysteine desulfurase that initiates iron-sulfur (Fe-S) cluster biogenesis. NFS1 mobilizes inorganic sulfur from L-cysteine, using pyridoxal-5'-phosphate as cofactor, and - as the core of the ISC assembly complex together with its partner ISD11 (LYRM4), the scaffold ISCU and ferredoxin - donates that sulfur for de novo [2Fe-2S] cluster synthesis. Fe-S clusters are obligate cofactors of respiratory-chain complexes I, II and III (but not the Fe-S-free complex IV), of the Krebs-cycle enzyme aconitase, and of lipoate and biotin synthesis, so a lesion upstream of cluster assembly produces a combined respiratory-chain deficiency rather than an isolated single-complex defect. The biochemical signature reported in patients is a deficiency of complexes II and III (with variable complex I involvement), relative sparing of complex IV, and reduced mitochondrial and cytosolic aconitase activity, with only mild effects on lipoylation.\nThe entity was first delineated in 2014 as \"infantile mitochondrial complex II/III deficiency\" (IMC23D) in three children of an Old Order Mennonite family, all homozygous for the founder missense NFS1 variant c.215G>A, p.Arg72Gln, which destabilizes the protein. A 2021 report described a second, unrelated consanguineous Christian-Arab family with three affected children homozygous for the same allele and decreased activity of complexes I, II and III; the two populations share no common haplotype, so the variant is a recurrent de novo hot-spot rather than a shared founder. A 2022 report then added three further unrelated patients (identified through GeneMatcher) carrying the same p.Arg72Gln allele - two homozygous infants with the severe lactic-acidemic presentation, and one compound heterozygote (p.Arg72Gln / p.Arg412His) who presented as a young adult with gastrointestinal symptoms and fatigue, broadening the phenotype from a usually lethal infantile multisystem disease to a survivable milder form. The published experience is therefore small (at least nine patients across three reports) and dominated by one recurrent allele, and the entry is written to that evidence base. No GeneReviews chapter exists for this disorder (confirmed against the committed Bookshelf index and a live PubMed title search); there is no animal model specific to the human disease, no natural-history series, no prevalence estimate, and no controlled treatment evidence.",
+    "pathophysiology": [
+      "Biallelic NFS1 Loss of Function Reducing Cysteine Desulfurase Activity",
+      "Impaired Mitochondrial Iron-Sulfur Cluster Biogenesis",
+      "Combined Deficiency of Fe-S-Dependent Respiratory Chain Complexes and Aconitase",
+      "Mitochondrial Energy Failure"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "iron-sulfur cluster assembly",
+      "mitochondrial respiratory chain complex assembly",
+      "complex II electron transport (succinate to ubiquinone)",
+      "complex III electron transport (ubiquinol to cytochrome c)",
+      "aerobic respiration"
+    ],
+    "phenotypes": [
+      "Lactic acidosis",
+      "Generalized hypotonia",
+      "Muscle weakness",
+      "Seizure",
+      "Congestive heart failure",
+      "Respiratory failure",
+      "Renal insufficiency",
+      "Disseminated intravascular coagulation",
+      "Ischemic stroke",
+      "Hepatic steatosis",
+      "Hypoglycemia",
+      "Elevated circulating creatine kinase activity",
+      "Fatigue",
+      "Gastrointestinal abnormality",
+      "Abnormal mitochondrial morphology"
+    ],
+    "phenotype_categories": [
+      "Cellular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003128",
+      "HP:0001290",
+      "HP:0001324",
+      "HP:0001250",
+      "HP:0001635",
+      "HP:0002878",
+      "HP:0000083",
+      "HP:0005521",
+      "HP:0002140",
+      "HP:0001397",
+      "HP:0001943",
+      "HP:0003236",
+      "HP:0012378",
+      "HP:0011024",
+      "HP:0008322"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NFS1 variants"
+    ],
+    "treatments": [
+      "Mitochondrial cofactor (vitamin) therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Combined_Oxidative_Phosphorylation_Deficiency_52.yaml",
+    "page_url": "../pages/disorders/Combined_Oxidative_Phosphorylation_Deficiency_52.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Combined Oxidative Phosphorylation Deficiency 58",
@@ -292464,6 +292714,7 @@ window.searchData = [
       "Abnormality of Coagulation",
       "Tumor Predisposition",
       "Juvenile Myelomonocytic Leukemia",
+      "Neuroblastoma",
       "Peripheral Neuropathy",
       "Hearing Loss",
       "Lymphedema",
@@ -292546,6 +292797,7 @@ window.searchData = [
       "HP:0001928",
       "HP:0002664",
       "HP:0012209",
+      "HP:0003006",
       "HP:0009830",
       "HP:0000365",
       "HP:0001004",
@@ -292558,7 +292810,8 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "VERY_RARE"
     ],
     "genes": [
       "PTPN11",
@@ -292593,11 +292846,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Noonan_Syndrome.yaml",
     "page_url": "../pages/disorders/Noonan_Syndrome.html",
-    "num_phenotypes": 40,
+    "num_phenotypes": 41,
     "num_pathophysiology": 16,
     "num_genes": 19,
     "num_treatments": 6,
-    "causal_graph_edges": "96",
+    "causal_graph_edges": "97",
     "causal_graph_longest_path": "5"
   },
   {
@@ -310044,6 +310297,9 @@ window.searchData = [
       "GABAergic synaptic transmission",
       "inclusion body assembly",
       "mitochondrion organization",
+      "Oxidative phosphorylation (complex I deficiency)",
+      "Mitophagy (PINK1/Parkin quality control)",
+      "Reactive oxygen species metabolism (oxidative stress)",
       "mitochondrial biogenesis program",
       "MAPK cascade",
       "JNK cascade",
@@ -322917,6 +323173,7 @@ window.searchData = [
     "treatments": [
       "Growth Hormone Therapy",
       "Dietary Management",
+      "Weighted Blanket Deep Proprioceptive Stimulation",
       "Hormone Replacement Therapy",
       "Diazoxide Choline Extended-Release",
       "Intranasal Oxytocin",
@@ -322931,8 +323188,8 @@ window.searchData = [
     "num_phenotypes": 25,
     "num_pathophysiology": 4,
     "num_genes": 5,
-    "num_treatments": 8,
-    "causal_graph_edges": "30",
+    "num_treatments": 9,
+    "causal_graph_edges": "32",
     "causal_graph_longest_path": "3"
   },
   {
@@ -369245,6 +369502,83 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "RBBP7-Related X-linked Spermatogenic Maturation Arrest",
+    "disease_id": "MONDO:0976123",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "male reproductive system disease"
+    ],
+    "creation_date": "2026-10-30T03:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "RBBP7-related X-linked spermatogenic maturation arrest (spermatogenic failure, X-linked, 9; OMIM:301137) is a form of early maturation arrest, a histopathological subtype of non-obstructive azoospermia, caused by a hemizygous loss-of-function variant in X-linked RBBP7 (retinoblastoma-binding protein 7). RBBP7 is a WD40-repeat histone chaperone and core subunit of chromatin-modifier complexes such as CAF-1, binding histone H4 and the BRCT domain of BRCA1. A truncating RBBP7 variant identified in two brothers with early maturation arrest disrupted these interactions, was associated with reduced BRCA1 and increased DNA double-strand-break marker (gammaH2AX) staining in the testis, and co-occurred with a benign testicular Leydig cell tumor in the proband. Independently, a large X-chromosome exome screen of 2,354 infertile men found RBBP7 to be the most frequently and significantly affected gene, and functional knockdown of the Drosophila ortholog Caf1-55 showed that the gene is required for germline stem cell maintenance, supporting a causal role in human spermatogenic failure.",
+    "pathophysiology": [
+      "Hemizygous RBBP7 Loss-of-Function Variant",
+      "Impaired RBBP7 Interaction with Histone H4 and BRCA1",
+      "Reduced BRCA1-Mediated DNA Repair and Genomic Instability",
+      "Germ Cell Cycle Arrest and Apoptosis",
+      "Germ Cell Depletion and Spermatogenic Maturation Arrest",
+      "Testicular Somatic Cell Hyperproliferation"
+    ],
+    "cell_types": [
+      "spermatogonium",
+      "primary spermatocyte",
+      "Sertoli cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000020",
+      "CL:0000656",
+      "CL:0000216"
+    ],
+    "biological_processes": [
+      "double-strand break repair",
+      "apoptotic process",
+      "G2/M transition of mitotic cell cycle",
+      "male germ-line stem cell population maintenance"
+    ],
+    "phenotypes": [
+      "Male Infertility",
+      "Non-Obstructive Azoospermia",
+      "Decreased Testicular Size",
+      "Elevated Follicle-Stimulating Hormone",
+      "Leydig Cell Neoplasm"
+    ],
+    "phenotype_categories": [
+      "Reproductive",
+      "Endocrine",
+      "Neoplasm"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003251",
+      "HP:0011961",
+      "HP:0008734",
+      "HP:0008232",
+      "HP:0100618"
+    ],
+    "frequencies": [],
+    "genes": [
+      "RBBP7"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spermatogenic_Failure_X-linked_9.yaml",
+    "page_url": "../pages/disorders/RBBP7-Related_X-linked_Spermatogenic_Maturation_Arrest.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Sphingosine Phosphate Lyase Insufficiency Syndrome",
     "disease_id": "MONDO:0033203",
     "category": "Genetic",
@@ -413570,17 +413904,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3831,
+  "total_disorder_pages": 3834,
   "total_subtypes": 4957,
-  "total_disorders_and_subtypes": 8788,
-  "total_unique_evidence_sources": 57071,
-  "total_unique_publications": 53380,
+  "total_disorders_and_subtypes": 8791,
+  "total_unique_evidence_sources": 57089,
+  "total_unique_publications": 53398,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 313,
-  "total_pathographs": 3829,
-  "total_unique_pathological_events": 25165,
-  "total_modules": 220,
-  "total_research_reports": 3947,
+  "total_pathographs": 3832,
+  "total_unique_pathological_events": 25179,
+  "total_modules": 221,
+  "total_research_reports": 3950,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
