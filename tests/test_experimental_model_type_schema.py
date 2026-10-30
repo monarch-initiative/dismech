@@ -78,8 +78,10 @@ def test_cell_free_description_states_the_readout_test(schema_view):
 def test_every_typed_value_has_a_page_icon(schema_view):
     """The disorder page maps each type to an icon; a value missing there renders bare."""
     block = re.search(
-        r"EXPERIMENTAL_MODEL_TYPE_ICONS = \{(.*?)\}", TEMPLATE_PATH.read_text(), re.S
+        r"EXPERIMENTAL_MODEL_TYPE_ICONS = \{(.*?)\}",
+        TEMPLATE_PATH.read_text(),
+        re.DOTALL,
     )
     assert block, "EXPERIMENTAL_MODEL_TYPE_ICONS not found in disorder.html.j2"
-    iconed = set(re.findall(r"^\s*([A-Z_]+):", block.group(1), re.M))
+    iconed = set(re.findall(r"^\s*([A-Z_]+):", block.group(1), re.MULTILINE))
     assert set(_values(schema_view)) - {"OTHER"} == iconed
