@@ -278,12 +278,38 @@ informational; see below):
 | `UNTAGGED_CHAPTER` | a chapter whose title equals one of the entry's names exists and is not tagged: **blocking omission** for a new Mendelian entry → `REQUEST_CHANGES` |
 | `CITED_UNTAGGED` | the chapter is cited in the file but not tagged in `references:` — same, and `just tag-references FILE` fixes a PMID citation |
 | `MISTAGGED` | a reference tagged `GeneReviews` is not a GeneReviews chapter: **blocking** — say which |
-| `CANDIDATE_CHAPTER` | a partial title match (`CONTAINS` / `TITLE_IN_NAME` / `NEAR`) or a retired chapter: **read the title** and decide; this is the judgement the check leaves to you |
+| `CANDIDATE_CHAPTER` | a partial title match (`CONTAINS` / `TITLE_IN_NAME` / `NEAR`), a `<GENE>-Related …` chapter for one of the entry's causal genes (`GENE_SCOPED`), or a retired chapter: **read the title** and decide; this is the judgement the check leaves to you |
 | `NO_CHAPTER` | nothing in the snapshot names this entry — no action, and the entry's "no GeneReviews chapter" note is verified. **Unless** the report adds `note: entry has no synonyms`: then only the name and `disease_term` were searched, the negative is unproven, and a missing `synonyms:` block on a new entry is the thing to ask for (#12075). An entry with an explicit `synonyms: []` has recorded that none exist and gets no note |
 
 The index is a dated snapshot (the summary line prints the date). A chapter
 published since then is missed; when you have network, `--online` adds a live
 title search, but never treat its absence as a failure of the entry.
+
+**A gene-scoped chapter is often the real baseline.** GeneReviews frequently
+covers a disease inside a gene's spectrum chapter: SED Maroteaux type sits in
+*Autosomal Dominant TRPV4-Related Disorders*, which no disease-name match
+reaches (#9663, #9694). A `GENE_SCOPED` row is found from the entry's causal
+`genetic:` genes, so read it as seriously as a title match, and decide from the
+chapter's scope whether it covers this disease: *POLG-Related Disorders* covers
+every POLG disease, while a sibling gene's chapter covers none. A retired
+chapter (`[retired chapter]`) is never an acceptable baseline.
+
+If you have network and want to search PubMed by hand, use
+`genereviews[book]`, never `GeneReviews[TI]`: "GeneReviews" is the book title,
+not a chapter title, so the `[TI]` form returns zero for every disease. Search
+the gene as well as the disease, and drop withdrawn chapters with
+`NOT retired[TI]` (not `NOT "RETIRED CHAPTER"[TI]`, which PubMed silently
+ignores):
+
+```bash
+for q in '"<DISEASE_NAME>"[TI]' '<GENE_SYMBOL>[TIAB]'; do
+  curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi" \
+    --data-urlencode "db=pubmed" --data-urlencode "retmode=json" \
+    --data-urlencode "term=${q} AND genereviews[book] NOT retired[TI]"
+done
+```
+
+A non-zero count is a list of titles to read, not a finding.
 
 The tag it is looking for:
 

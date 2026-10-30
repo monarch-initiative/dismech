@@ -28,9 +28,10 @@ Judgement
     * partial title matches -- the name inside a longer title, the title
       inside a longer name, a near-identical string, or a ``<Disease> –
       <GENE>`` title whose disease part is in a name and whose gene the entry
-      names (``GENE_SUFFIX``, #15904) -- are reported as
-      ``CANDIDATE_CHAPTER`` with the title and the match kind, for a person
-      (or the reviewer) to read. ``Alpha Thalassemia`` inside ``Alpha-
+      names (``GENE_SUFFIX``, #15904), or a ``<GENE>-Related …`` title naming
+      one of the entry's ``genetic:`` genes (``GENE_SCOPED``, #9694) -- are
+      reported as ``CANDIDATE_CHAPTER`` with the title and the match kind,
+      for a person (or the reviewer) to read. ``Alpha Thalassemia`` inside ``Alpha-
       Thalassemia X-Linked Intellectual Disability Syndrome`` is such a
       candidate, and is not that disease's chapter.
 
@@ -80,6 +81,7 @@ import json
 import os
 import re
 import sys
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -93,8 +95,10 @@ from dismech.bookshelf import (
     BookshelfIndex,
     Chapter,
     Match,
+    entry_causal_genes,
     entry_genes,
     entry_names,
+    gene_symbols,
     kind_rank,
     source_from_cache_text,
 )
@@ -291,6 +295,7 @@ def assess_source(
     cache_dir: Path,
     online_matches: list[Match] = (),
     genes: list[str] = (),
+    causal_genes: list[str] = (),
 ) -> SourceReport:
     report = SourceReport(source=source, verdict="NO_CHAPTER")
     rows: dict[str, ChapterRow] = {}
@@ -354,6 +359,10 @@ def assess_source(
     matches: list[Match] = []
     for name in names:
         matches.extend(index.match(name, sources=[source], genes=gene_context))
+    # Chapters scoped to one of the entry's genes, found from the gene side: a
+    # disease-name search never reaches ``Autosomal Dominant TRPV4-Related
+    # Disorders`` from SED Maroteaux type (#9694).
+    matches.extend(index.match_genes(causal_genes, sources=[source]))
     matches.extend(m for m in online_matches if m.chapter.source == source)
     for match in sorted(matches, key=lambda m: (m.rank, int(m.chapter.pmid))):
         pmid = match.chapter.pmid
@@ -414,9 +423,10 @@ def assess_entry(
 ) -> EntryReport:
     names = entry_names(document)
     genes = entry_genes(document)
+    causal_genes = entry_causal_genes(document)
     tagged = tagged_references(document)
     cited_pmids, cited_nbks = cited_identifiers(text)
-    online_matches = online.search(names) if online is not None else []
+    online_matches = online.search(names, causal_genes) if online is not None else []
     try:
         rel = path.resolve().relative_to(rel_to.resolve()).as_posix()
     except ValueError:
@@ -437,6 +447,7 @@ def assess_entry(
                 cache_dir,
                 online_matches,
                 genes,
+                causal_genes,
             )
             for source in (sources or list(SOURCE_TAGS))
         },
@@ -444,6 +455,18 @@ def assess_entry(
 
 
 # -- optional live supplement -------------------------------------------------
+
+
+def _bookaccession(record: dict) -> str:
+    """The ``NBK`` accession of an ``esummary`` record, or ``""``."""
+    return next(
+        (
+            a["value"]
+            for a in record.get("articleids", [])
+            if a.get("idtype") == "bookaccession"
+        ),
+        "",
+    )
 
 
 class OnlineSearch:
@@ -465,7 +488,66 @@ class OnlineSearch:
         self.index = index
         self.sources = sources
 
-    def search(self, names: list[str]) -> list[Match]:
+    def search(self, names: list[str], genes: Iterable[str] = ()) -> list[Match]:
+        found = self._search_names(names)
+        found.extend(self._search_genes(genes))
+        return found
+
+    def _search_genes(self, genes: Iterable[str]) -> list[Match]:
+        """Live ``<GENE>[TIAB] AND genereviews[book]`` searches, one per gene symbol.
+
+        The gene-side half of the question (#9694). The offline index sees only
+        titles, so a chapter that names the gene in its abstract alone -- an
+        overview such as *Nuclear Gene-Encoded Leigh Syndrome Spectrum
+        Overview* for SURF1 -- is reachable only here. Unlike the name search,
+        a hit already in the snapshot is kept, since the title match never saw
+        it. GeneReviews only: StatPearls mentions genes across all of medicine.
+        Every hit is an ``ONLINE`` candidate; a retired chapter is marked so.
+        """
+        if "genereviews" not in self.sources:
+            return []
+        symbols: set[str] = set()
+        for text in genes:
+            symbols |= gene_symbols(text)
+        found: list[Match] = []
+        for symbol in sorted(symbols):
+            term = f"{symbol}[TIAB] AND genereviews[book]"
+            try:
+                result = self.client.call("esearch.fcgi", db="pubmed", term=term)[
+                    "esearchresult"
+                ]
+            except Exception as exc:  # network is optional; say so and move on
+                print(
+                    f"warning: online search failed for {term!r}: {exc}",
+                    file=sys.stderr,
+                )
+                continue
+            ids = result.get("idlist", [])
+            new = [pmid for pmid in ids if pmid not in self.index.by_pmid]
+            summaries = (
+                self.client.call("esummary.fcgi", db="pubmed", id=",".join(new))[
+                    "result"
+                ]
+                if new
+                else {}
+            )
+            for pmid in ids:
+                chapter = self.index.by_pmid.get(pmid)
+                if chapter is None:
+                    record = summaries.get(pmid, {})
+                    title = record.get("title", "")
+                    chapter = Chapter(
+                        "genereviews",
+                        pmid,
+                        _bookaccession(record),
+                        title,
+                        "RETIRED CHAPTER" in title.upper(),
+                    )
+                if chapter.source == "genereviews":
+                    found.append(Match(chapter, "ONLINE", symbol))
+        return found
+
+    def _search_names(self, names: list[str]) -> list[Match]:
         found: list[Match] = []
         for source in self.sources:
             for name in names:
@@ -502,17 +584,15 @@ class OnlineSearch:
                 )["result"]
                 for pmid in new:
                     record = result.get(pmid, {})
-                    nbk = next(
-                        (
-                            a["value"]
-                            for a in record.get("articleids", [])
-                            if a.get("idtype") == "bookaccession"
-                        ),
-                        "",
-                    )
                     found.append(
                         Match(
-                            Chapter(source, pmid, nbk, record.get("title", ""), False),
+                            Chapter(
+                                source,
+                                pmid,
+                                _bookaccession(record),
+                                record.get("title", ""),
+                                False,
+                            ),
                             "ONLINE",
                             name,
                         )
