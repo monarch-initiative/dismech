@@ -58,13 +58,13 @@ artifact_sources:
   openscientist_artifacts_zip: 2
 artifacts:
 - filename: final_report.html
-  path: PDE6G-related_Retinopathy-deep-research-openscientist_artifacts/final_report.html
+  path: PDE6G-Related_Retinopathy-deep-research-openscientist_artifacts/final_report.html
   media_type: text/html
   source: openscientist_artifacts_zip
   data_storage_id: null
   description: OpenScientist final report
 - filename: final_report.pdf
-  path: PDE6G-related_Retinopathy-deep-research-openscientist_artifacts/final_report.pdf
+  path: PDE6G-Related_Retinopathy-deep-research-openscientist_artifacts/final_report.pdf
   media_type: application/pdf
   source: openscientist_artifacts_zip
   data_storage_id: null
@@ -827,8 +827,8 @@ The disease is mechanistically clean: a single recessive loss-of-function lesion
 
 ## Artifacts
 
-- [OpenScientist final report](PDE6G-related_Retinopathy-deep-research-openscientist_artifacts/final_report.html)
-- [OpenScientist final report](PDE6G-related_Retinopathy-deep-research-openscientist_artifacts/final_report.pdf)
+- [OpenScientist final report](PDE6G-Related_Retinopathy-deep-research-openscientist_artifacts/final_report.html)
+- [OpenScientist final report](PDE6G-Related_Retinopathy-deep-research-openscientist_artifacts/final_report.pdf)
 
 ## Reference Validation
 
