@@ -1,0 +1,52 @@
+# DRAFT for review (issue #16202) — deterministic duplicate-claim guard (proposal A).
+#
+# Why this exists: the LLM dedupe (claude-dedupe-issues.yml) searches with the
+# GitHub *search* API, whose index lags creation by seconds-to-minutes, so it
+# misses a claim filed seconds before this one. Every `claim` title carries an
+# exact MONDO ID, so duplicates can be found deterministically off the
+# immediately-consistent *list* endpoint instead. No LLM, no search API.
+#
+# Action: label the loser `duplicate-claim` and comment. The keeper is the
+# lowest issue number among open claims sharing the MONDO ID, so every run
+# converges on the same loser regardless of which issue triggered it. This does
+# NOT close the loser — closing a legitimate re-claim (where the lower one is
+# actually abandoned) is the mistake we do not want a bot making; a human or the
+# existing 3-day dedupe flow closes it.
+name: Claim Dedupe Guard
+
+"on":
+  issues:
+    types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Claim issue number to re-check (manual/delayed re-run)
+        required: true
+  # Backstop (hourly straggler sweep) for a sibling that was not yet visible at
+  # open time. The repo's cron floor is hourly (see CLAUDE.md cron-profiles), so
+  # this is the delayed re-check rather than a 5–10 min one; tighten only if the
+  # floor is lifted. On a schedule run the script scans every open claim.
+  schedule:
+    - cron: '17 * * * *'
+
+permissions:
+  issues: write
+
+concurrency:
+  # Serialize per-MONDO would be ideal, but the MONDO ID is not known until the
+  # job reads the title; per-issue is enough to stop a run racing itself.
+  group: claim-dedupe-guard-${{ github.event.issue.number || inputs.issue_number || github.run_id }}
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Flag duplicate claims by MONDO ID
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          TRIGGER_ISSUE: ${{ github.event.issue.number || inputs.issue_number }}
+        run: python3 .github/scripts/claim_dedupe_guard.py

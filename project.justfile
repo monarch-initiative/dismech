@@ -1041,6 +1041,16 @@ check-claims claims=claims_file *args="":
 next-unclaimed count="5" claims=claims_file *args="":
     uv run dismech-stubs next {{count}} --claims {{ if claims =~ '^--' { claims_file + " " + claims } else { claims } }} {{args}}
 
+# Run this as the LAST step before opening a curation PR. It re-checks the MONDO
+# ID against open claim issues AND open PRs (the creation-time guard only sees
+# claims at open time; this catches a sibling that pulled ahead into a PR while
+# you curated — the #16098 -> PR #16142 failure, issue #16202). Exits non-zero
+# if a competitor exists. Pass --self-issue / --self-branch to exclude your own.
+# Re-check the MONDO ID against open claims and open PRs before opening a PR
+[group('Curation')]
+preflight-claim-conflict mondo *args="":
+    uv run python scripts/preflight_claim_conflict.py {{mondo}} {{args}}
+
 # Writes one snapshot to tmp/issues.json; --from tmp/issues.json re-sorts it.
 # Every excluded issue is counted under a reason code. Read-only.
 # Shortlist existing open issues of any kind (N picks, or --list)

@@ -422,6 +422,26 @@ a review to clear a gate, and do not keep polishing an approved PR. Approved is
 the finish line. Only tear the worktrees down once every PR in the run is
 approved (or closed).
 
+## Re-check for a competitor before you open the PR
+
+The claim preflight runs when you *file* the claim, and cannot see a sibling
+claim filed seconds later or one that only becomes a PR while you curate. So the
+last step before opening a curation PR is to re-check, keyed on the MONDO ID,
+over open claim issues **and** open PRs:
+
+```bash
+just preflight-claim-conflict MONDO:0014821 --self-issue <your claim> --self-branch <your branch>
+```
+
+It exits non-zero and names the competitor if another open claim or PR covers
+the same MONDO ID. If it does, **do not open a duplicate PR** — drop to the
+protocol below. This is the layer that would have caught #16098 → PR #16142:
+its filing preflight was clean, and the sibling claim #16096 had become PR
+#16116 by the time the PR opened, with nothing re-checking (issue #16202). The
+creation-time guard (`.github/workflows/claim-dedupe-guard.yml`) is the other
+half: it labels a duplicate claim `duplicate-claim` at open time, so check your
+own claim issue for that label before starting.
+
 ## When two PRs curate the same disease anyway
 
 The claim-issue dedupe bot flags a same-title duplicate issue within seconds
