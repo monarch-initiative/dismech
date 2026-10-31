@@ -103915,6 +103915,131 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Combined Oxidative Phosphorylation Defect Type 3",
+    "disease_id": "MONDO:0012512",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-10-30T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Combined oxidative phosphorylation defect type 3 (COXPD3) is an autosomal recessive mitochondrial disease caused by biallelic variants in TSFM, which encodes mitochondrial translation elongation factor Ts (EF-Ts). EF-Ts is the guanine nucleotide exchange factor for elongation factor Tu (EF-Tu): after EF-Tu has delivered an aminoacyl-tRNA to the mitochondrial ribosome it is released bound to GDP, and EF-Ts regenerates the GTP-bound form so that the next round of elongation can proceed. The two factors also stabilise each other, so a destabilised EF-Ts lowers the steady-state level of EF-Tu as well.\nThe lesion therefore sits in the shared elongation machinery that makes all thirteen mtDNA-encoded respiratory chain subunits. Their synthesis falls together, and complexes I, III, IV and V, which each contain mtDNA-encoded subunits, are under-assembled while the wholly nuclear-encoded complex II is spared. That combined pattern is what names the disease.\nThe clinical range is unusually wide for so few patients. The recurrent p.Arg333Trp allele, homozygous, has produced a fatal neonatal encephalomyopathy, a fatal infantile hypertrophic cardiomyopathy, and infantile liver failure, all with death in infancy. Compound heterozygous genotypes have produced slower courses: infantile cardiomyopathy that stabilises, childhood-onset ataxia with cardiomyopathy, juvenile-onset Leigh syndrome with optic atrophy and peripheral neuropathy, an early-onset hyperkinetic movement disorder, and a dilated cardiomyopathy with fibro-adipose replacement that led to heart transplantation at 33. Hypertrophic cardiomyopathy, hypotonia, optic atrophy and lactic acidosis are the most frequently reported features. Fewer than twenty patients had been described by 2021, and there is no disease-specific treatment.",
+    "pathophysiology": [
+      "Biallelic TSFM Loss of Function",
+      "Destabilised EF-Ts and EF-Tu Elongation Factor Pool",
+      "Impaired Elongation of Mitochondrial Translation",
+      "Combined Respiratory Chain Complex Deficiency",
+      "Cellular Energy Failure",
+      "Lactate Accumulation",
+      "Mitochondrial Cardiomyopathy",
+      "Neuronal Energy Failure and Neurodegeneration",
+      "Hepatocellular Energy Failure"
+    ],
+    "cell_types": [
+      "cardiac muscle cell",
+      "fibroblast",
+      "neuron",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0000057",
+      "CL:0000540",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "mitochondrial translational elongation",
+      "mitochondrial translation",
+      "mitochondrial respiratory chain complex assembly",
+      "oxidative phosphorylation",
+      "aerobic respiration"
+    ],
+    "phenotypes": [
+      "Lactic acidosis",
+      "Hypertrophic cardiomyopathy",
+      "Dilated cardiomyopathy",
+      "Hypotonia",
+      "Optic atrophy",
+      "Encephalopathy",
+      "Leigh-like basal ganglia involvement",
+      "Ataxia",
+      "Peripheral neuropathy",
+      "Sensorineural hearing impairment",
+      "Chorea",
+      "Dystonia",
+      "Myoclonus",
+      "Global developmental delay",
+      "Hepatic failure",
+      "Intrauterine growth retardation"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Cardiovascular",
+      "Neuromuscular",
+      "Ophthalmological",
+      "Neurological",
+      "Otologic",
+      "Neurodevelopmental",
+      "Hepatic",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003128",
+      "HP:0001639",
+      "HP:0001644",
+      "HP:0001252",
+      "HP:0000648",
+      "HP:0001298",
+      "HP:0002134",
+      "HP:0001251",
+      "HP:0009830",
+      "HP:0000407",
+      "HP:0002072",
+      "HP:0001332",
+      "HP:0001336",
+      "HP:0001263",
+      "HP:0001399",
+      "HP:0001511"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TSFM"
+    ],
+    "treatments": [
+      "Heart Failure Pharmacotherapy",
+      "Heart Transplantation",
+      "Cannabinoid Therapy for Hyperkinetic Movement Disorder"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Blood lactate",
+      "Blood pyruvate"
+    ],
+    "source_file": "Combined_Oxidative_Phosphorylation_Defect_Type_3.yaml",
+    "page_url": "../pages/disorders/Combined_Oxidative_Phosphorylation_Defect_Type_3.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Combined Oxidative Phosphorylation Defect Type 30",
     "disease_id": "MONDO:0014856",
     "category": "Mendelian",
@@ -113698,7 +113823,7 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "36",
+    "causal_graph_edges": "38",
     "causal_graph_longest_path": "8"
   },
   {
@@ -203179,6 +203304,88 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "8",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Hypotrichosis 14",
+    "disease_id": "MONDO:0032649",
+    "category": "Mendelian",
+    "parents": [
+      "Hypotrichosis Simplex",
+      "Disorder of Cholesterol Biosynthesis"
+    ],
+    "creation_date": "2026-10-30T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypotrichosis 14 (HYPT14; OMIM #618275) is an autosomal recessive form of nonsyndromic hypotrichosis simplex caused by homozygous or compound heterozygous variants in LSS (21q22.3), which encodes lanosterol synthase, the endoplasmic reticulum enzyme that cyclizes (S)-2,3-oxidosqualene to lanosterol in cholesterol biosynthesis. Affected individuals have sparse to absent, lanugo-like scalp hair from birth or early childhood, often with sparse and brittle eyebrows, sparse eyelashes and sparse body hair; hairs are short, thin and easily plucked, and scalp histology shows few, hypoplastic hair follicles with hyperplastic sebaceous glands. Intellectual development is normal, which separates HYPT14 from the allelic alopecia-intellectual disability syndrome 4 (APMR4). LSS variants also cause congenital cataract 44 and palmoplantar keratoderma-congenital alopecia syndrome type 2, and a minority of HYPT14 patients also have congenital cataract, so the LSS disorders form an allelic spectrum whose boundaries are drawn by phenotype rather than by gene.\nTwo mechanisms have been proposed. Missense LSS proteins were found partly outside the endoplasmic reticulum in keratinocytes, with normal protein levels and normal blood cholesterol. Later work showed loss of enzyme activity directly: an elevated (S)-2,3-epoxysqualene to lanosterol ratio in patient sebum, and hypoplastic hair follicles with hair loss after inducible epidermis-specific Lss deletion in mice. The defect therefore appears to be a local sterol-synthesis failure in the hair follicle and lens rather than a systemic cholesterol deficiency. Treatment is not established; topical minoxidil has not restored hair in reported patients.",
+    "pathophysiology": [
+      "Biallelic LSS Loss of Function",
+      "Mutant LSS Mislocalization Outside the Endoplasmic Reticulum",
+      "Impaired Local Lanosterol and Cholesterol Synthesis",
+      "Hair Follicle Hypoplasia"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "hair follicle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0002559"
+    ],
+    "biological_processes": [
+      "protein localization to endoplasmic reticulum",
+      "cholesterol biosynthetic process",
+      "hair follicle development"
+    ],
+    "phenotypes": [
+      "Sparse Scalp Hair",
+      "Sparse Eyebrows",
+      "Sparse Eyelashes",
+      "Sparse Body Hair",
+      "Brittle Hair",
+      "Congenital Cataract",
+      "Intellectual Disability"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002209",
+      "HP:0045075",
+      "HP:0000653",
+      "HP:0002231",
+      "HP:0002299",
+      "HP:0000519",
+      "HP:0001249"
+    ],
+    "frequencies": [
+      "EXCLUDED"
+    ],
+    "genes": [
+      "LSS"
+    ],
+    "treatments": [
+      "Topical Minoxidil",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Sebum (S)-2,3-Epoxysqualene to Lanosterol Ratio",
+      "Serum Cholesterol and Cholesterol Intermediates"
+    ],
+    "source_file": "Hypotrichosis_14.yaml",
+    "page_url": "../pages/disorders/Hypotrichosis_14.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Hypotrichosis 2",
@@ -330109,6 +330316,109 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Pseudohypoaldosteronism Type 2E",
+    "disease_id": "MONDO:0013782",
+    "category": "Mendelian",
+    "parents": [
+      "Pseudohypoaldosteronism type 2",
+      "Autosomal dominant disease"
+    ],
+    "creation_date": "2026-10-30T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Pseudohypoaldosteronism type 2E is the CUL3-related form of familial hyperkalaemic hypertension (FHHt, also called pseudohypoaldosteronism type 2 or Gordon syndrome), and the most severe of its four genetic subtypes. Heterozygous and frequently de novo CUL3 variants clustered around the exon 9 splice sites all converge on skipping of exon 9, producing an in-frame deletion of residues 403 to 459 from cullin-3 (CUL3-delta9). Cullin-3 is the scaffold of a cullin-RING E3 ubiquitin ligase that, bound to the substrate adaptor KLHL3, ubiquitinates WNK1 and WNK4 for proteasomal degradation in the distal convoluted tubule. CUL3-delta9 cannot ubiquitinate WNK kinases efficiently and also depletes KLHL3, so WNK kinases accumulate, activate the downstream kinases SPAK and OSR1, and these phosphorylate and activate the thiazide-sensitive Na-Cl cotransporter NCC. The resulting salt retention raises blood pressure while reducing potassium and hydrogen ion secretion, giving hypertension with hyperkalaemia, hyperchloraemic metabolic acidosis and suppressed renin despite a normal glomerular filtration rate. Cullin-3 also turns over RhoA and phosphodiesterase 5 in vascular smooth muscle, and a knock-in mouse model shows arterial pulse waveform changes, so a vascular contribution to the hypertension is recognised alongside the renal one. Children typically present earlier and more severely than in the WNK and KLHL3 subtypes, sometimes with short stature, and low-dose thiazide diuretics correct both the electrolyte disturbance and the blood pressure.",
+    "pathophysiology": [
+      "CUL3 Exon 9 Skipping",
+      "Loss of CUL3-delta9 Interaction with Cullin Regulators",
+      "CUL3-delta9 Ubiquitin Ligase Dysfunction",
+      "KLHL3 Depletion",
+      "WNK Kinase Accumulation",
+      "SPAK and OSR1 Activation",
+      "NCC Phosphorylation and Overactivity",
+      "Increased Distal Nephron Salt Reabsorption",
+      "RhoA Accumulation in Vascular Smooth Muscle",
+      "Impaired Vasodilation and Enhanced Vasoconstriction"
+    ],
+    "cell_types": [
+      "kidney distal convoluted tubule epithelial cell",
+      "vascular associated smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:1000849",
+      "CL:0000359"
+    ],
+    "biological_processes": [
+      "protein neddylation",
+      "protein ubiquitination",
+      "proteasome-mediated ubiquitin-dependent protein catabolic process",
+      "protein phosphorylation",
+      "sodium ion transmembrane transport",
+      "Rho protein signal transduction",
+      "vasodilation"
+    ],
+    "phenotypes": [
+      "Hypertension",
+      "Hyperkalemia",
+      "Hyperchloremic metabolic acidosis",
+      "Decreased circulating renin concentration",
+      "Decreased circulating aldosterone concentration",
+      "Hypercalciuria",
+      "Growth delay",
+      "Abnormality of the dentition",
+      "Short stature",
+      "Vomiting"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000822",
+      "HP:0002153",
+      "HP:0004918",
+      "HP:0003351",
+      "HP:0004319",
+      "HP:0002150",
+      "HP:0001510",
+      "HP:0000164",
+      "HP:0004322",
+      "HP:0002013"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "CUL3"
+    ],
+    "treatments": [
+      "Thiazide diuretic",
+      "Dietary salt restriction"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum potassium",
+      "Plasma renin"
+    ],
+    "source_file": "Pseudohypoaldosteronism_Type_2E.yaml",
+    "page_url": "../pages/disorders/Pseudohypoaldosteronism_Type_2E.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "12"
+  },
+  {
     "name": "Pseudohypoaldosteronism Type IB2 Autosomal Recessive",
     "disease_id": "MONDO:0859317",
     "category": "Mendelian",
@@ -354128,6 +354438,64 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Sarcoma with BCOR Genetic Alterations",
+    "disease_id": "MONDO:0958159",
+    "category": "",
+    "parents": [
+      "undifferentiated small round cell sarcoma"
+    ],
+    "creation_date": "2026-10-30T15:30:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "BCOR-CCNB3",
+      "BCOR-ITD"
+    ],
+    "description": "Sarcoma with BCOR genetic alterations is one of the four entities of the undifferentiated small round cell sarcoma category introduced in the 2020 fifth edition of the World Health Organization classification of bone and soft tissue tumours, alongside Ewing sarcoma, CIC-rearranged sarcoma and sarcoma with EWSR1-non-ETS fusion genes. What the alterations have in common is not a single fusion but a shared consequence: BCOR, the BCL6 corepressor, ends up overexpressed.\nTwo alterations account for most cases and define the clinical poles of the entity. BCOR::CCNB3 arises from a paracentric inversion on the X chromosome that joins BCOR to the testis-specific cyclin CCNB3 about 10 Mb away; it occurs mainly in male adolescents, slightly more often in bone than soft tissue. A BCOR internal tandem duplication in the last exon instead occurs in infants, preferentially in the somatic soft tissue of trunk, abdomen and head and neck. BCOR::MAML3 and ZC3H7B::BCOR fusions are rarer members. By unsupervised clustering of RNA sequencing data the BCOR-altered tumours form one tight genomic group, distinct from both Ewing sarcoma and CIC-rearranged sarcoma, which is the evidence for treating them as a single entity.\nThe practical point of separating them from Ewing sarcoma is the opposite of the point for CIC-rearranged sarcoma. BCOR-altered sarcomas do about as well as Ewing sarcoma and much better than CIC-rearranged sarcoma: in one cohort five-year overall survival was 72 per cent against 79 per cent for Ewing sarcoma and 43 per cent for CIC-DUX4 sarcoma, and in a 148-patient multicentre series three-year overall survival was 92.2 per cent for BCOR::CCNB3 against 39.6 per cent for CIC-rearranged cases. Most patients are treated on Ewing sarcoma protocols, and histological response to them is usually good.",
+    "pathophysiology": [
+      "BCOR Genetic Alteration",
+      "BCOR Overexpression",
+      "Derepression of Polycomb Target Genes",
+      "Round to Spindle Cell Sarcomatous Proliferation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "positive regulation of cell population proliferation"
+    ],
+    "phenotypes": [
+      "Bone or Soft Tissue Sarcoma of Children and Young People",
+      "Metastatic Disease and Local Recurrence"
+    ],
+    "phenotype_categories": [
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0100242"
+    ],
+    "frequencies": [],
+    "genes": [
+      "BCOR",
+      "CCNB3"
+    ],
+    "treatments": [
+      "Wide Surgical Resection",
+      "Ewing Sarcoma-Type Multiagent Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Sarcoma_with_BCOR_Genetic_Alterations.yaml",
+    "page_url": "../pages/disorders/Sarcoma_with_BCOR_Genetic_Alterations.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 4,
+    "num_genes": 2,
+    "num_treatments": 2,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Sarcopenia",
@@ -383405,6 +383773,90 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "38",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "TPM4-related Platelet Disorder",
+    "disease_id": "MONDO:0100487",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "blood platelet disease"
+    ],
+    "creation_date": "2026-10-30T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "TPM4-related platelet disorder is a rare autosomal dominant inherited platelet disorder caused by heterozygous variants in TPM4, which encodes tropomyosin 4, a non-muscle tropomyosin that forms copolymers with actin filaments and regulates which other actin-binding proteins and myosin motors gain access to them. Expression of TPM4 rises in late megakaryopoiesis, and the protein colocalizes with filamentous actin in proplatelet shafts, swellings and tips.\nThe truncating alleles described so far (p.Arg69* in two British pedigrees and p.Gln108* in a Spanish pedigree) roughly halve platelet TPM4 and cause a lifelong, usually mild macrothrombocytopenia: fewer platelets, a raised mean platelet volume and marked heterogeneity of platelet size, with a normal leukocyte and erythrocyte count. The defect is one of platelet production rather than survival. Lowering TPM4 in human or mouse megakaryocytes reduces proplatelet formation in proportion to the amount of TPM4 left, the few proplatelets that form carry abnormally large tips, and platelet lifespan in Tpm4-deficient mice is normal. Platelet function is mildly affected: spreading is delayed or impaired and thrombus formation on collagen under flow is reduced, although aggregation and granule secretion to standard agonists are normal in truncating-allele carriers.\nBleeding is mild and variable, ranging from none despite surgery and dental extraction to bruising, gum bleeding and menorrhagia. Two missense variants (p.Arg182Cys and p.Ala183Val) have been reported with a different picture, normal or near-normal platelet counts, reduced granule secretion and aggregation, and more significant bleeding; whether they act by a mechanism other than haploinsufficiency is unresolved. ClinGen classifies the TPM4-disease relationship as Moderate. The disorder is catalogued by OMIM as bleeding disorder, platelet-type, 25 (BDPLT25).",
+    "pathophysiology": [
+      "Heterozygous TPM4 Loss of Function",
+      "Impaired Proplatelet Formation",
+      "Reduced Platelet Output with Enlarged Platelets",
+      "Platelet Cytoskeletal Remodeling Defect",
+      "Variant-Dependent Platelet Secretion and Aggregation Defect",
+      "Mild Failure of Primary Hemostatic Plug Formation"
+    ],
+    "cell_types": [
+      "megakaryocyte",
+      "platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000556",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "platelet formation",
+      "actin cytoskeleton organization",
+      "platelet spreading",
+      "platelet degranulation",
+      "platelet aggregation",
+      "primary hemostasis"
+    ],
+    "phenotypes": [
+      "Macrothrombocytopenia",
+      "Increased Mean Platelet Volume",
+      "Platelet Anisocytosis",
+      "Abnormal bleeding",
+      "Gingival bleeding",
+      "Menorrhagia",
+      "Impaired Platelet Aggregation",
+      "Abnormal Platelet Granule Secretion"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Genitourinary",
+      "Head and Neck"
+    ],
+    "phenotype_ids": [
+      "HP:0040185",
+      "HP:0011877",
+      "HP:0032438",
+      "HP:0001892",
+      "HP:0000225",
+      "HP:0000132",
+      "HP:0003540",
+      "HP:0030396"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TPM4"
+    ],
+    "treatments": [
+      "Genetic diagnosis and counselling",
+      "Iron and hormonal therapy for menorrhagia"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "TPM4-related_Platelet_Disorder.yaml",
+    "page_url": "../pages/disorders/TPM4-related_Platelet_Disorder.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "TRAF3 Haploinsufficiency",
@@ -413904,17 +414356,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3834,
-  "total_subtypes": 4957,
-  "total_disorders_and_subtypes": 8791,
-  "total_unique_evidence_sources": 57089,
-  "total_unique_publications": 53398,
+  "total_disorder_pages": 3839,
+  "total_subtypes": 4959,
+  "total_disorders_and_subtypes": 8798,
+  "total_unique_evidence_sources": 57149,
+  "total_unique_publications": 53454,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 313,
-  "total_pathographs": 3832,
-  "total_unique_pathological_events": 25179,
+  "total_pathographs": 3837,
+  "total_unique_pathological_events": 25206,
   "total_modules": 221,
-  "total_research_reports": 3950,
+  "total_research_reports": 3954,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129

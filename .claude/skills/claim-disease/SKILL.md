@@ -52,6 +52,12 @@ Watch for:
   radiographic finding. Usually `GROUPING`.
 - **Phenotypes, not diseases** — `microcephaly` is a finding. `OUT_OF_SCOPE`,
   unless the specific disease entity is meant.
+- **A phenotype label on a single-gene term** — when the stub has one gene
+  in `genes:` but its label is a phenotype or a broad clinical name, the
+  specific disease *is* meant, and the label is too broad for it. Claim it as
+  usual, but the entry gets a name of its own (see the `entry-naming` skill).
+  The claim title keeps the stub label, because it is the key claims are
+  matched on.
 - **Susceptibility / predisposition terms** — usually `OUT_OF_SCOPE`.
 - **Cancers** — deprioritize for now. The project does not yet have a settled
   lump/split strategy for neoplasms (see #7082). Prefer a non-cancer candidate,
