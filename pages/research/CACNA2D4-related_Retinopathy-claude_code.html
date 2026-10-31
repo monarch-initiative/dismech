@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CACNA2D4-related Retinopathy · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>CACNA2D4-related Retinopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>CACNA2D4-related Retinopathy</h1>
+                
+                <p class="report-subtitle">CACNA2D4-related Retinopathy (MONDO:0700244): Research Report</p>
+                
+                
+                <div class="report-date">2026-10-27</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0700244" target="_blank" rel="noopener noreferrer">MONDO:0700244</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-5-5</span>
+                    
+                    
+                    <span class="meta-chip">20 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>CACNA2D4-related Retinopathy (<a href="http://purl.obolibrary.org/obo/MONDO_0700244" target="_blank" rel="noopener noreferrer">MONDO:0700244</a>): Research Report</h1>
+<p><strong>Causal gene:</strong> <em>CACNA2D4</em> (<a href="https://bioregistry.io/HGNC:20202" target="_blank" rel="noopener noreferrer">HGNC:20202</a>, <code>hgnc:20202</code> in dismech form), on chromosome 12p13.33. It encodes the α2δ-4 auxiliary subunit of voltage-gated calcium channels (UniProt Q7Z3S7; gene OMIM 608171; Entrez 93589; Ensembl ENSG00000151062) (<a href="https://rest.genenames.org/fetch/symbol/CACNA2D4">HGNC REST</a>). The disease is autosomal recessive and affects the photoreceptor ribbon synapse. In the retina, α2δ-4 partners with the Cav1.4 pore subunit (<em>CACNA1F</em>, <code>hgnc:1393</code>). This is not the X-linked <em>CACNA1F</em> disease, and it is not the <em>CACNA2D3</em>/<em>CACNA2D1</em> conditions.</p>
+<p><strong>How the facts were checked.</strong> Quotes marked "abstract" were taken from PubMed E-utilities abstract text. The tool limited each quote to under 125 characters, so every quote is a sentence or fragment. They have <strong>not</strong> been run through <code>just fetch-reference</code> or <code>count-verified-snippets</code>; cache fetching was blocked in this session. Re-fetch each PMID and confirm each snippet before using it as evidence. Ontology IDs marked ✔ were found in this repo's <code>cache/*/terms.csv</code>. IDs marked ⚠ were not cached and need a lookup before binding.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> This is a rare autosomal recessive inherited retinal dysfunction. Most reported patients have a cone-dominant disorder. It shows up as:
+- reduced central acuity
+- photophobia
+- poor colour discrimination
+- a distinctive full-field ERG</p>
+<p>It is usually stable or only slowly progressive. The original report called it a "slowly progressing cone dystrophy" (<a href="https://pubmed.ncbi.nlm.nih.gov/17033974">PMID:17033974</a>). Later reports described a non-progressive retinal dysfunction (<a href="https://pubmed.ncbi.nlm.nih.gov/26560832">PMID:26560832</a>). Single-patient reports of retinitis pigmentosa (RP) and cone-rod dystrophy (CRD) exist, but they are weakly supported (see §4).</p>
+<p><strong>MONDO structure.</strong>
+- <strong><a href="http://purl.obolibrary.org/obo/MONDO_0700244" target="_blank" rel="noopener noreferrer">MONDO:0700244</a></strong> "CACNA2D4-related retinopathy" is defined as "Any retinopathy caused by variants in the CACNA2D4 gene." MONDO notes it was created in January 2024 as a spectrum parent with one child, at the request of the ClinGen ocular working group, and that it may later be merged with that child (<a href="https://www.ebi.ac.uk/ols4/api/search?q=CACNA2D4&amp;ontology=mondo&amp;rows=10">OLS</a>).
+- <strong><a href="http://purl.obolibrary.org/obo/MONDO_0012507" target="_blank" rel="noopener noreferrer">MONDO:0012507</a></strong> "retinal cone dystrophy 4" is the child: "Any cone dystrophy in which the cause of the disease is a mutation in the CACNA2D4 gene."</p>
+<p><strong>Identifiers on <a href="http://purl.obolibrary.org/obo/MONDO_0012507" target="_blank" rel="noopener noreferrer">MONDO:0012507</a></strong> (<a href="https://www.ebi.ac.uk/ols4/api/ontologies/mondo/terms/http%253A%252F%252Fpurl.obolibrary.org%252Fobo%252FMONDO_0012507">OLS term</a>):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Source</th>
+<th>ID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OMIM (phenotype, RCD4)</td>
+<td>610478</td>
+</tr>
+<tr>
+<td>UMLS</td>
+<td>C1864849</td>
+</tr>
+<tr>
+<td>MeSH (supplementary concept)</td>
+<td>C566470</td>
+</tr>
+<tr>
+<td>MedGen</td>
+<td>355308</td>
+</tr>
+<tr>
+<td>GARD</td>
+<td>0010650</td>
+</tr>
+<tr>
+<td>DOID</td>
+<td>0081023</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>not listed on the MONDO term; not verified here</td>
+</tr>
+<tr>
+<td>ICD-10/ICD-11</td>
+<td>no specific code. Falls under hereditary retinal dystrophy (ICD-10 H35.5); this mapping is mine and unverified</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms:</strong> retinal cone dystrophy 4; retinal cone dystrophy type 4; RCD4; CACNA2D4 cone dystrophy; cone dystrophy caused by mutation in CACNA2D4.</p>
+<p><strong>Curation note.</strong> The template lists "OMIM: not recorded". OMIM 610478 sits on the child term (<a href="http://purl.obolibrary.org/obo/MONDO_0012507" target="_blank" rel="noopener noreferrer">MONDO:0012507</a>), not on <a href="http://purl.obolibrary.org/obo/MONDO_0700244" target="_blank" rel="noopener noreferrer">MONDO:0700244</a>. If the entry stays on <a href="http://purl.obolibrary.org/obo/MONDO_0700244" target="_blank" rel="noopener noreferrer">MONDO:0700244</a>, record <a href="http://purl.obolibrary.org/obo/MONDO_0012507" target="_blank" rel="noopener noreferrer">MONDO:0012507</a> as a narrower term or as a <code>has_subtypes</code> binding.</p>
+<p><strong>Data source.</strong> All knowledge comes from published case reports and small families, about 10 or fewer probands worldwide, plus model organisms. There is no EHR or registry data.</p>
+<h2>2. Etiology</h2>
+<ul>
+<li><strong>Cause:</strong> biallelic loss-of-function variants in <em>CACNA2D4</em>. This is purely genetic and monogenic.</li>
+<li><strong>Gene–disease validity:</strong> ClinGen Retina GCEP rated <em>CACNA2D4</em>–CACNA2D4-related retinopathy (<a href="http://purl.obolibrary.org/obo/MONDO_0700244" target="_blank" rel="noopener noreferrer">MONDO:0700244</a>) <strong>Definitive, AR</strong>, under SOP v9 on 2023-03-02. The GenCC summary says "Over eight probands reported four homozygous variants in this gene including one missense variant, and two large deletions covering multiple exons, as well as one stop gained," and that the association "has been upheld over time." The record cites PMIDs 17033974, 25356976, 26560832, 28041643 and 31834350 (<a href="https://thegencc.org/submissions/GENCC_000102-HGNC_20202-MONDO_0700244-HP_0000007-GENCC_100001">GenCC submission</a>).</li>
+<li>ClinGen ID: <code>CGGV:assertion_f413ef18-b8cf-44c3-abde-b7533e1dd54f-2023-03-02T17:00:00.000Z</code>.</li>
+<li>The row is already in <code>cache/clingen/gene_validity.csv</code>: <code>CACNA2D4 | HGNC:20202 | CACNA2D4-related retinopathy | MONDO:0700244 | AR | SOP9 | Definitive</code>. Build the quotable cache with <code>just fetch-reference CGGV:…</code> and record it in <code>gene_disease_validity</code> with <code>classified_by: CLINGEN</code>.</li>
+<li><strong>Environmental risk factors, protective factors, gene–environment interactions:</strong> none reported. The genetic or environmental modifiers that could explain differences between siblings are unknown (<a href="https://pubmed.ncbi.nlm.nih.gov/40883544">PMID:40883544</a>).</li>
+</ul>
+<h2>3. Phenotypes</h2>
+<p>The cohort is tiny (about 10 or fewer patients), so frequencies are qualitative.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO suggestion</th>
+<th>Onset, course, frequency</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reduced visual acuity</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" rel="noopener noreferrer">HP:0007663</a> Reduced visual acuity ✔</td>
+<td>Childhood. Usually mild to moderate (about 20/30 to 20/40). Stable or slowly progressive. Seen in all reported patients</td>
+<td>Smirnov 2025 abstract: "Two siblings presented a reduced visual acuity and light sensitivity." Patient 1 had BCVA 20/40 at age 13 (full text) [<a href="https://pubmed.ncbi.nlm.nih.gov/40883544/" target="_blank" rel="noopener noreferrer">PMID:40883544</a>]. Ba-Abbad 2016: lifelong stable VA about 20/30 (letter, no abstract) [<a href="https://pubmed.ncbi.nlm.nih.gov/26560832/" target="_blank" rel="noopener noreferrer">PMID:26560832</a>]</td>
+</tr>
+<tr>
+<td>Photophobia / light sensitivity</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" rel="noopener noreferrer">HP:0000613</a> Photophobia ✔</td>
+<td>Childhood. Common</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Colour vision defect</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000551" target="_blank" rel="noopener noreferrer">HP:0000551</a> Color vision defect ✔ (or <a href="http://purl.obolibrary.org/obo/HP_0007641" target="_blank" rel="noopener noreferrer">HP:0007641</a> Dyschromatopsia ✔)</td>
+<td>Low colour discrimination, reported by Ba-Abbad</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26560832/" target="_blank" rel="noopener noreferrer">PMID:26560832</a> (full text only)</td>
+</tr>
+<tr>
+<td>Cone dystrophy / cone dysfunction</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008020" target="_blank" rel="noopener noreferrer">HP:0008020</a> Cone dystrophy ✔. <a href="http://purl.obolibrary.org/obo/HP_0000548" target="_blank" rel="noopener noreferrer">HP:0000548</a> Cone/cone-rod dystrophy ✔ for the CRD case</td>
+<td>Slowly progressive in the original sibs</td>
+<td>Wycisk abstract: "Both patients share symptoms of slowly progressing cone dystrophy." [<a href="https://pubmed.ncbi.nlm.nih.gov/17033974/" target="_blank" rel="noopener noreferrer">PMID:17033974</a>]</td>
+</tr>
+<tr>
+<td>Abnormal full-field ERG: reduced light-adapted (cone) responses, "pseudo-electronegative" dark-adapted (DA) response, reduced b/a ratio, multiphasic LA 3.0 b-wave, preserved x-wave</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030466" target="_blank" rel="noopener noreferrer">HP:0030466</a> Abnormal full-field electroretinogram ✔. <a href="http://purl.obolibrary.org/obo/HP_0007984" target="_blank" rel="noopener noreferrer">HP:0007984</a> ERG: Reduced dark-adapted b-wave amplitude ✔ (patient 1 only). Electronegative-ERG HPO term ⚠ to be looked up</td>
+<td>Seen in all patients. Ba-Abbad described it as generalized, predominantly inner-retinal cone-system dysfunction</td>
+<td>Smirnov abstract: "ffERG was specific for CACNA2D4-related retinal dysfunction, but amplitudes of responses were different in the two patients"; "there was a reduced b/a ratio to a high intensity (30cd/m2) dark-adapted stimulus"; "an x-wave to a dim red flash was well preserved" [<a href="https://pubmed.ncbi.nlm.nih.gov/40883544/" target="_blank" rel="noopener noreferrer">PMID:40883544</a>]. Wycisk's sibs came from a cohort first diagnosed with night blindness and an electronegative ERG [<a href="https://pubmed.ncbi.nlm.nih.gov/17033974/" target="_blank" rel="noopener noreferrer">PMID:17033974</a>]</td>
+</tr>
+<tr>
+<td>Nyctalopia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" rel="noopener noreferrer">HP:0000662</a> ✔</td>
+<td>Uncertain. Present only through the original night-blindness referral cohort; rod function is often relatively preserved</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17033974/" target="_blank" rel="noopener noreferrer">PMID:17033974</a> (abstract mentions screening "34 patients initially diagnosed with night blindness", per search summary)</td>
+</tr>
+<tr>
+<td>Foveal hypoplasia (grade I)</td>
+<td>HPO foveal hypoplasia term ⚠</td>
+<td>One sibling only (age 35)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40883544/" target="_blank" rel="noopener noreferrer">PMID:40883544</a> full text</td>
+</tr>
+<tr>
+<td>Nystagmus</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a> ✔</td>
+<td>Single RP case only (with "increased need for light" and oculomotor apraxia)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33927996/" target="_blank" rel="noopener noreferrer">PMID:33927996</a> (full text per review). Low confidence</td>
+</tr>
+<tr>
+<td>Retinitis pigmentosa / rod-cone dystrophy</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" rel="noopener noreferrer">HP:0000510</a> Rod-cone dystrophy ✔</td>
+<td>Single report. Weak evidence</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33927996/" target="_blank" rel="noopener noreferrer">PMID:33927996</a>, abstract: "Novel compound heterozygous, deleterious missense variants of the CACNA2D4 gene"</td>
+</tr>
+<tr>
+<td>Absence of retinal degeneration on long follow-up</td>
+<td>(a negative finding, best kept in notes)</td>
+<td>—</td>
+<td>Smirnov abstract: "During 17 years of follow-up, vision remained stable in patient 1, with no evidence of retinal degeneration."</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Quality of life.</strong> No QoL instrument data exist. The impact comes from mildly reduced acuity, glare and photophobia, and colour discrimination problems. Patients usually keep independent mobility and normal stereopsis (patient 2 in <a href="https://pubmed.ncbi.nlm.nih.gov/40883544/" target="_blank" rel="noopener noreferrer">PMID:40883544</a>).</p>
+<p><strong>Extra-ocular phenotypes.</strong> None are established. <em>CACNA2D4</em> deletions and variants have been reported in bipolar disorder and neurodevelopmental contexts, but these are unrelated to this disease and should not be curated as phenotypes. Examples: a 12p13.33 deletion in late-onset bipolar disorder (<a href="https://pubmed.ncbi.nlm.nih.gov/22488967/" target="_blank" rel="noopener noreferrer">PMID:22488967</a>), and behavioural phenotypes in α2δ-4 knockout mice (<a href="https://pubmed.ncbi.nlm.nih.gov/35353835/" target="_blank" rel="noopener noreferrer">PMID:35353835</a>).</p>
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Gene:</strong> <em>CACNA2D4</em>, <code>hgnc:20202</code>, 12p13.33, NM_172364. α2δ-4 has a GPI-anchored extracellular α2δ structure, with VWA and Cache domains.</p>
+<p><strong>Reported variants:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant (NM_172364)</th>
+<th>Type</th>
+<th>Zygosity</th>
+<th>Phenotype</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>c.2406C&gt;A, p.(Tyr802*)</td>
+<td>Nonsense (removes about one-third of the ORF)</td>
+<td>Homozygous; 2 sibs, consanguineous</td>
+<td>Slowly progressive cone dystrophy</td>
+<td>Wycisk 2006 [<a href="https://pubmed.ncbi.nlm.nih.gov/17033974/" target="_blank" rel="noopener noreferrer">PMID:17033974</a>]. Abstract: "we detected a homozygous nucleotide substitution (c.2406C--&gt;A) in CACNA2D4"; "The mutation introduces a premature stop codon that truncates one-third of the corresponding open reading frame." Re-reported in 2 French sibs [<a href="https://pubmed.ncbi.nlm.nih.gov/40883544/" target="_blank" rel="noopener noreferrer">PMID:40883544</a>]: "Both patients were homozygous for the variant c.2406C &gt; A, p.(Tyr802*) in CACNA2D4." It is unclear whether these are the same family</td>
+</tr>
+<tr>
+<td>c.1882C&gt;T, p.(Arg628*)</td>
+<td>Nonsense</td>
+<td>Homozygous</td>
+<td>Non-progressive cone-dominant dysfunction</td>
+<td>Ba-Abbad 2016 [<a href="https://pubmed.ncbi.nlm.nih.gov/26560832/" target="_blank" rel="noopener noreferrer">PMID:26560832</a>]</td>
+</tr>
+<tr>
+<td>c.1719+2904_2551-27827del35862insTG</td>
+<td>Large multi-exon deletion-insertion (about 35.9 kb)</td>
+<td>Homozygous</td>
+<td>Non-progressive dysfunction</td>
+<td>Ba-Abbad 2016 [<a href="https://pubmed.ncbi.nlm.nih.gov/26560832/" target="_blank" rel="noopener noreferrer">PMID:26560832</a>]; probably found through the NIHR-BioResource WGS study, Carss 2017 [<a href="https://pubmed.ncbi.nlm.nih.gov/28041643/" target="_blank" rel="noopener noreferrer">PMID:28041643</a>] (relationship to confirm)</td>
+</tr>
+<tr>
+<td>c.2120G&gt;A, p.(Arg707His)</td>
+<td>Missense</td>
+<td>Homozygous</td>
+<td>CRD; minimal clinical data, no functional study</td>
+<td>Huang 2015 [<a href="https://pubmed.ncbi.nlm.nih.gov/25356976/" target="_blank" rel="noopener noreferrer">PMID:25356976</a>]. The abstract does not name CACNA2D4. LOVD lists the variant as likely pathogenic (<a href="https://databases.lovd.nl/shared/variants/0000797958">LOVD</a>)</td>
+</tr>
+<tr>
+<td>c.955G&gt;A p.(Asp319Asn) + c.1822A&gt;C p.(Ile608Leu)</td>
+<td>Missense</td>
+<td>Compound heterozygous</td>
+<td>"arRP" in one Chinese proband</td>
+<td>Cheng 2021 [<a href="https://pubmed.ncbi.nlm.nih.gov/33927996/" target="_blank" rel="noopener noreferrer">PMID:33927996</a>]. Abstract: "co-segregating with the clinical phenotype in the patient"; "These might be disease-causing mutations." ClinGen did not count it (its four variants are all homozygous)</td>
+</tr>
+<tr>
+<td>about 30.65 kb deletion</td>
+<td>Deletion</td>
+<td><strong>Heterozygous</strong></td>
+<td>RP in a second cousin who also carried a C21orf2 deletion</td>
+<td>Gustafson 2017 [<a href="https://pubmed.ncbi.nlm.nih.gov/28837078/" target="_blank" rel="noopener noreferrer">PMID:28837078</a>]. Abstract: "a novel 30.651 kb heterozygous deletion in CACNA2D4 in the affected second cousin". A single heterozygous allele, so not explanatory on its own; do not curate as causal</td>
+</tr>
+<tr>
+<td>One non-canonical splice-site variant</td>
+<td>Splicing (minigene-confirmed)</td>
+<td>—</td>
+<td>IRD</td>
+<td>Rodriguez-Muñoz 2022 [<a href="https://pubmed.ncbi.nlm.nih.gov/34996991/" target="_blank" rel="noopener noreferrer">PMID:34996991</a>]. Get variant details from the full text</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Other genetic details:</strong>
+- <strong>Functional class:</strong> loss of function, through nonsense, large deletion, and probably missense. Use <code>functional_impact_category: LOSS_OF_FUNCTION</code> with <code>variant_origin: GERMLINE</code>. No gain-of-function or dominant-negative mechanism has been shown.
+- <strong>Population frequency:</strong> no founder variant is known. Get gnomAD frequencies for each variant directly; they were not retrieved here.
+- <strong>Modifier genes:</strong> none known. Sibling variability suggests modifiers exist [<a href="https://pubmed.ncbi.nlm.nih.gov/40883544/" target="_blank" rel="noopener noreferrer">PMID:40883544</a>].
+- <strong>Epigenetics:</strong> nothing disease-specific. <em>CACNA2D4</em> methylation turns up in cancer and psychiatric methylome studies; these are not relevant.
+- <strong>Chromosomal:</strong> 12p13.33 interstitial deletions that span <em>CACNA2D4</em> cause developmental delay (<a href="https://pubmed.ncbi.nlm.nih.gov/21144913/" target="_blank" rel="noopener noreferrer">PMID:21144913</a>). These are heterozygous and are not this retinopathy.
+- <strong>Somatic:</strong> not applicable.</p>
+<h2>5. Environmental Information</h2>
+<p>There are no known environmental, lifestyle or infectious contributors. Photophobia leads to light-avoidance behaviour, but that is a consequence, not a cause.</p>
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Biallelic <em>CACNA2D4</em> LoF variants</strong> (nonsense, multi-exon deletion) <strong>lead to</strong> absent or truncated α2δ-4 protein, probably through NMD or loss of the C-terminal membrane anchor. NMD is inferred, not shown in human tissue. → <a href="http://purl.obolibrary.org/obo/GO_0005245" target="_blank" rel="noopener noreferrer">GO:0005245</a> voltage-gated calcium channel activity ✔ (decreased). <a href="http://purl.obolibrary.org/obo/GO_0008331" target="_blank" rel="noopener noreferrer">GO:0008331</a> high voltage-gated calcium channel activity ✔.</li>
+<li><strong>Loss of α2δ-4 leads to</strong> failure to traffic and stabilize <strong>Cav1.4 (α1F) L-type channels</strong> at photoreceptor presynaptic active zones, and a progressive loss of channels from terminals.</li>
+<li>Mouse knockout abstract: "a progressive loss of Cav1.4 channels, first in terminals of rods and later cones" [<a href="https://pubmed.ncbi.nlm.nih.gov/29875267/" target="_blank" rel="noopener noreferrer">PMID:29875267</a>].</li>
+<li>Zebrafish: "Knockout of cacna2d4b reduces the expression of Cacna1fa" [<a href="https://pubmed.ncbi.nlm.nih.gov/31834350/" target="_blank" rel="noopener noreferrer">PMID:31834350</a>].</li>
+<li>Mouse: in cones, α2δ-4 is "essential for CaV1.4 function" [<a href="https://pubmed.ncbi.nlm.nih.gov/28262416/" target="_blank" rel="noopener noreferrer">PMID:28262416</a>].</li>
+<li>Terms: <a href="http://purl.obolibrary.org/obo/GO_0097470" target="_blank" rel="noopener noreferrer">GO:0097470</a> ribbon synapse ✔, <a href="http://purl.obolibrary.org/obo/GO_0048786" target="_blank" rel="noopener noreferrer">GO:0048786</a> presynaptic active zone ✔, <a href="http://purl.obolibrary.org/obo/GO_0005891" target="_blank" rel="noopener noreferrer">GO:0005891</a> voltage-gated calcium channel complex ⚠.</li>
+<li><strong>Branch A, rods (strong in mouse, apparently mild in humans).</strong> α2δ-4 forms a trans-synaptic complex with Cav1.4 and <strong>ELFN1</strong>, which aligns with postsynaptic mGluR6 (GRM6, <code>hgnc:4598</code> ✔). Losing α2δ-4 <strong>leads to</strong> failure of rod synaptogenesis and ribbon anchoring.</li>
+<li>Abstract: α2δ4 "complexes with CaV1.4 and the rod synaptogenic mediator, ELFN1"; "Eliminating α2δ4 in mice abolishes rod synaptogenesis and synaptic transmission to rod ON-bipolar cells" [<a href="https://pubmed.ncbi.nlm.nih.gov/28262416/" target="_blank" rel="noopener noreferrer">PMID:28262416</a>].</li>
+<li>Abstract: "rod spherules lack ribbons and other synaptic hallmarks early in development" [<a href="https://pubmed.ncbi.nlm.nih.gov/29875267/" target="_blank" rel="noopener noreferrer">PMID:29875267</a>].</li>
+<li>Terms: <a href="http://purl.obolibrary.org/obo/GO_0007416" target="_blank" rel="noopener noreferrer">GO:0007416</a> synapse assembly ✔ (decreased). <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a> retinal rod cell ✔.</li>
+<li><strong>Branch B, cones (the main human feature).</strong> Reduced Cav1.4 current <strong>leads to</strong> reduced Ca²⁺-triggered glutamate release at cone pedicles. Cone synapse architecture is relatively preserved at first but degrades over time.</li>
+<li>Abstract: "Although the molecular organization of cone synapses is less affected than rod synapses" [<a href="https://pubmed.ncbi.nlm.nih.gov/29875267/" target="_blank" rel="noopener noreferrer">PMID:29875267</a>].</li>
+<li>The two mouse papers disagree about how much the cone ribbon depends on α2δ-4 (<a href="https://pubmed.ncbi.nlm.nih.gov/28262416/" target="_blank" rel="noopener noreferrer">PMID:28262416</a> vs <a href="https://pubmed.ncbi.nlm.nih.gov/29875267/" target="_blank" rel="noopener noreferrer">PMID:29875267</a>).</li>
+<li>Terms: <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" rel="noopener noreferrer">GO:0007268</a> chemical synaptic transmission ✔ (decreased), <a href="http://purl.obolibrary.org/obo/GO_0070588" target="_blank" rel="noopener noreferrer">GO:0070588</a> calcium ion transmembrane transport ✔ (decreased). <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a> retinal cone cell ✔.</li>
+<li><strong>Reduced synaptic transmission leads to</strong> impaired signalling to ON- and OFF-bipolar cells (<a href="http://purl.obolibrary.org/obo/CL_0000749" target="_blank" rel="noopener noreferrer">CL:0000749</a> ON-bipolar cell ✔, <a href="http://purl.obolibrary.org/obo/CL_0000752" target="_blank" rel="noopener noreferrer">CL:0000752</a> cone retinal bipolar cell ✔). This <strong>results in</strong> an inner-retinal ERG pattern: reduced b/a ratio, abnormal LA b-wave, a "pseudo-electronegative" DA response, with relatively preserved photoreceptor (a-wave) generation. The link from synaptic defect to ERG waveform is inferred from mouse and zebrafish data plus human ERG.</li>
+<li>Zebrafish: "Only knockout of both paralogs impaired cone-mediated ERG b-wave amplitude" [<a href="https://pubmed.ncbi.nlm.nih.gov/31834350/" target="_blank" rel="noopener noreferrer">PMID:31834350</a>].</li>
+<li>Mouse: "Despite the absence of b-waves in electroretinograms, visually guided behavior is evident in α2δ-4 KO mice" [<a href="https://pubmed.ncbi.nlm.nih.gov/29875267/" target="_blank" rel="noopener noreferrer">PMID:29875267</a>].</li>
+<li><strong>Loss of cone-pathway signal leads to</strong> reduced acuity, photophobia and dyschromatopsia (<a href="http://purl.obolibrary.org/obo/GO_0007601" target="_blank" rel="noopener noreferrer">GO:0007601</a> visual perception ✔, decreased).</li>
+<li><strong>Branch C, secondary degeneration (variable; prominent in mouse, absent or minimal in most humans).</strong> In mouse, chronic synaptic dysfunction <strong>leads to</strong> internal Ca²⁺-store depletion and compensatory Ca²⁺/Na⁺ influx through non-selective cation channels, then ER stress and rod death. Cone loss comes later.</li>
+<li>Abstract: "internal calcium stores' depletion and upregulation of calcium entry via non-selective cationic channels (CSC)" [<a href="https://pubmed.ncbi.nlm.nih.gov/36361866/" target="_blank" rel="noopener noreferrer">PMID:36361866</a>].</li>
+<li>Abstract: "The mutation leads to significant loss of rods, whereas the number of cone cells remains unaffected until 6 weeks of age" [<a href="https://pubmed.ncbi.nlm.nih.gov/16877424/" target="_blank" rel="noopener noreferrer">PMID:16877424</a>].</li>
+<li>Cone-rich KO mice: "progressive degeneration with 10% loss by 2-months of age was observed" [<a href="https://pubmed.ncbi.nlm.nih.gov/37181655/" target="_blank" rel="noopener noreferrer">PMID:37181655</a>].</li>
+<li>In humans: "no evidence of retinal degeneration" over 17 years [<a href="https://pubmed.ncbi.nlm.nih.gov/40883544/" target="_blank" rel="noopener noreferrer">PMID:40883544</a>]. This step is mostly model evidence; flag <code>HUMAN_MODEL_MISMATCH</code>.</li>
+<li><strong>Accessory mechanism (model only).</strong> Mislocalization of the TMEM16A Ca²⁺-activated Cl⁻ channel, which associates with Cav1.4 at the terminal. Abstract: "TMEM16A channels lose their characteristic localization"; "TMEM16A associates with the CaV1.4 subunit" [<a href="https://pubmed.ncbi.nlm.nih.gov/26557056/" target="_blank" rel="noopener noreferrer">PMID:26557056</a>].</li>
+</ol>
+<p><strong>Upstream and downstream.</strong> The molecular steps (1–2) feed the synaptic and cellular steps (3–5), which produce the clinical findings (6). Degeneration (7) is a downstream branch that depends on the species.</p>
+<p><strong>Cell types:</strong> retinal cone cell (<a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a> ✔), retinal rod cell (<a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a> ✔), photoreceptor cell (<a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" rel="noopener noreferrer">CL:0000210</a> ✔), ON-bipolar cell (<a href="http://purl.obolibrary.org/obo/CL_0000749" target="_blank" rel="noopener noreferrer">CL:0000749</a> ✔), cone retinal bipolar cell (<a href="http://purl.obolibrary.org/obo/CL_0000752" target="_blank" rel="noopener noreferrer">CL:0000752</a> ✔).</p>
+<p><strong>Possible module conformance.</strong> Check <code>just list-modules synap</code> and <code>just list-modules channel</code> for a photoreceptor synaptopathy or CSNB module. The sibling entry <code>CACNA1F-Related_Retinopathy.yaml</code> is the closest mechanistic template. I have not checked which modules exist.</p>
+<p><strong>Omics:</strong> there are no human transcriptomic, proteomic or single-cell disease datasets specific to this condition. Cheng 2021 notes that "The CACNA2D4 mRNA expression showed the highest expression in the retina of humans" [<a href="https://pubmed.ncbi.nlm.nih.gov/33927996/" target="_blank" rel="noopener noreferrer">PMID:33927996</a>].</p>
+<h2>7. Anatomical Structures</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Structures</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Organ</td>
+<td>Eye/retina (<a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a> ✔), bilateral and symmetric. Macula/fovea (<a href="http://purl.obolibrary.org/obo/UBERON_0000053" target="_blank" rel="noopener noreferrer">UBERON:0000053</a> macula lutea ✔). No other organ systems</td>
+</tr>
+<tr>
+<td>Tissue</td>
+<td>Photoreceptor layer (<a href="http://purl.obolibrary.org/obo/UBERON_0001787" target="_blank" rel="noopener noreferrer">UBERON:0001787</a> ✔), outer nuclear layer (<a href="http://purl.obolibrary.org/obo/UBERON_0001789" target="_blank" rel="noopener noreferrer">UBERON:0001789</a> ✔), outer plexiform layer (<a href="http://purl.obolibrary.org/obo/UBERON_0001790" target="_blank" rel="noopener noreferrer">UBERON:0001790</a> ⚠, the synaptic site), inner nuclear layer (<a href="http://purl.obolibrary.org/obo/UBERON_0001791" target="_blank" rel="noopener noreferrer">UBERON:0001791</a> ✔, bipolar cells)</td>
+</tr>
+<tr>
+<td>Cell</td>
+<td>Cones first; rods in models; bipolar neurons postsynaptically</td>
+</tr>
+<tr>
+<td>Subcellular</td>
+<td>Ribbon synapse (<a href="http://purl.obolibrary.org/obo/GO_0097470" target="_blank" rel="noopener noreferrer">GO:0097470</a> ✔), presynaptic active zone (<a href="http://purl.obolibrary.org/obo/GO_0048786" target="_blank" rel="noopener noreferrer">GO:0048786</a> ✔), presynapse (<a href="http://purl.obolibrary.org/obo/GO_0098793" target="_blank" rel="noopener noreferrer">GO:0098793</a> ✔), voltage-gated calcium channel complex (<a href="http://purl.obolibrary.org/obo/GO_0005891" target="_blank" rel="noopener noreferrer">GO:0005891</a> ⚠)</td>
+</tr>
+</tbody>
+</table></div></details>
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> childhood (e.g., presenting at age 13) and probably congenital. The disease is insidious.</li>
+<li><strong>Course:</strong> mostly stationary or very slowly progressive. Ba-Abbad 2016 and Smirnov 2025 describe it as non-progressive ("nonprogressive character, as previously suggested", per PMC12568804). The original sibs were "slowly progressing" [<a href="https://pubmed.ncbi.nlm.nih.gov/17033974/" target="_blank" rel="noopener noreferrer">PMID:17033974</a>]. There are no formal stages. It lasts lifelong, with no remission.</li>
+<li><strong>Critical period (preclinical):</strong> AAV work in mice found the most complete rescue with neonatal treatment. Later treatment rescued cone function more reliably than rod function (Ung 2026 preprint [<a href="https://pubmed.ncbi.nlm.nih.gov/42539265/" target="_blank" rel="noopener noreferrer">PMID:42539265</a>]).</li>
+</ul>
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> autosomal recessive (<a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank" rel="noopener noreferrer">HP:0000007</a>; ClinGen MOI AR). Bind it in the entry's <code>inheritance</code> block.</li>
+<li><strong>Penetrance and expressivity:</strong> penetrance appears complete in biallelic carriers. Expressivity varies even within a family: "Intrafamily clinical and electrophysiological expression of CACNA2D4-associated retinal dysfunction can be variable" [<a href="https://pubmed.ncbi.nlm.nih.gov/40883544/" target="_blank" rel="noopener noreferrer">PMID:40883544</a>].</li>
+<li><strong>Consanguinity:</strong> present in the original family [<a href="https://pubmed.ncbi.nlm.nih.gov/17033974/" target="_blank" rel="noopener noreferrer">PMID:17033974</a>].</li>
+<li><strong>Prevalence:</strong> unknown. Fewer than about 15 patients have been published. Use <code>prevalence_class</code> with <code>measure_type: CASES_IN_LITERATURE</code>, or <code>UNKNOWN</code> (e.g., <code>RARE</code>/<code>ULTRA_RARE</code>).</li>
+<li><strong>Geography and populations:</strong> patients have been reported from Germany/Europe, the UK, France and China. No founder effect is known. The sex ratio is not skewed, as expected for AR inheritance.</li>
+<li><strong>Not applicable:</strong> carrier frequency, anticipation and germline mosaicism are not reported.</li>
+</ul>
+<h2>10. Diagnostics</h2>
+<p><strong>Electrophysiology is the most informative test.</strong> ISCEV full-field ERG findings:
+- reduced and abnormal LA cone responses, with a multiphasic LA 3.0 b-wave
+- reduced b/a ratio to a bright DA flash ("pseudo-electronegative")
+- preserved x-wave to a dim red flash</p>
+<p>This pattern points to an inner-retinal cone-system defect and separates it from CSNB and photoreceptor cone dystrophies [<a href="https://pubmed.ncbi.nlm.nih.gov/40883544/" target="_blank" rel="noopener noreferrer">PMID:40883544</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26560832/" target="_blank" rel="noopener noreferrer">PMID:26560832</a>]. Pattern/multifocal ERG shows macular dysfunction.</p>
+<p><strong>Other tests:</strong>
+- <strong>Imaging:</strong> OCT (NCIT:C20828 ✔; SD-OCT NCIT:C162464 ✔) and fundus autofluorescence. Usually normal, or shows mild foveal changes such as grade I foveal hypoplasia.
+- <strong>Psychophysics:</strong> colour vision testing; visual fields.
+- <strong>Genetic testing:</strong> an IRD multi-gene panel (NCIT:C198412 ✔) that includes <em>CACNA2D4</em>, then WES (NCIT:C101295 ✔). <strong>WGS (NCIT:C101294 ✔) or CNV analysis is needed</strong>, because two of the four ClinGen-counted variants are large multi-exon deletions; WES/panel CNV calling can miss them. Gustafson 2017 "demonstrated the value of WGS when WES fails to identify likely disease-causing mutations" [<a href="https://pubmed.ncbi.nlm.nih.gov/28837078/" target="_blank" rel="noopener noreferrer">PMID:28837078</a>]. Non-canonical splice variants may need minigene or RNA confirmation [<a href="https://pubmed.ncbi.nlm.nih.gov/34996991/" target="_blank" rel="noopener noreferrer">PMID:34996991</a>].
+- <strong>Not relevant:</strong> labs, biomarkers, biopsy, CMA/karyotype, mtDNA testing, repeat-expansion testing.</p>
+<p><strong>Differential diagnosis:</strong>
+- <em>CACNA1F</em> incomplete CSNB (X-linked)
+- <em>CABP4</em> cone-rod synaptic disorder (very similar ERG)
+- <em>RIMS2</em>
+- complete CSNB genes (<em>NYX</em>, <em>GRM6</em>, <em>TRPM1</em>, <em>GPR179</em>, <em>LRIT3</em>)
+- achromatopsia and other cone dystrophies (<em>CNGA3</em>, <em>CNGB3</em>, <em>KCNV2</em>)
+- <em>KCNV2</em> "cone dystrophy with supernormal rod responses" (one sibling in Smirnov had supranormal DA amplitudes)</p>
+<p><strong>Screening:</strong> no newborn screening. Cascade carrier testing in families.</p>
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li>Life expectancy is normal, with no disease-related mortality.</li>
+<li>Morbidity is lifelong mild-to-moderate visual impairment (about 20/30 to 20/40), glare and photophobia, and colour discrimination deficits. Vision can stay stable for decades (17 years in <a href="https://pubmed.ncbi.nlm.nih.gov/40883544/" target="_blank" rel="noopener noreferrer">PMID:40883544</a>).</li>
+<li>No validated prognostic biomarkers exist.</li>
+<li>Complications such as cystoid macular edema or cataract have not been reported.</li>
+</ul>
+<h2>12. Treatment</h2>
+<p><strong>No disease-specific approved therapy exists.</strong></p>
+<p><strong>Supportive care</strong> (NCIT:C15747 Supportive Care ✔): refraction, low-vision aids and tinted or filter lenses for photophobia. NCIT device and filter-lens terms ⚠; per CLAUDE.md, devices are not clinical actions. Educational support as needed. Use <code>therapeutic_modality: DEVICE</code> or <code>BEHAVIORAL</code> where appropriate.</p>
+<p><strong>Genetic counseling</strong> (NCIT:C15240 ✔): AR recurrence risk of 25%, and carrier testing for relatives.</p>
+<p><strong>Gene therapy</strong> (NCIT:C15238 ✔, <code>GENE_THERAPY</code>): preclinical only. There are no clinical trials. A ClinicalTrials.gov search is recommended; none was found here.
+- <strong>Ung et al. 2026 (bioRxiv, <a href="https://pubmed.ncbi.nlm.nih.gov/42539265/" target="_blank" rel="noopener noreferrer">PMID:42539265</a>):</strong> AAV8-GRK1-α2δ4 in α2δ4-KO mice. Abstract: "AAV-mediated α2δ4 expression restored synaptic localization of Cav1.4, ELFN proteins, and mGluR6 at all treatment ages." Neonatal treatment gave the most complete rescue. Adult treatment produced more ectopic synapses.
+- <strong>Hasan et al. 2026 (bioRxiv, <a href="https://pubmed.ncbi.nlm.nih.gov/42427680/" target="_blank" rel="noopener noreferrer">PMID:42427680</a>):</strong> rod-directed rAAV in adult KO mice prevented rod degeneration and improved acuity, with benefit lasting up to 14 months. Abstract: "synaptic structure and function can be restored in the mature mouse retina."
+- These are preprints with <code>MODEL_ORGANISM</code> evidence.</p>
+<p><strong>Exon skipping: argued against.</strong> Bacchi 2015 found that "The designed exon-skipping strategy is not applicable because the resulting skipped α2δ4 are nonfunctional" [<a href="https://pubmed.ncbi.nlm.nih.gov/26218913/" target="_blank" rel="noopener noreferrer">PMID:26218913</a>].</p>
+<p><strong>Experimental idea (model only):</strong> blocking non-selective cation channels to prevent rod death. Abstract: "Blocking CSC may provide a novel strategy…" [<a href="https://pubmed.ncbi.nlm.nih.gov/36361866/" target="_blank" rel="noopener noreferrer">PMID:36361866</a>].</p>
+<p><strong>Pharmacogenomics:</strong> none. Gabapentinoids bind α2δ-1 and α2δ-2, not α2δ-4, so they are not relevant.</p>
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary:</strong> none, beyond reproductive options: carrier testing of partners in consanguineous families, prenatal diagnosis, or PGT once familial variants are known.</li>
+<li><strong>Secondary:</strong> early ERG and genetic diagnosis in children with photophobia or reduced acuity, to avoid misdiagnosis (e.g., as amblyopia).</li>
+<li><strong>Tertiary:</strong> low-vision rehabilitation and glare control.</li>
+<li><strong>Not applicable:</strong> vaccination and public-health measures.</li>
+</ul>
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Spontaneous mouse mutant:</strong> a C57BL/10 substrain carrying a <em>Cacna2d4</em> frameshift insertion (c.2367insC per Wycisk; described as c.2451insC in later papers). Abstract: "In a spontaneous mutant substrain of C57BL/10 mice, severely affected retinal ribbon-type synapses have been described"; "The Cacna2d4 mutation underlies a novel channelopathy leading to cone-rod dysfunction in the visual system of mice" [<a href="https://pubmed.ncbi.nlm.nih.gov/16877424/" target="_blank" rel="noopener noreferrer">PMID:16877424</a>].</li>
+<li><strong>Dog:</strong> there is no natural canine <em>CACNA2D4</em> disease. In a beagle CSNB model, <em>CACNA2D4</em> was <strong>excluded</strong> as the cause, although its expression was reduced [<a href="https://pubmed.ncbi.nlm.nih.gov/26368928/" target="_blank" rel="noopener noreferrer">PMID:26368928</a>].</li>
+<li><strong>OMIA:</strong> not checked.</li>
+<li><strong>Orthologs:</strong> mouse <em>Cacna2d4</em> (MGI ⚠); zebrafish <em>cacna2d4a</em> and <em>cacna2d4b</em> (ZFIN ⚠).</li>
+<li><strong>Taxa:</strong> NCBITaxon:10090 (mouse), NCBITaxon:7955 (zebrafish). Not cached; verify.</li>
+<li><strong>Zoonotic potential:</strong> not applicable.</li>
+</ul>
+<h2>15. Model Organisms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Genotype</th>
+<th>Recapitulation</th>
+<th>Limitations</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Spontaneous mutant mouse (C57BL/10 substrain)</td>
+<td><em>Cacna2d4</em> frameshift insertion, homozygous</td>
+<td>Ribbon synapse disorganization. Abstract: "Rod photoreceptor responses were maintained with reduced amplitude, whereas cone activities were absent"</td>
+<td>Rod loss is prominent, unlike human. Phenotype "is closer to congenital stationary night blindness" (PMC12568804)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16877424/" target="_blank" rel="noopener noreferrer">PMID:16877424</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36361866/" target="_blank" rel="noopener noreferrer">PMID:36361866</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/26557056/" target="_blank" rel="noopener noreferrer">PMID:26557056</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/26218913/" target="_blank" rel="noopener noreferrer">PMID:26218913</a></td>
+</tr>
+<tr>
+<td>α2δ4 KO mouse (Wang 2017)</td>
+<td>Null</td>
+<td>No rod synaptogenesis, no rod ON-bipolar transmission. Cone Cav1.4 function lost</td>
+<td>Rod defect is more severe than in humans</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28262416/" target="_blank" rel="noopener noreferrer">PMID:28262416</a></td>
+</tr>
+<tr>
+<td>α2δ-4 KO mouse (CRISPR)</td>
+<td>Null</td>
+<td>Rod spherules lack ribbons. Progressive loss of Cav1.4 from rods, then cones. No ERG b-wave, but visually guided behaviour is preserved</td>
+<td>Some disagreement with Wang 2017 about cone ribbons</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29875267/" target="_blank" rel="noopener noreferrer">PMID:29875267</a></td>
+</tr>
+<tr>
+<td>"Conefull" all-cone mouse × α2δ4 KO</td>
+<td>RPE65 R91W KI; Nrl KO; α2δ4 KO</td>
+<td>Reduced b-wave; about 10% degeneration by 2 months</td>
+<td>Artificial cone-only retina</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37181655/" target="_blank" rel="noopener noreferrer">PMID:37181655</a></td>
+</tr>
+<tr>
+<td>Zebrafish <em>cacna2d4a/b</em> double KO (CRISPR)</td>
+<td>Double null</td>
+<td>Lower cone-mediated b-wave with no degeneration. Closest match to the human mild cone dysfunction</td>
+<td>Paralog redundancy; differences between fish and mammal synapses</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31834350/" target="_blank" rel="noopener noreferrer">PMID:31834350</a></td>
+</tr>
+<tr>
+<td>AAV rescue models</td>
+<td>AAV8-GRK1-α2δ4 or rod-targeted rAAV in KO mice</td>
+<td>Restores synapses and ERG. Rescue depends on age</td>
+<td>Preprints</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42539265/" target="_blank" rel="noopener noreferrer">PMID:42539265</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42427680/" target="_blank" rel="noopener noreferrer">PMID:42427680</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Suggested <code>modeled_mechanisms</code>:</strong>
+- KO mice <code>RECAPITULATES</code> the Cav1.4 synaptic-loss node and <code>PARTIALLY_RECAPITULATES</code> the cone phenotype.
+- Mouse rod degeneration should be <code>FAILS_TO_RECAPITULATE</code> or a <code>HUMAN_MODEL_MISMATCH</code> discussion, because humans stay stable for years [<a href="https://pubmed.ncbi.nlm.nih.gov/40883544/" target="_blank" rel="noopener noreferrer">PMID:40883544</a>].</p>
+<hr />
+<h2>Key gaps and cautions for curation</h2>
+<ol>
+<li><strong>Disease scope.</strong> Decide whether the entry is the spectrum term (<a href="http://purl.obolibrary.org/obo/MONDO_0700244" target="_blank" rel="noopener noreferrer">MONDO:0700244</a>, which is what ClinGen curated) with RCD4 (<a href="http://purl.obolibrary.org/obo/MONDO_0012507" target="_blank" rel="noopener noreferrer">MONDO:0012507</a>, OMIM 610478) as a subtype.</li>
+<li><strong>Phenotype evidence needs full text.</strong> The Ba-Abbad 2016 letter (<a href="https://pubmed.ncbi.nlm.nih.gov/26560832/" target="_blank" rel="noopener noreferrer">PMID:26560832</a>) has no abstract; its acuity, colour-vision and ERG details need full text. Run <code>just fetch-reference PMID:26560832 --force</code> only if PMC access exists; it is not in PMC.</li>
+<li><strong>RP and CRD reports are weak.</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/33927996/" target="_blank" rel="noopener noreferrer">PMID:33927996</a> (compound heterozygous missense) and <a href="https://pubmed.ncbi.nlm.nih.gov/28837078/" target="_blank" rel="noopener noreferrer">PMID:28837078</a> (heterozygous deletion only) do not belong as core phenotypes. The Huang 2015 abstract (<a href="https://pubmed.ncbi.nlm.nih.gov/25356976/" target="_blank" rel="noopener noreferrer">PMID:25356976</a>) does not mention <em>CACNA2D4</em>, so it cannot serve as abstract-level evidence.</li>
+<li><strong>Terms marked ⚠ need lookup</strong> before binding: an electronegative-ERG HP term, a foveal hypoplasia HP term, <a href="http://purl.obolibrary.org/obo/GO_0005891" target="_blank" rel="noopener noreferrer">GO:0005891</a>, <a href="http://purl.obolibrary.org/obo/UBERON_0001790" target="_blank" rel="noopener noreferrer">UBERON:0001790</a>, NCBITaxon IDs, and MGI/ZFIN IDs.</li>
+<li><strong>Quotes are unverified.</strong> None of the quotes above were checked against <code>references_cache/</code>. Fetch every PMID before using a snippet.</li>
+</ol>
+<h2>Sources</h2>
+<ul>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/17033974">Wycisk 2006 AJHG, PMID:17033974</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC1698577">PMC1698577</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/16877424">Wycisk 2006 IOVS, PMID:16877424</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/26560832">Ba-Abbad 2016 Ophthalmology, PMID:26560832</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12568804/">Smirnov 2025 Doc Ophthalmol, PMID:40883544 / PMC12568804</a></li>
+<li><a href="https://link.springer.com/10.1007/s13205-021-02761-4">Cheng 2021 3 Biotech, PMID:33927996</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/28262416">Wang 2017 Neuron, PMID:28262416</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5364038">PMC5364038</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6031576">Kerov 2018 J Neurosci, PMID:29875267</a></li>
+<li>Schlegel 2019 IOVS, <a href="https://pubmed.ncbi.nlm.nih.gov/31834350/" target="_blank" rel="noopener noreferrer">PMID:31834350</a> · Vellani 2022 IJMS, <a href="https://pubmed.ncbi.nlm.nih.gov/36361866/" target="_blank" rel="noopener noreferrer">PMID:36361866</a> · Caputo 2015, <a href="https://pubmed.ncbi.nlm.nih.gov/26557056/" target="_blank" rel="noopener noreferrer">PMID:26557056</a> · Bacchi 2015, <a href="https://pubmed.ncbi.nlm.nih.gov/26218913/" target="_blank" rel="noopener noreferrer">PMID:26218913</a> · Laird 2023, <a href="https://pubmed.ncbi.nlm.nih.gov/37181655/" target="_blank" rel="noopener noreferrer">PMID:37181655</a> · Gustafson 2017, <a href="https://pubmed.ncbi.nlm.nih.gov/28837078/" target="_blank" rel="noopener noreferrer">PMID:28837078</a> · Kondo 2015, <a href="https://pubmed.ncbi.nlm.nih.gov/26368928/" target="_blank" rel="noopener noreferrer">PMID:26368928</a> · Rodriguez-Muñoz 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/34996991/" target="_blank" rel="noopener noreferrer">PMID:34996991</a> · Huang 2015, <a href="https://pubmed.ncbi.nlm.nih.gov/25356976/" target="_blank" rel="noopener noreferrer">PMID:25356976</a> · Carss 2017, <a href="https://pubmed.ncbi.nlm.nih.gov/28041643/" target="_blank" rel="noopener noreferrer">PMID:28041643</a> · Ung 2026, <a href="https://pubmed.ncbi.nlm.nih.gov/42539265/" target="_blank" rel="noopener noreferrer">PMID:42539265</a> · Hasan 2026, <a href="https://pubmed.ncbi.nlm.nih.gov/42427680/" target="_blank" rel="noopener noreferrer">PMID:42427680</a> (all via <a href="https://eutils.ncbi.nlm.nih.gov/entrez/eutils/">NCBI E-utilities</a>)</li>
+<li><a href="https://thegencc.org/submissions/GENCC_000102-HGNC_20202-MONDO_0700244-HP_0000007-GENCC_100001">GenCC / ClinGen Retina GCEP submission</a> · <a href="https://search.thegencc.org/genes/HGNC:20202/disease">GenCC gene page</a></li>
+<li><a href="https://www.ebi.ac.uk/ols4/api/search?q=CACNA2D4&amp;ontology=mondo&amp;rows=10">OLS MONDO search</a> · <a href="https://www.ebi.ac.uk/ols4/api/ontologies/mondo/terms/http%253A%252F%252Fpurl.obolibrary.org%252Fobo%252FMONDO_0012507">OLS MONDO:0012507</a></li>
+<li><a href="https://rest.genenames.org/fetch/symbol/CACNA2D4">HGNC CACNA2D4</a></li>
+<li><a href="https://databases.lovd.nl/shared/variants/0000797958">LOVD p.(Arg707His)</a> · <a href="https://www.malacards.org/card/retinal_cone_dystrophy_4">MalaCards RCD4</a> · <a href="https://www.findzebra.com/details/OnLRpGl-retinal-cone-dystrophy-4">FindZebra RCD4</a> · <a href="https://genebe.net/gene/hg38/CACNA2D4">GeneBe CACNA2D4</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.4.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>26</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>26</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>26</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>46</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>45</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0700244</code> (7 mentions) - the report calls it "Gene–disease validity:<strong> ClinGen Retina GCEP rated <em>CACNA2D4</em>–CACNA2D4-related retinopathy"; MONDO calls it </strong>CACNA2D4-related retinopathy**</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="CACNA1I-Related_Neurodevelopmental_Disorder-openscientist.html">← CACNA1I-Related Neurodevelopmental Disorder (OpenScientist)</a>
+                
+                
+                <a href="CADASIL-falcon.html">CADASIL (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/CACNA2D4-related_Retinopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/CACNA2D4-related_Retinopathy-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

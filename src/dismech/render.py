@@ -44,6 +44,8 @@ from dismech.module_collections import (
     load_module_collections,
     module_collection_reference_errors,
 )
+from dismech.page_sections import section_index
+from dismech.pathograph_thumbnail import render_thumbnail
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
 from dismech.repo_root import LazyRepoPaths
@@ -2826,6 +2828,16 @@ def render_disorder(
         len(section.get("reports") or []) for section in hypothesis_research_links
     )
     _annotate_hypothesis_research_links(disorder, hypothesis_research_links)
+    page_sections = section_index(
+        disorder,
+        {
+            "comorbidities": len(comorbidity_links),
+            "reports": len(report_sections),
+            "literature": len(literature_sections),
+            "hypothesis_reports": hypothesis_research_count,
+        },
+    )
+    pathograph_thumbnail = render_thumbnail(graph) if graph.edges else None
 
     # Group phenotypes by HPO broad category
     phenotype_groups = _group_phenotypes_by_category(disorder.get("phenotypes") or [])
@@ -2871,6 +2883,8 @@ def render_disorder(
             else [],
             hypothesis_research_links=hypothesis_research_links,
             hypothesis_research_count=hypothesis_research_count,
+            page_sections=page_sections,
+            pathograph_thumbnail=pathograph_thumbnail,
             research_root_rel=research_root_rel,
             # OpenScientist integration
             disorder_slug=disorder_slug,

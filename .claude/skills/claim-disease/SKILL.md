@@ -52,6 +52,12 @@ Watch for:
   radiographic finding. Usually `GROUPING`.
 - **Phenotypes, not diseases** — `microcephaly` is a finding. `OUT_OF_SCOPE`,
   unless the specific disease entity is meant.
+- **A phenotype label on a single-gene term** — when the stub has one gene
+  in `genes:` but its label is a phenotype or a broad clinical name, the
+  specific disease *is* meant, and the label is too broad for it. Claim it as
+  usual, but the entry gets a name of its own (see the `entry-naming` skill).
+  The claim title keeps the stub label, because it is the key claims are
+  matched on.
 - **Susceptibility / predisposition terms** — usually `OUT_OF_SCOPE`.
 - **Cancers** — deprioritize for now. The project does not yet have a settled
   lump/split strategy for neoplasms (see #7082). Prefer a non-cancer candidate,
@@ -180,6 +186,24 @@ turns on. Enriching an issue body with a definition or an OMIM ID is not that.
    stubs whose MONDO ID the KB covers; a `[advisory] possible_kb_duplicate`
    line under a candidate (`advisories` in `--json`) means an entry with the
    same name exists under another MONDO ID, so open that entry before choosing.
+
+   **`gh` present but GraphQL blocked (Claude Code cloud sessions).** These
+   sessions have an authenticated `gh`, but their proxy answers every GraphQL
+   call with HTTP 403, and `gh issue list` is GraphQL. `just fetch-claims`
+   handles this: when `gh issue list` fails it falls back to
+   `gh api --paginate` over REST, says so on stderr, and writes the file as
+   usual. The same fallback covers a `gh` older than v2.73.0, which rejects the
+   `closedByPullRequestsReferences` field (#11814). Nothing to do by hand.
+   What you lose is the linked-PR field, which REST has no equivalent for, so
+   `check-claims` prints a note that its **stale** list may over-report; check
+   an issue for an open PR before treating its claim as stale.
+
+   **If `just fetch-claims` exits non-zero, stop and read the error.** A failed
+   fetch leaves `tmp/claims.json` as it was (or absent) rather than writing an
+   empty file, and `next-unclaimed` / `check-claims` refuse an empty file, so a
+   failure can no longer pass as "nobody has claimed anything". Do not work
+   around it by writing `[]` by hand: an empty claims list offers every claimed
+   disease as free.
 
    **No `gh` CLI (web and remote sessions).** `just fetch-claims` shells out to
    `gh`, which is absent there — and `curl https://api.github.com` fails too:

@@ -157,7 +157,7 @@ def test_rendered_stargardt_pathograph_payload_includes_treatments_and_genetics(
     assert node_types["Gene therapy (investigational)"] == "treatment"
     assert 'href="#pathograph"' in html
     assert html.count('id="pathograph"') == 1
-    assert ">Pathograph</div>" in html
+    assert '<a class="page-index-thumbnail" href="#pathograph"' in html
     assert f">Pathograph {len(graph_data['nodes'])}</a>" in html
 
 
@@ -842,11 +842,11 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
             "Metatropic_Dysplasia.yaml",
             {
                 (
-                    "TRPV4 Pathogenic Variants",
+                    "TRPV4",
                     "TRPV4 Channel Hyperactivity in Growth Plate Chondrocytes",
                 )
             },
-            {"TRPV4 Pathogenic Variants": "genetic"},
+            {"TRPV4": "genetic"},
             {
                 "TRPV4 Channel Hyperactivity in Growth Plate Chondrocytes": [
                     "calcium channel activity"
