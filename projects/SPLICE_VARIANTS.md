@@ -23,6 +23,13 @@ diseases:
   - PRPF31-Related_Retinopathy
   - PRPF8-Related_Retinopathy
   - SNRNP200-Related_Dominant_Retinopathy
+  - U2AF2-Related_Neurodevelopmental_Disorder
+  - PRPF19-related_Neurodevelopmental_Disorder
+  - CWC27-Related_Retinitis_Pigmentosa_With_or_Without_Skeletal_Anomalies
+  - Hypotrichosis_11
+  - LSM7-related_Leukodystrophy_And_Cerebellar_Atrophy
+  - Lowry-Wood_Syndrome
+  - Genetic_Developmental_and_Epileptic_Encephalopathy
   - Craniofacial_Microsomia
   - Orofaciodigital_Syndrome
   - Mosaic_Variegated_Aneuploidy_Syndrome
@@ -40,6 +47,7 @@ modules:
   - antisense_oligonucleotide_therapy
 groupings:
   - Spliceosomopathies
+  - RNU4ATAC_Spectrum_Disorder
 ---
 
 # Splice Variants and Spliceosome Disorders
@@ -103,29 +111,35 @@ structural element.
 | PRPF31-Related_Retinopathy | PRPF31 |
 | PRPF8-Related_Retinopathy | PRPF8 |
 | SNRNP200-Related_Dominant_Retinopathy | SNRNP200 |
+| U2AF2-Related_Neurodevelopmental_Disorder | U2AF2 |
+| PRPF19-related_Neurodevelopmental_Disorder | PRPF19 |
+| CWC27-Related_Retinitis_Pigmentosa_With_or_Without_Skeletal_Anomalies | CWC27 |
+| Hypotrichosis_11 | SNRPE |
+| LSM7-related_Leukodystrophy_And_Cerebellar_Atrophy | LSM7 (in both the spliceosomal LSm2-8 and the mRNA-decay LSm1-7 rings) |
 | Craniofacial_Microsomia | SF3B2 (one of several genes) |
 | Orofaciodigital_Syndrome | ZRSR2 (one of several genes) |
 | Mosaic_Variegated_Aneuploidy_Syndrome | CENATAC (minor-intron splicing; one of several genes) |
 | Myelodysplastic_Syndrome | somatic SF3B1, SRSF2, U2AF1, ZRSR2 |
 
+### Covered as subtypes, not entries
+
+| Disorder | Gene | Where it is curated |
+|---|---|---|
+| Congenital cerebellar ataxia due to RNU12 mutation (MONDO:0033717) | RNU12 | The SCAR33 subtype of RNU12-related_Minor_Spliceopathy; Orphanet's term for the same disease as OMIM:620208 |
+| Developmental and epileptic encephalopathy 119 (MONDO:1060177) | RNU2-2 | A subtype of Genetic_Developmental_and_Epileptic_Encephalopathy |
+| Recessive RNU4-2-related neurodevelopmental disorder | RNU4-2 | A subtype of ReNU_Syndrome |
+| RNU4-2- and RNU6-related retinitis pigmentosa | RNU4-2, RNU6 genes | A subtype of ReNU_Syndrome |
+| RNU4ATAC spectrum disorder (MONDO:0100558) | RNU4ATAC | A grouping over Roifman, MOPD I and Lowry-Wood |
+
+None of these has a stub. MONDO has no term yet for the recessive RNU4-2
+disorder or for snRNA-gene retinitis pigmentosa: OLS searches of MONDO for
+"RNU4-2", "RNU6" and "retinitis pigmentosa small nuclear RNA" returned no such
+term, and retinitis pigmentosa 96 to 101 are caused by other genes (SAG, VWA8,
+TMEM216, IDH3G, TBC1D32, CLN3). A stub can be added once MONDO has a term.
+
 ### Not yet curated
 
-Each of these has a stub in `stubs/`.
-
-| Stub | Gene | Note |
-|---|---|---|
-| RNU4ATAC_Spectrum_Disorder | RNU4ATAC | Lump/split decision against the Roifman and MOPD I entries |
-| Congenital_Cerebellar_Ataxia_Due_To_RNU12_Mutation | RNU12 | Likely a `SUBTYPE` of the RNU12 entry |
-| Developmental_Delay_Dysmorphic_Facies_And_Brain_Anomalies | U2AF2 | |
-| PRPF19-related_Neurodevelopmental_Disorder | PRPF19 | |
-| Metaphyseal_Chondrodysplasia-retinitis_Pigmentosa_Syndrome | CWC27 | |
-| Hypotrichosis_11 | SNRPE | |
-| LSM7-related_Leukodystrophy_And_Cerebellar_Atrophy | LSM7 | LSM7 sits in both the U6-associated and the decay-associated LSm rings; check which the source implicates |
-
-Recently described disorders with no stub yet: dominant and recessive RNU2-2
-neurodevelopmental disorder, recessive RNU4-2 neurodevelopmental disorder, and
-dominant U4/U6 retinitis pigmentosa (RNU4-2 three-way junction, RNU6 genes).
-The ReNU_Syndrome entry already cites the papers for each.
+No spliceosome-component stubs remain in `stubs/`.
 
 ## Group 2: cis splice-altering variants
 
@@ -173,17 +187,24 @@ this mechanism should conform to `antisense_oligonucleotide_therapy`.
 - `spliceosome_component_dysfunction` module: component variant, then
   mis-splicing of a sensitive transcript subset (the key conformance target),
   an optional P53 branch, failure of splicing-sensitive cells, and
-  tissue-restricted disease. Twelve entries conform to it.
-- `Spliceosomopathies` grouping: the twelve conforming entries, defined by a
-  single `CONFORMS_TO_MODULE` criterion.
-- PRPF8-Related_Retinopathy and SNRNP200-Related_Dominant_Retinopathy curated
-  from their stubs, both ClinGen Definitive.
+  tissue-restricted disease.
+- `Spliceosomopathies` grouping: 22 members defined by a single
+  `CONFORMS_TO_MODULE` criterion, three of them through the nested
+  RNU4ATAC_Spectrum_Disorder grouping.
+- Curated from stubs: PRPF8, SNRNP200, U2AF2, PRPF19, CWC27, SNRPE (Hypotrichosis
+  11) and LSM7. RNU12 cerebellar ataxia was folded into the existing SCAR33
+  subtype.
+- Wired to the module: SNIP1, DHX16, WBP4 and SRRM2. Craniofacial_Microsomia
+  is left out, because its SF3B2 node also carries FOXI3, GBX2 and SHROOM3.
+- Not every member conforms at the mis-splicing node. Mis-splicing is not
+  shown for Hypotrichosis 11 (the founding study found none in patient
+  lymphocytes) or LSM7 (no splicing assay yet), and for PRPF19 it rests on fly
+  ortholog knockdown only.
 
 ## Possible next steps
 
-- Wire the other spliceosome-gene entries (SNIP1, DHX16, WBP4, SRRM2, and
-  SF3B2 within Craniofacial_Microsomia) to the module and add them to the
-  grouping.
-- Curate the remaining stubs above, and add stubs for the RNU2-2, recessive
-  RNU4-2 and U4/U6 retinitis pigmentosa disorders.
+- Test which LSm ring LSM7 variants disrupt: the entry proposes a patient-cell
+  experiment that separates splicing from mRNA decay.
+- Add stubs for the recessive RNU4-2 and snRNA retinitis pigmentosa disorders
+  once MONDO has terms for them.
 - Audit how consistently Group 2 splice variants are recorded on gene entries.

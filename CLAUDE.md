@@ -45,6 +45,8 @@ Claude Code skills are available in `.claude/skills/`:
   curation need warrants a schema change at all.
 - **coarse-phenotype-bindings**: Use when choosing, reviewing, or repairing a
   `coarse_binding_basis` on a phenotype bound to a coarse HPO term.
+- **entry-naming**: Use when choosing, reviewing, or changing an entry's `name`,
+  including when creating an entry from a stub.
 
 **A skill file that is misnamed or missing its frontmatter is not an error — it
 is a skill that never loads.** Claude Code discovers a skill by looking for
@@ -332,7 +334,13 @@ correlates with being a grouping rather than with being worth curating
 (`already_curated`, `obsolete_term`), so the pool never offers a disease the KB
 already holds by MONDO ID; `--include-stale` puts them back. Other `check-stubs`
 advisories, such as `possible_kb_duplicate`, keep the stub in the pool and are
-printed beside it, and in `--json` as `advisories`. The check needs every KB
+printed beside it, and in `--json` as `advisories`. An advisory about a MONDO
+merge names the successor beside its kind (`obsolete_term_replaced ->
+MONDO:0980711`) and as `successor` in `--json`. `successor_already_stubbed`
+marks a stub whose successor already has its own stub: fold the two by hand
+rather than repointing, which would only make a duplicate ID (#15853). Both
+read the committed enrichment markers, so they are only as fresh as the last
+`just enrich-stubs`. The check needs every KB
 entry's MONDO IDs and labels; parsing them takes about half a minute, so the
 derived index persists in the gitignored `tmp/stub_coverage_index.json` and a
 warm run takes about a second and a half (#11616, #15116). Bump
@@ -1221,6 +1229,59 @@ lowering it, and a `null` there silently disables the gate.
 The sibling metric `genetic[].mechanism_outlink` (causal genes wired to a
 mechanism, currently 48.9%) is deliberately still advisory — same recipe,
 `--genes-fail-under` to check it ad hoc.
+
+### Logical Rules: A Node's Annotations Must Agree With Each Other
+
+Every other gate validates one binding at a time. `CL:0000057 fibroblast` is a
+real term, `GO:0001837 epithelial to mesenchymal transition` is a real term, and
+a pathophysiology node asserting both passes LinkML validation, term validation,
+reference validation and every test in `tests/`. It is still incoherent: a
+fibroblast is not epithelium, so it is not the cell that undergoes EMT.
+
+```bash
+just check-logical-rules                            # whole KB, report-only
+just check-logical-rules kb/disorders/Asthma.yaml
+just check-logical-rules --strict                   # exit 1 on findings
+just refresh-logical-rule-closures                  # only after editing the rules
+```
+
+Rules live in `conf/logical_rules.yaml`; each names a process and the cell
+classes that **disqualify** a node's cell annotation from being that process's
+substrate, and fires only when *every* annotated cell type is disqualifying.
+Both halves of that are load-bearing:
+
+- **Disqualifying, not required.** "EMT requires an epithelial cell" reports
+  `CL:0000646 basal cell` and `CL:0008036 extravillous trophoblast` — textbook
+  EMT substrates that CL does not assert under `CL:0000066` — as defects. Stating
+  what the cells *are* makes an ontology gap cost a missed finding rather than a
+  false accusation.
+- **Every, not any.** A node annotating both ends of a transition (the alveolar
+  epithelial cell that starts it, the myofibroblast it becomes) is good curation.
+
+**Report-only, like `check-source-defect-claims`.** A finding is a question, and
+it gets answered one of two ways: repair the annotation (`GO:0036446`
+myofibroblast differentiation, `GO:0140074` cardiac EndMT — in the heart
+only, since GO has no general EndMT term — and `GO:0098609` decreased
+cell-cell adhesion are the usual right answers), **or** record why the
+pairing is correct in `review_notes` on the node:
+
+```yaml
+review_notes: >-
+  Logical rule waived: emt-without-epithelial-substrate. <at least 20 words
+  saying which biology or which ontology gap makes this pairing correct here.>
+```
+
+The sentinel must lead `review_notes`, name the rule id, and carry 20+ words —
+the same floor `check-environmental-evidence` uses, and for the same reason.
+`notes:` is disease content and cannot waive; a waiver naming another rule does
+not transfer. This is deliberately not a baseline file: a baseline records that a
+finding was seen, `review_notes` records why a curator decided it was fine, where
+the next curator reads it.
+
+Closures (`cache/rule_closure/*.csv`) are committed and regenerated through
+`conf/oak_config.yaml` adapters, so the check is offline and deterministic; do
+not hand-edit them, and re-run the refresher after changing a rule's roots. See
+[`docs/logical-rules.md`](docs/logical-rules.md) before adding a rule.
 
 ### Cancer Entry Granularity
 
@@ -3394,6 +3455,28 @@ grip and lean-mass benefit in women and none in men, but from separate
 within-sex results with no interaction test and for a multicomponent programme,
 so that result sits in the treatment's `evidence`, not in `effect_modifiers`.
 
+### Entry Names
+
+The `disease_term` binding fixes what an entry is; the `name` is dismech's own
+choice, and a stub's `label` (the MONDO label) is a queue key, not the entry
+name. Two rules, recorded in design decisions §18:
+
+- **The name covers exactly what the entry covers.** If a patient could have
+  the named condition without the entry's defining cause, the name is too
+  broad. An entry bound to a single-gene term but named after a phenotype
+  (`Cryptorchidism`, `Trichotillomania`) fails this; the fix is a rename or a
+  rebind, depending on what the entry is about.
+- **A single-gene Mendelian entry is named `<GENE>-Related <Phenotype>` when
+  that name is established** (MONDO label or EXACT synonym, ClinGen-preferred
+  label, GeneReviews title, OMIM title, or recurring literature use). Never use
+  an umbrella like `POLG-Related Disorders` for one point on the spectrum, and
+  never coin a dyad nobody uses. Keep prior names in `synonyms`.
+
+Use the `entry-naming` skill. MONDO labels can themselves be too broad or
+miscased (monarch-initiative/mondo#10836); report those upstream rather than
+copying them. Renames change `name` and `synonyms` only until dismech#15894
+decides how file slugs follow.
+
 ### Subtype Naming Conventions
 
 The `name` field on `Subtype` (in `has_subtypes`) serves as the **foreign key target** — other sections
@@ -4080,6 +4163,7 @@ just check-block-scalar-comments kb/disorders/MyDisease.yaml
 just check-enum-values kb/disorders/MyDisease.yaml
 just check-delivery-system kb/disorders/MyDisease.yaml
 just check-entity-refs kb/disorders/MyDisease.yaml
+just check-logical-rules kb/disorders/MyDisease.yaml
 just check-causal-targets kb/disorders/MyDisease.yaml
 just check-shared-disease-terms
 just check-gene-activity-grounding
@@ -4228,7 +4312,15 @@ chapter), `CITED_UNTAGGED` (a chapter PMID or NBK URL cited but not tagged in
 of the entry's names). Partial title matches are `CANDIDATE_CHAPTER` and are
 listed for a person to read -- `Alpha Thalassemia` inside *Alpha-Thalassemia
 X-Linked Intellectual Disability Syndrome* is not that disease's chapter, and
-no string rule settles that. Nothing gates on StatPearls: it is a point-of-care
+no string rule settles that. So are `GENE_SCOPED` rows, a `<GENE>-Related …`
+chapter for one of the entry's causal genes (somatic ones only in a disorder
+bound to `HP:0001442`), found from the gene side
+because GeneReviews often covers a disease inside a gene's spectrum chapter
+(SED Maroteaux type in *Autosomal Dominant TRPV4-Related Disorders*, #9694).
+Searching PubMed by hand, use `genereviews[book]`, never `GeneReviews[TI]`,
+which matches nothing. An entry whose only tagged chapters are retired ones
+reports `TAGGED_RETIRED`, never gating: the tag is correct (a retired chapter is
+still GeneReviews), but the baseline is withdrawn content (#16018). Nothing gates on StatPearls: it is a point-of-care
 reference across all of medicine with a light editorial process, citable for
 orientation (and taggable as `StatPearls`) but never a baseline, and its absence
 is never a gap. `just tag-references` now decides chapter membership from the
@@ -4244,6 +4336,12 @@ Treat committed CSVs under `cache/` as derived, authority-backed artifacts:
 - `cache/<prefix>/terms.csv` caches CURIE existence and canonical labels.
 - `cache/enums/*.csv` caches membership in schema dynamic enums. Presence in
   the label cache does not establish enum membership.
+- `cache/rule_closure/*.csv` caches the `is_a` closure of the roots named in
+  `conf/logical_rules.yaml`, so `just check-logical-rules` runs offline.
+  Regenerate with `just refresh-logical-rule-closures`, never by hand. This is
+  **not** `cache/closure/`, the grouping membership closure cache described
+  under *Disease Groupings*: different schema, different builder, deliberately
+  a different directory.
 - `cache/<prefix>/hierarchy.csv` caches the **ancestor path** the renderer draws
   as a mapping breadcrumb, for the strict-hierarchy prefixes only (ICD10CM,
   NCIT). It answers a different question from `terms.csv`: not "does this CURIE
@@ -4354,6 +4452,16 @@ up from ones you do. That half is irreducibly a descendant query and still
 needs the local build. Before reaching for the build, ask which direction the
 question actually runs in.
 
+Facts about a single term need no closure at all, and OLS serves them too: its
+v2 entity endpoint returns a term's `RO:0004003` restrictions, `hasDbXref`
+values and exact synonyms in one request. `dismech.mondo_ols` reads them, so
+`just preflight-dr` and `dismech.research_anchors` use the local build when it
+is present and OLS otherwise, and the preflight names its source in a
+`MONDO source` line (#15436). The reverse question, which MONDO diseases a gene
+causes, is a per-gene query OLS cannot answer: over OLS the preflight reports
+that lookup as not run, so a never-named canonical gene with a matching OMIM
+citation stays `WARN` rather than being raised to `FAIL`.
+
 **Not everything that opens a build is a bug, so check before adding a guard.**
 `compare/mondo_export._materialize_default_mondo_db` opens `sqlite:obo:mondo` to
 download it on purpose — that is a CLI whose job is to export MONDO, and its own
@@ -4366,8 +4474,11 @@ ontology.
 `preflight_dr.open_mondo_adapter` (`just preflight-dr`) reads MONDO's
 `RO:0004003` causal gene and OMIM xrefs, which *are* the check, so there is no
 degradation path: an empty record would read as "MONDO records no causal gene"
-and come out as `SKIP`. With no local `mondo.db` it exits 2 naming
-`just fetch-ontology-dbs mondo`, before the HGNC lexicon is built (#12687).
+and come out as `SKIP`. With no local `mondo.db` and OLS unreachable as well, it
+exits 2 naming `just fetch-ontology-dbs mondo`, before the HGNC lexicon is built
+(#12687). HGNC only sharpens the check, so it degrades instead: without
+`hgnc.db` the lexicon and alias lookups are skipped as with `--no-hgnc`, with a
+note naming `just fetch-ontology-dbs hgnc`.
 
 **The `phenoagent` one is the case that shows why the two-guard rule exists.**
 Its tests are what actually pulled `hp.db` in the fast lane, and 21 of them
@@ -5191,7 +5302,7 @@ Draft status is not a hold: anything opened as a PR is in the review queue. The
 controller marks an eligible draft ready, re-reads every guard, and restores
 draft state if that merge attempt aborts.
 
-**A third hold exists and is not visible from the PR page.** The controller
+**A third hold is announced on the PR, not set on it.** The controller
 also holds a PR back once it has failed the merge queue
 `--ejection-strike-limit` times (default 2) with no push in between. This
 exists because a queue ejection is otherwise invisible to eligibility: an
@@ -5206,19 +5317,23 @@ is keyed on the head commit's `committedDate`, so rewriting the head — a push,
 amend, rebase, or merge of the base branch — resets it to zero.
 
 Unlike assignment or a CHANGES_REQUESTED review, this hold leaves no label,
-review, or assignee: its only trace is a `SKIP` line in the run summary naming
-the strike count. Until #10988's tier 2 posts a comment on the PR, that summary
-and this paragraph are the only places it is recorded.
+review, or assignee. Instead, the first sweep that holds a head posts one
+templated `🐑 PR Shepherd` comment on the PR saying why and how to clear it,
+deduplicated by a hidden marker keyed on the head SHA, so hourly sweeps do not
+repeat it. It is a comment and not a review on purpose: a review would outlive
+the push that clears the hold. Dry runs do not post, and a failed post is
+logged without failing the run, so the `SKIP` line in the run summary
+(suffixed with the notice outcome) stays the record of last resort.
 
-**A fourth hold is also invisible, and lasts one sweep.** When a merge queue is
+**A fourth hold is invisible from the PR page, and lasts one sweep.** When a merge queue is
 active, a candidate that adds a `cache/<prefix>/*.csv` term-cache row already
 added by a PR enqueued earlier in the *same* sweep is skipped, because the two
 would conflict in the queue and the second would be ejected. Only multi-field
 rows (`curie,label,retrieved_at`) count — a bare-CURIE enum row is identical
 bytes in both PRs and merges cleanly. The hold is within-run and queue-mode
 only, clears itself on the next sweep, and is disabled by
-`--no-conflict-batching`. Like the ejection hold, its only trace is a `SKIP`
-line in the run summary, which names the PR holding the contended row;
+`--no-conflict-batching`. Unlike the ejection hold, it posts nothing on the PR:
+its only trace is a `SKIP` line in the run summary, which names the PR holding the contended row;
 `just auto-merge-preview` reports it too.
 
 Immediately before each action, the controller re-reads every PR guard and pins
