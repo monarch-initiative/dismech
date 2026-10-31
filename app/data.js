@@ -88425,6 +88425,7 @@ window.searchData = [
       "apoptotic process",
       "DNA damage response",
       "cell cycle checkpoint signaling",
+      "negative regulation of cell cycle",
       "G1/S transition of mitotic cell cycle",
       "cell population proliferation",
       "viral genome integration into host DNA"
@@ -159349,6 +159350,7 @@ window.searchData = [
       "DNA Repair Deficiency",
       "Bone Marrow Failure",
       "Genomic Instability",
+      "Checkpoint-Enforced p53-p21 Arrest of Hematopoietic Stem and Progenitor Cells",
       "Hematopoietic Stem Cell Attrition",
       "Translesion Synthesis Defect",
       "Homologous Recombination Impairment",
@@ -159380,8 +159382,14 @@ window.searchData = [
       "CL:0008001"
     ],
     "biological_processes": [
+      "hemopoiesis",
+      "p53-p21 enforced G1/S checkpoint arrest",
+      "p53-mediated DNA damage response signalling",
+      "negative regulation of cell cycle",
       "cellular response to aldehyde",
       "cellular response to oxidative stress",
+      "hematopoietic stem cell population maintenance",
+      "hematopoietic progenitor cell proliferation",
       "translesion synthesis",
       "homologous recombination",
       "protein ubiquitination",
@@ -159866,11 +159874,11 @@ window.searchData = [
     "source_file": "Fanconi_Anemia.yaml",
     "page_url": "../pages/disorders/Fanconi_Anemia.html",
     "num_phenotypes": 187,
-    "num_pathophysiology": 22,
+    "num_pathophysiology": 23,
     "num_genes": 25,
     "num_treatments": 8,
-    "causal_graph_edges": "237",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "239",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Fanconi Renotubular Syndrome",
@@ -313598,6 +313606,8 @@ window.searchData = [
       "endocytosis",
       "DNA damage response",
       "cell cycle arrest",
+      "NS1-driven G2 checkpoint arrest of the infected progenitor",
+      "negative regulation of cell cycle",
       "apoptotic process",
       "JAK-STAT cascade"
     ],
@@ -313659,7 +313669,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "1",
+    "causal_graph_edges": "2",
     "causal_graph_longest_path": "1"
   },
   {
@@ -315220,6 +315230,7 @@ window.searchData = [
       "ubiquitin-dependent degradation of p53",
       "cell cycle checkpoint signaling",
       "positive regulation of cell population proliferation",
+      "signal transduction by p53 class mediator",
       "negative regulation of T cell mediated immunity",
       "cell population proliferation"
     ],
@@ -417385,13 +417396,13 @@ window.searchMetrics = {
   "total_disorder_pages": 3870,
   "total_subtypes": 4970,
   "total_disorders_and_subtypes": 8840,
-  "total_unique_evidence_sources": 57443,
-  "total_unique_publications": 53740,
+  "total_unique_evidence_sources": 57446,
+  "total_unique_publications": 53743,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 314,
   "total_pathographs": 3868,
-  "total_unique_pathological_events": 25380,
-  "total_modules": 225,
+  "total_unique_pathological_events": 25381,
+  "total_modules": 226,
   "total_research_reports": 3980,
   "total_classifications": 21,
   "total_comorbidities": 51,
