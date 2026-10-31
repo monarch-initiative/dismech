@@ -2,7 +2,7 @@
 
 The schema elements a New Approach Methodology touches, as three trees: the fields on a `ModelMechanismLink`, the four places such a link can live, and the places an `AssayDescriptor` can be attached.
 
-First written 2026-10-13; updated 2026-10-23 to match `src/dismech/schema/dismech.yaml`.
+First written 2026-10-13; updated 2026-10-30 to match `src/dismech/schema/dismech.yaml`.
 
 ```text
 Disease
@@ -16,8 +16,9 @@ Disease
     ├── name                                          │  string, identifier; the NAM
     ├── experimental_model_type                       │  ExperimentalModelTypeEnum (optional)
     │                                                 │  ORGANOID | ORGAN_ON_CHIP | CELL_LINE |
-    │                                                 │  IPSC_DERIVED_MODEL | PRIMARY_CELL_CULTURE |
-    │                                                 │  CO_CULTURE | OTHER
+    │                                                 │  PSC_DERIVED_MODEL | PRIMARY_CELL_CULTURE |
+    │                                                 │  EX_VIVO_TISSUE | CO_CULTURE | CELL_FREE |
+    │                                                 │  OTHER; IPSC_DERIVED_MODEL is deprecated
     ├── description                                   │  string
     ├── namo_type                                     │  uriorcurie; the NAMO class, e.g. namo:Organoid
     ├── organism                                      │  OrganismDescriptor; the species the cells came from
