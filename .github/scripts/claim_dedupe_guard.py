@@ -117,8 +117,14 @@ def main() -> int:
     claims = open_claims(repo)
     groups = groups_by_mondo(claims)
 
-    # Scope: a specific MONDO on an issue/dispatch event, every group on a sweep.
+    # Scope: a specific MONDO on an issue/dispatch event, every group on a sweep
+    # (a dispatch with a blank issue_number falls through to the sweep).
     if event in ("issues", "workflow_dispatch") and trigger:
+        if not trigger.isdigit():
+            # A typo'd dispatch input must not silently sweep-and-flag the whole
+            # backlog; do nothing rather than guess which issue was meant.
+            print(f"ignoring non-numeric issue_number {trigger!r}; nothing to do")
+            return 0
         by_num = {c["number"]: c for c in claims}
         trig = by_num.get(int(trigger))
         if trig is None:

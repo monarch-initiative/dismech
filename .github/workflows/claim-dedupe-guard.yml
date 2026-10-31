@@ -16,12 +16,15 @@ name: Claim Dedupe Guard
 
 "on":
   issues:
-    types: [opened]
+    # `labeled` catches a claim that gets the `claim` label after it was opened
+    # (the job `if:` below keeps it to that one label); `gh issue create --label
+    # claim` sets it at creation, so the common path is `opened`.
+    types: [opened, labeled]
   workflow_dispatch:
     inputs:
       issue_number:
-        description: Claim issue number to re-check (manual/delayed re-run)
-        required: true
+        description: Claim issue to re-check; leave blank to sweep every open claim (pair with dry_run to preview the backlog)
+        required: false
       dry_run:
         description: Report duplicates without labelling or commenting
         type: boolean
@@ -48,6 +51,13 @@ concurrency:
 
 jobs:
   guard:
+    # On a `labeled` event only act when the label added is `claim`; every other
+    # event (opened, dispatch, schedule) always runs. This keeps the broad
+    # `issues: labeled` trigger from spinning a runner on unrelated label events.
+    if: >-
+      github.event_name != 'issues'
+      || github.event.action != 'labeled'
+      || github.event.label.name == 'claim'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
