@@ -72158,6 +72158,62 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "CIC-Rearranged Sarcoma",
+    "disease_id": "MONDO:0956989",
+    "category": "",
+    "parents": [
+      "undifferentiated small round cell sarcoma"
+    ],
+    "creation_date": "2026-10-30T15:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "CIC-rearranged sarcoma is an aggressive undifferentiated round cell sarcoma defined by rearrangement of CIC, most often as a CIC::DUX4 fusion arising from a t(4;19)(q35;q13) or t(10;19)(q26;q13) translocation. The 2020 fifth edition of the World Health Organization classification of bone and soft tissue tumours reorganised what had been called the Ewing sarcoma family of tumours, or Ewing-like sarcomas, into a category of undifferentiated small round cell sarcomas with four entities: Ewing sarcoma, CIC-rearranged sarcoma, sarcoma with BCOR genetic alterations, and sarcoma with EWSR1-non-ETS fusion genes.\nCIC encodes the human homologue of Drosophila capicua, a high mobility group box transcriptional repressor. Fusion to a C-terminal fragment of the double homeodomain gene DUX4 gives CIC an enhanced transcriptional activity, and the chimeric protein binds and upregulates PEA3 subfamily ETS genes, including ETV5 and ETV1. Strong diffuse nuclear ETV4 staining follows from that programme and is the practical diagnostic surrogate, alongside nuclear DUX4 staining where the fusion is CIC::DUX4.\nThe tumour arises predominantly in deep somatic soft tissue of young adults rather than in bone, which is the usual site of Ewing sarcoma, and its course is worse. In a cohort of 115 patients the five-year survival was 43 per cent against 77 per cent in age- and stage-matched Ewing sarcoma controls, and in a 148-patient multicentre series of undifferentiated small round cell sarcomas the three-year overall survival was 39.6 per cent for CIC-rearranged cases against 92.2 per cent for BCOR::CCNB3 cases. Durable responses to systemic therapy are uncommon. Recognising the entity matters because it responds poorly to standard Ewing sarcoma treatment.",
+    "pathophysiology": [
+      "CIC Gene Rearrangement",
+      "Loss of CIC Transcriptional Repression",
+      "PEA3 Subfamily Transcription Factor Upregulation",
+      "Aggressive Undifferentiated Round Cell Proliferation",
+      "Poor Response to Ewing Sarcoma Chemotherapy"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "positive regulation of cell population proliferation"
+    ],
+    "phenotypes": [
+      "Deep Soft Tissue Sarcoma",
+      "Metastatic Dissemination"
+    ],
+    "phenotype_categories": [
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0030448"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CIC"
+    ],
+    "treatments": [
+      "Surgical Resection",
+      "Ewing Sarcoma-Type Multiagent Chemotherapy",
+      "Radiotherapy to the Primary Site"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CIC-Rearranged_Sarcoma.yaml",
+    "page_url": "../pages/disorders/CIC-Rearranged_Sarcoma.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "CINCA Syndrome",
     "disease_id": "MONDO:0011776",
     "category": "Mendelian",
@@ -246650,6 +246706,96 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "MASS Syndrome",
+    "disease_id": "MONDO:0011431",
+    "category": "Mendelian",
+    "parents": [
+      "Type 1 Fibrillinopathy",
+      "Heritable Connective Tissue Disorder"
+    ],
+    "creation_date": "2026-10-30T18:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "MASS syndrome (MASS phenotype) is a heritable connective tissue disorder on the type 1 fibrillinopathy spectrum, named for its involvement of the mitral valve, aorta, skeleton and skin. Affected individuals have mitral valve prolapse, myopia, at most borderline and non-progressive enlargement of the aortic root, striae, and Marfan-like skeletal features such as long limbs, pectus deformity and scoliosis, but they lack ectopia lentis and an aortic root aneurysm, the two cardinal features of Marfan syndrome. The term was introduced in 1989 for patients who could not be classified as having Marfan syndrome yet showed a systemic extracellular-matrix defect, and the revised Ghent nosology of 2010 defines it as mitral valve prolapse with a systemic score of at least 5 points, including a skeletal feature, an aortic root Z-score below 2 and no ectopia lentis. Heterozygous FBN1 variants are reported in some patients, and MONDO and OMIM record FBN1 as the causal gene, but the diagnosis is clinical and patients without an FBN1 variant also meet it. Prognosis is dominated by mitral valve disease rather than by the aorta: in a longitudinal series no patient with MASS developed an aortic complication, while mitral valve disease progressed. An FBN1 carrier diagnosed with MASS, particularly a young one, can later meet the criteria for Marfan syndrome, so the classification is provisional and needs aortic follow-up.",
+    "pathophysiology": [
+      "Germline Heterozygous FBN1 Variant",
+      "Defective Fibrillin-1 Microfibrils and Elastic Fibers",
+      "Dysregulated TGF-beta Signaling"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "elastic fiber assembly",
+      "TGF-beta receptor signaling pathway"
+    ],
+    "phenotypes": [
+      "Mitral valve prolapse",
+      "Mitral regurgitation",
+      "Borderline aortic root enlargement",
+      "Myopia",
+      "Striae distensae",
+      "Atrophic skin patches with abnormal elastic fibers",
+      "Long limbs",
+      "Pectus excavatum",
+      "Scoliosis",
+      "Arachnodactyly",
+      "Dural ectasia",
+      "Temporomandibular joint disorder"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Ophthalmologic",
+      "Dermatologic",
+      "Skeletal",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001634",
+      "HP:0001653",
+      "HP:0002616",
+      "HP:0000545",
+      "HP:0001065",
+      "HP:0025082",
+      "HP:0001519",
+      "HP:0000767",
+      "HP:0002650",
+      "HP:0001166",
+      "HP:0100775",
+      "HP:0010754"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "FBN1"
+    ],
+    "treatments": [
+      "Mitral valve surgery",
+      "Avoidance of isometric and high-resistance exercise"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "MASS_Syndrome.yaml",
+    "page_url": "../pages/disorders/MASS_Syndrome.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "MBD4-Related Tumor Predisposition Syndrome",
     "disease_id": "MONDO:0859267",
     "category": "Mendelian",
@@ -274123,6 +274269,7 @@ window.searchData = [
     ],
     "treatments": [
       "Disease-Modifying Therapies (DMTs)",
+      "Anti-CD19 CAR-T Cell Therapy",
       "Anti-CD20 B-cell Depletion Therapy",
       "Symptomatic Treatments",
       "Physical Therapy and Rehabilitation",
@@ -274140,8 +274287,8 @@ window.searchData = [
     "num_phenotypes": 23,
     "num_pathophysiology": 11,
     "num_genes": 18,
-    "num_treatments": 5,
-    "causal_graph_edges": "34",
+    "num_treatments": 6,
+    "causal_graph_edges": "35",
     "causal_graph_longest_path": "5"
   },
   {
@@ -296618,6 +296765,88 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "7",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Olfactory Neuroblastoma",
+    "disease_id": "MONDO:0006329",
+    "category": "",
+    "parents": [
+      "sinonasal malignancy"
+    ],
+    "creation_date": "2026-10-30T16:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Olfactory neuroblastoma, also called esthesioneuroblastoma, is an uncommon malignant neuroectodermal tumour of the nasal cavity that arises from the olfactory epithelium at the cribriform plate. Despite its name it is not a form of neuroblastoma: it is a sinonasal tumour of adults with a different cell of origin, a different genomic landscape and a different clinical course, and this entry exists partly to keep the two apart.\nSingle-cell transcriptomic work links the tumour to olfactory epithelial globose basal cells, the stem and progenitor population of the olfactory epithelium, and that was the first time the tumour was linked to a specific cell type. The tumour retains a globose basal cell programme: it expresses the globose basal cell transcription factor NEUROD1, which separates it from sinonasal undifferentiated carcinoma, it contains a reproducible highly proliferative subpopulation expressing the stemness marker EZH2, and it preserves a regulatory circuit that governs divergent neuronal versus sustentacular differentiation. That retained differentiation capacity is what the Hyams grading system reads off the slide.\nIts genomic landscape is unusual for a malignancy. Panel sequencing of 560 tumour-associated genes found no highly recurrent mutations, with only TP53 and DNMT3A recurrently mutated, while copy number analysis showed highly recurrent combined loss of whole chromosomes. There is therefore no driver lesion to anchor the entry on, and the mechanism recorded below is a cell-identity one rather than a mutational one.\nDNA methylation profiling has also shown that the institutional diagnosis is not a single thing: in a 66-tumour cohort only 42 (64 per cent) formed a core group, while others clustered with IDH2-mutant sinonasal carcinoma or with sinonasal carcinomas of other types. Those non-core cases are widely read as misdiagnosis rather than as subtypes of this tumour.",
+    "pathophysiology": [
+      "Recurrent Chromosomal Loss Without a Recurrent Driver Mutation",
+      "Malignant Transformation of Olfactory Epithelial Globose Basal Cells",
+      "Retained Globose Basal Cell Transcriptional Programme",
+      "Proliferative EZH2-High Compartment",
+      "Divergent Neuronal and Sustentacular Differentiation",
+      "Sinonasal Mass Arising at the Cribriform Plate",
+      "Local Invasion of the Skull Base and Orbit"
+    ],
+    "cell_types": [
+      "olfactory epithelial globose basal cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002171"
+    ],
+    "biological_processes": [
+      "positive regulation of cell population proliferation",
+      "neuron differentiation"
+    ],
+    "phenotypes": [
+      "Sinonasal Neoplasm",
+      "Nasal Obstruction",
+      "Epistaxis",
+      "Cervical Lymph Node Metastasis",
+      "Visual Impairment",
+      "Headache",
+      "Anosmia"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Respiratory",
+      "Ophthalmologic",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0012720",
+      "HP:0001742",
+      "HP:0000421",
+      "HP:0025289",
+      "HP:0000505",
+      "HP:0002315",
+      "HP:0000458"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Surgical Resection",
+      "Postoperative Radiotherapy",
+      "Platinum-Based Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Olfactory_Neuroblastoma.yaml",
+    "page_url": "../pages/disorders/Olfactory_Neuroblastoma.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Olmsted Syndrome 1",
@@ -414356,17 +414585,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3839,
+  "total_disorder_pages": 3842,
   "total_subtypes": 4959,
-  "total_disorders_and_subtypes": 8798,
-  "total_unique_evidence_sources": 57149,
-  "total_unique_publications": 53454,
+  "total_disorders_and_subtypes": 8801,
+  "total_unique_evidence_sources": 57180,
+  "total_unique_publications": 53485,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 313,
-  "total_pathographs": 3837,
-  "total_unique_pathological_events": 25206,
+  "total_pathographs": 3840,
+  "total_unique_pathological_events": 25219,
   "total_modules": 221,
-  "total_research_reports": 3954,
+  "total_research_reports": 3955,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
