@@ -21,6 +21,7 @@ diseases:
 - Parkinsons_Disease
 - Migraine
 - Migraine_with_Aura
+- Familial_Hemiplegic_Migraine
 - pseudotumor_cerebri
 - Restless_Legs_Syndrome
 - Peripartum_Cardiomyopathy
@@ -41,6 +42,15 @@ diseases:
 - Parathyroid_Gland_Carcinoma
 - Parathyroid_Hyperplasia
 - Multiple_Sclerosis
+- Coronary_Artery_Disease
+- Carotid_Stenosis
+- CADASIL_Type_1
+- Peripheral_Artery_Disease
+- Carotid_Artery_Occlusion
+- Kawasaki_Disease
+- Grange_syndrome
+- Renal_Artery_Obstruction
+- Secondary_Erythromelalgia
 - Glaucoma
 - Familial_Hypocalciuric_Hypercalcemia_1
 - Familial_Hypocalciuric_Hypercalcemia_2
@@ -74,6 +84,8 @@ modules:
 - beta2_adrenergic_receptor_agonism
 - muscarinic_receptor_antagonism
 - casr_positive_allosteric_modulation
+- p2y12_receptor_antagonism
+- migraine_neurovascular_mechanism
 ---
 
 # GPCRs: Drug Mechanisms and Disease Modules
@@ -147,7 +159,7 @@ conform:
 | muscarinic receptor antagonism (airway) | CHRM3 | SAMA, LAMA | Chronic_Obstructive_Pulmonary_Disease. Airway-scoped, like the beta2 module and for the same reason; the module's own notes carry the census that makes the scope concrete. `Cough_Variant_Asthma` was assessed and rejected: its treatment is beta2-only in its own text, and the earlier assumption that it bundled a muscarinic antagonist was wrong |
 | CaSR positive allosteric modulation | CASR | calcimimetics | CKD-Mineral_Bone_Disorder, Familial_Hypocalciuric_Hypercalcemia_1 and _2, Parathyroid_Gland_Carcinoma, Parathyroid_Hyperplasia. This row originally read "secondary hyperparathyroidism in CKD"; the module turned out to be indication-independent, since the drug acts at the same receptor on the same cell whether the hormone excess comes from renal handling, an inactivating receptor variant or autonomous parathyroid tissue. Not tissue-scoped, unlike the airway modules above |
 | S1P receptor modulation | S1PR1 | fingolimod, siponimod | Multiple_Sclerosis |
-| P2Y12 receptor antagonism | P2RY12 | clopidogrel, ticagrelor | Coronary_Artery_Disease |
+| P2Y12 receptor antagonism | P2RY12 | clopidogrel, ticagrelor | Coronary_Artery_Disease, Carotid_Stenosis, CADASIL_Type_1. Indication-independent, like the CaSR module: the three conformers span coronary, carotid and small-vessel cerebral disease, and the module is scoped to the receptor rather than to any of them. Six further entries name a P2Y12 antagonist and are not wired, because no treatment in any of them binds a P2Y12 antagonist as `therapeutic_agent`; the module's notes give the reason for each |
 | V2 receptor antagonism | AVPR2 | vaptans | SIADH, ADPKD |
 | MC4R agonism | MC4R | setmelanotide | Obesity_Due_to_MC4R_Pathway_Disruption |
 
@@ -329,6 +341,38 @@ mechanism-level rather than disease-level.
         hypocalcaemia entries are recorded in the module as never-conformers: they are
         caused by *activating* receptor variants, so a calcimimetic is the wrong direction
         of action and those entries name it as something to avoid
+  - [x] Three P2Y12-antagonist-treated entries, in #15928:
+        `Coronary_Artery_Disease`, `Carotid_Stenosis` and `CADASIL_Type_1` against
+        `p2y12_receptor_antagonism`, all at the trigger. Those three are the only entries whose
+        treatment binds clopidogrel or ticagrelor as `therapeutic_agent`. Six others name a P2Y12
+        antagonist in a treatment context and are not wired, because none of them binds one as an
+        agent, so a `target_mechanisms` link would assert a receptor action the entry does not
+        name. They fail that test in four different ways, which is why the worklist has to be read
+        per entry rather than as one search: `Peripheral_Artery_Disease` binds the generic
+        `NCIT:C1327` Antiplatelet Agent, which covers aspirin as well;
+        `Carotid_Artery_Occlusion` names clopidogrel in its treatment prose but binds only
+        acetylsalicylic acid; `Grange_syndrome`, `Kawasaki_Disease` and
+        `Renal_Artery_Obstruction` bind no agent at all on the relevant treatment; and
+        `Secondary_Erythromelalgia` names ticlopidine only as one of the platelet inhibitors that
+        failed to relieve its pain, so it is not treated with the class at all. Only the first of
+        those is the generic-binding shape that the `Bronchodilator` refinements in #15777 fixed.
+        Five further entries name the class or one of its drugs but are not candidates:
+        `Alexander_Disease` (clopidogrel as a mouse-model probe),
+        `Atypical_Hemolytic_Uremic_Syndrome` (clopidogrel as a precipitant),
+        `CYCS-Related_Thrombocytopenia` (whose own notes say a carrier's clopidogrel is not
+        evidence that antiplatelet drugs treat the disease), and
+        `Platelet-type_Bleeding_Disorder_8` and `Platelet-type_Bleeding_Disorder_16`, where P2RY12
+        is the causal gene and loss of the receptor is the disease rather than the therapy. Note
+        that a grep for drug names alone returns thirteen entries, not fourteen:
+        `Platelet-type_Bleeding_Disorder_16` names only "P2Y12 inhibitors" as a class, so searching
+        for `p2y12` as well as the drug names is what makes the two counts agree
+  - [x] Nine nodes across the three migraine entries, in #15934: `Migraine` at four,
+        `Familial_Hemiplegic_Migraine` at three and `Migraine_with_Aura` at two, against
+        `migraine_neurovascular_mechanism`. This one adds no nodes at all — every node it
+        conforms was already in the entry, which is what makes it the cheapest kind of
+        conformance and the clearest demonstration of what conformance is for: the three
+        entries had modelled the same chain under different names, and nothing could compare
+        them until the module existed
 - [ ] Remaining Workstream A modules
   - [x] D2 receptor antagonism — `d2_receptor_antagonism` (#15299)
   - [x] AT1 receptor blockade — `at1_receptor_blockade` (#15271)
@@ -340,15 +384,26 @@ mechanism-level rather than disease-level.
   - [x] beta2 adrenergic receptor agonism — `beta2_adrenergic_receptor_agonism` (#15706)
   - [x] muscarinic receptor antagonism (airway) -- `muscarinic_receptor_antagonism` (#15795)
   - [x] CaSR positive allosteric modulation -- `casr_positive_allosteric_modulation` (#15925)
-  - [ ] S1P receptor modulation
-  - [ ] P2Y12 receptor antagonism
+  - [ ] S1P receptor modulation — deferred behind P2Y12: only `Multiple_Sclerosis`
+        treats with an S1P modulator. Of the four other entries mentioning S1P, two are
+        mouse models (Lafora disease, glaucoma), one uses a research-tool antagonist by
+        rat knockdown, and one lists fingolimod only in prose about MS immunotherapies
+  - [x] P2Y12 receptor antagonism — `p2y12_receptor_antagonism` (#15928)
   - [ ] V2 receptor antagonism
   - [ ] MC4R agonism
-  - [ ] migraine neurovascular mechanism — a *disease* module, not a drug one, factoring
-        the cortical spreading depolarization → trigeminovascular activation → central
-        sensitization chain out of `Migraine`, `Migraine_with_Aura` and
-        `Familial_Hemiplegic_Migraine`, which currently each re-derive it. Added from the
-        resolution of the CGRP open question below
+  - [x] migraine neurovascular mechanism — `migraine_neurovascular_mechanism` (#15934). A
+        *disease* module, not a drug one, factoring the cortical spreading depolarization →
+        trigeminovascular activation → central sensitization chain out of `Migraine`,
+        `Migraine_with_Aura` and `Familial_Hemiplegic_Migraine`, which each re-derived it under
+        different node namings. Added from the resolution of the CGRP open question below. It
+        carries no treatments block: the migraine pharmacology is already in
+        `serotonin_1b_1d_receptor_agonism` and `cgrp_receptor_antagonism`, and the conformers
+        that use those drugs reach them through their own `therapeutic_vulnerability` nodes.
+        `Migraine` conforms to both, `Migraine_with_Aura` to the 5-HT1B/1D module only, and
+        `Familial_Hemiplegic_Migraine` to neither, because triptans and ergots are
+        contraindicated there for their vasoconstrictive effects. That last case is a second
+        reason the shared module carries no drug arm: it would attach a therapy to a conformer
+        that must avoid it
 - [ ] Gs alpha defect module
 
 ## Decisions

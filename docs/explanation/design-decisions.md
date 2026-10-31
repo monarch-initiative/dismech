@@ -2230,3 +2230,59 @@ plus bands" is enough for this project's tranches; the open row stands.
 Campaign tracking in
 [`projects/LOINC_DIAGNOSTICS.md`](../../projects/LOINC_DIAGNOSTICS.md); schema
 in PR #13636.
+
+## 18. Entry names match entry scope; single-gene entries use established gene-related names (2026-10-29)
+
+**Decision.** An entry's `name` covers exactly what the entry covers: if a
+patient could have the condition the name describes without the entry's
+defining cause, the name is too broad. A single-gene Mendelian entry is named
+`<GENE>-Related <Phenotype>` when that dyadic name is established, meaning it
+appears as the bound MONDO label or an EXACT synonym, as a ClinGen-preferred
+label, as a GeneReviews chapter title for the same scope, as the current OMIM
+title, or in recurring recent primary literature cited in `notes`. The bound
+`disease_term` fixes the entry's identity; the `name` is dismech's own choice,
+and the MONDO label is one candidate for it, not the default. Prior names
+(the MONDO label, eponyms, the OMIM title) are kept in `synonyms`. The working
+procedure is the `entry-naming` skill.
+
+**Why gene-related names.** ClinGen's dyadic nomenclature
+(PMID:33417889, PMID:39241757) names a monogenic disease by its gene and its
+phenotype. For a mechanism resource, the gene is the root of the pathograph, so
+a dyadic name tells a reader where the causal graph starts and separates
+entries that share a clinical label but not a mechanism. Several hundred
+dismech entries are already named this way (`ls kb/disorders | grep -ic
+related` gives the current filename count).
+
+**Why the MONDO label is not the default.** A scan in October 2026 found about
+30 single-gene MONDO classes whose label names a phenotype, tumour type or
+clinical syndrome that other genes or non-genetic causes also produce, and
+around 17 labels with casing errors (monarch-initiative/mondo#10836). Copying
+the label carries those problems into dismech. The curation queue makes copying
+the easy path: the stub `label` is the MONDO label, and the stub filename and
+claim title are built from it. The same scan found about 27 dismech entries
+whose name is broader than the entry, including 17 whose name drops scope words
+that their own MONDO term has.
+
+**What this does not mean.**
+
+- A gene-related name is not required where none is established. dismech does
+  not coin one. A clear eponym or numbered series name is specific, even if it
+  is opaque.
+- An umbrella name (`POLG-Related Disorders`) is never used for a single
+  entry on that spectrum; that would break the scope rule in the other
+  direction. An umbrella is a candidate for a `Grouping` or a parent entry with
+  `has_subtypes` (§3 granularity rules apply).
+- An entry already specific to one gene (cystic fibrosis, Gaucher disease) does
+  not need renaming.
+- When a single-gene MONDO class carries a broad label, the fix may be the
+  entry's binding rather than its name: if the entry is really about the
+  broad condition, it needs a broader `disease_term` and a fuller `genetic`
+  section.
+
+**Open: how a rename moves the file.** Changing `name` alone is safe. Changing
+the file slug moves cross-file references (`File:pathophysiology#...`, grouping
+members, comorbidity entries) and needs a `history/` record with
+`superseded_by`. Whether renames move slugs (with a `rename-entry` tool) or
+slugs stay fixed while names change is undecided. Until it is decided, renames
+change `name` and `synonyms` only. Tracked in dismech#15894, with the tooling
+(`check-entry-names`, stub name candidates) and the content worklist.
