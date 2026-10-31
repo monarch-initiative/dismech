@@ -496,7 +496,8 @@ def render_summary(result: dict, out) -> None:
                     level = f" [{match['scale']}: {match['level']}]"
                 else:
                     level = " [no scale]"
-                kind = "" if match["kind"] == "node" else " (phenotype)"
+                is_labelled = match["kind"] == "node" or name.endswith(" (phenotype)")
+                kind = "" if is_labelled else " (phenotype)"
                 print(f"    {name}{kind}{level}: {'; '.join(match['bases'])}", file=out)
     if kers is None:
         print("\nNo all_kers cache for this date; Key Event Relationships not checked.", file=out)

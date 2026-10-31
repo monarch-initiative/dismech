@@ -297,3 +297,25 @@ def test_main_names_the_missing_key_in_a_malformed_rules_file(tmp_path):
             "--data-dir", str(DATA_DIR), "--date", DATE, "--aop", "40",
             "--entry", "Example_Dermatitis", "--root", str(tmp_path), "--rules", str(bad),
         ])
+
+
+def test_summary_marks_a_clashing_phenotype_once(tmp_path, capsys):
+    disorders = tmp_path / "kb" / "disorders"
+    disorders.mkdir(parents=True)
+    (disorders / "Clash.yaml").write_text(yaml.safe_dump({
+        "name": "Clash",
+        "pathophysiology": [{"name": "Keratinocyte activation", "biological_processes": [_term("GO:0032980")]}],
+        "phenotypes": [{"name": "Keratinocyte activation", "phenotype_term": _term("HP:0000001")}],
+    }))
+    rules = tmp_path / "rules.yaml"
+    rules.write_text(yaml.safe_dump({"key_events": {"826": {
+        "go_ids": ["GO:0032980"],
+        "phenotypes": {"label": "a phenotype", "term_ids": ["HP:0000001"]},
+    }}}))
+    crosswalk.main([
+        "--data-dir", str(DATA_DIR), "--date", DATE, "--ke-ids", "826",
+        "--entry", "Clash", "--root", str(tmp_path), "--rules", str(rules),
+    ])
+    out = capsys.readouterr().out
+    assert "Keratinocyte activation (phenotype): a phenotype" in out
+    assert "(phenotype) (phenotype)" not in out
