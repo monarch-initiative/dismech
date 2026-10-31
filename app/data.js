@@ -143900,7 +143900,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "6"
   },
   {
@@ -152462,6 +152462,102 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "69",
     "causal_graph_longest_path": "10"
+  },
+  {
+    "name": "FBXO11-Related Neurodevelopmental Disorder",
+    "disease_id": "MONDO:0060760",
+    "category": "Mendelian",
+    "parents": [
+      "autosomal dominant syndromic intellectual disability"
+    ],
+    "creation_date": "2026-10-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "FBXO11-related neurodevelopmental disorder (intellectual developmental disorder with dysmorphic facies and behavioral abnormalities, IDDFBA; OMIM 618089) is an autosomal dominant condition caused by heterozygous, mostly de novo, loss-of-function or missense variants in FBXO11, the substrate-recognition F-box subunit of a nuclear SCF (SKP1-CUL1-F-box) E3 ubiquitin ligase. Reduced SCF(FBXO11) activity impairs ubiquitin-mediated turnover of its substrates (among them BCL6, SNAIL and BLIMP-1) during brain development. The phenotype is highly variable, with intellectual disability as the core feature and behavioral abnormalities (autistic features, attention problems), hypotonia and nonspecific facial dysmorphism as common additional features; microcephaly or macrocephaly, seizures, orofacial clefting, obesity and skeletal findings occur in a minority. More than 75 affected individuals have been reported.",
+    "pathophysiology": [
+      "FBXO11 Haploinsufficiency",
+      "Impaired SCF(FBXO11) Substrate Ubiquitination",
+      "Impaired Neuronal Proliferation, Differentiation, and Migration",
+      "Disrupted Neurodevelopment"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "SCF-dependent proteasomal ubiquitin-dependent protein catabolic process",
+      "neuron migration",
+      "neuron differentiation"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Behavioral abnormality",
+      "Autistic behavior",
+      "Attention deficit hyperactivity disorder",
+      "Hypotonia",
+      "Joint hypermobility",
+      "Abnormal facial shape",
+      "Thin upper lip vermilion",
+      "Seizure",
+      "Microcephaly",
+      "Macrocephaly",
+      "Cleft palate",
+      "Bifid uvula",
+      "Obesity",
+      "Short stature",
+      "Tall stature"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000708",
+      "HP:0000729",
+      "HP:0007018",
+      "HP:0001252",
+      "HP:0001382",
+      "HP:0001999",
+      "HP:0000219",
+      "HP:0001250",
+      "HP:0000252",
+      "HP:0000256",
+      "HP:0000175",
+      "HP:0000193",
+      "HP:0001513",
+      "HP:0004322",
+      "HP:0000098"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "FBXO11"
+    ],
+    "treatments": [
+      "Supportive and symptomatic management",
+      "Proteasome-activating agents (investigational)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "FBXO11-Related_Neurodevelopmental_Disorder.yaml",
+    "page_url": "../pages/disorders/FBXO11-Related_Neurodevelopmental_Disorder.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "FBXW7-Related Neurodevelopmental Disorder",
@@ -219858,6 +219954,89 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Inherited Prekallikrein Deficiency",
+    "disease_id": "MONDO:0012901",
+    "category": "Mendelian",
+    "parents": [
+      "inherited blood coagulation disorder",
+      "coagulation protein disease",
+      "hereditary disease"
+    ],
+    "creation_date": "2026-10-31T14:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Inherited prekallikrein deficiency (Fletcher factor deficiency) is an autosomal recessive defect of the plasma contact system caused by biallelic loss-of-function variants in KLKB1, the gene encoding the liver-synthesized zymogen plasma prekallikrein. Activated factor XII converts prekallikrein to plasma kallikrein, which then feeds two arms: it activates further factor XII, amplifying contact-phase coagulation, and it cleaves high-molecular-weight kininogen to liberate bradykinin.\nThe disease is a laboratory finding rather than a clinical one. Losing the kallikrein feedback loop leaves factor XII autoactivation as the only route into the contact pathway, which slows that pathway without abolishing it. In the aPTT reaction, with its short preincubation, the result is a markedly prolonged clotting time, commonly more than twice the upper reference limit, with a normal prothrombin time. Prolonging the preincubation lets factor XII autoactivate and the aPTT shortens, which is the diagnostic signature. In vivo, thrombin generation through tissue factor and factor VIIa is untouched, so patients do not bleed abnormally and tolerate surgery without hemostatic support.\nThe practical hazard is iatrogenic. An alarming aPTT found before an operation invites plasma transfusion or deferral of the procedure, and several reported patients received fresh frozen plasma that their hemostasis did not need. The one setting where replacement has a stated purpose is not hemostasis but assay repair: replenishing prekallikrein restores a usable activated clotting time for intraoperative heparin monitoring.\nTwo claims about the disease are unsettled and are recorded here as discussions rather than as mechanisms. Reported cases carry an excess of hypertension and cardiovascular events, which may reflect loss of bradykinin-dependent vasodilation or may be ascertainment, and the deficiency does not protect patients from thrombosis even though prekallikrein-null mice are strikingly protected.\nThe opposite direction of the same biology is a drug target: plasma kallikrein inhibitors and a prekallikrein-lowering antisense oligonucleotide treat bradykinin-mediated hereditary angioedema, curated in Hereditary_Angioedema. The sibling contact-factor deficiencies are Congenital_Factor_XII_Deficiency and high-molecular-weight kininogen deficiency.",
+    "pathophysiology": [
+      "KLKB1 Biallelic Loss of Function",
+      "Plasma Prekallikrein Deficiency",
+      "Loss of Kallikrein Feedback Activation of Factor XII",
+      "Rate-Limited Factor XII Autoactivation as the Sole Contact Trigger",
+      "Hemostasis Preserved Despite the Contact Defect",
+      "Reduced Kallikrein-Dependent Bradykinin Generation",
+      "Reduced Kallikrein-Driven Thromboinflammation in Model Systems",
+      "Diminished Surface-Activated Fibrinolysis In Vitro"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "Factor XII activation",
+      "blood coagulation, intrinsic pathway",
+      "tissue factor and factor VIIa initiated coagulation, unaffected",
+      "plasma kallikrein-kinin cascade",
+      "bradykinin biosynthetic process",
+      "fibrinolysis"
+    ],
+    "phenotypes": [
+      "Severely Reduced Plasma Prekallikrein Activity",
+      "Prolonged Partial Thromboplastin Time",
+      "Abnormal Bleeding",
+      "Hypertension"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0034371",
+      "HP:0003645",
+      "HP:0001892",
+      "HP:0000822"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "KLKB1"
+    ],
+    "treatments": [
+      "Observation Without Hemostatic Prophylaxis",
+      "Preoperative Fresh Frozen Plasma for Activated Clotting Time Monitoring",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Inherited_Prekallikrein_Deficiency.yaml",
+    "page_url": "../pages/disorders/Inherited_Prekallikrein_Deficiency.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Inherited Retinal Dystrophy",
     "disease_id": "MONDO:0019118",
     "category": "Mendelian",
@@ -250605,6 +250784,163 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "MEGF10-Related Myopathy",
+    "disease_id": "MONDO:0013731",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital Myopathy"
+    ],
+    "creation_date": "2026-10-31T14:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "EMARDD",
+      "Mild variant"
+    ],
+    "description": "Autosomal recessive congenital myopathy caused by biallelic loss-of-function variants in MEGF10, which encodes a transmembrane receptor of quiescent and activated skeletal muscle satellite cells. MEGF10 keeps satellite cells proliferative and migratory and holds back their differentiation and fusion, acting at least partly through the Notch pathway: it binds Notch1 through its intracellular domain, its own tyrosine phosphorylation at Y1030 is needed for the proliferative signal, and silencing it drives myogenin activation, precocious differentiation and loss of the self-renewing Pax7-positive pool. Because the lesion sits in the muscle stem cell rather than in the contractile apparatus, the disease is grouped with the primary satellite cell disorders, and patient muscle shows reduced Pax7-positive satellite cells together with a mixture of myopathic and dystrophic change: minicores, marked variation in fiber diameter, increased endomysial connective tissue and fibro-fatty replacement. The clinical spectrum runs from the severe infantile form originally named EMARDD, with decreased fetal movements, neonatal hypotonia, areflexia, diaphragmatic weakness requiring ventilation and dysphagia, to a milder minicore myopathy presenting in childhood or adulthood with scoliosis and late respiratory failure; onset tracks the genotype, with at least one null allele giving respiratory involvement in the first year of life and biallelic missense alleles usually giving later onset. No disease-modifying treatment exists, and management is respiratory support, feeding support, scoliosis surgery and physiotherapy.",
+    "pathophysiology": [
+      "Biallelic MEGF10 Loss of Function",
+      "Loss of MEGF10 Receptor Function at the Satellite Cell Surface",
+      "Impaired MEGF10 and Notch1 Signaling in Satellite Cells",
+      "Reduced Satellite Cell Proliferation and Migration",
+      "Premature Myogenic Differentiation and Satellite Cell Pool Depletion",
+      "Reduced Myofiber Number and Impaired Muscle Regeneration",
+      "Neuromuscular Junction Degeneration",
+      "Myopathic and Dystrophic Muscle Pathology With Minicores",
+      "Diaphragmatic Weakness",
+      "Progressive Axial and Generalized Muscle Weakness"
+    ],
+    "cell_types": [
+      "skeletal muscle satellite cell",
+      "skeletal muscle myoblast",
+      "quiescent skeletal muscle satellite cell",
+      "skeletal muscle fiber",
+      "perisynaptic Schwann cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000594",
+      "CL:0000515",
+      "CL:0008012",
+      "CL:0008002",
+      "CL:0000692"
+    ],
+    "biological_processes": [
+      "MEGF10 tyrosine phosphorylation",
+      "Notch signaling pathway",
+      "skeletal muscle satellite cell proliferation",
+      "myoblast migration",
+      "skeletal muscle satellite cell differentiation",
+      "maintenance of the satellite cell pool for regeneration",
+      "skeletal muscle tissue regeneration",
+      "skeletal muscle fiber development"
+    ],
+    "phenotypes": [
+      "Respiratory insufficiency due to muscle weakness",
+      "Diaphragmatic paralysis",
+      "Diaphragmatic eventration",
+      "Generalized hypotonia",
+      "Areflexia",
+      "Axial muscle weakness",
+      "Neck muscle weakness",
+      "Proximal muscle weakness",
+      "Weakness of facial musculature",
+      "Myopathic facies",
+      "Dysphagia",
+      "Feeding difficulties",
+      "Hypernasal speech",
+      "Scoliosis",
+      "Flexion contracture",
+      "Distal joint hypermobility",
+      "Decreased fetal movement",
+      "Delayed gross motor development",
+      "Inability to walk",
+      "High palate",
+      "Cleft palate",
+      "Ptosis",
+      "Type 1 and type 2 muscle fiber minicore regions",
+      "Increased variability in muscle fiber diameter",
+      "Increased endomysial connective tissue",
+      "Fatty replacement of skeletal muscle",
+      "Rimmed vacuoles",
+      "EMG: myopathic abnormalities"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Neurological",
+      "Gastrointestinal",
+      "Skeletal",
+      "Prenatal",
+      "Craniofacial",
+      "Ophthalmological",
+      "Pathology",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0002747",
+      "HP:0006597",
+      "HP:0009110",
+      "HP:0001290",
+      "HP:0001284",
+      "HP:0003327",
+      "HP:0000467",
+      "HP:0003701",
+      "HP:0030319",
+      "HP:0002058",
+      "HP:0002015",
+      "HP:0011968",
+      "HP:0001611",
+      "HP:0002650",
+      "HP:0001371",
+      "HP:0020152",
+      "HP:0001558",
+      "HP:0002194",
+      "HP:0002540",
+      "HP:0000218",
+      "HP:0000175",
+      "HP:0000508",
+      "HP:0003787",
+      "HP:0003557",
+      "HP:0100297",
+      "HP:0012548",
+      "HP:0003805",
+      "HP:0003458"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "MEGF10"
+    ],
+    "treatments": [
+      "Assisted Ventilation",
+      "Gastrostomy Feeding",
+      "Spinal Fusion"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum creatine kinase"
+    ],
+    "source_file": "MEGF10-related_Myopathy.yaml",
+    "page_url": "../pages/disorders/MEGF10-Related_Myopathy.html",
+    "num_phenotypes": 28,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "51",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "MEGF8-related Carpenter Syndrome",
     "disease_id": "MONDO:0013998",
     "category": "Mendelian",
@@ -260694,6 +261030,101 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "41",
     "causal_graph_longest_path": "9"
+  },
+  {
+    "name": "Megalencephalic Leukoencephalopathy With Subcortical Cysts 2B",
+    "disease_id": "MONDO:0013491",
+    "category": "Mendelian",
+    "parents": [
+      "Leukodystrophy",
+      "Megalencephalic Leukoencephalopathy With Subcortical Cysts"
+    ],
+    "creation_date": "2026-10-31T14:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant, remitting form of megalencephalic leukoencephalopathy with subcortical cysts (MLC), caused by a single heterozygous missense variant in the first immunoglobulin (IgV) domain of HEPACAM, which encodes the astrocyte adhesion molecule GlialCAM. Unlike the recessive alleles that cause classic MLC2A, these alleles act on the wild-type protein: co-expressed with wild-type GlialCAM they reduce its delivery to astrocyte-astrocyte junctions, and with it the junctional pool of MLC1 and of the ClC-2 chloride channel. The alleles fall into two structural groups, those that disrupt GlialCAM cis dimerization within one cell (p.Gly89Ser, p.Gly89Asp, p.Arg92Trp) and those that disrupt trans interaction between apposed cells (p.Gln56Pro, p.Ser59Asn, p.Asp128Asn). In the first year of life the clinical and MRI picture resembles classic MLC, with macrocephaly and diffusely swollen, abnormal cerebral white matter, but the course then diverges: white matter signal and swelling normalize or greatly improve, motor function is preserved and no neurological regression occurs, and head circumference often falls back into the normal range. The residual burden is developmental rather than degenerative, with stable intellectual disability in about a quarter of patients and autistic features more common than in classic MLC; seizures are much less frequent. Many patients inherit the variant from a parent whose only finding was transient macrocephaly in infancy, and some carriers are never diagnosed, so penetrance is incomplete. Why the edema resolves is unresolved; the leading account is that the partial reduction of GlialCAM and MLC1 function matters only while the perivascular astrocyte complex is being built.",
+    "pathophysiology": [
+      "Heterozygous Dominant GLIALCAM IgV Variant",
+      "Dominant Interference With Wild-Type GlialCAM Trafficking",
+      "Loss of Junctional MLC1 and ClC-2 at Astrocyte Endfeet",
+      "Impaired Astrocyte Volume Regulation",
+      "Intramyelinic Edema and Myelin Vacuolation",
+      "Resolution of White Matter Edema",
+      "Disrupted GlialCAM Interactome in Developing Astrocytes"
+    ],
+    "cell_types": [
+      "astrocyte",
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000127",
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "protein localization to cell junction",
+      "protein localization to plasma membrane (MLC1 and ClC-2)",
+      "cell volume homeostasis"
+    ],
+    "phenotypes": [
+      "Macrocephaly",
+      "Megalencephaly",
+      "Diffuse Swelling of Cerebral White Matter",
+      "Cerebral Subcortical Cyst",
+      "Motor Delay",
+      "Clumsiness",
+      "Hypotonia",
+      "Intellectual Disability",
+      "Autistic Behavior",
+      "Delayed Speech and Language Development",
+      "Seizure"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000256",
+      "HP:0001355",
+      "HP:0007341",
+      "HP:6000461",
+      "HP:0001270",
+      "HP:0002312",
+      "HP:0001252",
+      "HP:0001249",
+      "HP:0000729",
+      "HP:0000750",
+      "HP:0001250"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "HEPACAM"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "Physical Therapy",
+      "Speech Therapy",
+      "Genetic Counseling"
+    ],
+    "environmental": [
+      "Head trauma"
+    ],
+    "biochemical": [],
+    "source_file": "Megalencephalic_Leukoencephalopathy_With_Subcortical_Cysts_2B.yaml",
+    "page_url": "../pages/disorders/Megalencephalic_Leukoencephalopathy_With_Subcortical_Cysts_2B.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Megalencephaly-polydactyly Syndrome",
@@ -338478,6 +338909,102 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "RIN2 Syndrome",
+    "disease_id": "MONDO:0013115",
+    "category": "Mendelian",
+    "parents": [
+      "inherited cutis laxa"
+    ],
+    "creation_date": "2026-10-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Biallelic truncating RIN2 variants undergo nonsense-mediated decay, abolishing or markedly reducing RIN2, a ubiquitously expressed Rab5-interacting effector.",
+    "pathophysiology": [
+      "RIN2 Loss of Function",
+      "Dysregulated Rab5-Dependent Endosomal Trafficking",
+      "Fibroblast Secretory Pathway Dysfunction",
+      "Fibulin-5 Deficiency and Dermal Microfibril Paucity",
+      "Abnormal Dermal Connective Tissue Matrix"
+    ],
+    "cell_types": [
+      "dermal fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0002620"
+    ],
+    "biological_processes": [
+      "endocytosis"
+    ],
+    "phenotypes": [
+      "Cutis laxa",
+      "Hyperextensible skin",
+      "Scoliosis",
+      "Coarse facial features",
+      "Gingival overgrowth",
+      "Sparse scalp hair",
+      "Macrocephaly",
+      "Joint hypermobility",
+      "Downslanted palpebral fissures",
+      "Thick vermilion border",
+      "Puffy droopy eyelids",
+      "Irregular dentition",
+      "Cervical vertebral fusion",
+      "Colonic fibrosis",
+      "Hearing impairment",
+      "Leukoencephalopathy",
+      "Bronchiectasis",
+      "Hypergonadotropic hypogonadism"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000973",
+      "HP:0000974",
+      "HP:0002650",
+      "HP:0000280",
+      "HP:0000212",
+      "HP:0002209",
+      "HP:0000256",
+      "HP:0001382",
+      "HP:0000494",
+      "HP:0012471",
+      "HP:0000508",
+      "HP:0040079",
+      "HP:0002948",
+      "HP:0012712",
+      "HP:0002500",
+      "HP:0002110",
+      "HP:0000815"
+    ],
+    "frequencies": [],
+    "genes": [
+      "RIN2"
+    ],
+    "treatments": [
+      "Supportive and multidisciplinary care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "RIN2_Syndrome.yaml",
+    "page_url": "../pages/disorders/RIN2_Syndrome.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "RLBP1-Related Retinopathy",
     "disease_id": "MONDO:0100444",
     "category": "Mendelian",
@@ -396276,6 +396803,98 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Transient Neonatal Zinc Deficiency",
+    "disease_id": "MONDO:0011973",
+    "category": "Mendelian",
+    "parents": [
+      "inborn error of metal metabolism",
+      "zinc deficiency"
+    ],
+    "creation_date": "2026-10-31T14:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Zinc deficiency of the exclusively breastfed infant caused by a genetic defect in the mother. Loss-of-function variants in SLC30A2, which encodes the vesicular zinc transporter ZnT2 of lactating mammary epithelial cells, reduce zinc import into the secretory vesicles that carry zinc into milk, so the mother produces milk with a markedly low zinc concentration while her own serum zinc is normal. One heterozygous variant is usually enough (autosomal dominant, by haploinsufficiency or, for some missense alleles, a dominant-negative effect through ZnT2 homodimers); compound heterozygous and homozygous mothers have also been reported. The infant, whose own genotype is irrelevant to the disease, develops the acrodermatitis enteropathica-like syndrome of zinc deficiency during exclusive breastfeeding: periorificial and acral dermatitis, alopecia, diarrhea, irritability and growth faltering, with low serum zinc and low alkaline phosphatase. Oral zinc given to the infant resolves it rapidly, maternal zinc supplementation does not raise milk zinc, and the deficiency does not recur after weaning, which separates it from acrodermatitis enteropathica. Many reported low-milk-zinc cases are preterm infants, whose zinc demand is high.",
+    "pathophysiology": [
+      "Maternal SLC30A2 Loss of Function",
+      "Impaired Zinc Loading of Lactocyte Secretory Vesicles",
+      "Impaired Zinc Secretion into Breast Milk",
+      "Inadequate Zinc Intake of the Exclusively Breastfed Infant",
+      "Systemic Zinc Deficiency of the Breastfed Infant",
+      "Disturbed Epidermal Keratinization"
+    ],
+    "cell_types": [
+      "mammary gland epithelial cell",
+      "lactocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002327",
+      "CL:0002325"
+    ],
+    "biological_processes": [
+      "zinc ion import into secretory vesicle"
+    ],
+    "phenotypes": [
+      "Periorificial and Acral Dermatitis",
+      "Alopecia",
+      "Diarrhea",
+      "Irritability",
+      "Poor Appetite",
+      "Growth Faltering",
+      "Decreased Serum Zinc",
+      "Decreased Serum Alkaline Phosphatase",
+      "Low Breast Milk Zinc Concentration"
+    ],
+    "phenotype_categories": [
+      "Dermatological",
+      "Gastrointestinal",
+      "Behavioral",
+      "Growth",
+      "Laboratory",
+      "Maternal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000964",
+      "HP:0001596",
+      "HP:0002014",
+      "HP:0000737",
+      "HP:0004396",
+      "HP:0001531",
+      "HP:0031831",
+      "HP:0003282",
+      "HP:6000700"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SLC30A2"
+    ],
+    "treatments": [
+      "Oral Zinc Supplementation of the Infant",
+      "Maternal Zinc Supplementation"
+    ],
+    "environmental": [
+      "Exclusive breastfeeding by an affected mother"
+    ],
+    "biochemical": [
+      "Serum zinc"
+    ],
+    "source_file": "Transient_Neonatal_Zinc_Deficiency.yaml",
+    "page_url": "../pages/disorders/Transient_Neonatal_Zinc_Deficiency.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Transitional Cell Carcinoma",
     "disease_id": "MONDO:0006474",
     "category": "",
@@ -418307,17 +418926,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3879,
-  "total_subtypes": 4977,
-  "total_disorders_and_subtypes": 8856,
-  "total_unique_evidence_sources": 57643,
-  "total_unique_publications": 53937,
+  "total_disorder_pages": 3885,
+  "total_subtypes": 4979,
+  "total_disorders_and_subtypes": 8864,
+  "total_unique_evidence_sources": 57761,
+  "total_unique_publications": 54050,
   "total_unique_disease_categories": 61,
-  "total_unique_phenotype_categories": 314,
-  "total_pathographs": 3877,
-  "total_unique_pathological_events": 25444,
+  "total_unique_phenotype_categories": 315,
+  "total_pathographs": 3883,
+  "total_unique_pathological_events": 25481,
   "total_modules": 226,
-  "total_research_reports": 3989,
+  "total_research_reports": 3996,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
