@@ -108319,6 +108319,133 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Congenital Analbuminemia",
+    "disease_id": "MONDO:0014449",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn Error of Metabolism",
+      "Plasma Protein Deficiency"
+    ],
+    "creation_date": "2026-10-31T14:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Congenital analbuminemia is an autosomal recessive disorder in which biallelic loss-of-function variants in ALB (start-codon, nonsense, frameshift and splice-site variants) stop synthesis of serum albumin, leaving it absent or present only in trace amounts. Albumin normally supplies about 80% of plasma oncotic pressure and is the main circulating carrier of long-chain fatty acids, bilirubin, calcium, hormones and many drugs. Its absence is far better tolerated than that would suggest, because the liver raises synthesis of other plasma proteins (globulins, lipoproteins, transferrin, alpha-1-antitrypsin, coagulation factors) and edema-limiting mechanisms operate at the capillary. That compensation is incomplete: total plasma protein stays below the reference range. Adults usually have hypercholesterolemia with raised LDL, mild edema, low blood pressure and fatigue, and some, mostly women, develop a lower-body fat distribution described as lipodystrophy. The prenatal and early childhood periods are the dangerous ones, with miscarriage, preterm birth linked to oligohydramnios and placental abnormalities, and deaths in infancy from fluid retention and lower respiratory tract infection. Recent reports also describe a prothrombotic state, with platelet activation, raised fibrinogen and thrombotic events, and premature coronary disease. The free fraction of albumin-bound drugs is several-fold higher than usual, so dosing needs care.",
+    "pathophysiology": [
+      "Biallelic ALB Loss of Function",
+      "Absent Circulating Albumin",
+      "Reduced Plasma Oncotic Pressure",
+      "Compensatory Upregulation of Non-Albumin Plasma Proteins",
+      "Increased Hepatic Cholesterol and Lipoprotein Synthesis",
+      "Impaired Plasma Fatty Acid and Ligand Transport",
+      "Increased Free Fraction of Albumin-Bound Drugs",
+      "Platelet Activation and Prothrombotic State"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "long-chain fatty acid transport",
+      "platelet activation"
+    ],
+    "phenotypes": [
+      "Hypoalbuminemia",
+      "Hypoproteinemia",
+      "Elevated circulating globulin concentration",
+      "Hypercholesterolemia",
+      "Increased LDL cholesterol concentration",
+      "Hypertriglyceridemia",
+      "Edema",
+      "Hypotension",
+      "Fatigue",
+      "Lipodystrophy",
+      "Recurrent respiratory infections",
+      "Premature birth",
+      "Diarrhea",
+      "Abdominal pain",
+      "Hypocalcemia",
+      "Hypoglycemia",
+      "Polyhydramnios",
+      "Oligohydramnios",
+      "Placental infarction",
+      "Hydrops fetalis",
+      "Hypercoagulability",
+      "Coronary artery atherosclerosis"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Cardiovascular",
+      "Constitutional",
+      "Integumentary",
+      "Respiratory",
+      "Pregnancy",
+      "Digestive",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003073",
+      "HP:0003075",
+      "HP:0032311",
+      "HP:0003124",
+      "HP:0003141",
+      "HP:0002155",
+      "HP:0000969",
+      "HP:0002615",
+      "HP:0012378",
+      "HP:0009125",
+      "HP:0002205",
+      "HP:0001622",
+      "HP:0002014",
+      "HP:0002027",
+      "HP:0002901",
+      "HP:0001943",
+      "HP:0001561",
+      "HP:0001562",
+      "HP:0011416",
+      "HP:0001789",
+      "HP:0100724",
+      "HP:0001677"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "ALB"
+    ],
+    "treatments": [
+      "Albumin Infusion",
+      "Statin Therapy",
+      "Liposuction With Compression Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_Analbuminemia.yaml",
+    "page_url": "../pages/disorders/Congenital_Analbuminemia.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Congenital Aural Atresia",
     "disease_id": "MONDO:0011921",
     "category": "Mendelian",
@@ -113069,6 +113196,121 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "14",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Congenital Nephrotic Syndrome, Finnish Type",
+    "disease_id": "MONDO:0009732",
+    "category": "Mendelian",
+    "parents": [
+      "Familial Nephrotic Syndrome"
+    ],
+    "creation_date": "2026-10-31T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive nephrotic syndrome caused by biallelic pathogenic variants in NPHS1, which encodes nephrin, an immunoglobulin-superfamily transmembrane protein of the glomerular podocyte that is the first identified structural component of the slit diaphragm between podocyte foot processes. The two Finnish founder alleles, Fin-major and Fin-minor, are truncating and abolish nephrin; most alleles found outside Finland are missense variants whose protein is retained in the endoplasmic reticulum. Without nephrin the slit diaphragm does not form, foot processes efface and the glomerular filter leaks plasma proteins massively from fetal life. Proteinuria begins in utero, raising alpha-fetoprotein in amniotic fluid and maternal serum and accompanying a large placenta, and full nephrotic syndrome is present at or within weeks of birth. The ensuing protein loss drives hypoalbuminaemia and oedema, loss of thyroxine-binding proteins with secondary hypothyroidism, infections and thrombosis. The disease does not respond to immunosuppression; management is supportive (albumin infusion, thyroxine, renin-angiotensin inhibition with indomethacin, nephrectomy and dialysis) until kidney transplantation. About a quarter of grafts in Fin-major homozygotes, who have never expressed nephrin, develop recurrent nephrotic syndrome associated with anti-nephrin antibodies.",
+    "pathophysiology": [
+      "Biallelic NPHS1 Loss of Function",
+      "Endoplasmic Reticulum Retention of Missense Nephrin",
+      "Absence of the Podocyte Slit Diaphragm",
+      "Glomerular Filtration Barrier Failure",
+      "Massive Urinary Protein Loss",
+      "Post-Transplant Anti-Nephrin Immunity"
+    ],
+    "cell_types": [
+      "podocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000653"
+    ],
+    "biological_processes": [
+      "protein localization to plasma membrane",
+      "slit diaphragm assembly",
+      "glomerular filtration"
+    ],
+    "phenotypes": [
+      "Proteinuria",
+      "Nephrotic syndrome",
+      "Podocyte foot process effacement",
+      "Hypoalbuminemia",
+      "Edema",
+      "Large placenta",
+      "Elevated amniotic fluid alpha-fetoprotein",
+      "Hypercholesterolemia",
+      "Hydrops fetalis",
+      "Tubular microcystic change",
+      "Hypothyroidism",
+      "Recurrent infections",
+      "Abnormal thrombosis",
+      "Stage 5 chronic kidney disease",
+      "Dystonia",
+      "Athetosis",
+      "Recurrent Nephrotic Syndrome in the Kidney Graft"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Laboratory",
+      "Cardiovascular",
+      "Pregnancy",
+      "Endocrine",
+      "Immunological",
+      "Hematological",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Endocrine",
+      "Genitourinary",
+      "Immune",
+      "Metabolism",
+      "Nervous System",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0000093",
+      "HP:0000100",
+      "HP:0031266",
+      "HP:0003073",
+      "HP:0000969",
+      "HP:0006267",
+      "HP:0004639",
+      "HP:0003124",
+      "HP:0001789",
+      "HP:0032962",
+      "HP:0000821",
+      "HP:0002719",
+      "HP:0001977",
+      "HP:0003774",
+      "HP:0001332",
+      "HP:0002305"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "NPHS1"
+    ],
+    "treatments": [
+      "Albumin Infusion and Supportive Care",
+      "ACE Inhibitor with Indomethacin",
+      "Nephrectomy and Dialysis",
+      "Thyroxine Replacement",
+      "Kidney Transplantation",
+      "Cyclophosphamide for Graft Recurrence",
+      "Plasma Exchange and Rituximab for Graft Recurrence"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_Nephrotic_Syndrome_Finnish_Type.yaml",
+    "page_url": "../pages/disorders/Congenital_Nephrotic_Syndrome,_Finnish_Type.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Congenital Primary Lymphedema of Gordon",
@@ -177862,7 +178104,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "27",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "6"
   },
   {
@@ -207496,6 +207738,87 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 3,
     "causal_graph_edges": "19",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "IMPG1-related Dominant Retinopathy",
+    "disease_id": "MONDO:1040036",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-10-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Dominant VMD",
+      "BCAMD RP"
+    ],
+    "description": "IMPG1-related dominant retinopathy is an inherited retinal disease caused by heterozygous (monoallelic) pathogenic variants in IMPG1, which encodes interphotoreceptor matrix proteoglycan 1 (SPACR, also IPM150), a secreted glycoprotein made by rod and cone photoreceptors and deposited in the interphotoreceptor matrix (IPM) that fills the subretinal space between photoreceptor outer segments and the retinal pigment epithelium (RPE). The prototypical allele is the SEA1-domain missense change p.Leu238Arg, found in three autosomal dominant vitelliform macular dystrophy families, which is not a null allele and is proposed to act by a dominant-negative mechanism within the matrix; a second missense change at the same codon (p.Leu238Pro), a dominant splice variant, and the perifoveal-maculopathy allele p.Leu579Pro are also reported. The clinical spectrum spans an adult-onset vitelliform macular dystrophy with a central subfoveal vitelliform deposit, normal or only mildly reduced electrooculogram Arden ratio, and mild slowly progressive central vision loss, and an autosomal dominant retinitis pigmentosa, including the entity first described as benign concentric annular macular dystrophy whose diagnosis was later revised to retinitis pigmentosa with early macular involvement. The ClinGen Retina Gene Curation Expert Panel classifies the monoallelic IMPG1 disease as Definitive and separates it from the biallelic (recessive) IMPG1 disease because carriers of a single recessive null allele are unaffected, whereas the dominant alleles cause disease in the heterozygous state. No disease-specific treatment exists.",
+    "pathophysiology": [
+      "Non-null Heterozygous IMPG1 Variant",
+      "Interphotoreceptor Matrix Disorganization",
+      "Photoreceptor Outer Segment Disorganization",
+      "Subretinal Autofluorescent Material Accumulation",
+      "Photoreceptor Degeneration"
+    ],
+    "cell_types": [
+      "retinal rod cell",
+      "retinal cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000604",
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "extracellular matrix organization",
+      "photoreceptor cell outer segment organization",
+      "photoreceptor cell maintenance"
+    ],
+    "phenotypes": [
+      "Vitelliform-like macular lesions",
+      "Reduced visual acuity",
+      "Rod-cone dystrophy",
+      "Nyctalopia",
+      "Attenuation of retinal blood vessels",
+      "Drusen-like macular lesions",
+      "Pattern dystrophy",
+      "Parafoveal hypopigmentation"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0007677",
+      "HP:0007663",
+      "HP:0000510",
+      "HP:0000662",
+      "HP:0007843",
+      "HP:0030499",
+      "HP:0007963",
+      "HP:0007988"
+    ],
+    "frequencies": [],
+    "genes": [
+      "IMPG1"
+    ],
+    "treatments": [
+      "Supportive and low-vision care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "IMPG1-related_Dominant_Retinopathy.yaml",
+    "page_url": "../pages/disorders/IMPG1-related_Dominant_Retinopathy.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "5"
   },
   {
@@ -418926,17 +419249,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3885,
-  "total_subtypes": 4979,
-  "total_disorders_and_subtypes": 8864,
-  "total_unique_evidence_sources": 57761,
-  "total_unique_publications": 54050,
+  "total_disorder_pages": 3888,
+  "total_subtypes": 4981,
+  "total_disorders_and_subtypes": 8869,
+  "total_unique_evidence_sources": 57814,
+  "total_unique_publications": 54100,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3883,
-  "total_unique_pathological_events": 25481,
+  "total_pathographs": 3886,
+  "total_unique_pathological_events": 25495,
   "total_modules": 226,
-  "total_research_reports": 3996,
+  "total_research_reports": 3999,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
