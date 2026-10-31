@@ -106089,6 +106089,122 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Combined Oxidative Phosphorylation Deficiency 60",
+    "disease_id": "MONDO:0978298",
+    "category": "Mendelian",
+    "parents": [
+      "Combined Oxidative Phosphorylation Deficiency",
+      "Mitochondrial Disease"
+    ],
+    "creation_date": "2026-10-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "COXPD60 (OMIM 621195) is the combined oxidative phosphorylation deficiency caused by biallelic variants in MRPL49, the nuclear gene for mL49, a protein of the large (39S) subunit of the mitochondrial ribosome. The disease was defined in 2025 from nine unrelated families. Three missense alleles altering arginine 88 or histidine 92, in a loop that contacts the 16S rRNA, account for all but one allele. Patient fibroblasts have less 16S rRNA, fewer large and small mitoribosomal subunits without a detectable assembly block, and reduced complexes I and IV.\nThe clinical range is wide. At the mild end it is Perrault syndrome: sensorineural hearing loss with primary ovarian insufficiency in females. At the severe end it is a childhood-onset progressive leukoencephalopathy with symmetrical globus pallidus signal change, learning disability, microcephaly and retinal dystrophy. One adult deteriorated with refractory epilepsy and psychosis and died. Hypoglycaemia, raised lactate and renal disease occur in some individuals, but cardiomyopathy and liver disease, common in other mitoribosomal large-subunit disorders, were not reported.",
+    "pathophysiology": [
+      "Biallelic Hypomorphic MRPL49 Variants",
+      "Reduced 16S rRNA and Mitoribosome Content",
+      "Reduced Mitochondrial Translation",
+      "Combined Complex I and IV Deficiency",
+      "Mitochondrial Energy Failure in High-Demand Tissues"
+    ],
+    "cell_types": [
+      "dermal fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "mitochondrial translation",
+      "oxidative phosphorylation"
+    ],
+    "phenotypes": [
+      "Sensorineural hearing impairment",
+      "Premature ovarian insufficiency",
+      "Hypergonadotropic hypogonadism",
+      "Primary amenorrhea",
+      "Leukodystrophy",
+      "Abnormal basal ganglia MRI signal intensity",
+      "Cerebellar atrophy",
+      "Intellectual disability",
+      "Global developmental delay",
+      "Ataxia",
+      "Microcephaly",
+      "Seizure",
+      "Retinal dystrophy",
+      "Dystonia",
+      "Tremor",
+      "Strabismus",
+      "Short stature",
+      "Hypoglycemia",
+      "Increased circulating lactate concentration",
+      "Chronic kidney disease"
+    ],
+    "phenotype_categories": [
+      "Hearing",
+      "Reproductive",
+      "Endocrine",
+      "Neurological",
+      "Ophthalmological",
+      "Growth",
+      "Metabolic",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000407",
+      "HP:0008209",
+      "HP:0000815",
+      "HP:0000786",
+      "HP:0002415",
+      "HP:0012751",
+      "HP:0001272",
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0001251",
+      "HP:0000252",
+      "HP:0001250",
+      "HP:0000556",
+      "HP:0001332",
+      "HP:0001337",
+      "HP:0000486",
+      "HP:0004322",
+      "HP:0001943",
+      "HP:0002151",
+      "HP:0012622"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "MRPL49"
+    ],
+    "treatments": [
+      "Oestrogen Replacement Therapy",
+      "Hearing Aids and Cochlear Implantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Combined_Oxidative_Phosphorylation_Deficiency_60.yaml",
+    "page_url": "../pages/disorders/Combined_Oxidative_Phosphorylation_Deficiency_60.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Combined Pituitary Hormone Deficiencies, Genetic Form",
     "disease_id": "MONDO:0018762",
     "category": "Mendelian",
@@ -143463,7 +143579,9 @@ window.searchData = [
     "genes": [
       "PRDM8"
     ],
-    "treatments": [],
+    "treatments": [
+      "Symptomatic antiseizure therapy"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Early-onset_Lafora_Body_Disease.yaml",
@@ -143471,7 +143589,7 @@ window.searchData = [
     "num_phenotypes": 5,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 0,
+    "num_treatments": 1,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "6"
   },
@@ -186649,6 +186767,7 @@ window.searchData = [
       "HP:0040242",
       "HP:0004846",
       "HP:0011858",
+      "HP:0003040",
       "HP:0002829",
       "HP:0011891",
       "HP:0002170",
@@ -209587,7 +209706,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 3,
     "num_treatments": 5,
-    "causal_graph_edges": "24",
+    "causal_graph_edges": "25",
     "causal_graph_longest_path": "10"
   },
   {
@@ -242111,14 +242230,16 @@ window.searchData = [
       "Genetic Counselling"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Neutrophil sialyl-Lewis X (CD15s)"
+    ],
     "source_file": "Leukocyte_Adhesion_Deficiency_Type_II.yaml",
     "page_url": "../pages/disorders/Leukocyte_Adhesion_Deficiency_Type_II.html",
     "num_phenotypes": 5,
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "19",
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "7"
   },
   {
@@ -278071,6 +278192,79 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Mycobacterium Xenopi Infection",
+    "disease_id": "MONDO:0017832",
+    "category": "Infectious Disease",
+    "parents": [
+      "Mycobacterial infectious disease"
+    ],
+    "creation_date": "2026-09-30T10:37:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mycobacterium xenopi infection is a nontuberculous mycobacterial infection in which inhaled environmental M. xenopi survives in pulmonary macrophage compartments, drives granulomatous airway and parenchymal inflammation, and can produce chronic cavitary lung disease.",
+    "pathophysiology": [
+      "Inhaled Mycobacterium xenopi Seeding",
+      "Pulmonary Macrophage Persistence",
+      "Granulomatous Pulmonary Inflammation",
+      "Fibrocavitary Pulmonary Remodeling",
+      "Requirement for Cell-Penetrant Antimicrobial Therapy"
+    ],
+    "cell_types": [
+      "alveolar macrophage",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000583",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "biological process involved in interaction with host",
+      "phagocytosis",
+      "macrophage activation",
+      "response to antibiotic"
+    ],
+    "phenotypes": [
+      "Productive cough",
+      "Cough",
+      "Dyspnea",
+      "Bronchiectasis",
+      "Pulmonary cavity"
+    ],
+    "phenotype_categories": [
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0031245",
+      "HP:0012735",
+      "HP:0002094",
+      "HP:0002110",
+      "HP:0033655"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "M. xenopi multidrug therapy"
+    ],
+    "environmental": [
+      "Structural lung disease and prior tuberculosis damage",
+      "Immunosuppression"
+    ],
+    "biochemical": [],
+    "source_file": "Mycobacterium_Xenopi_Infection.yaml",
+    "page_url": "../pages/disorders/Mycobacterium_Xenopi_Infection.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Mycoplasma Pneumoniae Pneumonia",
     "disease_id": "MONDO:0005867",
     "category": "Infectious Disease",
@@ -294778,9 +294972,10 @@ window.searchData = [
     "subtypes": [
       "MAC",
       "M. abscessus",
-      "M. kansasii"
+      "M. kansasii",
+      "M. xenopi"
     ],
-    "description": "Nontuberculous mycobacterial (NTM) lung disease is a chronic pulmonary infection caused by environmental mycobacteria other than the Mycobacterium tuberculosis complex and M. leprae, most commonly Mycobacterium avium complex (MAC), and also M. kansasii and the rapidly growing M. abscessus. NTM are ubiquitous in water and soil and are acquired by inhalation of aerosols; disease develops preferentially in hosts with structural lung disease (bronchiectasis, COPD, cystic fibrosis) or impaired immunity, and in slender postmenopausal women without recognized immunodeficiency. It presents insidiously with chronic cough, sputum, fatigue, and weight loss, and follows nodular-bronchiectatic or fibrocavitary radiographic patterns. Cure is difficult and requires prolonged multidrug macrolide-based regimens.",
+    "description": "Nontuberculous mycobacterial (NTM) lung disease is a chronic pulmonary infection caused by environmental mycobacteria other than the Mycobacterium tuberculosis complex and M. leprae, most commonly Mycobacterium avium complex (MAC), and also M. xenopi, M. kansasii, and the rapidly growing M. abscessus. NTM are ubiquitous in water and soil and are acquired by inhalation of aerosols; disease develops preferentially in hosts with structural lung disease (bronchiectasis, COPD, cystic fibrosis) or impaired immunity, and in slender postmenopausal women without recognized immunodeficiency. It presents insidiously with chronic cough, sputum, fatigue, and weight loss, and follows nodular-bronchiectatic or fibrocavitary radiographic patterns. Cure is difficult and requires prolonged multidrug regimens chosen by species.",
     "pathophysiology": [
       "Environmental NTM Exposure and Aerosol Inhalation",
       "Structural Lung Disease Predisposition",
@@ -370218,6 +370413,71 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Spermatogenic Failure 16",
+    "disease_id": "MONDO:0014961",
+    "category": "Mendelian",
+    "parents": [
+      "Spermatogenic Failure",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-10-31T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spermatogenic failure 16 (SPGF16) is autosomal recessive male infertility caused by biallelic loss-of-function variants in SUN5, a testis-specific SUN domain protein of the sperm nuclear envelope. Affected men are otherwise healthy and present with acephalic spermatozoa syndrome: the ejaculate contains mostly headless flagella, a minority of tail-less heads, and a few intact spermatozoa with an abnormal head-tail junction. SUN5 sits in the posterior nuclear envelope at the implantation fossa, where it is thought to form a LINC (linker of nucleoskeleton and cytoskeleton) bridge that holds the head-tail coupling apparatus against the nucleus. Without it, the coupling apparatus separates from the nucleus during spermatid elongation and the break lies between the nucleus and the proximal centriole. Nonsense, frameshift, splice-site, missense and whole-gene deletion alleles are reported, and SUN5 is the most frequently mutated gene in acephalic spermatozoa syndrome, with a founder splice-site duplication common in men of North African origin. Intracytoplasmic sperm injection (ICSI) with the detached heads has mostly given good fertilization and pregnancy rates.",
+    "pathophysiology": [
+      "Loss of SUN5 Protein",
+      "Disrupted SUN5 Nuclear Envelope Anchoring Complex",
+      "Defective Sperm Head-Tail Coupling",
+      "Impaired Germ Cell Nuclear mRNA Export"
+    ],
+    "cell_types": [
+      "elongating spermatid",
+      "male germ cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000018",
+      "CL:0000015"
+    ],
+    "biological_processes": [
+      "spermatid development",
+      "mRNA export from nucleus"
+    ],
+    "phenotypes": [
+      "Male infertility",
+      "Acephalic spermatozoa",
+      "Abnormal sperm neck morphology"
+    ],
+    "phenotype_categories": [
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary"
+    ],
+    "phenotype_ids": [
+      "HP:0003251",
+      "HP:0012869",
+      "HP:0012866"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SUN5"
+    ],
+    "treatments": [
+      "Intracytoplasmic Sperm Injection",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spermatogenic_Failure_16.yaml",
+    "page_url": "../pages/disorders/Spermatogenic_Failure_16.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Spermatogenic Failure 18",
     "disease_id": "MONDO:0054615",
     "category": "Mendelian",
@@ -417122,17 +417382,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3867,
-  "total_subtypes": 4969,
-  "total_disorders_and_subtypes": 8836,
-  "total_unique_evidence_sources": 57415,
-  "total_unique_publications": 53712,
+  "total_disorder_pages": 3870,
+  "total_subtypes": 4970,
+  "total_disorders_and_subtypes": 8840,
+  "total_unique_evidence_sources": 57443,
+  "total_unique_publications": 53740,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 314,
-  "total_pathographs": 3865,
-  "total_unique_pathological_events": 25370,
+  "total_pathographs": 3868,
+  "total_unique_pathological_events": 25380,
   "total_modules": 225,
-  "total_research_reports": 3977,
+  "total_research_reports": 3980,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
