@@ -52,7 +52,7 @@ on:
         default: "1"
         type: string
       max_review_retries:
-        description: "Maximum failed review runs to retry (0 disables retries)"
+        description: "Maximum failed review runs, and separately failed issue-workflow runs, to retry (0 disables retries)"
         default: "5"
         type: string
       max_cache_repairs:
@@ -111,7 +111,9 @@ jobs:
           python scripts/expire_pr_assignments.py "${args[@]}"
 
   retry-reviews:
-    # Independent of the agent, its shortlist, and the merge controller.
+    # Independent of the agent, its shortlist, and the merge controller. Also
+    # reruns failed issue-opened workflows (triage, summarize, dedupe), whose
+    # event cannot fire again once the issue exists (#13150).
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
@@ -122,6 +124,7 @@ jobs:
       actions: read
       checks: read
       pull-requests: read
+      issues: read
     env:
       DRY_RUN: ${{ inputs.dry_run || false }}
       RETRY_DELAY: ${{ inputs.review_retry_delay_hours || '1' }}
@@ -145,7 +148,7 @@ jobs:
           app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
           private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
           permission-actions: write
-      - name: Retry failed reviews (deterministic)
+      - name: Retry failed reviews and issue workflows (deterministic)
         env:
           GH_TOKEN: ${{ github.token }}
           GH_RETRY_TOKEN: ${{ steps.retry-token.outputs.token }}

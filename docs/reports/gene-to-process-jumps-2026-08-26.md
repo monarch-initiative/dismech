@@ -169,9 +169,11 @@ The pytest `test_no_newly_ungrounded_genes` is the exact twin of that step and
 is marked `ci_step_twin`, so it is deselected from the lane and still runs
 locally and in the nightly sweep; `tests/test_ci_step_twins.py` fails if the
 step is ever removed or path-gated, which brings the twin back into the lane.
-`tests/gene_activity_grounding_baseline.txt` (2,816 findings) is the local and
+`tests/gene_activity_grounding_baseline.txt` (2,816 findings) is the
 shallow-checkout fallback, and is allowed to drift stale-high: a line for a gene
-since grounded grandfathers nothing.
+since grounded grandfathers nothing. (A local run with no ref compares against
+the merge base of `HEAD` and `origin/main` since #15446; before that it read
+this file, and failed on hundreds of genes the branch never touched.)
 
 Grandfathering a *new* line stays legitimate for the two shapes above — a
 many-gene bundle, and a class whose members share no molecular function.

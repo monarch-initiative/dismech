@@ -11,6 +11,7 @@ from typing import Any
 
 import typer
 
+from dismech.repo_root import repo_root
 from dismech.yaml_io import safe_load
 
 from .support import (
@@ -43,9 +44,12 @@ _FIELD_ALIASES = {
     "orphanet_match_count": ["orphanet_match_count", "orphanet_count"],
 }
 
-_DEFAULT_CONFIG_PATH = (
-    Path(__file__).resolve().parents[3] / "conf" / "mondo_prioritizer.yaml"
-)
+
+def _default_config_path() -> Path:
+    """``conf/mondo_prioritizer.yaml`` of the checkout the command runs in (#15109)."""
+    return repo_root() / "conf" / "mondo_prioritizer.yaml"
+
+
 _TRUE_VALUES = {"1", "true", "t", "yes", "y"}
 _CONJUNCTION_PATTERN = re.compile(r"\b(with|and|or)\b", re.IGNORECASE)
 
@@ -242,6 +246,9 @@ def iter_covered_mondo_ids(
     listed as subtypes) are correctly identified as already covered. Broad,
     close, and related mappings are cross-references, not assertions that the
     mapped MONDO concept itself has been curated.
+
+    `dismech.stubs.model.build_coverage_index` persists what this returns per
+    file between runs; bump its `COVERAGE_CACHE_VERSION` when changing it.
     """
     pairs: list[tuple[str, str]] = []
 
@@ -308,7 +315,7 @@ def build_coverage_index(kb_dir: Path) -> CoverageIndex:
 
 def load_config(path: Path | None = None) -> dict[str, Any]:
     """Load prioritizer config, defaulting to the repo config."""
-    config_path = path or _DEFAULT_CONFIG_PATH
+    config_path = path or _default_config_path()
     payload = safe_load(config_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError(f"Config at {config_path} must be a YAML object")
@@ -658,13 +665,15 @@ def score_command(
         help="TSV/CSV/JSON/JSONL file of MONDO candidates.",
     ),
     kb_dir: Path = typer.Option(
-        default_kb_dir(),
+        ...,
         "--kb-dir",
+        default_factory=default_kb_dir,
         help="Path to kb/disorders for local coverage checks.",
     ),
     config: Path = typer.Option(
-        _DEFAULT_CONFIG_PATH,
+        ...,
         "--config",
+        default_factory=_default_config_path,
         help="YAML config file with weights, caps, and heuristics.",
     ),
     format: str = typer.Option(

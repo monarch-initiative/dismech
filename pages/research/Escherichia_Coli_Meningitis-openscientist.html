@@ -1,0 +1,1567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escherichia coli meningitis · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Escherichia coli meningitis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Escherichia coli meningitis</h1>
+                
+                <p class="report-subtitle">Escherichia coli Meningitis — Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-29</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0006753" target="_blank" rel="noopener noreferrer">MONDO:0006753</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">39 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Escherichia coli Meningitis — Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> <em>Escherichia coli</em> meningitis
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0006753" target="_blank" rel="noopener noreferrer">MONDO:0006753</a>
+<strong>Category:</strong> Infectious Disease
+<strong>Report type:</strong> Disease knowledge base entry (multi-iteration autonomous literature synthesis)</p>
+<hr />
+<h2>Summary</h2>
+<p><em>Escherichia coli</em> meningitis is an acute bacterial infection of the meninges and cerebrospinal fluid (CSF) that is, worldwide, the <strong>leading Gram-negative cause of neonatal bacterial meningitis</strong>. The overwhelming majority of neonatal cases are caused by a specialized pathotype — <strong>neonatal-meningitis <em>E. coli</em> (NMEC)</strong> — that carries the <strong>K1 capsular polysaccharide</strong> and belongs predominantly to <strong>extraintestinal pathogenic <em>E. coli</em> (ExPEC) phylogroup B2, sequence-type complex 95 (ST95)</strong>, serotypes O18:K1, O1:K1, and O2:K1. Approximately 80% of neonatal-meningitis <em>E. coli</em> express the K1 capsule. In contemporary early-onset neonatal meningitis cohorts, <em>E. coli</em> and Group B <em>Streptococcus</em> (GBS) are co-predominant, with one 20-year cohort attributing 37.1% of blood-culture-positive cases to <em>E. coli</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/42661190/" target="_blank" rel="noopener noreferrer">PMID: 42661190</a>].</p>
+<p>The pathogenesis follows a well-defined causal chain. The K1 sialic-acid capsule confers resistance to the <strong>alternative complement pathway</strong>, enabling the bacterium to achieve and sustain <strong>high-grade bacteremia</strong>. A threshold level of bacteremia leads to <strong>receptor-mediated transcytosis across the blood-brain barrier (BBB)</strong> at the level of human brain microvascular endothelial cells (HBMEC), mediated by at least three independent invasin–receptor–signaling modules: <strong>OmpA→Ecgp96(gp96)→PI3K</strong>, <strong>CNF1→37LRP→RhoA</strong>, and <strong>IbeA→vimentin/PSF→ERK–NF-κB</strong>. Crucially, bacterial entry occurs by <strong>transcellular transcytosis without initial disruption of endothelial tight junctions</strong>. Downstream, invasion triggers <strong>RIPK1/ripoptosome-dependent regulated endothelial cell death</strong> (coordinated apoptosis, pyroptosis, and necroptosis) together with <strong>neutrophil (PMN) transmigration</strong> driven by IbeA/vimentin and upregulated ICAM-1/CD44, culminating in <strong>BBB breakdown, neuroinflammation, and neuronal injury</strong>.</p>
+<p>Despite modern antimicrobial therapy (third-generation cephalosporins ± aminoglycoside or meropenem for resistant strains), outcomes remain poor: <strong>mortality of 12% (term) to 18% (preterm)</strong>, with <strong>long-term neurosensorial sequelae in 14–17%</strong> and <strong>neurodevelopmental sequelae in 10–17%</strong> of survivors. Ampicillin resistance is high (~78%), and ESBL/ST131 clones threaten empirical regimens. <strong>No licensed vaccine exists</strong>; the conserved surface polysaccharide <strong>PNAG</strong> and <strong>OmpA</strong> are the leading experimental candidates, both showing proof-of-concept protection in neonatal mouse models. This report organizes 14 confirmed findings across the 15 requested disease-characteristic domains.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> <em>E. coli</em> meningitis is an acute pyogenic (purulent) bacterial meningitis caused by the Gram-negative bacillus <em>Escherichia coli</em>. It is predominantly a <strong>disease of the neonate</strong> (birth–28 days, extending to young infants &lt;90 days), although it also occurs in older adults, immunocompromised hosts, and as a nosocomial/post-neurosurgical complication (e.g., ventriculoperitoneal shunts, transsphenoidal surgery). It is the leading Gram-negative bacterial cause of neonatal meningitis worldwide [<a href="https://pubmed.ncbi.nlm.nih.gov/36709579/" target="_blank" rel="noopener noreferrer">PMID: 36709579</a>].</p>
+<blockquote>
+<p>"Worldwide, Escherichia coli is the leading cause of neonatal Gram-negative bacterial meningitis, but full understanding of the pathogenesis of this disease is not yet achieved." — <a href="https://pubmed.ncbi.nlm.nih.gov/36709579/">PMID: 36709579</a></p>
+</blockquote>
+<p><strong>Key identifiers.</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0006753" target="_blank" rel="noopener noreferrer">MONDO:0006753</a>
+- <strong>MeSH:</strong> <em>Meningitis, Escherichia coli</em> (a subtype under <em>Meningitis, Bacterial</em> / <em>Central Nervous System Bacterial Infections</em>)
+- <strong>ICD-10:</strong> G00.8 (Other bacterial meningitis); P36/P37 codes apply in neonatal sepsis/congenital-infection contexts
+- <strong>ICD-11:</strong> 1D00 (Bacterial meningitis) with an <em>E. coli</em> causal extension code
+- <strong>OMIM / Orphanet:</strong> Not a Mendelian disorder; no OMIM phenotype number. Not assigned a distinct Orphanet rare-disease number (infectious, not genetic).</p>
+<p><strong>Synonyms / alternative names.</strong> <em>Escherichia coli</em> meningitis; <em>E. coli</em> meningitis; neonatal <em>E. coli</em> meningitis; <em>E. coli</em> K1 meningitis; Gram-negative enteric bacillary meningitis (when grouped); neonatal-meningitis <em>E. coli</em> (NMEC) infection of the CNS.</p>
+<p><strong>Information source type.</strong> This knowledge base entry is derived from <strong>aggregated disease-level resources</strong> — population-based surveillance, retrospective cohorts, mechanistic in vitro (HBMEC) and animal-model studies, and reviews — rather than individual EHR-level patient records.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause (infectious).</strong> The disease is caused by infection with <em>Escherichia coli</em>, chiefly the <strong>K1-encapsulated NMEC pathotype</strong>. K1 strains account for ~80% of neonatal-meningitis <em>E. coli</em>.</p>
+<blockquote>
+<p>"Escherichia coli K1 is the leading cause of neonatal gram-negative bacterial meningitis, but the pathogenesis of E coli K1 meningitis remains unclear." — <a href="https://pubmed.ncbi.nlm.nih.gov/38531686/">PMID: 38531686</a></p>
+</blockquote>
+<p><strong>Risk factors (host / environmental).</strong>
+- <strong>Prematurity</strong> (OR 5.84, 95% CI 2.02–16.85) and <strong>low birth weight</strong> (OR 8.48, 95% CI 2.60–27.69) are strong independent risk factors for death in neonatal bacterial meningitis [<a href="https://pubmed.ncbi.nlm.nih.gov/29384979/" target="_blank" rel="noopener noreferrer">PMID: 29384979</a>].
+- <strong>Neonatal age</strong> itself — an immature immune system and immature/permeable BBB.
+- <strong>Maternal genitourinary/intestinal colonization</strong> with ExPEC (vertical transmission) driving early-onset disease; nosocomial acquisition for late-onset disease.
+- <strong>Twin/multiple gestation</strong> — shared exposure and genetic factors increase risk; twin concordance ~35% in cohort/surveillance studies [<a href="https://pubmed.ncbi.nlm.nih.gov/42497927/" target="_blank" rel="noopener noreferrer">PMID: 42497927</a>].
+- <strong>Neurosurgical devices / procedures</strong> in older patients (VP shunts, transsphenoidal surgery, CSF leak, diabetes) [<a href="https://pubmed.ncbi.nlm.nih.gov/29191537/" target="_blank" rel="noopener noreferrer">PMID: 29191537</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/34522514/" target="_blank" rel="noopener noreferrer">PMID: 34522514</a>].
+- <strong>Immunocompromise</strong> in adults (community-acquired <em>E. coli</em> meningoencephalitis/brain abscess) [<a href="https://pubmed.ncbi.nlm.nih.gov/40809603/" target="_blank" rel="noopener noreferrer">PMID: 40809603</a>].</p>
+<p><strong>Genetic risk factors (host).</strong> No established Mendelian human susceptibility gene is specific to <em>E. coli</em> meningitis. Host susceptibility is essentially <strong>non-genetic</strong>, driven by developmental immaturity. (In an animal model, loss of <strong>Trefoil Factor 2 (Tff2)</strong> sensitized rat pups to systemic <em>E. coli</em> K1 infection [<a href="https://pubmed.ncbi.nlm.nih.gov/30833331/" target="_blank" rel="noopener noreferrer">PMID: 30833331</a>] — a model finding, not a validated human risk locus.) The critical "genetics" of this disease reside in the <strong>pathogen genome</strong> (virulence-gene repertoire; see Section 4).</p>
+<p><strong>Protective factors.</strong> Specific anti-K1/anti-capsular antibody protects against complement-resistant bacteremia (the K1 capsule evades complement only <em>in the absence</em> of specific antibody) [<a href="https://pubmed.ncbi.nlm.nih.gov/6196296/" target="_blank" rel="noopener noreferrer">PMID: 6196296</a>]. In a small twin subgroup, <strong>pre-emptive antibiotics</strong> for a well-appearing co-twin were associated with lower disease risk (11% vs 56%, p=0.03) [<a href="https://pubmed.ncbi.nlm.nih.gov/42497927/" target="_blank" rel="noopener noreferrer">PMID: 42497927</a>]. A probiotic <em>Bifidobacterium</em> mixture prevented neonatal <em>E. coli</em> K1 translocation in a model system [<a href="https://pubmed.ncbi.nlm.nih.gov/28979247/" target="_blank" rel="noopener noreferrer">PMID: 28979247</a>].</p>
+<p><strong>Gene–environment interactions.</strong> The dominant interaction is between <strong>pathogen virulence genotype</strong> (K1 capsule, <em>ompA</em>, <em>cnf1</em>, <em>ibeA</em>, GimA island) and the <strong>host developmental window</strong> (neonatal BBB permeability, immature complement/antibody repertoire). No classical human GxE locus is defined.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Neonatal <em>E. coli</em> meningitis presents <strong>nonspecifically</strong>; classic meningeal signs are frequently absent. In a UK/Ireland population-based cohort of infants &lt;90 days (n=263 with clinical data) [<a href="https://pubmed.ncbi.nlm.nih.gov/29384979/" target="_blank" rel="noopener noreferrer">PMID: 29384979</a>]:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype (HPO suggestion)</th>
+<th>Frequency</th>
+<th>Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever (<a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a>)</td>
+<td>54%</td>
+<td>Symptom/sign</td>
+</tr>
+<tr>
+<td>Seizures (<a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a>)</td>
+<td>28%</td>
+<td>Clinical sign</td>
+</tr>
+<tr>
+<td>Bulging anterior fontanelle (<a href="http://purl.obolibrary.org/obo/HP_0004474" target="_blank" rel="noopener noreferrer">HP:0004474</a> / <a href="http://purl.obolibrary.org/obo/HP_0005484" target="_blank" rel="noopener noreferrer">HP:0005484</a>)</td>
+<td>22%</td>
+<td>Physical sign</td>
+</tr>
+<tr>
+<td>Coma / reduced consciousness (<a href="http://purl.obolibrary.org/obo/HP_0001259" target="_blank" rel="noopener noreferrer">HP:0001259</a>)</td>
+<td>6%</td>
+<td>Clinical sign</td>
+</tr>
+<tr>
+<td>Nuchal rigidity / neck stiffness (<a href="http://purl.obolibrary.org/obo/HP_0031179" target="_blank" rel="noopener noreferrer">HP:0031179</a>)</td>
+<td>3%</td>
+<td>Clinical sign</td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p>"Fever was reported in 143 (54%), seizures in 73 (28%), bulging fontanelle in 58 (22%), coma in 15 (6%) and neck stiffness in 7 (3%)." — <a href="https://pubmed.ncbi.nlm.nih.gov/29384979/">PMID: 29384979</a></p>
+</blockquote>
+<p>Other reported features include lethargy, poor feeding/failure to suck, temperature instability, apnea, irritability, and hypotonia. <strong>Laboratory abnormalities (CSF):</strong> neutrophilic pleocytosis, elevated CSF protein, and <strong>low CSF glucose (hypoglycorrhachia)</strong> (LOINC panels for CSF cell count, protein, glucose) — e.g., a severe example with CSF protein 572 mg/dL and glucose 9.5 mg/dL with abundant PMNs [<a href="https://pubmed.ncbi.nlm.nih.gov/22090305/" target="_blank" rel="noopener noreferrer">PMID: 22090305</a>].</p>
+<ul>
+<li><strong>Age of onset:</strong> neonatal (early-onset ≤72 h; late-onset &gt;72 h to ~28 days; extends to &lt;90 days).</li>
+<li><strong>Severity:</strong> severe, life-threatening.</li>
+<li><strong>Progression:</strong> acute; can be fulminant with rapid deterioration.</li>
+<li><strong>Quality-of-life impact:</strong> survivors frequently suffer hearing loss, epilepsy, cerebral palsy, hydrocephalus, and neurodevelopmental impairment, with major lifelong QoL burden. In the UK/Ireland cohort, 23% of survivors had serious CNS complications at discharge [<a href="https://pubmed.ncbi.nlm.nih.gov/29384979/" target="_blank" rel="noopener noreferrer">PMID: 29384979</a>].</li>
+</ul>
+<p>Suggested HPO terms for complications: <strong>Hydrocephalus (<a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" rel="noopener noreferrer">HP:0000238</a>)</strong>, <strong>Brain abscess (<a href="http://purl.obolibrary.org/obo/HP_0031845" target="_blank" rel="noopener noreferrer">HP:0031845</a>)</strong>, <strong>Ventriculitis</strong>, <strong>Sensorineural hearing impairment (<a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a>)</strong>, <strong>Cerebral palsy (<a href="http://purl.obolibrary.org/obo/HP_0100021" target="_blank" rel="noopener noreferrer">HP:0100021</a>)</strong>, <strong>Global developmental delay (<a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a>)</strong>.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p>Because this is an <strong>infectious</strong>, not inherited, disease, the relevant "genetics" are <strong>bacterial virulence genes</strong>, not human germline variants. There are <strong>no causal human genes, pathogenic ACMG/AMP variants, allele frequencies, modifier genes, chromosomal abnormalities, or germline/somatic classifications</strong> applicable to disease causation. (This section is explicitly <em>not applicable</em> in the classical Mendelian sense for a bacterial infection.)</p>
+<p><strong>Key bacterial virulence determinants (the effective "molecular genetics" of NMEC):</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Gene / locus</th>
+<th>Product</th>
+<th>Role</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>kpsMT</em> / <em>neu</em> (K1 capsule)</td>
+<td>K1 polysialic acid capsule</td>
+<td>Complement (alternative pathway) evasion → bacteremia</td>
+<td>[<a href="https://pubmed.ncbi.nlm.nih.gov/6196296/" target="_blank" rel="noopener noreferrer">PMID: 6196296</a>]</td>
+</tr>
+<tr>
+<td><em>ompA</em></td>
+<td>Outer membrane protein A</td>
+<td>Binds Ecgp96/gp96 → PI3K → invasion</td>
+<td>[<a href="https://pubmed.ncbi.nlm.nih.gov/12860457/" target="_blank" rel="noopener noreferrer">PMID: 12860457</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/24932957/" target="_blank" rel="noopener noreferrer">PMID: 24932957</a>]</td>
+</tr>
+<tr>
+<td><em>cnf1</em></td>
+<td>Cytotoxic necrotizing factor-1</td>
+<td>Binds 37LRP → RhoA activation → BBB traversal</td>
+<td>[<a href="https://pubmed.ncbi.nlm.nih.gov/11877402/" target="_blank" rel="noopener noreferrer">PMID: 11877402</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/12860457/" target="_blank" rel="noopener noreferrer">PMID: 12860457</a>]</td>
+</tr>
+<tr>
+<td><em>ibeA</em> (GimA island)</td>
+<td>Invasion protein IbeA</td>
+<td>Binds vimentin/PSF → ERK–NF-κB → invasion + PMN transmigration</td>
+<td>[<a href="https://pubmed.ncbi.nlm.nih.gov/20088823/" target="_blank" rel="noopener noreferrer">PMID: 20088823</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/22536447/" target="_blank" rel="noopener noreferrer">PMID: 22536447</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/21083634/" target="_blank" rel="noopener noreferrer">PMID: 21083634</a>]</td>
+</tr>
+<tr>
+<td><em>ibeB</em>, <em>yijP</em></td>
+<td>Invasion loci</td>
+<td>Contribute to endothelial invasion</td>
+<td>[<a href="https://pubmed.ncbi.nlm.nih.gov/11008113/" target="_blank" rel="noopener noreferrer">PMID: 11008113</a>]</td>
+</tr>
+<tr>
+<td><em>ompT</em></td>
+<td>Outer membrane protease T</td>
+<td>Adherence/invasion; virulence (APEC/NMEC)</td>
+<td>[<a href="https://pubmed.ncbi.nlm.nih.gov/28199899/" target="_blank" rel="noopener noreferrer">PMID: 28199899</a>]</td>
+</tr>
+<tr>
+<td><em>rpoE</em></td>
+<td>Sigma-E stress factor</td>
+<td>Stress resistance, invasion, pathogenicity</td>
+<td>[<a href="https://pubmed.ncbi.nlm.nih.gov/35630325/" target="_blank" rel="noopener noreferrer">PMID: 35630325</a>]</td>
+</tr>
+<tr>
+<td>PNAG synthesis (<em>pga</em> locus)</td>
+<td>Poly-β-(1-6)-N-acetylglucosamine</td>
+<td>Surface polysaccharide; virulence &amp; vaccine target</td>
+<td>[<a href="https://pubmed.ncbi.nlm.nih.gov/36709579/" target="_blank" rel="noopener noreferrer">PMID: 36709579</a>]</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Phylogenomic background.</strong> NMEC belong predominantly to <strong>phylogroup B2</strong> and <strong>ST complex 95</strong>; among 28 US early-onset sepsis/meningitis isolates, B2 predominated (68%), of which 53% were K1-encapsulated, with phylogroup D also present (18%) [<a href="https://pubmed.ncbi.nlm.nih.gov/26407251/" target="_blank" rel="noopener noreferrer">PMID: 26407251</a>].</p>
+<blockquote>
+<p>"phylogroup B2 strains predominated (68%), of which more than half were K1-encapsulated (53%)" — <a href="https://pubmed.ncbi.nlm.nih.gov/26407251/">PMID: 26407251</a></p>
+</blockquote>
+<p><strong>Epigenetic / chromosomal (host):</strong> Not applicable.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Infectious agent (NCBI Taxonomy):</strong> <em>Escherichia coli</em> (<strong>NCBI:txid562</strong>); pathotype NMEC; predominant capsular type <strong>K1</strong>; serotypes O18:K1:H7 (prototype strain RS218), O1:K1, O2:K1.</li>
+<li><strong>Environmental / lifestyle factors:</strong> Not a toxin- or lifestyle-driven disease. Relevant "environmental" exposures are <strong>maternal colonization</strong>, <strong>perinatal transmission</strong>, <strong>hospital/device exposure</strong> (VP shunts, external ventricular drains, post-neurosurgical), and <strong>contaminated water/equipment</strong> in nosocomial neonatal settings.</li>
+<li><strong>Reservoir / transmission:</strong> Maternal gastrointestinal and genitourinary tract; vertical transmission perinatally; horizontal/nosocomial acquisition for late-onset disease.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li><strong>NMEC colonizes</strong> the neonatal gut/mucosa and <strong>enters the bloodstream</strong> (vertical/perinatal acquisition). → leads to</li>
+<li><strong>K1 sialic-acid capsule impedes activation of the alternative complement pathway</strong> (in the absence of specific antibody), protecting the bacterium from complement-mediated killing [<a href="https://pubmed.ncbi.nlm.nih.gov/6196296/" target="_blank" rel="noopener noreferrer">PMID: 6196296</a>]. → results in</li>
+<li><strong>High-grade, sustained bacteremia</strong> — a threshold magnitude of bacteremia is required for CNS entry (inferred from newborn-rat models) [<a href="https://pubmed.ncbi.nlm.nih.gov/6196296/" target="_blank" rel="noopener noreferrer">PMID: 6196296</a>]. → leads to</li>
+<li><strong>Bacterial binding to human brain microvascular endothelial cells (HBMEC)</strong> at the BBB via multiple invasin–receptor pairs. This branches into <strong>three independent signaling modules</strong>:</li>
+<li><strong>4a. OmpA → Ecgp96 (gp96, HSP90-family) → PI3K activation</strong> (no effect on RhoA); requires GlcNAc1-4GlcNAc N-glycan epitopes on Ecgp96 [<a href="https://pubmed.ncbi.nlm.nih.gov/12860457/" target="_blank" rel="noopener noreferrer">PMID: 12860457</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/24932957/" target="_blank" rel="noopener noreferrer">PMID: 24932957</a>].</li>
+<li><strong>4b. CNF1 → 37-kDa laminin receptor (37LRP) → RhoA activation</strong> (no effect on PI3K); required for BBB traversal in vivo [<a href="https://pubmed.ncbi.nlm.nih.gov/11877402/" target="_blank" rel="noopener noreferrer">PMID: 11877402</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/12860457/" target="_blank" rel="noopener noreferrer">PMID: 12860457</a>].</li>
+<li><strong>4c. IbeA → vimentin (primary receptor) + PSF (co-receptor) → CaMKII-mediated vimentin Ser82 phosphorylation, ERK phosphorylation, lipid-raft/caveolin-1 → NF-κB nuclear translocation</strong> [<a href="https://pubmed.ncbi.nlm.nih.gov/20088823/" target="_blank" rel="noopener noreferrer">PMID: 20088823</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/22536447/" target="_blank" rel="noopener noreferrer">PMID: 22536447</a>]. → each results in</li>
+<li><strong>Actin cytoskeletal rearrangement and receptor-mediated endocytosis</strong> → <strong>transcellular transcytosis of <em>E. coli</em> across the endothelial monolayer WITHOUT initial tight-junction disruption</strong> [<a href="https://pubmed.ncbi.nlm.nih.gov/11008113/" target="_blank" rel="noopener noreferrer">PMID: 11008113</a>]. (Ancillary node: OmpA–Ecgp96 engagement upregulates GTP-cyclohydrolase-1 (GCH1)/biopterin/NO synthesis, promoting invasion — inferred from inhibitor studies [<a href="https://pubmed.ncbi.nlm.nih.gov/23100563/" target="_blank" rel="noopener noreferrer">PMID: 23100563</a>].) → leads to</li>
+<li><strong>Bacterial entry into the CSF/subarachnoid space</strong> and replication, plus <strong>IbeA/vimentin-driven neutrophil (PMN) transendothelial migration</strong> with upregulation of ICAM-1 and CD44 [<a href="https://pubmed.ncbi.nlm.nih.gov/21083634/" target="_blank" rel="noopener noreferrer">PMID: 21083634</a>]. → results in</li>
+<li><strong>RIPK1-kinase-dependent assembly of the ripoptosome</strong> in brain endothelial cells, driving <strong>coordinated apoptosis, pyroptosis, and necroptosis</strong> [<a href="https://pubmed.ncbi.nlm.nih.gov/40774959/" target="_blank" rel="noopener noreferrer">PMID: 40774959</a>]. → leads to</li>
+<li><strong>BBB disruption, vasogenic edema, neuroinflammation, and neuronal injury</strong> → clinical meningitis (fever, seizures, bulging fontanelle, coma) and, downstream, <strong>cerebral abscess, ventriculitis, hydrocephalus, and neurodevelopmental sequelae</strong>.</li>
+</ol>
+<blockquote>
+<p>"OmpA treatment of human BMEC resulted in phosphatidylinositol 3-kinase (PI3K) activation with no effect on RhoA, while CNF1 treatment resulted in RhoA activation with no effect on PI3K..." — <a href="https://pubmed.ncbi.nlm.nih.gov/12860457/">PMID: 12860457</a></p>
+<p>"vimentin is a primary receptor required for IbeA+ E. coli K1-induced signalling and invasion of HBMECs" — <a href="https://pubmed.ncbi.nlm.nih.gov/20088823/">PMID: 20088823</a></p>
+<p>"RS218 infection promotes assembly of the Ripoptosome complex. This leads to the coordinated activation of apoptosis, pyroptosis, and necroptosis." — <a href="https://pubmed.ncbi.nlm.nih.gov/40774959/">PMID: 40774959</a></p>
+</blockquote>
+<h3>Upstream vs downstream</h3>
+<ul>
+<li><strong>Upstream (bacterial-side, initiating):</strong> K1 capsule complement evasion; bacteremia magnitude.</li>
+<li><strong>Midstream (host–pathogen interface):</strong> invasin–receptor engagement and transcytosis (OmpA/Ecgp96, CNF1/37LRP, IbeA/vimentin).</li>
+<li><strong>Downstream (host tissue injury):</strong> ripoptosome-driven endothelial death, PMN transmigration, cytokine/NF-κB inflammation, BBB breakdown.</li>
+</ul>
+<h3>Molecular pathways, processes, and ontology suggestions</h3>
+<ul>
+<li><strong>Pathways:</strong> PI3K–AKT (OmpA arm), RhoA/Rho-kinase (CNF1 arm), ERK–MAPK → NF-κB (IbeA arm), RIPK1/RIPK3–MLKL necroptosis and caspase-driven apoptosis/pyroptosis.</li>
+<li><strong>GO biological processes:</strong> transcytosis (<a href="http://purl.obolibrary.org/obo/GO_0045056" target="_blank" rel="noopener noreferrer">GO:0045056</a>); regulation of Rho protein signal transduction (<a href="http://purl.obolibrary.org/obo/GO_0035023" target="_blank" rel="noopener noreferrer">GO:0035023</a>); positive regulation of NF-κB transcription factor activity (<a href="http://purl.obolibrary.org/obo/GO_0051092" target="_blank" rel="noopener noreferrer">GO:0051092</a>); necroptotic process (<a href="http://purl.obolibrary.org/obo/GO_0070266" target="_blank" rel="noopener noreferrer">GO:0070266</a>); pyroptosis (<a href="http://purl.obolibrary.org/obo/GO_0070269" target="_blank" rel="noopener noreferrer">GO:0070269</a>); leukocyte transendothelial migration (<a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" rel="noopener noreferrer">GO:0050900</a>); inflammatory response (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>).</li>
+<li><strong>GO cellular components:</strong> membrane raft (<a href="http://purl.obolibrary.org/obo/GO_0045121" target="_blank" rel="noopener noreferrer">GO:0045121</a>); intermediate filament / vimentin.</li>
+<li><strong>CL cell types:</strong> brain microvascular endothelial cell (<strong><a href="http://purl.obolibrary.org/obo/CL_1001509" target="_blank" rel="noopener noreferrer">CL:1001509</a></strong>), neutrophil (<strong><a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a></strong>), macrophage (<strong><a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a></strong>), neuron (<strong><a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a></strong>).</li>
+</ul>
+<p><strong>Immune involvement:</strong> NF-κB-driven pro-inflammatory cascade, PMN recruitment; the K1 capsule and OmpA engage innate evasion (complement; FcγRI/CD64 on macrophages [<a href="https://pubmed.ncbi.nlm.nih.gov/26407066/" target="_blank" rel="noopener noreferrer">PMID: 26407066</a>]). <strong>Metabolic node:</strong> GCH1/biopterin/NO (BH4 pathway) [<a href="https://pubmed.ncbi.nlm.nih.gov/23100563/" target="_blank" rel="noopener noreferrer">PMID: 23100563</a>]; CsiR→ilvB→FAK/PI3K under low-iron conditions promotes invasion [<a href="https://pubmed.ncbi.nlm.nih.gov/38531686/" target="_blank" rel="noopener noreferrer">PMID: 38531686</a>].</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ / system level.</strong>
+- <strong>Primary organ:</strong> brain and meninges — <strong>leptomeninges (<a href="http://purl.obolibrary.org/obo/UBERON_0002361" target="_blank" rel="noopener noreferrer">UBERON:0002361</a>)</strong>, <strong>subarachnoid space (<a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" rel="noopener noreferrer">UBERON:0002420</a>)</strong>, <strong>cerebrospinal fluid (<a href="http://purl.obolibrary.org/obo/UBERON_0001359" target="_blank" rel="noopener noreferrer">UBERON:0001359</a>)</strong>.
+- <strong>Body system:</strong> central nervous system / <strong>meninges (<a href="http://purl.obolibrary.org/obo/UBERON_0002360" target="_blank" rel="noopener noreferrer">UBERON:0002360</a>)</strong>.
+- <strong>Secondary involvement:</strong> cerebral cortex and hippocampus (microvessels show increased glycosylated Ecgp96 in infected mice [<a href="https://pubmed.ncbi.nlm.nih.gov/24932957/" target="_blank" rel="noopener noreferrer">PMID: 24932957</a>]); cerebral ventricles (<strong>ventriculitis</strong>), brain parenchyma (<strong>cerebral abscess</strong>), and systemic bloodstream (bacteremia/sepsis). Hydrocephalus and ischemo-hemorrhagic lesions are described complications [<a href="https://pubmed.ncbi.nlm.nih.gov/23178136/" target="_blank" rel="noopener noreferrer">PMID: 23178136</a>].</p>
+<p><strong>Tissue / cell level.</strong>
+- <strong>Tissue:</strong> cerebral microvascular endothelium (nervous-system vasculature); nervous tissue.
+- <strong>Target cells:</strong> <strong>brain microvascular endothelial cells (HBMEC; <a href="http://purl.obolibrary.org/obo/CL_1001509" target="_blank" rel="noopener noreferrer">CL:1001509</a>)</strong> — the principal cellular gateway; <strong>neutrophils (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>)</strong> (transmigration); <strong>macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>)</strong> (FcγRI/CD64 interaction); neurons and glia (injury, reactive gliosis).</p>
+<p><strong>Subcellular level (GO cellular component).</strong>
+- Plasma-membrane <strong>membrane rafts (<a href="http://purl.obolibrary.org/obo/GO_0045121" target="_blank" rel="noopener noreferrer">GO:0045121</a>)</strong> and <strong>caveolae</strong> (caveolin-1) mediate IbeA signaling; <strong>cytoskeleton</strong> — actin filaments, microtubules, and <strong>intermediate filaments (vimentin)</strong>; <strong>nucleus</strong> (NF-κB translocation). Ecgp96/gp96 localizes to the ER and cell surface.</p>
+<p><strong>Localization / lateralization.</strong> Diffuse, <strong>bilateral</strong> leptomeningeal involvement is typical; focal complications (abscess, infarct) may be <strong>unilateral or asymmetric</strong>.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset age:</strong> neonatal — <strong>early-onset (≤72 h)</strong> typically vertically acquired, and <strong>late-onset (&gt;72 h to ~28 days, up to &lt;90 days)</strong> often nosocomial. Also affects older adults and post-neurosurgical patients.</li>
+<li><strong>Onset pattern:</strong> <strong>acute to fulminant</strong>; can progress within hours.</li>
+<li><strong>Stages / course:</strong> acute bacterial meningitis → potential early complications (cerebral abscess, ventriculitis, ischemo-hemorrhagic lesions) → convalescence → long-term neurological sequelae in survivors [<a href="https://pubmed.ncbi.nlm.nih.gov/23178136/" target="_blank" rel="noopener noreferrer">PMID: 23178136</a>].</li>
+<li><strong>Progression rate:</strong> rapid; deterioration to coma predicts death (OR 31.85) [<a href="https://pubmed.ncbi.nlm.nih.gov/29384979/" target="_blank" rel="noopener noreferrer">PMID: 29384979</a>].</li>
+<li><strong>Duration:</strong> acute illness over days–weeks with antibiotics; <strong>sequelae are lifelong</strong>.</li>
+<li><strong>Critical period / window of opportunity:</strong> early empirical antibiotics are decisive — delayed/inadequate therapy increases complications [<a href="https://pubmed.ncbi.nlm.nih.gov/23178136/" target="_blank" rel="noopener noreferrer">PMID: 23178136</a>]; delayed presentation independently predicts unfavorable outcome [<a href="https://pubmed.ncbi.nlm.nih.gov/41387772/" target="_blank" rel="noopener noreferrer">PMID: 41387772</a>].</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology.</strong>
+- Neonatal <em>E. coli</em> invasive disease is <strong>uncommon</strong>. Population-based surveillance in the Paris area (2019–2021, ≥34 weeks gestation) recorded <strong>early-onset neonatal sepsis incidence of 0.32 per 1000 live births (95% CI 0.26–0.38)</strong>, of which <em>E. coli</em> meningitis is a subset; GBS was ~twice as frequent as <em>E. coli</em> in term infants [<a href="https://pubmed.ncbi.nlm.nih.gov/35902218/" target="_blank" rel="noopener noreferrer">PMID: 35902218</a>].
+- Norwegian data give <strong>neonatal bacterial meningitis incidence of 36 per 100,000 live births</strong>, with <em>E. coli</em> responsible for 18% of childhood cases [<a href="https://pubmed.ncbi.nlm.nih.gov/41273196/" target="_blank" rel="noopener noreferrer">PMID: 41273196</a>].</p>
+<blockquote>
+<p>"108 EOS were recorded (annual incidence, 0.32 per 1000 live births; 95% CI 0.26 to 0.38)" — <a href="https://pubmed.ncbi.nlm.nih.gov/35902218/">PMID: 35902218</a></p>
+</blockquote>
+<p><strong>Etiologic share (selected cohorts):</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Cohort / setting</th>
+<th><em>E. coli</em> share</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Early-onset neonatal meningitis, 20-yr cohort</td>
+<td>37.1% of blood-culture-positive (vs GBS 30.7%)</td>
+<td>[<a href="https://pubmed.ncbi.nlm.nih.gov/42661190/" target="_blank" rel="noopener noreferrer">PMID: 42661190</a>]</td>
+</tr>
+<tr>
+<td>Australian tertiary, culture-proven neonatal meningitis</td>
+<td>19% (4/21; tied with <em>S. aureus</em>)</td>
+<td>[<a href="https://pubmed.ncbi.nlm.nih.gov/41543078/" target="_blank" rel="noopener noreferrer">PMID: 41543078</a>]</td>
+</tr>
+<tr>
+<td>Ethiopian suspected meningitis (culture+PCR)</td>
+<td>45.5% (25/55) — most common</td>
+<td>[<a href="https://pubmed.ncbi.nlm.nih.gov/41387772/" target="_blank" rel="noopener noreferrer">PMID: 41387772</a>]</td>
+</tr>
+<tr>
+<td>Norwegian childhood cases</td>
+<td>18%</td>
+<td>[<a href="https://pubmed.ncbi.nlm.nih.gov/41273196/" target="_blank" rel="noopener noreferrer">PMID: 41273196</a>]</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Inheritance / penetrance / founder effects / carrier frequency / consanguinity:</strong> <strong>Not applicable</strong> — infectious, non-Mendelian disease.</p>
+<p><strong>Population demographics.</strong>
+- <strong>Age:</strong> overwhelmingly neonates/young infants; secondary peaks in older/immunocompromised adults and post-neurosurgical patients.
+- <strong>Sex ratio:</strong> male predominance is generally reported for neonatal Gram-negative sepsis/meningitis (not precisely quantified in the reviewed sources).
+- <strong>Geographic distribution:</strong> worldwide; higher burden and higher antimicrobial resistance in resource-limited settings [<a href="https://pubmed.ncbi.nlm.nih.gov/41387772/" target="_blank" rel="noopener noreferrer">PMID: 41387772</a>].
+- <strong>Pathogen lineage distribution:</strong> phylogroup B2 / ST95 (O1/O2/O18:K1) globally; emerging multidrug-resistant ST131 clones.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Gold standard — CSF analysis plus culture.</strong> Definitive diagnosis requires <strong>lumbar puncture</strong> with CSF showing <strong>neutrophilic pleocytosis, elevated protein, and low glucose (hypoglycorrhachia)</strong>, plus a <strong>positive CSF and/or blood culture</strong> growing Gram-negative rods [<a href="https://pubmed.ncbi.nlm.nih.gov/22090305/" target="_blank" rel="noopener noreferrer">PMID: 22090305</a>].</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Finding in <em>E. coli</em> meningitis</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CSF cell count/differential (LOINC)</td>
+<td>Neutrophilic pleocytosis</td>
+<td>Nonspecific bacterial pattern</td>
+</tr>
+<tr>
+<td>CSF protein (LOINC)</td>
+<td>Elevated (e.g., 572 mg/dL)</td>
+<td>[<a href="https://pubmed.ncbi.nlm.nih.gov/22090305/" target="_blank" rel="noopener noreferrer">PMID: 22090305</a>]</td>
+</tr>
+<tr>
+<td>CSF glucose (LOINC)</td>
+<td>Low (hypoglycorrhachia; e.g., 9.5 mg/dL)</td>
+<td>[<a href="https://pubmed.ncbi.nlm.nih.gov/22090305/" target="_blank" rel="noopener noreferrer">PMID: 22090305</a>]</td>
+</tr>
+<tr>
+<td>CSF/blood culture</td>
+<td>Gram-negative bacilli; <em>E. coli</em></td>
+<td>Gold standard; enables susceptibility testing</td>
+</tr>
+<tr>
+<td>CSF Gram stain</td>
+<td>Gram-negative rods</td>
+<td>Rapid presumptive</td>
+</tr>
+<tr>
+<td>Blood culture</td>
+<td>Positive in high-grade bacteremia</td>
+<td>Supports diagnosis</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Molecular / omics adjuncts.</strong>
+- <strong>Multiplex PCR panels</strong> (e.g., MeltArray CNS targeting 85 meningitis pathogens) and syndromic panels detect <em>E. coli</em> directly from CSF, outperforming culture especially after antibiotics [<a href="https://pubmed.ncbi.nlm.nih.gov/42623488/" target="_blank" rel="noopener noreferrer">PMID: 42623488</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41387772/" target="_blank" rel="noopener noreferrer">PMID: 41387772</a>].
+- <strong>Targeted metagenomic next-generation sequencing (mNGS)</strong> of CSF shows <strong>moderate agreement (~59% positive agreement) with conventional diagnostics</strong> and aids detection in culture-negative cases, but high unexpected-detection rates limit standalone use [<a href="https://pubmed.ncbi.nlm.nih.gov/42636981/" target="_blank" rel="noopener noreferrer">PMID: 42636981</a>].</p>
+<blockquote>
+<p>"Targeted mNGS shows moderate agreement with conventional diagnostics and may aid pathogen detection in selected patients with negative routine testing." — <a href="https://pubmed.ncbi.nlm.nih.gov/42636981/">PMID: 42636981</a></p>
+</blockquote>
+<p><strong>Imaging.</strong> Cranial ultrasound (neonate; ventricular dilatation), CT/MRI to detect abscess, ventriculitis, infarction, hydrocephalus.</p>
+<p><strong>Genetic testing / newborn screening / host omics diagnostics:</strong> <strong>Not applicable</strong> (no host genetic cause). "Screening" here refers to microbiologic detection, not carrier/germline testing.</p>
+<p><strong>Differential diagnosis.</strong> GBS meningitis (co-predominant; distinguished by Gram stain/culture), <em>Listeria monocytogenes</em>, <em>Klebsiella pneumoniae</em> and other Enterobacterales, <em>Citrobacter</em>, <em>S. aureus</em>, viral/enteroviral meningitis, and non-infectious causes.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Mortality.</strong> Outcome is poor: <strong>12% mortality in term and 18% in preterm</strong> infants [<a href="https://pubmed.ncbi.nlm.nih.gov/23178136/" target="_blank" rel="noopener noreferrer">PMID: 23178136</a>]. Population cohorts report ~9–19% case fatality [<a href="https://pubmed.ncbi.nlm.nih.gov/29384979/" target="_blank" rel="noopener noreferrer">PMID: 29384979</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41543078/" target="_blank" rel="noopener noreferrer">PMID: 41543078</a>].</p>
+<blockquote>
+<p>"Outcome of early and late onset E. coli neonatal meningitis is poor with 12% (term infant) to 18% (premature infant) mortality rates." — <a href="https://pubmed.ncbi.nlm.nih.gov/23178136/">PMID: 23178136</a></p>
+</blockquote>
+<p><strong>Morbidity / sequelae.</strong> Long-term <strong>neurosensorial sequelae 14–17%</strong> and <strong>neurodevelopmental sequelae 10–17%</strong> [<a href="https://pubmed.ncbi.nlm.nih.gov/23178136/" target="_blank" rel="noopener noreferrer">PMID: 23178136</a>]. Early complications: cerebral abscess, ventriculitis, ischemo-hemorrhagic lesions, hydrocephalus. In one cohort, 23% of survivors had serious CNS complications at discharge [<a href="https://pubmed.ncbi.nlm.nih.gov/29384979/" target="_blank" rel="noopener noreferrer">PMID: 29384979</a>].</p>
+<blockquote>
+<p>"Long term sequelae, particularly neurosensorial [14-17%] and neurodevelopmental [10-17%] are frequent." — <a href="https://pubmed.ncbi.nlm.nih.gov/23178136/">PMID: 23178136</a></p>
+</blockquote>
+<p><strong>Prognostic factors.</strong> Independent predictors of <strong>death</strong>: <strong>prematurity (OR 5.84)</strong>, <strong>low birth weight (OR 8.48)</strong>, and <strong>coma at presentation (OR 31.85)</strong> [<a href="https://pubmed.ncbi.nlm.nih.gov/29384979/" target="_blank" rel="noopener noreferrer">PMID: 29384979</a>]. Predictors of <strong>CNS complications</strong>: seizures (OR 7.06), temperature instability (OR 2.99), high CSF protein (OR 2.62) [<a href="https://pubmed.ncbi.nlm.nih.gov/29384979/" target="_blank" rel="noopener noreferrer">PMID: 29384979</a>]. Additional adverse factors: hemodynamic failure, apnea, hypoglycorrhachia, abnormal EEG, and delayed/inadequate antibiotics [<a href="https://pubmed.ncbi.nlm.nih.gov/23178136/" target="_blank" rel="noopener noreferrer">PMID: 23178136</a>]. In broader cohorts, low Glasgow Coma Scale, comorbidity, and delayed presentation independently predict unfavorable outcome [<a href="https://pubmed.ncbi.nlm.nih.gov/41387772/" target="_blank" rel="noopener noreferrer">PMID: 41387772</a>].</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Pharmacotherapy (mainstay).</strong>
+- <strong>Empirical:</strong> third-generation cephalosporins — <strong>cefotaxime (NCIT:C376)</strong> or <strong>ceftriaxone (NCIT:C769)</strong> — often combined with an <strong>aminoglycoside (gentamicin/amikacin)</strong> or <strong>ampicillin (NCIT:C263)</strong> in neonatal regimens.
+- <strong>Resistant strains:</strong> <strong>meropenem (NCIT:C1352)</strong> for ESBL/AmpC producers; carbapenems for cephalosporin resistance.
+- <strong>Rationale for coverage choice:</strong> <strong>ampicillin resistance is high (~78%)</strong> among NMEC, so ampicillin monotherapy is inadequate empirically [<a href="https://pubmed.ncbi.nlm.nih.gov/26407251/" target="_blank" rel="noopener noreferrer">PMID: 26407251</a>]. Contemporary ESBL-producing and ST131/CTX-M-15 clones further threaten empirical regimens [<a href="https://pubmed.ncbi.nlm.nih.gov/26407251/" target="_blank" rel="noopener noreferrer">PMID: 26407251</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41820864/" target="_blank" rel="noopener noreferrer">PMID: 41820864</a>].</p>
+<blockquote>
+<p>"the rate of ampicillin resistance was high (78%)" — <a href="https://pubmed.ncbi.nlm.nih.gov/26407251/">PMID: 26407251</a></p>
+</blockquote>
+<p><strong>Adjunctive therapy.</strong>
+- <strong>Corticosteroids (dexamethasone)</strong> reduce mortality and neurological sequelae in acute bacterial meningitis overall (chiefly pneumococcal); however, <strong>benefit in neonatal Gram-negative meningitis is not established</strong>, and guidelines generally exclude neonates [<a href="https://pubmed.ncbi.nlm.nih.gov/41675892/" target="_blank" rel="noopener noreferrer">PMID: 41675892</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42601017/" target="_blank" rel="noopener noreferrer">PMID: 42601017</a>].
+- <strong>Supportive care:</strong> anticonvulsants for seizures, management of raised intracranial pressure/hydrocephalus (may require CSF diversion/shunt), hemodynamic and respiratory support.</p>
+<p><strong>Experimental / host-directed therapeutics (model-organism evidence).</strong>
+- <strong>Mesenchymal stem cells (MSCs):</strong> intraventricular human umbilical-cord-blood-derived MSC transplantation reduced CSF bacterial growth and mortality and attenuated brain injury in newborn-rat <em>E. coli</em> meningitis [<a href="https://pubmed.ncbi.nlm.nih.gov/30188499/" target="_blank" rel="noopener noreferrer">PMID: 30188499</a>].</p>
+<blockquote>
+<p>"Intraventricular transplantation of hUCB-MSCs significantly improved survival and attenuated the brain injury via anti-inflammatory and antibacterial effects in experimental neonatal E. coli meningitis." — <a href="https://pubmed.ncbi.nlm.nih.gov/30188499/">PMID: 30188499</a></p>
+</blockquote>
+<ul>
+<li><strong>MSC-derived extracellular vesicles (MSC-EVs)</strong> similarly attenuated brain injury [<a href="https://pubmed.ncbi.nlm.nih.gov/35888118/" target="_blank" rel="noopener noreferrer">PMID: 35888118</a>].</li>
+<li><strong>Mechanism-targeted candidates (preclinical):</strong> RIPK1 inhibitors (to block ripoptosome-driven endothelial death) [<a href="https://pubmed.ncbi.nlm.nih.gov/40774959/" target="_blank" rel="noopener noreferrer">PMID: 40774959</a>]; GCH1/biopterin inhibitor DAHP (prevented invasion and meningitis in newborn mice) [<a href="https://pubmed.ncbi.nlm.nih.gov/23100563/" target="_blank" rel="noopener noreferrer">PMID: 23100563</a>]; anti-OmpA/Ecgp96 interface blockade [<a href="https://pubmed.ncbi.nlm.nih.gov/24932957/" target="_blank" rel="noopener noreferrer">PMID: 24932957</a>].</li>
+</ul>
+<p><strong>Pharmacogenomics / gene / cell / RNA / targeted / immuno-therapy (host):</strong> Not applicable as disease-specific approved therapies.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention.</strong>
+- <strong>Maternal screening and intrapartum management</strong> of colonization; hygiene and infection-control in neonatal units to prevent nosocomial acquisition.
+- <strong>Pre-emptive antibiotics</strong> for well-appearing co-twins of an affected neonate reduced disease risk in a small subgroup (11% vs 56%, p=0.03) [<a href="https://pubmed.ncbi.nlm.nih.gov/42497927/" target="_blank" rel="noopener noreferrer">PMID: 42497927</a>].
+- <strong>Probiotics:</strong> a <em>Bifidobacterium</em> mixture prevented neonatal <em>E. coli</em> K1 translocation/infection in a model [<a href="https://pubmed.ncbi.nlm.nih.gov/28979247/" target="_blank" rel="noopener noreferrer">PMID: 28979247</a>].</p>
+<p><strong>Immunization (experimental — no licensed vaccine).</strong>
+- <strong>No vaccine is currently available</strong> against bacterial neonatal meningitis [<a href="https://pubmed.ncbi.nlm.nih.gov/36709579/" target="_blank" rel="noopener noreferrer">PMID: 36709579</a>].
+- <strong>PNAG (Poly-β-(1-6)-N-Acetyl-Glucosamine):</strong> a TnSeq-identified conserved surface polysaccharide; <strong>both passive and active immunization prevented/treated <em>E. coli</em> K1 meningitis in neonatal mice</strong>, with opsonophagocytic killing and reduced BBB crossing; PNAG is also expressed by GBS, offering potential cross-protection [<a href="https://pubmed.ncbi.nlm.nih.gov/36709579/" target="_blank" rel="noopener noreferrer">PMID: 36709579</a>].</p>
+<blockquote>
+<p>"We showed that both passive and active immunization successfully prevented and/or treated meningitis caused by E. coli K1 in neonatal mice." — <a href="https://pubmed.ncbi.nlm.nih.gov/36709579/">PMID: 36709579</a></p>
+</blockquote>
+<ul>
+<li><strong>OmpA / Ecgp96 GlcNAc1-4GlcNAc interface:</strong> a preventive target — disrupting this interaction blocks invasion [<a href="https://pubmed.ncbi.nlm.nih.gov/24932957/" target="_blank" rel="noopener noreferrer">PMID: 24932957</a>].</li>
+</ul>
+<p><strong>Secondary/tertiary prevention.</strong> Early lumbar puncture and prompt empirical antibiotics (secondary); management of complications (hydrocephalus, seizures, sequelae) and rehabilitation (tertiary). <strong>Counseling / genetic screening:</strong> Not applicable.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy of pathogen:</strong> <em>Escherichia coli</em> (<strong>NCBI:txid562</strong>).</li>
+<li><strong>Zoonotic / cross-host lineage:</strong> Neuropathogenic <em>E. coli</em> belong to the <strong>zoonotic-capable ExPEC/APEC phylogroup B2, ST complex 95</strong> lineage. <strong>Avian pathogenic <em>E. coli</em> (APEC)</strong> and human ExPEC of serotypes O1, O2, O18 cluster in B2/ST95 with <strong>no or minimal host specificity</strong> [<a href="https://pubmed.ncbi.nlm.nih.gov/25397580/" target="_blank" rel="noopener noreferrer">PMID: 25397580</a>].</li>
+</ul>
+<blockquote>
+<p>"Avian pathogenic E. coli and human extraintestinal pathogenic E. coli serotypes O1, O2 and O18 strains isolated from different hosts are generally located in phylogroup B2 and ST complex 95, and they share similar genetic characteristics and pathogenicity, with no or minimal host specificity." — <a href="https://pubmed.ncbi.nlm.nih.gov/25397580/">PMID: 25397580</a></p>
+</blockquote>
+<ul>
+<li><strong>Molecular identity across hosts:</strong> Representative O18 APEC and NMEC strains have <strong>identical OmpA sequences</strong>, survive human serum equally, use the same receptors (FcγRI-α/CD64 on macrophages; Ecgp96 on endothelium), and induce meningitis in newborn mice [<a href="https://pubmed.ncbi.nlm.nih.gov/26407066/" target="_blank" rel="noopener noreferrer">PMID: 26407066</a>].</li>
+</ul>
+<blockquote>
+<p>"The amino acid sequences of the outer membrane protein A (OmpA), an important virulence factor in the pathogenesis of meningitis, are identical within these representative APEC and NMEC strains." — <a href="https://pubmed.ncbi.nlm.nih.gov/26407066/">PMID: 26407066</a></p>
+</blockquote>
+<ul>
+<li><strong>Natural / veterinary disease:</strong> APEC causes avian colibacillosis (poultry); the shared virulence repertoire underscores a <strong>One Health / zoonotic reservoir</strong> concern (poultry as a potential ExPEC reservoir).</li>
+<li><strong>Comparative biology:</strong> the OmpA–Ecgp96, CNF1–37LRP, and IbeA–vimentin mechanisms are conserved between avian and human strains, supporting evolutionary conservation of the meningitis mechanism.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mammalian in vivo models:</strong> <strong>Newborn/neonatal rat</strong> and <strong>newborn mouse</strong> models of hematogenous <em>E. coli</em> K1 meningitis are the workhorses — used to demonstrate CNF1/RhoA-dependent BBB traversal [<a href="https://pubmed.ncbi.nlm.nih.gov/11877402/" target="_blank" rel="noopener noreferrer">PMID: 11877402</a>], DAHP/biopterin-dependent meningitis prevention [<a href="https://pubmed.ncbi.nlm.nih.gov/23100563/" target="_blank" rel="noopener noreferrer">PMID: 23100563</a>], PNAG vaccine efficacy [<a href="https://pubmed.ncbi.nlm.nih.gov/36709579/" target="_blank" rel="noopener noreferrer">PMID: 36709579</a>], and MSC therapy [<a href="https://pubmed.ncbi.nlm.nih.gov/30188499/" target="_blank" rel="noopener noreferrer">PMID: 30188499</a>]. A <strong>newborn-rat ventriculitis model without concomitant bacteremia</strong> (intraventricular K1-negative <em>E. coli</em>) isolates CNS injury from systemic sepsis [<a href="https://pubmed.ncbi.nlm.nih.gov/31846163/" target="_blank" rel="noopener noreferrer">PMID: 31846163</a>].</li>
+<li><strong>In vitro / cellular models:</strong> <strong>Human brain microvascular endothelial cells (HBMEC)</strong> are the standard BBB model for invasion/transcytosis and signaling studies [<a href="https://pubmed.ncbi.nlm.nih.gov/12860457/" target="_blank" rel="noopener noreferrer">PMID: 12860457</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/20088823/" target="_blank" rel="noopener noreferrer">PMID: 20088823</a>]; mouse <strong>bEnd.3</strong> BMEC used for APEC studies [<a href="https://pubmed.ncbi.nlm.nih.gov/28199899/" target="_blank" rel="noopener noreferrer">PMID: 28199899</a>]; CHO-Lec1 glycosylation-mutant cells for receptor-epitope mapping [<a href="https://pubmed.ncbi.nlm.nih.gov/24932957/" target="_blank" rel="noopener noreferrer">PMID: 24932957</a>].</li>
+<li><strong>Phenotype recapitulation:</strong> Neonatal rodent models faithfully reproduce bacteremia → BBB crossing → CSF infection → brain injury/inflammation and neurodevelopmental impairment, and respond to interventions predictably.</li>
+<li><strong>Limitations:</strong> Rodent BBB and immune ontogeny differ from human; K1-negative ventriculitis models bypass the natural hematogenous route; in vitro HBMEC monolayers cannot fully capture in vivo neuroinflammatory dynamics.</li>
+<li><strong>Resources:</strong> MGI (mouse), RGD (rat); strain resources for prototype NMEC (RS218, O18:K1:H7).</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>   NMEC (K1+, phylogroup B2 / ST95, O18/O1/O2:K1)
+      │  perinatal / mucosal entry
+      ▼
+   [K1 sialic-acid capsule] ── impedes alternative complement pathway ─┐
+      │                                                         │ (immune evasion)
+      ▼                                                         │
+   HIGH-GRADE, SUSTAINED BACTEREMIA  ◄──────────────────────────────────┘
+      │  (threshold magnitude required)
+      ▼
+   BINDING TO BRAIN MICROVASCULAR ENDOTHELIUM (HBMEC) at the BBB
+      │
+      ┌───────┼───────────────────────┬───────────────────────────┐
+      ▼       ▼                        ▼                           ▼
+  OmpA→Ecgp96(gp96)        CNF1→37LRP              IbeA→vimentin + PSF
+      → PI3K                   → RhoA                  → ERK → NF-κB
+      │                        │                        │  (+ICAM-1/CD44)
+      └──────── actin remodeling / receptor endocytosis ───────────┘
+      │
+      ▼
+   TRANSCELLULAR TRANSCYTOSIS across endothelium
+   (NO initial tight-junction disruption)
+      │
+      ├──► Bacterial replication in CSF / subarachnoid space
+      └──► IbeA/vimentin-driven NEUTROPHIL TRANSMIGRATION
+      │
+      ▼
+   RIPK1 / RIPOPTOSOME → apoptosis + pyroptosis + necroptosis (endothelium)
+      │
+      ▼
+   BBB DISRUPTION + NEUROINFLAMMATION + NEURONAL INJURY
+      │
+      ▼
+   CLINICAL MENINGITIS → fever, seizures, bulging fontanelle, coma
+   COMPLICATIONS → abscess, ventriculitis, hydrocephalus, infarction
+   OUTCOME → 12–18% mortality; 10–17% neurodevelopmental sequelae
+</code></pre>
+<p>The central interpretive insight is that <strong>immune evasion (capsule) and endothelial invasion (three redundant invasin pathways) are the two rate-limiting, upstream nodes</strong>, while <strong>RIPK1-driven regulated cell death and neutrophil influx are the downstream effectors of tissue damage</strong>. The redundancy of invasion pathways (OmpA, CNF1, IbeA each independent, with additive inhibitor effects and greater attenuation in double mutants) explains why single-target anti-virulence strategies may be insufficient and why <strong>conserved capsular/surface antigens (PNAG, K1) and shared receptors (Ecgp96) are attractive vaccine/therapeutic targets</strong>.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Evidence type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36709579/">36709579</a></td>
+<td><em>E. coli</em> leading Gram-negative neonatal meningitis cause; PNAG vaccine POC; no licensed vaccine</td>
+<td>Review + animal model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38531686/">38531686</a></td>
+<td>K1 leading cause; CsiR/low-iron invasion pathway</td>
+<td>In vitro/mechanistic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42661190/">42661190</a></td>
+<td>Modern etiologic breakdown (<em>E. coli</em> 37.1%)</td>
+<td>Human cohort (20-yr)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/6196296/">6196296</a></td>
+<td>K1 capsule impedes alternative complement pathway</td>
+<td>In vitro + newborn-rat</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12860457/">12860457</a></td>
+<td>OmpA→PI3K vs CNF1→RhoA independent invasion pathways</td>
+<td>In vitro (HBMEC)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11877402/">11877402</a></td>
+<td>CNF1/RhoA required for in vivo BBB traversal</td>
+<td>Animal model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20088823/">20088823</a></td>
+<td>Vimentin is primary IbeA receptor for invasion</td>
+<td>In vitro (HBMEC)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22536447/">22536447</a></td>
+<td>Vimentin+PSF drive NF-κB nuclear translocation</td>
+<td>In vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21083634/">21083634</a></td>
+<td>IbeA/vimentin → PMN transmigration, ICAM-1/CD44</td>
+<td>In vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11008113/">11008113</a></td>
+<td>Transcytosis route; ompA/ibeA/ibeB/yijP gene set</td>
+<td>Review/mechanistic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40774959/">40774959</a></td>
+<td>RIPK1/ripoptosome-driven endothelial death &amp; BBB disruption</td>
+<td>In vitro/model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24932957/">24932957</a></td>
+<td>OmpA–Ecgp96 GlcNAc epitope; preventive target</td>
+<td>In vitro + mouse</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23100563/">23100563</a></td>
+<td>GCH1/biopterin/NO node; DAHP prevents meningitis</td>
+<td>In vitro + newborn mice</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29384979/">29384979</a></td>
+<td>Phenotype frequencies; death/CNS-complication predictors</td>
+<td>Population cohort (UK/Ireland)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23178136/">23178136</a></td>
+<td>Mortality 12–18%; sequelae 10–17%</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26407251/">26407251</a></td>
+<td>Phylogroup B2 68%/K1 53%; ampicillin resistance 78%; ST131/CTX-M-15</td>
+<td>US isolates</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35902218/">35902218</a></td>
+<td>EOS incidence 0.32/1000 live births</td>
+<td>Population surveillance (Paris)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41273196/">41273196</a></td>
+<td>Neonatal meningitis 36/100,000; <em>E. coli</em> 18%</td>
+<td>National (Norway)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25397580/">25397580</a></td>
+<td>B2/ST95 APEC–ExPEC shared lineage, minimal host specificity</td>
+<td>Comparative genomics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26407066/">26407066</a></td>
+<td>Identical OmpA, shared receptors APEC/NMEC</td>
+<td>Comparative in vitro/model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30188499/">30188499</a></td>
+<td>MSC therapy improves survival/brain injury</td>
+<td>Newborn-rat model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35888118/">35888118</a></td>
+<td>MSC-EVs attenuate brain injury</td>
+<td>Model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41675892/">41675892</a></td>
+<td>Corticosteroid adjunct benefit (mainly pneumococcal; excludes neonates)</td>
+<td>Narrative review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42636981/">42636981</a></td>
+<td>Targeted mNGS diagnostic role &amp; limits</td>
+<td>Diagnostic study</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42623488/">42623488</a></td>
+<td>Multiplex PCR (MeltArray CNS) for CSF pathogens</td>
+<td>Diagnostic study</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22090305/">22090305</a></td>
+<td>Severe CSF profile example (protein 572, glucose 9.5)</td>
+<td>Case report</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42497927/">42497927</a></td>
+<td>Twin concordance; pre-emptive antibiotics</td>
+<td>Systematic review</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Not a genetic disease.</strong> Sections geared to Mendelian genetics (causal genes, ACMG variants, inheritance, penetrance, founder effects, genetic testing, newborn screening) are <strong>not applicable</strong>; the "genetics" reside in the pathogen. Host susceptibility loci for <em>E. coli</em> meningitis are essentially undefined in humans.</li>
+<li><strong>Mechanism largely from models.</strong> Much of the invasion/injury mechanism (OmpA/CNF1/IbeA pathways, RIPK1 ripoptosome, biopterin node) derives from <strong>in vitro HBMEC and neonatal-rodent models</strong>; direct human validation is limited.</li>
+<li><strong>Epidemiologic heterogeneity.</strong> <em>E. coli</em> share of neonatal meningitis varies widely by setting (18–46%); resource-limited settings show higher resistance and worse outcomes, complicating global generalization.</li>
+<li><strong>No head-to-head neonatal Gram-negative corticosteroid trial.</strong> Adjunctive steroid benefit is extrapolated from predominantly pneumococcal data and is <strong>not established for neonatal Gram-negative meningitis</strong>.</li>
+<li><strong>Resistance trajectory.</strong> ESBL/ST131/CTX-M-15 emergence data are from limited isolate collections; the true trajectory threatening empirical cephalosporin therapy needs continued surveillance.</li>
+<li><strong>Vaccine translation gap.</strong> PNAG and OmpA are promising but remain <strong>preclinical</strong>; no human efficacy data exist.</li>
+<li><strong>Sex-ratio and QoL quantification</strong> were not precisely resolved from the reviewed literature.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Pathogen genomic surveillance:</strong> Systematically genotype NMEC isolates (phylogroup, ST, capsule, ESBL/carbapenemase genes) across regions to track ST131/ST95 dynamics and inform empirical regimens.</li>
+<li><strong>RIPK1-targeted host-directed therapy:</strong> Test RIPK1 kinase inhibitors (e.g., necrostatin-class) as adjuncts in neonatal-rodent <em>E. coli</em> meningitis to quantify reductions in BBB disruption and neurodevelopmental sequelae [building on <a href="https://pubmed.ncbi.nlm.nih.gov/40774959/" target="_blank" rel="noopener noreferrer">PMID: 40774959</a>].</li>
+<li><strong>Multivalent conserved-antigen vaccine:</strong> Advance PNAG (+ OmpA/Ecgp96-interface) conjugate vaccines toward safety/immunogenicity studies, leveraging cross-protection against GBS PNAG [<a href="https://pubmed.ncbi.nlm.nih.gov/36709579/" target="_blank" rel="noopener noreferrer">PMID: 36709579</a>].</li>
+<li><strong>Combination anti-invasin strategy:</strong> Given pathway redundancy, test simultaneous blockade of ≥2 invasion arms (PI3K + Rho-kinase + IbeA/vimentin) in vivo for additive protection [<a href="https://pubmed.ncbi.nlm.nih.gov/12860457/" target="_blank" rel="noopener noreferrer">PMID: 12860457</a>].</li>
+<li><strong>Neonatal Gram-negative steroid/adjunct trial:</strong> Design a dedicated trial or observational study of dexamethasone or alternative immunomodulation specifically in neonatal Gram-negative meningitis.</li>
+<li><strong>Diagnostic validation:</strong> Prospectively validate multiplex-PCR and targeted mNGS CSF panels against culture in neonatal cohorts to define sensitivity for culture-negative (pre-treated) cases [<a href="https://pubmed.ncbi.nlm.nih.gov/42623488/" target="_blank" rel="noopener noreferrer">PMID: 42623488</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42636981/" target="_blank" rel="noopener noreferrer">PMID: 42636981</a>].</li>
+<li><strong>One Health investigation:</strong> Quantify poultry/APEC B2-ST95 reservoirs and potential zoonotic transmission routes for neuropathogenic <em>E. coli</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/25397580/" target="_blank" rel="noopener noreferrer">PMID: 25397580</a>].</li>
+</ol>
+<hr />
+<p><em>Report compiled from 14 confirmed findings and 56 reviewed papers across a 5-iteration autonomous investigation. Evidence types are labeled (human clinical, animal model, in vitro, computational/genomic) throughout. All quoted text is verbatim from cited PubMed abstracts.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Escherichia_Coli_Meningitis-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Escherichia_Coli_Meningitis-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc3.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>39</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>39</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>39</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:23178136</code> <em>(abstract only)</em>: "Long term sequelae, particularly neurosensorial [14-17%] and neurodevelopmental [10-17%] are frequent."</li>
+<li>closest text in source: "Long term sequelae, particularly neurosensorial [14-17%] and neurodevelopmental [10-17%] are frequent."</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>4</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>UBERON:0002361</code> (1 mention) - the report calls it "Primary organ:<strong> brain and meninges — </strong>leptomeninges"; UBERON calls it <strong>pia mater</strong></li>
+<li><code>UBERON:0002360</code> (1 mention) - the report calls it "Body system:<strong> central nervous system / </strong>meninges"; UBERON calls it <strong>meninx</strong></li>
+<li><code>NCIT:C376</code> (1 mention) - the report calls it "Empirical:<strong> third-generation cephalosporins — </strong>cefotaxime"; NCIT calls it <strong>Cisplatin</strong></li>
+<li><code>NCIT:C1352</code> (1 mention) - the report calls it "Resistant strains:<strong> </strong>meropenem"; NCIT calls it <strong>Recombinant Brain-Derived Growth Factors</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0051092</code> (obsolete positive regulation of NF-kappaB transcription factor activity) (1 mention)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0001259</code> (1 mention) - the report calls it "Coma / reduced consciousness"; HP calls it <strong>Coma</strong>, and lists "Unconsciousness" among its other names</li>
+<li><code>HP:0031179</code> (1 mention) - the report calls it "Nuchal rigidity / neck stiffness"; HP calls it <strong>Nuchal rigidity</strong></li>
+<li><code>GO:0045056</code> (1 mention) - the report calls it "GO biological processes:<strong> transcytosis"; GO calls it </strong>transcytosis**</li>
+<li><code>GO:0045121</code> (2 mentions) - the report calls it "GO cellular components:<strong> membrane raft", "Plasma-membrane </strong>membrane rafts"; GO calls it <strong>membrane raft</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>GO:0045121</code> - called "GO cellular components:<strong> membrane raft", "Plasma-membrane </strong>membrane rafts"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Erythropoietic_Protoporphyria-claude_code.html">← Erythropoietic Protoporphyria (Claude Code)</a>
+                
+                
+                <a href="Esophageal_Adenocarcinoma-asta.html">Esophageal Adenocarcinoma (Asta) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Escherichia_coli_meningitis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Escherichia_Coli_Meningitis-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

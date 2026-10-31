@@ -23,6 +23,7 @@ from scripts.check_snippet_length import (
     baseline_from_ref,
     count_words,
     find_violations,
+    is_record_line,
     is_structured_row,
     load_baseline,
     new_findings,
@@ -85,6 +86,74 @@ def test_structured_source_table_row_is_exempt():
     row = "HP:0001987 | Hyperammonemia | Very frequent (99-80%)"
     assert is_structured_row(row)
     assert not _violations(_entry(row, reference="ORPHA:558"))
+
+
+_ORPHA_RECORD = """---
+reference_id: "ORPHA:558"
+title: "Marfan syndrome"
+---
+
+# ORPHA:558  Marfan syndrome
+
+## Inheritance
+
+- Autosomal dominant
+
+## Natural history
+
+- Age of onset: Infancy
+
+## Definition
+
+A disease that is autosomal dominant in most families.
+"""
+
+
+def _orpha_violations(tmp_path, snippet, reference="ORPHA:558"):
+    (tmp_path / "ORPHA_558.md").write_text(_ORPHA_RECORD, encoding="utf-8")
+    return list(
+        find_violations(
+            Path("test.yaml"),
+            _entry(snippet, reference=reference),
+            EXCERPT_FIELDS,
+            REFERENCE_FIELDS,
+            cache_dir=tmp_path,
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    "snippet", ["Autosomal dominant", "- Autosomal dominant", "Age of onset: Infancy"]
+)
+def test_orpha_bullet_line_is_exempt(tmp_path, snippet):
+    # A one-line Orphanet field names one fact about one disease (#14443).
+    assert not _orpha_violations(tmp_path, snippet)
+
+
+def test_same_text_under_a_pmid_is_not_exempt(tmp_path):
+    assert _orpha_violations(tmp_path, "Autosomal dominant", reference="PMID:1")
+
+
+def test_fragment_of_a_record_line_is_not_exempt(tmp_path):
+    # "is autosomal dominant" sits inside the Definition sentence, not on its own.
+    assert _orpha_violations(tmp_path, "is autosomal dominant")
+    assert _orpha_violations(tmp_path, "Age of onset")
+
+
+def test_record_line_needs_the_cited_record(tmp_path):
+    # A line from ORPHA:558 does not exempt a quote citing a different record.
+    assert _orpha_violations(tmp_path, "Autosomal dominant", reference="ORPHA:999")
+    assert not is_record_line("ORPHA:558", "Autosomal dominant", cache_dir=tmp_path / "x")
+
+
+def test_frontmatter_lines_are_not_record_lines(tmp_path):
+    assert _orpha_violations(tmp_path, 'title: "Marfan syndrome"')
+
+
+@pytest.mark.parametrize("snippet", ["## Inheritance", "Inheritance", "# ORPHA:558 Marfan syndrome"])
+def test_headings_and_title_are_not_record_lines(tmp_path, snippet):
+    # Whole lines, but not record fields: quoting a heading claims nothing.
+    assert _orpha_violations(tmp_path, snippet)
 
 
 def test_pipeless_short_snippet_is_not_exempt():

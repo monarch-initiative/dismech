@@ -116,8 +116,13 @@ enum.
 - **`iuis_category`** — IUIS primary-immunodeficiency classification.
   Single-valued.
 - **`channelopathy_category`** — organ-system grouping for
-  channelopathies (`cardiac channelopathy`, `neurological
-  channelopathy`, etc.). Single-valued.
+  channelopathies (`cardiac`, `skeletal muscle`, `neurological`,
+  `epithelial` or `immune channelopathy`). Single-valued. Tagging an entry
+  makes it a required member of `kb/groupings/Channelopathies.yaml`, whose
+  NECESSARY criterion also requires the entry to curate a GO molecular
+  function under ion channel activity (`GO:0005216`) or ion channel
+  regulator activity (`GO:0099106`). Add the entry to that grouping in the
+  same change. Ion pump disorders (ATP1A3, ATP1A2) are not tagged.
 - **`icdo_morphology`** — ICD-O cancer-morphology category. Apply to
   neoplastic entries. Single-valued. See the dedicated section below.
 - **`icimd_category`** — International Classification of Inherited

@@ -222,4 +222,13 @@ def test_kgx_does_not_turn_region_landmarks_into_gene_disease_associations(
     assert not any(
         "Gene" in str(node.category) for node in extract_nodes(region_record)
     )
-    assert not list(transform(region_record))
+    # The pathophysiology node itself is exported (#2101); nothing gene-typed is.
+    edges = list(transform(region_record))
+    assert not [
+        edge
+        for edge in edges
+        if "Gene" in f"{edge.subject_category}{edge.object_category}"
+        or edge.subject.startswith("hgnc:")
+        or edge.object.startswith("hgnc:")
+    ]
+    assert {edge.predicate for edge in edges} <= {"biolink:disease_has_basis_in"}

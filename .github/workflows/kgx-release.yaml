@@ -1,7 +1,8 @@
 ---
 name: KGX Export Release
 
-# Generates KGX edge export and attaches to GitHub release
+# Generates the KGX export (JSON Lines and TSV) plus a metadata file
+# naming the Biolink Model version, and attaches them to the GitHub release
 # Runs after a release is published via the GitHub UI
 
 on:  # yamllint disable-line rule:truthy
@@ -60,6 +61,28 @@ jobs:
           mv output/kgx/kgx_export_edges.jsonl output/kgx/dismech_edges.jsonl
           mv output/kgx/kgx_export_sepio.jsonl output/kgx/dismech_sepio.jsonl
 
+      # Converted from the JSON Lines rather than written by a second koza pass
+      # with -f tsv: koza's TSV writer keeps only six edge columns (dropping
+      # publications, supporting_text, knowledge_level and the qualifiers) and
+      # writes each node once per entry that names it.
+      - name: Write KGX TSV
+        run: >-
+          uv run python -m dismech.export.release_assets kgx-tsv
+          --nodes output/kgx/dismech_nodes.jsonl
+          --edges output/kgx/dismech_edges.jsonl
+          --nodes-out output/kgx/dismech_nodes.tsv
+          --edges-out output/kgx/dismech_edges.tsv
+
+      # Records the Biolink Model version the export was built against (the
+      # installed biolink-model package whose classes kgx_export.py uses),
+      # plus node and edge counts by category and predicate.
+      - name: Write KGX metadata
+        run: >-
+          uv run python -m dismech.export.release_assets kgx-metadata --biolink
+          --nodes output/kgx/dismech_nodes.jsonl
+          --edges output/kgx/dismech_edges.jsonl
+          -o output/kgx/dismech_kgx_metadata.json
+
       - name: Upload KGX export to release
         uses: softprops/action-gh-release@v2
         with:
@@ -67,3 +90,6 @@ jobs:
             output/kgx/dismech_nodes.jsonl
             output/kgx/dismech_edges.jsonl
             output/kgx/dismech_sepio.jsonl
+            output/kgx/dismech_nodes.tsv
+            output/kgx/dismech_edges.tsv
+            output/kgx/dismech_kgx_metadata.json

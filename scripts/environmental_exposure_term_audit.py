@@ -29,10 +29,19 @@ crossed with whether the entry is pathograph-linked (``influences_mechanisms``).
 **Reuse candidates.** A large share of the gap is the same exposure concept
 recurring across disorders — ultraviolet radiation, tobacco smoking, fasting.
 When one instance is bound and another is not, the unbound one needs no ontology
-research at all: the CURIE is already in the KB (and therefore already in
-``cache/ecto/terms.csv`` and the ``exposureterm`` enum cache, so it validates
-without a network round-trip). This audit matches unbound entries against bound
-ones on a normalized name and reports the CURIE already in use.
+research at all: the CURIE is already in the KB. This audit matches unbound
+entries against bound ones on a normalized name and reports the CURIE already in
+use.
+
+Being in the KB does not make a CURIE bindable. The reuse index is read from the
+working tree, so it includes bindings that have never passed validation, such as
+an in-progress edit or a CURIE the configured ECTO build cannot resolve (#10738).
+Each candidate is therefore checked against the ``ExposureTerm`` dynamic-enum
+membership cache (``cache/enums/exposureterm_*.csv``). A candidate that is not
+in it is reported as ``not in enum cache`` rather than offered as ``reuse``. That
+is not a verdict that the term is invalid: the enum cache only holds terms that
+have already validated, so a miss means "not yet shown to validate". Run
+``just validate-terms`` before binding one.
 
 That match is **advisory**. It is a string match on curator-written names, not a
 semantic one, and the guardrail from ``.claude/skills/dismech-terms`` still
@@ -97,6 +106,10 @@ _NOISE_WORDS = frozenset(
 _STATE_BOUND = "BOUND"
 _STATE_PARTIAL = "PARTIAL"
 _STATE_UNBOUND = "UNBOUND"
+
+#: Positive-hit cache of ``ExposureTerm`` dynamic-enum membership, written by
+#: ``linkml-term-validator``. Relative to the repo root.
+_ENUM_CACHE_GLOB = "cache/enums/exposureterm_*.csv"
 
 
 @dataclass
@@ -180,12 +193,38 @@ def collect(repo_root: Path | None = None) -> list[_Exposure]:
     return out
 
 
-def build_reuse_index(exposures: list[_Exposure]) -> dict[str, tuple[str, str, int]]:
-    """Map a normalized name to the ``(curie, label, n)`` most used for it.
+def load_enum_members(repo_root: Path | None = None) -> frozenset[str] | None:
+    """Return the CURIEs in the ``ExposureTerm`` enum membership cache.
+
+    ``None`` when no cache file exists, meaning membership cannot be checked;
+    callers then leave candidates unchecked rather than reporting every one as
+    a miss. Several cache files (a stale key beside the current one) are unioned.
+    """
+    repo_root = repo_root if repo_root is not None else _REPO_ROOT
+    paths = sorted(repo_root.glob(_ENUM_CACHE_GLOB))
+    if not paths:
+        return None
+    members: set[str] = set()
+    for path in paths:
+        with path.open(newline="", encoding="utf-8") as stream:
+            reader = csv.reader(stream)
+            next(reader, None)  # header
+            members.update(row[0] for row in reader if row and row[0])
+    return frozenset(members)
+
+
+def build_reuse_index(
+    exposures: list[_Exposure], members: frozenset[str] | None = None
+) -> dict[str, tuple[str, str, int, bool | None]]:
+    """Map a normalized name to the ``(curie, label, n, in_enum)`` used for it.
 
     Only bound entries contribute. When curators have bound the same concept to
     more than one CURIE, the most frequent wins and the disagreement is reported
-    separately by :func:`find_conflicts` rather than silently resolved here.
+    separately by :func:`find_conflicts` rather than silently resolved here; a
+    CURIE in the enum cache is preferred over one that is not.
+
+    ``in_enum`` is whether the CURIE is in ``members``, or ``None`` when
+    ``members`` is ``None`` (no cache to check against).
     """
     votes: dict[str, Counter] = defaultdict(Counter)
     labels: dict[str, str] = {}
@@ -197,11 +236,29 @@ def build_reuse_index(exposures: list[_Exposure]) -> dict[str, tuple[str, str, i
             continue
         votes[key][exp.curie] += 1
         labels.setdefault(exp.curie, exp.label)
-    index: dict[str, tuple[str, str, int]] = {}
+    index: dict[str, tuple[str, str, int, bool | None]] = {}
     for key, counter in votes.items():
-        curie, count = counter.most_common(1)[0]
-        index[key] = (curie, labels.get(curie, ""), count)
+        # max() keeps the first of equal keys, matching most_common()'s order.
+        curie, count = max(
+            counter.items(),
+            key=lambda kv: (members is None or kv[0] in members, kv[1]),
+        )
+        in_enum = None if members is None else curie in members
+        index[key] = (curie, labels.get(curie, ""), count, in_enum)
     return index
+
+
+def _reusable(hit: tuple | None) -> bool:
+    """A reuse hit that may be offered as ``reuse``: not a known enum-cache miss."""
+    return hit is not None and hit[3] is not False
+
+
+def _reuse_suffix(hit: tuple | None) -> str:
+    if hit is None:
+        return ""
+    if _reusable(hit):
+        return f"  -> reuse {hit[0]} ({hit[1]})"
+    return f"  -> not in enum cache: {hit[0]} ({hit[1]}); run validate-terms first"
 
 
 def find_conflicts(exposures: list[_Exposure]) -> dict[str, Counter]:
@@ -252,7 +309,12 @@ def _print_summary(exposures: list[_Exposure], reuse: dict, top: int) -> None:
     print()
 
     priority = [e for e in exposures if e.priority]
-    with_suggestion = [e for e in priority if _normalize(e.name) in reuse]
+    with_suggestion = [e for e in priority if _reusable(reuse.get(_normalize(e.name)))]
+    not_in_enum = [
+        e
+        for e in priority
+        if _normalize(e.name) in reuse and not _reusable(reuse[_normalize(e.name)])
+    ]
     print(f"PRIORITY GAP (linked, not bound): {len(priority)}")
     print(
         f"  of which a CURIE is already in use elsewhere for the same "
@@ -260,8 +322,12 @@ def _print_summary(exposures: list[_Exposure], reuse: dict, top: int) -> None:
         f"({_pct(len(with_suggestion), len(priority))}) — no ontology research needed."
     )
     print(
+        f"  of which the CURIE in use is not in the ExposureTerm enum cache "
+        f"(check with validate-terms before binding): {len(not_in_enum)}"
+    )
+    print(
         f"  needing a fresh ECTO lookup (or a documented "
-        f"'no suitable term'): {len(priority) - len(with_suggestion)}"
+        f"'no suitable term'): {len(priority) - len(with_suggestion) - len(not_in_enum)}"
     )
     print(
         "  NOTE: the reuse count is a FLOOR. Matching is exact-on-normalized-name,\n"
@@ -282,6 +348,7 @@ def _print_summary(exposures: list[_Exposure], reuse: dict, top: int) -> None:
         key=lambda kv: (-sum(1 for e in kv[1] if e.priority), -len(kv[1]), kv[0]),
     )
     print(f"Top {top} recurring exposure concepts, by size of their priority gap:")
+    flagged = False
     print(f"  {'gap':>4} {'bound':>5}  {'CURIE in use':<28}  concept")
     for key, entries in ranked[:top]:
         gap = sum(1 for e in entries if e.priority)
@@ -289,8 +356,13 @@ def _print_summary(exposures: list[_Exposure], reuse: dict, top: int) -> None:
             continue
         n_bound = sum(1 for e in entries if e.state == _STATE_BOUND)
         hit = reuse.get(key)
-        in_use = f"{hit[0]} {hit[1]}"[:28] if hit else "-"
+        in_use = (
+            f"{'' if _reusable(hit) else '?'}{hit[0]} {hit[1]}"[:28] if hit else "-"
+        )
+        flagged = flagged or (hit is not None and not _reusable(hit))
         print(f"  {gap:>4} {n_bound:>5}  {in_use:<28}  {key}")
+    if flagged:
+        print("  ('?' before a CURIE: not in the ExposureTerm enum cache.)")
 
     conflicts = find_conflicts(exposures)
     if conflicts:
@@ -303,8 +375,8 @@ def _print_summary(exposures: list[_Exposure], reuse: dict, top: int) -> None:
 
 def _print_list(exposures: list[_Exposure], reuse: dict) -> None:
     for i, exp in enumerate(sorted(exposures, key=lambda e: (e.slug, e.name)), start=1):
-        hit = reuse.get(_normalize(exp.name))
-        suffix = f"  -> reuse {hit[0]} ({hit[1]})" if hit else ""
+        hit = reuse.get(_normalize(exp.name)) if exp.state != _STATE_BOUND else None
+        suffix = _reuse_suffix(hit)
         print(f"{i:4d}. [{exp.state:<7}] {exp.slug:<55} | {exp.name}{suffix}")
 
 
@@ -322,6 +394,7 @@ def _write_tsv(exposures: list[_Exposure], reuse: dict, out) -> None:
             "normalized_name",
             "reuse_curie",
             "reuse_label",
+            "reuse_in_enum_cache",
         ]
     )
     for exp in sorted(exposures, key=lambda e: (e.path, e.name)):
@@ -339,6 +412,7 @@ def _write_tsv(exposures: list[_Exposure], reuse: dict, out) -> None:
                 key,
                 hit[0] if hit else "",
                 hit[1] if hit else "",
+                "" if hit is None or hit[3] is None else ("yes" if hit[3] else "no"),
             ]
         )
 
@@ -377,7 +451,14 @@ def main(argv: list[str] | None = None) -> int:
     all_exposures = collect()
     # The reuse index is always built over the WHOLE corpus: a filtered view must
     # still be able to suggest a CURIE bound on an entry the filter excluded.
-    reuse = build_reuse_index(all_exposures)
+    members = load_enum_members()
+    if members is None:
+        print(
+            f"WARNING: no {_ENUM_CACHE_GLOB} found; reuse candidates are not "
+            "checked for enum membership.",
+            file=sys.stderr,
+        )
+    reuse = build_reuse_index(all_exposures, members)
 
     selected = all_exposures
     if args.linked_only:

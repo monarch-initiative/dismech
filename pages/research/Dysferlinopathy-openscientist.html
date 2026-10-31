@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dysferlinopathy · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Dysferlinopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Dysferlinopathy</h1>
+                
+                <p class="report-subtitle">Dysferlinopathy (MONDO:0016145): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-10-23</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0016145" target="_blank" rel="noopener noreferrer">MONDO:0016145</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">23 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Dysferlinopathy (<a href="http://purl.obolibrary.org/obo/MONDO_0016145" target="_blank" rel="noopener noreferrer">MONDO:0016145</a>): A Comprehensive Disease Characteristics Report</h1>
+<p><strong>Causal gene:</strong> <em>DYSF</em> (dysferlin), chromosome 2p13.2 | <strong>Inheritance:</strong> Autosomal recessive | <strong>Category:</strong> Mendelian</p>
+<hr />
+<h2>Summary</h2>
+<p><strong>Dysferlinopathy is an autosomal recessive muscular dystrophy caused by biallelic loss-of-function variants in <em>DYSF</em>, the gene encoding dysferlin — a large (~237 kDa), Ca²⁺-sensing, multi-C2-domain transmembrane protein responsible for repairing injured skeletal muscle plasma membrane (sarcolemma).</strong> When both <em>DYSF</em> alleles are defective, muscle fibers lose the capacity to reseal the micro-tears generated by normal contraction. The consequence is a self-amplifying cycle of membrane leakage, complement activation, inflammation, myofiber necrosis, and progressive replacement of muscle with fat and fibrous tissue. This core lesion — a failure of Ca²⁺-dependent sarcolemmal resealing — was established directly in dysferlin-null mice (<a href="https://pubmed.ncbi.nlm.nih.gov/12736685/">PMID: 12736685</a>) and is remarkable for occurring despite a fully intact dystrophin-glycoprotein complex, distinguishing dysferlinopathy mechanistically from Duchenne/Becker muscular dystrophy.</p>
+<p>Clinically, one gene produces a spectrum of phenotypes that classically falls into three overlapping presentations from the same mutational pool: <strong>limb-girdle muscular dystrophy R2/2B</strong> (proximal pelvic and shoulder-girdle weakness), <strong>Miyoshi myopathy</strong> (distal onset in the calf/gastrocnemius), and <strong>distal myopathy with anterior tibial onset (DMAT/DACM)</strong>. Onset is typically in the late teens to twenties, serum creatine kinase (CK) is markedly elevated, and progression is slow-to-intermediate, with loss of ambulation commonly in the fourth decade. Respiratory decline and cardiac involvement are usually late and affect a minority. A striking and clinically important feature is that affected individuals are frequently athletic before onset, and vigorous exercise appears to accelerate progression — a gene-environment interaction consistent with the membrane-repair defect.</p>
+<p>There is currently <strong>no approved disease-modifying therapy</strong>; management is supportive (physiotherapy with exercise moderation, respiratory and cardiac surveillance, mobility aids). The leading experimental therapeutic is <strong>dual/overlap-AAV full-length dysferlin gene replacement</strong>, developed to circumvent the fact that the ~6.5 kb <em>DYSF</em> coding sequence exceeds single-AAV packaging capacity. Diagnosis rests on absent/markedly reduced dysferlin on muscle immunohistochemistry or Western blot (with peripheral blood monocytes as a validated surrogate), confirmed by <em>DYSF</em> genetic testing, supported by a characteristic — but not universal — muscle MRI fat-infiltration pattern.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>1. Genetic cause: biallelic <em>DYSF</em> loss of function (F001)</h3>
+<p>Dysferlinopathy is caused by biallelic (autosomal recessive) pathogenic variants in <em>DYSF</em> on chromosome 2p13. The gene was identified through positional cloning of a novel 6.9 kb muscle cDNA, whose protein product was named "dysferlin": <em>"we recently identified a novel, full-length 6.9 kb muscle cDNA, whose corresponding protein we designated 'dysferlin'"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/10791095/">PMID: 10791095</a>). A defining genetic feature is phenotypic pleiotropy — the same mutation can manifest as different clinical syndromes: <em>"Identical mutations in the dysferlin gene can produce more than one myopathy phenotype (MM, limb-girdle dystrophy, distal myopathy with anterior tibial onset)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/10791095/">PMID: 10791095</a>). Biallelic pathogenic variants produce absent or reduced dysferlin in muscle.</p>
+<ul>
+<li><strong>Ontology:</strong> Gene <em>DYSF</em> (<a href="https://bioregistry.io/HGNC:3097" target="_blank" rel="noopener noreferrer">HGNC:3097</a>); disease <a href="http://purl.obolibrary.org/obo/MONDO_0016145" target="_blank" rel="noopener noreferrer">MONDO:0016145</a>.</li>
+<li><strong>Evidence type:</strong> Human genetic / positional cloning.</li>
+</ul>
+<h3>2. Dysferlin protein architecture and Ca²⁺-sensitive phospholipid binding (F012)</h3>
+<p>Dysferlin is a large (~237 kDa) type-II transmembrane protein with a single C-terminal transmembrane anchor and multiple cytoplasmic C2 domains (C2A–C2G), plus DysF and FerA (four-helix bundle) domains; it is a member of the fer-1-like/ferlin family. The N-terminal <strong>C2A domain binds negatively charged phospholipids (phosphatidylserine) in a Ca²⁺-sensitive manner</strong>, and this activity is a direct target of disease mutations: <em>"A dysferlin point mutation responsible for muscular dystrophy was engineered into the dysferlin C2A domain and demonstrated reduced calcium-sensitive phospholipid binding"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/11959863/">PMID: 11959863</a>). Beyond passive binding, ferlin C2 domains actively remodel membranes: <em>"dysferlin, otoferlin, and myoferlin do not merely passively adsorb to membranes but actively sculpt lipid bilayers"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/23859474/">PMID: 23859474</a>). The FerA domain is a membrane-associating four-helix bundle (<a href="https://pubmed.ncbi.nlm.nih.gov/30026467/">PMID: 30026467</a>), and structural comparison of myoferlin vs dysferlin C2A domains reveals distinct membrane-binding behavior (<a href="https://pubmed.ncbi.nlm.nih.gov/31004665/">PMID: 31004665</a>).</p>
+<ul>
+<li><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/GO_0005544" target="_blank" rel="noopener noreferrer">GO:0005544</a> (calcium-dependent phospholipid binding); <a href="http://purl.obolibrary.org/obo/CHEBI_18303" target="_blank" rel="noopener noreferrer">CHEBI:18303</a> phosphatidyl-L-serine; InterPro ferlin / C2 / DysF / FerA domains.</li>
+<li><strong>Evidence type:</strong> In vitro / structural biology.</li>
+</ul>
+<h3>3. Primary mechanism: defective Ca²⁺-dependent sarcolemmal membrane repair (F008)</h3>
+<p>The dysferlin-null mouse provides the definitive demonstration of the core disease mechanism. These mice develop progressive muscular dystrophy despite an intact dystrophin-glycoprotein complex: <em>"dysferlin-null mice maintain a functional dystrophin-glycoprotein complex but nevertheless develop a progressive muscular dystrophy"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/12736685/">PMID: 12736685</a>). Using a two-photon laser injury assay, dysferlin-deficient fibers fail to reseal: <em>"dysferlin-deficient muscle fibres are defective in Ca2+-dependent sarcolemma resealing"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/12736685/">PMID: 12736685</a>). In healthy muscle, dysferlin-enriched vesicles accumulate and fuse to form a membrane "patch" at the injury site; in dysferlin-null muscle, sub-sarcolemmal vesicles accumulate but do not resolve the lesion. Dysferlin is the vertebrate homologue of <em>C. elegans</em> fer-1, which mediates vesicle fusion in spermatids — underscoring an evolutionarily conserved membrane-fusion role.</p>
+<ul>
+<li><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/GO_0061024" target="_blank" rel="noopener noreferrer">GO:0061024</a> (membrane organization); <a href="http://purl.obolibrary.org/obo/GO_0001778" target="_blank" rel="noopener noreferrer">GO:0001778</a> (plasma membrane repair); <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" rel="noopener noreferrer">CL:0008002</a> (skeletal muscle fiber).</li>
+<li><strong>Evidence type:</strong> Model organism (mouse) + in vitro injury assay.</li>
+</ul>
+<h3>4. The membrane-repair complex: MG53(TRIM72)–caveolin-3–dysferlin (F014, F002)</h3>
+<p>Dysferlin does not act alone. A molecular complex of <strong>MG53 (TRIM72), caveolin-3 (Cav3), and dysferlin</strong> is required for sarcolemmal repair: <em>"a molecular complex formed by MG53, dysferlin, and Cav3 is essential for repair of muscle membrane damage"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/19380584/">PMID: 19380584</a>). MG53 performs the trafficking step: <em>"MG53 mediates active trafficking of intracellular vesicles to the sarcolemma and is required for movement of dysferlin to sites of cell injury during repair patch formation"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/19380584/">PMID: 19380584</a>). This explains why caveolin-3 mutations (e.g., P104L, R26Q) that trap Cav3 in the Golgi produce aberrant MG53/dysferlin localization and defective repair in a dominant-negative fashion — linking several muscular dystrophies through a shared repair pathway.</p>
+<ul>
+<li><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/GO_0048306" target="_blank" rel="noopener noreferrer">GO:0048306</a> (calcium-dependent protein binding); protein partners TRIM72/MG53, CAV3.</li>
+<li><strong>Evidence type:</strong> In vitro / cell biology.</li>
+</ul>
+<h3>5. Complement activation as a disease-specific downstream effector (F002)</h3>
+<p>A critical, therapeutically actionable discovery is that the immune/complement system is a central downstream amplifier of muscle injury specifically in dysferlinopathy. In dysferlin-null mice, complement factors are upregulated in muscle, and genetic ablation of the central complement component C3 is protective: <em>"genetic disruption of the central component (C3) of the complement system ameliorated muscle pathology in dysferlin-deficient mice but had no significant beneficial effect in a genetically distinct model of muscular dystrophy, mdx mice"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/21060153/">PMID: 21060153</a>). The fact that C3 ablation helps dysferlin-deficient but <strong>not</strong> mdx (dystrophin-deficient) mice demonstrates that complement is a disease-specific, not generic, driver — making it a rational, dysferlinopathy-selective therapeutic target.</p>
+<ul>
+<li><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" rel="noopener noreferrer">GO:0006956</a> (complement activation); <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response).</li>
+<li><strong>Evidence type:</strong> Model organism (mouse genetics).</li>
+</ul>
+<h3>6. Clinical spectrum: three classic phenotypes from one gene (F010)</h3>
+<p>Dysferlinopathy presents as a clinical spectrum with three classic presentations: <em>"limb-girdle muscular dystrophy 2B (LGMD2B) with predominantly proximal weakness, Miyoshi myopathy (MM) with calf muscle weakness and atrophy, and distal myopathy with anterior tibial onset (DMAT) with tibialis muscle atrophy"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/23254335/">PMID: 23254335</a>). Onset is typically young-adult (late teens to twenties), with markedly elevated serum CK and muscle biopsy showing absence/drastic decrease of dysferlin on immunohistochemistry. Recurrent mutations differ by population (e.g., c.3112C&gt;T and c.1045dup reported in China).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Primary muscle involvement</th>
+<th>HPO suggestion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LGMD R2 / LGMD2B</td>
+<td>Proximal — pelvic &amp; shoulder girdle</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" rel="noopener noreferrer">HP:0003701</a> (proximal muscle weakness)</td>
+</tr>
+<tr>
+<td>Miyoshi myopathy (MM)</td>
+<td>Distal — calf/gastrocnemius weakness &amp; atrophy</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003693" target="_blank" rel="noopener noreferrer">HP:0003693</a> (distal amyotrophy); <a href="http://purl.obolibrary.org/obo/HP_0003734" target="_blank" rel="noopener noreferrer">HP:0003734</a></td>
+</tr>
+<tr>
+<td>DMAT / DACM</td>
+<td>Distal — tibialis anterior atrophy</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009053" target="_blank" rel="noopener noreferrer">HP:0009053</a> (distal lower-limb weakness)</td>
+</tr>
+<tr>
+<td>Shared</td>
+<td>Elevated CK</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" rel="noopener noreferrer">HP:0003236</a> (elevated serum CK)</td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Evidence type:</strong> Human clinical / genetic cohort.</li>
+</ul>
+<h3>7. Epidemiology within the LGMD landscape, and founder effects (F009, F003)</h3>
+<p>Dysferlinopathy is a substantial contributor to autosomal recessive LGMD. In a large Italian cohort (181 patients / 155 families), it was the second most common defect, with <em>"LGMD2B (dysferlin) 18.7%"</em> of cases, behind calpainopathy (LGMD2A, 28.4%) (<a href="https://pubmed.ncbi.nlm.nih.gov/17994539/">PMID: 17994539</a>). Clinical severity ranking among LGMD subtypes was reported as: <em>"The order of decreasing clinical severity was: sarcoglycanopathy, calpainopathy, dysferlinopathy, and caveolinopathy"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/17994539/">PMID: 17994539</a>). Frequency varies geographically — the Czech cohort was dominated by calpainopathy with <em>"a smaller proportion of LGMD R2 dysferlin-related"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37526466/">PMID: 37526466</a>).</p>
+<p>Founder mutations and ethnic clustering are well documented: <em>"Three ethnic clusters have previously been described in Dysferlinopathy: the Libyan Jewish population originating in the area of Tripoli, Italian and Spanish populations"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/17825554/">PMID: 17825554</a>). In Jews of the Caucasus, a homozygous frameshift (c.2779delG, codon 927) causes dysferlin truncation/loss, with a quantified carrier burden: <em>"The possible existence of a founder effect is strengthened by our finding of a 4% carrier frequency in this community"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/17825554/">PMID: 17825554</a>).</p>
+<ul>
+<li><strong>Evidence type:</strong> Human clinical / population genetics.</li>
+</ul>
+<h3>8. Natural history and muscle MRI fat-fraction progression (F004)</h3>
+<p>The Jain Clinical Outcome Study (COS) is the key natural-history dataset: <em>"The Jain Clinical Outcome Study for Dysferlinopathy (COS) followed the largest cohort of patients (n=187) with genetically confirmed dysferlinopathy throughout a three-year natural history study"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36972667/">PMID: 36972667</a>). Longitudinal muscle-MRI fat-fraction (FF) modeling showed FF <em>"was expected to be higher the older patients were and the earlier the age at symptom onset"</em> and that <em>"Women had absolute FF values 8.8% higher than men in the lower leg"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40740171/">PMID: 40740171</a>). Muscles acting on the same joint movement progressed similarly; no FF-trajectory differences were found by ethnicity or specific genetic variant. Importantly, although a classical thigh-dominant MRI pattern exists, roughly 63% of patients failed at least one established imaging criterion and ~13% were outliers (<a href="https://pubmed.ncbi.nlm.nih.gov/36972667/">PMID: 36972667</a>) — so imaging supports, but cannot replace, molecular diagnosis.</p>
+<ul>
+<li><strong>Evidence type:</strong> Human natural-history cohort / imaging.</li>
+</ul>
+<h3>9. Prognosis: slow-to-intermediate progression; wheelchair in the 4th decade (F011)</h3>
+<p>A Tunisian cohort (n=20; sex ratio 1; median age 50.5 y; follow-up 5–48 y) found median age at onset 17 y, with phenotype distribution LGMDR2 35%, proximodistal 35%, Miyoshi 10%, DMAT 10%, asymptomatic hyperCKemia 10%. At last evaluation, <em>"more than half of patients (55%) were on wheelchair. Loss of ambulation occurred generally during the fourth decade"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37716854/">PMID: 37716854</a>). <em>"Disease progression was mainly slow to intermediate regardless of the phenotype"</em> with marked intra- and inter-familial heterogeneity (<a href="https://pubmed.ncbi.nlm.nih.gov/37716854/">PMID: 37716854</a>). Late cardiac complications affected a minority: <em>"two patients with a proximodistal phenotype (10%) developed dilated cardiomyopathy and mitral valve regurgitation"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37716854/">PMID: 37716854</a>), generally after ~20 years of disease.</p>
+<ul>
+<li><strong>Evidence type:</strong> Human clinical longitudinal cohort.</li>
+</ul>
+<h3>10. Respiratory and cardiac involvement (F005)</h3>
+<p>In 48 Japanese dysferlinopathy patients, respiratory involvement was present in a minority: <em>"Of the 47 patients, 10 had reduced percent forced vital capacity (%FVC), and 4 required non-invasive positive pressure ventilation"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/26088049/">PMID: 26088049</a>). %FVC correlated with disease duration and was lower in non-ambulatory and older (≥65 y) patients. QRS prolongation occurred in 19/46 on ECG, and while echocardiography showed no overt LV dysfunction, <em>"Histopathology of autopsied cases revealed mild cardiomyopathy and moderate diaphragm involvement"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/26088049/">PMID: 26088049</a>). This supports a surveillance (not continuous intervention) posture for heart and lungs, and is consistent with a growing literature on dysferlin's role in cardiomyocyte membrane integrity and t-tubule biology (<a href="https://pubmed.ncbi.nlm.nih.gov/26415898/">PMID: 26415898</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39011635/">PMID: 39011635</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/24572254/">PMID: 24572254</a>).</p>
+<ul>
+<li><strong>Evidence type:</strong> Human clinical + autopsy.</li>
+</ul>
+<h3>11. Diagnosis via peripheral blood monocyte dysferlin assay (F007)</h3>
+<p>Dysferlin is expressed in peripheral blood monocytes (PBM), providing a minimally invasive diagnostic surrogate. Western blot of PBM shows reductions concordant with muscle: <em>"A comparable severe reduction in dysferlin was demonstrated in both skeletal muscle and PBM"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/21658164/">PMID: 21658164</a>). This is particularly valuable in monoallelic cases: <em>"Dysferlin and/or dysferlin mRNA abnormalities are diagnostic for dysferlinopathy when mutational analysis detects a mutation in one allele only"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/21658164/">PMID: 21658164</a>). mRNA analysis helps distinguish symptomatic heterozygotes from true patients, and MLPA detects large deletions/duplications missed by sequencing.</p>
+<ul>
+<li><strong>Evidence type:</strong> Human diagnostic / in vitro.</li>
+</ul>
+<h3>12. Gene-environment interaction: exercise accelerates progression (F013)</h3>
+<p>A mechanistically coherent and clinically crucial observation is that mechanical overload worsens disease: <em>"A retrospective cohort study suggests that exercise may actually increase rate of disease progression in dysferlinopathy"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/30036194/">PMID: 30036194</a>). Because contraction generates sarcolemmal micro-injuries that dysferlin-deficient fibers cannot efficiently reseal, mechanical stress directly drives myofiber damage. This matches the frequent clinical history of an athletic premorbid phase followed by rapid decline, and argues for exercise moderation in management.</p>
+<ul>
+<li><strong>Evidence type:</strong> Human retrospective cohort + mechanistic inference.</li>
+</ul>
+<h3>13. Dual-AAV gene replacement as the lead experimental therapy (F006)</h3>
+<p>The <em>DYSF</em> coding sequence (~6.5 kb) exceeds single-AAV packaging capacity (~4.7 kb). Dual/overlap-AAV vectors reconstitute the full-length protein: <em>"Dual adeno-associated virus vectors have been developed, defined by a region of homology, to serve as a substrate for reconstitution of the full 6.5 kb dysferlin cDNA"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28707952/">PMID: 28707952</a>). Systemic delivery in dysferlin-deficient mice produced long-term expression and functional improvement (membrane repair, MRI/MRS) 4–13 months post-treatment. Truncated "nanodysferlins" are an alternative, but have functional limits: <em>"Nanodysferlins support membrane repair and binding to TRIM72/MG53 but do not localize to t-tubules or stabilize Ca[2+]"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/38779337/">PMID: 38779337</a>) — indicating full-length protein may be needed to restore t-tubule and calcium-handling functions.</p>
+<ul>
+<li><strong>Ontology:</strong> NCIT:C15431 (gene therapy); adeno-associated viral vector.</li>
+<li><strong>Evidence type:</strong> Model organism (mouse) preclinical.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<h3>Ordered causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li><strong>Biallelic loss-of-function variants in <em>DYSF</em> (2p13.2)</strong> result in absent or severely reduced dysferlin protein in skeletal muscle. <em>(Demonstrated — human genetics + protein assays.)</em></li>
+<li><strong>Loss of dysferlin</strong> removes the Ca²⁺-sensor/membrane-fusion component of the sarcolemmal repair machinery; the C2A domain's Ca²⁺-dependent phosphatidylserine binding is lost. <em>(Demonstrated — in vitro C2A mutation studies.)</em></li>
+<li><strong>Normal muscle contraction generates micro-tears</strong> in the sarcolemma; intracellular Ca²⁺ influx at the lesion normally nucleates a dysferlin-enriched repair patch delivered by MG53 trafficking in complex with caveolin-3. <em>(Demonstrated — mouse laser-injury imaging + complex biochemistry.)</em></li>
+<li><strong>Without dysferlin, Ca²⁺-dependent resealing fails</strong> → the membrane tear persists; sub-sarcolemmal vesicles accumulate but cannot form a competent patch. <em>(Demonstrated — dysferlin-null mouse.)</em></li>
+<li><strong>Unresealed membrane leaks</strong> → sustained Ca²⁺ overload, leakage of CK into blood (very high serum CK), and exposure of intracellular contents. <em>(Demonstrated/inferred.)</em></li>
+<li><strong>BRANCH A — Complement/inflammation:</strong> membrane damage triggers complement activation (C3-dependent), inflammatory cell infiltration, and amplification of myofiber injury — a disease-specific effector (C3 ablation rescues dysferlin-null but not mdx mice). <em>(Demonstrated — mouse genetics.)</em></li>
+<li><strong>Repeated injury → myofiber necrosis and degeneration-regeneration cycling</strong> that eventually exhausts/outpaces repair. <em>(Demonstrated/inferred.)</em></li>
+<li><strong>Fibro-fatty replacement of muscle</strong> (quantifiable as rising MRI fat fraction with age and earlier onset) → progressive weakness. <em>(Demonstrated — natural-history imaging.)</em></li>
+<li><strong>Clinical manifestation:</strong> proximal (LGMD R2), distal-calf (Miyoshi), or anterior-tibial (DMAT) weakness; slow-to-intermediate progression to wheelchair dependence (commonly 4th decade); late/minor respiratory (diaphragm) and cardiac (mild cardiomyopathy, QRS prolongation) involvement. <em>(Demonstrated — human cohorts.)</em></li>
+<li><strong>MODIFIER — mechanical overload/exercise</strong> accelerates steps 3–8 by increasing injury faster than the deficient repair system can compensate. <em>(Human retrospective + mechanistic inference.)</em></li>
+</ol>
+<pre><code>  DYSF biallelic LoF
+  │
+  ▼
+  Absent dysferlin ──► C2A loses Ca²⁺-dependent PS binding
+  │
+  ▼
+  Contraction micro-tears ──► Ca²⁺ influx
+  │                         │
+  ▼                         ▼
+  FAILED Ca²⁺-dependent        (MG53–Cav3–dysferlin
+  membrane resealing            patch cannot form)
+  │
+    ┌─────┴───────────────┐
+    ▼                     ▼
+ Complement (C3)     Ca²⁺ overload /
+ + inflammation      CK leak
+    │                     │
+    └──────────┬──────────┘
+       ▼
+       Myofiber necrosis
+       ▼
+   Fibro-fatty replacement (↑MRI fat fraction)
+       ▼
+   Progressive weakness → wheelchair (~4th decade)
++ late diaphragm/cardiac involvement
+       ▲
+   Exercise / mechanical overload = accelerant
+</code></pre>
+<h3>Upstream vs downstream</h3>
+<ul>
+<li><strong>Upstream (initiating, disease-defining):</strong> <em>DYSF</em> mutation → absent dysferlin → failed Ca²⁺-dependent membrane repair. These are necessary and causal.</li>
+<li><strong>Downstream (effectors / amplifiers, candidate drug targets):</strong> complement C3 activation, inflammation, Ca²⁺ dysregulation, necrosis, fibro-fatty remodeling. These are modifiable without correcting the genetic defect.</li>
+<li><strong>Modifier:</strong> mechanical load (exercise) acts on the injury-generation rate.</li>
+</ul>
+<h3>Anatomy, cells, and compartments</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Structures involved</th>
+<th>Ontology suggestion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Organ/system</td>
+<td>Skeletal muscle (musculoskeletal system); secondary: diaphragm (respiratory), heart (minor/late)</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a> (skeletal muscle tissue); <a href="http://purl.obolibrary.org/obo/UBERON_0001103" target="_blank" rel="noopener noreferrer">UBERON:0001103</a> (diaphragm); <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a> (heart)</td>
+</tr>
+<tr>
+<td>Tissue</td>
+<td>Striated skeletal muscle</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002036" target="_blank" rel="noopener noreferrer">UBERON:0002036</a> / muscle tissue</td>
+</tr>
+<tr>
+<td>Cell</td>
+<td>Skeletal muscle fiber; satellite cell/myoblast; macrophage; peripheral blood monocyte (diagnostic surrogate)</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" rel="noopener noreferrer">CL:0008002</a> (skeletal muscle fiber); <a href="http://purl.obolibrary.org/obo/CL_0000056" target="_blank" rel="noopener noreferrer">CL:0000056</a> (myoblast); <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage); <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a> (monocyte)</td>
+</tr>
+<tr>
+<td>Subcellular</td>
+<td>Sarcolemma (plasma membrane), cytoplasmic vesicles, T-tubules, sarcoplasmic reticulum junctional complexes</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0042383" target="_blank" rel="noopener noreferrer">GO:0042383</a> (sarcolemma); <a href="http://purl.obolibrary.org/obo/GO_0030315" target="_blank" rel="noopener noreferrer">GO:0030315</a> (T-tubule); <a href="http://purl.obolibrary.org/obo/GO_0016529" target="_blank" rel="noopener noreferrer">GO:0016529</a> (sarcoplasmic reticulum)</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Evidence type</th>
+<th>Supports</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10791095/">10791095</a></td>
+<td>Positional cloning of Miyoshi/LGMD gene</td>
+<td>Human genetic</td>
+<td>F001 — DYSF identity, pleiotropy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12736685/">12736685</a></td>
+<td><em>Defective membrane repair in dysferlin-deficient MD</em></td>
+<td>Mouse + in vitro</td>
+<td>F008 — core Ca²⁺-resealing defect</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19380584/">19380584</a></td>
+<td><em>MG53–Cav3–dysferlin membrane repair</em></td>
+<td>In vitro</td>
+<td>F014, F002 — repair complex</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21060153/">21060153</a></td>
+<td><em>Complement C3 ablation attenuates pathology</em></td>
+<td>Mouse genetics</td>
+<td>F002 — disease-specific complement driver</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11959863/">11959863</a></td>
+<td><em>Ca²⁺-sensitive phospholipid binding of C2 domains</em></td>
+<td>In vitro</td>
+<td>F012 — mutation disrupts C2A binding</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23859474/">23859474</a></td>
+<td><em>C2 domains alter lipid bilayer packing</em></td>
+<td>In vitro</td>
+<td>F012 — active membrane sculpting</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30026467/">30026467</a></td>
+<td><em>FerA four-helix bundle domain</em></td>
+<td>Structural</td>
+<td>F012 — FerA domain</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31004665/">31004665</a></td>
+<td><em>Myoferlin vs dysferlin C2A structure</em></td>
+<td>Structural</td>
+<td>F012 — C2A membrane binding</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23254335/">23254335</a></td>
+<td><em>DYSF mutations in Chinese patients</em></td>
+<td>Human clinical</td>
+<td>F010 — three phenotypes</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17994539/">17994539</a></td>
+<td><em>Italian LGMD correlations</em></td>
+<td>Human cohort</td>
+<td>F009 — 18.7% frequency, severity rank</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37526466/">37526466</a></td>
+<td><em>Czech LGMD genetics</em></td>
+<td>Human cohort</td>
+<td>F009 — geographic variation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17825554/">17825554</a></td>
+<td><em>Dysferlinopathy in Caucasus Jews</em></td>
+<td>Population genetics</td>
+<td>F003 — founder effects, 4% carrier</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36972667/">36972667</a></td>
+<td><em>Muscle imaging outlier population</em></td>
+<td>Human imaging</td>
+<td>F004 — COS cohort, MRI pattern</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40740171/">40740171</a></td>
+<td><em>Longitudinal fat-fraction modeling</em></td>
+<td>Human imaging</td>
+<td>F004 — FF predictors, sex difference</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37716854/">37716854</a></td>
+<td><em>Dysferlinopathy in Tunisia</em></td>
+<td>Human longitudinal</td>
+<td>F011 — progression, prognosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26088049/">26088049</a></td>
+<td><em>Respiratory/cardiac function (Japan)</em></td>
+<td>Human + autopsy</td>
+<td>F005 — respiratory/cardiac</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21658164/">21658164</a></td>
+<td><em>Dysferlin in muscle and monocytes</em></td>
+<td>Human diagnostic</td>
+<td>F007 — PBM assay, monoallelic dx</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28707952/">28707952</a></td>
+<td><em>Dysferlin overlap-vector delivery</em></td>
+<td>Mouse preclinical</td>
+<td>F006 — dual-AAV therapy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38779337/">38779337</a></td>
+<td><em>Nanodysferlins</em></td>
+<td>In vitro</td>
+<td>F006 — truncated construct limits</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30036194/">30036194</a></td>
+<td><em>Exercise in muscle disorders</em></td>
+<td>Human retrospective</td>
+<td>F013 — exercise accelerant</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Convergence of evidence:</strong> The core mechanism (failed Ca²⁺-dependent sarcolemmal repair) is supported by independent lines — mouse genetics (<a href="https://pubmed.ncbi.nlm.nih.gov/12736685/">PMID: 12736685</a>), structural/biochemical studies of the C2A domain (<a href="https://pubmed.ncbi.nlm.nih.gov/11959863/">PMID: 11959863</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/23859474/">PMID: 23859474</a>), and the repair-complex biology (<a href="https://pubmed.ncbi.nlm.nih.gov/19380584/">PMID: 19380584</a>). The complement-C3 finding (<a href="https://pubmed.ncbi.nlm.nih.gov/21060153/">PMID: 21060153</a>) is particularly strong because it uses a disease-specific control (mdx mice) to show selectivity.</p>
+<hr />
+<h2>Section-by-Section Template Coverage</h2>
+<h3>1. Disease Information</h3>
+<p>Dysferlinopathy (<a href="http://purl.obolibrary.org/obo/MONDO_0016145" target="_blank" rel="noopener noreferrer">MONDO:0016145</a>) is an autosomal recessive, progressive muscular dystrophy caused by <em>DYSF</em> deficiency. Key identifiers: gene <em>DYSF</em> (<a href="https://bioregistry.io/HGNC:3097" target="_blank" rel="noopener noreferrer">HGNC:3097</a>, 2p13.2, NCBI Gene 8291, UniProt O75923); <a href="http://purl.obolibrary.org/obo/MONDO_0016145" target="_blank" rel="noopener noreferrer">MONDO:0016145</a>; OMIM gene 603009, LGMD2B/R2 253601, Miyoshi myopathy 1 254130, DMAT 606768; Orphanet <a href="https://bioregistry.io/ORPHA:206" target="_blank" rel="noopener noreferrer">ORPHA:206</a> (dysferlinopathy), <a href="https://bioregistry.io/ORPHA:268" target="_blank" rel="noopener noreferrer">ORPHA:268</a> (LGMD2B), <a href="https://bioregistry.io/ORPHA:45448" target="_blank" rel="noopener noreferrer">ORPHA:45448</a> (Miyoshi); ICD-10 G71.0, ICD-11 8C70.0; MeSH "Muscular Dystrophies, Limb-Girdle"/"Distal Myopathies". Synonyms: qualitative/quantitative defects of dysferlin; DYSF-related muscular dystrophy; LGMD R2 dysferlin-related (formerly LGMD2B); Miyoshi myopathy; distal anterior compartment myopathy (DMAT/DACM); primary dysferlinopathy. Information is drawn from aggregated disease-level resources and clinical cohorts (not single-patient EHR).</p>
+<h3>2. Etiology</h3>
+<p><strong>Primary cause:</strong> genetic — biallelic loss-of-function <em>DYSF</em> variants (F001). <strong>Genetic risk:</strong> causal variants span missense, frameshift, nonsense, splice-site, and large deletions/duplications; founder alleles cluster in Libyan Jewish, Italian, Spanish, and Caucasus Jewish (c.2779delG) populations (F003). No established non-genetic cause. <strong>Environmental/modifier:</strong> mechanical overload / vigorous exercise accelerates progression — the principal documented gene-environment interaction (F013). <strong>Protective factors:</strong> none genetically established; exercise moderation is the main modifiable protective behavior (inference from F013). <strong>Modifier genes:</strong> candidate repair-pathway partners (MG53/TRIM72, CAV3, annexins, AHNAK) are mechanistically implicated, but no validated human severity-modifier locus is established.</p>
+<h3>3. Phenotypes</h3>
+<p>Core phenotypes (with HPO suggestions): proximal muscle weakness (<a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" rel="noopener noreferrer">HP:0003701</a>), distal/calf weakness and atrophy (<a href="http://purl.obolibrary.org/obo/HP_0003693" target="_blank" rel="noopener noreferrer">HP:0003693</a>, <a href="http://purl.obolibrary.org/obo/HP_0003734" target="_blank" rel="noopener noreferrer">HP:0003734</a>), tibialis anterior atrophy / foot drop (<a href="http://purl.obolibrary.org/obo/HP_0009027" target="_blank" rel="noopener noreferrer">HP:0009027</a>), markedly elevated serum CK / hyperCKemia (<a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" rel="noopener noreferrer">HP:0003236</a>), difficulty climbing stairs (<a href="http://purl.obolibrary.org/obo/HP_0003551" target="_blank" rel="noopener noreferrer">HP:0003551</a>), scapular winging (<a href="http://purl.obolibrary.org/obo/HP_0003691" target="_blank" rel="noopener noreferrer">HP:0003691</a>), loss of ambulation (<a href="http://purl.obolibrary.org/obo/HP_0002505" target="_blank" rel="noopener noreferrer">HP:0002505</a>), restrictive ventilatory defect (<a href="http://purl.obolibrary.org/obo/HP_0002091" target="_blank" rel="noopener noreferrer">HP:0002091</a>), and (minority/late) dilated cardiomyopathy (<a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" rel="noopener noreferrer">HP:0001644</a>). Onset: young-adult (late teens–20s; median ~17 y, F011). Severity: moderate (intermediate among LGMDs, F009). Progression: slow-to-intermediate, progressive (F011). Frequency: proximal and distal forms each ~35% in one cohort; asymptomatic hyperCKemia ~10% (F011). QoL impact is driven primarily by progressive mobility loss (wheelchair commonly in the 4th decade), with preserved cognition.</p>
+<h3>4. Genetic / Molecular</h3>
+<p>Causal gene <em>DYSF</em> (2p13.2, ~55 exons, protein 2080 aa / ~237 kDa) (F001, F012). Variant classes: missense, frameshift, nonsense, splice-site, structural (MLPA-detectable CNVs) (F007, F010). Example alleles: c.2779delG (Caucasus founder, F003), c.5289G&gt;C/p.Glu1763Asp (F007), c.1375dup/p.Met459Asnfs*15 (F010 literature), c.3112C&gt;T and c.1045dup (China, F010). Functional consequence: loss of function — truncating alleles abolish protein; missense alleles destabilize dysferlin and/or impair C2A Ca²⁺/phospholipid binding (F012). Germline, inherited; not somatic. No disease-specific epigenetic or large-chromosomal mechanism. Founder allele carrier frequency up to 4% (F003).</p>
+<h3>5. Environmental</h3>
+<p>No toxin, infectious, or occupational cause. The one robust environmental modifier is <strong>mechanical load/exercise</strong> accelerating progression (F013). High-intensity/eccentric exercise is relatively contraindicated.</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p>See the ordered causal chain and diagram above (F001→F012→F008→F014→F002→F004→F010/F011). Molecular processes: Ca²⁺-dependent phospholipid binding and vesicle fusion (<a href="http://purl.obolibrary.org/obo/GO_0005544" target="_blank" rel="noopener noreferrer">GO:0005544</a>, <a href="http://purl.obolibrary.org/obo/GO_0061025" target="_blank" rel="noopener noreferrer">GO:0061025</a>), plasma-membrane repair (<a href="http://purl.obolibrary.org/obo/GO_0001778" target="_blank" rel="noopener noreferrer">GO:0001778</a>), complement activation (<a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" rel="noopener noreferrer">GO:0006956</a>), inflammation (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>). Cell types: skeletal muscle fiber (<a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" rel="noopener noreferrer">CL:0008002</a>), satellite cell/myoblast (<a href="http://purl.obolibrary.org/obo/CL_0000056" target="_blank" rel="noopener noreferrer">CL:0000056</a>), macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), monocyte (<a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a>). Compartments: sarcolemma (<a href="http://purl.obolibrary.org/obo/GO_0042383" target="_blank" rel="noopener noreferrer">GO:0042383</a>), T-tubule (<a href="http://purl.obolibrary.org/obo/GO_0030315" target="_blank" rel="noopener noreferrer">GO:0030315</a>). Inflammatory infiltrates can mimic polymyositis on biopsy (a diagnostic pitfall).</p>
+<h3>7. Anatomical Structures</h3>
+<p>Primary: skeletal muscle (<a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a>), with characteristic pelvic/posterior-thigh, gastrocnemius/soleus (<a href="http://purl.obolibrary.org/obo/UBERON_0011907" target="_blank" rel="noopener noreferrer">UBERON:0011907</a>), and tibialis anterior (<a href="http://purl.obolibrary.org/obo/UBERON_0001385" target="_blank" rel="noopener noreferrer">UBERON:0001385</a>) patterns. Secondary: diaphragm (<a href="http://purl.obolibrary.org/obo/UBERON_0001103" target="_blank" rel="noopener noreferrer">UBERON:0001103</a>) and heart (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>), generally late/mild (F005). CNS, cognition, and sensation are spared. Subcellular lesion localizes to the sarcolemma and vesicular trafficking machinery. Involvement is bilateral and roughly symmetric, limb-predominant.</p>
+<h3>8. Temporal Development</h3>
+<p>Onset: young adulthood (median ~17 y), insidious/chronic; presymptomatic hyperCKemia often precedes weakness. Course: slow-to-intermediate, steadily progressive (not relapsing-remitting). Stages: (i) presymptomatic hyperCKemia; (ii) early ambulant weakness; (iii) advancing proximal+distal weakness; (iv) loss of ambulation (~4th decade, F011); (v) wheelchair with possible respiratory/cardiac complications. Lifelong; no spontaneous remission. Critical intervention window is the long presymptomatic/early-ambulant phase before extensive fibro-fatty replacement (F004).</p>
+<h3>9. Inheritance and Population</h3>
+<p>Autosomal recessive (F001); high penetrance with variable expressivity; no anticipation (not a repeat disorder); germline mosaicism not recognized. ~18.7% of Italian LGMD (F009); Orphanet-order prevalence for LGMD2B ~1–9/1,000,000 generally, higher in founder communities. Founder effects with population-specific alleles; consanguinity increases local prevalence (F003). Carrier frequency up to 4% in specific communities. Sex ratio ~1:1 (F011), though women show higher lower-leg MRI fat fraction (F004).</p>
+<h3>10. Diagnostics</h3>
+<p>Markedly elevated serum CK (often 10–150× ULN; LOINC 2157-6) is the key screen. Muscle biopsy: dystrophic changes, often with inflammation, and absent/reduced dysferlin on IHC/Western blot (F010). Peripheral blood monocyte dysferlin Western blot is a validated surrogate, useful in monoallelic cases (F007). Muscle MRI shows a characteristic but non-universal (~63% fail ≥1 criterion) fat-infiltration pattern (F004). EMG myopathic; ECG may show QRS prolongation (F005). Genetic confirmation via NGS neuromuscular panel or WES + MLPA (CNVs); WGS resolves deep-intronic variants. Karyotype/FISH/CMA/mtDNA/repeat testing not applicable. Differential diagnosis: other recessive LGMDs (calpainopathy LGMD R1, anoctaminopathy LGMD R12, sarcoglycanopathies, FKRP LGMD R9), inflammatory myopathy/polymyositis, Pompe disease, and other distal myopathies (GNE, ANO5). No newborn screening; cascade/founder-variant screening appropriate.</p>
+<h3>11. Outcome / Prognosis</h3>
+<p>Near-normal lifespan in most; mortality low, usually from late respiratory or (rarely) cardiac complications. Major morbidity is progressive mobility loss — ~55% wheelchair-dependent, loss of ambulation in the 4th decade (F011). Complications: restrictive respiratory insufficiency (minority need NIV, F005), dilated cardiomyopathy in ~10% after ~20 years (F011), contractures, falls. Prognostic factors: earlier onset and older age predict higher MRI fat fraction (F004); female sex associated with higher lower-leg FF. Prognostic biomarkers: MRI fat fraction (validated), serum CK, functional outcome measures.</p>
+<h3>12. Treatment</h3>
+<p>No approved disease-modifying drug; management supportive/multidisciplinary. Supportive/rehabilitative: physiotherapy with exercise moderation (F013), occupational therapy (NCIT:C15329), orthoses, mobility aids, respiratory support (NIV when FVC declines, F005; NCIT:C94400), cardiac monitoring with standard heart-failure therapy if cardiomyopathy develops, nutrition/weight management. Pharmacotherapy: no proven agent; unlike Duchenne, corticosteroids are not established and may be detrimental. Experimental lead: dual/overlap-AAV full-length dysferlin gene replacement (F006; NCIT:C15431). Downstream-target strategies (complement inhibition, F002; membrane-repair enhancers such as recombinant MG53; exon skipping) are preclinical/early-phase. Nanodysferlin constructs partially rescue but miss t-tubule/Ca²⁺ functions (F006). Main gene-therapy translational risks: anti-capsid/transgene immunity, hepatotoxicity.</p>
+<h3>13. Prevention</h3>
+<p>No primary prevention of the genetic disease; genetic counseling, carrier/cascade screening, and reproductive options (prenatal diagnosis, preimplantation genetic testing) in known families/founder communities (F003). Secondary: early CK testing and family screening. Tertiary: activity modification to reduce exercise-driven damage (F013), respiratory/cardiac surveillance, physiotherapy for contractures, vaccination against respiratory pathogens in those with reduced pulmonary reserve. Immunization/public-health/environmental interventions not applicable to causation.</p>
+<h3>14. Other Species / Natural Disease</h3>
+<p><em>DYSF</em> is evolutionarily conserved: mouse <em>Dysf</em> (NCBI Gene 26903; Taxon 10090), rat <em>Dysf</em> (Taxon 10116), zebrafish <em>dysf</em> (Taxon 7955), and the invertebrate homologue <em>fer-1</em> in <em>C. elegans</em> (Taxon 6239). The membrane-repair/vesicle-fusion function is conserved from fer-1 (spermatid vesicle fusion) to mammalian dysferlin (sarcolemmal repair) (F008). Dysferlin-deficient dystrophy occurs naturally and in engineered mouse strains; it is not a prominent natural veterinary entity. Not zoonotic or communicable.</p>
+<h3>15. Model Organisms</h3>
+<p><strong>Mouse (primary, recapitulates disease well):</strong> dysferlin-null knockouts develop progressive dystrophy with defective Ca²⁺-dependent resealing despite intact dystrophin-glycoprotein complex (F008) — the definitive model-organism proof of mechanism. Naturally dysferlin-deficient strains include SJL/J (splice-site) and A/J (ETn insertion); the congenic B6.A-Dysf (Bla/J) is a clean-background model. These show late-onset, slowly progressive proximal/pelvic and paraspinal myopathy with inflammation and complement upregulation (F002), and serve as the AAV gene-therapy platform (F006). <strong>Limitations:</strong> murine disease is milder, slower, and less distal than human Miyoshi myopathy; cardiac phenotype is subtle; muscle-group distribution differs. <strong>In vitro/cellular:</strong> patient myoblasts/myotubes, iPSC-derived myocytes, and recombinant C2/FerA/DysF constructs for biophysics (F012); laser-wounding repair assays. <strong>Other organisms:</strong> zebrafish <em>dysf</em> mutants (muscle integrity); <em>C. elegans</em> fer-1 (ancestral ferlin biology). Resources: MGI, IMSR, Jackson Laboratory, Jain Foundation repositories.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No primary molecular-profiling data were generated</strong> in this investigation; all findings are literature-derived. No patient-level transcriptomic, proteomic, or metabolomic datasets were analyzed.</li>
+<li><strong>Genotype–phenotype correlation remains weak.</strong> The same mutation produces different phenotypes (F001), and the COS found no FF-trajectory differences by variant (F004) — the modifiers determining proximal vs distal onset are unidentified.</li>
+<li><strong>Complement as a human therapeutic target is unproven.</strong> The C3 evidence is from mouse genetics (F002); no human complement-inhibition trial outcome is reported here.</li>
+<li><strong>Cardiac risk is ambiguous.</strong> Overt LV dysfunction was absent on echocardiography in the Japanese cohort, yet autopsy showed mild cardiomyopathy and a minority develop dilated cardiomyopathy late (F005, F011) — true cardiac natural history needs prospective cardiac MRI.</li>
+<li><strong>Exercise evidence is retrospective</strong> (F013); the dose/intensity threshold that is harmful vs beneficial is undefined, and prospective controlled studies are lacking.</li>
+<li><strong>Gene-therapy data are preclinical</strong> (mouse) (F006); human efficacy, durability, immunogenicity, and the functional adequacy of reconstituted vs full-length protein (nanodysferlin t-tubule deficit) are unresolved.</li>
+<li><strong>Epidemiology is region-biased.</strong> Prevalence estimates derive from referral cohorts (Italy, Czechia, Tunisia, Japan) rather than population-based registries; a precise global prevalence (per 100,000) was not established.</li>
+</ol>
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Analyze a human dysferlinopathy transcriptomic/proteomic dataset (GEO/PRIDE)</strong> to confirm complement and inflammatory pathway upregulation in patient muscle and identify candidate severity modifiers — directly testing whether the mouse C3 mechanism (F002) operates in humans.</li>
+<li><strong>Build a genotype–phenotype modifier analysis</strong> using the Jain COS cohort (F004): test whether residual dysferlin level (not just variant type) predicts FF trajectory, and whether the female lower-leg FF excess (8.8%) reflects fiber-type or hormonal modifiers.</li>
+<li><strong>Prospective cardiac MRI substudy</strong> to resolve the echo-vs-autopsy discrepancy (F005) and define true cardiac penetrance and timing.</li>
+<li><strong>Prospective controlled exercise-dosing study</strong> to quantify the harmful threshold and whether low-intensity activity is safe/beneficial (F013).</li>
+<li><strong>Human trial design for complement inhibition</strong> (e.g., C3/C5-targeted agents) as a downstream, disease-specific therapy independent of gene correction (F002).</li>
+<li><strong>Head-to-head preclinical comparison of dual-AAV full-length dysferlin vs nanodysferlin</strong> on t-tubule localization and Ca²⁺ handling, to settle whether truncated constructs are therapeutically sufficient (F006).</li>
+<li><strong>Expand carrier-screening programs</strong> in identified founder populations (Libyan/Caucasus Jewish, Italian, Spanish) given quantified carrier frequencies up to 4% (F003).</li>
+</ol>
+<hr />
+<p><em>Report compiled from 14 confirmed findings across 5 iterations and 34 reviewed papers. Evidence types span human clinical cohorts, population genetics, mouse models, in vitro/structural biology, and preclinical gene therapy.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Dysferlinopathy-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Dysferlinopathy-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>23</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>35</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>NCIT:C15431</code> (2 mentions) - the report calls it "gene therapy"; NCIT calls it <strong>Hematopoietic Cell Transplantation</strong></li>
+</ul>
+<h3>Unresolved terms</h3>
+<p>These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:</p>
+<ul>
+<li><code>HP:0003734</code> (2 mentions) - HP does not contain this term</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0009053</code> (1 mention) - the report calls it "distal lower-limb weakness"; HP calls it <strong>Distal lower limb muscle weakness</strong></li>
+<li><code>HP:0003236</code> (2 mentions) - the report calls it "elevated serum CK"; HP calls it <strong>Elevated circulating creatine kinase activity</strong>, and lists "Elevated serum CPK" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>HGNC:3097</code> - called "DYSF", "Ontology:*<em> Gene </em>DYSF"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Dysembryoplastic_Neuroepithelial_Tumor-falcon.html">← Dysembryoplastic Neuroepithelial Tumor (Falcon)</a>
+                
+                
+                <a href="Dyskeratosis_Congenita-falcon.html">Dyskeratosis Congenita (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Dysferlinopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Dysferlinopathy-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

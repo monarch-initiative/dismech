@@ -260,10 +260,15 @@ and successful workflows that forgot to post a verdict are separate recovery
 cases. Generated PRs whose review was deliberately skipped are not retried.
 
 Before retrying, it checks the latest run attempt, that the PR is open, that a
-PR-event run still matches the current head, that no newer/active review exists,
-and that the reviewer has not already posted an approval or changes-requested
-verdict for that head. An old changes-requested verdict does not block recovery
-of a failed review of a new commit. Manual-triggered workflows retain their PR
+PR-event run still matches the current head, and that no newer/active review
+exists. For a manual- or comment-triggered run it also checks that the reviewer
+has not already posted an approval or changes-requested verdict for that head;
+an old changes-requested verdict does not block recovery of a failed review of a
+new commit. A failed PR-event run on the current head is the PR's own
+`claude-review` check, so an existing verdict does not block retrying it, and
+only a newer PR-event run on that head supersedes it: a manual or comment review
+runs on `main`, attaches no check to the PR head, and cannot turn that check
+green. Manual-triggered workflows retain their PR
 input and use their existing `gh pr checkout` step to review the current branch.
 
 Backoff is measured from the latest attempt's completion: 1 hour after the first
@@ -292,6 +297,41 @@ error and a deferral. Dry runs explicitly say that no requests were issued.
 
 ```bash
 just review-retry-preview
+```
+
+### Failed issue-opened workflows
+
+The same job then reruns failed issue-opened workflows: issue triage
+(`claude-issue-triage.yml`), issue summarize (`claude-issue-summarize.yml`) and
+dedupe (`claude-dedupe-issues.yml`). These are the ones with no other recovery:
+the `issues: opened` event cannot fire again for an issue that already exists, so
+an issue opened while the shared agent account is rate-limited, or while a
+credential is failing, otherwise gets no triage at all, and nothing records that
+it is missing (#13150).
+
+Each of the three workflows names its runs `Triage issue #N`, `Summarize issue
+#N` or `Dedupe issue #N`, and the sweep reads the issue number from that name
+only, never from an issue title. Runs from before the run name was added are
+not retried; the summary gives one count per workflow rather than listing them. For each workflow and issue, only the
+latest run is considered. It is rerun with `gh run rerun RUN_ID --failed` when it
+failed or timed out, the issue is still open, no newer or active run of that
+workflow exists for the issue, and the backoff above has elapsed. The budget is
+`max_review_retries`, counted separately from review retries and per run rather
+than per issue, and `dry_run` applies. A `pr_number` request skips this pass.
+
+A rerun repeats the whole failed job, including anything it did before it
+failed. For triage this is harmless, because applying the same labels again
+changes nothing. A summarize run that posted its comment and then failed would
+post a second one, so the summarize prompt first reads the issue's comments and
+stops if `github-actions[bot]` has already summarized the issue.
+
+The triage and summarize workflows also accept a manual `issue_number`
+dispatch, like dedupe, so an issue can be re-triaged without finding its
+original run:
+
+```bash
+gh workflow run claude-issue-triage.yml -f issue_number=13101
+gh workflow run claude-issue-summarize.yml -f issue_number=13101
 ```
 
 ## Review states and merge state
@@ -386,8 +426,7 @@ head-branch prefix, draft status, and exact ancestry with current `main` are not
 eligibility criteria. A known bot/agent assignee is routing metadata rather than
 a human hold.
 
-That last criterion is the **ejection hold**, and it is the one criterion with no
-trace on the PR page. A queue ejection is otherwise invisible to eligibility: the
+That last criterion is the **ejection hold**. A queue ejection is otherwise invisible to eligibility: the
 PR stays open and approved, so the next sweep re-enqueues it, it fails again, and
 the loop repeats — #9852 went round three times in fifteen hours, failing every
 speculative stack behind it each time (#10988). A *single* ejection is
@@ -395,8 +434,12 @@ deliberately not a hold, because ejection does not imply fault: a PR ahead in th
 stack can poison it, and a third-party outage can fail it. What triggers the hold
 is repetition against unchanged content. The count is keyed on the head commit's
 `committedDate`, so any push resets it to zero, and a lookup failure fails open.
+The first sweep that holds a given head posts one comment on the PR naming the
+strike count and how to clear it, deduplicated by a hidden marker keyed on the
+head SHA. It is a comment rather than a `CHANGES_REQUESTED` review because a
+review would outlive the push that clears the hold.
 
-A second hold with no trace on the PR page is the **cache-row hold**. When a
+A hold with no trace on the PR page is the **cache-row hold**. When a
 merge queue is active, a candidate that adds a row to a `cache/<prefix>/*.csv`
 term cache already added by a PR enqueued *earlier in the same sweep* is skipped
 for that sweep, because the two would conflict in the queue and the second
@@ -684,12 +727,13 @@ that opportunity rather than as an arbitrary cooling-off period.
 
 There are two more holds, which nobody chooses: the **ejection hold** and the
 **cache-row hold** above. Unlike assignment and `CHANGES_REQUESTED`, they leave
-no label, review, or assignee. Their only trace is a `SKIP` line, inside the run
-summary's collapsed `Skipped N near-miss PR(s)` block, naming the strike count
-or the PR holding the contended cache row. So an approved, green, days-old PR
-that is not merging and has neither a human assignee nor a requested-changes
-review has one of these two explanations, and the run summary is where to look
-for it. A push clears the ejection hold; the cache-row hold clears itself on the
+no label, review, or assignee. The ejection hold announces itself with one
+`🐑 PR Shepherd` comment on the PR per held head; the cache-row hold's only trace
+is a `SKIP` line, inside the run summary's collapsed `Skipped N near-miss PR(s)`
+block, naming the PR holding the contended cache row. So an approved, green,
+days-old PR that is not merging and has neither a human assignee nor a
+requested-changes review has one of these two explanations: look for the hold
+comment first, then the run summary. A push clears the ejection hold; the cache-row hold clears itself on the
 next sweep.
 
 Preview what the next sweep would do, read-only: `just auto-merge-preview`.

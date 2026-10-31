@@ -15,6 +15,7 @@ from dismech.reference_snippet_audit import (
     CachedReferenceIndex,
     PairOutcome,
     SnippetPair,
+    Unverified,
     audit_files,
     check_pair,
     discover_field_names,
@@ -654,6 +655,58 @@ def test_a_stripped_bracket_names_itself_as_the_cause_of_a_mismatch(
     assert outcome.outcome is not PairOutcome.ABSTRACT_ONLY
     assert "[xRRx]" in outcome.reason
     assert "literal_bracket_patterns" in outcome.reason
+    # The per-snippet fix is named too (#9848): without it, curators truncated
+    # the quote before the stripped span and lost the clause carrying the claim.
+    assert "replace it with ' ... '" in outcome.reason
+    assert "matched independently" in outcome.reason
+    assert "Bridge only text the claim does not depend on" in outcome.reason
+
+
+def test_the_ellipsis_form_the_hint_suggests_verifies(tmp_path: Path) -> None:
+    """The rewrite the hint advertises must actually pass (#9848).
+
+    The PMID:10023895 sentence from the issue: under the repo config
+    ``[95% CI 0.15-0.42]`` is kept (it carries ``%``) while the two bare
+    intervals are stripped, leaving holes mid-quote. Replacing each stripped
+    span with `` ... `` bridges them.
+    """
+    cache_dir = tmp_path / "references_cache"
+    _write_cache(
+        cache_dir,
+        "PMID_123.md",
+        "PKD2 patients were less likely to have hypertension (odds ratio 0.25 "
+        "[95% CI 0.15-0.42]), a history of urinary-tract infection "
+        "(0.50 [0.31-0.83]), or haematuria (0.59 [0.35-0.98]).",
+    )
+    index = _repo_index(cache_dir)
+
+    def pair(snippet: str) -> SnippetPair:
+        return SnippetPair(
+            path=tmp_path / "entry.yaml",
+            location="evidence[0].snippet",
+            reference_id="PMID:123",
+            snippet=snippet,
+        )
+
+    verbatim = check_pair(
+        index,
+        pair(
+            "a history of urinary-tract infection (0.50 [0.31-0.83]), or "
+            "haematuria (0.59 [0.35-0.98])"
+        ),
+    )
+    assert isinstance(verbatim, Unverified)
+    assert "[0.31-0.83]" in verbatim.reason
+
+    bridged = check_pair(
+        index,
+        pair(
+            "PKD2 patients were less likely to have hypertension (odds ratio 0.25 "
+            "[95% CI 0.15-0.42]), a history of urinary-tract infection (0.50 ... "
+            "or haematuria (0.59"
+        ),
+    )
+    assert bridged is PairOutcome.VERIFIED
 
 
 def test_a_genuine_misquote_is_not_blamed_on_brackets(tmp_path: Path) -> None:
@@ -721,3 +774,4 @@ def test_the_hint_reads_as_a_sentence_with_two_culprits(tmp_path: Path) -> None:
     outcome = check_pair(index, pair)
 
     assert "[xAx] and [xBx] are kept" in outcome.reason
+    assert "replace it with ' ... '" in outcome.reason

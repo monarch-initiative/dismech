@@ -1238,3 +1238,19 @@ References
 ## Artifacts
 
 - [Edison artifact artifact-00](Cerebral_Palsy-deep-research-falcon_artifacts/artifact-00.md)
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.3.0.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 11 |
+| Resolved | 11 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| References weighed for topical relevance | 11 |
+| On topic | 7 |
+| Off topic | 0 |
+
+All extracted references resolved successfully.

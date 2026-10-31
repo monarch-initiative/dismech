@@ -18,7 +18,8 @@ import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from dismech import hierarchy_cache, kb_cache, oak_db
+from dismech import hierarchy_cache, kb_cache, oak_db, pathograph_stats
+from dismech.conformance import iter_conforms_to, module_stem
 from dismech.entity_refs import (
     DISEASE_KIND,
     SECTION_KEYS,
@@ -26,10 +27,8 @@ from dismech.entity_refs import (
     canonical_kind,
     section_items,
 )
-from dismech.export.browser_export import (
-    HPO_CATEGORY_CACHE_PATH,
-    HPO_TOP_LEVEL_CATEGORIES,
-)
+from dismech.export import browser_export
+from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.export.utils import RESEARCH_REPORT_PATTERN, slugify
 from dismech.graph import (
     animal_model_label,
@@ -45,8 +44,11 @@ from dismech.module_collections import (
     load_module_collections,
     module_collection_reference_errors,
 )
+from dismech.page_sections import section_index
+from dismech.pathograph_thumbnail import render_thumbnail
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
+from dismech.repo_root import LazyRepoPaths
 from dismech.research_reports import strip_run_suffix
 from dismech.term_labels import label_restates_title
 from dismech.term_tooltips import sample_type_descriptor, term_tooltip
@@ -118,13 +120,36 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # into the template so the vocabulary and its prose stay in one place, the
     # same rule `module_categories` follows.
     env.globals["quote_role_tooltip"] = quote_role_tooltip
+    # File name of an evidence artifact image, for its caption. Registered here
+    # rather than by the disorder renderer because the evidence partial
+    # (_evidence.html.j2) is compiled into module pages too (#10329), and a
+    # missing filter fails at compile time even when no evidence has images.
+    env.filters["basename"] = lambda p: Path(p).name
     return env
 
 
-# Resolved from the package location rather than the working directory, and
-# shared with `browser_export`, which writes it. The exporter now reads it back
-# as its seed, so writer and both readers agree on one path.
-_HPO_CATEGORY_CACHE_PATH = HPO_CATEGORY_CACHE_PATH
+# Checkout paths, resolved through `dismech.repo_root` when read rather than
+# frozen at import (#15109): the checkout at or above the working directory,
+# falling back to the tree this package was loaded from, so rendering from a
+# directory outside any checkout behaves as it did when these were resolved
+# from `__file__`. The HPO category cache is shared with `browser_export`,
+# which writes it and reads it back as its seed, so writer and both readers
+# agree on one path; the pathograph statistics likewise come from
+# `pathograph_stats`. A value assigned onto the module (as tests do) wins.
+_PATHS = LazyRepoPaths(
+    __name__,
+    _HPO_CATEGORY_CACHE_PATH=lambda root: browser_export.HPO_CATEGORY_CACHE_PATH,
+    _PATHOGRAPH_STATS_PATH=lambda root: pathograph_stats.PATHOGRAPH_STATS_PATH,
+    #: Committed dismech-perturb run artifacts and the model folders.
+    MODEL_RUNS_DIR=lambda root: root / "exports" / "model_runs",
+    MODELS_ROOT=lambda root: root / "models",
+    # Anchored to the checkout rather than taken relative to the CWD: render is
+    # called from many working directories, and a CWD-relative path would
+    # silently drop every preprint badge (the OSError in
+    # `_reference_is_preprint` would swallow the miss).
+    _REFERENCES_CACHE_DIR=lambda root: root / "references_cache",
+)
+__getattr__ = _PATHS.module_getattr
 _FDA_SURROGATE_ENDPOINTS_RELATIVE_PATH = Path(
     "surrogate_endpoints/fda_surrogate_endpoints.yaml"
 )
@@ -149,12 +174,78 @@ _RELATIVE_URL_ATTR_PATTERN = re.compile(
 _CATEGORY_ORDER = list(HPO_TOP_LEVEL_CATEGORIES.values())
 
 
-@lru_cache(maxsize=1)
 def _load_hpo_category_cache() -> dict[str, list[str]]:
     """Load the HP-term-to-category cache written by browser_export."""
-    if _HPO_CATEGORY_CACHE_PATH.exists():
-        return json.loads(_HPO_CATEGORY_CACHE_PATH.read_text())
+    return _read_hpo_category_cache(_PATHS.get("_HPO_CATEGORY_CACHE_PATH"))
+
+
+@lru_cache(maxsize=8)
+def _read_hpo_category_cache(cache_path: Path) -> dict[str, list[str]]:
+    """Keyed on the resolved path, so a later checkout is not served the first one's file."""
+    if cache_path.exists():
+        return json.loads(cache_path.read_text())
     return {}
+
+
+def _phenotype_primary_category(hp_id: str | None) -> str | None:
+    """Return the HPO broad category a phenotype card is filed under, if any."""
+    if not hp_id:
+        return None
+    categories = _load_hpo_category_cache().get(hp_id) or []
+    return categories[0] if categories else None
+
+
+@lru_cache(maxsize=8)
+def _pathograph_mean_edge_count(disorders_dir: Path) -> int | None:
+    """Mean pathograph edge count the page compares itself against (#14539).
+
+    Read from the committed ``cache/pathograph_stats.json``, which the page
+    build rewrites, so a single-file render does not build every disorder's
+    causal graph. Only when that file is absent is the mean computed by walking
+    ``disorders_dir``.
+    """
+    stats = pathograph_stats.read_stats(_PATHS.get("_PATHOGRAPH_STATS_PATH"))
+    if stats is not None and "mean_edge_count" in stats:
+        return stats["mean_edge_count"]
+    return pathograph_stats.compute_mean_edge_count(disorders_dir)
+
+
+def _add_pathograph_grouping_context(
+    pathograph_data: str, disorder: dict, mean_edge_count: int | None
+) -> str:
+    """Attach the keys the client-side "Group by" control groups on.
+
+    Each node gains ``group_keys`` (a phenotype's HPO broad category, the
+    module stems a pathophysiology node conforms to), and the payload gains
+    ``grouping.mean_edge_count``. Nothing is collapsed here: grouping happens
+    in the page script, so the node and edge lists stay as graph.py built them.
+    """
+    if not pathograph_data:
+        return pathograph_data
+    data = json.loads(pathograph_data)
+    modules_by_name: dict[str, list[str]] = {}
+    for item in disorder.get("pathophysiology") or []:
+        if not isinstance(item, dict) or not item.get("name"):
+            continue
+        stems = [module_stem(ref) for ref in iter_conforms_to(item)]
+        if stems:
+            modules_by_name[item["name"]] = list(dict.fromkeys(stems))
+    for node in data.get("nodes", []):
+        keys: dict[str, object] = {}
+        if node.get("node_type") == "phenotype":
+            category = _phenotype_primary_category(
+                (node.get("meta") or {}).get("term_id")
+            )
+            if category:
+                keys["phenotype_system"] = category
+        elif (
+            node.get("node_type") == "pathophysiology" and node["id"] in modules_by_name
+        ):
+            keys["modules"] = modules_by_name[node["id"]]
+        if keys:
+            node["group_keys"] = keys
+    data["grouping"] = {"mean_edge_count": mean_edge_count}
+    return json.dumps(data)
 
 
 def _group_phenotypes_by_category(
@@ -487,10 +578,7 @@ def _build_has_local_disorder_slug_filter(
     return _has_local_disorder_slug_page
 
 
-#: Committed dismech-perturb run artifacts, resolved from the package location
-#: so rendering does not depend on the working directory.
-MODEL_RUNS_DIR = Path(__file__).resolve().parents[2] / "exports" / "model_runs"
-MODELS_ROOT = Path(__file__).resolve().parents[2] / "models"
+# MODEL_RUNS_DIR and MODELS_ROOT are lazy module attributes; see `_PATHS` above.
 
 
 def _make_anchor_id(prefix: str, value: str) -> str:
@@ -1010,7 +1098,9 @@ def _annotate_model_links(
             model_id = model.get("model_id")
             authored = (
                 bool(model_id)
-                and (model_dir(str(model_id), MODELS_ROOT) / SPEC_NAME).is_file()
+                and (
+                    model_dir(str(model_id), _PATHS.get("MODELS_ROOT")) / SPEC_NAME
+                ).is_file()
             )
             for variable in model.get("variables") or []:
                 if not isinstance(variable, dict):
@@ -1028,16 +1118,20 @@ def _annotate_model_links(
             # they live in exports/model_runs/ rather than in the KB YAML.
             # A model whose files live in models/<model_id>/ has a generated page
             # of its own (pages/models/<model_id>.html, see dismech.model_pages).
-            if model_id and model_dir(str(model_id), MODELS_ROOT).is_dir():
+            if (
+                model_id
+                and model_dir(str(model_id), _PATHS.get("MODELS_ROOT")).is_dir()
+            ):
                 model["_model_page_href"] = f"../models/{model_id}.html"
                 model["_model_runs_in_browser"] = (
-                    model_dir(str(model_id), MODELS_ROOT) / BROWSER_RUNNER_NAME
+                    model_dir(str(model_id), _PATHS.get("MODELS_ROOT"))
+                    / BROWSER_RUNNER_NAME
                 ).is_file()
             # Anchored to the repo root, not the CWD: with a relative default,
             # rendering from anywhere else silently drops the results block
             # instead of failing.
             run_results = (
-                load_model_run_results(str(model_id), MODEL_RUNS_DIR)
+                load_model_run_results(str(model_id), _PATHS.get("MODEL_RUNS_DIR"))
                 if model_id
                 else None
             )
@@ -1635,23 +1729,24 @@ def _collect_module_usage(
             if not isinstance(patho, dict):
                 continue
 
-            parsed_reference = _parse_module_reference(patho.get("conforms_to"))
-            if parsed_reference is None:
-                continue
+            for reference in iter_conforms_to(patho):
+                parsed_reference = _parse_module_reference(reference)
+                if parsed_reference is None:
+                    continue
 
-            module_id, module_node_name = parsed_reference
-            disorder_node_name = str(patho.get("name") or module_node_name)
-            match_key = (module_node_name, disorder_node_name)
-            if match_key in seen_matches[module_id]:
-                continue
+                module_id, module_node_name = parsed_reference
+                disorder_node_name = str(patho.get("name") or module_node_name)
+                match_key = (module_node_name, disorder_node_name)
+                if match_key in seen_matches[module_id]:
+                    continue
 
-            seen_matches[module_id].add(match_key)
-            matches_by_module[module_id].append(
-                {
-                    "module_node_name": module_node_name,
-                    "disorder_node_name": disorder_node_name,
-                }
-            )
+                seen_matches[module_id].add(match_key)
+                matches_by_module[module_id].append(
+                    {
+                        "module_node_name": module_node_name,
+                        "disorder_node_name": disorder_node_name,
+                    }
+                )
 
         for module_id, matches in matches_by_module.items():
             usage_by_module[module_id].append(
@@ -2662,7 +2757,6 @@ def render_disorder(
     env.filters["semantic_ref_href"] = lambda ref: (
         semantic_ref_index.get(str(ref), "") if ref is not None else ""
     )
-    env.filters["basename"] = lambda p: Path(p).name
     env.filters["dismech_page_url"] = _build_dismech_page_url_filter(
         yaml_path.parent,
         excluded_term_ids={current_term_id} if current_term_id else None,
@@ -2681,7 +2775,11 @@ def render_disorder(
     # Build causal graph and generate Mermaid code + pathograph JSON
     graph = build_causal_graph(disorder)
     mermaid_code = generate_mermaid(graph)
-    pathograph_data = graph_to_json(graph, disorder)
+    pathograph_data = _add_pathograph_grouping_context(
+        graph_to_json(graph, disorder),
+        disorder,
+        _pathograph_mean_edge_count(yaml_path.parent.resolve()),
+    )
     pathograph_node_count = len(
         {node_name for edge in graph.edges for node_name in (edge.source, edge.target)}
     )
@@ -2730,6 +2828,16 @@ def render_disorder(
         len(section.get("reports") or []) for section in hypothesis_research_links
     )
     _annotate_hypothesis_research_links(disorder, hypothesis_research_links)
+    page_sections = section_index(
+        disorder,
+        {
+            "comorbidities": len(comorbidity_links),
+            "reports": len(report_sections),
+            "literature": len(literature_sections),
+            "hypothesis_reports": hypothesis_research_count,
+        },
+    )
+    pathograph_thumbnail = render_thumbnail(graph) if graph.edges else None
 
     # Group phenotypes by HPO broad category
     phenotype_groups = _group_phenotypes_by_category(disorder.get("phenotypes") or [])
@@ -2775,6 +2883,8 @@ def render_disorder(
             else [],
             hypothesis_research_links=hypothesis_research_links,
             hypothesis_research_count=hypothesis_research_count,
+            page_sections=page_sections,
+            pathograph_thumbnail=pathograph_thumbnail,
             research_root_rel=research_root_rel,
             # OpenScientist integration
             disorder_slug=disorder_slug,
@@ -2952,6 +3062,18 @@ def render_module(
         {node_name for edge in graph.edges for node_name in (edge.source, edge.target)}
     )
 
+    if output_path is None:
+        output_path = Path("pages/modules") / f"{yaml_path.stem}.html"
+    else:
+        output_path = Path(output_path)
+
+    # Evidence artifact images resolve against research/, as on disorder pages
+    # (render_disorder); the evidence partial is shared (#10329).
+    research_root = _resolve_nearby_dir(yaml_path.parent, "research")
+    research_root_rel = os.path.relpath(
+        research_root.resolve(), output_path.parent.resolve()
+    )
+
     html = template.render(
         module=module,
         module_id=yaml_path.stem,
@@ -2961,12 +3083,8 @@ def render_module(
         graph_issues=graph.integrity_issues,
         yaml_content=yaml_content,
         source_file=source_file,
+        research_root_rel=research_root_rel,
     )
-
-    if output_path is None:
-        output_path = Path("pages/modules") / f"{yaml_path.stem}.html"
-    else:
-        output_path = Path(output_path)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html)
@@ -3372,11 +3490,7 @@ _PREPRINT_DOI_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
-# Anchor to the repo root, not the process CWD: render is imported and called
-# from many working directories, and a CWD-relative path would silently drop
-# every preprint badge (the OSError below would swallow the miss). Mirrors the
-# `_REPO_ROOT / "references_cache"` idiom in ictrp_audit.py.
-_REFERENCES_CACHE_DIR = Path(__file__).resolve().parents[2] / "references_cache"
+# _REFERENCES_CACHE_DIR is a lazy module attribute; see `_PATHS` near the top.
 
 #: Frontmatter key a research recipe writes to record which revision of the
 #: prompt produced a report (issue #10183).
@@ -3400,7 +3514,8 @@ def _reference_is_preprint(reference: str | None) -> bool:
     if prefix.upper() == "DOI" and _PREPRINT_DOI_RE.match(local):
         return True
     cache_path = (
-        _REFERENCES_CACHE_DIR / f"{prefix.upper()}_{local.replace('/', '_')}.md"
+        _PATHS.get("_REFERENCES_CACHE_DIR")
+        / f"{prefix.upper()}_{local.replace('/', '_')}.md"
     )
     try:
         with cache_path.open(encoding="utf-8") as handle:
@@ -4048,10 +4163,11 @@ def _logic_view(node: dict | None) -> dict | None:
             chip = _term_chip(node.get(slot))
             if chip:
                 chips.append(chip)
-        for bp in node.get("biological_processes") or []:
-            chip = _term_chip(bp)
-            if chip:
-                chips.append(chip)
+        for slot in ("biological_processes", "molecular_functions"):
+            for descriptor in node.get(slot) or []:
+                chip = _term_chip(descriptor)
+                if chip:
+                    chips.append(chip)
         view["terms"] = chips
     return view
 
@@ -4104,10 +4220,11 @@ def _leaf_term_ids(node: dict) -> list[str]:
         chip = _term_chip(node.get(slot))
         if chip:
             ids.append(chip["id"])
-    for bp in node.get("biological_processes") or []:
-        chip = _term_chip(bp)
-        if chip:
-            ids.append(chip["id"])
+    for slot in ("biological_processes", "molecular_functions"):
+        for descriptor in node.get(slot) or []:
+            chip = _term_chip(descriptor)
+            if chip:
+                ids.append(chip["id"])
     return ids
 
 

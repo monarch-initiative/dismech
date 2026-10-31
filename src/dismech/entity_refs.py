@@ -55,9 +55,22 @@ all). Requiring content would make the gap impossible to attach exactly when it
 matters most. The check that remains is still worth having: it catches a
 misspelled or invented section name.
 
-An unknown prefix, or a cross-file reference, yields ``None`` — "no opinion" —
-rather than a failure, so a gap in :data:`SECTION_KEYS` can never be mistaken
-for a broken reference in the knowledge base.
+:data:`SECTION_KEYS` is one map shared by every entry kind the sweep in
+``scripts/check_entity_refs.py`` covers, not a Disease-only map: it also holds
+Grouping sections (``members#``). Resolution does not check that the entry's
+own class has the section, so ``members#`` "resolves" in a disorder file and
+``treatments#`` in a grouping; the map is checked against the union of the
+entry classes' slots, which catches a misspelled section but not a section
+used in the wrong kind of entry.
+
+The resolver treats an unknown prefix, or a cross-file reference, as ``None``
+— "no opinion" — rather than a failure. That leniency does **not** extend to
+the slots in :data:`KNOWN_KIND_SLOTS` (``attaches_to``, ``measures``,
+``would_support``, ``would_refute``): there :func:`entity_ref_errors` reports
+an unknown prefix as an error, with or without an anchor, so a typo cannot
+pass unchecked. A section missing from :data:`SECTION_KEYS` therefore makes
+every reference to it in those slots fail, and the fix is to add it here.
+Only ``target`` keeps the lenient reading.
 """
 
 from __future__ import annotations
@@ -185,6 +198,12 @@ SECTION_KEYS: dict[str, tuple[str, tuple[str, ...]]] = {
     # Discussion is keyed on its stable cross-reference id.
     "discussion": ("discussions", ("discussion_id",)),
     "discussions": ("discussions", ("discussion_id",)),
+    # --- Grouping sections -------------------------------------------------
+    # Groupings carry `discussions` like Disease entries do, so a discussion in
+    # a grouping needs somewhere to attach (#9518). GroupingMember names its
+    # target in `member` rather than `name`. No singular `member#` alias:
+    # there is no pre-#9394 grouping content for one to accommodate.
+    "members": ("members", ("member",)),
 }
 
 #: Slots whose values carry the hash-anchor grammar. ``target`` is multivalued

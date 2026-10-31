@@ -84,6 +84,16 @@ expensive part and it is cached per date, so batching costs nothing extra and
 keeps every result on one snapshot. Mixing snapshot dates across a set is how
 you get an inconsistent chain.
 
+**The lookup goes one hop and does not filter.** It returns every KER in the
+export whose upstream *or* downstream KE is in the set — whatever its parent AOP
+(a KER in no AOP still matches), adjacency, OECD status, taxon or evidence. That
+is why Steps 4 and 5 exist. It does not walk the graph: an edge two steps from a
+listed KE comes back only if the KE between them is also in the set. To follow a
+chain further, add the new downstream (or upstream) KE IDs to the Step 1 list,
+noting why each was added, and re-run the lookup on the same `--date`. The
+matching is `find_kers_containing_events` in `aop_wiki_cli`'s
+`search/event_first_search.py`.
+
 ## Step 3 — Read the JSON, never the console summary
 
 The console clips each KER at 70 characters, which usually truncates the
@@ -153,8 +163,11 @@ Step 7, and knowing that up front is the point.
 **Compute connected components over the surviving KERs, and treat each component
 as one chain.** Two edges belong to the same chain when they share a Key Event —
 including an event you never named, since a chain routinely runs through events
-outside your Step 1 set. A component is more informative than its edges: it shows
-where the new entry point rejoins mechanism dismech already represents.
+outside your Step 1 set. Those events are only present as the far end of a
+returned KER; the edges beyond them are absent until a further lookup adds them
+(see Step 2), so a component is bounded by the KEs you looked up. A component is
+more informative than its edges: it shows where the new entry point rejoins
+mechanism dismech already represents.
 
 **Do not group by `aop_ids`.** An AOP is a curatorial packaging unit, not a
 mechanism boundary, so grouping by it goes wrong twice: it splits one connected

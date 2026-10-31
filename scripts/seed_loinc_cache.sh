@@ -43,7 +43,15 @@ else
     { cat conf/oak_config.yaml; printf '\n  LOINC: "monarch:"\n'; } > "$tmp_conf"
 fi
 
-uv run --with "$OAKLIB_SPEC" linkml-term-validator validate-data "$@" \
+# Invoked as a module, NOT as the `linkml-term-validator` console script. That
+# script's shebang hard-codes the project venv's interpreter, so running it
+# under `uv run --with` silently bypasses the overlay and imports the pinned
+# oaklib instead of the fixed one -- which is the exact bug the overlay exists
+# to work around. `python -m` runs in the ephemeral environment, so the overlay
+# applies. The symptom of getting this wrong is worth knowing: every code is
+# reported as "not found in ontology", which reads as "this code does not
+# exist" rather than "the adapter could not return a label".
+uv run --with "$OAKLIB_SPEC" python -m linkml_term_validator.cli validate-data "$@" \
     -s src/dismech/schema/dismech.yaml -t Disease --labels -c "$tmp_conf"
 status=$?
 

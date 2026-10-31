@@ -7,6 +7,7 @@ import os
 from collections.abc import Iterator
 from dataclasses import dataclass
 
+from dismech.conformance import iter_conforms_to
 from dismech.yaml_io import safe_load
 
 
@@ -38,7 +39,8 @@ class PathoNode:
 
     disease: str
     name: str
-    conforms_to: str | None
+    #: every ``module#Node`` the node conforms to; empty when unlabelled
+    conforms_to: tuple[str, ...]
     term_labels: tuple[str, ...]
 
     @property
@@ -71,6 +73,6 @@ def iter_nodes(kb_dir: str = "kb/disorders") -> Iterator[PathoNode]:
             yield PathoNode(
                 disease=disease,
                 name=node.get("name", ""),
-                conforms_to=node.get("conforms_to"),
+                conforms_to=tuple(iter_conforms_to(node)),
                 term_labels=tuple(_dedup_keep_order(labels)),
             )

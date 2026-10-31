@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cataract 4, Multiple Types · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Cataract 4, Multiple Types</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Cataract 4, Multiple Types</h1>
+                
+                <p class="report-subtitle">CRYGD-Related Congenital Cataract 4 (CTRCT4): Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-10-15</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0007281" target="_blank" rel="noopener noreferrer">MONDO:0007281</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">33 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>CRYGD-Related Congenital Cataract 4 (CTRCT4): Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> CRYGD-Related Congenital Cataract 4
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0007281" target="_blank" rel="noopener noreferrer">MONDO:0007281</a> · <strong>OMIM:</strong> 115700 · <strong>Category:</strong> Mendelian (autosomal dominant)
+<strong>Gene:</strong> <em>CRYGD</em> (γD-crystallin), chromosome 2q33–q35</p>
+<hr />
+<h2>Summary</h2>
+<p>CRYGD-related congenital cataract 4 (CTRCT4) is an <strong>autosomal dominant, bilateral, congenital (present-at-birth) lens opacity</strong> caused by heterozygous mutations in <em>CRYGD</em>, the gene encoding the lens structural protein γD-crystallin. γD-crystallin is one of the most abundant, long-lived, and essentially non-renewing proteins of the eye lens fiber cells; its extremely high solubility and stability are prerequisites for lifelong lens transparency and high refractive index. Pathogenic <em>CRYGD</em> variants degrade one or more of these properties—solubility, thermodynamic stability, or resistance to oxidation—converting a transparent protein solution into light-scattering deposits and producing a visible cataract. The clinical course is typically <strong>non-progressive and non-syndromic</strong>, and the disease is <strong>not life-threatening</strong>; morbidity derives entirely from visual deprivation and the risk of irreversible amblyopia if the opacity is not removed during a narrow developmental critical window.</p>
+<p>A central scientific insight from this investigation is that a single gene, and even a single recurrent allele, produces cataract through <strong>multiple convergent biophysical mechanisms</strong> rather than one. At least three distinct routes to light scattering have been documented: (1) <strong>ordered crystallization</strong> of a less-soluble mutant protein (R58H "aculeiform" cataract; R36S), (2) <strong>native-like amorphous aggregation / liquid–liquid phase separation</strong> in which the protein keeps its fold but condenses out of solution with inverted ("retrograde") solubility (P23T/P24T—the dominant hotspot allele), and (3) <strong>oxidation/disulfide-driven or truncation-driven misfolding</strong> (W42R; the C-terminal Greek-key truncations Y134X, Y151X, T160RfsX8). Across these routes the <strong>α-crystallin small heat-shock chaperone acts as a protective buffer</strong>, and its capacity to hold mutant client protein in a soluble state is a key modifier of whether and when opacity appears. Strikingly, a single genotype—P23T/P24T—can present as cerulean, coralliform, or lamellar cataract, demonstrating marked intrafamilial and interfamilial phenotypic heterogeneity that is not explained by the primary mutation alone.</p>
+<p>The clinical management implications are clear and well supported. There is <strong>no approved disease-specific pharmacotherapy</strong>; the established treatment is <strong>early surgical lens extraction</strong> (lens aspiration ± intraocular lens implantation) followed by aggressive refractive correction and amblyopia therapy. Outcome is dominated by timing: in dense bilateral congenital cataract a ~<strong>14-week critical period</strong> governs visual-acuity prognosis. Experimental aggregation-dissolving small molecules (lanosterol, 25-hydroxycholesterol/VP1-001) and antioxidant/chaperone strategies show that crystallin aggregation is, in principle, reversible, but these remain pre-clinical. <em>CRYGD</em> is consistently among the top congenital-cataract genes in large sequencing cohorts, and congenital cataract is one of the most common and highest-yield inherited eye disorders for molecular diagnosis, making NGS panel/exome testing the diagnostic standard.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — <em>CRYGD</em> mutations cause autosomal dominant congenital cataract with diverse lens-opacity morphologies</h3>
+<p>Linkage studies repeatedly map autosomal dominant congenital cataract (ADCC) to the γ-crystallin gene cluster at chromosome <strong>2q33–q35</strong>, with <em>CRYGD</em> as the causal gene. Nandrot et al. obtained a LOD score of <strong>7.19 (θ = 0)</strong> at marker D2S2208 near the <em>CRYG</em> cluster for a cerulean cataract pedigree, identifying a heterozygous <em>CRYGD</em> exon-2 C&gt;A change producing the <strong>P23T</strong> substitution: <em>"This mutation resulted in a proline to threonine substitution at amino acid 23 of the protein in the first of the four Greek key motifs that characterise this protein"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/12676897/">PMID: 12676897</a>).</p>
+<p>The same P23T allele independently causes <strong>coralliform cataract</strong> (LOD 3.5 at D2S325): <em>"This mutation resulted in a substitution of threonine for proline at amino acid 23 (P23T) of the protein"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/14767902/">PMID: 14767902</a>). One genotype therefore produces several distinct opacity morphologies (cerulean, coralliform, lamellar)—a hallmark of variable expressivity in this disease. The allelic spectrum also includes nonsense alleles: the <strong>Y134X</strong> truncation causes cataract with microcornea—<em>"one mutation (Y134X) was detected in crystallin gamma-D (CRYGD)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/17724170/">PMID: 17724170</a>).</p>
+<p><strong>Ontology:</strong> HGNC <em>CRYGD</em>; phenotype <a href="http://purl.obolibrary.org/obo/HP_0000519" target="_blank" rel="noopener noreferrer">HP:0000519</a> (congenital cataract), <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" rel="noopener noreferrer">HP:0000568</a> (microcornea); <a href="http://purl.obolibrary.org/obo/MONDO_0007281" target="_blank" rel="noopener noreferrer">MONDO:0007281</a>.</p>
+<h3>Finding 2 — Two distinct biophysical mechanisms: crystallization vs. native-like amorphous aggregation</h3>
+<p>Not all <em>CRYGD</em> cataracts form by the same physical process. <strong>R58H</strong> γD-crystallin is roughly an order of magnitude less soluble than wild-type and literally <strong>crystallizes within the lens</strong>, producing needle-like ("aculeiform") opacities. High-resolution X-ray structures (WT at 1.25 Å, R58H at 1.15 Å) show the mutant loses a direct intermolecular ion pair at residue 58: the cataract <em>"is caused by crystallization of the mutant protein, which is an order of magnitude less soluble than the wild-type"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/12729747/">PMID: 12729747</a>). <strong>R36S</strong> is an analogous surface-charge crystallization mutation.</p>
+<p>By contrast, <strong>P23T</strong> forms amorphous-looking aggregates at physiological pH that, by solid-state NMR, <strong>retain a native-like fold</strong>: <em>"the aggregated protein retains a native-like conformation, with no evidence for large-scale misfolding"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28474685/">PMID: 28474685</a>). The underlying defect is a lowered and <em>inverted</em> (retrograde) solubility traced to the substitution site itself: <em>"This contact, at the P23T substitution site, relates to a genetic cataract and reveals at a molecular level the origin of the lowered and retrograde solubility of the protein"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31422822/">PMID: 31422822</a>). The P23T condensate behavior measured in purified protein matches that of protein expressed in cell-free and mammalian-cell systems (<a href="https://pubmed.ncbi.nlm.nih.gov/28401204/">PMID: 28401204</a>), connecting in-vitro phase diagrams to the cellular disease state.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Mechanism</th>
+<th>Representative allele</th>
+<th>Physical process</th>
+<th>Opacity phenotype</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ordered crystallization</td>
+<td>R58H, R36S</td>
+<td>Reduced solubility → protein crystals</td>
+<td>Aculeiform / needle-like</td>
+</tr>
+<tr>
+<td>Native-like amorphous condensation</td>
+<td>P23T / P24T</td>
+<td>Inverted (retrograde) solubility, LLPS, native fold retained</td>
+<td>Cerulean / coralliform / lamellar</td>
+</tr>
+<tr>
+<td>Oxidative / misfolding aggregation</td>
+<td>W42R, truncations</td>
+<td>Non-native disulfide, unfolding intermediate</td>
+<td>Nuclear / congenital, stress-aggravated</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Finding 3 — A third mechanism: oxidation/disulfide-driven and truncation-induced misfolding, buffered by α-crystallin</h3>
+<p>For the congenital <strong>W42R</strong> mutant, formation of a non-native internal disulfide bond (Cys32–Cys41) is the decisive event: <em>"formation of an internal disulfide was necessary and sufficient for aggregation under physiological conditions"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27417136/">PMID: 27417136</a>). This locks a partially unfolded, aggregation-prone intermediate that propagates via domain-swap-like intermolecular contacts.</p>
+<p>C-terminal <strong>truncating mutations in Greek-key motif 4</strong> (Y151X, T160RfsX8; also Y134X) destabilize γD-crystallin and cause insoluble aggregates: <em>"Both truncation mutations induced protein misfolding and resulted in the formation of insoluble aggregates when overexpressed in HLE B3 and HEK 293T cells"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39084439/">PMID: 39084439</a>). Critically, the same study shows a <strong>protective modifier</strong>: <em>"co-expression of α-crystallins facilitated the proper folding of truncated mutants and mitigated protein aggregation"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39084439/">PMID: 39084439</a>). A further quantitative mechanism is reduced soluble protein, as with <strong>R36P</strong>: <em>"The total protein, especially the soluble fraction, was significantly reduced in the R36P mutant"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39563676/">PMID: 39563676</a>).</p>
+<p><strong>Ontology/GO:</strong> <a href="http://purl.obolibrary.org/obo/GO_0045454" target="_blank" rel="noopener noreferrer">GO:0045454</a> (cell redox homeostasis), <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" rel="noopener noreferrer">GO:0006457</a> (protein folding), <a href="http://purl.obolibrary.org/obo/GO_0051082" target="_blank" rel="noopener noreferrer">GO:0051082</a> (unfolded protein binding, chaperone buffering); <a href="http://purl.obolibrary.org/obo/CHEBI_48343" target="_blank" rel="noopener noreferrer">CHEBI:48343</a> (disulfide).</p>
+<h3>Finding 4 — <em>CRYGD</em> is among the most common congenital-cataract genes, with a recurrent coralliform hotspot</h3>
+<p>In a large Chinese NGS cohort, <em>PAX6</em>, <em>GJA8</em>, and <em>CRYGD</em> together accounted for <strong>33.06% of molecularly diagnosed cases</strong>: these genes were <em>"commonly detected in PAX6, GJA8 and CRYGD, and the three genes covered 33.06% of cases"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37337769/">PMID: 37337769</a>). For coralliform cataract specifically, a recurrent <em>CRYGD</em> <strong>c.70C&gt;A (p.P24T)</strong>—equivalent to classic P23T under alternative numbering—dominated: <em>"A recurrent c.70 C &gt; A (p. P24T) mutation in CRYGD was identified in 10 families (83.3%) with congenital cataract"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37480084/">PMID: 37480084</a>). The phenotype was uniform and congenital: <em>"all affected individuals presented with bilateral non-progressive coralliform cataracts since birth, with the best-corrected Snellen visual acuities ranging from 20/200 to 20/25"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37480084/">PMID: 37480084</a>). <em>CRYGD</em> variants recur across Chinese and North Indian ADCC pedigrees and can co-occur with nystagmus (<a href="https://pubmed.ncbi.nlm.nih.gov/35222542/">PMID: 35222542</a>).</p>
+<h3>Finding 5 — Congenital cataract is a leading treatable cause of childhood visual impairment; surgery, not pharmacology, is the treatment</h3>
+<p>Crystallin genes are the leading cause of bilateral pediatric cataract: causative variants were found in <strong>18/22 (81.8%)</strong> Israeli/Palestinian families, crystallin genes predominating (<a href="https://pubmed.ncbi.nlm.nih.gov/38874774/">PMID: 38874774</a>). Definitive treatment is surgical: <em>"Surgical treatment, mainly lens aspiration with or without intraocular lens implantation, is effective, but visual prognosis depends on early intervention and adherence to amblyopia therapy"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42216740/">PMID: 42216740</a>). Post-surgical complications include secondary glaucoma, visual-axis opacification, and postoperative high myopia; risk factors for high myopia include initial postoperative refraction &lt;+0.75 D, a higher IOL/axial-length ratio, and shorter preoperative axial length (<a href="https://pubmed.ncbi.nlm.nih.gov/42288323/">PMID: 42288323</a>).</p>
+<h3>Finding 6 — Prognosis is governed by a narrow surgical critical period (~14 weeks)</h3>
+<p>In dense bilateral congenital cataract, a bilinear model with a <strong>critical age of 14 weeks</strong> fit visual-acuity outcomes better than a linear model (χ² = 14.7; p &lt; 0.0006): <em>"A bilinear model with a critical age of 14 weeks fit the data better than a linear model"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/19084444/">PMID: 19084444</a>). Within that window, <em>"During weeks 0-14, mean visual acuity decreased by 1 line with each 3 weeks' delay in surgery"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/19084444/">PMID: 19084444</a>); after 14 weeks acuity plateaued near 20/80 regardless of further delay. Surgery after 4 weeks of age associated with more strabismus/nystagmus, while surgery within the first 4 weeks associated with more secondary membrane formation and glaucoma.</p>
+<h3>Finding 7 — High molecular diagnostic yield supports NGS-based diagnosis</h3>
+<p>Congenital cataract (CC) has the highest diagnostic yield among congenital eye malformations: <em>"Diagnostic rates were highest in CC (75%), bilateral cases (46%), complex ocular phenotypes (78%), patients with extraocular manifestations (55%) and positive family history (70%)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41155148/">PMID: 41155148</a>). Multigene panels (186 eye genes) outperformed limited panels and added yield beyond exome. Prenatal detection pathways exist—fetal cataracts seen on morphology ultrasound can prompt exome sequencing after infectious workup and microarray (<a href="https://pubmed.ncbi.nlm.nih.gov/37578328/">PMID: 37578328</a>). In a 40-year Danish national registry, congenital cataract was the <strong>2nd most frequent inherited eye diagnosis (1,220 cases)</strong>, and a confirmed genetic etiology was established in <strong>60.9% of families</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42272130/">PMID: 42272130</a>).</p>
+<h3>Finding 8 — Cross-species conservation and model systems</h3>
+<p>Crystallin cataracts are evolutionarily conserved. Canine hereditary cataract has been studied with γ-crystallin candidate genes: <em>"The crystallin genes may be involved in the pathogenesis of canine CAT as shown in humans and mice"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/17327821/">PMID: 17327821</a>), and naturally occurring congenital hereditary cataract with microphthalmia in miniature schnauzers is autosomal recessive (<a href="https://pubmed.ncbi.nlm.nih.gov/1869417/">PMID: 1869417</a>). A transgenic zebrafish expressing a destabilized human γD-crystallin mutant reproduces lens aggregation/opacity (<a href="https://pubmed.ncbi.nlm.nih.gov/30475834/">PMID: 30475834</a>); crystallin knock-in mice (αA-R49C, αB-R120G) develop nuclear/congenital cataract (<a href="https://pubmed.ncbi.nlm.nih.gov/18056999/">PMID: 18056999</a>). The lens is an ideal model tissue because <em>"Crystallins are long-lived proteins that do not turnover throughout life"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29338044/">PMID: 29338044</a>).</p>
+<h3>Finding 9 — Experimental non-surgical therapeutics</h3>
+<p>Crystallin aggregation is, in principle, reversible: <em>"lanosterol, and more recently 5-cholesten-3b,25-diol (VP1-001), have been reported to combat the aggregation of crystallins in vivo and ex vivo"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36484206/">PMID: 36484206</a>). Lanosterol reversed the effects of a pathogenic crystallin variant in a cell model: <em>"The addition of lanosterol reversed the negative effects of the G91del mutation under external stress"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34419537/">PMID: 34419537</a>), and reviews conclude <em>"protein aggregation is not an endpoint and could be reversed with specific small-molecule drugs"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/33313297/">PMID: 33313297</a>). These remain experimental; surgery is the only established treatment.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<h3>Ordered causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li>A <strong>heterozygous germline <em>CRYGD</em> mutation</strong> (missense, nonsense, or frameshift) is present from conception → <strong>leads to</strong> expression of a structurally altered γD-crystallin in lens fiber cells.</li>
+<li>The mutation <strong>degrades one or more protective biophysical properties</strong> of γD-crystallin—net surface charge/solubility, thermodynamic fold stability, or resistance to oxidation → <strong>results in</strong> a protein that is metastable under the extreme crowding of the lens (~400 mg/mL).</li>
+<li>The destabilized protein follows <strong>one of three branching routes</strong>:</li>
+<li><strong>Branch A (crystallization):</strong> R58H/R36S lose stabilizing intermolecular contacts → <strong>lead to</strong> ordered crystal nucleation → aculeiform/needle opacities (<a href="https://pubmed.ncbi.nlm.nih.gov/12729747/">PMID: 12729747</a>).</li>
+<li><strong>Branch B (native-like condensation):</strong> P23T/P24T acquire lowered, retrograde solubility → <strong>lead to</strong> liquid–liquid phase separation / amorphous condensation with the fold retained → cerulean/coralliform/lamellar opacities (<a href="https://pubmed.ncbi.nlm.nih.gov/28474685/">PMID: 28474685</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/31422822/">PMID: 31422822</a>).</li>
+<li><strong>Branch C (misfolding):</strong> W42R forms a non-native Cys32–Cys41 disulfide, and C-terminal truncations destabilize Greek-key motif 4 → <strong>lead to</strong> trapped unfolding intermediates and insoluble aggregates (<a href="https://pubmed.ncbi.nlm.nih.gov/27417136/">PMID: 27417136</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39084439/">PMID: 39084439</a>).</li>
+<li>The <strong>α-crystallin chaperone buffer</strong> attempts to hold mutant client in a soluble state → <strong>modulates</strong> the threshold and timing of visible opacity; when its capacity is exceeded, aggregation proceeds (<a href="https://pubmed.ncbi.nlm.nih.gov/39084439/">PMID: 39084439</a>). (Branch-dependent; most directly demonstrated for truncation mutants.)</li>
+<li>Aggregated/crystallized protein creates <strong>refractive-index inhomogeneities</strong> on the scale of visible light → <strong>results in</strong> light scattering and lens opacity (cataract).</li>
+<li>Because crystallins <strong>do not turnover</strong>, the deposit is permanent and present at birth → <strong>results in</strong> congenital, typically non-progressive, bilateral cataract (<a href="https://pubmed.ncbi.nlm.nih.gov/29338044/">PMID: 29338044</a>).</li>
+<li>The opacity <strong>blocks formation of a sharp retinal image</strong> during the critical period of visual-cortex development → <strong>leads to</strong> deprivation amblyopia unless surgically corrected within ~14 weeks (<a href="https://pubmed.ncbi.nlm.nih.gov/19084444/">PMID: 19084444</a>).</li>
+</ol>
+<pre><code>                       ┌─ Branch A: R58H/R36S → crystallization → aculeiform
+CRYGD mutation → destabilized γD-crys ─┼─ Branch B: P23T/P24T → retrograde-solubility LLPS → cerulean/coralliform
+   (germline, heterozygous)            └─ Branch C: W42R/truncations → disulfide/misfolding → nuclear
+                                 │
+            α-crystallin chaperone buffer (modifier) ── exceeded ──┐
+                                                                   ▼
+              light scattering → congenital bilateral cataract → deprivation amblyopia
+                                                                   │
+                                              surgery within ~14-week critical window
+</code></pre>
+<h3>Upstream vs. downstream</h3>
+<ul>
+<li><strong>Upstream (primary):</strong> the <em>CRYGD</em> coding mutation and its biophysical consequence on γD-crystallin (loss of solubility/stability; gain of aggregation propensity—functionally a <strong>dominant-negative / toxic gain-of-aggregation</strong>, not simple haploinsufficiency).</li>
+<li><strong>Midstream (modifiers):</strong> α-crystallin chaperone reserve; oxidative load; local protein concentration.</li>
+<li><strong>Downstream (clinical):</strong> light scattering → visual deprivation → amblyopia, strabismus, nystagmus if untreated; post-surgical glaucoma/myopia as iatrogenic sequelae.</li>
+</ul>
+<h3>Cell types and compartments</h3>
+<ul>
+<li><strong>Cell type:</strong> lens fiber cells (<a href="http://purl.obolibrary.org/obo/CL_0000149" target="_blank" rel="noopener noreferrer">CL:0000149</a>, lens fiber cell) and lens epithelial cells (<a href="http://purl.obolibrary.org/obo/CL_0002224" target="_blank" rel="noopener noreferrer">CL:0002224</a>).</li>
+<li><strong>Subcellular:</strong> cytoplasm/cytosol (<a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" rel="noopener noreferrer">GO:0005829</a>) where crystallins are packed; no membrane-bound organelle localization for the deposit itself.</li>
+<li><strong>Tissue/anatomy:</strong> ocular lens (<a href="http://purl.obolibrary.org/obo/UBERON_0000965" target="_blank" rel="noopener noreferrer">UBERON:0000965</a>); opacity is characteristically <strong>bilateral</strong> (<a href="http://purl.obolibrary.org/obo/HP_0000519" target="_blank" rel="noopener noreferrer">HP:0000519</a> congenital cataract; <a href="http://purl.obolibrary.org/obo/HP_0100018" target="_blank" rel="noopener noreferrer">HP:0100018</a> nuclear cataract).</li>
+<li><strong>Biological processes:</strong> <a href="http://purl.obolibrary.org/obo/GO_0002088" target="_blank" rel="noopener noreferrer">GO:0002088</a> (lens development in camera-type eye), <a href="http://purl.obolibrary.org/obo/GO_0070307" target="_blank" rel="noopener noreferrer">GO:0070307</a> (lens fiber cell development), <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" rel="noopener noreferrer">GO:0006457</a> (protein folding), <a href="http://purl.obolibrary.org/obo/GO_0045454" target="_blank" rel="noopener noreferrer">GO:0045454</a> (cell redox homeostasis in the oxidative branch).</li>
+</ul>
+<hr />
+<h2>Section-by-Section Reference Content</h2>
+<h3>1. Disease Information</h3>
+<p>CTRCT4 is a non-syndromic, autosomal dominant congenital cataract caused by <em>CRYGD</em> mutations. <strong>Identifiers:</strong> OMIM 115700 (CTRCT4); <a href="http://purl.obolibrary.org/obo/MONDO_0007281" target="_blank" rel="noopener noreferrer">MONDO:0007281</a>; gene <em>CRYGD</em> (<a href="https://bioregistry.io/HGNC:2411" target="_blank" rel="noopener noreferrer">HGNC:2411</a>; NCBI Gene 1421; chromosome 2q33–q35). <strong>Synonyms:</strong> cataract 4, multiple types; crystallin gamma D-related cataract; punctate/coralliform/cerulean/aculeiform congenital cataract (allele-dependent). Information is derived from aggregated disease-level resources and family-based studies (linkage, Sanger, NGS cohorts), not EHR.</p>
+<h3>2. Etiology</h3>
+<p><strong>Primary cause:</strong> heterozygous germline <em>CRYGD</em> coding mutations (genetic; not environmental or infectious). <strong>Genetic risk:</strong> causal variants P23T/P24T (recurrent hotspot), R58H, R36S, R36P, W42R, Y134X, Y151X, T160RfsX8. <strong>Modifier gene:</strong> α-crystallin (CRYAA/CRYAB) chaperone capacity (<a href="https://pubmed.ncbi.nlm.nih.gov/39084439/">PMID: 39084439</a>). <strong>Environmental risk:</strong> not established as causal; oxidative/UV/heat stress aggravate aggregation of already-mutant protein in cell models (<a href="https://pubmed.ncbi.nlm.nih.gov/39084439/">PMID: 39084439</a>). <strong>Protective / gene–environment:</strong> antioxidant capacity and chaperone reserve are inferred protective buffers; no validated protective allele reported. Consanguinity is not required (dominant).</p>
+<h3>3. Phenotypes</h3>
+<p>Core phenotype: <strong>bilateral congenital cataract</strong> (<a href="http://purl.obolibrary.org/obo/HP_0000519" target="_blank" rel="noopener noreferrer">HP:0000519</a>), typically <strong>non-progressive</strong> since birth, with best-corrected acuity ranging 20/200–20/25 for coralliform cases (<a href="https://pubmed.ncbi.nlm.nih.gov/37480084/">PMID: 37480084</a>). Morphologies are allele-/family-variable: cerulean (blue-dot), coralliform, lamellar, aculeiform (needle-like, R58H), nuclear, punctate. Associated features in specific alleles: <strong>microcornea</strong> with Y134X (<a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" rel="noopener noreferrer">HP:0000568</a>) and <strong>nystagmus</strong> in one <em>CRYGD</em> family (<a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a>) (<a href="https://pubmed.ncbi.nlm.nih.gov/35222542/">PMID: 35222542</a>). <strong>Onset:</strong> congenital/neonatal. <strong>Severity:</strong> variable. <strong>QoL impact:</strong> untreated → childhood visual impairment/amblyopia; treated early → good functional vision.</p>
+<h3>4. Genetic/Molecular Information</h3>
+<p><strong>Causal gene:</strong> <em>CRYGD</em>. <strong>Variant types:</strong> missense (P23T/P24T, R58H, R36S, R36P, W42R), nonsense (Y134X, Y151X), frameshift (T160RfsX8). <strong>Classification:</strong> recurrent, segregating, pathogenic/likely pathogenic by ACMG criteria (segregation, absence in controls, functional data). <strong>Allele frequency:</strong> pathogenic alleles are rare/absent in gnomAD. <strong>Origin:</strong> germline. <strong>Functional consequence:</strong> gain-of-aggregation / dominant-negative reduction of soluble crystallin rather than haploinsufficiency; R36P reduces the soluble fraction (<a href="https://pubmed.ncbi.nlm.nih.gov/39563676/">PMID: 39563676</a>). <strong>Modifier:</strong> α-crystallin. <strong>Epigenetics / chromosomal abnormalities:</strong> none implicated for CTRCT4; karyotype and microarray are typically normal in these families (<a href="https://pubmed.ncbi.nlm.nih.gov/42111499/">PMID: 42111499</a>).</p>
+<h3>5. Environmental Information</h3>
+<p>No environmental agent causes CTRCT4; it is monogenic. Oxidative stress, UV, and heat are <strong>aggravating cofactors</strong> that lower the aggregation threshold of mutant γD-crystallin in vitro/in cellulo (<a href="https://pubmed.ncbi.nlm.nih.gov/39084439/">PMID: 39084439</a>). No infectious agent is involved (distinguishing it from congenital rubella cataract, which is excluded during prenatal/neonatal workup).</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p>See the ordered causal chain and mechanistic model above. In brief: <em>CRYGD</em> mutation → destabilized γD-crystallin → crystallization (R58H/R36S) <strong>or</strong> native-like condensation (P23T) <strong>or</strong> oxidative/truncation misfolding (W42R/truncations) → α-crystallin buffering exceeded → light-scattering deposits → congenital opacity → deprivation amblyopia if untreated. Protein-level dysfunction (loss of solubility/stability, non-native disulfide) is the core defect; no classical signaling pathway, enzyme deficiency, or immune process is causal.</p>
+<h3>7. Anatomical Structures Affected</h3>
+<p><strong>Primary organ:</strong> eye lens (<a href="http://purl.obolibrary.org/obo/UBERON_0000965" target="_blank" rel="noopener noreferrer">UBERON:0000965</a>), bilateral. <strong>Cells:</strong> lens fiber cells (<a href="http://purl.obolibrary.org/obo/CL_0000149" target="_blank" rel="noopener noreferrer">CL:0000149</a>), lens epithelial cells (<a href="http://purl.obolibrary.org/obo/CL_0002224" target="_blank" rel="noopener noreferrer">CL:0002224</a>). <strong>Subcellular:</strong> cytosol (<a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" rel="noopener noreferrer">GO:0005829</a>). <strong>Secondary/iatrogenic:</strong> cornea (microcornea with Y134X), and post-surgical anterior-segment sequelae (glaucoma, visual-axis opacification). <strong>Lateralization:</strong> bilateral (often symmetric).</p>
+<h3>8. Temporal Development</h3>
+<p><strong>Onset:</strong> congenital (present at birth). <strong>Pattern:</strong> non-progressive/stable in most <em>CRYGD</em> cases. <strong>Course:</strong> chronic/lifelong deposit (crystallins do not turnover). <strong>Critical period:</strong> ~first 14 weeks of life for surgical intervention to preserve vision (<a href="https://pubmed.ncbi.nlm.nih.gov/19084444/">PMID: 19084444</a>); surgery &lt;4 weeks raises glaucoma/secondary-membrane risk, &gt;4 weeks raises strabismus/nystagmus risk.</p>
+<h3>9. Inheritance and Population</h3>
+<p><strong>Inheritance:</strong> autosomal dominant. <strong>Penetrance:</strong> high (often complete within families), with <strong>variable expressivity</strong> (one allele → multiple morphologies). <strong>Mapping evidence:</strong> LOD 7.19 at the <em>CRYG</em> cluster (<a href="https://pubmed.ncbi.nlm.nih.gov/12676897/">PMID: 12676897</a>). <strong>Recurrent allele / apparent hotspot:</strong> P23T/P24T, found in 83.3% of coralliform families (<a href="https://pubmed.ncbi.nlm.nih.gov/37480084/">PMID: 37480084</a>). <strong>Epidemiology context:</strong> congenital cataract is the 2nd most frequent inherited eye disorder in a national registry (<a href="https://pubmed.ncbi.nlm.nih.gov/42272130/">PMID: 42272130</a>); ~8.3–25% of congenital cataract is inherited (<a href="https://pubmed.ncbi.nlm.nih.gov/39994538/">PMID: 39994538</a>). Reported across Chinese, North Indian, and European/Middle-Eastern cohorts; no strong sex bias expected for an autosomal dominant lens disorder.</p>
+<h3>10. Diagnostics</h3>
+<p><strong>Clinical:</strong> slit-lamp/retroillumination phenotyping of bilateral opacity morphology; red-reflex screening in neonates. <strong>Genetic:</strong> NGS multigene panels or exome are first-line; congenital cataract yields 75% diagnostic rate, highest among congenital eye malformations (<a href="https://pubmed.ncbi.nlm.nih.gov/41155148/">PMID: 41155148</a>). Single-gene <em>CRYGD</em> testing confirms a known family variant. Karyotype/CMA are typically normal (<a href="https://pubmed.ncbi.nlm.nih.gov/42111499/">PMID: 42111499</a>). <strong>Prenatal:</strong> fetal cataract on ultrasound → exome after infectious/microarray workup (<a href="https://pubmed.ncbi.nlm.nih.gov/37578328/">PMID: 37578328</a>). <strong>Differential diagnosis:</strong> other crystallin (<em>CRYAA/CRYAB/CRYBB/CRYGC/CRYGS</em>), connexin (<em>GJA3/GJA8</em>), <em>MIP</em>, <em>PAX6</em>, <em>MAF</em> cataracts; metabolic/syndromic and congenital-infection cataracts must be excluded.</p>
+<h3>11. Outcome / Prognosis</h3>
+<p><strong>Mortality:</strong> none—non-lethal. <strong>Morbidity:</strong> entirely visual; risk of irreversible amblyopia, strabismus, nystagmus if untreated. <strong>Prognostic factors:</strong> age at surgery (dominant factor; ~14-week window), amblyopia-therapy adherence, bilaterality, and post-surgical refractive management (<a href="https://pubmed.ncbi.nlm.nih.gov/19084444/">PMID: 19084444</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42216740/">PMID: 42216740</a>). With timely surgery and amblyopia therapy, good functional vision is achievable; complications include secondary glaucoma, visual-axis opacification, and postoperative high myopia (<a href="https://pubmed.ncbi.nlm.nih.gov/42288323/">PMID: 42288323</a>).</p>
+<h3>12. Treatment</h3>
+<p><strong>Established:</strong> surgical lens aspiration ± IOL implantation (NCIT: Cataract Surgery / Lens Extraction), with refractive correction and amblyopia therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/42216740/">PMID: 42216740</a>). Capsular-bag fixation is generally preferred over ciliary-sulcus fixation in children (<a href="https://pubmed.ncbi.nlm.nih.gov/42678450/">PMID: 42678450</a>). <strong>No approved disease-specific drug.</strong> <strong>Experimental/pre-clinical:</strong> aggregation-dissolving sterols lanosterol and 25-hydroxycholesterol/VP1-001 (<a href="https://pubmed.ncbi.nlm.nih.gov/36484206/">PMID: 36484206</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/34419537/">PMID: 34419537</a>); antioxidants (N-acetylcarnosine, N-acetylcysteine amide); peptide and chaperone-based strategies (<a href="https://pubmed.ncbi.nlm.nih.gov/42657226/">PMID: 42657226</a>). <strong>Pharmacogenomics:</strong> not applicable.</p>
+<h3>13. Prevention</h3>
+<p><strong>Primary prevention:</strong> none (monogenic, congenital). <strong>Secondary:</strong> newborn red-reflex screening for early detection enabling surgery within the critical window. <strong>Genetic:</strong> cascade testing of at-risk relatives, genetic counseling (50% transmission risk per child for an affected heterozygote), prenatal/preimplantation testing where a familial variant is known. <strong>Tertiary:</strong> prevention of amblyopia (occlusion therapy) and management of post-surgical glaucoma/myopia.</p>
+<h3>14. Other Species / Natural Disease</h3>
+<p>γ-crystallin cataracts are conserved. <strong>Dog:</strong> γ-crystallin candidate genes investigated in dachshund/Entlebucher mountain dog (<a href="https://pubmed.ncbi.nlm.nih.gov/17327821/">PMID: 17327821</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/16879363/">PMID: 16879363</a>); autosomal recessive congenital hereditary cataract with microphthalmia in miniature schnauzer (<a href="https://pubmed.ncbi.nlm.nih.gov/1869417/">PMID: 1869417</a>). <strong>Orthologs:</strong> mouse <em>Crygd</em> (NCBI Gene 14959); zebrafish crystallins. <strong>Comparative mechanism:</strong> crystallins maintain lens transparency from fish to mammals, with conserved solubility/stability requirements.</p>
+<h3>15. Model Organisms</h3>
+<p><strong>Zebrafish:</strong> transgenic lens expression of destabilized human γD-crystallin reproduces aggregation/opacity and dissects chaperone–client failure (<a href="https://pubmed.ncbi.nlm.nih.gov/30475834/">PMID: 30475834</a>). <strong>Mouse:</strong> crystallin knock-in models (αA-R49C, αB-R120G) develop nuclear/congenital cataract with increased insoluble crystallin and fiber-cell apoptosis (<a href="https://pubmed.ncbi.nlm.nih.gov/18056999/">PMID: 18056999</a>). <strong>Cellular:</strong> HLE-B3 and HEK293T overexpression systems recapitulate mutant aggregation and α-crystallin rescue (<a href="https://pubmed.ncbi.nlm.nih.gov/39084439/">PMID: 39084439</a>). <strong>Limitation:</strong> no dedicated <em>CRYGD</em>-P23T knock-in mouse was identified; most mechanistic data are in vitro/heterologous or from other crystallin genes.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Role</th>
+<th>Key contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12676897/">12676897</a></td>
+<td>Supports</td>
+<td><em>CRYGD</em> P23T causes AD cerulean cataract; LOD 7.19 at 2q33–35</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/14767902/">14767902</a></td>
+<td>Supports</td>
+<td>Same P23T allele → coralliform; phenotypic heterogeneity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17724170/">17724170</a></td>
+<td>Supports</td>
+<td>Y134X nonsense → cataract-microcornea; allelic spectrum</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12729747/">12729747</a></td>
+<td>Supports</td>
+<td>R58H crystallization mechanism; structural basis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28474685/">28474685</a></td>
+<td>Supports</td>
+<td>P23T retains native fold in amorphous aggregates</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31422822/">31422822</a></td>
+<td>Supports</td>
+<td>Retrograde/inverted solubility at P23T/R36S site</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28401204/">28401204</a></td>
+<td>Supports</td>
+<td>P23T condensates connect in-vitro to cellular behavior</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27417136/">27417136</a></td>
+<td>Supports</td>
+<td>W42R internal disulfide necessary+sufficient for aggregation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39084439/">39084439</a></td>
+<td>Supports</td>
+<td>Truncation misfolding; α-crystallin chaperone rescue</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39563676/">39563676</a></td>
+<td>Supports</td>
+<td>R36P reduces soluble γD-crystallin fraction</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37480084/">37480084</a></td>
+<td>Supports</td>
+<td>Recurrent P24T hotspot (83.3%); congenital, non-progressive</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37337769/">37337769</a></td>
+<td>Supports</td>
+<td><em>CRYGD</em> among top-3 cataract genes (33.06%)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38874774/">38874774</a></td>
+<td>Supports</td>
+<td>Crystallins predominate in bilateral pediatric cataract (81.8% yield)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42216740/">42216740</a></td>
+<td>Supports</td>
+<td>Surgery is definitive; prognosis depends on early intervention</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19084444/">19084444</a></td>
+<td>Supports</td>
+<td>14-week surgical critical period for bilateral cataract</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41155148/">41155148</a></td>
+<td>Supports</td>
+<td>CC has highest NGS diagnostic yield (75%)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42272130/">42272130</a></td>
+<td>Supports</td>
+<td>CC 2nd most frequent inherited eye disorder; 60.9% family yield</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30475834/">30475834</a></td>
+<td>Supports</td>
+<td>Transgenic zebrafish γD-crystallin model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18056999/">18056999</a></td>
+<td>Supports</td>
+<td>Crystallin knock-in mouse recapitulates cataract</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29338044/">29338044</a></td>
+<td>Supports</td>
+<td>Crystallins do not turnover → lifelong deposits</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17327821/">17327821</a></td>
+<td>Supports</td>
+<td>Crystallin genes as conserved cataract candidates in dogs</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/1869417/">1869417</a></td>
+<td>Supports</td>
+<td>Natural congenital hereditary cataract in dog</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36484206/">36484206</a></td>
+<td>Supports</td>
+<td>Lanosterol/VP1-001 as experimental anti-aggregation therapy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34419537/">34419537</a></td>
+<td>Supports</td>
+<td>Lanosterol reverses a crystallin variant's effects</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33313297/">33313297</a></td>
+<td>Supports</td>
+<td>Crystallin aggregation is pharmacologically reversible</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ul>
+<li><strong>No <em>CRYGD</em>-specific mammalian knock-in model</strong> was identified; most mechanistic evidence comes from purified-protein biophysics, heterologous cell overexpression, zebrafish, or other crystallin genes (αA, αB, βA3/A1, βB2). Cross-gene inference should be treated cautiously.</li>
+<li><strong>Chaperone-buffer modifier evidence</strong> is strongest for truncation mutants (<a href="https://pubmed.ncbi.nlm.nih.gov/39084439/">PMID: 39084439</a>); its quantitative role for P23T and crystallization alleles in vivo is inferred, not directly demonstrated.</li>
+<li><strong>Genotype–phenotype determinants</strong> remain unexplained: why one P23T allele produces cerulean vs. coralliform vs. lamellar opacity across families is unknown (modifier genes, stochastic nucleation, and local protein concentration are candidates but untested).</li>
+<li><strong>Precise CTRCT4 prevalence</strong> is not separately quantified; figures are for congenital cataract broadly. <em>CRYGD</em>-attributable incidence per 100,000 is not available.</li>
+<li><strong>Experimental therapeutics</strong> (lanosterol, VP1-001, peptides) lack human trial validation and allele-specific efficacy data for <em>CRYGD</em> variants.</li>
+<li><strong>Penetrance/expressivity estimates</strong> are family-level qualitative, not population-calibrated.</li>
+</ul>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Generate a <em>CRYGD</em>-P23T/P24T knock-in mouse</strong> (or zebrafish) to test onset, morphology variability, and α-crystallin dosage modification in vivo.</li>
+<li><strong>Allele-resolved biophysics panel:</strong> systematically compare solubility, phase diagrams, disulfide formation, and chaperone-rescue efficiency for R58H, R36S, R36P, P23T, W42R, and truncations under identical conditions to map mechanism to morphology.</li>
+<li><strong>Chaperone-dosage experiments:</strong> titrate CRYAA/CRYAB co-expression against each mutant to quantify the protective-buffer threshold and identify candidate modifier variants.</li>
+<li><strong>Modifier GWAS/sequencing</strong> within P23T families segregating different morphologies to find genetic determinants of expressivity.</li>
+<li><strong>Pre-clinical screen of aggregation-dissolving small molecules</strong> (lanosterol, VP1-001, rosmarinic acid, peptide Cand.2) against purified mutant γD-crystallin and in transgenic zebrafish, with allele-specific dose–response.</li>
+<li><strong>Prospective natural-history and surgical-timing registry</strong> for <em>CRYGD</em>-confirmed CTRCT4 to refine the critical-period model specifically for this genotype.</li>
+<li><strong>Newborn red-reflex + cascade genetic-testing pathway evaluation</strong> to shorten time-to-surgery and improve visual outcomes.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 11 confirmed findings and 62 reviewed papers across 5 investigation iterations. Evidence types span human clinical/genetic cohorts, in-vitro biophysics and structural biology, heterologous cell models, and model organisms (zebrafish, mouse, dog).</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Cataract_4_Multiple_Types-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Cataract_4_Multiple_Types-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>33</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>4</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0000568</code> (2 mentions) - the report calls it "microcornea"; HP calls it <strong>Microphthalmia</strong></li>
+<li><code>GO:0005829</code> (2 mentions) - the report calls it "Subcellular:<strong> cytoplasm/cytosol"; GO calls it </strong>cytosol**</li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0051082</code> (obsolete unfolded protein binding) (1 mention)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0000519</code> (3 mentions) - the report calls it "congenital cataract", "bilateral congenital cataract"; HP calls it <strong>Developmental cataract</strong>, and lists "Cataract, congenital" among its other names</li>
+<li><code>GO:0045454</code> (2 mentions) - the report calls it "cell redox homeostasis", "cell redox homeostasis in the oxidative branch"; GO calls it <strong>cell redox homeostasis</strong></li>
+<li><code>GO:0051082</code> (1 mention) - the report calls it "unfolded protein binding, chaperone buffering"; GO calls it <strong>obsolete unfolded protein binding</strong></li>
+<li><code>UBERON:0000965</code> (2 mentions) - the report calls it "Tissue/anatomy:<strong> ocular lens"; UBERON calls it </strong>lens of camera-type eye**, and lists "ocular lens" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>HP:0000519</code> - called "congenital cataract", "bilateral congenital cataract"</li>
+<li><code>GO:0045454</code> - called "cell redox homeostasis", "cell redox homeostasis in the oxidative branch"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Cataract_39_Multiple_Types-claude_code.html">← Cataract 39, Multiple Types (Claude Code)</a>
+                
+                
+                <a href="Cataract_40-openscientist.html">Cataract 40 (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Cataract_4,_Multiple_Types.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Cataract_4_Multiple_Types-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

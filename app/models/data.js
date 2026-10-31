@@ -1264,6 +1264,48 @@ window.searchData = [
     "source_file": "kb/modules/deregulated_nutrient_sensing.yaml"
   },
   {
+    "model_key": "Contact_Dermatitis--computational-model-decision-tree-defined-approach-with-derek-nexus-and-a-k-nearest-neighbours-potency-model--1",
+    "name": "Decision-tree defined approach with Derek Nexus and a k-nearest-neighbours potency model",
+    "description": "A defined approach that applies exclusion criteria to prioritise in chemico and in vitro sources covering key events 1 to 3, combines them in a two out of three hazard call, and assigns a potency category using a k-nearest-neighbours model built on human and local lymph node assay data.",
+    "model_type": "Machine Learning",
+    "model_type_raw": "MACHINE_LEARNING",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:30439387",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Contact Dermatitis",
+    "disease_id": "MONDO:0005480",
+    "category": "Complex",
+    "parents": [
+      "Dermatological Disease",
+      "Inflammatory Disease"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [],
+    "num_mechanisms": 0,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:30439387"
+    ],
+    "num_evidence": 1,
+    "notes": "Carries no mechanism link for the same reason as the SARA model: it integrates the per-key-event assay readouts into a hazard and potency prediction for the outcome, and this entry has no adverse-outcome node. Its inputs cover key events 1 to 3, so no single node corresponds to it either. Hazard accuracy is about 85 to 86 percent against local lymph node assay and human reference data, but the correct potency category is reached for only 59 to 68 percent of chemicals. The structural component rests on chemical structure and statistical association rather than on the molecular processes of sensitization.",
+    "creation_date": "2026-03-13T18:40:33Z",
+    "page_url": "../../pages/disorders/Contact_Dermatitis.html#computational-model-decision-tree-defined-approach-with-derek-nexus-and-a-k-nearest-neighbours-potency-model",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Contact_Dermatitis.yaml"
+  },
+  {
     "model_key": "Fanconi_Anemia--computational-model-deep-learning-fa-core-complex-structure--3",
     "name": "Deep Learning FA Core Complex Structure",
     "description": "Integration of deep-learned residue distance predictions with Rosetta folding and automated cryo-EM map-guided assembly to determine the near-complete atomic structure of the Fanconi Anemia core complex (FAcc) E3 ubiquitin ligase from a 4.6 angstrom resolution cryo-EM map. Placed 5182 of 6557 residues, greatly expanding the structural model and enabling interpretation of disease-related mutations.",
@@ -3183,6 +3225,48 @@ window.searchData = [
     "source_file": "kb/disorders/CASQ2_CPVT.yaml"
   },
   {
+    "model_key": "CACNA1I-Related_Neurodevelopmental_Disorder--computational-model-neuron-thalamic-reticular-neuron-model-with-cav3-3-variant-gating--0",
+    "name": "NEURON thalamic reticular neuron model with Cav3.3 variant gating",
+    "description": "Hodgkin-Huxley simulation of a thalamic neuron in which the T-type conductance parameters are replaced by those measured for wild-type and variant Cav3.3, used to compare rheobase, firing frequency and burst duration across variants, including a simulated 1:1 heterozygous state.",
+    "model_type": "Physiological",
+    "model_type_raw": "PHYSIOLOGICAL",
+    "model_format": "Format not recorded",
+    "model_software": "NEURON",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:33704440",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "CACNA1I-Related Neurodevelopmental Disorder",
+    "disease_id": "MONDO:0859313",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian neurodevelopmental disorder",
+      "Calcium channelopathy"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Thalamic Reticular Neuron Hyperexcitability"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "",
+    "creation_date": "2026-10-23T17:31:43Z",
+    "page_url": "../../pages/disorders/CACNA1I-Related_Neurodevelopmental_Disorder.html#computational-model-neuron-thalamic-reticular-neuron-model-with-cav3-3-variant-gating",
+    "model_page_url": "",
+    "source_file": "kb/disorders/CACNA1I-Related_Neurodevelopmental_Disorder.yaml"
+  },
+  {
     "model_key": "Ataxia-telangiectasia--computational-model-normative-diffusion-perfusion-mri-autoencoder--2",
     "name": "Normative diffusion-perfusion MRI autoencoder",
     "description": "A seven-layer, fully connected PyTorch autoencoder trained only on healthy pediatric MRI features to detect individual deviations in A-T. Twenty inputs (13 regional diffusion/perfusion features plus seven demographic and volume covariates) are compressed and 13 imaging features are reconstructed. The paper reports a four-dimensional latent layer, whereas the released notebook instantiates five latent units. One hundred controls were used for training and validation, 10 controls for held-out testing, and 16 children with A-T for disease evaluation.",
@@ -5045,6 +5129,48 @@ window.searchData = [
     "source_file": "kb/modules/mitochondrial_dysfunction.yaml"
   },
   {
+    "model_key": "Contact_Dermatitis--computational-model-skin-allergy-risk-assessment-sara-model--0",
+    "name": "Skin Allergy Risk Assessment (SARA) model",
+    "description": "A Bayesian model that infers a human-relevant sensitizer potency metric and a risk measure for a given consumer exposure from any combination of human patch test, local lymph node assay, DPRA, KeratinoSens, h-CLAT or U-SENS data.",
+    "model_type": "Machine Learning",
+    "model_type_raw": "MACHINE_LEARNING",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:35311660",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Contact Dermatitis",
+    "disease_id": "MONDO:0005480",
+    "category": "Complex",
+    "parents": [
+      "Dermatological Disease",
+      "Inflammatory Disease"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [],
+    "num_mechanisms": 0,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:35311660"
+    ],
+    "num_evidence": 1,
+    "notes": "Carries no mechanism link, because what it predicts is the sensitization outcome and this entry has no adverse-outcome node to attach that to; see the no_node_for_integrated_outcome_prediction discussion. The potency metric is inferred statistically rather than measured, and the model is anchored on human patch test and local lymph node assay reference data, so it inherits those reference sets' domains. Whether the safety assessment factors used with animal data suit a non-animal point of departure is unresolved.",
+    "creation_date": "2026-03-13T18:40:33Z",
+    "page_url": "../../pages/disorders/Contact_Dermatitis.html#computational-model-skin-allergy-risk-assessment-sara-model",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Contact_Dermatitis.yaml"
+  },
+  {
     "model_key": "Deregulated_Nutrient_Sensing_Module--computational-model-smith2010-foxo-post-translational-modification-model--2",
     "name": "Smith2010 FOXO Post-Translational Modification Model",
     "description": "Model of how FOXO transcription factors integrate multiple post-translational modifications made by ageing-related signalling pathways, so that competing inputs - insulin/PI3K-AKT, stress, and nutrient-sensing signals - are resolved into a single transcriptional output.",
@@ -6607,8 +6733,8 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 135,
-  "total_source_entries": 62,
+  "total_models": 138,
+  "total_source_entries": 64,
   "total_model_types": 11,
   "total_runnable": 4,
   "total_with_repository": 56

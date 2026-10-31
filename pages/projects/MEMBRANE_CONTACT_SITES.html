@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Membrane Contact Sites: Organelle Communication in Disease - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+        a.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; text-decoration: none; }
+        a.tag-nih:hover { background: #dfeaff; }
+        span.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html" class="active" aria-current="true">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Membrane Contact Sites: Organelle Communication in Disease</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                <span class="tag">organelle biology</span><span class="tag">lipid transfer</span><span class="tag">neuroscience</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Membrane Contact Sites: Organelle Communication in Disease</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (16)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Adult-Onset_Proximal_Spinal_Muscular_Atrophy,_Autosomal_Dominant.html">Adult-Onset Proximal Spinal Muscular Atrophy Autosomal Dominant</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/McLeod_Neuroacanthocytosis_Syndrome.html">McLeod Neuroacanthocytosis Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chorea-acanthocytosis.html">Chorea-acanthocytosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Wolfram_Syndrome.html">Wolfram Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/WFS1-Related_Disorder.html">WFS1-Related Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Intellectual_Developmental_Disorder_With_Autism_And_Dysmorphic_Facies.html">Intellectual Developmental Disorder With Autism And Dysmorphic Facies</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Autosomal_Recessive_Spinocerebellar_Ataxia_20.html">Autosomal Recessive Spinocerebellar Ataxia 20</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Intellectual_Disability_Autosomal_Dominant_34.html">Intellectual Disability Autosomal Dominant 34</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Charcot-Marie-Tooth_Disease.html">Charcot-Marie-Tooth Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hereditary_Spastic_Paraplegia.html">Hereditary Spastic Paraplegia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/PACS2-Related_Developmental_and_Epileptic_Encephalopathy.html">PACS2-Related Developmental and Epileptic Encephalopathy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Cohen_Syndrome.html">Cohen Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Parkinson&#39;s_Disease.html">Parkinsons Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Optic_Atrophy_14.html">Optic Atrophy 14</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Peroxisome_Biogenesis_Disorder.html">Peroxisome Biogenesis Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/ACBD5_Deficiency.html">ACBD5 Deficiency</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Modules (3)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../modules/membrane_contact_site_dysfunction.html">membrane contact site dysfunction</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/peroxisomal_metabolic_failure.html">peroxisomal metabolic failure</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/mitochondrial_dysfunction.html">mitochondrial dysfunction</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/MEMBRANE_CONTACT_SITES.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="membrane-contact-sites-organelle-communication-in-disease">Membrane Contact Sites: Organelle Communication in Disease</h1>
+<p>Organelles exchange lipids, calcium and signals at membrane contact sites,
+where tethering proteins hold two membranes close without fusing them. Every
+organelle makes such contacts, often with several partners at once. Before this
+project, about twenty disorder entries described a contact-site defect in their
+own words, with nothing linking them. The <code>membrane_contact_site_dysfunction</code>
+module now gives them a shared chain:</p>
+<ol>
+<li>Loss of organelle tethering at a contact site (trigger)</li>
+<li>Disrupted non-vesicular lipid transfer between organelles (key conformance
+   target), with a parallel arm for impaired ER-to-mitochondria calcium transfer</li>
+<li>Organelle membrane lipid imbalance, with plasmalogen (ether phospholipid)
+   synthesis at ER-peroxisome contacts as the worked example</li>
+<li>Altered organelle morphology, number and distribution</li>
+<li>Impaired synapse formation and maturation</li>
+<li>Neural cell dysfunction, and (from mouse and ESC-derived models)
+   impaired cardiomyocyte differentiation and maturation</li>
+</ol>
+<h2 id="conformance-status">Conformance status</h2>
+<table>
+<thead>
+<tr>
+<th>Entry</th>
+<th>Organelle pair</th>
+<th>Tether / protein</th>
+<th>Conforms at</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../disorders/Adult-Onset_Proximal_Spinal_Muscular_Atrophy,_Autosomal_Dominant.html">Adult-Onset Proximal Spinal Muscular Atrophy Autosomal Dominant</a></td>
+<td>ER to many</td>
+<td>VAPB</td>
+<td>trigger; calcium transfer</td>
+</tr>
+<tr>
+<td><a href="../disorders/McLeod_Neuroacanthocytosis_Syndrome.html">McLeod Neuroacanthocytosis Syndrome</a></td>
+<td>ER-plasma membrane</td>
+<td>XK with VPS13A</td>
+<td>lipid transfer</td>
+</tr>
+<tr>
+<td><a href="../disorders/Chorea-acanthocytosis.html">Chorea-acanthocytosis</a></td>
+<td>ER-mitochondria, ER-lipid droplet</td>
+<td>VPS13A</td>
+<td>lipid transfer</td>
+</tr>
+<tr>
+<td><a href="../disorders/Wolfram_Syndrome.html">Wolfram Syndrome</a></td>
+<td>ER-mitochondria</td>
+<td>wolframin, CISD2</td>
+<td>calcium transfer</td>
+</tr>
+<tr>
+<td><a href="../disorders/WFS1-Related_Disorder.html">WFS1-Related Disorder</a></td>
+<td>ER-mitochondria</td>
+<td>wolframin</td>
+<td>calcium transfer</td>
+</tr>
+<tr>
+<td><a href="../disorders/Intellectual_Developmental_Disorder_With_Autism_And_Dysmorphic_Facies.html">Intellectual Developmental Disorder With Autism And Dysmorphic Facies</a></td>
+<td>ER-mitochondria, ER-lysosome</td>
+<td>PDZD8</td>
+<td>calcium transfer</td>
+</tr>
+<tr>
+<td><a href="../disorders/Autosomal_Recessive_Spinocerebellar_Ataxia_20.html">Autosomal Recessive Spinocerebellar Ataxia 20</a></td>
+<td>ER-lipid droplet</td>
+<td>SNX14</td>
+<td>organelle morphology</td>
+</tr>
+<tr>
+<td><a href="../disorders/Intellectual_Disability_Autosomal_Dominant_34.html">Intellectual Disability Autosomal Dominant 34</a></td>
+<td>ER-Golgi</td>
+<td>CERT1 (gain of function)</td>
+<td>lipid transfer</td>
+</tr>
+<tr>
+<td><a href="../disorders/ACBD5_Deficiency.html">ACBD5 Deficiency</a></td>
+<td>ER-peroxisome</td>
+<td>ACBD5</td>
+<td>trigger; lipid imbalance (plasmalogens); organelle morphology</td>
+</tr>
+</tbody>
+</table>
+<h2 id="grouping-and-mondo-proposal">Grouping and MONDO proposal</h2>
+<p><code>kb/groupings/Membrane_Contact_Site_Disorders.yaml</code> lists the conforming entries
+above under a <code>NECESSARY</code> module-conformance criterion. The class is proposed for
+MONDO's mechanism branch as proposal 11 in
+<a href="../../elements/reports/mondo-mechanism-classification-proposal-round-2-2026-10-23/"><code>docs/reports/mondo-mechanism-classification-proposal-round-2-2026-10-23.md</code></a>.</p>
+<h2 id="candidates-not-yet-conformed">Candidates not yet conformed</h2>
+<p>Each needs a reading of the entry before a <code>conforms_to</code> is added:</p>
+<ul>
+<li>[ ] <a href="../disorders/Charcot-Marie-Tooth_Disease.html">Charcot-Marie-Tooth Disease</a>: MFN2 tethers the ER to mitochondria, but the
+  entry has no node for the tethering defect itself, only an AAV9 treatment
+  that restores contacts.</li>
+<li>[ ] <a href="../disorders/Hereditary_Spastic_Paraplegia.html">Hereditary Spastic Paraplegia</a>: the SPG87 (TMEM63C) contact-site node
+  already conforms to <code>corticospinal_tract_axonopathy</code>, and <code>conforms_to</code> takes
+  one value. Decide which module it belongs to, or split the node.</li>
+<li>[ ] <a href="../disorders/PACS2-Related_Developmental_and_Epileptic_Encephalopathy.html">PACS2-Related Developmental and Epileptic Encephalopathy</a>: the entry
+  treats ER-mitochondria contact loss as a hypothesis, not a node.</li>
+<li>[ ] <a href="../disorders/Cohen_Syndrome.html">Cohen Syndrome</a> (VPS13B, Golgi), <a href="../disorders/Parkinson's_Disease.html">Parkinsons Disease</a> (VPS13C),
+  <a href="../disorders/Optic_Atrophy_14.html">Optic Atrophy 14</a> (mitochondria-lysosome), SCAR10 (TMEM16K, ER-endosome),
+  <a href="../disorders/Peroxisome_Biogenesis_Disorder.html">Peroxisome Biogenesis Disorder</a> (peroxisome crosstalk node).</li>
+</ul>
+<h2 id="curation-gaps">Curation gaps</h2>
+<ul>
+<li>[x] <strong>ACBD5 deficiency (retinal dystrophy with leukodystrophy)</strong> curated as
+  <code>ACBD5_Deficiency</code>, bound to MONDO:0100112 with MONDO:0030026 mapped as an
+  exact match (ClinGen lumped the two). Both stubs removed. The entry keeps the
+  VLCFA-capture and tether functions of ACBD5 as separate branches, and its
+  knowledge-gap discussion proposes separation-of-function alleles in patient
+  iPSC-derived neural cells.</li>
+<li>[ ] Queued stub with a contact-site gene: <code>Alkuraya-Kucinskas_Syndrome</code>
+  (BLTP1). Two stubs with similar names are not contact-site diseases:
+  <code>Cohen-Gibson_Syndrome</code> is caused by EED (PRC2 chromatin), unlike Cohen
+  syndrome (VPS13B), and <code>Chorea_Childhood-onset_With_Psychomotor_Retardation</code>
+  by GPR88, a G-protein-coupled receptor.</li>
+<li>[ ] Tether and transfer genes with no entry: ESYT1-3, STARD3, RMDN3
+  (PTPIP51), ATG2A, MIGA2, GRAMD1A-C, SNX13. Check whether each has a Mendelian
+  disease before nominating a stub.</li>
+<li>[ ] GO contact-site cellular components are rarely bound. Only
+  <code>GO:0044232</code>, <code>GO:0044233</code> and <code>GO:0140268</code> appear in the KB, and none of the
+  ER-lipid droplet, ER-Golgi, ER-endosome, mitochondria-lysosome or
+  ER-peroxisome contact terms.</li>
+<li>[ ] Lipodystrophy genes (BSCL2/seipin, CIDEC) act at ER-lipid droplet
+  contacts but are not described that way.</li>
+</ul>
+<h2 id="cardiomyocytes-and-golgi-mitochondria-communication">Cardiomyocytes and Golgi-mitochondria communication</h2>
+<p>Cardiomyocyte differentiation needs mitochondrial fusion (PMID:24091702) and
+MFN2-dependent sarcoplasmic reticulum-mitochondria calcium coupling through
+GRP75 (PMID:41848670). Golgi-derived vesicles carrying PI(4)P or PI(3,4)P2 act
+at ER-mitochondria and mitofusin-marked sites to finish mitochondrial division
+or drive fusion (PMID:32193326, PMID:42848893), and deleting the PI(3,4)P2
+kinases in mouse cardiomyocytes causes heart failure. Stable direct
+Golgi-mitochondria contacts are documented only in pancreatic acinar cells
+(PMID:15722348). The module records this as a knowledge gap with a proposed
+organelle-signature time course across iPSC-cardiomyocyte differentiation.</p>
+<ul>
+<li>[ ] Find a human disorder with a cardiac contact-site node to conform here
+  (candidates: MFN2-related disease with cardiomyopathy, mitochondrial
+  cardiomyopathies with documented MAM loss).</li>
+</ul>
+<h2 id="methods-organelle-signature-analysis">Methods: organelle signature analysis</h2>
+<p>The Cohen lab (UNC) images six to eight organelles at once in live cells and
+quantifies their number, volume, position and pairwise and higher-order
+contacts, an "organelle signature". Applied to primary neurons and astrocytes
+(PMID:40956669) and to human iPSCs differentiating into neurons (PMID:41726917,
+preprint), it shows that the organelle profile is cell-type and stage
+specific, and that ER-peroxisome contacts support plasmalogen synthesis and
+synapse formation. It measures the contact and morphology nodes together, so
+the module's knowledge-gap discussion proposes it for patient-derived neurons
+and astrocytes across several conforming disorders.</p>
+<p>Key references: PMID:28538724 (the organelle interactome), PMID:39440475
+(imaging contacts review), PMID:38327561 (Contact-FP probes), PMID:31732717 and
+PMID:30894536 (field reviews and definitions), PMID:28108524 and PMID:28108526
+(ACBD5-VAP tether).</p>
+        </article>
+    </div>
+</body>
+</html>

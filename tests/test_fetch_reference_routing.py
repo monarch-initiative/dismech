@@ -11,6 +11,8 @@ them to the structured-source rebuild instead; this pins that routing.
 from __future__ import annotations
 
 import re
+import subprocess
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -93,3 +95,41 @@ def test_orphanet_arm_refreshes_when_any_product_is_missing():
     assert tuple(listed.group(1).split()) == _PRODUCT_FILES
     assert "structured_sources.cli refresh orphanet || true" in body
     assert body.index("refresh orphanet") < body.index("rebuild orphanet")
+
+
+def _run_recipe(tmp_path: Path, *args: str):
+    """Run the recipe body with `{{identifiers}}` substituted the way `just`
+    does (space-joined, unquoted) against a stub validator that records its
+    argv, so nothing is fetched."""
+    body = textwrap.dedent(_fetch_reference_recipe())
+    script = tmp_path / "recipe.sh"
+    script.write_text(body.replace("{{identifiers}}", " ".join(args)))
+    stub = tmp_path / "scripts" / "run_reference_validator.sh"
+    stub.parent.mkdir()
+    stub.write_text('#!/usr/bin/env bash\necho "LRV: $*"\n')
+    stub.chmod(0o755)
+    return subprocess.run(
+        ["bash", str(script)], check=False, cwd=tmp_path, capture_output=True, text=True
+    )
+
+
+def test_force_flag_reaches_the_validator_not_the_identifier_loop(tmp_path):
+    """`just fetch-reference PMID:X --force` used to treat `--force` as a second
+    reference id and fail with "Missing argument 'REFERENCE_ID'" (#13185)."""
+    result = _run_recipe(tmp_path, "PMID:26094573", "--force")
+    assert result.returncode == 0, result.stderr
+    assert "LRV: cache reference --force PMID:26094573" in result.stdout
+    assert "Fetching reference: --force" not in result.stdout
+
+
+def test_plain_fetch_passes_no_flags(tmp_path):
+    result = _run_recipe(tmp_path, "PMID:1", "DOI:10.1/x")
+    assert result.returncode == 0, result.stderr
+    assert "LRV: cache reference PMID:1" in result.stdout
+    assert "LRV: cache reference DOI:10.1/x" in result.stdout
+
+
+def test_flags_without_an_identifier_fail(tmp_path):
+    result = _run_recipe(tmp_path, "--force")
+    assert result.returncode != 0
+    assert "LRV:" not in result.stdout

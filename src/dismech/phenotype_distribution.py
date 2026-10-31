@@ -41,16 +41,24 @@ from typing import Any
 
 from ruamel.yaml import YAML
 
+from dismech.repo_root import LazyRepoPaths
 from dismech.structured_sources.base import ReferenceCacheEntry
 
 PREFIX = "PHENODIST"
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_COLLECTION_DIRS = (
-    REPO_ROOT / "kb" / "phenotype_distributions",
-    REPO_ROOT / "examples" / "phenotype_distributions",
+# Resolved from the working directory when read, not from this file's location,
+# so a worktree sharing the primary checkout's virtualenv reads and writes its
+# own tree (#15051, #15109).
+_PATHS = LazyRepoPaths(
+    __name__,
+    REPO_ROOT=lambda root: root,
+    DEFAULT_COLLECTION_DIRS=lambda root: (
+        root / "kb" / "phenotype_distributions",
+        root / "examples" / "phenotype_distributions",
+    ),
+    DEFAULT_CACHE_DIR=lambda root: root / "references_cache",
 )
-DEFAULT_CACHE_DIR = REPO_ROOT / "references_cache"
+__getattr__ = _PATHS.module_getattr
 
 #: Document prefixes whose quoted text must be verifiable against the cache.
 #: Clinical trials are cited as ``clinicaltrials:NCT12345678`` and cached as
@@ -151,7 +159,11 @@ def discover_collections(
     ``*.yaml``. Missing directories are skipped rather than raising, so the
     production directory can be empty while only examples exist.
     """
-    search = list(paths) if paths is not None else list(DEFAULT_COLLECTION_DIRS)
+    search = (
+        list(paths)
+        if paths is not None
+        else list(_PATHS.get("DEFAULT_COLLECTION_DIRS"))
+    )
     files: list[Path] = []
     for p in search:
         if p.is_dir():
@@ -335,7 +347,7 @@ def _resolve_omop(code: str, base_url: str = COHD_BASE_URL) -> str | None:
 
 def check_codes(
     collections: Iterable[Collection],
-    cache_root: Path = REPO_ROOT / "cache",
+    cache_root: Path | None = None,
     allow_network: bool = True,
 ) -> list[Issue]:
     """Verify every `code`/`code_label` pair against its vocabulary's authority.
@@ -349,6 +361,8 @@ def check_codes(
     naming it, rather than nothing. Silence is the failure this whole check
     exists to remove — an unverifiable code should say so.
     """
+    if cache_root is None:
+        cache_root = _PATHS.get("REPO_ROOT") / "cache"
     issues: list[Issue] = []
     caches: dict[str, dict[str, str]] = {}
     fetched: dict[str, dict[str, str]] = {}
@@ -492,7 +506,7 @@ def _append_code_cache(path: Path, prefix: str, entries: dict[str, str]) -> None
 
 def check_terms(
     collections: Iterable[Collection],
-    oak_config: Path = REPO_ROOT / "conf" / "oak_config.yaml",
+    oak_config: Path | None = None,
 ) -> list[Issue]:
     """Verify every ontology term against its authoritative source via OAK.
 
@@ -508,6 +522,8 @@ def check_terms(
     """
     from oaklib import get_adapter
 
+    if oak_config is None:
+        oak_config = _PATHS.get("REPO_ROOT") / "conf" / "oak_config.yaml"
     with oak_config.open(encoding="utf-8") as fh:
         adapters_cfg = (_yaml.load(fh) or {}).get("ontology_adapters", {}) or {}
 
@@ -600,14 +616,18 @@ def check_terms(
 def lint_profile(
     coll: Collection,
     profile: dict[str, Any],
-    cache_dir: Path = DEFAULT_CACHE_DIR,
+    cache_dir: Path | None = None,
 ) -> list[Issue]:
     """Lint one EHR-derived profile.
+
+    ``cache_dir`` defaults to the checkout's ``references_cache/``.
 
     Few rules, which is the point of the shape: a profile is a label and
     weighted codes, so most of what can go wrong is a code whose vocabulary is
     unstated or a weight vector that does not say it was truncated.
     """
+    if cache_dir is None:
+        cache_dir = _PATHS.get("DEFAULT_CACHE_DIR")
     pid = str(profile.get("profile_id", ""))
     out: list[Issue] = []
 
@@ -722,9 +742,11 @@ def lint_profile(
 
 def lint_collections(
     collections: Iterable[Collection],
-    cache_dir: Path = DEFAULT_CACHE_DIR,
+    cache_dir: Path | None = None,
 ) -> LintResult:
     """Lint a set of collections, including cross-collection id uniqueness."""
+    if cache_dir is None:
+        cache_dir = _PATHS.get("DEFAULT_CACHE_DIR")
     collections = list(collections)
     result = LintResult(n_collections=len(collections))
 
@@ -946,7 +968,7 @@ def profile_cache_entry(
 
 def write_cache_files(
     collections: Iterable[Collection],
-    cache_dir: Path = DEFAULT_CACHE_DIR,
+    cache_dir: Path | None = None,
     prune: bool = True,
 ) -> tuple[list[Path], list[Path]]:
     """Write one cache file per profile, pruning orphans.
@@ -956,6 +978,8 @@ def write_cache_files(
     the cache forever, still resolvable and still citable from a kb entry — a
     citation to a profile that no longer exists.
     """
+    if cache_dir is None:
+        cache_dir = _PATHS.get("DEFAULT_CACHE_DIR")
     collections = list(collections)
     illustrative = [
         c.path.name
@@ -1021,8 +1045,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--cache-dir",
         type=Path,
-        default=DEFAULT_CACHE_DIR,
-        help="Cache directory to write into.",
+        default=None,
+        help="Cache directory to write into (default: the checkout's references_cache/).",
     )
     parser.add_argument(
         "--no-prune",
@@ -1047,6 +1071,8 @@ def main(argv: list[str] | None = None) -> int:
         help="Exit nonzero on warnings as well as errors.",
     )
     args = parser.parse_args(argv)
+    if args.cache_dir is None:
+        args.cache_dir = _PATHS.get("DEFAULT_CACHE_DIR")
 
     try:
         collections = discover_collections(args.paths or None)
