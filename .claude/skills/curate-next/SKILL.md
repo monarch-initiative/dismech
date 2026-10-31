@@ -27,53 +27,58 @@ Skip when:
 
 1. **Validate N.** Parse the positional argument. Reject if missing, non-integer, `<= 0`, or `> 8` — ask the user rather than silently capping. Never default to a value the user did not provide.
 2. **Resolve the current GitHub user**: `USER=$(gh api user -q .login)`. Use that login as the assignee filter and never hardcode a username.
-3. **Fetch open curation issues assigned to the user.**
+3. **Shortlist with the shared selector.** One call does what used to be four
+   hand-run filters:
    ```bash
-   gh issue list \
-     --assignee @me \
-     --state open \
-     --label curation \
-     --json number,title,assignees,body,createdAt \
-     --limit 100
+   just select-issues N --mine --lane new-entry
    ```
-   The `--label curation` filter is what restricts to "new disease curation requests" — issues filed by `/claim-disease` carry the `curation,enhancement` labels and the title pattern `Curate <label> (<MONDO_ID>)`. If a contributor opens curation issues with a different label, document it in this skill rather than relaxing the filter.
-4. **Filter to sole-assignee issues.** Drop any issue whose `assignees` array has more than one entry. The user explicitly wants solo work — an issue assigned to both `alice` and `bob` is a team task, even if the current user is `alice`. Do this filter in jq, not by hand:
-   ```bash
-   jq '[.[] | select((.assignees | length) == 1)]'
-   ```
-5. **Filter out issues with an existing PR.** For each remaining issue number `ISSUE_NUM`, check the authoritative GitHub linkage on the issue itself:
-   ```bash
-   # Authoritative: PRs GitHub has linked via closes/fixes/resolves keywords
-   # (this is the same data the issue's "Development" sidebar shows)
-   gh issue view "${ISSUE_NUM}" --json closedByPullRequestsReferences \
-     -q '.closedByPullRequestsReferences | length'
-   ```
-   Skip the issue if the count is non-zero. A merged PR usually means the issue should already be closed, but stale links happen — be conservative.
+   - `--mine` keeps issues assigned to the current user **and nobody else**. An
+     issue assigned to both `alice` and `bob` is a team task, even if the
+     current user is `alice` (`ASSIGNED_OTHER`); one assigned to nobody is not
+     yours (`NOT_MINE`).
+   - `--lane new-entry` keeps claim issues: the `claim` label, or the title
+     `Curate <label> (<MONDO_ID>)` that `/claim-disease` writes.
+   - The default `--prs active` drops an issue that an **open** PR will close or
+     is linked to (`PR_ACTIVE`), from GitHub's own link and cross-reference
+     records. A merged PR on a still-open issue is shown, not hidden. Run
+     `just issue-prs <ISSUE_NUM>` to see any issue's PRs on their own.
+   - `KB_COVERED` drops an issue whose MONDO ID or label the KB already curates,
+     using the coverage index `tidy-stubs` uses. A `git grep` for the ID is too
+     loose: it also matches a sibling entry's `differential_diagnoses`, which is
+     not curation, and skipped real candidates that way.
+   - `OPEN_PR` drops an issue when an open PR names its MONDO ID or label.
+   - Survivors are ranked oldest first (after any `high-priority` label), the
+     conventional FIFO for a curation queue, and the first N are the picks.
+     Fewer than N prints `SHORTFALL`; do not pad. The `EXCLUDED` block gives
+     the reason for every issue left out; carry it into the final report.
 
-   **Do NOT use `gh pr list --search "closes #${ISSUE_NUM}"` as a forward check.** GitHub's free-text search matches the literal string `#${ISSUE_NUM}` anywhere in PR body or commits, including unrelated occurrences like `ORPHA:${ISSUE_NUM}`. This produced a false positive in production on issue #2704 (Orphanet ID `ORPHA:2704` in PR #1992's body matched `#2704`). `closedByPullRequestsReferences` is structured GitHub linkage and avoids the trap.
+   If the selector prints a NOTE that the checkout is behind `origin/main`, run
+   `git pull` on main and re-run: `KB_COVERED` reads the local `kb/`.
 
-   If `closedByPullRequestsReferences` is rejected as an unknown field by the local `gh` version, upgrade `gh` rather than falling back to the lossy text search.
-6. **Sort and pick.** Sort the survivors by `number` ascending (oldest issue first — that's the conventional FIFO for a curation queue) and take the first N. If fewer than N survive, do not pad — report the shortfall in the final report.
-7. **Extract the disease label and MONDO ID from each title.** Issue titles follow `Curate <label> (<MONDO_ID>)`. Parse with a regex; if a title does not match (e.g. an old hand-filed issue), skip it and note it in the final report rather than passing a garbled label to `/curate`.
-8. **Run duplicate preflight for each picked issue.** Before dispatch, verify the
-   disease is still absent from the latest upstream KB and is not already
-   covered by another PR or issue:
+   **Do NOT use `gh pr list --search "closes #${ISSUE_NUM}"` as a PR-link check.**
+   GitHub's free-text search matches the literal string `#${ISSUE_NUM}` anywhere
+   in a PR body or commit, including `ORPHA:${ISSUE_NUM}`. This produced a false
+   positive in production on issue #2704 (Orphanet ID `ORPHA:2704` in PR #1992's
+   body matched `#2704`).
+4. **Extract the disease label and MONDO ID from each title.** Titles follow
+   `Curate <label> (<MONDO_ID>)`; the selector prints the MONDO ID under each
+   pick. A claim with no MONDO ID in its title (`UNKEYED_CLAIM` beside it)
+   cannot be passed to `/curate` safely: skip it and note it in the final
+   report rather than passing a garbled label.
+5. **Search other issues for the same disease.** The selector checks the KB and
+   open PRs; it does not search other issues. Before dispatch:
    ```bash
-   git fetch origin main
-   git grep -n -i -e "<MONDO_ID>" -e "<label>" origin/main -- kb/disorders || true
-   gh pr list --repo monarch-initiative/dismech --state all \
-     --search "\"<MONDO_ID>\" OR \"<label>\"" \
-     --json number,title,state,url,headRefName --limit 100
    gh issue list --repo monarch-initiative/dismech --state all \
      --search "\"<MONDO_ID>\" OR \"<label>\"" \
      --json number,title,state,url,labels --limit 100
    ```
-   The current issue itself is expected in the issue search results. Skip the
-   candidate if the KB, another PR, or another issue already covers the same
-   disorder, and report the skip.
-9. **Dispatch /curate in parallel.** In a **single message**, launch N Agent tool calls — one per disease — using `subagent_type: general-purpose` so each agent has full tool access (`Tools: *`). `claude` works too on harnesses that register it as a catch-all type, but `general-purpose` is the canonical name across harnesses; prefer it for portability. Each agent's prompt MUST:
+   The current issue itself is expected in the results. A `DOUBLE_CLAIM` note
+   beside a pick means another open claim already has the same MONDO ID. Skip
+   the candidate if another issue already covers the same disorder, and report
+   the skip.
+6. **Dispatch /curate in parallel.** In a **single message**, launch N Agent tool calls — one per disease — using `subagent_type: general-purpose` so each agent has full tool access (`Tools: *`). `claude` works too on harnesses that register it as a catch-all type, but `general-purpose` is the canonical name across harnesses; prefer it for portability. Each agent's prompt MUST:
    - State the disease label and MONDO ID verbatim.
-   - State that the duplicate preflight against latest KB, all PRs, and all
+   - State that the duplicate preflight against the latest KB, open PRs, and all
      issues has already been performed, and tell the agent to repeat it before
      writing files if its worktree is created later from stale refs.
    - Quote any deep-research provider hints from the issue body (e.g. "using falcon", "using deep-research"). Default to **falcon** when none are mentioned.
@@ -90,7 +95,7 @@ Skip when:
    Dispatching all N in one message is the whole point — sequential dispatch defeats the skill. See `superpowers:dispatching-parallel-agents` if you need a refresher on parallel sub-agent semantics. Run the agents in the background (`run_in_background: true`) so the orchestrator regains control immediately and can report; you will be notified as each finishes.
 
    **After every agent finishes (or stalls), verify each branch has at least one commit:** `git log origin/main..<branch> --oneline`. If empty, the agent's work is likely uncommitted in its worktree's working tree — or worse, leaked into the parent checkout. Check `git status` in the parent before dispatching another batch.
-10. **Report.** After all agents finish, list:
+7. **Report.** After all agents finish, list:
    - Issues processed (number + label + agent result summary)
    - Issues skipped and why (duplicate KB/PR/issue / already has PR / co-assigned / unparseable title)
    - The shortfall, if you delivered fewer than N curations
@@ -99,24 +104,23 @@ Skip when:
 
 | Step | Command |
 |------|---------|
-| Resolve user | `gh api user -q .login` |
-| List my open curation issues | `gh issue list --assignee @me --state open --label curation --json number,title,assignees,body,createdAt --limit 100` |
-| Filter sole-assignee | `jq '[.[] \| select((.assignees \| length) == 1)]'` |
-| PR linking check | `gh issue view <ISSUE_NUM> --json closedByPullRequestsReferences -q '.closedByPullRequestsReferences \| length'` |
+| Shortlist (sole assignee, claim issues, no active PR, not in the KB, no open PR) | `just select-issues N --mine --lane new-entry` |
+| PRs attached to one issue | `just issue-prs <ISSUE_NUM>` |
+| Other issues on the same disease | `gh issue list --state all --search '"<MONDO_ID>" OR "<label>"'` |
 | Dispatch | Single message with N `Agent` calls, `subagent_type: general-purpose`, `run_in_background: true` |
 
 ## Common mistakes
 
-- **Treating co-assigned issues as solo work.** `gh issue list --assignee @me` returns issues where the user is *an* assignee, not the *only* assignee. The jq length-1 filter in step 4 is mandatory.
-- **Skipping the PR-existence check.** If a contributor opened a PR three days ago and is still under review, re-running `/curate` will overwrite their work and waste the reviewer's time. Always check `closedByPullRequestsReferences` on the issue before dispatching.
+- **Treating co-assigned issues as solo work.** `gh issue list --assignee @me` returns issues where the user is *an* assignee, not the *only* assignee. `--mine` is what makes the shortlist solo-only; do not swap it for `--assignee @me`.
+- **Skipping the PR-existence check.** If a contributor opened a PR three days ago and is still under review, re-running `/curate` will overwrite their work and waste the reviewer's time. The selector's default `--prs active` drops those; never pass `--prs ignore` here.
 - **Skipping the duplicate preflight.** The current issue may have been filed
   before another agent opened a PR or before a newer disorder entry reached
   `origin/main`. Re-check latest KB, all PRs, and all issues immediately before
   dispatch.
-- **Using `gh pr list --search "closes #N"` as a PR-link check.** GitHub's free-text search matches the literal `#N` anywhere — including `ORPHA:N`, `MONDO:0000N`, line numbers in code blocks, etc. This caused a real false positive on issue #2704 (matched on `ORPHA:2704`). The structured `closedByPullRequestsReferences` field on the issue is the authoritative signal.
+- **Using `gh pr list --search "closes #N"` as a PR-link check.** GitHub's free-text search matches the literal `#N` anywhere — including `ORPHA:N`, `MONDO:0000N`, line numbers in code blocks, etc. This caused a real false positive on issue #2704 (matched on `ORPHA:2704`). `just issue-prs N` reads GitHub's structured link and cross-reference records instead.
 - **Running `/curate` sequentially.** Sequential dispatch defeats the skill. All N Agent calls go in one message.
 - **Silently picking fewer than N.** If only 2 issues survive when the user asked for 5, say so explicitly in the report. Do not pad the count with co-assigned or PR-linked issues just to hit N.
-- **Hardcoding the GitHub username.** Always resolve via `gh api user -q .login` so the skill works for any contributor.
+- **Hardcoding the GitHub username.** The selector resolves the current user itself (`gh api user`); never pass a login.
 - **Defaulting N when the user didn't supply it.** This skill requires an explicit N — unlike `/claim-disease`, there is no sensible default for "how many of your in-flight assignments to attack at once." Ask.
 - **Looking up MONDO IDs from the stub queue in `stubs/`.** That is `/claim-disease`'s job. This skill is strictly issue-driven — every disease curated comes from an existing GitHub issue title.
 - **Trying to call `/curate` from inside a sub-agent.** Slash commands are not available in sub-agent context. Inline the `/curate` instructions (consult `initiate-new-disorder-creation`, use falcon by default) into the agent prompt.
@@ -128,5 +132,6 @@ Skip when:
 - **`/claim-disease N`** — files **new** curation issues for the top-N priority uncurated diseases. Use first if you have no open assignments.
 - **`/curate <name>`** — curates a single disease end-to-end. This skill dispatches it in parallel.
 - **`/curate-next N`** — this skill. Reads your assigned-but-unstarted curation issues and runs the `/curate` workflow on the first N.
+- **`browse-issues`** — lets the user browse, search and choose among every kind of open issue, not only claims, and opens one issue they name as an interactive session. Its selector (`just select-issues`) is the one step 3 runs.
 
 A typical batch session is `/claim-disease 5` (file 5 issues) → `/curate-next 5` (curate them in parallel).
