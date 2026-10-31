@@ -63,6 +63,16 @@ def groups_by_mondo(claims: list[dict]) -> dict[str, list[dict]]:
     return g
 
 
+def keeper_and_duplicates(members: list[dict]) -> tuple[int, list[dict]]:
+    """Keeper = lowest issue number in a same-MONDO group; the rest are duplicates.
+
+    Pure and deterministic: every run over the same group picks the same keeper,
+    which is what makes two parallel runs agree on which issue is the loser.
+    """
+    keeper = min(m["number"] for m in members)
+    return keeper, [m for m in members if m["number"] != keeper]
+
+
 def already_flagged(issue: dict) -> bool:
     return any(l.get("name") == DUPLICATE_LABEL for l in issue.get("labels", []))
 
@@ -126,9 +136,9 @@ def main() -> int:
     for members in scoped.values():
         if len(members) < 2:
             continue
-        keeper = min(x["number"] for x in members)
-        for m in members:
-            if m["number"] != keeper and not already_flagged(m):
+        keeper, dups = keeper_and_duplicates(members)
+        for m in dups:
+            if not already_flagged(m):
                 to_flag.append((m, keeper))
 
     if to_flag and not dry_run:

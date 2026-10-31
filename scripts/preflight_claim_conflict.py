@@ -94,7 +94,7 @@ def main() -> int:
     ap.add_argument("mondo", help="MONDO ID of the disease being curated, e.g. MONDO:0014821")
     ap.add_argument("--self-issue", type=int, default=None, help="own claim issue number, to exclude")
     ap.add_argument("--self-branch", default=None, help="own PR head branch, to exclude")
-    ap.add_argument("--name", default=None, help="disease name substring, for the PR title/branch fallback")
+    ap.add_argument("--name", default=None, help="disease name substring for the PR title/branch fallback; a short name can cause false STOPs, so use a distinctive one")
     args = ap.parse_args()
 
     if not re.fullmatch(r"MONDO:\d+", args.mondo):
