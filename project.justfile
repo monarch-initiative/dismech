@@ -1041,6 +1041,34 @@ check-claims claims=claims_file *args="":
 next-unclaimed count="5" claims=claims_file *args="":
     uv run dismech-stubs next {{count}} --claims {{ if claims =~ '^--' { claims_file + " " + claims } else { claims } }} {{args}}
 
+# Writes one snapshot to tmp/issues.json; --from tmp/issues.json re-sorts it.
+# Every excluded issue is counted under a reason code. Read-only.
+# Shortlist existing open issues of any kind (N picks, or --list)
+[group('Curation')]
+select-issues *args="":
+    uv run python -m dismech.issue_queue.cli select {{args}}
+
+# From GitHub's link and cross-reference records, never the `#N` text search,
+# which also matches `ORPHA:N`. Prints state/relation for each PR.
+# Show the PRs attached to one or more issues
+[group('Curation')]
+issue-prs +issues:
+    uv run python -m dismech.issue_queue.cli prs {{issues}}
+
+# A label listed here never routes an issue, so issues carrying only such
+# labels land in the GENERAL lane. Report-only.
+# List repository labels that no issue-lane rule reads
+[group('Curation')]
+check-issue-lanes:
+    uv run python -m dismech.issue_queue.cli lanes
+
+# Assigns the issue, creates a worktree, and opens a tmux window running
+# `claude`. Run only for an issue the user named; --dry-run changes nothing.
+# Open one named issue as its own interactive Claude Code session
+[group('Curation')]
+launch-issue-session issue *args="":
+    uv run python -m dismech.issue_queue.launch {{issue}} {{args}}
+
 # Never overwrites an existing stub. Default source format is the Monarch
 # rare-disease-identification prioritised list.
 # Add stubs for nominated diseases that are neither curated nor already stubbed
@@ -1675,6 +1703,25 @@ check-causal-targets *files:
 [group('QC')]
 list-causal-targets *files:
     uv run python scripts/check_causal_targets.py --report "$@"
+
+# What a `conforms_to` link claims but nothing checks: whether the conforming
+# node carries the module node's content. The anchor itself IS a foreign key
+# (groupings.module_node_names resolves it), so what is missing is CLAUDE.md's
+# own contract -- "should include the expected biological processes and causal
+# edges from the module" -- under which a node can name an anchor it shares
+# nothing with and pass every gate. Report-only and NOT in `just qc`: a
+# conformer binding the specific process where the module binds the generic one
+# is the substitution the primer asks for, not a defect, and telling those
+# apart needs a GO closure this deliberately runs without. Read the per-module
+# ranking, not the corpus total. `--strict` gates a subset for whoever wants it.
+[group('QC')]
+check-conformance-content *args:
+    uv run python scripts/check_conformance_content.py "$@"
+
+# One line per conformance-content finding (anchor, node, what diverged).
+[group('QC')]
+list-conformance-content *args:
+    uv run python scripts/check_conformance_content.py --format list "$@"
 
 # Resolve every hypothesis exploration directory to its kb entry. A directory
 # under kb/hypotheses/ reaches the disease page through two verbatim name
@@ -4001,6 +4048,16 @@ toxcast-refresh *args="":
 [group('Research')]
 toxcast-coverage *args="":
     uv run python scripts/toxcast_pathograph_coverage.py "$@"
+
+# Turn the Complement-ARIE Landscape Analysis "Q&A-Question Details" download
+# into papers.tsv, answers.jsonl and questions.tsv beside it. The download is
+# ~128 MB and not committed: fetch it from the dashboard named in
+# data/complement-arie/MANIFEST.yaml. The script checks its sha256 against the
+# manifest and stops on a mismatch (--no-verify to parse another snapshot).
+# See docs/reports/complement-arie-landscape-analysis-2026-10-30.md.
+[group('Research')]
+complement-arie-parse *args:
+    uv run python scripts/complement_arie_landscape.py "$@"
 
 # How far the DNT in vitro battery's endpoints reach into the pathograph: the 17
 # distinct processes of DNT-IVB v1.0 and v2.0 (doi:10.3389/ftox.2024.1359507),

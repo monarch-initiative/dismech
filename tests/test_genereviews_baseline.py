@@ -27,8 +27,10 @@ from dismech.bookshelf import (
     BookshelfIndex,
     Chapter,
     Match,
+    entry_causal_genes,
     entry_genes,
     entry_names,
+    is_somatic_mosaic,
     kind_rank,
     normalize,
     source_from_cache_text,
@@ -311,6 +313,55 @@ def test_tagged_by_nbk_url_counts(tmp_path, index):
     assert _assess(tmp_path, index, doc).sources["genereviews"].verdict == "TAGGED"
 
 
+def test_only_retired_chapters_tagged_is_reported_apart(tmp_path, index, capsys):
+    """A retired chapter's tag is right, but it alone is not a current baseline (#16018)."""
+    doc = _entry(
+        "Chromosome 1p36 Deletion Syndrome",
+        ["1p36 deletion syndrome"],
+        references=[{"reference": "PMID:20301370", "tags": ["GeneReviews"]}],
+    )
+    report = _assess(tmp_path, index, doc)
+    gr = report.sources["genereviews"]
+    assert gr.verdict == "TAGGED_RETIRED"
+    (row,) = gr.chapters
+    assert row.tagged and row.retired
+    # Informational: many retired chapters have no successor.
+    assert not report.gating
+    assert report.noteworthy
+
+
+def test_a_current_chapter_beside_a_retired_one_is_plain_tagged(tmp_path, index):
+    doc = _entry(
+        "Chromosome 1p36 Deletion Syndrome",
+        references=[
+            {"reference": "PMID:20301370", "tags": ["GeneReviews"]},
+            {"reference": "PMID:27308687", "tags": ["GeneReviews"]},
+        ],
+    )
+    assert _assess(tmp_path, index, doc).sources["genereviews"].verdict == "TAGGED"
+
+
+def test_tagged_retired_prints_its_hint_and_passes_strict(tmp_path, index, capsys):
+    index_dir = _write_index(tmp_path, index)
+    entry = tmp_path / "Chromosome_1p36_Deletion_Syndrome.yaml"
+    entry.write_text(
+        "name: Chromosome 1p36 Deletion Syndrome\n"
+        "synonyms:\n- 1p36 deletion syndrome\n"
+        "references:\n- reference: PMID:20301370\n  tags:\n  - GeneReviews\n"
+    )
+    args = [
+        str(entry),
+        "--index-dir",
+        str(index_dir),
+        "--cache-dir",
+        str(tmp_path / "c"),
+    ]
+    assert cgb.main(args + ["--strict"]) == 0
+    out = capsys.readouterr().out
+    assert "GeneReviews  TAGGED_RETIRED" in out
+    assert "TAGGED_RETIRED: the only GeneReviews chapters tagged are retired" in out
+
+
 def test_mistagged_journal_article_is_reported(tmp_path, index):
     cache = tmp_path / "cache"
     cache.mkdir()
@@ -540,7 +591,7 @@ def test_online_search_skips_a_rewritten_query(index, capsys):
 
 def test_online_hit_ranks_after_index_title_matches(tmp_path, index):
     class _Online:
-        def search(self, names):
+        def search(self, names, genes=()):
             chapter = _chapter("genereviews", "99999998", "", "Usher Syndrome.")
             return [Match(chapter, "ONLINE", "Usher Syndrome")]
 
@@ -837,6 +888,280 @@ def test_strict_fails_on_synonymless_no_chapter(tmp_path, index, monkeypatch, ca
     )
     assert cgb.main(args + ["--strict", "--source", "genereviews"]) == 0
     assert "no synonyms" not in capsys.readouterr().out
+
+
+# -- gene-scoped chapters, found from the gene side (#9694) --------------------
+
+
+@pytest.fixture
+def spectrum_index() -> BookshelfIndex:
+    """Real chapter titles that name a gene, not the disease an entry is for."""
+    idx = BookshelfIndex()
+    for chapter in [
+        _chapter(
+            "genereviews",
+            "24830047",
+            "NBK201366",
+            "Autosomal Dominant TRPV4-Related Disorders.",
+        ),
+        _chapter(
+            "genereviews",
+            "20301711",
+            "NBK1539",
+            "GDAP1-Related Hereditary Motor and Sensory Neuropathy – RETIRED "
+            "CHAPTER, FOR HISTORICAL REFERENCE ONLY.",
+            retired=True,
+        ),
+        _chapter(
+            "genereviews",
+            "20301294",
+            "NBK1115",
+            "HAMP- and HJV-Related Hemochromatosis.",
+        ),
+        _chapter(
+            "genereviews", "36007106", "NBK583262", "MCM8/MCM9-Related Syndromes."
+        ),
+        _chapter(
+            "genereviews",
+            "20301301",
+            "NBK1122",
+            "Phelan-McDermid Syndrome-SHANK3 Related.",
+        ),
+        _chapter(
+            "genereviews",
+            "20301425",
+            "NBK1247",
+            "BRCA1- and BRCA2-Associated Hereditary Breast and Ovarian Cancer.",
+        ),
+        _chapter(
+            "genereviews",
+            "37406008",
+            "NBK592000",
+            "RNU4-2–Related Neurodevelopmental Disorder.",
+        ),
+        _chapter(
+            "genereviews", "20301280", "NBK1101", "HRAS-Related Costello Syndrome."
+        ),
+        _chapter(
+            "genereviews",
+            "20301779",
+            "NBK1693",
+            "Dyskeratosis Congenita and Related Telomere Biology Disorders.",
+        ),
+    ]:
+        idx.add(chapter)
+    return idx
+
+
+def _with_genes(doc: dict, *records: dict) -> dict:
+    doc["genetic"] = list(records)
+    return doc
+
+
+def _gene(symbol: str, **extra) -> dict:
+    return {
+        "name": symbol,
+        "gene_term": {
+            "preferred_term": symbol,
+            "term": {"id": "hgnc:1", "label": symbol},
+        },
+        **extra,
+    }
+
+
+@pytest.mark.parametrize(
+    ("symbol", "pmid"),
+    [
+        ("TRPV4", "24830047"),
+        ("HJV", "20301294"),
+        ("HAMP", "20301294"),
+        ("MCM9", "36007106"),
+        ("SHANK3", "20301301"),
+        ("BRCA2", "20301425"),
+        ("RNU4-2", "37406008"),
+    ],
+)
+def test_gene_scoped_title_shapes(spectrum_index, symbol, pmid):
+    assert [
+        (m.kind, m.chapter.pmid, m.name) for m in spectrum_index.match_genes([symbol])
+    ] == [("GENE_SCOPED", pmid, symbol)]
+
+
+def test_gene_scoped_needs_the_symbol_not_a_word(spectrum_index):
+    # "Related" with no symbol before it scopes nothing; case tells HFE from a word.
+    assert spectrum_index.match_genes(["Dyskeratosis Congenita", "telomere"]) == []
+    assert spectrum_index.match_genes(["trpv4"]) == []
+    assert spectrum_index.match_genes(["TRPV"]) == []
+
+
+def test_spectrum_chapter_reached_from_the_gene(tmp_path, spectrum_index):
+    """The #9663 case: no disease-name match reaches the TRPV4 spectrum chapter."""
+    doc = _with_genes(
+        _entry("Spondyloepiphyseal Dysplasia, Maroteaux Type"), _gene("TRPV4")
+    )
+    assert spectrum_index.match(doc["name"]) == []
+    gr = _assess(tmp_path, spectrum_index, doc).sources["genereviews"]
+    assert gr.verdict == "CANDIDATE_CHAPTER"
+    assert [(r.pmid, r.kind, r.name) for r in gr.chapters] == [
+        ("24830047", "GENE_SCOPED", "TRPV4")
+    ]
+    # A gene's chapter is a candidate to read, never a gate.
+    assert not _assess(tmp_path, spectrum_index, doc).gating
+
+
+def test_gene_scoped_retired_chapter_is_marked(tmp_path, spectrum_index):
+    doc = _with_genes(_entry("Charcot-Marie-Tooth Disease Type 4A"), _gene("GDAP1"))
+    gr = _assess(tmp_path, spectrum_index, doc).sources["genereviews"]
+    (row,) = gr.chapters
+    assert (row.pmid, row.kind, row.retired) == ("20301711", "GENE_SCOPED", True)
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"relationship_type": "SOMATIC_DRIVER"},
+        {"relationship_type": "SUSCEPTIBILITY"},
+        {"relationship_type": "MODIFIER"},
+        {"variant_origin": "SOMATIC"},
+        {"association": "Recurrent somatic mutation"},
+    ],
+)
+def test_gene_scoped_skips_genes_that_are_not_germline_causes(
+    tmp_path, spectrum_index, extra
+):
+    doc = _with_genes(_entry("Thymoma"), _gene("HRAS", **extra))
+    assert entry_causal_genes(doc) == []
+    gr = _assess(tmp_path, spectrum_index, doc).sources["genereviews"]
+    assert gr.verdict == "NO_CHAPTER"
+
+
+def test_gene_scoped_keeps_causative_and_untyped_genes(spectrum_index):
+    doc = _with_genes(
+        _entry("Hemochromatosis Type 2"),
+        _gene("HJV", relationship_type="CAUSATIVE", variant_origin="GERMLINE"),
+        _gene("HAMP"),
+    )
+    assert entry_causal_genes(doc) == ["HJV", "HAMP"]
+
+
+def _mosaic(doc: dict) -> dict:
+    doc["inheritance"] = [
+        {
+            "name": "Somatic mosaicism",
+            "inheritance_term": {
+                "preferred_term": "Somatic mosaicism",
+                "term": {"id": "HP:0001442", "label": "Typified by somatic mosaicism"},
+            },
+        }
+    ]
+    return doc
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"relationship_type": "CAUSATIVE", "variant_origin": "SOMATIC"},
+        {"name": "HRAS (somatic mosaic)"},
+    ],
+)
+def test_gene_scoped_keeps_somatic_genes_of_a_mosaic_disorder(
+    tmp_path, spectrum_index, extra
+):
+    """Hemimegalencephaly's PIK3CA is somatic, and its chapter is the baseline.
+
+    ``HP:0001442`` on the entry's inheritance is what tells a post-zygotic
+    disorder from a neoplasm carrying a somatic driver.
+    """
+    doc = _mosaic(_with_genes(_entry("Mosaic RASopathy"), _gene("HRAS", **extra)))
+    assert is_somatic_mosaic(doc)
+    gr = _assess(tmp_path, spectrum_index, doc).sources["genereviews"]
+    assert [(r.pmid, r.kind, r.name) for r in gr.chapters] == [
+        ("20301280", "GENE_SCOPED", "HRAS")
+    ]
+
+
+def test_mosaicism_bound_on_a_subtype_counts(spectrum_index):
+    doc = _with_genes(_entry("Overgrowth"), _gene("HRAS", variant_origin="SOMATIC"))
+    doc["has_subtypes"] = [_mosaic({"name": "Mosaic form"})]
+    assert entry_causal_genes(doc) == ["HRAS"]
+
+
+def test_mosaic_exception_still_skips_non_causal_records(spectrum_index):
+    doc = _mosaic(
+        _with_genes(
+            _entry("Mosaic disorder"), _gene("HRAS", relationship_type="MODIFIER")
+        )
+    )
+    assert entry_causal_genes(doc) == []
+
+
+def test_online_gene_search_keeps_hits_already_in_the_snapshot(spectrum_index):
+    """A chapter naming the gene only in its abstract is reachable only online.
+
+    Unlike the name search, an indexed hit is kept: the offline title match
+    never saw it. A new retired hit is marked from its title.
+    """
+
+    class _Client:
+        terms: ClassVar[list[str]] = []
+
+        def call(self, endpoint, **params):
+            if endpoint == "esearch.fcgi":
+                self.terms.append(params["term"])
+                return {"esearchresult": {"idlist": ["24830047", "99999990"]}}
+            assert params["id"] == "99999990", "indexed hits need no esummary"
+            return {
+                "result": {
+                    "99999990": {
+                        "title": "Some Overview – RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY.",
+                        "articleids": [{"idtype": "bookaccession", "value": "NBK9"}],
+                    }
+                }
+            }
+
+    client = _Client()
+    online = _online(spectrum_index, client)
+    found = online._search_genes(["TRPV4 variants", "TRPV4"])
+    assert client.terms == ["TRPV4[TIAB] AND genereviews[book]"]
+    assert [(m.chapter.pmid, m.kind, m.name, m.chapter.retired) for m in found] == [
+        ("24830047", "ONLINE", "TRPV4", False),
+        ("99999990", "ONLINE", "TRPV4", True),
+    ]
+
+
+def test_online_gene_search_is_genereviews_only(spectrum_index):
+    online = _online(spectrum_index, _RecordingNcbiClient({"idlist": []}))
+    online.sources = ["statpearls"]
+    assert online._search_genes(["TRPV4"]) == []
+    assert online.client.terms == []
+
+
+def test_online_gene_search_skips_tokens_hgnc_does_not_know(
+    spectrum_index, monkeypatch
+):
+    """``II`` or ``CAG`` searched in abstracts would list unrelated chapters."""
+    monkeypatch.setattr(cgb, "_hgnc_symbols", lambda: frozenset({"TRPV4"}))
+    client = _RecordingNcbiClient({"idlist": []})
+    online = _online(spectrum_index, client)
+    online._search_genes(["TRPV4 type II variants", "CAG repeat"])
+    assert client.terms == ["TRPV4[TIAB] AND genereviews[book]"]
+
+
+def test_online_summary_failure_is_a_warning_not_a_crash(
+    spectrum_index, monkeypatch, capsys
+):
+    monkeypatch.setattr(cgb, "_hgnc_symbols", lambda: frozenset())
+
+    class _Client:
+        def call(self, endpoint, **params):
+            if endpoint == "esearch.fcgi":
+                return {"esearchresult": {"idlist": ["99999990"]}}
+            raise RuntimeError("E-utilities 500")
+
+    online = _online(spectrum_index, _Client())
+    assert online._search_genes(["TRPV4"]) == []
+    assert online._search_names(["Some Name"]) == []
+    assert capsys.readouterr().err.count("online summary failed") == 2
 
 
 # -- the committed index ----------------------------------------------------
