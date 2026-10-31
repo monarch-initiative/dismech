@@ -387170,6 +387170,89 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "TRIM71-Associated_Developmental_Disorder",
+    "disease_id": "MONDO:0032862",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital Hydrocephalus"
+    ],
+    "creation_date": "2026-10-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "TRIM71-associated developmental disorder (TADD; OMIM 618667, congenital communicating hydrocephalus 1) is an autosomal dominant neurodevelopmental disorder caused mostly by de novo missense variants in TRIM71, the RNA-binding protein encoded by the let-7 microRNA target lin-41. Affected children have variable ventriculomegaly or congenital hydrocephalus, developmental delay, dysmorphic features and other structural brain defects, including corpus callosum dysgenesis and white matter hypoplasia; some also have hearing loss with middle and inner ear malformations. Recurrent arginine substitutions sit at homologous positions of the NHL repeats that bind target mRNAs. In mouse models the patient variant reduces binding to normal targets, neuroepithelial stem cells differentiate too early, the cortex is hypoplastic and mechanically hypercompliant, and the ventricles enlarge secondarily, without a primary defect in cerebrospinal fluid (CSF) production, flow or absorption.",
+    "pathophysiology": [
+      "TRIM71 NHL Domain Missense Variant",
+      "Loss of TRIM71 Target mRNA Repression",
+      "Ectopic Target mRNA Repression by Mutant TRIM71",
+      "Premature Neuroepithelial Stem Cell Differentiation",
+      "Cortical Hypoplasia with Reduced Neurogenesis",
+      "Hypercompliant Cortex",
+      "Premature Cochlear Prosensory Cell Differentiation"
+    ],
+    "cell_types": [
+      "neuroepithelial stem cell",
+      "cochlear hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002259",
+      "CL:0000202"
+    ],
+    "biological_processes": [
+      "TRIM71-mediated repression of target mRNA translation",
+      "repression of translation of ectopic target mRNAs",
+      "neural precursor cell proliferation",
+      "cerebral cortex neuron differentiation"
+    ],
+    "phenotypes": [
+      "Ventriculomegaly",
+      "Hydrocephalus",
+      "Developmental Delay",
+      "Corpus Callosum Dysgenesis",
+      "White Matter Hypoplasia",
+      "Dysmorphic Features",
+      "Hearing Loss",
+      "Inner Ear Aplasia"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Craniofacial",
+      "Otologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Head and Neck",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002119",
+      "HP:0000238",
+      "HP:0001263",
+      "HP:0001273",
+      "HP:0012429",
+      "HP:0001999",
+      "HP:0000365",
+      "HP:0011372"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TRIM71"
+    ],
+    "treatments": [
+      "CSF Shunting",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "TRIM71-Associated_Developmental_Disorder.yaml",
+    "page_url": "../pages/disorders/TRIM71-Associated_Developmental_Disorder.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "TRIO-Related Neurodevelopmental Disorder",
     "disease_id": null,
     "category": "Mendelian",
@@ -417601,17 +417684,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3872,
+  "total_disorder_pages": 3873,
   "total_subtypes": 4972,
-  "total_disorders_and_subtypes": 8844,
-  "total_unique_evidence_sources": 57497,
-  "total_unique_publications": 53792,
+  "total_disorders_and_subtypes": 8845,
+  "total_unique_evidence_sources": 57502,
+  "total_unique_publications": 53797,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 314,
-  "total_pathographs": 3870,
-  "total_unique_pathological_events": 25394,
+  "total_pathographs": 3871,
+  "total_unique_pathological_events": 25401,
   "total_modules": 226,
-  "total_research_reports": 3982,
+  "total_research_reports": 3983,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
