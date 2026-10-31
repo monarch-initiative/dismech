@@ -100682,6 +100682,116 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Cleft Palate With Or Without Ankyloglossia, X-linked",
+    "disease_id": "MONDO:0010560",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-31T08:57:34Z",
+    "updated_date": null,
+    "subtypes": [
+      "Classic CPX",
+      "Abruzzo-Erickson Syndrome"
+    ],
+    "description": "An X-linked semidominant orofacial cleft disorder caused by loss of function of the T-box transcription factor gene TBX22 at Xq21.1. Affected males show a spectrum running from an occult or overt submucous cleft palate and bifid or absent uvula to a complete cleft of the secondary palate, very often with ankyloglossia (tongue-tie). About a third of carrier females are affected, frequently with ankyloglossia alone. Hypodontia, cleft lip and choanal atresia are less common parts of the spectrum. TBX22 coding variants also account for a few percent of apparently non-syndromic cleft palate. In the mouse, Tbx22 loss delays osteoblast maturation in the posterior hard palate, which reduces palatal bone formation and produces the submucous cleft.",
+    "pathophysiology": [
+      "TBX22 Loss of Function",
+      "Delayed Osteoblast Maturation in the Posterior Palate",
+      "Reduced Intramembranous Ossification of the Posterior Hard Palate",
+      "Abnormal Tongue Frenulum Development",
+      "Persistent Oro-nasal Membrane"
+    ],
+    "cell_types": [
+      "osteoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000062"
+    ],
+    "biological_processes": [
+      "TBX22 sumoylation",
+      "osteoblast differentiation",
+      "intramembranous ossification",
+      "tongue development"
+    ],
+    "phenotypes": [
+      "Submucous cleft palate",
+      "Cleft palate",
+      "Bifid uvula",
+      "Absent uvula",
+      "Ankyloglossia",
+      "Velopharyngeal insufficiency",
+      "Hypernasal speech",
+      "Hypodontia",
+      "Cleft lip",
+      "Choanal atresia",
+      "Pierre-Robin sequence",
+      "Coloboma",
+      "Hypospadias",
+      "Hearing impairment",
+      "Short stature",
+      "Radioulnar synostosis"
+    ],
+    "phenotype_categories": [
+      "Craniofacial",
+      "Neurological",
+      "Dental",
+      "Respiratory",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:5201016",
+      "HP:0000175",
+      "HP:0000193",
+      "HP:0010292",
+      "HP:0010296",
+      "HP:0000220",
+      "HP:0001611",
+      "HP:0000668",
+      "HP:0410030",
+      "HP:0000453",
+      "HP:0000201",
+      "HP:0000589",
+      "HP:0000047",
+      "HP:0000365",
+      "HP:0004322",
+      "HP:0002974"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "TBX22",
+      "TBX22 promoter haplotype (rs41307258)"
+    ],
+    "treatments": [
+      "Cleft palate repair",
+      "Frenotomy",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cleft_Palate_With_Or_Without_Ankyloglossia_X-linked.yaml",
+    "page_url": "../pages/disorders/Cleft_Palate_With_Or_Without_Ankyloglossia,_X-linked.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Cleidocranial Dysplasia",
     "disease_id": "MONDO:0007340",
     "category": "Mendelian",
@@ -220312,6 +220422,104 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 2,
     "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "TBR1-Related Neurodevelopmental Disorder",
+    "disease_id": "MONDO:0011627",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Autism Spectrum Disorder",
+      "Intellectual Disability"
+    ],
+    "creation_date": "2026-10-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "TBR1-related neurodevelopmental disorder (intellectual developmental disorder with autism and speech delay, IDDAUS; OMIM 606053) is an autosomal dominant neurodevelopmental disorder caused by heterozygous, usually de novo, loss-of-function variants or deletions of TBR1, which encodes T-box brain transcription factor 1. TBR1 is expressed in postmitotic glutamatergic neurons of the cerebral cortex, especially early-born deep-layer (layer 6) corticothalamic neurons, and in the amygdala, where it specifies neuronal identity and regulates a network of autism-associated target genes and axonal connectivity. Affected individuals have intellectual disability of variable severity, autistic traits or autism spectrum disorder, and delayed speech and language development, usually with motor delay; EEG anomalies, seizures and hypotonia occur in a minority. No recognizable facial gestalt has been identified. Brain MRI frequently shows a thin or absent anterior commissure, and some individuals have dysplastic hippocampi, subtle neocortical dysgenesis or frontal pachygyria. Management is supportive.",
+    "pathophysiology": [
+      "TBR1 Heterozygous Loss of Function",
+      "Dysregulated TBR1 Target Gene Network",
+      "Altered Layer 6 Corticothalamic Neuron Identity",
+      "Defective Differentiation of Early-Born Cortical Neurons",
+      "Disrupted TBR1 Protein Interactions",
+      "Impaired Dendritic Spine Maturation and Synaptogenesis",
+      "Reduced Amygdalar Axonal Connectivity",
+      "Amygdalar Glutamatergic Synaptic Hypofunction"
+    ],
+    "cell_types": [
+      "layer 6 corticothalamic neuron",
+      "Cajal-Retzius cell"
+    ],
+    "cell_type_ids": [
+      "CL:4023042",
+      "CL:0000695"
+    ],
+    "biological_processes": [
+      "regulation of transcription by RNA polymerase II",
+      "cerebral cortex neuron differentiation",
+      "neuron migration",
+      "dendritic spine development",
+      "synapse assembly",
+      "axon guidance",
+      "synaptic transmission, glutamatergic"
+    ],
+    "phenotypes": [
+      "Intellectual disability",
+      "Autistic behavior",
+      "Delayed speech and language development",
+      "Motor delay",
+      "EEG abnormality",
+      "Seizure",
+      "Hypotonia",
+      "Abnormality of the anterior commissure",
+      "Abnormal hippocampus morphology",
+      "Frontal pachygyria",
+      "Microcephaly"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0000729",
+      "HP:0000750",
+      "HP:0001270",
+      "HP:0002353",
+      "HP:0001250",
+      "HP:0001252",
+      "HP:0030301",
+      "HP:0025100",
+      "HP:0001302",
+      "HP:0000252"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TBR1"
+    ],
+    "treatments": [
+      "Speech and language therapy",
+      "Antiseizure pharmacotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Developmental_Disorder_With_Autism_And_Speech_Delay.yaml",
+    "page_url": "../pages/disorders/TBR1-Related_Neurodevelopmental_Disorder.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "6"
   },
   {
@@ -417393,17 +417601,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3870,
-  "total_subtypes": 4970,
-  "total_disorders_and_subtypes": 8840,
-  "total_unique_evidence_sources": 57446,
-  "total_unique_publications": 53743,
+  "total_disorder_pages": 3872,
+  "total_subtypes": 4972,
+  "total_disorders_and_subtypes": 8844,
+  "total_unique_evidence_sources": 57497,
+  "total_unique_publications": 53792,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 314,
-  "total_pathographs": 3868,
-  "total_unique_pathological_events": 25381,
+  "total_pathographs": 3870,
+  "total_unique_pathological_events": 25394,
   "total_modules": 226,
-  "total_research_reports": 3980,
+  "total_research_reports": 3982,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
