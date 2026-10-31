@@ -54,6 +54,11 @@ class Claim:
     url: str = ""
     created_at: str = ""
     has_linked_pr: bool = False
+    #: Whether the source could report linked PRs at all. `gh issue list` can
+    #: (``closedByPullRequestsReferences``); the REST API and the GitHub MCP
+    #: server cannot, so for those rows ``has_linked_pr`` False means "unknown",
+    #: not "none", and a stale verdict may be wrong.
+    linked_pr_known: bool = True
 
     def age_days(self, now: datetime | None = None) -> float | None:
         if not self.created_at:
@@ -107,7 +112,13 @@ def _has_linked_pr(row: dict[str, Any]) -> bool:
 
 
 def parse_claims(payload: Any) -> list[Claim]:
-    """Parse `gh issue list --label claim --json ...` output."""
+    """Parse a claims file.
+
+    Accepts `gh issue list --label claim --json ...` output (camelCase,
+    with ``closedByPullRequestsReferences``) and REST/MCP-shaped rows
+    (``created_at``, ``html_url``, no linked-PR field). A row without the
+    linked-PR field is marked ``linked_pr_known=False``.
+    """
     if isinstance(payload, str):
         payload = json.loads(payload)
     rows = payload.get("issues") if isinstance(payload, dict) else payload
@@ -126,6 +137,7 @@ def parse_claims(payload: Any) -> list[Claim]:
                 url=str(row.get("url") or row.get("html_url") or ""),
                 created_at=str(row.get("createdAt") or row.get("created_at") or ""),
                 has_linked_pr=_has_linked_pr(row),
+                linked_pr_known="closedByPullRequestsReferences" in row,
             )
         )
     return claims

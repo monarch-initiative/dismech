@@ -44,8 +44,9 @@ def extract_claims_command(
         help="Write CSV output to this path instead of stdout.",
     ),
     kb_dir: Path = typer.Option(
-        default_kb_dir(),
+        ...,
         "--kb-dir",
+        default_factory=default_kb_dir,
         exists=True,
         file_okay=False,
         dir_okay=True,
@@ -67,6 +68,43 @@ def extract_claims_command(
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", encoding="utf-8", newline="") as stream:
         write_claim_rows(rows, stream)
+
+
+@app.command("pathograph-thumbnail")
+def pathograph_thumbnail_command(
+    disorder_yaml: Path = typer.Argument(
+        ...,
+        exists=True,
+        dir_okay=False,
+        readable=True,
+        resolve_path=True,
+        help="Path to a disorder YAML file.",
+    ),
+    out: Path | None = typer.Option(
+        None,
+        "--out",
+        "-o",
+        resolve_path=True,
+        help="Write the SVG to this path instead of stdout.",
+    ),
+) -> None:
+    """Draw a disorder's pathograph as a label-free SVG thumbnail."""
+    from dismech.graph import build_causal_graph
+    from dismech.pathograph_thumbnail import render_thumbnail
+    from dismech.yaml_io import safe_load_path
+
+    thumbnail = render_thumbnail(build_causal_graph(safe_load_path(disorder_yaml)))
+    if out is None:
+        typer.echo(thumbnail.svg)
+    else:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(thumbnail.svg, encoding="utf-8")
+    typer.echo(
+        f"{thumbnail.edges} causal edges, "
+        f"{thumbnail.phenotypes_connected}/{thumbnail.phenotypes} phenotypes connected, "
+        f"{thumbnail.unconnected} unconnected outcomes",
+        err=True,
+    )
 
 
 def main() -> None:

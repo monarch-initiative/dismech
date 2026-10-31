@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Erythrasma · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Erythrasma</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Erythrasma</h1>
+                
+                <p class="report-subtitle">Erythrasma (MONDO:0002885): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-29</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0002885" target="_blank" rel="noopener noreferrer">MONDO:0002885</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">12 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Erythrasma (<a href="http://purl.obolibrary.org/obo/MONDO_0002885" target="_blank" rel="noopener noreferrer">MONDO:0002885</a>): A Comprehensive Disease Characteristics Report</h1>
+<p><em>Category: Infectious Disease. Evidence base: human clinical studies (case series, cross-sectional, prospective, one RCT, a 2025 systematic review) and classic in vitro/ultrastructural work. No genetic, animal-model, or omics datasets exist for this disease.</em></p>
+<hr />
+<h2>Summary</h2>
+<p><strong>Erythrasma is a common, benign, chronic superficial bacterial infection of the stratum corneum in warm, moist, occluded intertriginous skin, caused by overgrowth of the commensal Gram-positive lipophilic rod <em>Corynebacterium minutissimum</em>.</strong> The organism colonizes and keratolytically invades the horny layer of the epidermis in the interdigital toe web spaces, groin/crural folds, axillae, and inframammary/intergluteal folds, producing well-demarcated red-brown scaly patches. Its diagnostic hallmark is a <strong>coral-red (coral-pink) fluorescence under a Wood's lamp</strong>, arising from bacterial synthesis of porphyrins (coproporphyrin III) in the stratum corneum. The disease is generally mild, often asymptomatic, cosmetically bothersome, and chronic/relapsing when the moist, occluded microenvironment persists.</p>
+<p>Erythrasma is a <strong>purely infectious, non-genetic disease</strong>. There is no causal human gene, no pathogenic variant, no inheritance pattern, no OMIM entry, and no role for genetic testing or counseling. The "genetics" relevant to the disease belong entirely to the pathogen: <em>C. minutissimum</em> (NCBI Taxon 38301) and its porphyrin-biosynthesis and antibiotic-resistance determinants. Likewise, there is <strong>no established natural animal disease and no laboratory model organism</strong> — the condition is a superficial commensal overgrowth rather than a gene-driven phenotype. Risk is governed by conditions that create a warm, humid, occluded skin surface: hyperhidrosis, obesity, diabetes mellitus, warm-humid climate, poor hygiene, occlusion, and immunosuppression.</p>
+<p>Prognosis is <strong>excellent</strong>. Cure rates with appropriate antibiotics are high, and disease-specific mortality in immunocompetent hosts is essentially zero. Randomized controlled trial (RCT) and 2025 systematic-review evidence support <strong>topical fusidic acid</strong> as the most effective agent, with <strong>single-dose clarithromycin</strong> and <strong>erythromycin</strong> as convenient systemic alternatives, and clotrimazole, clindamycin, mupirocin and Whitfield's ointment as further options. Because <em>C. minutissimum</em> is a normal commensal that becomes pathogenic only under permissive conditions, recurrence is common, and <strong>prevention is entirely behavioral/environmental</strong> — keeping folds dry, improving hygiene, weight reduction, and glycemic control. There is no vaccine and no screening program.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — Definition, causative organism, and identifiers (F001)</h3>
+<p>Erythrasma is a chronic superficial bacterial infection of intertriginous skin caused by <em>Corynebacterium minutissimum</em>, a lipophilic Gram-positive rod that infects the stratum corneum of warm, moist, occluded skin folds. The most commonly affected sites are the interdigital toe spaces, axillae, inguinal/crural folds, and inframammary and intergluteal folds. It presents as well-demarcated red-brown patches with fine scaling and classically shows <strong>coral-red/coral-pink fluorescence under Wood's lamp</strong> owing to coproporphyrin III.</p>
+<blockquote>
+<p><em>"Erythrasma is a bacterial infection of the skin typically caused by Corynebacterium minutissimum. This pathogen infects the stratum corneum in warm and wet areas of the skin. Most commonly, the axillary, inguinal, and interdigital regions are affected."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/33145138/">PMID: 33145138</a></p>
+<p><em>"It is found mostly in occluded intertriginous areas such as the axillae, inframammary areas, interspaces of the toes, intergluteal and crural folds, and is more common in individuals with diabetes mellitus than other clinical patients."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/12010076/">PMID: 12010076</a></p>
+</blockquote>
+<p><strong>Key identifiers:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0002885" target="_blank" rel="noopener noreferrer">MONDO:0002885</a></td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>L08.1 (Erythrasma)</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>D004901</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>None (not a genetic disease)</td>
+</tr>
+<tr>
+<td>Causative organism</td>
+<td><em>Corynebacterium minutissimum</em> (NCBI Taxon 38301)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms/alternative names:</strong> Erythrasma; Baerensprung's disease (historical). Information is derived from aggregated disease-level clinical resources and case series, not from a genetic/EHR-linked patient registry.</p>
+<h3>Finding 2 — Pathophysiology: keratolytic colonization and porphyrin fluorescence (F002)</h3>
+<p>Ultrastructural study (Montes et al., 1967) demonstrated bacterial <strong>invasion of the stratum corneum with a keratolytic action</strong> exerted by <em>C. minutissimum</em>. The organism proliferates within and digests keratin of the horny layer, driving mild hyperkeratosis, erythema, and brown scaling; its synthesis of porphyrins produces the diagnostic coral-red fluorescence. The infection remains confined to the horny layer, without dermal invasion, in immunocompetent hosts.</p>
+<blockquote>
+<p><em>"This pathogen infects the stratum corneum in warm and wet areas of the skin."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/33145138/">PMID: 33145138</a></p>
+<p><em>"Bacterial invasion of the stratum corneum in erythrasma. I. Ultrastructural evidence for a keratolytic action exerted by Corynebacterium minutissimum."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/6065118/">PMID: 6065118</a></p>
+</blockquote>
+<h3>Finding 3 — Treatment efficacy (F003, F013)</h3>
+<p>A 2025 systematic review (studies 1971–2024, including RCTs) concluded that both <strong>clotrimazole and fusidic acid are effective topical options, with fusidic acid providing faster symptom relief, greater reduction in Wood's-lamp fluorescence, and fewer side effects</strong>, and that <strong>clarithromycin is more effective than erythromycin systemically</strong>. The historic systemic standard is erythromycin 250 mg four times daily for 14 days, with cure rates approaching 100%.</p>
+<blockquote>
+<p><em>"both clotrimazole and fusidic acid are effective topical options, with fusidic acid providing faster symptom relief, greater reduction in Wood's lamp fluorescence and fewer side-effects. Clarithromycin was found to be more effective than erythromycin systemically"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40635638/">PMID: 40635638</a></p>
+<p><em>"Erythromycin 250mg four times daily for 14 days is the treatment of choice"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/12010076/">PMID: 12010076</a></p>
+</blockquote>
+<p>A double-blind, placebo-controlled RCT (Avci et al. 2013; n=151; five arms — single-dose clarithromycin, erythromycin, fusidic acid cream, placebo cream, placebo tablet) assessed by Wood's-light reflection scores at days 2, 7, and 14 found:</p>
+<blockquote>
+<p><em>"the efficacy of fusidic acid cream therapy was significantly higher than other therapies. When the efficacy of clarithromycin and erythromycin therapy was compared, clarithromycin therapy was significantly more effective than erythromycin therapy at 48 h."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/21923567/">PMID: 21923567</a></p>
+</blockquote>
+<p>The clarithromycin advantage over erythromycin at 48 h disappeared by days 7 and 14. Suggested NCIT intervention terms: Erythromycin (C558), Clarithromycin (C47530), Clindamycin, Fusidic Acid, Clotrimazole, Mupirocin.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Route</th>
+<th>Evidence</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fusidic acid</td>
+<td>Topical</td>
+<td>RCT + systematic review</td>
+<td>Most effective; fastest fluorescence clearance; fewest side effects</td>
+</tr>
+<tr>
+<td>Clotrimazole</td>
+<td>Topical</td>
+<td>Systematic review</td>
+<td>Effective topical option</td>
+</tr>
+<tr>
+<td>Clindamycin / mupirocin / Whitfield's ointment</td>
+<td>Topical</td>
+<td>Reviews</td>
+<td>Alternatives; also used for prophylaxis</td>
+</tr>
+<tr>
+<td>Clarithromycin (single 1 g dose)</td>
+<td>Systemic</td>
+<td>RCT</td>
+<td>Superior to erythromycin at 48 h; convenient, better compliance</td>
+</tr>
+<tr>
+<td>Erythromycin 250 mg QID ×14 d</td>
+<td>Systemic</td>
+<td>Reviews</td>
+<td>Historic standard; cure rates up to ~100%</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Finding 4 — Risk factors (F004)</h3>
+<p>Recognized predisposing factors are <strong>diabetes mellitus, obesity, hyperhidrosis, occlusion/moisture, warm-humid climate, poor hygiene, and immunosuppression</strong>. <em>C. minutissimum</em> is a normal skin commensal that becomes pathogenic under these conditions. Immunosuppression and advanced age are additional risks; in immunocompromised hosts the organism can rarely cause invasive disease (bacteremia, endocarditis, catheter infections, abscesses).</p>
+<blockquote>
+<p><em>"is more common in individuals with diabetes mellitus than other clinical patients"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/12010076/">PMID: 12010076</a></p>
+<p><em>"aggravated by poor hygiene or underlying disorders promoting bacterial overgrowth, including diabetes, intertrigo, erythrasma, and obesity"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26051066/">PMID: 26051066</a></p>
+<p><em>"The bacterium can cause other diseases such as venous catheter infections, sepsis, orthopedic infections, abscesses, invasive infections, meningitis, endocarditis, and pyelonephritis."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/42412138/">PMID: 42412138</a></p>
+</blockquote>
+<h3>Finding 5 — Diagnosis and differential diagnosis (F005, F014)</h3>
+<p>Diagnosis is clinical, confirmed by <strong>coral-red (coral-pink) fluorescence under Wood's lamp</strong>, valid across all skin types (in darker skin, erythema may appear as darkening/violaceous change rather than classic redness). Gram stain/culture shows Gram-positive rods/diphtheroids; biopsy (rarely needed) shows organisms in the stratum corneum. The differential includes <strong>dermatophytosis (tinea), candidiasis, pityriasis (tinea) versicolor, inverse psoriasis, seborrheic dermatitis, intertrigo, and terra firma-forme dermatosis</strong>; concurrent dermatophyte or Candida infection can coexist. <em>C. minutissimum</em> is the most common cause of interdigital foot infection.</p>
+<blockquote>
+<p><em>"erythema may not manifest as classic redness in individuals with darker skin tones, instead appearing as subtle darkening, violaceous, or other colour changes. Diagnosis in all skin types is supported by the characteristic coral-red fluorescence observed under a Wood's lamp."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40635638/">PMID: 40635638</a></p>
+<p><em>"The differential diagnosis of erythrasma includes psoriasis, dermatophytosis, candidiasis and intertrigo, and methods for differentiating include Wood's light examination and bacterial and mycological cultures."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/12010076/">PMID: 12010076</a></p>
+</blockquote>
+<p>A newer bedside adjunct — <strong>ultraviolet-induced fluorescence (UVF) dermoscopy</strong> — showed significant (p&lt;0.01) discriminating patterns in a multicentric retrospective accuracy study (Errichetti et al., 208 patients): <strong>red fluorescence in Corynebacterium foot intertrigo (erythrasma)</strong> and inverse psoriasis, versus green in Pseudomonas intertrigo.</p>
+<blockquote>
+<p><em>"red in Corynebacterium foot intertrigo, inverse and guttate psoriasis"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/38288676/">PMID: 38288676</a></p>
+<p><em>"tinea cruris (n = 23), and erythrasma (n = 12) were collected for comparison"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41628788/">PMID: 41628788</a></p>
+</blockquote>
+<h3>Finding 6 — Epidemiology (F006)</h3>
+<p>Erythrasma is common worldwide, especially in warm climates, with adult predominance. A prospective Turkish outpatient study (Polat &amp; İlhan 2015; n=182 with interdigital lesions) found <strong>73/182 (40.1%) had interdigital erythrasma</strong>, mean age 45.5±10.8 years (range 22–70), 56.2% women, with desquamation the most common finding. A Tehran cross-sectional intertrigo study (Halvaee 2018; n=188) found erythrasma accounted for <strong>28/80 (35%)</strong> of confirmed intertrigo cases, second only to dermatophytosis (45%). Among elderly Turkish dermatology outpatients (n=240), erythrasma was 17.6% of bacterial infections. There is <strong>no newborn-screening or registry-level incidence/prevalence</strong> per 100,000 (not a reportable disease).</p>
+<blockquote>
+<p><em>"Of 182 patients with interdigital lesions, 73 (40.1%) were diagnosed as having erythrasma. The mean ± SD age of the patients with erythrasma was 45.52 ± 10.83 years (range, 22-70 years). Most of the patients with erythrasma were women (56.2%)."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/25815650/">PMID: 25815650</a></p>
+<p><em>"Dermatophytosis was the predominant cause in this study with 36 (45%) cases followed by erythrasma (28 cases, 35%)"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/30320016/">PMID: 30320016</a></p>
+<p><em>"The most often clinical finding was desquamation."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/25815650/">PMID: 25815650</a></p>
+</blockquote>
+<h3>Finding 7 — Clinical phenotype (F007)</h3>
+<p>Erythrasma presents as sharply marginated, irregular <strong>red-brown macules/patches with fine wrinkled scaling</strong> in intertriginous sites; the interdigital form (most common, especially the 4th–5th toe web) shows maceration, scaling, and fissuring. Symptoms are typically mild — often asymptomatic or mildly pruritic, with occasional malodor. Three clinical forms are recognized: (1) interdigital, (2) intertriginous (inguinal/axillary well-defined patches), and (3) disciform/generalized (widespread, more common in diabetics and warm climates). The course is chronic, indolent, and relapsing. Quality-of-life impact is generally low (cosmetic, itch, odor); there are no systemic symptoms in immunocompetent hosts.</p>
+<blockquote>
+<p><em>"Cutaneous features include erythema, scaling and skin discoloration; notably, erythema may not manifest as classic redness in individuals with darker skin tones, instead appearing as subtle darkening, violaceous, or other colour changes."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40635638/">PMID: 40635638</a></p>
+<p><em>"adjacent areas of central hypopigmentation and peripheral hyperpigmented scaling were also noted bilaterally in the groin region"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/33145138/">PMID: 33145138</a></p>
+</blockquote>
+<p><strong>Suggested HPO terms:</strong> Pruritus (<a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" rel="noopener noreferrer">HP:0000989</a>), Hyperkeratosis (<a href="http://purl.obolibrary.org/obo/HP_0000962" target="_blank" rel="noopener noreferrer">HP:0000962</a>), Hyperpigmentation of the skin (<a href="http://purl.obolibrary.org/obo/HP_0000953" target="_blank" rel="noopener noreferrer">HP:0000953</a>), Skin rash (<a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a>), Skin fissure (<a href="http://purl.obolibrary.org/obo/HP_0100804" target="_blank" rel="noopener noreferrer">HP:0100804</a>).</p>
+<h3>Finding 8 — No human genetic etiology (F008)</h3>
+<p>Erythrasma has <strong>no causal human gene, pathogenic variant, inheritance pattern, penetrance, modifier gene, chromosomal abnormality, or germline/somatic mutation</strong>. It is caused by overgrowth of <em>C. minutissimum</em>, a Gram-positive, lipophilic, catalase-positive coryneform commensal. There is no OMIM entry, no genetic testing, no carrier screening, and no founder-effect relevance. The molecularly relevant genetics are microbial — porphyrin synthesis (coproporphyrin III) driving fluorescence, plus variable antibiotic-resistance determinants. Any host "genetic" contribution is indirect, via conditions (e.g., diabetes) that alter the skin microenvironment.</p>
+<blockquote>
+<p><em>"A series of superficial infections (erythrasma, some tinea capitis types, tinea/pityriasis versicolor, dermatophytoses, etc.) and pilosebaceous follicles enriched in Propionibacterium spp show fluorescence."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/21411414/">PMID: 21411414</a></p>
+<p><em>"the aim of this study is to understand the significance of pathogenicity, antibiotic resistance, and diagnostic methods for C. minutissimum"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/42412138/">PMID: 42412138</a></p>
+</blockquote>
+<h3>Finding 9 — No natural animal disease or model organism (F009)</h3>
+<p><em>C. minutissimum</em> is a commensal of human skin; there is <strong>no recognized naturally occurring erythrasma in companion animals or wildlife and no OMIA entry</strong>, and <strong>no standard model organism or genetic model</strong> exists, because the disease is a superficial commensal overgrowth rather than a gene-driven phenotype. Mechanistic study has relied on human/experimental ultrastructural and in vitro work (stratum-corneum invasion, keratolysis, porphyrin production). Zoonotic transmission is not established.</p>
+<blockquote>
+<p><em>"Corynebacterium minutissimum (C. minutissimum) usually causes a chronic skin infection called erythrasma, which is often caused by infection between the toes and wrinkled areas in the body armpits, under the breasts."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/42412138/">PMID: 42412138</a></p>
+</blockquote>
+<h3>Finding 10 — Anatomy (F010)</h3>
+<p>Disease is confined to the <strong>stratum corneum of intertriginous skin</strong> — toe webs, groin, axillae, inframammary/intergluteal folds — and is often bilateral/symmetric. The primary organ is the skin (integumentary system); the target tissue is the epidermis, specifically the horny layer of keratinized stratified squamous epithelium; the cells involved are terminally differentiated corneocytes/keratinocytes. There is no dermal, adnexal, or systemic organ involvement in typical disease.</p>
+<blockquote>
+<p><em>"This pathogen infects the stratum corneum in warm and wet areas of the skin. Most commonly, the axillary, inguinal, and interdigital regions are affected."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/33145138/">PMID: 33145138</a></p>
+<p><em>"occluded intertriginous areas such as the axillae, inframammary areas, interspaces of the toes, intergluteal and crural folds"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/12010076/">PMID: 12010076</a></p>
+</blockquote>
+<p><strong>Suggested UBERON terms:</strong> skin of body (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>), stratum corneum of epidermis (<a href="http://purl.obolibrary.org/obo/UBERON_0002027" target="_blank" rel="noopener noreferrer">UBERON:0002027</a>), epidermis (<a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" rel="noopener noreferrer">UBERON:0001003</a>), axilla (<a href="http://purl.obolibrary.org/obo/UBERON_0009472" target="_blank" rel="noopener noreferrer">UBERON:0009472</a>), inguinal region. <strong>Cell Ontology:</strong> keratinocyte (<a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>), corneocyte. <strong>GO cellular component:</strong> cornified envelope (<a href="http://purl.obolibrary.org/obo/GO_0001533" target="_blank" rel="noopener noreferrer">GO:0001533</a>).</p>
+<h3>Finding 11 — Temporal course and prognosis (F011)</h3>
+<p>Onset is <strong>insidious and chronic</strong> (not acute), typically in adults through the geriatric years. Untreated, it is indolent and can persist for months to years or wax and wane; spontaneous remission is uncommon while predisposing factors persist. The course is chronic and relapsing/remitting rather than progressive. <strong>Prognosis is excellent</strong> — benign, non-life-threatening, with essentially zero disease-specific mortality in immunocompetent hosts; cure rates with appropriate antibiotics are high. Main adverse outcomes are cosmetic concern, recurrence, and secondary/co-existing infection. Invasive <em>C. minutissimum</em> disease is rare and confined to immunocompromised hosts.</p>
+<blockquote>
+<p><em>"Erythrasma is a chronic superficial bacterial infection caused by Corynebacterium minutissimum, predominantly affecting intertriginous areas."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40635638/">PMID: 40635638</a></p>
+<p><em>"systemic erythromycin demonstrates cure rates as high as 100%"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/12010076/">PMID: 12010076</a></p>
+<p><em>"the efficacy of fusidic acid cream therapy was significantly higher than other therapies"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/21923567/">PMID: 21923567</a></p>
+</blockquote>
+<h3>Finding 12 — Prevention (F012)</h3>
+<p>Prevention centers on modifying the moist, occluded microenvironment that permits <em>C. minutissimum</em> overgrowth: <strong>good skin hygiene, thorough drying of intertriginous areas, moisture-wicking/loose clothing and footwear, reducing hyperhidrosis, weight reduction, and glycemic control</strong>. Antibacterial soaps and, for recurrent disease, topical prophylaxis (e.g., clindamycin/erythromycin solutions, benzoyl peroxide wash) are used as tertiary prevention. There is <strong>no vaccine, no population screening, no newborn/carrier/genetic screening, and no role for genetic counseling</strong>, because the disease is a non-communicable commensal overgrowth without a genetic basis.</p>
+<blockquote>
+<p><em>"aggravated by poor hygiene or underlying disorders promoting bacterial overgrowth, including diabetes, intertrigo, erythrasma, and obesity"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26051066/">PMID: 26051066</a></p>
+<p><em>"topical solutions such as clindamycin, Whitfield's ointment, sodium fusidate ointment and antibacterial soaps may be required for both treatment and prophylaxis"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/12010076/">PMID: 12010076</a></p>
+</blockquote>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>Erythrasma is best understood as a <strong>microenvironment-driven commensal overgrowth</strong> rather than a classic pathogen invasion. The causal chain runs from a permissive skin surface to a fluorescent, scaly clinical lesion:</p>
+<pre><code>[1] Warm, moist, occluded intertriginous microenvironment
+    + host predisposition (hyperhidrosis, obesity, diabetes, immunosuppression)
+│  leads to
+▼
+[2] Overgrowth of commensal lipophilic Corynebacterium minutissimum on skin surface
+│  results in
+▼
+[3] Bacterial proliferation within and keratolytic digestion of stratum corneum keratin
+│  causes
+▼
+[4] Low-grade colonization → hyperkeratosis, mild erythema, red-brown scaling
+│                                             │
+│  (branch A: pigment)                        │  (branch B: clinical lesion)
+▼                                             ▼
+[5] Bacterial synthesis of porphyrins            Well-demarcated red-brown
+    (coproporphyrin III) in horny layer          patches in skin folds;
+│  leads to                              interdigital maceration/fissuring
+▼
+[6] Coral-red fluorescence under 365 nm
+    Wood's light → the diagnostic sign
+</code></pre>
+<p><strong>Upstream vs. downstream:</strong> The upstream initiating factors are physical/host (moisture, occlusion, metabolic predisposition). The proximate biological cause is bacterial overgrowth and keratolysis (steps 2–3). The downstream manifestations branch into (A) the porphyrin-mediated fluorescence used for diagnosis and (B) the visible scaly patches. This branching structure explains why the disease is simultaneously easy to diagnose (fluorescence) and easy to confuse clinically with fungal intertrigo (scaly patches) — hence the central diagnostic role of the Wood's lamp.</p>
+<p><strong>Cell types and processes:</strong> Corneocytes/keratinocytes (<a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>) of the cornified layer (<a href="http://purl.obolibrary.org/obo/GO_0001533" target="_blank" rel="noopener noreferrer">GO:0001533</a>) are the substrate; the key biological process is bacterial keratin catabolism at the skin surface (extracellular). No host immune activation, apoptosis, or fibrosis is required for the typical phenotype, which is why the lesion is indolent and the prognosis benign. Invasive complications only arise when host immune defenses fail. The step from keratolysis to the visible lesion is well supported by ultrastructural evidence; the precise bacterial enzymes and porphyrin-regulation pathways remain inferred rather than fully demonstrated.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33145138/">33145138</a></td>
+<td><em>Erythrasma Revisited: Diagnosis, Differential Diagnoses, and Treatment</em></td>
+<td>Defines organism, tissue (stratum corneum), sites, fluorescence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12010076/">12010076</a></td>
+<td><em>Management of cutaneous erythrasma</em></td>
+<td>Sites, diabetes link, differentials, treatment of choice, prophylaxis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40635638/">40635638</a></td>
+<td><em>Erythrasma: a systematic review of interventions</em></td>
+<td>2025 comparative efficacy (fusidic acid, clarithromycin); presentation across skin tones</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21923567/">21923567</a></td>
+<td><em>Erythromycin vs single-dose clarithromycin vs topical fusidic acid</em></td>
+<td>RCT establishing comparative efficacy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/6065118/">6065118</a></td>
+<td><em>Bacterial invasion of stratum corneum in erythrasma</em></td>
+<td>Primary ultrastructural keratolysis evidence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25815650/">25815650</a></td>
+<td><em>Prevalence of interdigital erythrasma</em></td>
+<td>Epidemiology, age/sex distribution, desquamation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30320016/">30320016</a></td>
+<td><em>Intertriginous mycotic and pseudomycotic infections</em></td>
+<td>Erythrasma as 35% of intertrigo cases</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26051066/">26051066</a></td>
+<td><em>Fold (intertriginous) dermatoses</em></td>
+<td>Hygiene, diabetes, obesity as drivers</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42412138/">42412138</a></td>
+<td><em>Infections, diagnosis, antibiotic resistance of C. minutissimum</em></td>
+<td>Microbial pathogenicity, invasive disease, resistance</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21411414/">21411414</a></td>
+<td><em>Specular light reflectance beyond fluorescence</em></td>
+<td>Microbial porphyrin origin of fluorescence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38288676/">38288676</a></td>
+<td><em>UV-induced fluorescence dermoscopy accuracy</em></td>
+<td>UVF dermoscopy as bedside diagnostic aid</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41628788/">41628788</a></td>
+<td><em>Dermoscopic clues for granular parakeratosis</em></td>
+<td>Erythrasma as dermoscopy comparator</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Twenty papers were reviewed across five iterations. The evidence base is dominated by narrative reviews, single-country prospective/cross-sectional epidemiology studies (mostly Turkey and Iran), one head-to-head RCT (n=151), and a 2025 systematic review. All 14 findings are mutually consistent; none challenge one another.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li>
+<p><strong>No global epidemiology.</strong> Erythrasma is not a reportable disease; there is no registry-level incidence/prevalence per 100,000. Available figures (40.1% of interdigital lesions; 35% of intertrigo cases; 17.6% of bacterial infections in the elderly) come from small, single-center outpatient studies in specific countries and may not generalize.</p>
+</li>
+<li>
+<p><strong>Limited high-quality trial evidence.</strong> Only one substantial RCT (n=151) directly compares treatments; the 2025 systematic review explicitly notes a shortage of large, standardized RCTs. Optimal regimens, durations, and relapse-prevention strategies remain incompletely defined.</p>
+</li>
+<li>
+<p><strong>Sparse molecular microbiology.</strong> The keratolysis mechanism rests largely on a single 1967 ultrastructural study. The specific bacterial enzymes mediating keratin digestion, the regulation of porphyrin biosynthesis, and the antibiotic-resistance epidemiology of <em>C. minutissimum</em> are underexplored.</p>
+</li>
+<li>
+<p><strong>No model system.</strong> The absence of an animal or genetic model limits mechanistic dissection; findings depend on human observation and in vitro culture.</p>
+</li>
+<li>
+<p><strong>Quality-of-life data are qualitative.</strong> No validated QoL instrument (EQ-5D, SF-36, DLQI) has been systematically applied to erythrasma.</p>
+</li>
+<li>
+<p><strong>Microbiome context.</strong> The role of the broader skin microbiome and host factors (e.g., stratum corneum lipid composition, sweat chemistry) in permitting overgrowth is not characterized.</p>
+</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li>
+<p><strong>Multicenter, standardized RCT</strong> comparing topical fusidic acid, clotrimazole, and single-dose clarithromycin with predefined Wood's-lamp/UVF endpoints, relapse tracking at 3 and 6 months, and QoL (DLQI) measurement.</p>
+</li>
+<li>
+<p><strong>Population-based prevalence estimate</strong> using systematic Wood's-lamp/UVF screening in defined cohorts (e.g., diabetes clinics, warm-climate primary care) to generate incidence/prevalence per 100,000 and quantify the diabetes/obesity effect sizes.</p>
+</li>
+<li>
+<p><strong>Molecular characterization of <em>C. minutissimum</em></strong> keratolytic enzymes and porphyrin-biosynthesis genes via whole-genome sequencing and transcriptomics of clinical isolates, correlating porphyrin output with fluorescence intensity.</p>
+</li>
+<li>
+<p><strong>Antibiotic-resistance surveillance</strong> of clinical <em>C. minutissimum</em> isolates to guide empiric therapy and detect emerging macrolide/fusidic-acid resistance.</p>
+</li>
+<li>
+<p><strong>Diagnostic accuracy validation</strong> of UVF dermoscopy versus classic Wood's lamp and PCR/culture across skin phototypes, especially to address under-recognition in darker skin.</p>
+</li>
+<li>
+<p><strong>Prevention trial</strong> of structured moisture-control/hygiene interventions (with or without topical prophylaxis) in high-risk populations to quantify recurrence reduction.</p>
+</li>
+</ol>
+<hr />
+<h2>Consensus Answer</h2>
+<p>Erythrasma (<a href="http://purl.obolibrary.org/obo/MONDO_0002885" target="_blank" rel="noopener noreferrer">MONDO:0002885</a>; ICD-10 L08.1) is a common, benign, chronic superficial bacterial infection of the stratum corneum in warm, moist, occluded intertriginous skin, caused by overgrowth of the commensal Gram-positive lipophilic rod <em>Corynebacterium minutissimum</em>, which keratolytically colonizes the horny layer and produces porphyrins (coproporphyrin III) giving the diagnostic coral-red Wood's-lamp fluorescence. It is a purely infectious, non-genetic disease with no inheritance, causal human gene, natural animal disease, or laboratory model; risk is driven by moisture, hyperhidrosis, obesity, diabetes, warm-humid climate, poor hygiene, and immunosuppression. Prognosis is excellent with topical fusidic acid/clotrimazole/clindamycin or single-dose clarithromycin/erythromycin, though recurrence is common unless the moist, occluded microenvironment and predisposing conditions are corrected, making prevention entirely behavioral and environmental.</p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Erythrasma-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Erythrasma-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc3.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>12</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0002885</code> (3 mentions) - the report calls it "MONDO"; MONDO calls it <strong>erythrasma</strong></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Erysipelothrix_Rhusiopathiae_Infectious_Disease-openscientist.html">← Erysipelothrix Rhusiopathiae Infectious Disease (OpenScientist)</a>
+                
+                
+                <a href="Erythrokeratodermia_Variabilis-asta.html">Erythrokeratodermia Variabilis (Asta) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Erythrasma.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Erythrasma-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

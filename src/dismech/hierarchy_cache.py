@@ -32,6 +32,8 @@ import csv
 from functools import cache
 from pathlib import Path
 
+from dismech.repo_root import repo_root
+
 #: Field separator inside the two pipe-joined columns. A label containing this
 #: character would make the row ambiguous, so the builder refuses to write one
 #: rather than emitting a row that silently round-trips wrong.
@@ -49,8 +51,8 @@ def cache_path(prefix: str, cache_root: Path | None = None) -> Path:
 
 
 def default_cache_root() -> Path:
-    """Repository `cache/` directory."""
-    return Path(__file__).resolve().parents[2] / "cache"
+    """The `cache/` directory of the checkout the command runs in (#15109)."""
+    return repo_root() / "cache"
 
 
 @cache
@@ -94,6 +96,10 @@ def lookup(
     prefix: str, curie: str, cache_root: str | None = None
 ) -> tuple[tuple[str, str], ...] | None:
     """Return the cached root-to-term path, or None on a miss."""
+    # Key the memo on the resolved directory, so a process that changes its
+    # working directory does not keep reading the first checkout's cache.
+    if cache_root is None:
+        cache_root = str(default_cache_root())
     return load_hierarchy_cache(prefix, cache_root).get(curie)
 
 

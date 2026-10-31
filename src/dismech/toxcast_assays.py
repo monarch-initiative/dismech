@@ -53,6 +53,8 @@ from typing import Any
 
 import httpx
 
+from dismech.repo_root import LazyRepoPaths
+
 logger = logging.getLogger(__name__)
 
 #: Live CTX API base. EPA's own documentation still links `api-ccte.epa.gov`,
@@ -434,12 +436,16 @@ class ToxCastAssayAnnotations:
         return _text(document.get("retrieved"))
 
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DATA_DIR = _REPO_ROOT / "data" / "toxcast"
+# Resolved from the working directory when read, so a refresh run in a worktree
+# downloads into that worktree's data/toxcast/ (#15109).
+_PATHS = LazyRepoPaths(
+    __name__, DEFAULT_DATA_DIR=lambda root: root / "data" / "toxcast"
+)
+__getattr__ = _PATHS.module_getattr
 
 
 def default_annotations(data_dir: Path | None = None) -> ToxCastAssayAnnotations:
-    return ToxCastAssayAnnotations(data_dir or DEFAULT_DATA_DIR)
+    return ToxCastAssayAnnotations(data_dir or _PATHS.get("DEFAULT_DATA_DIR"))
 
 
 def main(argv: list[str] | None = None) -> int:

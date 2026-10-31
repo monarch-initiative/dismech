@@ -42,6 +42,11 @@ def backends() -> None:
         typer.echo(name)
 
 
+def _label(node) -> str:
+    """One ground-truth label per node: its ``conforms_to`` references as a set."""
+    return " | ".join(sorted(node.conforms_to))
+
+
 @app.command("evaluate")
 def evaluate(
     kb_dir: str = _KB,
@@ -53,14 +58,16 @@ def evaluate(
     labelled = [n for n in nodes if n.conforms_to]
     typer.echo(f"nodes total      : {len(nodes)}")
     typer.echo(f"nodes labelled   : {len(labelled)}")
-    typer.echo(f"distinct targets : {len({n.conforms_to for n in labelled})}")
+    typer.echo(f"distinct targets : {len({t for n in labelled for t in n.conforms_to})}")
     if len(labelled) < 2:
         raise typer.Exit(code=1)
 
     embedder = get_embedder(backend)
     typer.echo(f"embedder         : {embedder.name}")
     sim = cosine_matrix(embed_nodes(labelled, embedder))
-    labels = [n.conforms_to for n in labelled]
+    # A node conforming to several module nodes is labelled by the whole set,
+    # so it counts as a hit only for a neighbour with the same set.
+    labels = [_label(n) for n in labelled]
 
     summary = group_cosine_summary(sim, labels)
     typer.echo(
@@ -103,7 +110,7 @@ def suggest(
         if best_sim[i] < threshold:
             break
         nbr = labelled[best[i]]
-        rows.append((f"{best_sim[i]:.3f}", nbr.conforms_to,
+        rows.append((f"{best_sim[i]:.3f}", _label(nbr),
                      f"{unlabelled[i].disease}::{unlabelled[i].name}",
                      f"{nbr.disease}::{nbr.name}"))
 

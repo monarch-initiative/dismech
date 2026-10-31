@@ -52,6 +52,12 @@ Watch for:
   radiographic finding. Usually `GROUPING`.
 - **Phenotypes, not diseases** — `microcephaly` is a finding. `OUT_OF_SCOPE`,
   unless the specific disease entity is meant.
+- **A phenotype label on a single-gene term** — when the stub has one gene
+  in `genes:` but its label is a phenotype or a broad clinical name, the
+  specific disease *is* meant, and the label is too broad for it. Claim it as
+  usual, but the entry gets a name of its own (see the `entry-naming` skill).
+  The claim title keeps the stub label, because it is the key claims are
+  matched on.
 - **Susceptibility / predisposition terms** — usually `OUT_OF_SCOPE`.
 - **Cancers** — deprioritize for now. The project does not yet have a settled
   lump/split strategy for neoplasms (see #7082). Prefer a non-cancer candidate,
@@ -100,8 +106,11 @@ surface. Assume neither phase knows about a PR.
 
 `just enrich-stubs` has **already** written `mondo_parents`, `mondo_descendants`,
 `mondo_descendant_count` and `genes` into the stubs. That is the evidence the
-`entry_type` decision turns on. Read the stub file. Do **not** re-derive it with
-per-candidate ontology lookups.
+`entry_type` decision turns on. `just next-unclaimed N --json` carries them on
+each record (with `synonyms`, for the step-5 duplicate search), so a pool can be
+screened without opening the stub files; otherwise read the stub file. Do
+**not** re-derive them with per-candidate ontology lookups. The text output
+shows only `mondo_descendant_count`, beside the label.
 
 **An empty block is omitted, not written as zero** (`render()` in
 `scripts/enrich_curation_stubs.py` only emits a block when it has content), so
@@ -167,8 +176,34 @@ turns on. Enriching an issue body with a definition or an OMIM ID is not that.
    just next-unclaimed $((N + 20))          # stubs minus claimed, as a pool
    ```
 
-   `next-unclaimed` takes `--json` if you want it machine-readable. Ask for
-   headroom (`N + 20`), because you will skip candidates.
+   `just next-unclaimed $((N + 20)) --json` gives the same pool as JSON, with
+   the enrichment fields above on each record (a key is left out when the stub
+   lacks that field, never set to `null`). A first argument after the count that
+   starts with `--` is passed through as a flag and the default
+   `tmp/claims.json` is used; to read another claims file, name it there
+   (`just next-unclaimed 25 path/to/claims.json --json`). Ask for
+   headroom (`N + 20`), because you will skip candidates. It already leaves out
+   stubs whose MONDO ID the KB covers; a `[advisory] possible_kb_duplicate`
+   line under a candidate (`advisories` in `--json`) means an entry with the
+   same name exists under another MONDO ID, so open that entry before choosing.
+
+   **`gh` present but GraphQL blocked (Claude Code cloud sessions).** These
+   sessions have an authenticated `gh`, but their proxy answers every GraphQL
+   call with HTTP 403, and `gh issue list` is GraphQL. `just fetch-claims`
+   handles this: when `gh issue list` fails it falls back to
+   `gh api --paginate` over REST, says so on stderr, and writes the file as
+   usual. The same fallback covers a `gh` older than v2.73.0, which rejects the
+   `closedByPullRequestsReferences` field (#11814). Nothing to do by hand.
+   What you lose is the linked-PR field, which REST has no equivalent for, so
+   `check-claims` prints a note that its **stale** list may over-report; check
+   an issue for an open PR before treating its claim as stale.
+
+   **If `just fetch-claims` exits non-zero, stop and read the error.** A failed
+   fetch leaves `tmp/claims.json` as it was (or absent) rather than writing an
+   empty file, and `next-unclaimed` / `check-claims` refuse an empty file, so a
+   failure can no longer pass as "nobody has claimed anything". Do not work
+   around it by writing `[]` by hand: an empty claims list offers every claimed
+   disease as free.
 
    **No `gh` CLI (web and remote sessions).** `just fetch-claims` shells out to
    `gh`, which is absent there — and `curl https://api.github.com` fails too:

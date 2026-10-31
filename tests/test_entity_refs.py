@@ -184,16 +184,46 @@ def test_iter_entity_refs_reports_paths():
     )
 
 
-def test_section_keys_point_at_real_disease_slots():
-    """Every mapped section must name a slot the Disease class actually has.
+#: The schema class each tree swept by `scripts/check_entity_refs.py` validates
+#: against. `SECTION_KEYS` serves all of them, so its sections are checked
+#: against the union of these classes' slots rather than against Disease alone.
+SWEPT_ROOT_CLASSES = {
+    "kb/disorders": "Disease",
+    "kb/modules": "Disease",
+    "kb/comorbidities": "ComorbidityAssociation",
+    "kb/groupings": "Grouping",
+    "kb/module_collections": "ModuleCollection",
+}
+
+
+def test_swept_root_classes_cover_the_entity_ref_sweep():
+    """A tree added to the sweep must name its class here, or its sections
+    could never be mapped without failing the slot check below (#9518)."""
+    from scripts.check_entity_refs import DEFAULT_ROOTS
+
+    assert set(SWEPT_ROOT_CLASSES) == set(DEFAULT_ROOTS)
+
+
+def test_section_keys_point_at_real_entry_slots():
+    """Every mapped section must name a slot one of the swept entry classes has.
+
+    `SECTION_KEYS` is one map shared by every entry kind the sweep covers, so
+    the check is against the union of those classes' slots: it still catches a
+    typo, without pinning the map to Disease (#9518).
 
     Covers `SINGLETON_SECTIONS` too: a typo there resolves to `None` and is
     silently skipped rather than failing, so nothing else would catch it.
+    Singletons stay Disease-only, since no other entry class has one.
     """
     schema = yaml.safe_load(open("src/dismech/schema/dismech.yaml"))
     disease_slots = set(schema["classes"]["Disease"]["slots"])
+    entry_slots = {
+        slot
+        for cls in set(SWEPT_ROOT_CLASSES.values())
+        for slot in schema["classes"][cls]["slots"]
+    }
     for kind, (slot, key_slots) in SECTION_KEYS.items():
-        assert slot in disease_slots, f"{kind} -> unknown slot {slot}"
+        assert slot in entry_slots, f"{kind} -> unknown slot {slot}"
         assert key_slots, kind
     for slot in SINGLETON_SECTIONS:
         assert slot in disease_slots, f"SINGLETON_SECTIONS: unknown slot {slot}"
@@ -230,6 +260,55 @@ def test_whole_section_anchor_resolves_on_the_name_not_the_contents():
     # A misspelled or invented section is still caught — that is what the
     # check is for once contents are not required.
     assert resolve_entity_ref(empty, "treatmnets#") is None
+
+
+GROUPING = {
+    "name": "Test Grouping",
+    "members": [
+        {"member": "Member Disease 1", "member_type": "DISEASE"},
+        {"member": "Member Disease 2", "member_type": "DISEASE"},
+    ],
+    "discussions": [{"discussion_id": "grouping_gap"}],
+}
+
+
+@pytest.mark.parametrize(
+    "ref",
+    [
+        "members#",  # the member list as a whole
+        "members#Member Disease 1",  # keyed on `member`, not `name`
+        "discussions#grouping_gap",
+    ],
+)
+def test_grouping_members_resolve(ref):
+    """A grouping discussion can attach to its member list (#9518)."""
+    assert resolve_entity_ref(GROUPING, ref) is True
+
+
+def test_grouping_member_absent_from_the_list_dangles():
+    assert resolve_entity_ref(GROUPING, "members#Not A Member") is False
+
+
+def test_grouping_discussion_attaches_to_members():
+    """The gate itself accepts `members#`, with and without an anchor (#9518).
+
+    Before `members` was mapped, both forms failed as an unknown section, so no
+    reference a grouping curator could write in `attaches_to` resolved.
+    """
+    data = {
+        **GROUPING,
+        "discussions": [
+            {
+                "discussion_id": "grouping_gap",
+                "attaches_to": ["members#", "members#Member Disease 2"],
+            }
+        ],
+    }
+    assert entity_ref_errors(data) == []
+    data["discussions"][0]["attaches_to"] = ["members#Not A Member"]
+    errors = entity_ref_errors(data)
+    assert len(errors) == 1
+    assert "does not resolve" in errors[0]
 
 
 def test_singleton_section_rejects_a_named_anchor():

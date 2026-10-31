@@ -24,6 +24,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from dismech.clingen.client import CLINGEN_GDV_CSV_URL
+from dismech.repo_root import repo_root
 from dismech.structured_sources.base import (
     BulkFile,
     ReferenceCacheEntry,
@@ -205,8 +206,9 @@ class ClinGenSource(StructuredSource):
         # path every rebuild takes, because `just clingen-refresh` exits 1 on
         # the drifted pin (#10426), and the committed file is whatever export
         # was last committed there, not a current one (#13575).
-        repo_root = Path(__file__).resolve().parents[3]
-        fallback = repo_root / "cache" / "clingen" / _CSV_NAME
+        # Resolved from the working directory, like the CLI's own paths, so a
+        # worktree reads its own committed copy (#15051).
+        fallback = repo_root() / "cache" / "clingen" / _CSV_NAME
         if fallback.exists():
             logger.warning(
                 "%s not found; reading the committed cache/clingen/%s instead. "

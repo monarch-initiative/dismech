@@ -196,8 +196,11 @@
         }
 
         @media (max-width: 900px) {
+            /* minmax(0, 1fr), not 1fr: a 1fr track cannot shrink below its
+               content's min-content width, so one long nowrap facet label
+               widened the whole page past the screen. */
             .main-content {
-                grid-template-columns: 1fr;
+                grid-template-columns: minmax(0, 1fr);
             }
         }
 
@@ -211,6 +214,63 @@
             top: 80px;
             max-height: calc(100vh - 100px);
             overflow-y: auto;
+        }
+
+        /* Below 900px the facets stack above the results, so they collapse behind a
+           toggle instead of staying sticky: a sticky panel capped at the viewport
+           height pinned itself over the results and the search box with no way to
+           close it. */
+        .facets-toggle {
+            display: none;
+            width: 100%;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            font: inherit;
+            font-weight: 600;
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+
+        .facets-toggle::after {
+            content: "\25BE";
+            transition: transform 0.2s;
+        }
+
+        .facets-toggle[aria-expanded="true"]::after {
+            transform: rotate(180deg);
+        }
+
+        @media (max-width: 900px) {
+            .facets-toggle {
+                display: flex;
+            }
+
+            .sidebar {
+                position: static;
+                max-height: none;
+            }
+
+            .sidebar:not(.is-open) {
+                display: none;
+            }
+
+            /* Entry names, module slugs and source links are long unbroken tokens. */
+            .disorder-header,
+            .disorder-stats {
+                flex-wrap: wrap;
+                gap: 4px 12px;
+            }
+
+            .disorder-title,
+            .disorder-category,
+            .tag {
+                min-width: 0;
+                overflow-wrap: anywhere;
+            }
         }
 
         .facet-group {
@@ -622,7 +682,8 @@
         .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
             align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
         .dm-nav a { text-decoration: none; }
-        .dm-nav-logo { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+        .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+        .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
         .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
         .dm-nav-links > li { position: relative; }
         .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
@@ -657,7 +718,7 @@
     </style>
     <nav class="dm-nav" aria-label="Site">
         <div class="dm-nav-inner">
-            <a href="../../index.html" class="dm-nav-logo">DisMech</a>
+            <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
             <ul class="dm-nav-links">
                 <li><a href="../../app/index.html">Browse</a></li>
                 <li>
@@ -697,6 +758,7 @@
                         <summary>Data</summary>
                         <ul class="dm-nav-panel">
                             <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                            <li><a href="../../downloads/index.html">Downloads</a></li>
                         </ul>
                     </details>
                 </li>
@@ -750,6 +812,7 @@
         </div>
 
         <div class="main-content">
+            <button type="button" class="facets-toggle" id="facetsToggle" aria-controls="facetsSidebar" aria-expanded="false">Filters</button>
             <aside class="sidebar" id="facetsSidebar">
                 <div class="loading">Loading facets...</div>
             </aside>
@@ -1041,6 +1104,14 @@
                 });
 
                 sidebar.innerHTML = html;
+                this.updateFacetsToggle();
+            }
+
+            updateFacetsToggle() {
+                const active = Object.values(this.activeFilters)
+                    .reduce((n, values) => n + values.size, 0);
+                document.getElementById('facetsToggle').textContent =
+                    active ? `Filters (${active} active)` : 'Filters';
             }
 
             renderResults(results) {
@@ -1279,6 +1350,12 @@
                         this.searchQuery = e.target.value;
                         this.render();
                     }, 150);
+                });
+
+                // Collapsible facets on narrow screens
+                document.getElementById('facetsToggle').addEventListener('click', (e) => {
+                    const open = document.getElementById('facetsSidebar').classList.toggle('is-open');
+                    e.currentTarget.setAttribute('aria-expanded', String(open));
                 });
 
                 // Facet checkboxes

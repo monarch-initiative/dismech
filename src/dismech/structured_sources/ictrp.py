@@ -93,6 +93,12 @@ REGISTRY_PREFIXES: tuple[str, ...] = (
     "TCTR",
 )
 
+#: A EudraCT number with no country suffix, bare (``2013-003828-36``) or with
+#: the ICTRP registry prefix (``EUCTR2013-003828-36``). ICTRP indexes an EUCTR
+#: trial once per recruiting country (``EUCTR2013-003828-36-SK``), so neither
+#: form resolves, and papers print exactly these forms.
+_BARE_EUDRACT = re.compile(r"(?i)^(?:EUCTR)?(\d{4}-\d{6}-\d{2})$")
+
 _TAG = re.compile(r"(?s)<[^>]+>")
 _SCRIPT = re.compile(r"(?is)<(script|style)\b.*?</\1>")
 _ROW = re.compile(r"(?is)<tr\b[^>]*>(.*?)</tr>")
@@ -364,6 +370,20 @@ class ICTRPSource(StructuredSource):
         try:
             return parse_trial_page(page)
         except TrialNotFound as exc:
+            eudract = _BARE_EUDRACT.match(trial_id)
+            if eudract:
+                number = eudract.group(1)
+                raise TrialNotFound(
+                    f"ICTRP has no record for trial identifier {trial_id!r}. "
+                    "ICTRP indexes EUCTR trials once per recruiting country, so "
+                    f"the identifier needs a country suffix: EUCTR{number}-XX, "
+                    "where XX is a recruiting country's two-letter code (or 3RD "
+                    "for a protocol outside the EU/EEA). ICTRP may hold the trial "
+                    "under only some of its countries, so try each. The "
+                    "recruiting countries are listed at "
+                    "https://www.clinicaltrialsregister.eu/ctr-search/search"
+                    f"?query={number}"
+                ) from exc
             raise TrialNotFound(
                 f"ICTRP has no record for trial identifier {trial_id!r}. "
                 "Check the identifier against https://trialsearch.who.int — a "

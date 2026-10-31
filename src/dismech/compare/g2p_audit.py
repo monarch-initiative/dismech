@@ -35,8 +35,9 @@ def audit(
         help="Path or URL to a G2P CSV/CSV.GZ export. Defaults to the latest allG2P FTP release.",
     ),
     kb_dir: Path = typer.Option(
-        default_kb_dir(),
+        ...,
         "--kb-dir",
+        default_factory=default_kb_dir,
         help="Path to kb/disorders.",
     ),
     format: str = typer.Option(

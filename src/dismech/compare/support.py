@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from dismech import kb_cache
+from dismech.repo_root import repo_root
 from dismech.yaml_io import safe_load
 
 
@@ -26,7 +27,8 @@ def normalize_hp_id(term_id: str | None) -> str | None:
 
 
 def default_kb_dir() -> Path:
-    return Path(__file__).resolve().parents[3] / "kb" / "disorders"
+    """``kb/disorders`` of the checkout the command runs in (#15109)."""
+    return repo_root() / "kb" / "disorders"
 
 
 def iter_disease_files(kb_dir: Path) -> list[Path]:

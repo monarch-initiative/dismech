@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/images/dismech_logo_color.png" alt="DisMech logo" width="140">
+</p>
+
 # Disorder Mechanisms Knowledge Base (dismech)
 
 A curated knowledge base of disease pathophysiology, with structured evidence from the literature.

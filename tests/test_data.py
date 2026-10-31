@@ -25,6 +25,7 @@ from linkml.validator.plugins import JsonschemaValidationPlugin
 # validation logic shared with the CLI tools.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
+from dismech.conformance import normalize_conforms_to
 from dismech.entity_refs import (
     canonical_kind,
     entity_ref_errors,
@@ -189,16 +190,26 @@ def _module_node_names():
 
 
 def _iter_conforms_to(node, path=""):
-    """Yield every ``(dotted_path, conforms_to_value)`` pair in a document.
+    """Yield every ``(dotted_path, conforms_to_reference)`` pair in a document.
 
     `conforms_to` hangs off pathophysiology nodes, which appear at more than one
     depth across entry kinds, so the whole tree is walked rather than one slot.
+    A node may list several references (dismech#13923); each list item is
+    yielded with its own index, so every one of them is foreign-key checked.
     """
     if isinstance(node, dict):
         for key, value in node.items():
             child = f"{path}.{key}" if path else key
-            if key == "conforms_to" and isinstance(value, str) and value.strip():
-                yield child, value
+            if key == "conforms_to":
+                if isinstance(value, list):
+                    # Number the raw list, so a path names the item as written.
+                    for index, item in enumerate(value):
+                        for ref in normalize_conforms_to(item):
+                            yield f"{child}[{index}]", ref
+                else:
+                    for ref in normalize_conforms_to(value):
+                        yield child, ref
+                continue
             yield from _iter_conforms_to(value, child)
     elif isinstance(node, list):
         for index, item in enumerate(node):
@@ -2167,7 +2178,14 @@ def check_conforms_to_module_node_references(filepath, data=None):
     module_nodes = _module_node_names()
     errors = []
 
+    seen: set[tuple[str, str]] = set()
     for path, ref in _iter_conforms_to(data):
+        # Key on the owning node, so a list item's `[i]` suffix is dropped.
+        owner = path.rsplit(".conforms_to", 1)[0]
+        if (owner, ref) in seen:
+            errors.append(f"{path}={ref!r}: listed twice on the same node")
+            continue
+        seen.add((owner, ref))
         stem, _, node = ref.partition("#")
         stem, node = stem.strip(), node.strip()
         if stem not in module_nodes:

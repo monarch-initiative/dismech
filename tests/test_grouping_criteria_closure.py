@@ -42,6 +42,8 @@ HIERARCHY = {
     # HP:0007354 (ALS) is an is_a descendant of HP:0007373 (motor neuron atrophy).
     "HP:0007373": ["HP:0002398", "HP:0007354"],
     "GO:0006914": ["GO:0000045"],
+    # GO:0005248 voltage-gated sodium channel activity is_a GO:0005216.
+    "GO:0005216": ["GO:0005248"],
 }
 
 
@@ -191,6 +193,38 @@ def test_biological_process_unknown_closure_only_matters_without_a_match(
         G._eval_leaf(leaf, G.DiseaseFacts(name="Y", go_ids={"GO:0007249"}))
         is G.Satisfaction.UNKNOWN
     )
+
+
+def test_molecular_function_criterion_uses_closure(fake_ontology):
+    """An MF criterion matches a member curating a descendant activity."""
+    leaf = {
+        "criterion_predicate": "HAS_MOLECULAR_FUNCTION",
+        "molecular_functions": [{"term": {"id": "GO:0005216"}}],
+    }
+    channel = G.DiseaseFacts(name="X", go_ids={"GO:0005248"})
+    assert G._eval_leaf(leaf, channel) is G.Satisfaction.SATISFIED
+    pump = G.DiseaseFacts(name="Y", go_ids={"GO:0005391"})
+    assert G._eval_leaf(leaf, pump) is G.Satisfaction.NOT_SATISFIED
+
+
+def test_molecular_function_leaf_requires_its_payload():
+    """HAS_MOLECULAR_FUNCTION without molecular_functions is a structural error."""
+    errors = G.lint_criterion({"criterion_predicate": "HAS_MOLECULAR_FUNCTION"})
+    assert any("molecular_functions" in e for e in errors)
+
+
+def test_criterion_closure_terms_include_molecular_functions():
+    grouping = {
+        "membership_criteria": [
+            {
+                "logic": {
+                    "criterion_predicate": "HAS_MOLECULAR_FUNCTION",
+                    "molecular_functions": [{"term": {"id": "GO:0005216"}}],
+                }
+            }
+        ]
+    }
+    assert G.criterion_closure_terms(grouping) == {"GO:0005216"}
 
 
 def test_min_frequency_uses_strongest_matching_descendant(fake_ontology):

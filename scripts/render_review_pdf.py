@@ -219,7 +219,7 @@ alternatives credible, and is anything missing?*
 {% for p in d.pathophysiology %}
 #### {{ p.name }}
 {% if p.conforms_to %}
-*Conforms to module:* `{{ p.conforms_to }}`
+*Conforms to module:* {% for ref in ([p.conforms_to] if p.conforms_to is string else p.conforms_to) %}`{{ ref }}`{% if not loop.last %}, {% endif %}{% endfor %}
 {% endif %}
 
 {{ p.description | wordwrap(90) }}

@@ -54,15 +54,18 @@ module through its node, and no treatment record names it
 
 ## Normal function
 
-The ai-gene-review ingest layer currently reports
-<span class="result" data-code="len(g.core_function_terms())">0<span class="method"></span></span>
-core function terms for AGA, because the ingest tables are pinned to an
-ai-gene-review commit that predates the review of this gene. The upstream
-review, written in the same round of work as this page, gives
-N4-(beta-N-acetylglucosaminyl)-L-asparaginase activity in the lysosome, acting
-in glycoprotein catabolism and protein deglycosylation, as the core function,
-and records the autoproteolytic activation of the precursor. Glycoprotein
-catabolic process and protein deglycosylation are the same terms the
-Aspartylglucosaminuria node marks as decreased, so the two layers should share
-them once the ingest pin is advanced; until then they share
-<span class="result" data-code="len(g.shared_processes())">0<span class="method"></span></span>.
+ai-gene-review gives AGA's core molecular function as
+<span class="result" data-compare="names" data-code="g.core_function_terms('molecular_function')">N4-(beta-N-acetylglucosaminyl)-L-asparaginase activity<span class="method"></span></span>,
+acting in
+<span class="result" data-compare="names" data-code="g.core_function_terms('directly_involved_in')">glycoprotein catabolic process; and protein deglycosylation<span class="method"></span></span>,
+at the
+<span class="result" data-compare="names" data-code="g.core_function_terms('locations')">lysosome<span class="method"></span></span>
+(<span class="result" data-code="len(g.core_function_terms())">4<span class="method"></span></span>
+terms in all). The review describes the enzyme as an N-terminal nucleophile
+hydrolase whose precursor is cleaved autocatalytically, hydrolysing the
+GlcNAc-Asn bond as a late step of N-glycoprotein degradation. Those two
+processes are also the terms the Aspartylglucosaminuria node marks as decreased,
+so the two layers share
+<span class="result" data-code="len(g.shared_processes())">2<span class="method"></span></span>
+GO process terms by exact identifier; the KB adds the folding and maturation
+pair beneath them.

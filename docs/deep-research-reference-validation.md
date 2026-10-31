@@ -190,10 +190,24 @@ separate `quotes_not_checkable: 2`, not as a total of eleven.
 **`needs_review: true` is the one flag to grep for.** It is set whenever any
 identifier failed to resolve, *or* any quote failed to match, *or* any reference
 looks off topic — deliberately wider than `confabulation_rate`, which measures
-identifier resolution and nothing else. A report whose every identifier resolved
-but whose quotes did not match still reports `confabulation_rate: 0.0`; that is
-how a CHILD-syndrome report with six mismatched quotes was once read as clean.
-Treat `needs_review` as "go and look", not as a failure.
+the resolution of *cited* identifiers and nothing else. A report whose every
+identifier resolved but whose quotes did not match still reports
+`confabulation_rate: 0.0`; that is how a CHILD-syndrome report with six
+mismatched quotes was once read as clean. Treat `needs_review` as "go and look",
+not as a failure.
+
+**An identifier written in the report's prose is not a cited reference, so
+`confabulation_rate` never sees it.** The key-identifiers table at the top of a
+report is entirely such identifiers. The MRD30 report gave `HGNC:29316` for
+ZMYND11 with `confabulation_rate: 0.0`; `HGNC:29316` is ZSWIM6 (#9845).
+`just preflight-dr` checks HGNC identifiers in the prose: one written beside the
+intended gene must be the identifier MONDO records for it, and one written beside
+any other gene symbol must be that gene's own HGNC identifier. Either mismatch
+gives `WARN` and names the gene the identifier really belongs to. It checks only
+`HGNC:` identifiers, and only those with a gene symbol on the same line. A
+symbol HGNC lists only as a previous symbol (`GBA1`, while the OBO build still
+says `GBA`) cannot be compared and is skipped, so no finding for such a gene is
+not a clean result.
 
 **The key is written only when it is true, so its absence is not always an
 all-clear.** Nine committed reports meet a trigger in their own block and still
@@ -388,6 +402,16 @@ just preflight-dr research/My_Disease-deep-research-falcon.md MONDO:XXXXXXX
 ```
 
 See CLAUDE.md §2b.
+
+`just research-disorder` now lowers the odds of this before the run starts: the
+disease prompt names the causal gene(s), OMIM entry and exact synonyms, so a
+serial-number name such as "spermatogenic failure 26" is no longer left for the
+provider to guess (issue #14907). These come from MONDO: the local build when
+it is on disk, and OLS otherwise (#15436). Where MONDO records nothing, or
+cannot be read at all (which the recipe logs), they fall back to the curation
+stub's `genes:` block or the entry's own causative gene and synonyms, and read
+"not recorded" when none of those has one. The preflight is still required
+afterwards.
 
 **3. Misattribution.** A real, resolvable paper cited for a claim it does not
 make survives an existence check untouched. Quote checking catches some of this

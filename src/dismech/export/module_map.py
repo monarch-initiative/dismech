@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Any
 
 from dismech import kb_cache
+from dismech.conformance import iter_conforms_to
 from dismech.yaml_io import safe_load_path
 
 # Ontology prefixes that make up a module's mechanism signature.
@@ -102,9 +103,8 @@ def _iter_conforms(obj: Any, disorder_node: str | None = None):
     """Yield (conforms_to_string, enclosing_node_name) for every conforms_to found."""
     if isinstance(obj, dict):
         name = obj.get("name") if isinstance(obj.get("name"), str) else disorder_node
-        ct = obj.get("conforms_to")
-        if isinstance(ct, str) and ct.strip():
-            yield ct.strip(), obj.get("name") or disorder_node
+        for ct in iter_conforms_to(obj):
+            yield ct, obj.get("name") or disorder_node
         for v in obj.values():
             yield from _iter_conforms(v, name)
     elif isinstance(obj, list):

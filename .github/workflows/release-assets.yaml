@@ -1,0 +1,140 @@
+---
+name: Release Assets
+
+# Builds the release files that are not part of the KGX export and attaches
+# them to the published release (#14792):
+#   kb.zip, pathographs.zip, pathographs_cx2.zip, dismech_models_omex.zip,
+#   release_manifest.json, and the experimental maximal KGX.
+# kgx-release.yaml and mondo-emc-release.yaml stay separate, so a failure here
+# never holds back the KGX or Mondo files, and the reverse. None of these jobs
+# needs a secret beyond the token that uploads the files.
+
+on:  # yamllint disable-line rule:truthy
+  release:
+    types: [published]
+
+permissions: {}
+
+jobs:
+  archives:
+    name: Build archives and manifest, attach to release
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write  # needed to upload release assets
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      SOURCE_COMMIT: ${{ github.sha }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          # Build from the released, tagged content.
+          ref: ${{ github.ref }}
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Build kb.zip
+        run: uv run python -m dismech.export.release_assets kb-zip -o dist/kb.zip
+
+      - name: Build pathographs.zip
+        run: uv run python -m dismech.export.release_assets pathographs -o dist/pathographs.zip
+
+      - name: Build pathographs_cx2.zip
+        run: >-
+          uv run python -m dismech.export.release_assets cx2
+          -o dist/pathographs_cx2.zip
+          --release-version "$RELEASE_TAG"
+          --source-revision "$SOURCE_COMMIT"
+
+      - name: Build dismech_models_omex.zip
+        run: uv run python -m dismech.export.release_assets omex -o dist/dismech_models_omex.zip
+
+      # Written last: it records the size and sha256 of every file above.
+      - name: Build release_manifest.json
+        run: >-
+          uv run python -m dismech.export.release_assets manifest
+          --assets-dir dist -o dist/release_manifest.json
+          --tag "$RELEASE_TAG" --commit "$SOURCE_COMMIT"
+
+      - name: Verify outputs
+        run: |
+          for f in kb.zip pathographs.zip pathographs_cx2.zip dismech_models_omex.zip release_manifest.json; do
+            if [ ! -s "dist/$f" ]; then
+              echo "::error::dist/$f missing or empty; not publishing"
+              exit 1
+            fi
+            echo "dist/$f: $(du -h "dist/$f" | cut -f1)"
+          done
+          cat dist/release_manifest.json
+
+      - name: Upload archives to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/kb.zip
+            dist/pathographs.zip
+            dist/pathographs_cx2.zip
+            dist/dismech_models_omex.zip
+            dist/release_manifest.json
+
+  maximal-kgx:
+    name: Build experimental maximal KGX, attach to release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write  # needed to upload release assets
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Generate maximal KGX
+        run: uv run python -m dismech.export.maximal_kgx_export -o output/maximal_kgx
+
+      # Named dismech_maximal_* so it cannot be mistaken for the Biolink export.
+      # Its local node ids are minted from entry file names and node names, so
+      # renaming an entry or a node changes them between releases (#12368).
+      - name: Rename and summarize
+        run: |
+          for f in nodes edges; do
+            src="output/maximal_kgx/maximal_${f}.jsonl"
+            if [ ! -s "$src" ]; then
+              echo "::error::$src missing or empty; not publishing"
+              exit 1
+            fi
+            mv "$src" "output/maximal_kgx/dismech_maximal_${f}.jsonl"
+          done
+          uv run python -m dismech.export.release_assets kgx-metadata --experimental \
+            --nodes output/maximal_kgx/dismech_maximal_nodes.jsonl \
+            --edges output/maximal_kgx/dismech_maximal_edges.jsonl \
+            -o output/maximal_kgx/dismech_maximal_metadata.json
+
+      - name: Upload maximal KGX to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            output/maximal_kgx/dismech_maximal_nodes.jsonl
+            output/maximal_kgx/dismech_maximal_edges.jsonl
+            output/maximal_kgx/dismech_maximal_metadata.json

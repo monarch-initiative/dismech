@@ -150,6 +150,40 @@ you bind one into a `kb/` entry.
   and "MONDO" is not what the ontology calls Hunter syndrome — a label mismatch,
   not a topic judgement.
 
+### A CURIE printed with no label beside it is never label-compared
+
+The label check needs a label next to the identifier. A CURIE printed bare is
+resolved for existence and obsolescence, and nothing else. So `labels_checked`
+against `total_terms` in the frontmatter is the line between the CURIEs that
+were compared and the ones that were not. It is a coverage figure, not a
+quality score.
+
+Identifier lists ("Key identifiers:", "Identifiers:") are where a report most
+often prints the disease's own MONDO term, and they print it bare. The CURIE
+that matters most is therefore the one least often checked.
+
+The worked example is the OpenScientist report on autosomal dominant
+hypocalcemia 1
+(`research/Autosomal_Dominant_Hypocalcemia_1-deep-research-openscientist.md`).
+It gives `MONDO:0008833` twice as the disease's identifier, both times in an
+identifier list. `MONDO:0008833` is renal-hepatic-pancreatic dysplasia 1, an
+unrelated ciliopathy; the entry binds `MONDO:0011013`. The report's frontmatter
+says `total_terms: 28`, `verified: 26`, `labels_checked: 7`, and its one
+mislabelled term is a CL term. The wrong MONDO term is not mentioned. The
+curator caught it by anchoring on the stub rather than the report.
+
+`just dr-mondo-audit` checks this one case across the whole of `research/`. It
+compares every MONDO CURIE a report names against the entry's `disease_term`
+(or the stub's `mondo_id`) and lists the report when a cited label shares no
+content word with the expected one. It is offline: labels come from
+`cache/mondo/terms.csv`, so a CURIE that nothing in the KB has bound is reported
+as `UNCACHED` rather than compared. The ADH1 report is one of those today,
+because `MONDO:0008833` has no cache row. It is report-only, because a report
+can legitimately name a differential diagnosis or a comorbidity. See
+[#9949](https://github.com/monarch-initiative/dismech/issues/9949); the
+per-report version of the same check is
+[#9729](https://github.com/monarch-initiative/dismech/issues/9729).
+
 ## Turning it off, and the flags
 
 The flags live in one place, the `dr_term_validation` variable in

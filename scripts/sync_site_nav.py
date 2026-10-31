@@ -43,6 +43,7 @@ STATIC_PAGES: dict[str, tuple[str, str]] = {
     "app/models/index.html": ("../../", "models-browser"),
     "details/index.html": ("../", "docs"),
     "contributing/index.html": ("../", "contributing"),
+    "downloads/index.html": ("../", "downloads"),
 }
 
 _MARKED = re.compile(
