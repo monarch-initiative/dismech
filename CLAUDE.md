@@ -47,6 +47,10 @@ Claude Code skills are available in `.claude/skills/`:
   `coarse_binding_basis` on a phenotype bound to a coarse HPO term.
 - **entry-naming**: Use when choosing, reviewing, or changing an entry's `name`,
   including when creating an entry from a stub.
+- **[browse-issues](.claude/skills/browse-issues/SKILL.md)**: Use when browsing,
+  searching or cleaning up the open issues that already exist, of any kind, or
+  opening one named issue as its own interactive session. Its selector
+  (`just select-issues`) is also what `curate-next` shortlists with.
 
 **A skill file that is misnamed or missing its frontmatter is not an error — it
 is a skill that never loads.** Claude Code discovers a skill by looking for
@@ -822,7 +826,7 @@ pathophysiology:
 - **Consistency checking**: If a node declares `conforms_to`, it should include the expected biological processes and causal edges from the module
 - **Reference format**: `"module_name#Node Name"` — module name matches the filename in `kb/modules/` (without `.yaml`), node name matches a pathophysiology `name` in that module
 - **More than one module**: a node that is a genuine instance of two module nodes lists both — `conforms_to:` followed by a YAML list of references — instead of picking one (dismech#13923). The plain-string form stays valid and needs no migration. In code, read the slot through `dismech.conformance.iter_conforms_to`, which returns a list for either spelling; an `isinstance(value, str)` check silently drops the list form
-- **Validated exactly like a disorder**: `just validate-module-batch <files>` (what CI runs on changed modules) and `just validate-modules` (all modules, in `just qc`) apply the `validate-disorders` gate, including abstract-only `--no-full-text` snippet matching; the pytest sweep runs every disorder structural check on modules too. What is *not* checked is conformance content: `conforms_to` must resolve to a real module node, but nothing compares the conforming node's processes or edges against it
+- **Validated exactly like a disorder**: `just validate-module-batch <files>` (what CI runs on changed modules) and `just validate-modules` (all modules, in `just qc`) apply the `validate-disorders` gate, including abstract-only `--no-full-text` snippet matching; the pytest sweep runs every disorder structural check on modules too. Conformance content is **reported but not gated**: `conforms_to` must resolve to a real module node, and `just check-conformance-content` then compares the conforming node's terms and edges against that node (see below)
 
 **Creating a module?** Use the `create-module` skill — it covers the module
 schema shape, the trigger→consequence node chain, the treatment
@@ -849,6 +853,36 @@ rg -n "conforms_to:.*fibrotic_response#" kb/disorders kb/comorbidities kb/module
 
 Inspect likely matches before creating a new module — a mechanism is often
 already covered by a module under a name you did not guess.
+
+**Is a conformance link honoured?** The anchor resolving is a foreign-key
+check; it says nothing about the node. The contract above — a conforming node
+*should* carry the module node's processes and causal edges — is **reported,
+never gated**:
+
+```bash
+just check-conformance-content                             # summary + per-module ranking
+just check-conformance-content kb/disorders/MyDisease.yaml
+just list-conformance-content --kind edges_absent          # one line per finding
+```
+
+Four classes, kept apart because they have different causes: `process_absent`
+(the module node binds a GO term the conformer does not), `anchor_no_process`
+(the module node binds none, so there is nothing to compare — never read as
+agreement), `cell_type_absent` (the conformer binds no cell type where the
+module does, skipping the organ-specific substitution conformance exists for),
+and `edges_absent` (the conformer took the node and dropped the chain). The
+first two partition the links; the last two are orthogonal to them.
+
+**A `process_absent` finding is a lead, not a defect.** The common benign case
+is exactly what the primer asks for: the module binds a generic process and the
+conformer binds the specific one its disease runs. Separating that from a
+mis-picked anchor needs a GO closure walk, which would mean the 200 MB `go.db`
+build `conf/oak_config.yaml` routes around — so the check stays offline and
+declines to guess. Extending `cache/closure/` to cover module-node terms is the
+right way to make it stricter. Read the per-module ranking rather than the
+corpus total: a module where almost no conformer shares its terms is anchored
+too generically or being cited as a label, which is a different job from one
+with a single divergent conformer.
 
 A module's own `description` is the authoritative statement of its scope,
 complementarity with sibling modules, worked conformers, and key conformance
