@@ -41,14 +41,6 @@ name: Claim Dedupe Guard
 permissions:
   issues: write
 
-concurrency:
-  # One global group, not per-issue: the race this guards (two claims opened
-  # seconds apart) runs both issues' jobs at once, and a per-issue group lets
-  # both comment on the same loser. Serialized, the second run sees the label
-  # the first added and skips. cancel-in-progress stays false so neither is lost.
-  group: claim-dedupe-guard
-  cancel-in-progress: false
-
 jobs:
   guard:
     # On a `labeled` event only act when the label added is `claim`; every other
@@ -58,6 +50,20 @@ jobs:
       github.event_name != 'issues'
       || github.event.action != 'labeled'
       || github.event.label.name == 'claim'
+    # One global group, not per-issue: the race this guards (two claims opened
+    # seconds apart) runs both issues' jobs at once, and a per-issue group lets
+    # both comment on the same loser. Serialized, the second run sees the label
+    # the first added and skips. cancel-in-progress stays false, so a running
+    # guard is never interrupted; a waiting run can still be displaced by a newer
+    # one (GitHub keeps only one queued per group), but the hourly sweep is the
+    # backstop that re-checks anything a displaced run would have caught.
+    #
+    # Set on the job, not the workflow: a skipped job (the `if:` above filtering
+    # out a non-`claim` labeled event, including the `duplicate-claim` label this
+    # guard adds itself) must not enter the group and displace a waiting run.
+    concurrency:
+      group: claim-dedupe-guard
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
