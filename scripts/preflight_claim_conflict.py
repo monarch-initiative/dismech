@@ -38,7 +38,9 @@ REPO = "monarch-initiative/dismech"
 
 def gh_json(path: str, *params: str) -> list[dict]:
     """One page of a repo-scoped REST list endpoint (max 100; enough here)."""
-    cmd = ["gh", "api", "-X", "GET", path, "-f", "per_page=100", *sum(([ "-f", p] for p in params), [])]
+    cmd = ["gh", "api", "-X", "GET", path, "-f", "per_page=100"]
+    for p in params:
+        cmd += ["-f", p]
     out = subprocess.run(cmd, check=True, capture_output=True, text=True).stdout
     return json.loads(out)
 
