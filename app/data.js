@@ -37968,6 +37968,103 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Autoinflammation With Episodic Fever and Lymphadenopathy",
+    "disease_id": "MONDO:0030018",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "autoinflammatory syndrome"
+    ],
+    "creation_date": "2026-10-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autoinflammation with episodic fever and lymphadenopathy, better known as cleavage-resistant RIPK1-induced autoinflammatory (CRIA) syndrome, is a dominantly inherited systemic autoinflammatory disease caused by germline heterozygous missense variants at the caspase-8 cleavage site of RIPK1 (residue D324; e.g. D324N, D324H, D324Y, D324V). RIPK1 is a central regulator of TNF-receptor signaling that sits at the branch point between survival (NF-kappaB), apoptosis, and necroptosis. Caspase-8 normally cleaves RIPK1 at D324 to restrain its pro-death and pro-inflammatory activity; the variants make RIPK1 non-cleavable, leaving it hyperactivatable. Patient cells become hypersensitive to TNF-induced apoptosis and necroptosis and overproduce inflammatory cytokines and chemokines, producing lifelong episodic high fevers and prominent lymphadenopathy with hepatosplenomegaly, oral ulcers, arthralgia, and abdominal symptoms. The disease responds to IL-6 receptor blockade (tocilizumab) but characteristically not to TNF inhibitors.",
+    "pathophysiology": [
+      "Caspase-8 Cleavage-Resistant RIPK1 Variant",
+      "Increased RIPK1 Activation",
+      "Hypersensitivity to TNF-Induced Apoptosis and Necroptosis",
+      "Overproduction of Inflammatory Cytokines",
+      "Systemic Autoinflammation"
+    ],
+    "cell_types": [
+      "peripheral blood mononuclear cell",
+      "monocyte"
+    ],
+    "cell_type_ids": [
+      "CL:2000001",
+      "CL:0000576"
+    ],
+    "biological_processes": [
+      "necroptotic process",
+      "apoptotic process",
+      "cytokine production"
+    ],
+    "phenotypes": [
+      "Recurrent fever",
+      "Lymphadenopathy",
+      "Splenomegaly",
+      "Hepatomegaly",
+      "Oral ulcer",
+      "Recurrent tonsillitis",
+      "Arthralgia",
+      "Abdominal pain",
+      "Elevated circulating C-reactive protein concentration"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Immunological",
+      "Gastrointestinal",
+      "Musculoskeletal",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Head and Neck",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0001954",
+      "HP:0002716",
+      "HP:0001744",
+      "HP:0002240",
+      "HP:0000155",
+      "HP:0011110",
+      "HP:0002829",
+      "HP:0002027",
+      "HP:0011227"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "RIPK1 cleavage-site variants"
+    ],
+    "treatments": [
+      "Tocilizumab (anti-IL-6 receptor)",
+      "TNF Inhibitor Therapy (ineffective)",
+      "Anakinra (IL-1 receptor antagonist)",
+      "Glucocorticoid therapy",
+      "Colchicine"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated circulating interleukin-6"
+    ],
+    "source_file": "Autoinflammation_With_Episodic_Fever_And_Lymphadenopathy.yaml",
+    "page_url": "../pages/disorders/Autoinflammation_With_Episodic_Fever_and_Lymphadenopathy.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Autosomal Agammaglobulinemia",
     "disease_id": "MONDO:0011096",
     "category": "Mendelian",
@@ -115155,6 +115252,7 @@ window.searchData = [
       "Keratinocyte activation and proinflammatory mediator release",
       "Inflammatory cell recruitment",
       "Hapten exposure",
+      "Covalent hapten-protein adduct formation",
       "Skin innate immune activation during sensitization",
       "Breakdown of regulatory T-cell-mediated hapten tolerance",
       "Allergen-specific T-cell priming",
@@ -115249,11 +115347,11 @@ window.searchData = [
     "source_file": "Contact_Dermatitis.yaml",
     "page_url": "../pages/disorders/Contact_Dermatitis.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 13,
+    "num_pathophysiology": 14,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "38",
-    "causal_graph_longest_path": "8"
+    "causal_graph_edges": "39",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Contractures, Pterygia, and Spondylocarpotarsal Fusion Syndrome 1A",
@@ -197620,6 +197718,67 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Hypercalciuria, Absorptive, 2",
+    "disease_id": "MONDO:0007748",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal dominant form of absorptive hypercalciuria linked to the gene encoding soluble adenylyl cyclase (ADCY10). Affected individuals have normocalcemic hypercalciuria driven by increased intestinal calcium absorption, with a predisposition to calcium-containing kidney stones and, in some reports, reduced spinal bone mineral density. It is one genetically defined subset of the common, heterogeneous trait of primary (absorptive) hypercalciuria, which affects about 10% of the general population and is itself probably polygenic.",
+    "pathophysiology": [
+      "Soluble Adenylyl Cyclase (ADCY10) Dysregulation",
+      "Enhanced Intestinal Calcium Absorption"
+    ],
+    "cell_types": [
+      "enterocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000584"
+    ],
+    "biological_processes": [
+      "cAMP biosynthetic process",
+      "calcium ion import"
+    ],
+    "phenotypes": [
+      "Hypercalciuria",
+      "Kidney stone",
+      "Reduced Bone Mineral Density"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Renal",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002150",
+      "HP:0000787",
+      "HP:0004349"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ADCY10"
+    ],
+    "treatments": [
+      "Thiazide diuretic"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypercalciuria_Absorptive_2.yaml",
+    "page_url": "../pages/disorders/Hypercalciuria,_Absorptive,_2.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Hypercatabolic Hypoproteinemia",
     "disease_id": "MONDO:0009434",
     "category": "Mendelian",
@@ -258406,6 +258565,101 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Marburg Virus Disease",
+    "disease_id": "MONDO:0020500",
+    "category": "Infectious",
+    "parents": [
+      "viral infectious disease",
+      "viral hemorrhagic fever"
+    ],
+    "creation_date": "2026-10-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Marburg virus disease (MVD) is a severe, frequently fatal systemic viral hemorrhagic fever caused by Marburg virus (MARV) and the closely related Ravn virus, filoviruses of the species Orthomarburgvirus marburgense. Egyptian fruit bats (Rousettus aegyptiacus) are the natural reservoir; human outbreaks begin with zoonotic spillover - classically in caves and mines harbouring large bat colonies - followed by person-to-person transmission through direct contact with blood and body fluids, amplified in healthcare and funeral settings. After an incubation of days to about three weeks, disease begins abruptly with high fever, headache, and myalgia, progresses to severe gastrointestinal symptoms, and in severe cases to coagulopathy, bleeding, shock and multi-organ failure. Case-fatality rates have ranged from about 24% to 88%. The viral glycoprotein, especially its mucin-like domain, damages the vascular endothelium and increases vascular permeability, while infection of endothelial and mononuclear phagocyte targets drives the consumptive coagulopathy shared across viral hemorrhagic fevers. No vaccine or antiviral is licensed; care is supportive. It is the sibling of Ebola virus disease - same family and same person-to-person amplification - but with a distinct fruit-bat reservoir.",
+    "pathophysiology": [
+      "High Viremia with Endothelial and Myeloid Infection",
+      "Glycoprotein-Mediated Endothelial Damage",
+      "Increased Vascular Permeability",
+      "Consumptive Coagulopathy"
+    ],
+    "cell_types": [
+      "vascular endothelial cell",
+      "mononuclear phagocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000115",
+      "CL:0000113"
+    ],
+    "biological_processes": [
+      "viral genome replication",
+      "endothelial cell activation",
+      "regulation of vascular permeability",
+      "blood coagulation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Vomiting",
+      "Abnormal bleeding",
+      "Thrombocytopenia",
+      "Shock",
+      "Myalgia",
+      "Nausea",
+      "Diarrhea",
+      "Maculopapular exanthema"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Neurological",
+      "Gastrointestinal",
+      "Hematological",
+      "Cardiovascular",
+      "Dermatological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0002013",
+      "HP:0001892",
+      "HP:0001873",
+      "HP:0031273",
+      "HP:0003326",
+      "HP:0002018",
+      "HP:0002014",
+      "HP:0040186"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "NPC1 (host entry factor)"
+    ],
+    "treatments": [
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Marburg_Virus_Disease.yaml",
+    "page_url": "../pages/disorders/Marburg_Virus_Disease.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Marchiafava-Bignami Disease",
     "disease_id": "MONDO:0016370",
     "category": "Neurological Disorder",
@@ -314257,6 +314511,7 @@ window.searchData = [
       "Loss of Descending Drive to Inhibitory Premotor Neurons",
       "REM Sleep Muscle Atonia Loss",
       "Central Alpha-Synuclein Initiation",
+      "Nigral Cellular Senescence",
       "Oxidative Stress",
       "Calcium Dysregulation",
       "Endoplasmic Reticulum Stress",
@@ -314330,6 +314585,7 @@ window.searchData = [
       "inhibitory regulation of skeletal motor neuron output",
       "REM sleep",
       "skeletal muscle contraction during REM sleep",
+      "cellular senescence",
       "Response to Oxidative Stress",
       "ROS Metabolic Process",
       "Calcium Ion Homeostasis",
@@ -314454,11 +314710,11 @@ window.searchData = [
     "source_file": "Parkinsons_Disease.yaml",
     "page_url": "../pages/disorders/Parkinson's_Disease.html",
     "num_phenotypes": 19,
-    "num_pathophysiology": 32,
+    "num_pathophysiology": 33,
     "num_genes": 14,
     "num_treatments": 8,
-    "causal_graph_edges": "109",
-    "causal_graph_longest_path": "14"
+    "causal_graph_edges": "113",
+    "causal_graph_longest_path": "15"
   },
   {
     "name": "Paroxysmal Dyskinesia",
@@ -355221,6 +355477,125 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "STAT3-Related Early-Onset Multisystem Autoimmune Disease",
+    "disease_id": "MONDO:0014414",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "inborn error of immunity"
+    ],
+    "creation_date": "2026-10-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "STAT3-related early-onset multisystem autoimmune disease is an autosomal dominant inborn error of immunity caused by germline heterozygous gain-of-function (GOF) variants in STAT3, the transcription factor that transmits signals from numerous cytokine receptors. GOF variants, clustered in the DNA-binding and dimerization domains, confer increased DNA binding, a preference for nuclear localization, and sustained/spontaneous STAT3 transcriptional activity. The constitutive signal skews lymphocyte differentiation and tolerance: it reduces the regulatory T-cell compartment, expands effector (including NKG2D-high CD8+) T cells and Th17 cells, and impairs development of nonclassical monocytes and dendritic cells. Patients present in the first years of life with lymphoproliferation (lymphadenopathy, hepatosplenomegaly), autoimmune cytopenias, and a wide range of solid-organ autoimmunity (enteropathy, interstitial lung disease, thyroiditis, type 1 diabetes, autoimmune hepatitis), together with postnatal growth failure, recurrent infections, and hypogammaglobulinemia. It is the mechanistic mirror image of the dominant-negative STAT3 loss-of-function that causes autosomal dominant hyper-IgE (Job) syndrome, and unlike that disorder is marked by low rather than high serum IgE. JAK inhibition and cytokine-pathway blockade (tocilizumab) are effective targeted treatments.",
+    "pathophysiology": [
+      "STAT3 Gain-of-Function Variant",
+      "Constitutive STAT3 Activation",
+      "Reduced Regulatory T Cell Compartment",
+      "Effector CD8+ T Cell Clonal Accumulation",
+      "Th17 Cell Expansion",
+      "Impaired Nonclassical Monocyte and Dendritic Cell Development",
+      "Growth Hormone Axis Suppression",
+      "Loss of Immune Tolerance and Multiorgan Autoimmunity",
+      "Lymphoproliferation"
+    ],
+    "cell_types": [
+      "regulatory T cell",
+      "effector CD8-positive, alpha-beta T cell",
+      "T-helper 17 cell",
+      "non-classical monocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000815",
+      "CL:0000625",
+      "CL:0000899",
+      "CL:0000875"
+    ],
+    "biological_processes": [
+      "JAK-STAT signaling",
+      "regulatory T cell differentiation",
+      "T-helper 17 cell differentiation"
+    ],
+    "phenotypes": [
+      "Lymphadenopathy",
+      "Splenomegaly",
+      "Autoimmune cytopenia",
+      "Autoimmune enteropathy",
+      "Autoimmune interstitial lung disease",
+      "Autoimmune thyroiditis",
+      "Type 1 diabetes mellitus",
+      "Autoimmune hepatitis",
+      "Skin disease",
+      "Polyarticular arthritis",
+      "Short stature",
+      "Recurrent infections",
+      "Hypogammaglobulinemia",
+      "Increased double-negative T cell number"
+    ],
+    "phenotype_categories": [
+      "Immunological",
+      "Hematological",
+      "Gastrointestinal",
+      "Respiratory",
+      "Endocrine",
+      "Dermatological",
+      "Musculoskeletal",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Endocrine",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002716",
+      "HP:0001744",
+      "HP:5210419",
+      "HP:0002028",
+      "HP:0006515",
+      "HP:0000821",
+      "HP:0100651",
+      "HP:5210421",
+      "HP:0000964",
+      "HP:0005764",
+      "HP:0004322",
+      "HP:0002719",
+      "HP:0004313",
+      "HP:0002851"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "JAK Inhibitor Therapy",
+      "Tocilizumab (anti-IL-6 receptor)",
+      "Hematopoietic Cell Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Low serum IgE"
+    ],
+    "source_file": "STAT3-Related_Early-Onset_Multisystem_Autoimmune_Disease.yaml",
+    "page_url": "../pages/disorders/STAT3-Related_Early-Onset_Multisystem_Autoimmune_Disease.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "STAT5B Deficiency",
     "disease_id": "MONDO:0100211",
     "category": "Mendelian",
@@ -370656,6 +371031,135 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "23",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Sorsby Fundus Dystrophy",
+    "disease_id": "MONDO:0007640",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Macular Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-10-31T14:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Sorsby fundus dystrophy (SFD) is a rare autosomal dominant macular dystrophy caused by heterozygous variants in TIMP3, which encodes tissue inhibitor of metalloproteinases-3, an extracellular-matrix-bound inhibitor of matrix metalloproteinases that also blocks VEGF binding to VEGF receptor-2. Most disease-causing variants lie in exon 5, which encodes almost all of the C-terminal domain, and most add or remove a cysteine residue; the mutant protein forms aberrant disulfide-bonded dimers and multimers, resists turnover from the extracellular matrix and accumulates in Bruch's membrane. TIMP-3 is made by the retinal pigment epithelium (RPE) and normally resides in Bruch's membrane, so the accumulation thickens that membrane and produces confluent sub-RPE deposits and drusen-like lesions across the fundus. Two consequences follow. The thickened membrane impairs exchange between the choroid and the photoreceptors, giving night blindness and delayed dark adaptation that high-dose vitamin A can reverse at early stages; and the dimerized protein no longer restrains VEGFR2, while reduced metalloproteinase inhibition raises MMP2 activity and basic fibroblast growth factor release, so choroidal neovascularization develops and is the main cause of blindness. Symptoms begin in the third to sixth decade, typically the fourth to fifth, with sudden central vision loss from neovascularization or macular atrophy, progressing to widespread chorioretinal atrophy. Penetrance is reported as complete. Intravitreal anti-VEGF therapy preserves central vision when started promptly; argon laser and photodynamic therapy are not effective. Because SFD reproduces the drusen, neovascular and atrophic biology of age-related macular degeneration from a single genetic lesion, it is used as a monogenic model of that disease.",
+    "pathophysiology": [
+      "TIMP3 Cysteine-Altering Variant",
+      "Aberrant TIMP-3 Disulfide Bonding and Multimerization",
+      "Resistance of Mutant TIMP-3 to Extracellular Matrix Turnover",
+      "TIMP-3 Accumulation in Bruch's Membrane",
+      "Bruch's Membrane Thickening and Sub-RPE Deposit Formation",
+      "Impaired Transport Across Bruch's Membrane",
+      "Photoreceptor Vitamin A Deprivation",
+      "Impaired TIMP-3 Inhibition of VEGFR2",
+      "Increased MMP2 Activity and bFGF Release",
+      "Choroidal Neovascular Membrane Formation",
+      "Choriocapillaris Flow Impairment",
+      "RPE Glucose and Glutamine Metabolic Dysregulation",
+      "Increased RPE Susceptibility to Oxidative Stress",
+      "Photoreceptor and RPE Degeneration"
+    ],
+    "cell_types": [
+      "retinal pigment epithelial cell",
+      "retinal rod cell",
+      "endothelial cell",
+      "photoreceptor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002586",
+      "CL:0000604",
+      "CL:0000115",
+      "CL:0000210"
+    ],
+    "biological_processes": [
+      "TIMP-3 multimer formation",
+      "TIMP-3 turnover from the extracellular matrix",
+      "Bruch's membrane extracellular matrix organization",
+      "retinol transport to the photoreceptors",
+      "dark adaptation",
+      "retinoid metabolic process",
+      "vascular endothelial growth factor receptor-2 signaling",
+      "fibroblast growth factor receptor signaling pathway",
+      "choroidal angiogenesis",
+      "glycolysis in the retinal pigment epithelium",
+      "glutamine metabolism",
+      "cellular response to oxidative stress"
+    ],
+    "phenotypes": [
+      "Nyctalopia",
+      "Drusen-like sub-RPE deposits",
+      "Yellow/white macular and retinal lesions",
+      "Reticular pseudodrusen",
+      "Abnormal indocyanine green angiography",
+      "Choroidal neovascularization",
+      "Polypoidal choroidal vasculopathy",
+      "Subretinal hemorrhage",
+      "Disciform macular scar",
+      "Metamorphopsia",
+      "Central scotoma",
+      "Progressive central vision loss",
+      "Chorioretinal atrophy",
+      "Macular geographic atrophy",
+      "Choriocapillaris atrophy",
+      "Emphysema"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Eye",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000662",
+      "HP:0011510",
+      "HP:0030500",
+      "HP:0031528",
+      "HP:0030605",
+      "HP:0011506",
+      "HP:0025569",
+      "HP:0025243",
+      "HP:0025094",
+      "HP:0012508",
+      "HP:0000603",
+      "HP:0000529",
+      "HP:0000533",
+      "HP:0031609",
+      "HP:0030491",
+      "HP:0002097"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "TIMP3"
+    ],
+    "treatments": [
+      "Intravitreal anti-VEGF therapy for choroidal neovascularization",
+      "High-dose oral vitamin A for night blindness",
+      "Systemic anti-TNF-alpha therapy (single case report)",
+      "CRISPR base editing (in silico design only)",
+      "Laser photocoagulation and photodynamic therapy",
+      "Tobacco avoidance and pulmonary surveillance",
+      "Genetic counseling and carrier surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Sorsby_Fundus_Dystrophy.yaml",
+    "page_url": "../pages/disorders/Sorsby_Fundus_Dystrophy.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 14,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "49",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Sotos Syndrome",
@@ -419249,17 +419753,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3888,
+  "total_disorder_pages": 3893,
   "total_subtypes": 4981,
-  "total_disorders_and_subtypes": 8869,
-  "total_unique_evidence_sources": 57814,
-  "total_unique_publications": 54100,
+  "total_disorders_and_subtypes": 8874,
+  "total_unique_evidence_sources": 57901,
+  "total_unique_publications": 54185,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3886,
-  "total_unique_pathological_events": 25495,
+  "total_pathographs": 3891,
+  "total_unique_pathological_events": 25528,
   "total_modules": 226,
-  "total_research_reports": 3999,
+  "total_research_reports": 4004,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
