@@ -32,7 +32,10 @@ Automatically, from the Event's own record, strongest basis first:
   biological process or object), in any term-bearing field;
 - ``conforms_to``: the node conforms to a module node that binds such an id;
 - ``label``: a cell type or location of the node has the label of the Event's
-  cell or organ term. The cache carries those two terms as labels only;
+  cell or organ term. The cache carries those two terms as labels only, so this
+  says where the node happens, not what it is about: a weak basis, to discount
+  unless a stronger one also fired. Root-like labels AOP-Wiki uses as
+  placeholders (``organ``, ``eukaryotic cell``) are ignored;
 - ``name``: every content word of the Event's title is in the node's name.
   The weakest basis; discount it.
 
@@ -66,6 +69,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from dismech import kb_cache
 from dismech.kb_cache import load_document
 from dismech.qc_plugins import CAUSAL_PREDICATES
+from dismech.repo_root import repo_root
 
 MAX_INDIRECT_HOPS = 3
 DATE = re.compile(r"^\d{2}-\d{2}-\d{4}$")
@@ -87,6 +91,12 @@ TERM_FIELDS = (
     "chemical_entities",
 )
 PHENOTYPE_PREFIXES = ("HP:", "MP:")
+# Cell and organ term labels AOP-Wiki uses as placeholders. A label basis on one says
+# nothing about the node, so they are not matched.
+PLACEHOLDER_LABELS = frozenset({
+    "cell", "eukaryotic cell", "native cell", "organ", "tissue", "anatomical structure",
+    "multicellular organism", "organism",
+})
 # Words in a Key Event title that name a direction or kind of change, not the thing
 # changed. They are left out of the name basis.
 TITLE_STOPWORDS = frozenset({
@@ -261,7 +271,7 @@ def match_automatic(node: dict, ke: dict, modules: Modules) -> list[str]:
             bases.append(f"conforms_to {ref} (term {','.join(sorted(shared))})")
 
     for label, field in ((ke["cell_label"], "cell_types"), (ke["organ_label"], "locations")):
-        if label and label in _term_labels(node, field):
+        if label and label not in PLACEHOLDER_LABELS and label in _term_labels(node, field):
             bases.append(f"label {label} ({field})")
 
     words = _title_words(ke["title"])
@@ -402,7 +412,9 @@ def match_entry(
             wanted = {t for t in ke["term_ids"] if t.startswith(PHENOTYPE_PREFIXES)}
             found = {name: [f"phenotype {tid}"] for name, tid in phenotypes if tid in wanted}
         for name in sorted(found):
-            matches[ke_id][name] = {"kind": "phenotype", "bases": found[name]}
+            # A phenotype named like a matched node would overwrite it.
+            key = f"{name} (phenotype)" if name in matches[ke_id] else name
+            matches[ke_id][key] = {"kind": "phenotype", "bases": found[name]}
     return matches
 
 
@@ -532,7 +544,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--entry", action="append", default=[], help="dismech entry slug; repeatable")
     parser.add_argument("--all", action="store_true", help="every entry in kb/disorders/")
     parser.add_argument("--rules", type=Path, help="hand-written matching rules (YAML)")
-    parser.add_argument("--root", type=Path, default=Path.cwd(), help="dismech checkout (default: cwd)")
+    parser.add_argument(
+        "--root", type=Path, default=None, help="dismech checkout (default: the one at or above cwd)"
+    )
     parser.add_argument("--format", choices=["summary", "json", "tsv"], default="summary")
     args = parser.parse_args(argv)
 
@@ -553,9 +567,14 @@ def main(argv: list[str] | None = None) -> int:
     chosen = select_key_events(events, aops, args.aop, ke_ids)
     key_events = {ke: key_event(events[ke]) for ke in chosen}
     kers = select_kers(kers_cache, aops, args.aop, chosen) if kers_cache is not None else {}
+    if args.root is None:
+        args.root = repo_root()
     rules = {}
     if args.rules:
-        rules = {str(k): v for k, v in (yaml.safe_load(args.rules.read_text()) or {})["key_events"].items()}
+        loaded = yaml.safe_load(args.rules.read_text()) or {}
+        if not isinstance(loaded.get("key_events"), dict):
+            raise SystemExit(f"{args.rules}: expected a top-level key_events: mapping of Key Event ids")
+        rules = {str(k): v for k, v in loaded["key_events"].items()}
 
     if args.all:
         kb_cache.default_off()  # one walk of the corpus; nothing to reuse

@@ -262,3 +262,38 @@ def test_main_rejects_an_iso_date(tmp_path):
             "--data-dir", str(DATA_DIR), "--date", "2026-10-03", "--aop", "40",
             "--entry", "Example_Dermatitis", "--root", str(tmp_path),
         ])
+
+
+def test_placeholder_labels_do_not_match(tmp_path):
+    ke177 = crosswalk.key_event(cache("events")["177"])
+    assert (ke177["cell_label"], ke177["organ_label"]) == ("eukaryotic cell", "organ")
+    node = {
+        "name": "Some node",
+        "cell_types": [_term("CL:0000255", "eukaryotic cell")],
+        "locations": [_term("UBERON:0000062", "organ")],
+    }
+    assert crosswalk.match_automatic(node, ke177, crosswalk.Modules(tmp_path)) == []
+
+
+def test_a_phenotype_named_like_a_matched_node_keeps_both(tmp_path):
+    ke890 = crosswalk.key_event(cache("events")["890"])
+    record = {
+        "pathophysiology": [
+            {"name": "Dopaminergic neuron loss", "cell_types": [], "biological_processes": [_term("MP:0003244")]}
+        ],
+        "phenotypes": [{"name": "Dopaminergic neuron loss", "phenotype_term": _term("MP:0003244")}],
+    }
+    matches = crosswalk.match_entry(record, {"890": ke890}, {}, crosswalk.Modules(tmp_path))
+    assert matches["890"]["Dopaminergic neuron loss"]["kind"] == "node"
+    assert matches["890"]["Dopaminergic neuron loss (phenotype)"]["kind"] == "phenotype"
+
+
+def test_main_names_the_missing_key_in_a_malformed_rules_file(tmp_path):
+    _entry(tmp_path)
+    bad = tmp_path / "rules.yaml"
+    bad.write_text(yaml.safe_dump({"826": {"name_pattern": "keratinocyte"}}))
+    with pytest.raises(SystemExit, match="key_events"):
+        crosswalk.main([
+            "--data-dir", str(DATA_DIR), "--date", DATE, "--aop", "40",
+            "--entry", "Example_Dermatitis", "--root", str(tmp_path), "--rules", str(bad),
+        ])
