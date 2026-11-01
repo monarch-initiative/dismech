@@ -33211,6 +33211,7 @@ window.searchData = [
       "ADAM33",
       "GSDMB",
       "HLA-DQ",
+      "HLA-DRB1 (HLA-DR7, occupational animal-protein allergen sensitization)",
       "ORMDL3",
       "BACH2",
       "TNFAIP3",
@@ -33251,7 +33252,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Asthma.html",
     "num_phenotypes": 12,
     "num_pathophysiology": 10,
-    "num_genes": 17,
+    "num_genes": 18,
     "num_treatments": 7,
     "causal_graph_edges": "42",
     "causal_graph_longest_path": "6"
@@ -113880,7 +113881,8 @@ window.searchData = [
     "treatments": [
       "Prothrombin Complex Concentrate Replacement",
       "Fresh Frozen Plasma Transfusion",
-      "Tranexamic Acid"
+      "Tranexamic Acid",
+      "Peripartum Prothrombin Complex Concentrate Cover"
     ],
     "environmental": [],
     "biochemical": [
@@ -113894,8 +113896,8 @@ window.searchData = [
     "num_phenotypes": 9,
     "num_pathophysiology": 13,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "36",
+    "num_treatments": 4,
+    "causal_graph_edges": "38",
     "causal_graph_longest_path": "7"
   },
   {
@@ -115460,6 +115462,8 @@ window.searchData = [
       "Keratinocyte activation and proinflammatory mediator release",
       "Inflammatory cell recruitment",
       "Hapten exposure",
+      "Abiotic pre-hapten autoxidation to a reactive electrophile",
+      "Keratinocyte pro-hapten bioactivation to a reactive electrophile",
       "Covalent hapten-protein adduct formation",
       "Hapten-driven keratinocyte electrophile sensing",
       "Keratinocyte inflammasome danger signalling",
@@ -115499,6 +115503,7 @@ window.searchData = [
     "biological_processes": [
       "keratinocyte activation",
       "inflammatory response",
+      "xenobiotic metabolic process",
       "Keap1-Nrf2-ARE electrophile sensing",
       "NLRP3 inflammasome complex assembly",
       "NLRP3 inflammasome-mediated signalling",
@@ -115562,11 +115567,11 @@ window.searchData = [
     "source_file": "Contact_Dermatitis.yaml",
     "page_url": "../pages/disorders/Contact_Dermatitis.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 16,
+    "num_pathophysiology": 18,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "43",
-    "causal_graph_longest_path": "10"
+    "causal_graph_edges": "53",
+    "causal_graph_longest_path": "11"
   },
   {
     "name": "Contractures, Pterygia, and Spondylocarpotarsal Fusion Syndrome 1A",
@@ -118522,6 +118527,134 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "19",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Craniofrontonasal Syndrome",
+    "disease_id": "MONDO:0010570",
+    "category": "Mendelian",
+    "parents": [
+      "Craniosynostosis syndrome",
+      "Frontonasal dysplasia"
+    ],
+    "creation_date": "2026-10-31T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Craniofrontonasal syndrome is an X-linked craniofacial malformation disorder caused by loss-of-function variants in EFNB1, which encodes the transmembrane Eph receptor ligand ephrin-B1. It is unusual in being more severe in heterozygous females than in hemizygous males. Affected females typically have frontonasal dysplasia with marked hypertelorism and a grooved or bifid nasal tip, unilateral or bilateral coronal craniosynostosis, craniofacial asymmetry, frizzy hair, longitudinally ridged and split nails, Sprengel shoulder and mild cutaneous syndactyly; cleft lip or palate, agenesis of the corpus callosum, diaphragmatic hernia and learning difficulty occur less often. Hemizygous males usually show hypertelorism alone. The accepted explanation is cellular interference: random X-inactivation in a heterozygous female produces a patchwork of ephrin-B1-expressing and ephrin-B1-deficient cells, which segregate from one another and create ectopic Eph/ephrin boundaries in the craniofacial mesenchyme, while a male with uniform ephrin-B1 deficiency has no such boundaries. Males who are somatic mosaics for an EFNB1 variant are affected as severely as females, which supports this model.",
+    "pathophysiology": [
+      "EFNB1 Loss of Function",
+      "Ephrin-B1 Expression Mosaicism",
+      "Ectopic Eph-Ephrin Boundaries and Cell Segregation",
+      "Gap Junction Communication Block at Ectopic Boundaries",
+      "Impaired Calvarial Osteogenic Differentiation",
+      "Mosaic Disruption of Palatal Mesenchyme Proliferation",
+      "Impaired Cranial Neural Crest Cell Migration",
+      "Craniofacial Mesenchyme Dysmorphogenesis",
+      "Coronal Suture Boundary Disturbance"
+    ],
+    "cell_types": [
+      "neuroepithelial cell",
+      "craniofacial mesenchymal cell",
+      "calvarial osteogenic precursor",
+      "palatal shelf mesenchymal cell",
+      "cranial neural crest cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000710",
+      "CL:0008019",
+      "CL:0007010",
+      "CL:0000333"
+    ],
+    "biological_processes": [
+      "ephrin receptor signaling pathway",
+      "ephrin receptor signaling pathway (ectopic, at mosaic interfaces)",
+      "gap junction-mediated intercellular transport",
+      "osteoblast differentiation",
+      "palatal mesenchyme cell proliferation",
+      "ERK1 and ERK2 cascade",
+      "neural crest cell migration"
+    ],
+    "phenotypes": [
+      "Hypertelorism",
+      "Ridged nail",
+      "Webbed neck",
+      "Toe clinodactyly",
+      "Bifid nasal tip",
+      "Coronal craniosynostosis",
+      "Facial asymmetry",
+      "Downslanted palpebral fissures",
+      "Curly hair",
+      "Sprengel anomaly",
+      "Cutaneous syndactyly",
+      "Strabismus",
+      "Cleft palate",
+      "Cleft lip",
+      "Preaxial polydactyly",
+      "Low-set nipples",
+      "Agenesis of corpus callosum",
+      "Congenital diaphragmatic hernia",
+      "Delayed speech and language development"
+    ],
+    "phenotype_categories": [
+      "Craniofacial",
+      "Integument",
+      "Musculoskeletal",
+      "Eye",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Eye",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000316",
+      "HP:0001807",
+      "HP:0000465",
+      "HP:0001863",
+      "HP:0000456",
+      "HP:0004440",
+      "HP:0000324",
+      "HP:0000494",
+      "HP:0002212",
+      "HP:0000912",
+      "HP:0012725",
+      "HP:0000486",
+      "HP:0000175",
+      "HP:0410030",
+      "HP:0100258",
+      "HP:0002562",
+      "HP:0001274",
+      "HP:0000776",
+      "HP:0000750"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "EFNB1"
+    ],
+    "treatments": [
+      "Fronto-orbital advancement",
+      "Hypertelorism correction",
+      "Multidisciplinary follow-up",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Craniofrontonasal_Syndrome.yaml",
+    "page_url": "../pages/disorders/Craniofrontonasal_Syndrome.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Craniometadiaphyseal Osteosclerosis with Hip Dysplasia",
@@ -143279,6 +143412,131 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 4,
     "causal_graph_edges": "19",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "ELF4 Deficiency, X-linked",
+    "disease_id": "MONDO:0024770",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "autoinflammatory syndrome"
+    ],
+    "creation_date": "2026-11-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Deficiency in ELF4, X-linked (DEX) is a monogenic autoinflammatory disease caused by loss-of-function variants in the X-linked ETS transcription factor gene ELF4. ELF4 normally restrains inflammation: it sustains anti-inflammatory genes such as Il1rn and limits inflammation-amplifier genes including S100A8, Lcn2 and Trem1, and it supports antiviral gene expression. Loss of ELF4 leaves macrophages hyperinflammatory to innate stimuli and impairs control of viral replication, producing an early-onset Beh\u00e7et-like and IBD-like syndrome: recurrent oral and gastrointestinal aphthous ulcers, fevers, arthritis, and skin inflammation, and, in a minority, sporadic infections. Affected individuals are predominantly male; heterozygous females can be affected when X-chromosome inactivation is skewed toward the wild-type allele. Treatment has centred on cytokine-blocking biologics, chiefly TNF inhibitors.",
+    "pathophysiology": [
+      "ELF4 Loss-of-Function Variant",
+      "Loss of ELF4 Transcriptional Control of Inflammation",
+      "Macrophage Hyperinflammatory Response",
+      "Impaired Antiviral Control",
+      "TREM1-Driven Neutrophil Recruitment",
+      "Mucosal and Systemic Autoinflammation"
+    ],
+    "cell_types": [
+      "macrophage",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "negative regulation of inflammatory response",
+      "inflammatory response",
+      "defense response to virus",
+      "neutrophil chemotaxis"
+    ],
+    "phenotypes": [
+      "Recurrent aphthous stomatitis",
+      "Colitis",
+      "Recurrent fever",
+      "Arthritis",
+      "Arthralgia",
+      "Myalgia",
+      "Skin inflammation",
+      "Abdominal pain",
+      "Diarrhea",
+      "Decreased appetite",
+      "Fatigue",
+      "Weight loss",
+      "Anemia",
+      "Leukocytosis",
+      "Thrombocytosis",
+      "Elevated C-reactive protein",
+      "Recurrent infections",
+      "Decreased NK cells",
+      "Decreased class-switched memory B cells"
+    ],
+    "phenotype_categories": [
+      "Mucosal",
+      "Gastrointestinal",
+      "Constitutional",
+      "Musculoskeletal",
+      "Dermatological",
+      "Hematological",
+      "Laboratory",
+      "Immunological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0011107",
+      "HP:0002583",
+      "HP:0001954",
+      "HP:0001369",
+      "HP:0002829",
+      "HP:0003326",
+      "HP:0011123",
+      "HP:0002027",
+      "HP:0002014",
+      "HP:0004396",
+      "HP:0012378",
+      "HP:0001824",
+      "HP:0001903",
+      "HP:0001974",
+      "HP:0001894",
+      "HP:0011227",
+      "HP:0002719",
+      "HP:0040218",
+      "HP:0030388"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ELF4 variants"
+    ],
+    "treatments": [
+      "Systemic Glucocorticoids",
+      "Anti-TNF Biologic Therapy",
+      "IL-1 Blockade (anakinra)",
+      "Vedolizumab",
+      "IL-12/23 and IL-1beta Biologics (ustekinumab, canakinumab)",
+      "Exclusive Enteral Nutrition",
+      "Colchicine"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ELF4_Deficiency_X-linked.yaml",
+    "page_url": "../pages/disorders/ELF4_Deficiency,_X-linked.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "5"
   },
   {
@@ -221782,6 +222040,117 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Intellectual Developmental Disorder With Speech Delay And Axonal Peripheral Neuropathy",
+    "disease_id": "MONDO:0030849",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "hereditary disease"
+    ],
+    "creation_date": "2026-11-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Intellectual developmental disorder with speech delay and axonal peripheral neuropathy (IDDSAPN) is an autosomal recessive disorder caused by biallelic loss-of-function variants in NEMF, which encodes the nuclear export mediator factor. NEMF is the substrate-recognition component of ribosome-associated quality control (RQC), the pathway that disposes of incomplete nascent polypeptides left attached to tRNA in the 60S subunit after a ribosome stalls. NEMF holds the LTN1/Listerin E3 ligase on the obstructed subunit so the nascent chain is ubiquitylated, and independently elongates that chain with untemplated C-terminal tails, which both expose buried lysines to LTN1 and act as degrons in their own right. Losing that surveillance leaves aberrant translation products to accumulate in neurons. Affected individuals have global developmental delay and intellectual disability with disproportionately severe speech delay, together with a length-dependent axonal sensorimotor polyneuropathy that produces distal weakness, distal amyotrophy, foot drop and foot deformity. Ataxia, hypotonia and kyphoscoliosis are common, and a minority have cerebral or cerebellar atrophy on imaging. The disorder is the first human disease attributed to a primary defect in RQC, so the pathway rather than any single downstream substrate is what the entry's mechanism turns on.",
+    "pathophysiology": [
+      "NEMF Biallelic Loss-of-Function Variants",
+      "Ribosome-Associated Quality Control Failure",
+      "Accumulation of Aberrant Nascent Polypeptide Chains",
+      "Impaired Axonal Outgrowth and Synapse Development",
+      "Motor Axon Degeneration with Neuromuscular Junction Denervation"
+    ],
+    "cell_types": [
+      "cortical excitatory neuron",
+      "lower motor neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000679",
+      "CL:0000100"
+    ],
+    "biological_processes": [
+      "ribosome-associated ubiquitin-dependent degradation of stalled nascent chains",
+      "untemplated C-terminal alanine and threonine tailing of nascent chains",
+      "axon outgrowth in cortical neurons",
+      "synapse formation in cortical neurons",
+      "maintenance of neuromuscular junction innervation"
+    ],
+    "phenotypes": [
+      "Intellectual disability",
+      "Global developmental delay",
+      "Delayed speech and language development",
+      "Motor delay",
+      "Peripheral axonal neuropathy",
+      "Distal amyotrophy",
+      "Foot dorsiflexor weakness",
+      "Hyporeflexia",
+      "Talipes equinovarus",
+      "Hypotonia",
+      "Ataxia",
+      "Dysarthria",
+      "Kyphoscoliosis",
+      "Pectus excavatum",
+      "Spastic paraplegia",
+      "Brain atrophy",
+      "Autistic behavior",
+      "Attention deficit hyperactivity disorder",
+      "Flexion contracture"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0001270",
+      "HP:0003477",
+      "HP:0003693",
+      "HP:0009027",
+      "HP:0001265",
+      "HP:0001762",
+      "HP:0001252",
+      "HP:0001251",
+      "HP:0001260",
+      "HP:0002751",
+      "HP:0000767",
+      "HP:0001258",
+      "HP:0012444",
+      "HP:0000729",
+      "HP:0007018",
+      "HP:0001371"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "NEMF"
+    ],
+    "treatments": [
+      "Physiotherapy",
+      "Occupational Therapy",
+      "Speech and Language Therapy",
+      "Orthopedic Surgery",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Developmental_Disorder_With_Speech_Delay_And_Axonal_Peripheral_Neuropathy.yaml",
+    "page_url": "../pages/disorders/Intellectual_Developmental_Disorder_With_Speech_Delay_And_Axonal_Peripheral_Neuropathy.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Intellectual Developmental Disorder with Speech Delay, Autism, and Dysmorphic Facies",
     "disease_id": "MONDO:0032864",
     "category": "Mendelian",
@@ -298447,6 +298816,101 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "11",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "OTULIN-Related Autoinflammatory Syndrome",
+    "disease_id": "MONDO:0014912",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "autoinflammatory syndrome"
+    ],
+    "creation_date": "2026-11-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "OTULIN-related autoinflammatory syndrome (ORAS; otulipenia; AIPDS, autosomal recessive) is a severe, neonatal-onset systemic autoinflammatory disease caused by biallelic loss-of-function variants in OTULIN, a deubiquitinase that removes methionine-1 (M1, linear)-linked polyubiquitin conjugated by the linear ubiquitin chain assembly complex (LUBAC). Loss of OTULIN activity lets linear ubiquitin accumulate, which increases canonical NF-kappaB signaling and proinflammatory cytokine output and, in a cell-type-specific way, dysregulates TNF signaling and sensitises cells to TNF-induced death. Patients present in the neonatal period with recurrent fever, neutrophilic dermatitis and panniculitis, diarrhea, and failure to thrive. TNF-directed therapy is rational and haematopoietic stem cell transplantation is potentially curative (the one transplanted patient later relapsed as donor chimerism fell), showing that haematopoietic cells drive the clinical disease.",
+    "pathophysiology": [
+      "OTULIN Loss-of-Function Variant",
+      "Impaired Linear Deubiquitination",
+      "Increased Canonical NF-kB Signaling",
+      "Fibroblast LUBAC Degradation and Reduced TNF Signaling",
+      "Sensitisation to TNF-Induced Cell Death",
+      "Systemic Autoinflammation"
+    ],
+    "cell_types": [
+      "monocyte",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000576",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "protein deubiquitination",
+      "positive regulation of canonical NF-kappaB signal transduction",
+      "tumor necrosis factor-mediated signaling pathway",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Recurrent fever",
+      "Panniculitis",
+      "Failure to thrive",
+      "Diarrhea",
+      "Arthritis",
+      "Sterile skin abscess",
+      "Lipodystrophy",
+      "Leukocytosis",
+      "Elevated C-reactive protein"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Dermatological",
+      "Gastrointestinal",
+      "Musculoskeletal",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0001954",
+      "HP:0012490",
+      "HP:0001508",
+      "HP:0002014",
+      "HP:0001369",
+      "HP:0031292",
+      "HP:0009125",
+      "HP:0001974",
+      "HP:0011227"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "OTULIN variants"
+    ],
+    "treatments": [
+      "TNF Inhibitor Therapy",
+      "IL-1 Blockade (anakinra)",
+      "Hematopoietic Cell Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "OTULIN-Related_Autoinflammatory_Syndrome.yaml",
+    "page_url": "../pages/disorders/OTULIN-Related_Autoinflammatory_Syndrome.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Obesity",
@@ -388021,6 +388485,90 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "TLR7-Related Systemic Lupus Erythematosus",
+    "disease_id": "MONDO:0859083",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "systemic lupus erythematosus"
+    ],
+    "creation_date": "2026-11-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "TLR7-related systemic lupus erythematosus is a monogenic form of SLE caused by germline gain-of-function variants in the X-linked endosomal RNA sensor TLR7. The founding variant, p.Y264H, selectively increases TLR7 sensing of guanosine and the self-ligand 2',3'-cGMP; it was sufficient to cause lupus when introduced into mice. Enhanced TLR7 signaling, transmitted through MyD88, drives type I interferon production and the aberrant survival of B-cell-receptor-activated B cells, with cell-intrinsic accumulation of CD11c+ age-associated B cells and germinal-centre B cells, producing autoantibodies and severe, typically early-onset lupus. MyD88 deficiency rescues the autoimmunity in the mouse model, establishing the TLR7-MyD88 axis as the driver and as a therapeutic target; JAK inhibition has controlled disease in a patient with the p.F507S variant. It is distinct from the complement-deficiency monogenic lupus curated separately, and from polygenic SLE.",
+    "pathophysiology": [
+      "TLR7 Gain-of-Function Variant",
+      "Enhanced TLR7 Signaling",
+      "Type I Interferon Overproduction",
+      "Aberrant Survival of BCR-Activated B Cells",
+      "Accumulation of Age-Associated and Germinal-Center B Cells",
+      "Loss of B Cell Tolerance and Autoantibody Production"
+    ],
+    "cell_types": [
+      "B cell",
+      "CD11c-positive age-associated B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000236",
+      "CL:4033094"
+    ],
+    "biological_processes": [
+      "toll-like receptor 7 signaling pathway",
+      "type I interferon production",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Antinuclear antibody positivity",
+      "Thrombocytopenia",
+      "Hypertriglyceridemia",
+      "Hypocomplementemia",
+      "Cerebral calcification",
+      "Global developmental delay",
+      "Abnormal cerebral white matter morphology"
+    ],
+    "phenotype_categories": [
+      "Immunological",
+      "Hematological",
+      "Metabolic",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003493",
+      "HP:0001873",
+      "HP:0002155",
+      "HP:0004431",
+      "HP:0002514",
+      "HP:0001263",
+      "HP:0002500"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TLR7 gain-of-function variants"
+    ],
+    "treatments": [
+      "JAK Inhibitor Therapy",
+      "TLR7-TLR8 Antagonist (investigational)",
+      "Anifrolumab"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "TLR7-Related_Systemic_Lupus_Erythematosus.yaml",
+    "page_url": "../pages/disorders/TLR7-Related_Systemic_Lupus_Erythematosus.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "TMEM165-Congenital Disorder of Glycosylation",
     "disease_id": "MONDO:0013870",
     "category": "Mendelian",
@@ -419988,17 +420536,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3895,
+  "total_disorder_pages": 3900,
   "total_subtypes": 4983,
-  "total_disorders_and_subtypes": 8878,
-  "total_unique_evidence_sources": 57929,
-  "total_unique_publications": 54209,
+  "total_disorders_and_subtypes": 8883,
+  "total_unique_evidence_sources": 57990,
+  "total_unique_publications": 54265,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3893,
-  "total_unique_pathological_events": 25542,
+  "total_pathographs": 3898,
+  "total_unique_pathological_events": 25574,
   "total_modules": 226,
-  "total_research_reports": 4007,
+  "total_research_reports": 4012,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
