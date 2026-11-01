@@ -2,7 +2,7 @@
 
 The schema elements a New Approach Methodology touches, as three trees: the fields on a `ModelMechanismLink`, the four places such a link can live, and the places an `AssayDescriptor` can be attached.
 
-First written 2026-10-13; updated 2026-10-23 to match `src/dismech/schema/dismech.yaml`.
+First written 2026-10-13; updated 2026-10-30 to match `src/dismech/schema/dismech.yaml`.
 
 ```text
 Disease
@@ -194,7 +194,8 @@ An assay and an experimental model record different things. A
 technique and makes no claim about the node. The two meet at route 3: "this
 model shows X at this node, measured by assay Y".
 
-Use in `kb/`, counted 2026-10-23:
+Use in `kb/`, counted 2026-10-23 (`just assay-inventory` gives the current
+figures):
 
 | Route | Slot path | Objects | Files | Assay entries | With an OBI `term:` |
 |---|---|---|---|---|---|
@@ -211,8 +212,10 @@ Use in `kb/`, counted 2026-10-23:
   `conf/oak_config.yaml` and no `cache/enums/` membership file, so a binding
   cannot be validated yet. Ground a readout with GO `biological_processes` in
   the meantime.
-- The global `assays` slot has no description, and its only example value,
-  `Elevated Blood Glucose`, is a result rather than an assay. The one
-  pathophysiology node using route 1, `Hyperglycemia` in
-  `kb/disorders/Type_I_Diabetes.yaml`, follows that example; its two values
-  duplicate markers the entry already lists under `biochemical:`.
+- Route 1 is now unused. Its one use, on `Hyperglycemia` in
+  `kb/disorders/Type_I_Diabetes.yaml`, recorded two results (elevated blood
+  glucose and elevated HbA1c) rather than assays, copied from the slot's old
+  schema example. The entry's existing `Blood Glucose` and `Hemoglobin A1c
+  (HbA1c)` markers under `biochemical:` now carry `readouts` targeting
+  `Hyperglycemia` instead, and the slot's description says an assay is the
+  technique, never the result.
