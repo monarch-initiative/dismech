@@ -21,6 +21,8 @@ from biolink_model.datamodel.pydanticmodel_v2 import (
     CellularComponent,
     ChemicalEntity,
     ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation,
+    ClinicalTrial,
+    Dataset,
     Disease,
     DiseaseOrPhenotypicFeatureToGeneticInheritanceAssociation,
     DiseaseOrPhenotypicFeatureToLocationAssociation,
@@ -36,12 +38,16 @@ from biolink_model.datamodel.pydanticmodel_v2 import (
     MolecularEntity,
     NamedThing,
     OrganismTaxon,
+    PathologicalProcess,
     Pathway,
     PhenotypicFeature,
+    PhenotypicFeatureToPhenotypicFeatureAssociation,
+    Procedure,
     Treatment,
 )
 from koza import KozaTransform
 
+from dismech.clinical_trial_status import _resolve_nct_id
 from dismech.export import sepio_export
 from dismech.export.utils import (
     pathophysiology_node_names,
@@ -1094,6 +1100,269 @@ def treatment_target_phenotype_to_edge(
     )
 
 
+def differential_diagnosis_to_edge(
+    disease_id: str, differential: dict[str, Any]
+) -> Association | None:
+    """
+    Convert a differential diagnosis to a Disease -> Disease edge (#2100).
+
+    Biolink 4.4 has no differential-diagnosis predicate (the
+    ``disease_has_differential_diagnosis`` the issue hoped for does not exist).
+    ``biolink:similar_to`` -- "holds between an entity and some other entity with
+    similar features" -- is the closest canonical predicate: a differential is
+    on the list because it presents like the disease, which is a claim about
+    shared features and nothing stronger. It is symmetric, as a differential
+    relationship is.
+
+    Args:
+        disease_id: The disease term ID
+        differential: A dict from differential_diagnoses[]
+
+    Returns:
+        Association or None if disease_term.term.id is missing or names the
+        disease itself
+    """
+    term_id = _get_term_id(differential, ["disease_term", "term", "id"])
+    if not term_id or term_id == disease_id:
+        return None
+
+    publications, supporting_text = _format_evidence(differential.get("evidence"), indirect=False)
+
+    return Association(
+        id=_make_edge_id(),
+        subject=disease_id,
+        predicate="biolink:similar_to",
+        object=term_id,
+        subject_category="biolink:Disease",
+        object_category="biolink:Disease",
+        publications=publications if publications else None,
+        supporting_text=supporting_text if supporting_text else None,
+        primary_knowledge_source=KNOWLEDGE_SOURCE,
+        knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
+        agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
+    )
+
+
+def diagnosis_to_edge(disease_id: str, diagnosis: dict[str, Any]) -> Association | None:
+    """
+    Convert a diagnostic approach to a Disease -> Procedure edge (#2100).
+
+    ``biolink:is_diagnosed_by`` is the only Biolink predicate from a disease to
+    the thing that diagnoses it. Its declared range, ``diagnostic aid`` ("a
+    device or substance"), is narrower than what ``diagnosis_term`` binds -- an
+    NCIT procedure such as computed tomography -- so the object is typed by what
+    the term is, ``biolink:Procedure``, rather than by the predicate's range.
+
+    Args:
+        disease_id: The disease term ID
+        diagnosis: A dict from diagnosis[]
+
+    Returns:
+        Association or None if diagnosis_term.term.id is missing
+    """
+    term_id = _get_term_id(diagnosis, ["diagnosis_term", "term", "id"])
+    if not term_id:
+        return None
+
+    publications, supporting_text = _format_evidence(diagnosis.get("evidence"), indirect=False)
+
+    return Association(
+        id=_make_edge_id(),
+        subject=disease_id,
+        predicate="biolink:is_diagnosed_by",
+        object=term_id,
+        subject_category="biolink:Disease",
+        object_category="biolink:Procedure",
+        publications=publications if publications else None,
+        supporting_text=supporting_text if supporting_text else None,
+        primary_knowledge_source=KNOWLEDGE_SOURCE,
+        knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
+        agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
+    )
+
+
+# Accession prefixes that do not name a dataset node. A publication (PMID, DOI)
+# is cited elsewhere as an edge's `publications`, so typing it `biolink:Dataset`
+# would give one id two categories; a DOI can name a dataset, but nothing in the
+# record says which kind this one is. A URL is not a CURIE. A trial is exported
+# from `clinical_trials` as a `biolink:ClinicalTrial`.
+NON_DATASET_ACCESSION_PREFIXES = frozenset(
+    {"pmid", "pmc", "doi", "http", "https", "url", "clinicaltrials"}
+)
+
+
+def dataset_id(dataset: dict[str, Any]) -> str | None:
+    """
+    The KGX node id for a ``datasets[]`` entry: its accession, when it names a dataset.
+
+    Accessions are CURIEs into a data repository (``geo:GSE…``, ``ega:EGAS…``).
+    The prefix is lowercased, the KB's own convention, so ``GEO:GSE1`` and
+    ``geo:GSE1`` are one node. A value with whitespace, no prefix, or a prefix in
+    ``NON_DATASET_ACCESSION_PREFIXES`` is skipped.
+    """
+    accession = dataset.get("accession")
+    if not isinstance(accession, str):
+        return None
+    accession = accession.strip()
+    if ":" not in accession or any(ch.isspace() for ch in accession):
+        return None
+    prefix, local_id = accession.split(":", 1)
+    prefix = prefix.lower()
+    if prefix in NON_DATASET_ACCESSION_PREFIXES or not local_id:
+        return None
+    return f"{prefix}:{local_id}"
+
+
+def dataset_to_edge(disease_id: str, dataset: dict[str, Any]) -> Association | None:
+    """
+    Convert a dataset record to a Dataset -> Disease edge (#2103).
+
+    Biolink has no dataset-to-disease predicate. ``biolink:mentions`` is its
+    pattern for an information content entity (``dataset`` is one) that refers to
+    a named thing when the specific context is not modelled -- which is what a
+    ``datasets[]`` entry asserts: this dataset is about this disease. The
+    dataset's own ``publication`` is carried with the evidence references.
+
+    Args:
+        disease_id: The disease term ID
+        dataset: A dict from datasets[]
+
+    Returns:
+        Association or None if the accession is not a CURIE
+    """
+    accession = dataset_id(dataset)
+    if not accession:
+        return None
+
+    publications, supporting_text = _format_evidence(dataset.get("evidence"), indirect=False)
+    publication = dataset.get("publication")
+    if isinstance(publication, str) and publication and publication not in publications:
+        publications.append(publication)
+
+    return Association(
+        id=_make_edge_id(),
+        subject=accession,
+        predicate="biolink:mentions",
+        object=disease_id,
+        subject_category="biolink:Dataset",
+        object_category="biolink:Disease",
+        publications=publications if publications else None,
+        supporting_text=supporting_text if supporting_text else None,
+        primary_knowledge_source=KNOWLEDGE_SOURCE,
+        knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
+        agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
+    )
+
+
+def clinical_trial_id(trial: dict[str, Any]) -> str | None:
+    """
+    The KGX node id for a ``clinical_trials[]`` entry.
+
+    An NCT identifier (in ``name``, else in a ``clinicaltrials:`` evidence
+    reference) becomes ``clinicaltrials:NCT…``. A trial on another registry is
+    keyed on the ``ICTRP:`` record the entry cites -- the one whose identifier is
+    the trial ``name``, else the only one cited. The exporter never derives a
+    registry id from free text, so a trial named only by acronym and citing no
+    registry record has no node.
+    """
+    nct_id = _resolve_nct_id(trial)
+    if nct_id:
+        return f"clinicaltrials:{nct_id}"
+
+    ictrp_refs = []
+    for item in trial.get("evidence") or []:
+        reference = item.get("reference") if isinstance(item, dict) else None
+        if (
+            isinstance(reference, str)
+            and reference.startswith("ICTRP:")
+            and reference not in ictrp_refs
+        ):
+            ictrp_refs.append(reference)
+    name = str(trial.get("name") or "").strip()
+    if f"ICTRP:{name}" in ictrp_refs:
+        return f"ICTRP:{name}"
+    if len(ictrp_refs) == 1:
+        return ictrp_refs[0]
+    return None
+
+
+def clinical_trial_to_edge(
+    disease_id: str, trial_id: str, trial: dict[str, Any]
+) -> Association:
+    """
+    Convert a clinical trial to a ClinicalTrial -> Disease edge (#2103).
+
+    Biolink models a trial's conditions as a node property
+    (``clinical_trial_conditions``), not an edge, and its trial predicates
+    (``in_clinical_trials_for``) take a chemical as subject. The edge is
+    therefore the generic ``biolink:related_to_at_instance_level``; the subject
+    category says what kind of relation it is.
+
+    Args:
+        disease_id: The disease term ID
+        trial_id: The trial's node id, from :func:`clinical_trial_id`
+        trial: A dict from clinical_trials[]
+
+    Returns:
+        Association
+    """
+    publications, supporting_text = _format_evidence(trial.get("evidence"), indirect=False)
+
+    return Association(
+        id=_make_edge_id(),
+        subject=trial_id,
+        predicate="biolink:related_to_at_instance_level",
+        object=disease_id,
+        subject_category="biolink:ClinicalTrial",
+        object_category="biolink:Disease",
+        publications=publications if publications else None,
+        supporting_text=supporting_text if supporting_text else None,
+        primary_knowledge_source=KNOWLEDGE_SOURCE,
+        knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
+        agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
+    )
+
+
+def clinical_trial_target_phenotype_to_edge(
+    trial_id: str, phenotype: dict[str, Any], parent_evidence: list[dict[str, Any]] | None = None
+) -> Association | None:
+    """
+    Convert a trial's target phenotype to a ClinicalTrial -> PhenotypicFeature edge.
+
+    Same predicate as :func:`clinical_trial_to_edge`; the evidence is the
+    trial's, so it is flagged as inherited.
+
+    Args:
+        trial_id: The trial's node id, from :func:`clinical_trial_id`
+        phenotype: A descriptor dict from clinical_trials[].target_phenotypes[]
+        parent_evidence: Evidence from the parent trial (indirect)
+
+    Returns:
+        Association or None if term.id is missing
+    """
+    phenotype_id = _get_term_id(phenotype, ["term", "id"])
+    if not phenotype_id:
+        return None
+
+    publications, supporting_text = _format_evidence(parent_evidence, indirect=True)
+
+    return Association(
+        id=_make_edge_id(),
+        subject=trial_id,
+        predicate="biolink:related_to_at_instance_level",
+        object=phenotype_id,
+        subject_category="biolink:ClinicalTrial",
+        object_category=(
+            "biolink:Disease" if phenotype_id.startswith("MONDO:") else "biolink:PhenotypicFeature"
+        ),
+        publications=publications if publications else None,
+        supporting_text=supporting_text if supporting_text else None,
+        primary_knowledge_source=KNOWLEDGE_SOURCE,
+        knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
+        agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
+    )
+
+
 # Mapping from category string to biolink node class
 _CATEGORY_TO_NODE_CLASS: dict[str, type[NamedThing]] = {
     "biolink:Disease": Disease,
@@ -1112,6 +1381,10 @@ _CATEGORY_TO_NODE_CLASS: dict[str, type[NamedThing]] = {
     "biolink:OrganismTaxon": OrganismTaxon,
     "biolink:MolecularEntity": MolecularEntity,
     "biolink:ExposureEvent": ExposureEvent,
+    "biolink:PathologicalProcess": PathologicalProcess,
+    "biolink:Procedure": Procedure,
+    "biolink:Dataset": Dataset,
+    "biolink:ClinicalTrial": ClinicalTrial,
 }
 
 
@@ -1310,6 +1583,63 @@ def extract_nodes(record: dict[str, Any]) -> Iterator[NamedThing]:
         if node:
             yield node
 
+    # Differential diagnosis nodes
+    for differential in record.get("differential_diagnoses") or []:
+        term_id = _get_term_id(differential, ["disease_term", "term", "id"])
+        label = _get_term_id(differential, ["disease_term", "term", "label"])
+        node = _emit(term_id, label or differential.get("name"), "biolink:Disease")
+        if node:
+            yield node
+
+    # Diagnostic procedure nodes
+    for diagnosis in record.get("diagnosis") or []:
+        term_id = _get_term_id(diagnosis, ["diagnosis_term", "term", "id"])
+        label = _get_term_id(diagnosis, ["diagnosis_term", "term", "label"])
+        node = _emit(term_id, label or diagnosis.get("name"), "biolink:Procedure")
+        if node:
+            yield node
+
+    # Dataset nodes
+    for dataset in record.get("datasets") or []:
+        node = _emit(dataset_id(dataset), dataset.get("title"), "biolink:Dataset")
+        if node:
+            yield node
+
+    # Clinical trial nodes and their target phenotypes
+    for trial in record.get("clinical_trials") or []:
+        trial_id = clinical_trial_id(trial)
+        if not trial_id:
+            continue
+        node = _emit(trial_id, trial.get("name"), "biolink:ClinicalTrial")
+        if node:
+            yield node
+        for phenotype in trial.get("target_phenotypes") or []:
+            term_id = _get_term_id(phenotype, ["term", "id"])
+            label = _get_term_id(phenotype, ["term", "label"])
+            category = (
+                "biolink:Disease"
+                if term_id and term_id.startswith("MONDO:")
+                else "biolink:PhenotypicFeature"
+            )
+            node = _emit(term_id, phenotype.get("preferred_term") or label, category)
+            if node:
+                yield node
+
+    # Pathophysiology nodes: entry-local, with the id the SEPIO sidecar mints
+    disease_name = record.get("name")
+    if disease_name:
+        for patho in record.get("pathophysiology") or []:
+            name = patho.get("name")
+            if not name:
+                continue
+            node = _emit(
+                sepio_export.pathophysiology_node_id(disease_name, name),
+                name,
+                PATHOPHYSIOLOGY_NODE_CATEGORY,
+            )
+            if node:
+                yield node
+
 
 class EdgeWithEvidence(NamedTuple):
     """
@@ -1335,6 +1665,157 @@ class EdgeWithEvidence(NamedTuple):
     section: str
     indirect: bool = False
     source_node: str | None = None
+
+
+# Category for a pathophysiology node. These nodes have no ontology term; Biolink's
+# `pathological process` ("a biological process that leads to disease") is the
+# kind of thing every one of them is, from a lesion to a systemic state.
+PATHOPHYSIOLOGY_NODE_CATEGORY = "biolink:PathologicalProcess"
+
+
+def _causal_node_index(record: dict[str, Any]) -> dict[str, tuple[str, str]]:
+    """
+    Map each name a bare causal ``target`` can name to its KGX node id and category.
+
+    Pathophysiology nodes get their minted SEPIO id; phenotypes resolve to their
+    bound term. A name carried by both resolves to the pathophysiology node,
+    the same choice the SEPIO sidecar makes. A phenotype with no bound term has
+    no node, so an edge to it is skipped rather than given an invented id.
+    """
+    disease_name = record.get("name")
+    index: dict[str, tuple[str, str]] = {}
+    for phenotype in record.get("phenotypes") or []:
+        name = phenotype.get("name")
+        term_id = _get_term_id(phenotype, ["phenotype_term", "term", "id"])
+        if name and term_id:
+            category = "biolink:Disease" if term_id.startswith("MONDO:") else "biolink:PhenotypicFeature"
+            index[name] = (term_id, category)
+    if disease_name:
+        for node in record.get("pathophysiology") or []:
+            name = node.get("name")
+            if name:
+                index[name] = (
+                    sepio_export.pathophysiology_node_id(disease_name, name),
+                    PATHOPHYSIOLOGY_NODE_CATEGORY,
+                )
+    return index
+
+
+def pathophysiology_layer_edges(record: dict[str, Any]) -> Iterator[EdgeWithEvidence]:
+    """
+    Emit the disorder's causal graph as KGX edges (#2101).
+
+    The per-slot edges in :func:`iter_edges_with_evidence` attach each
+    pathophysiology node's cell types, processes and locations straight to the
+    disease, which keeps them findable but flattens the mechanism away. This
+    adds the graph itself, without changing those edges:
+
+    - *disease* ``biolink:disease_has_basis_in`` *pathophysiology node*, one per node
+    - *node* ``biolink:causes`` *target* for each ``downstream`` edge, where the
+      target is another node or a phenotype term
+    - *phenotype* ``biolink:causes`` *target* for each ``phenotypes[].sequelae``
+      edge, with the disease as ``disease_context_qualifier`` when both ends are
+      phenotypic features (an HP -> HP edge is otherwise context-free)
+
+    Node and ``downstream`` edges reuse the SEPIO statement ids from
+    :func:`sepio_export.iter_pathophysiology_assertions`, so they are stable
+    across releases and join to the sidecar. A target that resolves to nothing
+    (see ``just check-causal-targets``) is skipped.
+
+    Args:
+        record: A disorder dict loaded from YAML
+
+    Yields:
+        EdgeWithEvidence tuples for the mechanism-layer edges
+    """
+    disease_id = _get_term_id(record, ["disease_term", "term", "id"])
+    disease_name = record.get("name")
+    if not disease_id or not disease_name:
+        return
+
+    index = _causal_node_index(record)
+
+    for assertion in sepio_export.iter_pathophysiology_assertions(record):
+        node = assertion.node
+        node_id = sepio_export.pathophysiology_node_id(disease_name, node["name"])
+
+        if assertion.edge is None:
+            evidence = node.get("evidence")
+            publications, supporting_text = _format_evidence(evidence, indirect=False)
+            association = Association(
+                id=assertion.statement_id,
+                subject=disease_id,
+                predicate="biolink:disease_has_basis_in",
+                object=node_id,
+                subject_category="biolink:Disease",
+                object_category=PATHOPHYSIOLOGY_NODE_CATEGORY,
+                publications=publications if publications else None,
+                supporting_text=supporting_text if supporting_text else None,
+                primary_knowledge_source=KNOWLEDGE_SOURCE,
+                knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
+                agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
+            )
+            yield EdgeWithEvidence(association, evidence, "pathophysiology")
+            continue
+
+        edge = assertion.edge
+        resolved = index.get(edge["target"])
+        if resolved is None:
+            continue
+        target_id, target_category = resolved
+        evidence = edge.get("evidence")
+        publications, supporting_text = _format_evidence(evidence, indirect=False)
+        causal_link_type = sepio_export.causal_link_curie(edge.get("causal_link_type"))
+        association = Association(
+            id=assertion.statement_id,
+            subject=node_id,
+            predicate="biolink:causes",
+            object=target_id,
+            subject_category=PATHOPHYSIOLOGY_NODE_CATEGORY,
+            object_category=target_category,
+            qualifiers=[causal_link_type] if causal_link_type else None,
+            publications=publications if publications else None,
+            supporting_text=supporting_text if supporting_text else None,
+            primary_knowledge_source=KNOWLEDGE_SOURCE,
+            knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
+            agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
+        )
+        yield EdgeWithEvidence(association, evidence, "pathophysiology.downstream")
+
+    for phenotype in record.get("phenotypes") or []:
+        source_id = _get_term_id(phenotype, ["phenotype_term", "term", "id"])
+        if not source_id:
+            continue
+        source_category = (
+            "biolink:Disease" if source_id.startswith("MONDO:") else "biolink:PhenotypicFeature"
+        )
+        for sequela in phenotype.get("sequelae") or []:
+            resolved = index.get(sequela.get("target"))
+            if resolved is None:
+                continue
+            target_id, target_category = resolved
+            evidence = sequela.get("evidence")
+            publications, supporting_text = _format_evidence(evidence, indirect=False)
+            fields = {
+                "id": _make_edge_id(),
+                "subject": source_id,
+                "predicate": "biolink:causes",
+                "object": target_id,
+                "subject_category": source_category,
+                "object_category": target_category,
+                "publications": publications if publications else None,
+                "supporting_text": supporting_text if supporting_text else None,
+                "primary_knowledge_source": KNOWLEDGE_SOURCE,
+                "knowledge_level": KnowledgeLevelEnum.knowledge_assertion,
+                "agent_type": AgentTypeEnum.manual_validation_of_automated_agent,
+            }
+            if source_category == target_category == "biolink:PhenotypicFeature":
+                association = PhenotypicFeatureToPhenotypicFeatureAssociation(
+                    disease_context_qualifier=disease_id, **fields
+                )
+            else:
+                association = Association(**fields)
+            yield EdgeWithEvidence(association, evidence, "phenotypes.sequelae")
 
 
 def iter_edges_with_evidence(record: dict[str, Any]) -> Iterator[EdgeWithEvidence]:
@@ -1503,6 +1984,43 @@ def iter_edges_with_evidence(record: dict[str, Any]) -> Iterator[EdgeWithEvidenc
         if edge:
             yield EdgeWithEvidence(edge, biochemical.get("evidence"), "biochemical")
 
+    # Extract differential diagnosis edges (#2100)
+    for differential in record.get("differential_diagnoses") or []:
+        edge = differential_diagnosis_to_edge(disease_id, differential)
+        if edge:
+            yield EdgeWithEvidence(edge, differential.get("evidence"), "differential_diagnoses")
+
+    # Extract diagnostic procedure edges (#2100)
+    for diagnosis in record.get("diagnosis") or []:
+        edge = diagnosis_to_edge(disease_id, diagnosis)
+        if edge:
+            yield EdgeWithEvidence(edge, diagnosis.get("evidence"), "diagnosis")
+
+    # Extract dataset edges (#2103)
+    for dataset in record.get("datasets") or []:
+        edge = dataset_to_edge(disease_id, dataset)
+        if edge:
+            yield EdgeWithEvidence(edge, dataset.get("evidence"), "datasets")
+
+    # Extract clinical trial edges and their target phenotypes (#2103)
+    for trial in record.get("clinical_trials") or []:
+        trial_id = clinical_trial_id(trial)
+        if not trial_id:
+            continue
+        trial_evidence = trial.get("evidence")
+        yield EdgeWithEvidence(
+            clinical_trial_to_edge(disease_id, trial_id, trial), trial_evidence, "clinical_trials"
+        )
+        for phenotype in trial.get("target_phenotypes") or []:
+            edge = clinical_trial_target_phenotype_to_edge(trial_id, phenotype, trial_evidence)
+            if edge:
+                yield EdgeWithEvidence(
+                    edge, trial_evidence, "clinical_trials.target_phenotypes"
+                )
+
+    # The causal graph: pathophysiology nodes, downstream and sequelae edges (#2101)
+    yield from pathophysiology_layer_edges(record)
+
 
 def transform(record: dict[str, Any]) -> Iterator[Association]:
     """
@@ -1606,8 +2124,9 @@ def koza_transform(koza_ctx: KozaTransform, record: dict[str, Any]) -> None:
     try:
         for statement in sepio_export.statements_for_edges(edges, disease_name):
             sepio_handle.write(sepio_export.dump_statement(statement) + "\n")
-        # Pathophysiology node and causal-edge assertions have no KGX edge, so
-        # they exist only in the SEPIO stream.
+        # Pathophysiology node and causal-edge statements carry hypothesis
+        # groups a KGX edge cannot, so they are built from the record; their ids
+        # match the mechanism-layer KGX edges written above.
         for statement in sepio_export.pathophysiology_statements(record):
             sepio_handle.write(sepio_export.dump_statement(statement) + "\n")
     finally:

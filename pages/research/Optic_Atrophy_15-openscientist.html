@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optic Atrophy 15 · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Optic Atrophy 15</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Optic Atrophy 15</h1>
+                
+                <p class="report-subtitle">Optic Atrophy 15 (OPA15): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-10-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0957935" target="_blank" rel="noopener noreferrer">MONDO:0957935</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">6 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Optic Atrophy 15 (OPA15): A Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Optic Atrophy 15 (OPA15)
+<strong>Causal gene:</strong> <strong>MCAT</strong> (malonyl-CoA–acyl carrier protein transacylase, mitochondrial)
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0957935" target="_blank" rel="noopener noreferrer">MONDO:0957935</a> · <strong>OMIM:</strong> #620583 · <strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:98676" target="_blank" rel="noopener noreferrer">ORPHA:98676</a> (autosomal recessive isolated optic atrophy)
+<strong>Synonyms:</strong> OPA15; MCAT-related optic neuropathy; MCAT-related nuclear LHON-like optic neuropathy; autosomal recessive optic neuropathy, MCAT-related
+<strong>Category:</strong> Mendelian (autosomal recessive)</p>
+<hr />
+<h2>Summary</h2>
+<p><strong>Optic Atrophy 15 (OPA15) is an ultra-rare autosomal recessive mitochondrial optic neuropathy caused by biallelic loss-of-function variants in the nuclear gene <em>MCAT</em></strong> (malonyl-CoA–acyl carrier protein transacylase), the enzyme that performs the second (malonyl-transfer) step of <strong>mitochondrial fatty-acid synthesis (mtFAS / type II FAS; EC 2.3.1.39)</strong>. It is one of a small group of nuclear genes — alongside <em>DNAJC30</em>, <em>NDUFS2</em>, <em>NDUFA12</em>, and <em>MECR</em> — that cause an <strong>autosomal recessive Leber-hereditary-optic-neuropathy-like (arLHON, OMIM 619382)</strong> phenotype that clinically mimics classic mtDNA-driven LHON. The gene is named explicitly here because the serial disease name "Optic Atrophy 15" does not by itself indicate the causal gene; the subject of this report is strictly the <strong>MCAT</strong>-driven disorder defined by <a href="http://purl.obolibrary.org/obo/MONDO_0957935" target="_blank" rel="noopener noreferrer">MONDO:0957935</a> / OMIM #620583, not the distinct gene-specific optic atrophies (e.g., OPA1, MECR/MEPAN).</p>
+<p>Mechanistically, reduced MCAT enzyme lowers mtFAS flux, which starves two downstream branches: (1) <strong>octanoyl-ACP → lipoic acid synthesis / protein lipoylation</strong> of key mitochondrial enzymes (PDH, OGDH, BCKDH, glycine cleavage system), and (2) <strong>long-chain acyl-ACP supply to the NFS1–ISD11(LYRM4)–ACP complex</strong> required for <strong>iron–sulfur (Fe-S) cluster biogenesis</strong> and for assembly/stability of the <strong>electron-transport-chain (ETC) complexes and supercomplexes</strong>. The net result is <strong>combined OXPHOS deficiency</strong>. Because <strong>retinal ganglion cells (RGCs)</strong> — especially the small-caliber fibers of the papillomacular bundle — are exquisitely dependent on efficient oxidative phosphorylation, they selectively degenerate, producing optic nerve atrophy and vision loss. Functional-rescue data point to the <strong>respiratory-chain assembly branch, not lipoylation, as the actionable driver</strong> of the optic phenotype.</p>
+<p>Clinically, OPA15 spans a spectrum: an <strong>insidious childhood optic atrophy</strong> (nystagmus, progressive bilateral vision loss, blindness within the first decade), an <strong>adult acute/subacute LHON-like central vision loss</strong>, and, in its most severe form, an <strong>infantile multisystem mitochondrial disease</strong> with hypotonia, failure to thrive, and abnormal brain MRI. Diagnosis is molecular (whole-exome/whole-genome sequencing or broad optic-atrophy nuclear gene panels after exclusion of primary mtDNA LHON and <em>OPA1</em>). There is <strong>no approved disease-specific therapy</strong>; management relies on empirical idebenone (by analogy to LHON), low-vision rehabilitation, avoidance of mitochondrial toxins, and genetic counseling. This report consolidates <strong>9 confirmed findings</strong> drawn from the three primary case reports (Li 2020, Gerber 2021, Webb 2023) and two mechanistic/review papers on arLHON and mtFAS.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — OPA15 is caused by biallelic <em>MCAT</em> variants that disrupt mitochondrial fatty-acid synthesis</h3>
+<p>OPA15 (OMIM #620583; <a href="http://purl.obolibrary.org/obo/MONDO_0957935" target="_blank" rel="noopener noreferrer">MONDO:0957935</a>) is an autosomal recessive optic neuropathy caused by homozygous or compound-heterozygous pathogenic variants in <strong>MCAT</strong> (malonyl-CoA–acyl carrier protein transacylase; OMIM 614479; <a href="https://bioregistry.io/HGNC:29622" target="_blank" rel="noopener noreferrer">HGNC:29622</a>; NCBI Gene 27349; Ensembl ENSG00000100294; UniProt Q8IVS2; chromosome <strong>22q13.2</strong>). The condition was first described by <strong>Li et al. 2020</strong> (<em>Hum Mol Genet</em> 29:444–458) in two Chinese siblings from a consanguineous family who carried <strong>double homozygous missense variants p.Leu81Arg (c.242T&gt;G) and p.Arg212Trp (c.634C&gt;T)</strong>. HEK293 expression studies showed that these variants produce <strong>structurally unstable MCAT with markedly reduced intracellular protein</strong>, establishing a loss-of-function mechanism. <strong>Gerber et al. 2021</strong> (<em>Genes</em> 12:521) subsequently reported a compound-heterozygous genotype — <strong>c.424-2A&gt;G (a canonical splice-acceptor variant causing exon-2 skipping) plus c.824G&gt;A (p.Glu275Lys)</strong>. MCAT catalyzes the second step of <strong>mitochondrial fatty-acid synthesis (mtFAS/FASII)</strong>, transferring the malonyl moiety from malonyl-CoA onto the mitochondrial acyl-carrier protein (NDUFAB1).</p>
+<blockquote>
+<p>Supporting quote — <a href="https://pubmed.ncbi.nlm.nih.gov/37071596/">PMID: 37071596</a>: <em>"biallelic mutations in the NDUFS2, DNAJC30, MCAT and NDUFA12 nuclear genes have been identified in unresolved LHON cases, identifying an autosomal recessive LHON (arLHON, <a href="https://bioregistry.io/OMIM:619382" target="_blank" rel="noopener noreferrer">OMIM:619382</a>)."</em> This confirms MCAT as one of the nuclear genes causing autosomal recessive LHON-like optic neuropathy.</p>
+</blockquote>
+<h3>Finding 2 — OPA15 presents along a spectrum from childhood insidious optic atrophy to adult acute LHON-like vision loss</h3>
+<p>Two principal presentations are documented, plus a severe syndromic form:</p>
+<ol>
+<li><strong>Childhood insidious form</strong> (Li 2020, <a href="https://pubmed.ncbi.nlm.nih.gov/31915829/">PMID: 31915829</a>): two siblings with gradual vision loss, <strong>nystagmus</strong>, and optic atrophy diagnosed at age 8; examination showed <strong>diffuse optic nerve pallor, attenuated disc capillaries, severely reduced retinal nerve fiber layer (RNFL) on OCT, and optic nerve thinning on brain MRI</strong>, progressing to blindness within the first decade.</li>
+<li><strong>Adult acute LHON-like form</strong> (Gerber 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/33918393/">PMID: 33918393</a>): a woman with sudden <strong>bilateral, asymmetric central vision loss at age 20</strong>, headaches, <strong>central scotoma</strong>, abnormal visual evoked potentials, and optic nerve signal abnormality on MRI; at 10-year follow-up she had a persistent central scotoma with preserved peripheral vision, <strong>photophobia, and blue-yellow dyschromatopsia</strong> with generalized optic nerve fiber reduction.</li>
+<li><strong>Severe multisystem form</strong> (Webb 2023, <a href="https://pubmed.ncbi.nlm.nih.gov/36881526/">PMID: 36881526</a>): expanded the phenotype to include <strong>hypotonia, failure to thrive, nystagmus, and abnormal brain MRI</strong>, with reduced complex I/II/IV subunits and decreased ETC activity.</li>
+</ol>
+<blockquote>
+<p>Supporting quote — <a href="https://pubmed.ncbi.nlm.nih.gov/37071596/">PMID: 37071596</a>: <em>"The clinical presentation of arLHON copies that of typical LHON due to mtDNA mutations (mtLHON), with an acute phase of sudden and severe vision loss, telangiectatic and tortuous vessels around the optic nerve and swelling of the retinal nerve fibre layer."</em></p>
+</blockquote>
+<p><strong>Suggested HPO terms:</strong> <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" rel="noopener noreferrer">HP:0000648</a> Optic atrophy; <a href="http://purl.obolibrary.org/obo/HP_0000543" target="_blank" rel="noopener noreferrer">HP:0000543</a> Optic disc pallor; <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a> Nystagmus; <a href="http://purl.obolibrary.org/obo/HP_0030532" target="_blank" rel="noopener noreferrer">HP:0030532</a> Central scotoma; <a href="http://purl.obolibrary.org/obo/HP_0000551" target="_blank" rel="noopener noreferrer">HP:0000551</a> Abnormality of color vision; <a href="http://purl.obolibrary.org/obo/HP_0000496" target="_blank" rel="noopener noreferrer">HP:0000496</a> Abnormal eye movement; <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" rel="noopener noreferrer">HP:0001290</a> Hypotonia (syndromic); <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a> Failure to thrive (syndromic); <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank" rel="noopener noreferrer">HP:0000007</a> Autosomal recessive inheritance.</p>
+<h3>Finding 3 — Mechanism: MCAT deficiency impairs mtFAS-dependent lipoylation and Fe-S/ETC supercomplex assembly in retinal ganglion cells</h3>
+<p>The causal chain runs: biallelic <em>MCAT</em> LoF variants → unstable, reduced MCAT protein (Li 2020) → reduced malonyl transfer from malonyl-CoA to mitochondrial ACP → <strong>decreased mtFAS flux</strong> (<a href="http://purl.obolibrary.org/obo/GO_0006633" target="_blank" rel="noopener noreferrer">GO:0006633</a> fatty-acid biosynthesis; EC 2.3.1.39). Lower acyl-ACP then starves two branches: (a) reduced octanoyl-ACP → <strong>impaired lipoic-acid synthesis and protein lipoylation</strong> of PDH, OGDH, BCKDH, and the glycine cleavage system; and (b) reduced long-chain acyl-ACP binding to the LYRM/ISD11 (LYRM4) factor → <strong>impaired Fe-S cluster biogenesis</strong> (NFS1–ISD11–ACP complex) and defective <strong>ETC complex/supercomplex assembly</strong>. <strong>Webb 2023</strong> demonstrated combined OXPHOS deficiency with reduced NDUFB8 (CI), COXII (CIV), and SDHB (CII) and decreased ETC enzyme activities in patient fibroblasts and lymphoblasts. Mitochondria-rich RGCs, which depend on efficient OXPHOS, degenerate, producing optic nerve atrophy and vision loss. <strong>Mouse evidence:</strong> RGC-specific <em>Mcat</em> knockdown attenuated the retinal nerve fiber layer, phenocopying the human optic neuropathy (Li 2020). Importantly, some MCAT patients lacked systemic lipoylation defects or lactic acidosis, implicating the <strong>Fe-S/supercomplex branch rather than lipoate deficiency</strong> as the RGC driver.</p>
+<blockquote>
+<p>Supporting quote — <a href="https://pubmed.ncbi.nlm.nih.gov/37734847/">PMID: 37734847</a>: <em>"reinforcing the impairment of mtFAS as novel pathogenic mechanism in LHON."</em></p>
+</blockquote>
+<p><strong>Suggested terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006633" target="_blank" rel="noopener noreferrer">GO:0006633</a> (fatty-acid biosynthesis), <a href="http://purl.obolibrary.org/obo/GO_0009249" target="_blank" rel="noopener noreferrer">GO:0009249</a> (protein lipoylation), <a href="http://purl.obolibrary.org/obo/GO_0016226" target="_blank" rel="noopener noreferrer">GO:0016226</a> (iron-sulfur cluster assembly), <a href="http://purl.obolibrary.org/obo/GO_0010257" target="_blank" rel="noopener noreferrer">GO:0010257</a> (NADH dehydrogenase complex assembly); <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" rel="noopener noreferrer">CL:0000740</a> retinal ganglion cell; <a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" rel="noopener noreferrer">UBERON:0000941</a> optic nerve; <a href="http://purl.obolibrary.org/obo/GO_0005759" target="_blank" rel="noopener noreferrer">GO:0005759</a> mitochondrial matrix.</p>
+<h3>Finding 4 — Epidemiology: ultra-rare, consanguinity-associated; the LHON-like subset shows male predominance and incomplete penetrance</h3>
+<p>OPA15 is ultra-rare, with only a handful of families reported worldwide: two Chinese consanguineous siblings (Li 2020), one French woman plus separate cases (Gerber 2021), and one proband with multisystem disease (Webb 2023). <strong>No prevalence or incidence estimates exist.</strong> Orphanet classifies MCAT under autosomal recessive isolated optic atrophy (<a href="https://bioregistry.io/ORPHA:98676" target="_blank" rel="noopener noreferrer">ORPHA:98676</a>). Inheritance is <strong>autosomal recessive (<a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank" rel="noopener noreferrer">HP:0000007</a>)</strong>; consanguinity contributed to the index family (homozygous L81R + R212W). As a recessive disease gene, <em>MCAT</em> is expected to have a low pLI (not haploinsufficient). As part of the broader arLHON group (DNAJC30, NDUFS2, NDUFA12, MCAT, MECR), the LHON-like presentations share classic LHON features — <strong>strong male predominance (~8.5:1 male:female across arLHON) and incomplete, sex-biased penetrance</strong> — although MCAT-specific sex and penetrance figures are not established given the few cases. <strong>No founder variant</strong> is described for MCAT, unlike <em>DNAJC30</em> p.Tyr51Cys in Eastern Europeans.</p>
+<blockquote>
+<p>Supporting quote — <a href="https://pubmed.ncbi.nlm.nih.gov/37071596/">PMID: 37071596</a>: <em>"As for mtLHON, arLHON predominantly affected male compared with female carriers."</em></p>
+</blockquote>
+<h3>Finding 5 — Treatment and prognosis: no approved therapy; empirical idebenone; supportive care</h3>
+<p>No disease-specific or approved therapy exists for OPA15. Management is extrapolated from LHON/arLHON. <strong>Idebenone</strong> (a short-chain benzoquinone antioxidant; approved as Raxone in the EU for LHON) bypasses complex I to restore ATP synthesis in RGCs. In the arLHON cohort, <strong>DNAJC30 patients showed high idebenone-responsive visual recovery (up to ~81%)</strong>, whereas the reported MCAT patient did not recover with corticosteroid boluses; <strong>MCAT-specific idebenone efficacy is not established</strong>. AAV gene-replacement therapies in clinical use (<strong>lenadogene nolparvovec, rAAV2/2-ND4; REFLECT trial</strong>) target the mitochondrial <em>MT-ND4</em> m.11778G&gt;A form and are <strong>NOT applicable</strong> to nuclear MCAT disease. Prognosis: the childhood-onset form (Li 2020) is severe and progressive, reaching blindness within the first decade; the adult LHON-like form (Gerber 2021) shows subacute severe central vision loss with persistent central scotoma. A key mechanistic insight for therapy comes from <strong>Webb 2023</strong>: the T271I MCAT variant <strong>rescued protein lipoylation but not respiration</strong> in MCAT-deficient C2C12 cells, indicating that the <strong>OXPHOS/respiration branch, not lipoylation, is the actionable disease driver</strong>.</p>
+<blockquote>
+<p>Supporting quote — <a href="https://pubmed.ncbi.nlm.nih.gov/37071596/">PMID: 37071596</a>: <em>"Idebenone treatment significantly improved vision recovery in DNAJC30-associated patients."</em></p>
+</blockquote>
+<p><strong>Suggested NCIT term:</strong> idebenone (therapeutic antioxidant / neuroprotective agent).</p>
+<h3>Finding 6 — Molecular identifiers, protein function, and model organisms</h3>
+<p><strong>Gene/protein:</strong> MCAT (malonyl-CoA–ACP transacylase, mitochondrial); <a href="https://bioregistry.io/HGNC:29622" target="_blank" rel="noopener noreferrer">HGNC:29622</a>; NCBI Gene 27349; Ensembl ENSG00000100294; UniProt Q8IVS2; EC 2.3.1.39; chr22q13.2. It catalyzes malonyl transfer from malonyl-CoA to mitochondrial ACP (NDUFAB1) — step 2 of mtFAS (type II FAS). <strong>Subcellular localization:</strong> mitochondrial matrix (<a href="http://purl.obolibrary.org/obo/GO_0005759" target="_blank" rel="noopener noreferrer">GO:0005759</a>). <strong>CHEBI entities:</strong> malonyl-CoA (<a href="http://purl.obolibrary.org/obo/CHEBI_15531" target="_blank" rel="noopener noreferrer">CHEBI:15531</a>), acyl carrier protein, octanoate/lipoic acid (<a href="http://purl.obolibrary.org/obo/CHEBI_30314" target="_blank" rel="noopener noreferrer">CHEBI:30314</a>). <strong>Pathogenic variants (all germline, recessive):</strong> missense p.Leu81Arg (c.242T&gt;G) and p.Arg212Trp (c.634C&gt;T) (Li 2020); splice c.424-2A&gt;G + missense p.Glu275Lys (c.824G&gt;A) (Gerber 2021); missense p.Thr271Ile plus a second allele (Webb 2023). The functional consequence is <strong>loss of function via protein destabilization / reduced expression</strong>, confirmed in HEK293 and C2C12 systems.</p>
+<p><strong>Model organisms:</strong> (1) Mouse <em>Mcat</em> (NCBI Gene 223722; <a href="https://bioregistry.io/MGI:2388651" target="_blank" rel="noopener noreferrer">MGI:2388651</a>; UniProt Q8R3F5) — RGC-specific knockdown attenuated the RNFL, recapitulating optic neuropathy (Li 2020, in vivo). (2) Cellular models — MCAT-deficient mouse C2C12 myoblasts rescued with WT vs mutant human MCAT to assay lipoylation and respiration (Webb 2023, in vitro), and HEK293 overexpression stability assays (Li 2020). (3) Broader mtFAS loss-of-function models (<em>Mcat</em>/<em>Mecr</em>) in mouse myoblasts show severe loss of ETC complexes. mtFAS/FASII is highly conserved from bacteria to humans, enabling yeast complementation studies.</p>
+<blockquote>
+<p>Supporting quote — <a href="https://pubmed.ncbi.nlm.nih.gov/37734847/">PMID: 37734847</a>: <em>"We modelled the candidate variant in yeast and studied mitochondrial dysfunction in yeast and fibroblasts."</em> This illustrates the yeast/fibroblast modeling approach used for mtFAS genes (here MECR, paralleling MCAT).</p>
+</blockquote>
+<h3>Finding 7 — Diagnostics: molecular diagnosis by WES/WGS or optic-atrophy gene panels after exclusion of mimics</h3>
+<p>OPA15 has <strong>no specific biochemical biomarker</strong>; diagnosis is molecular. The recommended workup for inherited optic neuropathy includes: history, best-corrected visual acuity, color-vision testing (dyschromatopsia, often blue-yellow in MCAT), fundus exam (optic disc pallor, attenuated disc capillaries), automated perimetry (central/cecocentral scotoma), <strong>OCT</strong> (peripapillary RNFL and macular ganglion-cell-layer thinning, global and temporal-predominant), and <strong>electrophysiology</strong> (abnormal VEP; reduced PERG N95 reflecting RGC dysfunction). <strong>Brain/orbit MRI</strong> shows optic nerve thinning/signal change and helps exclude compressive, demyelinating, toxic, nutritional, and metabolic mimics. <strong>Genetic strategy:</strong> first exclude primary mtDNA LHON variants (m.11778G&gt;A, m.14484T&gt;C, m.3460G&gt;A) and <em>OPA1</em>, then perform whole-exome/whole-genome sequencing or a broad optic-atrophy nuclear gene panel (MCAT is included among ~50 nuclear HON genes). Diagnostic yield of exome sequencing for nuclear hereditary optic neuropathy is ~31.5% (149/473) in a large 2024/2025 cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/39423307/">PMID: 39423307</a>); MCAT is a very rare cause — the "LHON-like optic atrophy" fundus category accounted for only ~3.64% of nuclear HON. Variant interpretation follows ACMG/AMP; reported MCAT alleles (missense and canonical splice) are classified pathogenic/likely pathogenic.</p>
+<p><strong>Differential diagnosis:</strong> mitochondrial LHON (MT-ND1/4/6), dominant optic atrophy (OPA1), WFS1/Wolfram, FDXR, ACO2, AFG3L2, NR2F1 (BBSOAS), MECR/MEPAN, toxic/nutritional optic neuropathy, optic neuritis, and compressive lesions.</p>
+<blockquote>
+<p>Supporting quote — <a href="https://pubmed.ncbi.nlm.nih.gov/37071596/">PMID: 37071596</a>: <em>"NDUFS2, DNAJC30, MCAT and NDUFA12 should be investigated in these individuals, knowing that other arLHON genes might exist."</em></p>
+</blockquote>
+<h3>Finding 8 — Anatomical and temporal profile: bilateral RGC–optic nerve degeneration; childhood-to-young-adult onset, chronic progressive</h3>
+<p><strong>Primary affected structures:</strong> retina and optic nerve of the central visual system. <strong>Cell type:</strong> retinal ganglion cells (<a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" rel="noopener noreferrer">CL:0000740</a>), with preferential loss of the <strong>papillomacular bundle</strong> (small-caliber fibers), as in other mitochondrial optic neuropathies. <strong>Tissue:</strong> retinal nerve fiber layer (<a href="http://purl.obolibrary.org/obo/UBERON_0001789" target="_blank" rel="noopener noreferrer">UBERON:0001789</a> retina; <a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" rel="noopener noreferrer">UBERON:0000941</a> optic nerve; <a href="http://purl.obolibrary.org/obo/UBERON_0004327" target="_blank" rel="noopener noreferrer">UBERON:0004327</a> retinal nerve fiber layer). <strong>Subcellular compartment:</strong> mitochondrion/mitochondrial matrix (<a href="http://purl.obolibrary.org/obo/GO_0005759" target="_blank" rel="noopener noreferrer">GO:0005759</a>). <strong>Secondary/syndromic involvement</strong> in the severe multisystem presentation (Webb 2023): CNS (abnormal brain MRI), skeletal muscle (hypotonia), and growth (failure to thrive), reflecting systemic combined OXPHOS deficiency. <strong>Lateralization:</strong> bilateral, may be asymmetric (Gerber 2021 patient worse in the left eye). <strong>Temporal profile:</strong> onset ranges from early childhood (Li 2020, diagnosed age 8, insidious/chronic progressive to blindness in the first decade) to young adulthood (Gerber 2021, acute/subacute at age 20, LHON-like); the multisystem form presents in infancy. The course is chronic and progressive with variable, usually poor, visual recovery; the LHON-like form shows an acute phase followed by a chronic atrophic phase. No remission/relapsing pattern is established.</p>
+<blockquote>
+<p>Supporting quote — <a href="https://pubmed.ncbi.nlm.nih.gov/37071596/">PMID: 37071596</a>: <em>"This is followed by a chronic phase of retinal nerve fibre layer loss, but eventually affected individuals recover partial or full visual acuity"</em> — describing the acute-then-chronic course of the LHON-like presentation.</p>
+</blockquote>
+<h3>Finding 9 — Etiology is purely genetic; prevention rests on toxin avoidance and genetic counseling</h3>
+<p>OPA15 is a <strong>monogenic (Mendelian, autosomal recessive)</strong> disorder caused solely by biallelic MCAT loss-of-function variants; there is no infectious, autoimmune, or primary environmental cause. <strong>No susceptibility loci, GWAS associations, modifier genes, or epigenetic mechanisms</strong> have been reported for MCAT disease (data not available). No environmental or lifestyle factors are proven. By analogy to LHON — where tobacco smoking and heavy alcohol are recognized precipitants/aggravators of RGC bioenergetic failure — avoidance of mitochondrial toxins and of drugs impairing oxidative phosphorylation is prudent, though unproven for MCAT (inferred, not demonstrated). The variable penetrance/expressivity of the broader arLHON group suggests gene–environment or gene–sex interactions as in LHON, but this is not established for MCAT specifically. <strong>Prevention:</strong> no primary prevention or vaccine applies; secondary/tertiary prevention equals early molecular diagnosis, ophthalmologic monitoring (OCT, perimetry), low-vision rehabilitation, and empirical neuroprotection (idebenone) in LHON-like cases. <strong>Genetic counseling:</strong> autosomal recessive 25% sibling recurrence risk; carrier testing of relatives/partners, cascade testing, and prenatal diagnosis or preimplantation genetic testing are appropriate for families with known biallelic MCAT variants — particularly relevant in consanguineous unions. No newborn or population carrier screening programs exist for this ultra-rare gene.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<h3>Ordered causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li><strong>Biallelic <em>MCAT</em> loss-of-function variants</strong> (missense destabilizing, or canonical splice) → <strong>reduced, structurally unstable MCAT protein</strong> (demonstrated in HEK293 and C2C12 — Li 2020, Webb 2023).</li>
+<li>Reduced MCAT <strong>leads to</strong> decreased malonyl transfer from malonyl-CoA to mitochondrial ACP (NDUFAB1) → <strong>decreased mitochondrial fatty-acid synthesis (mtFAS) flux</strong> (EC 2.3.1.39).</li>
+<li>Lower acyl-ACP pools <strong>result in</strong> a branch point:</li>
+<li><strong>Branch A (lipoylation):</strong> reduced octanoyl-ACP → impaired lipoic-acid synthesis → <strong>reduced protein lipoylation</strong> of PDH, OGDH, BCKDH, glycine cleavage system. <em>(Present biochemically but apparently NOT the primary optic driver — some patients lack systemic lipoylation/lactic-acidosis signs; T271I rescued lipoylation yet not respiration.)</em></li>
+<li><strong>Branch B (Fe-S / ETC assembly):</strong> reduced long-chain acyl-ACP binding to LYRM4(ISD11) → <strong>impaired Fe-S cluster biogenesis</strong> (NFS1–ISD11–ACP) → <strong>defective assembly/stability of ETC complexes and supercomplexes</strong>. <em>(Inferred to be the actionable driver.)</em></li>
+<li>Branch B <strong>leads to</strong> <strong>combined OXPHOS deficiency</strong> — reduced CI (NDUFB8), CII (SDHB), CIV (COXII) subunits and lowered ETC enzyme activities (demonstrated in patient fibroblasts/lymphoblasts — Webb 2023).</li>
+<li>OXPHOS deficiency <strong>results in</strong> bioenergetic failure selectively in <strong>mitochondria-rich retinal ganglion cells</strong>, preferentially the small-caliber papillomacular bundle fibers.</li>
+<li>RGC degeneration <strong>leads to</strong> <strong>retinal nerve fiber layer thinning and optic nerve atrophy</strong> (demonstrated on OCT/MRI; phenocopied by RGC-specific <em>Mcat</em> knockdown in mouse — Li 2020).</li>
+<li>This <strong>results in</strong> the clinical manifestation: <strong>bilateral progressive or acute central vision loss, optic disc pallor, dyschromatopsia, central scotoma</strong> — and, in severe infantile cases, systemic multisystem mitochondrial disease.</li>
+</ol>
+<pre><code> MCAT biallelic LoF
+│ (reduced/unstable protein)
+▼
+ ↓ malonyl transfer → ↓ mtFAS flux (acyl-ACP)
+│
+├────────────── Branch A ──────────────┐
+│  ↓ octanoyl-ACP → ↓ lipoic acid      │  (lipoylation defect —
+│  → ↓ protein lipoylation (PDH/OGDH)  │   NOT primary optic driver)
+│                                       │
+└────────────── Branch B ──────────────┘
+   ↓ long-chain acyl-ACP → LYRM4/ISD11
+   → ↓ Fe-S cluster biogenesis
+   → ↓ ETC complex/supercomplex assembly   ◄── ACTIONABLE DRIVER
+        │
+        ▼
+      Combined OXPHOS deficiency
+        │
+        ▼
+RGC bioenergetic failure (papillomacular bundle)
+        │
+        ▼
+RNFL thinning / optic nerve atrophy  →  vision loss
+</code></pre>
+<h3>Comparison of reported genotypes and phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Study</th>
+<th>PMID</th>
+<th>Genotype (MCAT)</th>
+<th>Variant type</th>
+<th>Phenotype</th>
+<th>Onset</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Li et al. 2020</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31915829/">31915829</a></td>
+<td>p.Leu81Arg (c.242T&gt;G) + p.Arg212Trp (c.634C&gt;T), homozygous (consanguineous)</td>
+<td>Missense (destabilizing)</td>
+<td>Insidious optic atrophy, nystagmus, blindness in 1st decade</td>
+<td>Childhood (~age 8)</td>
+</tr>
+<tr>
+<td>Gerber et al. 2021</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33918393/">33918393</a></td>
+<td>c.424-2A&gt;G (splice) + p.Glu275Lys (c.824G&gt;A)</td>
+<td>Splice + missense</td>
+<td>Acute/subacute LHON-like central vision loss, scotoma, dyschromatopsia</td>
+<td>Young adult (age 20)</td>
+</tr>
+<tr>
+<td>Webb et al. 2023</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36881526/">36881526</a></td>
+<td>p.Thr271Ile + second allele</td>
+<td>Missense</td>
+<td>Multisystem: hypotonia, failure to thrive, nystagmus, abnormal MRI; combined OXPHOS deficiency</td>
+<td>Infancy</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>MCAT within the arLHON gene group</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Gene</th>
+<th>Pathway role</th>
+<th>Idebenone response</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>MCAT</strong></td>
+<td>mtFAS step 2 (malonyl transfer)</td>
+<td>Not established (one patient no recovery)</td>
+<td>OXPHOS-assembly branch is driver</td>
+</tr>
+<tr>
+<td>MECR</td>
+<td>mtFAS (enoyl reductase)</td>
+<td>Not established</td>
+<td>Paralogous mtFAS mechanism</td>
+</tr>
+<tr>
+<td>DNAJC30</td>
+<td>Complex V assembly/turnover</td>
+<td>High (~81% recovery)</td>
+<td>Founder p.Tyr51Cys in Eastern Europe</td>
+</tr>
+<tr>
+<td>NDUFS2</td>
+<td>Complex I subunit</td>
+<td>Variable</td>
+<td>Core CI gene</td>
+</tr>
+<tr>
+<td>NDUFA12</td>
+<td>Complex I assembly</td>
+<td>Variable</td>
+<td>CI accessory factor</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title / focus</th>
+<th>Role in this report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31915829/">31915829</a></td>
+<td>Li et al. 2020, <em>Hum Mol Genet</em> — first OPA15/MCAT description</td>
+<td>Primary source: index consanguineous family, variants, protein-stability assay, mouse RGC knockdown</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33918393/">33918393</a></td>
+<td>Gerber et al. 2021, <em>Genes</em> — adult LHON-like MCAT case</td>
+<td>Primary source: compound-het splice+missense genotype, acute phenotype, 10-year follow-up</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36881526/">36881526</a></td>
+<td>Webb et al. 2023 — combined OXPHOS deficiency / MCAT</td>
+<td>Primary source: multisystem phenotype, combined OXPHOS deficiency, C2C12 rescue (lipoylation vs respiration)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37071596/">37071596</a></td>
+<td><em>Autosomal recessive LHON, a new neuro-ophthalmo-genetic paradigm</em></td>
+<td>Framework for arLHON: MCAT as an arLHON gene, clinical course, male predominance, idebenone, diagnostic approach</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37734847/">37734847</a></td>
+<td>Recessive mtFAS (MECR) optic neuropathy</td>
+<td>Supports mtFAS impairment as a shared pathogenic mechanism; yeast/fibroblast modeling approach</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39423307/">39423307</a></td>
+<td>Nuclear HON exome cohort (Brain 2024/2025)</td>
+<td>Diagnostic yield context (~31.5%); MCAT rarity within nuclear HON</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>How the evidence converges:</strong> The three primary case reports independently establish <em>MCAT</em> causality across distinct genotypes and ancestries, supporting genuine disease causation rather than chance association. The arLHON review (<a href="https://pubmed.ncbi.nlm.nih.gov/37071596/">PMID: 37071596</a>) situates MCAT within a coherent clinical and therapeutic framework, and the MECR mtFAS paper (<a href="https://pubmed.ncbi.nlm.nih.gov/37734847/">PMID: 37734847</a>) provides convergent mechanistic validation that disrupting mtFAS causes LHON-like optic neuropathy. The Webb 2023 C2C12 rescue experiment is the pivotal mechanistic result distinguishing the two downstream branches, redirecting therapeutic attention from lipoylation toward respiratory-chain assembly.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ul>
+<li><strong>Extreme rarity:</strong> Fewer than ~5 families/probands are reported worldwide. All clinical, penetrance, and prognostic statements rest on single-digit case numbers, so frequencies, severity distributions, and natural history are provisional.</li>
+<li><strong>No epidemiology:</strong> Prevalence, incidence, carrier frequency, and sex ratio specific to MCAT are unknown; male-predominance and penetrance figures are borrowed from the broader arLHON group.</li>
+<li><strong>MCAT-specific therapy data absent:</strong> Idebenone efficacy in MCAT disease is unproven; the one reported attempt (corticosteroids) failed. No clinical trials target nuclear mtFAS optic neuropathy.</li>
+<li><strong>Mechanistic branch resolution:</strong> While functional data favor the Fe-S/ETC-assembly branch as the driver, the precise contribution of lipoylation loss to the systemic/syndromic phenotype versus the isolated optic phenotype is not fully resolved.</li>
+<li><strong>Genotype–phenotype correlation:</strong> It remains unclear why some alleles yield isolated childhood optic atrophy, others adult LHON-like disease, and others infantile multisystem disease. Residual enzyme activity and modifier effects are plausible but untested.</li>
+<li><strong>No modifier genes, epigenetics, or environmental triggers</strong> have been formally studied; all such statements are inferred from LHON analogy.</li>
+<li><strong>No animal model fully recapitulates the human disease;</strong> available data are RGC-specific knockdown (mouse) and myoblast rescue (C2C12) rather than a constitutive or knock-in disease model.</li>
+</ul>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Build a knock-in mouse</strong> carrying a human pathogenic allele (e.g., p.Leu81Arg or a splice equivalent) to establish a constitutive, physiologically faithful OPA15 model and track RGC loss, OCT RNFL, and OXPHOS assembly over time.</li>
+<li><strong>Patient-derived iPSC-RGCs / retinal organoids</strong> from MCAT patients to quantify supercomplex assembly, Fe-S enzyme activity, and respiration, and to screen candidate neuroprotectants.</li>
+<li><strong>Targeted rescue experiments</strong> distinguishing the branches: selectively restore lipoylation (lipoate supplementation) vs respiratory assembly (e.g., AAV-MCAT, or supercomplex-stabilizing interventions) in patient cells to confirm which branch rescues the RGC phenotype.</li>
+<li><strong>AAV-MCAT gene replacement</strong> proof-of-concept in the mouse model — a rational nuclear-gene analogue to lenadogene nolparvovec, since mtDNA-targeted AAV therapies do not apply.</li>
+<li><strong>International registry / GeneMatcher recruitment</strong> to aggregate additional MCAT cases, enabling genotype–phenotype correlation, penetrance estimation, and natural-history definition.</li>
+<li><strong>Formal idebenone (and alternative electron carriers) evaluation</strong> in MCAT cases, given the ambiguous LHON-group evidence and the OXPHOS-centric mechanism.</li>
+<li><strong>Deep-phenotyping and gnomAD interrogation</strong> of MCAT variant frequencies to estimate carrier frequency and to refine ACMG classification of novel alleles.</li>
+</ol>
+<hr />
+<p><em>Evidence source types distinguished throughout: human clinical (Li 2020, Gerber 2021, Webb 2023; exome cohort <a href="https://pubmed.ncbi.nlm.nih.gov/39423307/" target="_blank" rel="noopener noreferrer">PMID 39423307</a>), review/synthesis (<a href="https://pubmed.ncbi.nlm.nih.gov/37071596/" target="_blank" rel="noopener noreferrer">PMID 37071596</a>), model organism / in vitro (mouse RGC knockdown, C2C12 and HEK293 assays, yeast complementation for the paralogous mtFAS gene MECR, <a href="https://pubmed.ncbi.nlm.nih.gov/37734847/" target="_blank" rel="noopener noreferrer">PMID 37734847</a>).</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Optic_Atrophy_15-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Optic_Atrophy_15-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.4.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>6</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0006633</code> (2 mentions) - the report calls it "fatty-acid biosynthesis"; GO calls it <strong>fatty acid biosynthetic process</strong>, and lists "fatty acid biosynthesis" among its other names</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>, <code>OMIM</code>, <code>MGI</code>.</p>
+<p>21 of 25 terms resolved to a current term; the rest could not be looked up either way.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Optic_Atrophy_14-falcon.html">← Optic Atrophy 14 (Falcon)</a>
+                
+                
+                <a href="Optic_Atrophy_3-perplexity.html">Optic Atrophy 3 (Perplexity) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Optic_Atrophy_15.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Optic_Atrophy_15-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

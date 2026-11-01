@@ -450,7 +450,22 @@ jobs:
           EOF
           )"
 
-          git push --force-with-lease origin "$BRANCH_NAME"
+          # A regen PR armed for auto-merge by an earlier run can be sitting in
+          # the merge queue when this run finishes, and GitHub refuses any
+          # update to a queued branch (GH006). That is a race between two of
+          # our own runs, not a defect: the queued PR already carries a recent
+          # build, and the next push to main or the daily schedule rebuilds
+          # whatever this run would have added. Skip with a warning instead of
+          # failing (two red runs on 2026-10-30, both while #16005 was queued).
+          if ! push_output="$(git push --force-with-lease origin "$BRANCH_NAME" 2>&1)"; then
+            echo "$push_output"
+            if grep -q "queued for merging" <<<"$push_output"; then
+              echo "::warning::$BRANCH_NAME is in the merge queue; skipping this run's update. The next page build will pick up anything it missed."
+              exit 0
+            fi
+            exit 1
+          fi
+          echo "$push_output"
 
           enable_auto_merge() {
             local pr_number="$1"

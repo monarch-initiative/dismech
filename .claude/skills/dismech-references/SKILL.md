@@ -83,9 +83,15 @@ disease:
 just preflight-dr research/My_Disease-deep-research-falcon.md MONDO:XXXXXXX
 ```
 
-It reads the local MONDO build and exits 2 when that is absent rather than
-downloading it (about 1.3 GB on disk); run `just fetch-ontology-dbs mondo` once
-first. `--no-hgnc` also keeps it off the HGNC build.
+It reads the local MONDO build when it is on disk and the same term from OLS
+otherwise, and says which in its `MONDO source` line; it never downloads the
+build (about 1.3 GB on disk). It exits 2 only when OLS is unreachable too, and
+that is not a verdict: retry, or run `just fetch-ontology-dbs mondo` once. Over
+OLS the rival-gene disease lookup cannot run, so a report that never names the
+canonical gene but cites the right OMIM number comes back `WARN`, not `FAIL`.
+Without the local HGNC build it skips the HGNC lexicon and alias lookups, as
+`--no-hgnc` does, rather than downloading it; `just fetch-ontology-dbs hgnc`
+gives the sharper gene lexicon.
 
 Interpret the result as follows:
 
@@ -96,11 +102,20 @@ Interpret the result as follows:
 - `SKIP`: the automated check cannot discriminate; manually check disease
   identity before proceeding.
 
-For a `WARN` or `SKIP`, inspect the intended MONDO record directly:
+For a `WARN` or `SKIP`, inspect the intended MONDO record directly. This reads
+it from OLS and downloads nothing:
 
 ```bash
-uv run runoak -i sqlite:obo:mondo info MONDO:XXXXXXX -O obo
+uv run python -c "from dismech.mondo_ols import fetch_mondo_term; print(fetch_mondo_term('MONDO:XXXXXXX'))"
 ```
+
+It prints the label, the `RO:0004003` gene(s) with their symbols, every xref
+(OMIM among them), exact synonyms, and obsolescence. For related and broad
+synonyms, open the term in the OLS browser
+(`https://www.ebi.ac.uk/ols4/ontologies/mondo`, search the MONDO ID). Only if
+you already have the local build, `uv run runoak -i sqlite:obo:mondo info
+MONDO:XXXXXXX -O obo` shows the same record; without the build that command
+downloads about 1.3 GB.
 
 Compare its causal-gene relationship (`RO:0004003`), OMIM xref, and synonyms
 with the report. Look specifically for synonym aliasing, eponymic collision,
@@ -238,9 +253,31 @@ every `=`. Neither checked, and it cost a curated entry — recovered only
 mid-review. A curator who believes a figure "cannot be quoted" paraphrases it
 into `explanation` prose or drops the claim, and nothing goes red.
 
-**Prefer ASCII in new snippets** — an invisible character in a quote is a trap
-for the next curator, and it buys nothing, since the source's typography folds
-anyway. Existing snippets that copied the source's thin spaces and en dashes
+**Greek letters verify in either spelling.** `greek_map` runs on both sides, so
+`α3β3` and `alpha3beta3` both normalize to `alpha3beta3`, `γ` to `gamma`, and
+`NF-κB` to `nf kappab`. Prefer copying the source's visible letter, so the quote
+reads as the source does (#9433). The ASCII spelling is an acceptable fallback,
+provided it keeps the source's spacing: `NF-kappa B` normalizes to
+`nf kappa b` and does not match.
+
+**Never truncate a quote to avoid a character.** A snippet that stops just
+before a Greek letter, `×`, or any other character it was cited for still
+verifies, and clears `check-snippet-length` once it has `MIN_SNIPPET_WORDS = 5`
+words, so the length gate is not a backstop. On #15493 two such fragments
+(`Leu335 lies close to the hydrophobic sleeve in the`, `Mutations in this region
+in the`) passed every gate and supported nothing (#15607). Quote through the
+character, or choose a different sentence.
+
+To test a candidate, call the real normalizer, not a re-implementation of it:
+
+```bash
+uv run python -c "from linkml_reference_validator.validation.supporting_text_validator import SupportingTextValidator as V; print(V.normalize_text('the α3β3 assembly'))"
+```
+
+**Prefer ASCII for invisible and lookalike characters** — an invisible character
+in a quote is a trap for the next curator, and it buys nothing, since the
+source's typography folds anyway. A visible Greek letter that is part of the
+nomenclature is not that case. Existing snippets that copied the source's thin spaces and en dashes
 verbatim are equally valid and need no repair; several hundred `kb/disorders`
 snippets do exactly that.
 
@@ -350,8 +387,10 @@ Copy it from there. `just check-reference-titles` gates new mismatches (offline,
 similarity-based, so punctuation, dashes, diacritics and source-XML markup do
 not trip it) and prints the cached title in the failure message, so the fix is a
 copy-paste. `just list-reference-title-mismatches` is the triage view;
-`scripts/find_missing_reference_titles.py` is the complementary check for
-*absent* titles.
+`just check-reference-titles-present` is the complementary gate for *absent*
+titles: every evidence item must carry one. Fill a gap with
+`uv run python scripts/backfill_reference_titles.py <file>`, which copies the
+cached title, rather than typing it.
 
 ## Frequency claims
 

@@ -191,17 +191,23 @@ at all gets no statement: SEPIO's `Statement.hasEvidenceLine` is `1..m`, and a
 statement with zero evidence lines would assert nothing that the KGX edge does
 not already say.
 
-**Plus two kinds of assertion that have no KGX edge at all:**
+**Plus the mechanism layer, built from the record rather than from a KGX edge:**
 
 1. **Pathophysiology node assertions** — *disease `has_pathophysiology` node*.
-   The KGX export has no edge for the node itself; it can only re-attach the
-   node's evidence to the node's ontology-bound children (cell types,
-   biological processes, …) as indirect supporting text. Those child statements
+   The KGX export also re-attaches the node's evidence to the node's
+   ontology-bound children (cell types, biological processes, …) as indirect
+   supporting text. Those child statements
    carry `evidence_inherited_from`, pointing at the id of the node statement
    that actually owns the evidence — which is what the KGX export flags with its
    `[INDIRECT EVIDENCE]` prefix, but resolvable.
-2. **Causal (`downstream`) edges between pathophysiology nodes**, which the KGX
-   export drops entirely.
+2. **Causal (`downstream`) edges between pathophysiology nodes.**
+
+Both now have KGX edges too (`biolink:disease_has_basis_in` and
+`biolink:causes`; see [KGX Export](kgx-export.md#the-causal-graph-2101)), which
+carry the same ids as these statements, so they join on `id` like any other.
+They are still built here rather than from the edge, because the statement
+carries the hypothesis groups and the dismech predicates. A `downstream`
+statement whose target resolves to nothing has no KGX edge.
 
 Because pathophysiology nodes are free-text mechanism names with no ontology
 term, they get a local identifier of the form
