@@ -319,3 +319,40 @@ def test_summary_marks_a_clashing_phenotype_once(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "Keratinocyte activation (phenotype): a phenotype" in out
     assert "(phenotype) (phenotype)" not in out
+
+
+def test_aop_key_events_run_from_mie_to_ao_with_their_roles_labelled(tmp_path, capsys):
+    """AOP-Wiki lists AOP 40's Events 826, 398, 272, 396, 827; its KERs run 396 first."""
+    _entry(tmp_path)
+    args = ["--data-dir", str(DATA_DIR), "--date", DATE, "--aop", "40",
+            "--entry", "Example_Dermatitis", "--root", str(tmp_path)]
+    crosswalk.main(args + ["--format", "json"])
+    result = json.loads(capsys.readouterr().out)
+    assert list(result["key_events"]) == ["396", "826", "398", "272", "827"]
+    assert result["key_events"]["396"]["roles"] == {"40": "mie"}
+    assert list(result["kers"]) == ["833", "377", "834", "379", "835"]
+
+    crosswalk.main(args)
+    headings = [line for line in capsys.readouterr().out.splitlines() if line.startswith("KE")]
+    assert headings[0].startswith("KE396 (MIE) Covalent Binding, Protein [")
+    assert headings[1].startswith("KE826 Activation, Keratinocytes [")
+    assert headings[-1].startswith("KE827 (AO) sensitisation, skin [")
+
+
+def test_an_event_with_different_roles_in_two_aops_names_each():
+    ke = {"roles": {"39": "mie", "40": "ke"}}
+    assert crosswalk.role_label(ke) == "MIE in AOP 39; KE in AOP 40"
+    assert crosswalk.role_label({"roles": {}}) == ""
+
+
+def test_sequence_falls_back_to_roles_then_listed_order_without_kers():
+    kes = {
+        "1": {"roles": {"9": "ao"}},
+        "2": {"roles": {"9": "ke"}},
+        "3": {"roles": {"9": "mie"}},
+        "4": {"roles": {}},
+    }
+    assert crosswalk.sequence(kes, {}) == ["3", "2", "4", "1"]
+    cycle = {"a": {"upstream": "2", "downstream": "4"}, "b": {"upstream": "4", "downstream": "2"}}
+    # 2 and 4 are upstream of each other, so they go after the rest, in listed order.
+    assert crosswalk.sequence(kes, cycle) == ["3", "1", "2", "4"]

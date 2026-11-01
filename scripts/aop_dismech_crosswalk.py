@@ -41,6 +41,10 @@ Automatically, from the Event's own record, strongest basis first:
 
 An entry phenotype matches when it binds an HP or MP id a component names.
 
+Key Events are reported upstream first, in an order consistent with the KERs
+among them, and each is labelled ``MIE`` or ``AO`` where the AOPs given with
+``--aop`` say so; the KERs follow the same order.
+
 With ``--rules FILE``, a Key Event listed in the file is matched by its rules
 instead (see ``conf/aop_crosswalk/parkinsonism.yaml`` for the format), and the
 automatic matching is not applied to it. Each match records the bases that
@@ -135,8 +139,13 @@ def _curie(term: dict) -> str | None:
     return f"{source}:{source_id}" if source else source_id
 
 
-def key_event(event: dict) -> dict:
-    """The parts of a cached Event the matching uses."""
+def key_event(event: dict, aop_ids: list[str] = ()) -> dict:
+    """The parts of a cached Event the matching uses, and its role in each AOP asked for.
+
+    ``roles`` maps each of ``aop_ids`` the Event belongs to onto AOP-Wiki's role
+    for it there (``mie``, ``ke`` or ``ao``). An Event's role is a property of
+    an AOP, not of the Event, so with no AOP asked for there is none.
+    """
     ids = set()
     for component in event.get("ecs") or []:
         for part in ("biological_process", "biological_object"):
@@ -150,7 +159,56 @@ def key_event(event: dict) -> dict:
         "term_ids": sorted(ids),
         "cell_label": ((event.get("cell_term") or {}).get("term") or "").lower() or None,
         "organ_label": ((event.get("organ_term") or {}).get("term") or "").lower() or None,
+        "roles": {
+            aop: (event.get("role_in_aop") or {})[aop]
+            for aop in aop_ids
+            if aop in (event.get("role_in_aop") or {})
+        },
     }
+
+
+ROLE_RANK = {"mie": 0, "ke": 1, "ao": 2}
+
+
+def _rank(ke: dict) -> int:
+    """MIE before an intermediate Event before AO; an Event with mixed roles ranks as KE."""
+    roles = set(ke["roles"].values())
+    return ROLE_RANK[roles.pop()] if len(roles) == 1 and roles <= ROLE_RANK.keys() else 1
+
+
+def sequence(key_events: dict[str, dict], kers: dict[str, dict]) -> list[str]:
+    """The Key Events upstream first: an order consistent with every KER among them.
+
+    Where the KERs leave a choice, MIEs come first and AOs last, then AOP-Wiki's
+    own order, which is the order the AOP lists its Events in and not a causal
+    one. Events on a cycle of KERs keep that order after the rest.
+    """
+    index = {ke: i for i, ke in enumerate(key_events)}
+    parents: dict[str, set[str]] = {ke: set() for ke in key_events}
+    for info in kers.values():
+        up, down = info["upstream"], info["downstream"]
+        if up in parents and down in parents and up != down:
+            parents[down].add(up)
+    order: list[str] = []
+    placed: set[str] = set()
+    while len(order) < len(key_events):
+        ready = [ke for ke in key_events if ke not in placed and parents[ke] <= placed]
+        if not ready:
+            ready = [ke for ke in key_events if ke not in placed]
+        nxt = min(ready, key=lambda ke: (_rank(key_events[ke]), index[ke]))
+        order.append(nxt)
+        placed.add(nxt)
+    return order
+
+
+def role_label(ke: dict) -> str:
+    """``MIE`` or ``AO``, with the AOPs named when the Event's role differs between them."""
+    roles = ke["roles"]
+    if not roles or set(roles.values()) == {"ke"}:
+        return ""
+    if len(set(roles.values())) == 1:
+        return next(iter(roles.values())).upper()
+    return "; ".join(f"{role.upper()} in AOP {aop}" for aop, role in roles.items())
 
 
 def select_key_events(
@@ -482,8 +540,10 @@ def render_summary(result: dict, out) -> None:
     for ke_id, ke in kes.items():
         present = [e for e in result["entries"] if e["key_events"][ke_id]]
         terms = ", ".join(ke["term_ids"]) or "none"
+        role = role_label(ke)
         print(
-            f"\nKE{ke_id} {ke['title']} [{ke['level']}; component terms: {terms}]"
+            f"\nKE{ke_id}{f' ({role})' if role else ''} {ke['title']}"
+            f" [{ke['level']}; component terms: {terms}]"
             f"  {len(present)}/{len(result['entries'])} entries",
             file=out,
         )
@@ -566,8 +626,15 @@ def main(argv: list[str] | None = None) -> int:
     kers_cache = load_cache(args.data_dir, args.date, "kers")
 
     chosen = select_key_events(events, aops, args.aop, ke_ids)
-    key_events = {ke: key_event(events[ke]) for ke in chosen}
+    key_events = {ke: key_event(events[ke], args.aop) for ke in chosen}
     kers = select_kers(kers_cache, aops, args.aop, chosen) if kers_cache is not None else {}
+    order = sequence(key_events, kers)
+    key_events = {ke: key_events[ke] for ke in order}
+    position = {ke: i for i, ke in enumerate(order)}
+    kers = dict(sorted(
+        kers.items(),
+        key=lambda kv: tuple(position.get(kv[1][end], len(order)) for end in ("upstream", "downstream")),
+    ))
     if args.root is None:
         args.root = repo_root()
     rules = {}
