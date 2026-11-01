@@ -314706,7 +314706,13 @@ window.searchData = [
       "Rural Living",
       "Head Trauma"
     ],
-    "biochemical": [],
+    "biochemical": [
+      "Urine bis(monoacylglycerol)phosphate (BMP) isoforms",
+      "Cerebrospinal fluid (CSF) amyloid-beta (A\u03b2)",
+      "Cerebrospinal fluid (CSF) ceramide isoforms",
+      "Cerebrospinal fluid (CSF) tau",
+      "Lysosomal lipid biomarkers"
+    ],
     "source_file": "Parkinsons_Disease.yaml",
     "page_url": "../pages/disorders/Parkinson's_Disease.html",
     "num_phenotypes": 19,
@@ -419756,7 +419762,7 @@ window.searchMetrics = {
   "total_disorder_pages": 3893,
   "total_subtypes": 4981,
   "total_disorders_and_subtypes": 8874,
-  "total_unique_evidence_sources": 57901,
+  "total_unique_evidence_sources": 57902,
   "total_unique_publications": 54185,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
