@@ -820,6 +820,30 @@ grouping-anchor-audit *args="":
 grouping-mondo-consistency *args="":
     uv run python scripts/grouping_mondo_consistency.py {{args}}
 
+# For each grouping with a MONDO mapping, fetch the mapped term's MONDO
+# descendant closure and report which descendants a dismech entry already
+# covers and which are curation gaps. By default only exactMatch mappings
+# drive gaps (an exact mapping says the two concepts are the same, so a
+# missing descendant is a real gap); --include-inexact also reports the
+# narrow/broad/related mappings as a diagnostic. Needs the ~588 MB local MONDO
+# build (`just fetch-ontology-dbs mondo`) -- this is the descendant-closure
+# direction grouping-mondo-consistency deliberately avoids. Report-only.
+[group('QC')]
+grouping-mondo-gaps *args="":
+    uv run python scripts/grouping_mondo_gaps.py {{args}}
+
+# Local, deterministic census of every disorder's MONDO anchoring: primary
+# disease_term state (missing/obsolete/label-drift via OAK), whether an
+# unanchored entry mentions MONDO elsewhere (promote vs. new-term candidate),
+# the mondo_mappings skos-predicate breakdown (narrow/broad granularity
+# mismatch, read subject to object with the dismech entry as the subject),
+# and shared primary anchors (the same MONDO id as >1 entry's disease_term --
+# see check-shared-disease-terms for the gate on that). Needs the local MONDO
+# OAK build. Report-only; --tsv also writes a machine-readable worklist.
+[group('QC')]
+mondo-anchor-audit *args="":
+    uv run python scripts/mondo_anchor_audit.py {{args}}
+
 # For every grouping with a HAS_MOLECULAR_FUNCTION criterion, check that each
 # member's causal genes carry an activity under the criterion's GO roots in
 # GO's own annotations (QuickGO) or in the gene's ai-gene-review core functions
