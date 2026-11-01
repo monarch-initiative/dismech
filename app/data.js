@@ -183630,7 +183630,8 @@ window.searchData = [
       "ATP2C1 Haploinsufficiency and Loss of Golgi SPCA1 Pump Activity",
       "Disturbed Keratinocyte Calcium Handling and the Epidermal Calcium Gradient",
       "Suprabasal Acantholysis Sparing the Adnexal Epithelia",
-      "Flexural Vesicles, Erosions and Vegetative Plaques"
+      "Flexural Vesicles, Erosions and Vegetative Plaques",
+      "Type 2 Cytokine Expression in Lesional Skin"
     ],
     "cell_types": [
       "keratinocyte"
@@ -183641,7 +183642,10 @@ window.searchData = [
     "biological_processes": [
       "intracellular calcium ion homeostasis",
       "desmosome organization",
-      "cell-cell adhesion"
+      "cell-cell adhesion",
+      "type 2 immune response",
+      "interleukin-4 production",
+      "interleukin-13 production"
     ],
     "phenotypes": [
       "Flexural Vesicles and Erosions",
@@ -183683,7 +183687,7 @@ window.searchData = [
     "source_file": "Hailey-Hailey_Disease.yaml",
     "page_url": "../pages/disorders/Hailey-Hailey_Disease.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 7,
     "causal_graph_edges": "3",
@@ -420539,12 +420543,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3900,
   "total_subtypes": 4983,
   "total_disorders_and_subtypes": 8883,
-  "total_unique_evidence_sources": 57990,
-  "total_unique_publications": 54265,
+  "total_unique_evidence_sources": 57995,
+  "total_unique_publications": 54267,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 3898,
-  "total_unique_pathological_events": 25574,
+  "total_unique_pathological_events": 25575,
   "total_modules": 226,
   "total_research_reports": 4012,
   "total_classifications": 21,
