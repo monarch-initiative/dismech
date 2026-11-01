@@ -1296,9 +1296,10 @@ window.searchData = [
     "findings": [],
     "num_findings": 0,
     "evidence_refs": [
-      "PMID:30439387"
+      "PMID:30439387",
+      "PMID:42797696"
     ],
-    "num_evidence": 1,
+    "num_evidence": 2,
     "notes": "Carries no mechanism link for the same reason as the SARA model: it integrates the per-key-event assay readouts into a hazard and potency prediction for the outcome, and this entry has no adverse-outcome node. Its inputs cover key events 1 to 3, so no single node corresponds to it either. Hazard accuracy is about 85 to 86 percent against local lymph node assay and human reference data, but the correct potency category is reached for only 59 to 68 percent of chemicals. The structural component rests on chemical structure and statistical association rather than on the molecular processes of sensitization.",
     "creation_date": "2026-03-13T18:40:33Z",
     "page_url": "../../pages/disorders/Contact_Dermatitis.html#computational-model-decision-tree-defined-approach-with-derek-nexus-and-a-k-nearest-neighbours-potency-model",
@@ -5171,6 +5172,48 @@ window.searchData = [
     "source_file": "kb/disorders/Contact_Dermatitis.yaml"
   },
   {
+    "model_key": "Contact_Dermatitis--computational-model-skin-sensitization-prediction-model-sspm--2",
+    "name": "Skin Sensitization Prediction Model (SSPM)",
+    "description": "An algorithm that compares a proposed cosmetic or personal-care formulation against a database of more than 20 years of human repeat insult patch test (HRIPT) results on 1274 product formulations and 1226 common ingredients, tested on 203,640 human subjects, to set per-ingredient and per-formulation risk thresholds from dosage density, occlusion potential, skin-barrier-impairment potential, and potential effects on immune-primed skin.",
+    "model_type": "Unclassified",
+    "model_type_raw": "",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:40953631",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Contact Dermatitis",
+    "disease_id": "MONDO:0005480",
+    "category": "Complex",
+    "parents": [
+      "Dermatological Disease",
+      "Inflammatory Disease"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [],
+    "num_mechanisms": 0,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:40953631"
+    ],
+    "num_evidence": 1,
+    "notes": "Carries no mechanism link for the same reason as the SARA model: it predicts a formulation-level sensitization risk call rather than measuring any single mechanism step, and this entry has no adverse-outcome node to attach that to; see the no_node_for_integrated_outcome_prediction discussion. It is a rule-based risk-threshold calculator over historical human test data rather than a trained statistical or machine-learning model, so no ComputationalModelTypeEnum value is a good fit and model_type is left unset. Its reference data is a separate, proprietary HRIPT database rather than the published HPPT database (PMID:37615678, in this entry's references catalog) that the other assay-validation records cite.",
+    "creation_date": "2026-03-13T18:40:33Z",
+    "page_url": "../../pages/disorders/Contact_Dermatitis.html#computational-model-skin-sensitization-prediction-model-sspm",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Contact_Dermatitis.yaml"
+  },
+  {
     "model_key": "Deregulated_Nutrient_Sensing_Module--computational-model-smith2010-foxo-post-translational-modification-model--2",
     "name": "Smith2010 FOXO Post-Translational Modification Model",
     "description": "Model of how FOXO transcription factors integrate multiple post-translational modifications made by ageing-related signalling pathways, so that competing inputs - insulin/PI3K-AKT, stress, and nutrient-sensing signals - are resolved into a single transcriptional output.",
@@ -6733,7 +6776,7 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 138,
+  "total_models": 139,
   "total_source_entries": 64,
   "total_model_types": 11,
   "total_runnable": 4,
