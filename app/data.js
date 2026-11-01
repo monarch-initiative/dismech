@@ -57701,7 +57701,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 7,
     "num_treatments": 7,
-    "causal_graph_edges": "13",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "3"
   },
   {
@@ -115461,6 +115461,8 @@ window.searchData = [
       "Inflammatory cell recruitment",
       "Hapten exposure",
       "Covalent hapten-protein adduct formation",
+      "Hapten-driven keratinocyte electrophile sensing",
+      "Keratinocyte inflammasome danger signalling",
       "Skin innate immune activation during sensitization",
       "Breakdown of regulatory T-cell-mediated hapten tolerance",
       "Allergen-specific T-cell priming",
@@ -115497,6 +115499,11 @@ window.searchData = [
     "biological_processes": [
       "keratinocyte activation",
       "inflammatory response",
+      "Keap1-Nrf2-ARE electrophile sensing",
+      "NLRP3 inflammasome complex assembly",
+      "NLRP3 inflammasome-mediated signalling",
+      "caspase-1-dependent IL-1beta maturation and release",
+      "caspase-1-dependent IL-18 maturation and release",
       "dendritic cell antigen processing and presentation",
       "T cell activation",
       "type IV hypersensitivity",
@@ -115555,11 +115562,11 @@ window.searchData = [
     "source_file": "Contact_Dermatitis.yaml",
     "page_url": "../pages/disorders/Contact_Dermatitis.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 14,
+    "num_pathophysiology": 16,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "39",
-    "causal_graph_longest_path": "9"
+    "causal_graph_edges": "43",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Contractures, Pterygia, and Spondylocarpotarsal Fusion Syndrome 1A",
@@ -121690,7 +121697,8 @@ window.searchData = [
       "Liver Enzymes",
       "Blood Glucose / HbA1c",
       "Sputum Microbiology",
-      "Forced Expiratory Volume in 1 Second (FEV1)"
+      "Forced Expiratory Volume in 1 Second (FEV1)",
+      "Blood DNA methylation epigenetic age acceleration"
     ],
     "source_file": "Cystic_Fibrosis.yaml",
     "page_url": "../pages/disorders/Cystic_Fibrosis.html",
@@ -121698,7 +121706,7 @@ window.searchData = [
     "num_pathophysiology": 29,
     "num_genes": 4,
     "num_treatments": 13,
-    "causal_graph_edges": "84",
+    "causal_graph_edges": "85",
     "causal_graph_longest_path": "12"
   },
   {
@@ -419983,12 +419991,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3895,
   "total_subtypes": 4983,
   "total_disorders_and_subtypes": 8878,
-  "total_unique_evidence_sources": 57925,
-  "total_unique_publications": 54206,
+  "total_unique_evidence_sources": 57929,
+  "total_unique_publications": 54209,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 3893,
-  "total_unique_pathological_events": 25540,
+  "total_unique_pathological_events": 25542,
   "total_modules": 226,
   "total_research_reports": 4007,
   "total_classifications": 21,
