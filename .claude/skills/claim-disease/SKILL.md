@@ -287,11 +287,47 @@ turns on. Enriching an issue body with a definition or an OMIM ID is not that.
 6. **File the claim issue.** This is the claim — file it *before* starting work,
    not after.
 
-7. **Report**: the issue URLs, and — explicitly — every candidate you skipped
-   with the reason. If you filed fewer than N, say so; do not pad the count.
+7. **Self-check the race — immediately after filing, before curating.** The
+   preflight in step 5 ran *before* you filed, so it cannot see a sibling that
+   filed in the same few seconds. Re-read the open claims for this MONDO now and
+   stand down if you are not the keeper:
 
-8. **Do we the work**: start curating the entries. Unless the user says to
-   hold off
+   ```bash
+   just claim-self-check <MONDO_ID> --self-issue <your claim number>
+   ```
+
+   It applies the same lowest-issue-number keeper rule as the creation-time
+   workflow guard, over the immediately-consistent list endpoint. Exit 0 means
+   your claim is the keeper — proceed. **Exit 3 means you lost the race**: a
+   lower-numbered open claim exists for the same MONDO (printed as `KEEPER=<n>`).
+   Do **not** curate. Close your own just-filed claim as a duplicate of the
+   keeper and stop this disease:
+
+   ```bash
+   gh issue close <your claim number> --repo monarch-initiative/dismech \
+     --reason "not planned" \
+     --comment "Stood down: lost the claim race for <MONDO_ID> to #<KEEPER> (lower issue number). Curation continues there."
+   ```
+
+   (Where there is no `gh`, use `mcp__github__issue_write` with
+   `state: "closed"`, `state_reason: "duplicate"`, `duplicate_of: <KEEPER>`.)
+
+   **Why this matters and why step 5 is not enough.** This is what actually stops
+   two sessions both curating one disease — and the colliding sessions are often
+   on *different Claude accounts*, so neither can see the other's session; the
+   only thing they share is GitHub state, which is exactly what this re-reads.
+   The workflow guard labels the loser for a human; this makes the losing session
+   stand down on its own, saving its whole curation spend. The pre-PR check in
+   "Re-check for a competitor before you open the PR" is the last backstop, but it
+   only fires once the work is already done. On a multi-disease run, a stood-down
+   disease is simply dropped from the run — report it in step 8 and move on.
+
+8. **Report**: the issue URLs, which candidates you skipped (with the reason),
+   and any you **stood down** on at step 7 (naming the keeper you lost to). If you
+   filed or are curating fewer than N, say so; do not pad the count.
+
+9. **Do the work**: start curating the entries you kept. Unless the user says to
+   hold off.
 
 ## Filing a claim
 

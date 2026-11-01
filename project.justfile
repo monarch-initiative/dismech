@@ -1074,6 +1074,15 @@ next-unclaimed count="5" claims=claims_file *args="":
 preflight-claim-conflict mondo *args="":
     uv run python scripts/preflight_claim_conflict.py {{mondo}} {{args}}
 
+# Run this immediately AFTER filing a claim issue, before curating (issue #16202).
+# It re-reads the open claims for this MONDO off the immediately-consistent list
+# endpoint and applies the lowest-issue-number keeper rule the workflow guard uses.
+# exit 0 = your claim is the keeper, proceed; exit 3 = you lost the race, stand
+# down and close your claim as a duplicate of the printed KEEPER; exit 2 = error.
+[group('Curation')]
+claim-self-check mondo *args="":
+    uv run python scripts/claim_self_check.py {{mondo}} {{args}}
+
 # Writes one snapshot to tmp/issues.json; --from tmp/issues.json re-sorts it.
 # Every excluded issue is counted under a reason code. Read-only.
 # Shortlist existing open issues of any kind (N picks, or --list)

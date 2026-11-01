@@ -26,6 +26,7 @@ def _load(path: Path, name: str):
 
 guard = _load(ROOT / ".github/scripts/claim_dedupe_guard.py", "claim_dedupe_guard")
 preflight = _load(ROOT / "scripts/preflight_claim_conflict.py", "preflight_claim_conflict")
+self_check = _load(ROOT / "scripts/claim_self_check.py", "claim_self_check")
 
 
 def test_mondo_of_extracts_the_id():
@@ -77,3 +78,20 @@ def test_already_flagged_reads_labels():
 )
 def test_preflight_has_mondo_is_exact(text, mondo, expected):
     assert preflight.has_mondo(text, mondo) is expected
+
+
+def test_self_check_keeper_is_lowest_number():
+    members = [{"number": 16263}, {"number": 16262}, {"number": 16300}]
+    assert self_check.keeper_number(members) == 16262
+
+
+def test_self_check_and_guard_agree_on_the_keeper():
+    # The session's self-check and the workflow guard apply the same rule; if they
+    # ever diverged, a session would stand down on a disease the guard then kept
+    # (or the reverse). Pin them to the same answer on the same group.
+    for members in (
+        [{"number": 16262}, {"number": 16263}],
+        [{"number": 16263}, {"number": 16262}],
+        [{"number": 9031}, {"number": 10413}, {"number": 9573}],
+    ):
+        assert self_check.keeper_number(members) == guard.keeper_and_duplicates(members)[0]
