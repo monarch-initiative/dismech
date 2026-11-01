@@ -121,6 +121,31 @@ def test_narrow_match_to_an_unshared_curie_still_retires_it(tmp_path, monkeypatc
     assert curated_mondo_ids().get(phase_curie) == "Hepatitis_C"
 
 
+def test_unshared_broad_match_never_retires_its_target(tmp_path, monkeypatch):
+    """broadMatch is a cross-reference and must never retire a concept (CLAUDE.md),
+    even when it is not the shared-anchor case this fix is otherwise about --
+    e.g. an entry recording broadMatch to some unrelated broader concept.
+    """
+    monkeypatch.chdir(tmp_path)
+    broader_curie = "MONDO:0700096"
+    _write(
+        tmp_path / "kb/disorders/Some_Disease.yaml",
+        {
+            "disease_term": {"term": {"id": "MONDO:0012345", "label": "some disease"}},
+            "mappings": {
+                "mondo_mappings": [
+                    {
+                        "term": {"id": broader_curie},
+                        "mapping_predicate": "skos:broadMatch",
+                    }
+                ]
+            },
+        },
+    )
+
+    assert broader_curie not in curated_mondo_ids()
+
+
 def test_has_subtypes_term_is_always_covered(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     sub_curie = "MONDO:0016862"

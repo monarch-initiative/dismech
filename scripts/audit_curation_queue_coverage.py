@@ -119,13 +119,6 @@ def fetch_open_curation_issues(token: str) -> list[dict]:
     return out
 
 
-#: The §3a/§3e parent-anchor predicate. ``skos:broadMatch`` is the canonical
-#: spelling (the narrower entry, as subject, records its broader parent as
-#: broadMatch); the legacy ``skos:narrowMatch`` spelling is also recognised on
-#: existing entries (dismech#10165, dismech#16243).
-_ANCHOR_PREDICATES = ("skos:broadMatch", "skos:narrowMatch")
-
-
 def _mondo_id(term: Any) -> str | None:
     if isinstance(term, dict):
         tid = term.get("id")
@@ -138,26 +131,31 @@ def curated_mondo_ids() -> dict[str, str]:
     """MONDO IDs that count as curated, mapped to the entry that curates them.
 
     Matches the coverage rule in CLAUDE.md: primary `disease_term`, `has_subtypes`
-    terms, and `mappings.mondo_mappings` whose predicate is exactMatch, or the
-    §3a/§3e parent-anchor predicate (broadMatch, or legacy narrowMatch). Other
-    mapping predicates are cross-references and do not retire a concept from
-    the queue.
+    terms, and `mappings.mondo_mappings` whose predicate is exactMatch or
+    (legacy) narrowMatch. `broadMatch` -- including as the canonical §3a/§3e
+    parent-anchor spelling -- is a cross-reference and never retires a concept
+    from the queue, matching the unchanged CLAUDE.md rule; only `exactMatch`
+    does that unconditionally, and legacy `narrowMatch` does it outside the
+    shared-anchor exception below.
 
     A `disease_term` shared by more than one entry is the §3a/§3e anchor
     pattern -- a promoted stratum with no MONDO class of its own anchors its
-    `disease_term` to its parent's. Marking that shared CURIE "curated" just
-    because a stratum anchors to it is the bug dismech#10165 and dismech#16243
-    describe: the stratum curates itself, not the broader parent disease. So a
-    shared `disease_term` only counts as curated when some entry in the group
-    *also* claims `skos:exactMatch` for it in `mondo_mappings` -- i.e. some
-    entry actually IS that class, not merely anchored to it. An unshared
-    `disease_term` (the overwhelming majority) is unaffected: it counts as
-    curated as before, with no exactMatch row required.
+    `disease_term` to its parent's (recording `broadMatch`, or the legacy
+    `narrowMatch`, to the same CURIE in `mondo_mappings`). Marking that shared
+    CURIE "curated" just because a stratum anchors to it is the bug
+    dismech#10165 and dismech#16243 describe: the stratum curates itself, not
+    the broader parent disease. So a shared `disease_term` only counts as
+    curated when some entry in the group *also* claims `skos:exactMatch` for
+    it -- i.e. some entry actually IS that class, not merely anchored to it.
+    The same exception applies to a legacy `narrowMatch` mapping row used the
+    same way. An unshared `disease_term` (the overwhelming majority) is
+    unaffected: it counts as curated as before, with no exactMatch row
+    required.
     """
     # Pass 1: collect raw facts per entry, cross-file, before deciding coverage.
     disease_term_holders: dict[str, list[str]] = defaultdict(list)
     exact_claimants: dict[str, list[str]] = defaultdict(list)
-    anchor_claimants: dict[str, list[str]] = defaultdict(list)
+    narrow_claimants: dict[str, list[str]] = defaultdict(list)
     subtype_covered: dict[str, str] = {}
 
     for path in sorted(glob.glob("kb/disorders/*.yaml")) + sorted(
@@ -192,8 +190,9 @@ def curated_mondo_ids() -> dict[str, str]:
                 continue
             if predicate == "skos:exactMatch":
                 exact_claimants[map_id].append(stem)
-            elif predicate in _ANCHOR_PREDICATES:
-                anchor_claimants[map_id].append(stem)
+            elif predicate == "skos:narrowMatch":
+                narrow_claimants[map_id].append(stem)
+            # skos:broadMatch (and closeMatch/relatedMatch) never retire here.
 
     # Pass 2: resolve coverage, applying the shared-anchor exception only
     # where a disease_term is actually shared.
@@ -213,7 +212,7 @@ def curated_mondo_ids() -> dict[str, str]:
             continue  # anchored-to, not curated-as; left open for the queue
         covered[curie] = min(stems)
 
-    for curie, stems in anchor_claimants.items():
+    for curie, stems in narrow_claimants.items():
         if curie in covered or _shared_without_exact_claim(curie):
             continue
         covered[curie] = min(stems)
