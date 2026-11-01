@@ -103249,6 +103249,129 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Combined Factor V and Factor VIII Deficiency",
+    "disease_id": "MONDO:0018175",
+    "category": "Mendelian",
+    "parents": [
+      "Rare bleeding disorder",
+      "Inherited blood coagulation disorder"
+    ],
+    "creation_date": "2026-10-31T18:30:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Type 1",
+      "Type 2"
+    ],
+    "description": "An autosomal recessive bleeding disorder in which plasma coagulation factor V and factor VIII are reduced together, usually to 5-30% of normal. It is not caused by variants in F5 or F8. Instead, biallelic loss-of-function variants in LMAN1 (ERGIC-53) or MCFD2 disrupt a two-subunit, calcium-dependent cargo receptor that carries both factors from the endoplasmic reticulum to the ER-Golgi intermediate compartment, so less of each is secreted.\nLMAN1 is a hexameric transmembrane mannose-binding lectin and MCFD2 a small soluble EF-hand protein. Missense variants in either gene act mainly by disrupting formation of the LMAN1-MCFD2 complex, and the two genetic types are clinically indistinguishable, so they are curated as subtypes of one entry with one pathograph. Patients with MCFD2 variants have on average somewhat lower factor levels than patients with LMAN1 variants, with wide overlap.\nBleeding is mild to moderate: excessive bleeding after trauma, surgery, dental extraction, circumcision or childbirth is the most common presentation, with epistaxis, gingival bleeding, bruising and menorrhagia as the common spontaneous symptoms. Hemarthrosis, gastrointestinal bleeding, hematuria and intracranial hemorrhage are uncommon. Screening shows prolongation of both the prothrombin time and the activated partial thromboplastin time.\nThere is no factor V concentrate, so treatment combines fresh frozen plasma (the only source of factor V) with factor VIII concentrate or desmopressin, plus antifibrinolytics, mostly on demand or around procedures.",
+    "pathophysiology": [
+      "Biallelic LMAN1 Loss-of-Function Variants",
+      "Biallelic MCFD2 Loss-of-Function Variants",
+      "LMAN1-MCFD2 Cargo Receptor Complex Disruption",
+      "Impaired ER-to-Golgi Export of Factor V and Factor VIII",
+      "Reduced Plasma Factor V and Factor VIII",
+      "Reduced Platelet Factor V",
+      "Hepatocyte ER Retention of Alpha-1-Antitrypsin"
+    ],
+    "cell_types": [
+      "hepatocyte, the site of factor V synthesis",
+      "endothelial cell, the site of factor VIII synthesis",
+      "hepatocyte",
+      "endothelial cell",
+      "platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000115",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "ER to Golgi transport of factor V and factor VIII",
+      "secretion of factor V and factor VIII",
+      "blood coagulation"
+    ],
+    "phenotypes": [
+      "Bleeding after surgery",
+      "Bleeding after trauma",
+      "Prolonged bleeding after dental extraction",
+      "Bleeding after circumcision",
+      "Epistaxis",
+      "Gingival bleeding",
+      "Easy bruising",
+      "Menorrhagia",
+      "Postpartum hemorrhage",
+      "Hemarthrosis",
+      "Gastrointestinal bleeding",
+      "Hematuria",
+      "Muscle hematoma",
+      "Intracranial hemorrhage",
+      "Prolonged prothrombin time",
+      "Prolonged activated partial thromboplastin time",
+      "Reduced factor V activity",
+      "Reduced factor VIII activity"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Neurological",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0004846",
+      "HP:0001934",
+      "HP:0006298",
+      "HP:0030137",
+      "HP:0000421",
+      "HP:0000225",
+      "HP:0000978",
+      "HP:0000132",
+      "HP:0011891",
+      "HP:0005261",
+      "HP:0002239",
+      "HP:0000790",
+      "HP:0012233",
+      "HP:0002170",
+      "HP:0008151",
+      "HP:0003645",
+      "HP:0003225",
+      "HP:0003125"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "LMAN1",
+      "MCFD2"
+    ],
+    "treatments": [
+      "Fresh frozen plasma",
+      "Factor VIII concentrate",
+      "Desmopressin",
+      "Antifibrinolytic therapy",
+      "Recombinant activated factor VII"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Combined_Factor_V_And_Factor_VIII_Deficiency.yaml",
+    "page_url": "../pages/disorders/Combined_Factor_V_and_Factor_VIII_Deficiency.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
+    "num_treatments": 5,
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Combined immunodeficiency due to CD3gamma deficiency",
     "disease_id": "MONDO:0014276",
     "category": "Mendelian",
@@ -113293,6 +113416,91 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "14",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "MYL1-Related Congenital Myopathy",
+    "disease_id": "MONDO:0034109",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-31T19:20:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Homozygous or compound-heterozygous loss-of-function variants in MYL1 (splice, nonsense, frameshift, deep-intronic splice-altering, or destabilizing missense) abolish or severely reduce production of the fast-skeletal myosin essential light chain, the structural light-chain component of fast-fiber myosin.",
+    "pathophysiology": [
+      "Biallelic MYL1 Loss of Function",
+      "Deficiency of Fast-Skeletal Myosin Essential Light Chain",
+      "Impaired Fast (Type 2) Fiber Myosin Function",
+      "Paucity and Atrophy of Type 2 Muscle Fibers",
+      "Congenital Skeletal Muscle Weakness"
+    ],
+    "cell_types": [
+      "fast muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000190"
+    ],
+    "biological_processes": [
+      "striated muscle myosin thick filament assembly",
+      "myofibril assembly",
+      "skeletal muscle fiber development",
+      "skeletal muscle contraction"
+    ],
+    "phenotypes": [
+      "Neonatal hypotonia",
+      "Generalized muscle weakness",
+      "Weakness of facial musculature",
+      "Respiratory insufficiency",
+      "Feeding difficulties",
+      "Decreased fetal movement",
+      "Polyhydramnios",
+      "Type 2 muscle fiber atrophy",
+      "Bone fracture",
+      "Death in infancy",
+      "Abnormal facial shape"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Histopathology"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001319",
+      "HP:0003324",
+      "HP:0030319",
+      "HP:0002747",
+      "HP:0011968",
+      "HP:0001558",
+      "HP:0001561",
+      "HP:0003554",
+      "HP:0020110",
+      "HP:0001999"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "MYL1"
+    ],
+    "treatments": [
+      "Supportive care (respiratory and nutritional support)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_Myopathy_With_Reduced_Type_2_Muscle_Fibers.yaml",
+    "page_url": "../pages/disorders/MYL1-Related_Congenital_Myopathy.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Congenital Nephrotic Syndrome, Finnish Type",
@@ -250934,14 +251142,15 @@ window.searchData = [
       "Postnatal neurodegeneration and brain atrophy"
     ],
     "cell_types": [
-      "neuron"
+      "neuron",
+      "oligodendrocyte"
     ],
     "cell_type_ids": [
-      "CL:0000540"
+      "CL:0000540",
+      "CL:0000128"
     ],
     "biological_processes": [
       "transcription by RNA polymerase II",
-      "regulation of gene expression",
       "myelination"
     ],
     "phenotypes": [
@@ -250950,12 +251159,17 @@ window.searchData = [
       "Spasticity",
       "Seizures",
       "Cerebral atrophy",
-      "Cerebellar atrophy"
+      "Cerebellar atrophy",
+      "Spastic tetraplegia",
+      "CNS hypomyelination",
+      "Abnormal pons morphology",
+      "Dysphagia"
     ],
     "phenotype_categories": [
       "Clinical"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
       "Head and Neck",
       "Musculoskeletal",
       "Nervous System"
@@ -250966,10 +251180,15 @@ window.searchData = [
       "HP:0001257",
       "HP:0001250",
       "HP:0002059",
-      "HP:0001272"
+      "HP:0001272",
+      "HP:0002510",
+      "HP:0003429",
+      "HP:0007361",
+      "HP:0002015"
     ],
     "frequencies": [
-      "VERY_FREQUENT"
+      "VERY_FREQUENT",
+      "FREQUENT"
     ],
     "genes": [
       "MED17 biallelic founder variant"
@@ -250982,11 +251201,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "MED17-Related_Disorder.yaml",
     "page_url": "../pages/disorders/MED17-Related_Disorder.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 10,
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "8",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "3"
   },
   {
@@ -326542,7 +326761,9 @@ window.searchData = [
       "Serotonergic antidepressant pharmacotherapy",
       "Ketamine"
     ],
-    "environmental": [],
+    "environmental": [
+      "Exposure to a traumatic event"
+    ],
     "biochemical": [],
     "source_file": "Post-Traumatic_Stress_Disorder.yaml",
     "page_url": "../pages/disorders/Post-Traumatic_Stress_Disorder.html",
@@ -326550,8 +326771,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "17",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Postcricoid Region Cancer",
@@ -329109,7 +329330,7 @@ window.searchData = [
     "num_pathophysiology": 24,
     "num_genes": 53,
     "num_treatments": 9,
-    "causal_graph_edges": "139",
+    "causal_graph_edges": "138",
     "causal_graph_longest_path": "8"
   },
   {
@@ -419759,17 +419980,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3893,
-  "total_subtypes": 4981,
-  "total_disorders_and_subtypes": 8874,
-  "total_unique_evidence_sources": 57902,
-  "total_unique_publications": 54185,
+  "total_disorder_pages": 3895,
+  "total_subtypes": 4983,
+  "total_disorders_and_subtypes": 8878,
+  "total_unique_evidence_sources": 57925,
+  "total_unique_publications": 54206,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3891,
-  "total_unique_pathological_events": 25528,
+  "total_pathographs": 3893,
+  "total_unique_pathological_events": 25540,
   "total_modules": 226,
-  "total_research_reports": 4004,
+  "total_research_reports": 4007,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
