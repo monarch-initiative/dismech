@@ -10,6 +10,10 @@ sorted in subfolders:
 - `phenopackets` for compact GA4GH phenopacket fixtures used in matching tests.
 - `ols` for trimmed OLS4 API responses used by the MONDO-via-OLS tests
   (`tests/test_mondo_ols.py`), cut down to the fields `dismech.mondo_ols` reads.
+- `aop_crosswalk` for an extract of the `aop-wiki-cli` 10-03-2026 cache (AOPs 3, 587,
+  588, 589, 593 and 40, with their Key Events and Key Event Relationships), laid out as an
+  `aop-wiki-cli` data directory and cut down to the fields
+  `scripts/aop_dismech_crosswalk.py` reads (`tests/test_aop_dismech_crosswalk.py`).
 
 The filenames of all example data must conform to the scheme `classname-###.yaml`
 where classname must be a the name of a class from the schema. "###" can be a number
