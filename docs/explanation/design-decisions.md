@@ -476,17 +476,15 @@ mapping predicates read subject to object with the dismech entry as the subject:
 `<entry> skos:narrowMatch <term>` asserts the mapped term is narrower (a child
 concept); `skos:broadMatch` asserts it is broader (a parent or class). A stratum
 anchoring to a broader parent is therefore `broadMatch`. This reading matches the
-majority of existing `kb/disorders` justification prose and the one case that
-already used it correctly (a MONDO phase-specific class recorded as `narrowMatch`
-on its general parent entry, since the phase class is the narrower one). It is the
-opposite of an earlier, internally-consistent-but-nonstandard convention some
-`kb/groupings` mappings and the §3a instruction itself used, under which the
-*entry* described its own narrower/broader relationship to the mapped term.
-`check_shared_disease_terms.py` and `check_granularity.py`'s shared-anchor checks
-accept `broadMatch` as the now-canonical spelling for this case while continuing to
-accept the legacy `narrowMatch` spelling on existing entries; migrating that legacy
-data (and the groupings using the same superseded reading) is tracked separately
-(dismech#10165, dismech#16243) rather than attempted as a bulk rewrite here.
+one case that already used it correctly (a MONDO phase-specific class recorded as
+`narrowMatch` on its general parent entry, since the phase class is the narrower
+one). It is the opposite of an earlier, internally-consistent-but-nonstandard
+convention some `kb/groupings` mappings and the §3a instruction itself used, under
+which the *entry* described its own narrower/broader relationship to the mapped
+term. `check_shared_disease_terms.py` and `check_granularity.py`'s shared-anchor
+checks accept `broadMatch` as the now-canonical spelling for this case while
+continuing to accept the legacy `narrowMatch` spelling on existing entries, so
+migrating the legacy data is not forced through as a bulk rewrite here.
 
 **Pointer subtypes are marked, not described.** *(Correction 1.)* The issue reported
 `Spotted_Fever_Rickettsiosis` as "modelled twice", because Rocky Mountain spotted fever

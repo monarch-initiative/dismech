@@ -151,6 +151,15 @@ def curated_mondo_ids() -> dict[str, str]:
     same way. An unshared `disease_term` (the overwhelming majority) is
     unaffected: it counts as curated as before, with no exactMatch row
     required.
+
+    The guard only fires once a CURIE is shared by *two or more* entries: a
+    lone stratum anchoring to a parent that has no other claimant yet (no
+    sibling stratum, no class entry) still retires that parent through this
+    same unshared-`disease_term` path. That is not new here -- the
+    pre-existing code always retired a plain `disease_term` unconditionally --
+    and closing it needs telling a genuine single-entry parent from a
+    single-stratum anchor, which this function cannot do without reading the
+    entry's own `mondo_mappings` row for that CURIE. Left to dismech#16250.
     """
     # Pass 1: collect raw facts per entry, cross-file, before deciding coverage.
     disease_term_holders: dict[str, list[str]] = defaultdict(list)

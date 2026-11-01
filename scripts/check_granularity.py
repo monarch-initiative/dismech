@@ -442,7 +442,7 @@ def lump_waiver_recorded(review_notes: object) -> bool:
 _ANCHOR_PREDICATES = frozenset({"skos:broadMatch", "skos:narrowMatch"})
 
 
-def _narrow_match_targets(doc: dict) -> set[str]:
+def _anchor_targets(doc: dict) -> set[str]:
     """MONDO CURIEs this entry anchors to via §3a/§3e (broadMatch, or legacy narrowMatch)."""
     mappings = doc.get("mappings")
     if not isinstance(mappings, dict):
@@ -569,7 +569,7 @@ def _assess_cross_entry(
     mondo_id = report.mondo_id
     if mondo_id:
         others = [s for s in index.by_term.get(mondo_id, []) if s != slug]
-        if others and mondo_id not in _narrow_match_targets(doc):
+        if others and mondo_id not in _anchor_targets(doc):
             report.findings.append(
                 Finding(
                     slug,
