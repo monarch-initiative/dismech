@@ -1331,9 +1331,12 @@ creating any new cancer/neoplasm entry. The short version:
   `has_subtypes` on the parent; promote to a separate entry only with ≥2
   stratum-specific pathophysiology nodes **and** a distinct first-line therapy
   or diagnostic pathway. A promoted stratum without its own MONDO term anchors
-  to the parent term with `mapping_predicate: skos:narrowMatch` in
+  to the parent term with `mapping_predicate: skos:broadMatch` in
   `mappings.mondo_mappings` (never bare parent-term reuse), records overlap
-  with non-disjoint sibling strata, and is covered by a `Grouping`.
+  with non-disjoint sibling strata, and is covered by a `Grouping`. SKOS
+  predicates read subject to object with the entry as the subject, so the
+  stratum records its broader parent as `broadMatch`, not `narrowMatch` — see
+  *Shared `disease_term` anchors read subject to object* below.
 - **Variant tiers** (exon 19 del vs L858R) are `has_subtypes` inside the
   stratum entry — unless therapy is variant-specific (KRAS G12C).
 - **Stage is never an entry.** Metastatic/advanced disease is `stages:` on the
@@ -2478,13 +2481,18 @@ For MONDO coverage and epic-checklist synchronization, an entry's primary
 `relatedMatch` are cross-references and must not retire the mapped concept from
 the curation queue.
 
-**Two disorder entries may share a `disease_term` only if both say how.** Each
-records that CURIE in `mappings.mondo_mappings` as `skos:exactMatch` (at most
-one entry: the one that is the class) or `skos:narrowMatch` (a narrower entry,
-such as a promoted cancer stratum under design decisions §3a). If your new entry
-lands on a term another entry already holds and is not narrower than it, it is
-probably a duplicate. `just check-shared-disease-terms` gates this (in `just qc`,
-ungated in CI) and `just list-shared-disease-terms` is the worklist for the
+**Shared `disease_term` anchors read subject to object.** Two disorder entries
+may share a `disease_term` only if both say how. Each records that CURIE in
+`mappings.mondo_mappings` as `skos:exactMatch` (at most one entry: the one that
+is the class) or `skos:broadMatch` (a narrower entry anchoring to its broader
+parent, such as a promoted cancer stratum under design decisions §3a — the
+stratum is the subject, so the parent it maps to is `broadMatch`, not
+`narrowMatch`). If your new entry lands on a term another entry already holds
+and is not narrower than it, it is probably a duplicate.
+`just check-shared-disease-terms` gates this (in `just qc`, ungated in CI) and
+accepts the legacy `skos:narrowMatch` spelling on existing entries while that
+backlog is migrated (dismech#10165, dismech#16243); write `broadMatch` in new
+curation. `just list-shared-disease-terms` is the worklist for the
 grandfathered groups (#10113). See `docs/quality-control.md`.
 
 ### Coarse Phenotype Bindings Must Say Why

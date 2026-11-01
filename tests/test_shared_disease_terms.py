@@ -1,10 +1,14 @@
 """Two disorder entries may share a ``disease_term`` only if both say how (#10113).
 
 Design decisions §3a lets a promoted cancer stratum anchor to its parent's MONDO
-term with ``skos:narrowMatch`` recorded in ``mappings.mondo_mappings``. These
-tests pin the rule that states it: every entry in a shared group records
-exactMatch or narrowMatch for the term, and at most one says exactMatch. A
-group with no exactMatch is legal, and a missing row never counts as one.
+term with ``skos:broadMatch`` recorded in ``mappings.mondo_mappings`` (SKOS
+predicates read subject to object, so the narrower stratum records its broader
+parent as ``broadMatch``). These tests pin the rule that states it: every entry
+in a shared group records exactMatch or broadMatch for the term, and at most
+one says exactMatch. A group with no exactMatch is legal, and a missing row
+never counts as one. The legacy ``skos:narrowMatch`` spelling -- written under
+an earlier, internally consistent but non-standard reading of the predicate --
+is also accepted while that backlog migrates (dismech#10165, dismech#16243).
 """
 
 import subprocess
@@ -44,8 +48,31 @@ def test_unshared_term_needs_no_mapping():
     assert _kinds({"a.yaml": _entry()}) == []
 
 
-def test_parent_exact_and_strata_narrow_is_clean():
-    """The Cutaneous_Melanoma / BRAF_V600_Mutant_Melanoma pattern."""
+def test_parent_exact_and_strata_broad_is_clean():
+    """The canonical pattern: a stratum records its broader parent as broadMatch."""
+    docs = {
+        "parent.yaml": _entry("skos:exactMatch"),
+        "s1.yaml": _entry("skos:broadMatch"),
+        "s2.yaml": _entry("skos:broadMatch"),
+    }
+    assert _kinds(docs) == []
+
+
+def test_all_broad_with_no_parent_entry_is_clean():
+    """No parent entry yet (the lung adenocarcinoma strata): legal."""
+    docs = {
+        "s1.yaml": _entry("skos:broadMatch"),
+        "s2.yaml": _entry("skos:broadMatch"),
+    }
+    assert _kinds(docs) == []
+
+
+def test_parent_exact_and_strata_legacy_narrow_is_clean():
+    """The legacy Cutaneous_Melanoma / BRAF_V600_Mutant_Melanoma spelling.
+
+    ``skos:narrowMatch`` is still accepted on existing entries (dismech#10165,
+    dismech#16243) even though new curation should write ``broadMatch``.
+    """
     docs = {
         "parent.yaml": _entry("skos:exactMatch"),
         "s1.yaml": _entry("skos:narrowMatch"),
@@ -54,8 +81,7 @@ def test_parent_exact_and_strata_narrow_is_clean():
     assert _kinds(docs) == []
 
 
-def test_all_narrow_with_no_parent_entry_is_clean():
-    """No parent entry yet (the lung adenocarcinoma strata): legal."""
+def test_all_legacy_narrow_with_no_parent_entry_is_clean():
     docs = {
         "s1.yaml": _entry("skos:narrowMatch"),
         "s2.yaml": _entry("skos:narrowMatch"),
@@ -87,7 +113,7 @@ def test_two_exact_claims_are_both_reported():
 
 @pytest.mark.parametrize(
     "predicate",
-    ["skos:closeMatch", "skos:broadMatch", "skos:narrowmatch", "narrowMatch", ""],
+    ["skos:closeMatch", "skos:relatedMatch", "skos:narrowmatch", "narrowMatch", ""],
 )
 def test_other_predicates_and_misspellings_are_rejected(predicate):
     docs = {"a.yaml": _entry("skos:exactMatch"), "b.yaml": _entry(predicate)}
