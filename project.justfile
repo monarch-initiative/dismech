@@ -2002,6 +2002,24 @@ list-gene-term-mismatches *files:
 list-gene-term-mismatches-online *files:
     uv run python scripts/check_gene_term_identity.py --resolve "$@"
 
+# Report ClinGen gene-disease validity rows whose gene is not the causal gene
+# MONDO records for the row's disease class (#12941). The worked case pairs
+# COQ6 with MONDO:0014754, which MONDO defines by COQ7: a quotable CGGV: row
+# that passes every gate. Reads MONDO's RO:0004003 axioms from OLS, cached in
+# the gitignored tmp/clingen_mondo_genes.json, so this offline recipe has no
+# opinion until the -online one has run once. Disputed/Refuted rows are
+# counted separately (ClinGen often curates a gene AGAINST another gene's
+# disease on purpose). REPORT-ONLY: exits 0; `--strict` exits 1 on mismatches.
+[group('QC')]
+list-clingen-mondo-gene-mismatches *args:
+    uv run python scripts/list_clingen_mondo_gene_mismatches.py "$@"
+
+# Same, fetching every MONDO class not yet cached from OLS (~2,000 classes,
+# a few minutes on a cold cache). Needs network; not for CI.
+[group('QC')]
+list-clingen-mondo-gene-mismatches-online *args:
+    uv run python scripts/list_clingen_mondo_gene_mismatches.py --resolve "$@"
+
 # Adjudicate free-text claims that a *cited source* is defective (#9226) --
 # "the cached abstract is truncated", "that record has no abstract", "the
 # abstract does not mention X". Every other gate here checks a SNIPPET against
