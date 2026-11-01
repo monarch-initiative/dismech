@@ -200,7 +200,7 @@ def curated_mondo_ids() -> dict[str, str]:
     covered: dict[str, str] = dict(subtype_covered)
 
     for curie, stems in exact_claimants.items():
-        covered.setdefault(curie, sorted(stems)[0])
+        covered.setdefault(curie, min(stems))
 
     def _shared_without_exact_claim(curie: str) -> bool:
         holders = disease_term_holders.get(curie, [])
@@ -211,12 +211,12 @@ def curated_mondo_ids() -> dict[str, str]:
             continue
         if _shared_without_exact_claim(curie):
             continue  # anchored-to, not curated-as; left open for the queue
-        covered[curie] = sorted(stems)[0]
+        covered[curie] = min(stems)
 
     for curie, stems in anchor_claimants.items():
         if curie in covered or _shared_without_exact_claim(curie):
             continue
-        covered[curie] = sorted(stems)[0]
+        covered[curie] = min(stems)
 
     return covered
 
