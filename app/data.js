@@ -57701,7 +57701,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 7,
     "num_treatments": 7,
-    "causal_graph_edges": "13",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "3"
   },
   {
@@ -121690,7 +121690,8 @@ window.searchData = [
       "Liver Enzymes",
       "Blood Glucose / HbA1c",
       "Sputum Microbiology",
-      "Forced Expiratory Volume in 1 Second (FEV1)"
+      "Forced Expiratory Volume in 1 Second (FEV1)",
+      "Blood DNA methylation epigenetic age acceleration"
     ],
     "source_file": "Cystic_Fibrosis.yaml",
     "page_url": "../pages/disorders/Cystic_Fibrosis.html",
@@ -121698,7 +121699,7 @@ window.searchData = [
     "num_pathophysiology": 29,
     "num_genes": 4,
     "num_treatments": 13,
-    "causal_graph_edges": "84",
+    "causal_graph_edges": "85",
     "causal_graph_longest_path": "12"
   },
   {
@@ -419983,8 +419984,8 @@ window.searchMetrics = {
   "total_disorder_pages": 3895,
   "total_subtypes": 4983,
   "total_disorders_and_subtypes": 8878,
-  "total_unique_evidence_sources": 57925,
-  "total_unique_publications": 54206,
+  "total_unique_evidence_sources": 57928,
+  "total_unique_publications": 54208,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 3893,
