@@ -173763,13 +173763,16 @@ window.searchData = [
       "GABRG2",
       "STX1B",
       "SCN9A",
-      "GABRD"
+      "GABRD",
+      "GEFS+10 (HCN1)",
+      "GEFS+12 (SLC32A1)"
     ],
-    "description": "Generalized (genetic) epilepsy with febrile seizures plus (GEFS+) is a familial epilepsy syndrome with a marked autosomal dominant hereditary tendency, incomplete penetrance, and striking intrafamilial phenotypic variability. The defining feature is \"febrile seizures plus\" (FS+): febrile seizures that persist beyond the usual age of ~6 years and/or are accompanied by afebrile generalized tonic-clonic seizures. The phenotypic spectrum ranges from simple febrile seizures and FS+ at the mild end, through afebrile generalized seizures (absence, myoclonic, atonic) and focal seizures, to severe developmental and epileptic encephalopathies such as myoclonic-atonic epilepsy and Dravet syndrome (the severe end of the SCN1A spectrum) at the severe end. GEFS+ is mechanistically a channelopathy/synaptopathy: pathogenic variants in voltage-gated sodium channel genes (SCN1A, SCN1B, SCN9A), GABA-A receptor subunit genes (GABRG2, GABRD), and synaptic-release machinery (STX1B) converge on impaired inhibitory neurotransmission and neuronal network hyperexcitability.",
+    "description": "Generalized (genetic) epilepsy with febrile seizures plus (GEFS+) is a familial epilepsy syndrome with a marked autosomal dominant hereditary tendency, incomplete penetrance, and striking intrafamilial phenotypic variability. The defining feature is \"febrile seizures plus\" (FS+): febrile seizures that persist beyond the usual age of ~6 years and/or are accompanied by afebrile generalized tonic-clonic seizures. The phenotypic spectrum ranges from simple febrile seizures and FS+ at the mild end, through afebrile generalized seizures (absence, myoclonic, atonic) and focal seizures, to severe developmental and epileptic encephalopathies such as myoclonic-atonic epilepsy and Dravet syndrome (the severe end of the SCN1A spectrum) at the severe end. GEFS+ is mechanistically a channelopathy/synaptopathy: pathogenic variants in voltage-gated sodium channel genes (SCN1A, SCN1B), the HCN1 Ih channel, GABA-A receptor subunit genes (GABRG2, GABRD), the vesicular GABA transporter SLC32A1, and synaptic-release machinery (STX1B) converge on impaired inhibitory neurotransmission and neuronal network hyperexcitability.",
     "pathophysiology": [
       "Voltage-gated sodium channel dysfunction",
       "Impaired GABAergic inhibition",
       "Synaptic vesicle exocytosis dysfunction",
+      "Altered HCN1 Ih current",
       "Network hyperexcitability and seizures"
     ],
     "cell_types": [
@@ -173787,6 +173790,8 @@ window.searchData = [
       "GABA signaling pathway",
       "Chloride transmembrane transport",
       "Synaptic vesicle exocytosis",
+      "regulation of membrane potential",
+      "cation transmembrane transport",
       "Action potential"
     ],
     "phenotypes": [
@@ -173821,7 +173826,9 @@ window.searchData = [
       "GABRG2",
       "STX1B",
       "SCN9A",
-      "GABRD"
+      "GABRD",
+      "HCN1",
+      "SLC32A1"
     ],
     "treatments": [
       "Anti-seizure medication (broad-spectrum)",
@@ -173835,10 +173842,10 @@ window.searchData = [
     "source_file": "Generalized_Epilepsy_with_Febrile_Seizures_Plus.yaml",
     "page_url": "../pages/disorders/Generalized_Epilepsy_with_Febrile_Seizures_Plus.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 4,
-    "num_genes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 8,
     "num_treatments": 5,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "19",
     "causal_graph_longest_path": "4"
   },
   {
@@ -308591,6 +308598,84 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "PDE6G-Related Retinopathy",
+    "disease_id": "MONDO:1040034",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-10-30T23:00:32Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "PDE6G-related retinopathy (retinitis pigmentosa 57) is a very rare autosomal recessive, severe early-onset retinitis pigmentosa caused by biallelic loss-of-function variants in PDE6G, which encodes the inhibitory gamma subunit of rod cGMP phosphodiesterase 6 (PDE6). Rod PDE6 is a heterotetramer of one alpha (PDE6A) and one beta (PDE6B) catalytic subunit and two gamma subunits. Although the gamma subunit restrains the catalytic core in the dark, its complete absence does not leave PDE6 constitutively active: in knockout mice the catalytic dimer lacks hydrolytic activity, retinal cGMP rises, and rods degenerate within the first weeks of life, followed by cones. Affected people reported to date have extinguished or severely reduced rod and cone electroretinograms in early childhood, markedly constricted visual fields, bone-spicule pigmentation and cystoid macular edema, with relatively preserved central acuity in childhood. Few affected individuals have been described in the literature; the founder splice-donor variant c.187+1G>T in one extended consanguineous Muslim Arab Israeli family is the best characterized allele. There is no disease-specific treatment.",
+    "pathophysiology": [
+      "PDE6G Loss of Function",
+      "Loss of Rod PDE6 Holoenzyme Catalytic Activity",
+      "Rod Outer-Segment cGMP Accumulation",
+      "Early-Onset Rod Photoreceptor Degeneration",
+      "Secondary Cone Degeneration and Retinal Remodeling"
+    ],
+    "cell_types": [
+      "retinal rod cell",
+      "retinal cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000604",
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "photoreceptor cell outer segment organization"
+    ],
+    "phenotypes": [
+      "Rod-cone dystrophy",
+      "Undetectable electroretinogram",
+      "Constriction of peripheral visual field",
+      "Spicular pigmentation of the retina",
+      "Attenuation of retinal blood vessels",
+      "Optic disc pallor",
+      "Cystoid macular edema",
+      "Absent foveal reflex"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000510",
+      "HP:0000550",
+      "HP:0001133",
+      "HP:0007737",
+      "HP:0007843",
+      "HP:0000543",
+      "HP:0011505",
+      "HP:0030825"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PDE6G"
+    ],
+    "treatments": [
+      "Avoidance of PDE5 Inhibitors (Counseling Caution)",
+      "Genetic counseling and carrier testing",
+      "Carbonic anhydrase inhibition for cystoid macular edema"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "PDE6G-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/PDE6G-Related_Retinopathy.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "ZNHIT3-Related PEHO Syndrome",
     "disease_id": "MONDO:0009841",
     "category": "Mendelian",
@@ -420653,17 +420738,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3901,
-  "total_subtypes": 4983,
-  "total_disorders_and_subtypes": 8884,
-  "total_unique_evidence_sources": 58007,
-  "total_unique_publications": 54278,
+  "total_disorder_pages": 3902,
+  "total_subtypes": 4985,
+  "total_disorders_and_subtypes": 8887,
+  "total_unique_evidence_sources": 58024,
+  "total_unique_publications": 54292,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3899,
-  "total_unique_pathological_events": 25583,
+  "total_pathographs": 3900,
+  "total_unique_pathological_events": 25589,
   "total_modules": 226,
-  "total_research_reports": 4013,
+  "total_research_reports": 4014,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
