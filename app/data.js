@@ -81302,6 +81302,119 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "PLD1-Related Congenital Heart Disease",
+    "disease_id": "MONDO:0008913",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-30T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "PLD1-related congenital heart disease is the autosomal recessive disorder caused by biallelic loss-of-function variants in PLD1, which encodes phospholipase D1. The enzyme hydrolyses phosphatidylcholine to generate phosphatidic acid, a lipid second messenger; the disease alleles cluster in the regions encoding the catalytic core and reduce that activity.\nWhat makes the entity recognisable is where in the heart it lands. The lesions are overwhelmingly right-sided - severe tricuspid and pulmonary valve dysplasia, often with a hypoplastic right ventricle and hypoplastic pulmonary arteries - and Ebstein's anomaly is a recurring diagnosis. That topography follows from the mechanism rather than being incidental to it: phosphatidic acid is required for cardiac endothelial-to-mesenchymal transition, the step that supplies the mesenchyme and remodelled matrix of the endocardial cushions, and pharmacological PLD1 inhibition reduces that transition directly. The founding report also places the attenuated TGF-beta and hedgehog signalling that follows loss of phosphatidic acid behind the arterial pole defects specifically.\nA second presentation is cardiomyopathy, and it is not simply a consequence of the valve lesion. The delineating cohort associated recessive PLD1 variants with *isolated* neonatal cardiomyopathy, and dilated cardiomyopathy has since been reported in older patients alongside their valve disease. The fetal end of the spectrum is severe: hydrops fetalis, intrauterine death, and termination for a complex defect with poor prognosis all occur, so the liveborn phenotype is a survivorship-filtered view of the disorder.\nThe nomenclature is the most confusing part of this entry, and the entry is deliberately not named after the term it is bound to. The label of MONDO:0008913, `cardiac valvular defect, developmental`, describes a condition that occurs without PLD1 at all - the X-linked FLNA form and the ADAMTS19 form are two of the other genetically defined cardiac valvular dysplasias, and most developmental valve disease is neither - so as an entry name it would be broader than the entry. Worse, it does not cover this disorder's isolated-cardiomyopathy arm, which the delineating cohort reports with no structural valve defect at all. The name used here is ClinGen's, which is also the label of MONDO:1010144: ClinGen curates this gene-disease relationship as PLD1-related congenital heart disease, and states that it lumped cardiac valvular dysplasia 1 and congenital heart disease into a single entity after finding no difference in mechanism, inheritance or phenotypic variability - which is why MONDO:1010144 is mapped here as an exact match rather than as a separate concept. The clinical and genetics literature mostly calls this cardiac valvular dysplasia 1 (CVDD1 or CVDP1); that name and the MONDO label are both kept in `synonyms`. The file name still follows the MONDO label, because dismech has not settled how a slug follows a rename (dismech#15894).",
+    "pathophysiology": [
+      "PLD1 Biallelic Loss of Function",
+      "Depleted Phosphatidic Acid Signalling",
+      "Attenuated TGF-beta and Hedgehog Signalling",
+      "Impaired Cardiac Endothelial-to-Mesenchymal Transition",
+      "Deficient Endocardial Cushion Remodelling",
+      "Right-Sided Valve Dysplasia",
+      "Right Ventricular and Pulmonary Arterial Hypoplasia",
+      "Myocardial Dysfunction",
+      "Fetal Cardiac Decompensation"
+    ],
+    "cell_types": [
+      "endocardial cell",
+      "endocardial cushion cell",
+      "mesenchymal cell",
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002350",
+      "CL:0008022",
+      "CL:0008019",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "phosphatidic acid biosynthetic process",
+      "transforming growth factor beta receptor signaling pathway",
+      "smoothened signaling pathway",
+      "cardiac endothelial to mesenchymal transition",
+      "endocardial cushion morphogenesis",
+      "heart valve morphogenesis",
+      "muscle contraction"
+    ],
+    "phenotypes": [
+      "Abnormal tricuspid valve morphology",
+      "Abnormal pulmonary valve morphology",
+      "Ebstein anomaly of the tricuspid valve",
+      "Hypoplastic right ventricle",
+      "Pulmonary artery hypoplasia",
+      "Pulmonary valve atresia",
+      "Tricuspid atresia",
+      "Tricuspid regurgitation",
+      "Dilated cardiomyopathy",
+      "Left ventricular dilatation",
+      "Mitral regurgitation",
+      "Hydrops fetalis",
+      "Pulmonic stenosis",
+      "Cardiomyopathy",
+      "Ventricular septal defect",
+      "Atrial septal defect",
+      "Single ventricle"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Metabolism",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001702",
+      "HP:0001641",
+      "HP:0010316",
+      "HP:0010954",
+      "HP:0004971",
+      "HP:0010882",
+      "HP:0011662",
+      "HP:0005180",
+      "HP:0001644",
+      "HP:4000141",
+      "HP:0001653",
+      "HP:0001789",
+      "HP:0001642",
+      "HP:0001638",
+      "HP:0001629",
+      "HP:0001631",
+      "HP:0001750"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "PLD1"
+    ],
+    "treatments": [
+      "Cardiac valve surgery",
+      "Heart failure management",
+      "Heart transplantation",
+      "Genetic counselling and reproductive options"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cardiac_Valvular_Defect_Developmental.yaml",
+    "page_url": "../pages/disorders/PLD1-Related_Congenital_Heart_Disease.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Cardiac Valvular Ehlers-Danlos Syndrome",
     "disease_id": "MONDO:0009159",
     "category": "Mendelian",
@@ -420540,17 +420653,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3900,
+  "total_disorder_pages": 3901,
   "total_subtypes": 4983,
-  "total_disorders_and_subtypes": 8883,
-  "total_unique_evidence_sources": 57995,
-  "total_unique_publications": 54267,
+  "total_disorders_and_subtypes": 8884,
+  "total_unique_evidence_sources": 58007,
+  "total_unique_publications": 54278,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3898,
-  "total_unique_pathological_events": 25575,
+  "total_pathographs": 3899,
+  "total_unique_pathological_events": 25583,
   "total_modules": 226,
-  "total_research_reports": 4012,
+  "total_research_reports": 4013,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
