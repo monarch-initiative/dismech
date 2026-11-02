@@ -168,7 +168,7 @@ Nepal continues to see new leprosy patients every year. It is known that close c
 
 Citation:Banstola NL, Hasker E, Mieras L, Gurung D, Baral B, Mehata S, et al.  (2024) Effectiveness of ongoing single dose rifampicin post-exposure prophylaxis (SDR-PEP) implementation under routine programme conditions—An observational study in Nepal. PLoS Negl Trop Dis 18(12):
            e0012446.
-        
+
         https://doi.org/10.1371/journal.pntd.0012446
 
 Editor:Paul J. Converse, Johns Hopkins University, UNITED STATES OF AMERICA

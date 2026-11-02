@@ -57,6 +57,55 @@ diseases:
 - Colon_Adenocarcinoma
 - Vulvar_Carcinoma
 - Transitional_Cell_Carcinoma
+- Congenital_Rubella_Syndrome
+- Adenovirus_Respiratory_Infection
+- Q_Fever
+- Hantavirus_Hemorrhagic_Fever_with_Renal_Syndrome
+- Hand_Foot_and_Mouth_Disease
+- Gonorrhea
+- Paratyphoid_Fever
+- Invasive_Non-Typhoidal_Salmonellosis
+- Glanders
+- Leptospirosis
+- Viral_Encephalitis
+- Hepatitis_E
+- Hepatitis_C
+- Plague
+- Tularemia
+- Travelers_Diarrhea
+- Lyme_Disease
+- Leprosy
+- Buruli_Ulcer
+- Botulism
+- Clostridioides_difficile_Infection
+- Cervical_Cancer
+- Cervical_Squamous_Cell_Carcinoma
+- Cervical_Adenocarcinoma
+- Anal_Canal_Carcinoma
+- Penile_Cancer
+- HPV_Positive_Head_and_Neck_Cancer
+- Aflatoxin_Related_HCC
+- Pancreatic_Ductal_Adenocarcinoma
+- Prostate_Adenocarcinoma
+- Cutaneous_Melanoma
+- Complement_Component_3_Deficiency
+- Late_Complement_Component_Deficiency
+- Specific_Antibody_Deficiency
+- Selective_IgA_Deficiency
+- Selective_IgM_Deficiency
+- Visceral_Heterotaxy
+- Visceral_Heterotaxy_8
+- Heterotaxy_Visceral_14_Autosomal
+- Cartilage-Hair_Hypoplasia
+- CD27-related_lymphoproliferative_and_immune_disorder
+- Immunodeficiency_11B_With_Atopic_Dermatitis
+- Immunodeficiency_123_With_HPV-related_Verrucosis
+- Ring_Chromosome_14
+- Sweeney-Cox_Syndrome
+- Bronchiectasis
+- Mitochondrial_DNA_Depletion_Syndrome_3_Hepatocerebral_Type
+- Multiple_Mitochondrial_Dysfunctions_Syndrome_9B
+- Leukoencephalopathy_With_Vanishing_White_Matter
 modules:
 - germinal_center_reaction
 - cgas_sting_pathway_activation
@@ -65,6 +114,8 @@ modules:
 - vaccine_induced_mucosal_iga_neutralization
 - polysaccharide_conjugate_t_dependent_switching
 - toxoid_neutralizing_humoral_immunity
+- vaccine_induced_humoral_neutralization
+- vaccine_induced_t_cell_immunity
 groupings:
 - Predominantly_Antibody_Deficiencies_IEIs
 - Complement_Deficiency_IEIs
@@ -363,6 +414,17 @@ We audited all disorder entries with vaccine treatments and curated/enriched **2
 | `Monkeypox` | `MVA-BN Vaccination (Jynneos / Imvanex)` | **Completed** | `Viral Entry and Systemic Dissemination`, `Evasion of Host Antiviral Immunity` |
 | `Bacterial_meningitis` | `Conjugate Vaccination (Hib, Pneumococcal, Meningococcal)` (`NCIT:C80473`) | **Completed** | `Blood-Brain Barrier Penetration`, `Intrathecal Bacterial Replication` |
 | `Tuberculosis` | `BCG Vaccination` (`NCIT:C298`) | **Completed** | `Alveolar Macrophage Entry and Phagosome Maturation Arrest`, `Extrapulmonary Hematogenous Dissemination` |
+| `Congenital_Rubella_Syndrome` | `Pre-Conception and Childhood Live-Attenuated Rubella Vaccination (MMR)` | **Completed (New Entry)** | `Maternal Rubella Viremia and Transplacental Viral Entry` |
+| `Hepatitis_E` | `Recombinant Hepatitis E Capsid Vaccine (HEV 239 / Hecolin)` | **Completed** | `Hepatotropic HEV Infection and Replication` |
+| `Hepatitis_C` | `Hepatitis A, Hepatitis B, and Pneumococcal Vaccination` | **Completed** | `Chronic Inflammation and Fibrosis` |
+| `Plague` | `Plague Vaccination (Live Attenuated EV76 and Recombinant F1/V Subunit Vaccines)` | **Completed** | `Phagocytosis Inhibition and Bacterial Replication`, `Type III Secretion System Deployment` |
+| `Tularemia` | `Francisella tularensis Live Vaccine Strain (LVS) Immunoprophylaxis` | **Completed** | `Macrophage Phagosomal Escape and Cytosolic Replication` |
+| `Travelers_Diarrhea` | `Oral WC-rBS (Dukoral) CTB Cross-Protective and Investigational ETEC Vaccination` | **Completed** | `ETEC colonization-factor adhesion to small-intestinal enterocytes`, `Heat-labile enterotoxin activation of epithelial G protein-adenylyl cyclase` |
+| `Lyme_Disease` | `Recombinant OspA Lyme Disease Vaccination (LYMErix and Investigational VLA15)` | **Completed** | `Tick-Borne Transmission and Enzootic Cycle`, `Spirochete Invasion and Dissemination` |
+| `Leprosy` | `Bacillus Calmette-Guerin (BCG) and Mycobacterium indicus pranii Immunoprophylaxis` (`NCIT:C298`) | **Completed** | `Host T Cell Response Determines the Tuberculoid-Lepromatous Spectrum`, `Intracellular Residence in Macrophages and Schwann Cells (Cell-Penetrant Drug Requirement)` |
+| `Buruli_Ulcer` | `Bacillus Calmette-Guerin (BCG) Cross-Protective Vaccination` (`NCIT:C298`) | **Completed** | `Mycolactone-mediated tissue destruction` |
+| `Prostate_Adenocarcinoma` | `Sipuleucel-T Autologous Cellular Cancer Vaccine` | **Completed** | `Immune-Suppressive Tumor Microenvironment` |
+| `Cutaneous_Melanoma` | `Talimogene Laherparepvec (T-VEC) Oncolytic Viral Vaccine Immunotherapy` | **Completed** | `PD-L1-Mediated Immune Escape` |
 
 ---
 
@@ -375,6 +437,7 @@ We audited all disorder entries with vaccine treatments and curated/enriched **2
 - [x] Curate `Meningococcal_Meningitis` (`MONDO:0018059`) with MenACWY polysaccharide-protein conjugate and MenB factor H-binding protein (`fHbp`) vaccines
 - [x] Curate `Monkeypox` (`MONDO:0005849`) with MVA-BN (`Jynneos`) orthopoxvirus cross-protective vaccination
 - [x] Curate `Japanese_Encephalitis` (`MONDO:0019209`) and `Tick-Borne_Encephalitis` (`MONDO:0017572`) with inactivated/live-attenuated flavivirus vaccines
+- [x] Curate `Congenital_Rubella_Syndrome` (`MONDO:0017361`) with live-attenuated rubella vaccination (`MMR`) inhibiting maternal viremia and transplacental teratogenesis
 
 ## Phase 2: Wire Existing VPD Entries with `target_mechanisms` & `therapeutic_agent`
 - [x] `Human_Papillomavirus_Infection` — Prophylactic L1 VLP vs. Therapeutic E6/E7 vaccination wired to distinct pathograph nodes
@@ -388,6 +451,8 @@ We audited all disorder entries with vaccine treatments and curated/enriched **2
 - [x] Enrich bacterial toxoid & enteric VPDs (`Pertussis`, `Tetanus`, `Pneumococcal_Pneumonia`, `Cholera`, `Typhoid_Fever`) with `target_mechanisms` and `NCIT` vaccine agent CURIEs
 - [x] Enrich `Hepatitis_B`, `Ebola_Virus_Disease_EVD`, `Malaria`, and `Transitional_Cell_Carcinoma` (intravesical BCG) with `therapeutic_modality: VACCINE` and `target_mechanisms`
 - [x] Add vaccine treatments and `target_mechanisms` to `Dengue`, `Chikungunya`, `Monkeypox`, `Bacterial_meningitis`, and `Tuberculosis` (BCG)
+- [x] Batch 2 Track 1: Wire `target_mechanisms` (`treatment_effect: INHIBITS`) across all 37 remaining KB disorders with `VACCINE` treatments (infectious VPDs, HPV/HBV/neoantigen cancers, IEIs/asplenia, and febrile-trigger genetic disorders; 99/100 KB disorders with `VACCINE` treatments now have `target_mechanisms` wired)
+- [x] Batch 2 Track 2: Add missing vaccine/immunoprophylaxis entries and module conformance hooks across `Hepatitis_E`, `Hepatitis_C`, `Plague`, `Tularemia`, `Travelers_Diarrhea`, `Lyme_Disease`, `Leprosy`, `Buruli_Ulcer`, `Botulism`, `Clostridioides_difficile_Infection`, `Prostate_Adenocarcinoma`, and `Cutaneous_Melanoma`
 
 ## Phase 3: Cross-Repo `ai-gene-review`, `MRO` / IEDB & Module Integration
 - [x] Integrate `MRO` (MHC Restriction Ontology, IEDB's native MHC ontology) into `conf/oak_config.yaml`, `src/dismech/schema/dismech.yaml` (`MHCTerm`, `MHCDescriptor`, `Genetic.mhc_term`, `TreatmentEffectModifier.mhc_term`, plus `ProteinComplexTerm` via `GO:0042611`), `src/dismech/term_tooltips.py`, and `src/dismech/templates/disorder.html.j2`

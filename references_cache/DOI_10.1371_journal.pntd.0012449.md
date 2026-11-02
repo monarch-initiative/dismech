@@ -110,7 +110,7 @@ Leptospirosis is a Neglected Tropical Disease with worldwide distribution, a hea
 
 Citation:Uribe-Restrepo P, Perez-Garcia J, Arboleda M, Munoz-Zanzi C, Agudelo-Florez P (2024) Clinical presentation of human leptospirosis in febrile patients: Urabá, Colombia. PLoS Negl Trop Dis 18(9):
            e0012449.
-        
+
         https://doi.org/10.1371/journal.pntd.0012449
 
 Editor:Yung-Fu Chang, Cornell University, UNITED STATES OF AMERICA

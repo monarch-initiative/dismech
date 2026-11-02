@@ -141,7 +141,7 @@ Copyright © 2024 by the American Thoracic Society
 Originally Published in Press as DOI: 10.1164/rccm.202306-1059OC on January 25, 2024
 Internet address: www :atsjournals:org
 Mac Aog /C19ain, Xaverius Ivan, Jaggi, et al. : Bronchiectasis Antimicrobial Resistome 47
- 
+
 
 
 Emerging work on the lung microbiome
@@ -277,7 +277,7 @@ Nanyang Technological University, 11 Mandalay Road, Singapore 308232. E-mail: sc
 A data supplement for this article is available via the Supplements tab at the top of the online article.
 ORIGINAL ARTICLE
 48 American Journal of Respiratory and Critical Care Medicine Volume 210 Number 1 | July 1 2024
- 
+
 
 
 The ﬁrst cohort was the nondiseased
@@ -459,7 +459,7 @@ repeated measures to assess for temporal
 variation in response to antimicrobial
 ORIGINAL ARTICLE
 Mac Aog /C19ain, Xaverius Ivan, Jaggi, et al. : Bronchiectasis Antimicrobial Resistome 49
- 
+
 
 
 Table 1. Demographic Characteristics in the CAMEB 2 Bronchiectasis Cohort and Controls
@@ -531,7 +531,7 @@ cohort.
 †P , 0.001, ‡P , 0.01, and §P , 0.05.
 ORIGINAL ARTICLE
 50 American Journal of Respiratory and Critical Care Medicine Volume 210 Number 1 | July 1 2024
- 
+
 
 
 treatment, also using a threshold ofP , 0.05.
@@ -712,7 +712,7 @@ Bronchiectasis Audit and Research
 Collaboration (EMBARC) registry
 ORIGINAL ARTICLE
 Mac Aog /C19ain, Xaverius Ivan, Jaggi, et al. : Bronchiectasis Antimicrobial Resistome 51
- 
+
 
 
 Figure 1. Characterization of the bronchiectasis resistome. ( A) Stacked bar plots representing the observed resistome profiles in bronchiectasis
@@ -724,7 +724,7 @@ assessed at baseline and follow-up time points across varying time intervals (le
 longitudinal analysis of resistome profiles during exacerbations of bronchiectasis ( n = 18, cohort 3, “exacerbation” cohort) with sampling at
 ORIGINAL ARTICLE
 52 American Journal of Respiratory and Critical Care Medicine Volume 210 Number 1 | July 1 2024
- 
+
 
 
 (Figure 3B) (35). In contrast, etiological
@@ -805,7 +805,7 @@ visualizations. B = before exacerbation; BL = baseline; E = during exacerbation;
 antibiotic treatment; PC = principal coordinate; PERMANOVA = permutational multivariate ANOVA.
 ORIGINAL ARTICLE
 Mac Aog /C19ain, Xaverius Ivan, Jaggi, et al. : Bronchiectasis Antimicrobial Resistome 53
- 
+
 
 
 of interest. They did vary based on
@@ -853,7 +853,7 @@ posttuberculosis (blue), and others (gray). Central points intersected by a cros
 PC = principal coordinate; PERMANOVA = permutational multivariate ANOVA; PI = postinfection; PTB = posttuberculosis.
 ORIGINAL ARTICLE
 54 American Journal of Respiratory and Critical Care Medicine Volume 210 Number 1 | July 1 2024
- 
+
 
 
 Figure 4. Characterization of bronchiectasis resistotypes. ( A) Heat map illustrating the Cohort of Asian and Matched European Bronchiectasis 2
@@ -869,14 +869,14 @@ respective geographic regions. ** P , 0.01. BSI = Bronchiectasis Severity Index;
 LDA = linear discriminant analysis; MI = Milan, Italy; PERMANOVA = permutational multivariate ANOVA; SG = Singapore.
 ORIGINAL ARTICLE
 Mac Aog /C19ain, Xaverius Ivan, Jaggi, et al. : Bronchiectasis Antimicrobial Resistome 55
- 
+
 
 
 Figure 5. Microbiome correlates of bronchiectasis resistotypes (RTs) RT1 and RT2. Stacked bar plots illustrating the relative abundance of
 microbial taxa associated with ( A) resistotypes RT1 and RT2 and stratified by ( B) continent and ( C) country of origin. ( D) Analysis of resistance
 ORIGINAL ARTICLE
 56 American Journal of Respiratory and Critical Care Medicine Volume 210 Number 1 | July 1 2024
- 
+
 
 
 of RT1, whereas RT2 is deﬁned by
@@ -1040,7 +1040,7 @@ by color according to drug class as indicated in the labels on the y-axis (in pa
 KL = Kuala Lumpur, Malaysia; MI = Milan, Italy; SG = Singapore.
 ORIGINAL ARTICLE
 Mac Aog /C19ain, Xaverius Ivan, Jaggi, et al. : Bronchiectasis Antimicrobial Resistome 57
- 
+
 
 
 Figure 6. The effect of Pseudomonas aeruginosa eradication therapy on bronchiectasis resistotypes. ( A) Microbiome composition of eight
@@ -1053,7 +1053,7 @@ therapy (before eradication, green; after eradication, red) oriented to their pr
 (purple). A black arrow indicates the trajectory of the eradication therapy group centroids, illustrating a shifting proximity from the initial RT2 (purple)
 ORIGINAL ARTICLE
 58 American Journal of Respiratory and Critical Care Medicine Volume 210 Number 1 | July 1 2024
- 
+
 
 
 to the RT2 and RT1 clusters, respectively, as
@@ -1213,7 +1213,7 @@ therapy. * P , 0.05. ns = not significant ( P . 0.05 on paired permutational mul
 ANOVA.
 ORIGINAL ARTICLE
 Mac Aog /C19ain, Xaverius Ivan, Jaggi, et al. : Bronchiectasis Antimicrobial Resistome 59
- 
+
 
 
 characterized by favorable clinical outcomes
@@ -1395,7 +1395,7 @@ or symptoms alone, may contribute to
 the observed resistome and microbiome
 ORIGINAL ARTICLE
 60 American Journal of Respiratory and Critical Care Medicine Volume 210 Number 1 | July 1 2024
- 
+
 
 
 heterogeneity. Although a detailed analysis
@@ -1544,7 +1544,7 @@ Metagenomic biomarker discovery and explanation.Genome Biol
 2011;12:R60.
 ORIGINAL ARTICLE
 Mac Aog /C19ain, Xaverius Ivan, Jaggi, et al. : Bronchiectasis Antimicrobial Resistome 61
- 
+
 
 
 34. Dhar R, Singh S, Talwar D, Mohan M, Tripathi SK, Swarnakar R, et al.
@@ -1657,4 +1657,3 @@ et al. Microbial dysregulation of the gut-lung axis in bronchiectasis.
 Am J Respir Crit Care Med 2022;207:908–920.
 ORIGINAL ARTICLE
 62 American Journal of Respiratory and Critical Care Medicine Volume 210 Number 1 | July 1 2024
- 

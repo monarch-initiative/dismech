@@ -613,7 +613,7 @@ pathogen interaction, such as high bacillary load, persis -
 tent bacilli, clinical form of leprosy, and duration of MDT.
 The key question about foamy macrophages is whether
 they can conceal live bacilli. M. leprae  rather than just
-recognizing antigen from the dead ones. M. leprae  
+recognizing antigen from the dead ones. M. leprae
 alters lipid metabolism to enhance its survival and dis -
 semination while promoting host tolerance [ 58]. Studies
 indicate that foamy macrophages create an anti-inflam -

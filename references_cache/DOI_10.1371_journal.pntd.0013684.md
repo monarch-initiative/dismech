@@ -75,8 +75,8 @@ RolesConceptualization,
 
 * E-mail:mawuli.gohoho@ghs.gov.gh
 
-AffiliationsFred N. Binka School of Public Health, University of Health and Allied Sciences, Hohoe, Volta Region, Ghana, 
-    Ghana Field Epidemiology and Laboratory Training Programme, Accra, Ghana, 
+AffiliationsFred N. Binka School of Public Health, University of Health and Allied Sciences, Hohoe, Volta Region, Ghana,
+    Ghana Field Epidemiology and Laboratory Training Programme, Accra, Ghana,
     Jasikan Municipal Health Directorate, Ghana Health Service, Jasikan, Oti Region, Ghana
 
 https://orcid.org/0009-0001-4357-3509
@@ -87,32 +87,32 @@ RolesData curation,
 
     Writing – review & editing
 
-AffiliationsFred N. Binka School of Public Health, University of Health and Allied Sciences, Hohoe, Volta Region, Ghana, 
-    Ghana Field Epidemiology and Laboratory Training Programme, Accra, Ghana, 
+AffiliationsFred N. Binka School of Public Health, University of Health and Allied Sciences, Hohoe, Volta Region, Ghana,
+    Ghana Field Epidemiology and Laboratory Training Programme, Accra, Ghana,
     Disease Surveillance Unit, Volta Regional Health Directorate, Ghana Health Service, Ho, Volta Region, Ghana
 
 RolesFormal analysis,
 
     Writing – review & editing
 
-AffiliationsFred N. Binka School of Public Health, University of Health and Allied Sciences, Hohoe, Volta Region, Ghana, 
-    Ghana Field Epidemiology and Laboratory Training Programme, Accra, Ghana, 
+AffiliationsFred N. Binka School of Public Health, University of Health and Allied Sciences, Hohoe, Volta Region, Ghana,
+    Ghana Field Epidemiology and Laboratory Training Programme, Accra, Ghana,
     Ahafo Regional Health Directorate, Ghana Health Service, Hwidiem, Ahafo Region, Ghana
 
 RolesFormal analysis,
 
     Writing – review & editing
 
-AffiliationsFred N. Binka School of Public Health, University of Health and Allied Sciences, Hohoe, Volta Region, Ghana, 
-    Ghana Field Epidemiology and Laboratory Training Programme, Accra, Ghana, 
+AffiliationsFred N. Binka School of Public Health, University of Health and Allied Sciences, Hohoe, Volta Region, Ghana,
+    Ghana Field Epidemiology and Laboratory Training Programme, Accra, Ghana,
     Department of Health Information and Records Management, Ho Teaching Hospital, Ministry of Health, Ho, Volta Region, Ghana
 
 RolesVisualization,
 
     Writing – review & editing
 
-AffiliationsFred N. Binka School of Public Health, University of Health and Allied Sciences, Hohoe, Volta Region, Ghana, 
-    Ghana Field Epidemiology and Laboratory Training Programme, Accra, Ghana, 
+AffiliationsFred N. Binka School of Public Health, University of Health and Allied Sciences, Hohoe, Volta Region, Ghana,
+    Ghana Field Epidemiology and Laboratory Training Programme, Accra, Ghana,
     Tumu Municipal Hospital, Ghana Health Service, Tumu, Upper West Region, Ghana
 
 RolesVisualization,
@@ -125,7 +125,7 @@ RolesVisualization,
 
     Writing – review & editing
 
-AffiliationsFred N. Binka School of Public Health, University of Health and Allied Sciences, Hohoe, Volta Region, Ghana, 
+AffiliationsFred N. Binka School of Public Health, University of Health and Allied Sciences, Hohoe, Volta Region, Ghana,
     Neglected Tropical Diseases Programme Unit, Volta Regional Health Directorate, Ghana Health Service, Ho, Volta Region, Ghana
 
 RolesWriting – review & editing
@@ -156,7 +156,7 @@ RolesConceptualization,
 
     Writing – review & editing
 
-AffiliationsCentre for Neglected Tropical Diseases Research, Institute of Health Research, University of Health and Allied Sciences, Ho, Volta Region, Ghana, 
+AffiliationsCentre for Neglected Tropical Diseases Research, Institute of Health Research, University of Health and Allied Sciences, Ho, Volta Region, Ghana,
     African Research Universities Alliance, Legon, Accra, Ghana
 
 Buruli ulcer disease (BUD) remains a poorly understood neglected tropical disease (NTD). The 2021–2030 WHO NTD Roadmap prioritises addressing knowledge gaps in BUD transmission and calls for the need to better understand the factors contributing to disease occurrence. In Ghana, reported BUD cases declined from over 600 in 2018 to 81 in 2023. While previous case-control studies in Ghana have used a 1:1 matching ratio, this study examined potential risk factors for BUD in four endemic districts using an improved methodological approach.
@@ -171,7 +171,7 @@ Buruli ulcer disease is a bacterial infection that causes chronic skin ulcers an
 
 Citation:Gohoho M, Bosoka SA, Agyemang GS, Ziema SA, Alorwu J, Ahmed H, et al.  (2025) Risk factors for Buruli ulcer disease in Ghana: A matched case-control study in four selected endemic districts of Eastern and Oti Regions. PLoS Negl Trop Dis 19(11):
            e0013684.
-        
+
         https://doi.org/10.1371/journal.pntd.0013684
 
 Editor:Michael Marks, London School of Hygiene and Tropical Medicine, UNITED KINGDOM OF GREAT BRITAIN AND NORTHERN IRELAND

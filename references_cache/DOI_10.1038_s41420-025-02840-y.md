@@ -267,7 +267,7 @@ showed the protein level was reduced in patients homozygous for
 this hotspot variant [ 64]. As shown in Fig. 1B, FDXR protein
 T. Campbell et al.
 2
-Cell Death Discovery          (2025) 11:563 
+Cell Death Discovery          (2025) 11:563
 
 concentration was drastically reduce in the adrenal gland of
 FdxrR389W/R389W mice, supporting our previous results in human
@@ -283,7 +283,7 @@ habitus, which was easily differentiated from wild-type littermates
 R389W/R389W mice frequently exhibited
 T. Campbell et al.
 3
-Cell Death Discovery          (2025) 11:563 
+Cell Death Discovery          (2025) 11:563
 
 paraphimosis with age (Fig. 1G), a condition previously reported in
 other mouse models of neurological disease [ 71, 72].
@@ -419,7 +419,7 @@ Statistical testing was performed using two-tailed, unpaired Student ’s t-test
 signiﬁcant.
 T. Campbell et al.
 4
-Cell Death Discovery          (2025) 11:563 
+Cell Death Discovery          (2025) 11:563
 
 mitochondrial morphology that has been previously observed in
 ferroptotic cells [ 12, 80].
@@ -448,7 +448,7 @@ colorimetric assays. We found that the viability of FDXRR386W/R386W
 cells were reduced at baseline relative to NHDF cells
 T. Campbell et al.
 5
-Cell Death Discovery          (2025) 11:563 
+Cell Death Discovery          (2025) 11:563
 
 (Supplementary Fig. S4), and that erastin decreased the viability in
 both NHDF cells and FDXRR386W/R386W cells (Fig. 3G).
@@ -578,7 +578,7 @@ ganglion cell layer (blue arrows) in sections of eyes from 2-month-old FdxrR389W
 this ﬁgure, statistical results are presented as means ± SEM.; *p < 0.05, **p < 0.01, ***p < 0.001, ****p < 0.0001.
 T. Campbell et al.
 6
-Cell Death Discovery          (2025) 11:563 
+Cell Death Discovery          (2025) 11:563
 
 Fig. 3 Participant-derived ﬁbroblasts with a FDXRR386W/R386W genotype are more susceptible to ferroptosis with or without erastin-
 induction. Fibroblasts were cultured with or without erastin (5 μM) for 15 h. After incubation, cells were stained with varying ﬂuorophores and
@@ -588,7 +588,7 @@ control and FDXRR386W/R386W cells, with and without erastin treatment, using an 
 nonparametric, unpaired, two-tailed Mann-Whitney U tests. Results are presented as means ± SEM.; *p < 0.05.
 T. Campbell et al.
 7
-Cell Death Discovery          (2025) 11:563 
+Cell Death Discovery          (2025) 11:563
 
 omaveloxolone treatment (Fig. 6D). These phenotypic improve-
 ments in FdxrR389W/R389W mutants are further supported by
@@ -667,7 +667,7 @@ F Finally, western blot analysis of FDXRR386W/R386W cells con ﬁrms that they s
 cells, and that the level SLC7A11 protein is partially restored following treatment with RTA-408.
 T. Campbell et al.
 8
-Cell Death Discovery          (2025) 11:563 
+Cell Death Discovery          (2025) 11:563
 
 functional similarities to FDXR. In both FDXRR386W/R386W patient
 cells and the FdxrR389W/R389W mouse model, we similarly found
@@ -693,7 +693,7 @@ without RTA-408 treatment, using an XTT viability assay kit. Statistical testing
 Whitney U tests. Results are presented as means ± SEM; ns not signi ﬁcant, *p < 0.05.
 T. Campbell et al.
 9
-Cell Death Discovery          (2025) 11:563 
+Cell Death Discovery          (2025) 11:563
 
 reported improved neurological function assessment in the
 omaveloxolone-treated group relative to the placebo group after
@@ -717,7 +717,7 @@ of-function cells by normalizing NRF2 and SLC7A11 levels, which
 in turn combats lipid peroxidation and blocks ferroptosis (Fig. 7).
 T. Campbell et al.
 10
-Cell Death Discovery          (2025) 11:563 
+Cell Death Discovery          (2025) 11:563
 
 This is consistent with the previous literature showing that
 omaveloxolone acts by blocking the action of KEAP1 and
@@ -847,7 +847,7 @@ mice, and that RTA-408 treatment dramatically increases the levels of both prote
 R389W/R389W mutants.
 T. Campbell et al.
 11
-Cell Death Discovery          (2025) 11:563 
+Cell Death Discovery          (2025) 11:563
 
 to approximately 4 mm above the ankle, and the sciatic nerve was exposed
 near the biceps femoris. We implanted a polyester ﬁlm wrap line on the
@@ -936,7 +936,7 @@ antioxidant response genes, increased GSH, and mitigation of the pathological ph
 R389W/R389W mice and FDXR patient cells.
 T. Campbell et al.
 12
-Cell Death Discovery          (2025) 11:563 
+Cell Death Discovery          (2025) 11:563
 
 (CTCAGTTTCCGCCATCTCAGT), Human TFRC reverse (GCAGCTCTTGA-
 GATTGTTTGCA), Human GCLM forward (GCCACCAGATTTGACTGCCTTT)
@@ -1079,7 +1079,7 @@ leukodystrophy with hyperglycinemia and mtDNA depletion. Hum Mutat.
 2018;39:537– 49.
 T. Campbell et al.
 13
-Cell Death Discovery          (2025) 11:563 
+Cell Death Discovery          (2025) 11:563
 
 4. Al-Hassnan ZN, Al-Dosary M, Alfadhel M, Faqeih EA, Alsagob M, Kenana R, et al.
 ISCA2 mutation causes infantile neurodegenerative mitochondrial disorder. J
@@ -1234,7 +1234,7 @@ https://doi.org/10.1128/aem.00867-17.
 Front Microbiol. 2019;10:2478.
 T. Campbell et al.
 14
-Cell Death Discovery          (2025) 11:563 
+Cell Death Discovery          (2025) 11:563
 
 59. Talib EA, Outten CE. Iron-sulfur cluster biogenesis, traf ﬁcking, and signaling:
 roles for CGFS glutaredoxins and BolA proteins. Biochim Biophys Acta Mol Cell
@@ -1387,7 +1387,7 @@ Fdxr
 R389W/R389W mouse. In addition, we would like to acknowledge the Optical Imaging
 T. Campbell et al.
 15
-Cell Death Discovery          (2025) 11:563 
+Cell Death Discovery          (2025) 11:563
 
 and Analysis Facility at the SUNY Buffalo School of Dental Medicine, where the confocal
 imaging and ﬂow cytometry were performed. Regardingﬁnancial support, this research
@@ -1437,4 +1437,4 @@ creativecommons.org/licenses/by/4.0/.
 © The Author(s) 2025
 T. Campbell et al.
 16
-Cell Death Discovery          (2025) 11:563 
+Cell Death Discovery          (2025) 11:563

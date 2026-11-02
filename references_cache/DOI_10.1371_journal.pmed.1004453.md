@@ -304,7 +304,7 @@ RolesConceptualization,
 
     Writing – review & editing
 
-AffiliationsNational Tuberculosis and Leprosy control Program, Moroni, Union of the Comoros, 
+AffiliationsNational Tuberculosis and Leprosy control Program, Moroni, Union of the Comoros,
     Damien Foundation, Brussels, Belgium
 
 RolesConceptualization,
@@ -343,7 +343,7 @@ ClinicalTrials.govNCT05406479.
 
 Citation:de Jong BC, Nourdine S, Bergeman AT, Salim Z, Grillone SH, Braet SM, et al.  (2024) Safety of single-dose bedaquiline combined with rifampicin for leprosy post-exposure prophylaxis: A Phase 2 randomized non-inferiority trial in the Comoros Islands. PLoS Med 21(10):
            e1004453.
-        
+
         https://doi.org/10.1371/journal.pmed.1004453
 
 Academic Editor:Peter MacPherson, University of Glasgow, UNITED KINGDOM OF GREAT BRITAIN AND NORTHERN IRELAND

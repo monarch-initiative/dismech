@@ -148,7 +148,7 @@ SRC="/geo/js/help_def_messages.js"></SCRIPT>
   function ViewOptionsFormKeyDown(event)
   {
 	if (event == undefined)
-	{  
+	{
 		event = window.event;
 	}
 	if (event.keyCode == 13)
