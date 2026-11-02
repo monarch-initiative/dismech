@@ -36,7 +36,7 @@ ABSTRACT
               monocarboxylate transporter (MCT). The protection of butyrate against acute leptospirosis mediated by ROS was also proven
               in vivo
               . Collectively, our data provide evidence that the butyrate-MCT-HDAC3i-ROS signaling axis is a potential therapeutic target for acute leptospirosis. Our work not only interprets the microbial metabolite signaling involved in transkingdom interactions between the host and gut microbiota but also provides a possible target for developing a prevention strategy for acute leptospirosis.
-
+            
 
 
 IMPORTANCE

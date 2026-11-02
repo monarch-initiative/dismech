@@ -1408,7 +1408,7 @@ KLK7
 LITAF
 LY6K
 SPRR3
-CST6
+CST6    
 SPRR1B
 DE marker genes
 i
@@ -1603,7 +1603,7 @@ P3 (2360 cells)
 3
 5
 1
-Trajectory
+Trajectory 
 352
 390
 840

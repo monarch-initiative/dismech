@@ -416,15 +416,10 @@ We audited all disorder entries with vaccine treatments and curated/enriched **2
 | `Tuberculosis` | `BCG Vaccination` (`NCIT:C298`) | **Completed** | `Alveolar Macrophage Entry and Phagosome Maturation Arrest`, `Extrapulmonary Hematogenous Dissemination` |
 | `Congenital_Rubella_Syndrome` | `Pre-Conception and Childhood Live-Attenuated Rubella Vaccination (MMR)` | **Completed (New Entry)** | `Maternal Rubella Viremia and Transplacental Viral Entry` |
 | `Hepatitis_E` | `Recombinant Hepatitis E Capsid Vaccine (HEV 239 / Hecolin)` | **Completed** | `Hepatotropic HEV Infection and Replication` |
-| `Hepatitis_C` | `Hepatitis A, Hepatitis B, and Pneumococcal Vaccination` | **Completed** | `Chronic Inflammation and Fibrosis` |
-| `Plague` | `Plague Vaccination (Live Attenuated EV76 and Recombinant F1/V Subunit Vaccines)` | **Completed** | `Phagocytosis Inhibition and Bacterial Replication`, `Type III Secretion System Deployment` |
-| `Tularemia` | `Francisella tularensis Live Vaccine Strain (LVS) Immunoprophylaxis` | **Completed** | `Macrophage Phagosomal Escape and Cytosolic Replication` |
-| `Travelers_Diarrhea` | `Oral WC-rBS (Dukoral) CTB Cross-Protective and Investigational ETEC Vaccination` | **Completed** | `ETEC colonization-factor adhesion to small-intestinal enterocytes`, `Heat-labile enterotoxin activation of epithelial G protein-adenylyl cyclase` |
-| `Lyme_Disease` | `Recombinant OspA Lyme Disease Vaccination (LYMErix and Investigational VLA15)` | **Completed** | `Tick-Borne Transmission and Enzootic Cycle`, `Spirochete Invasion and Dissemination` |
-| `Leprosy` | `Bacillus Calmette-Guerin (BCG) and Mycobacterium indicus pranii Immunoprophylaxis` (`NCIT:C298`) | **Completed** | `Host T Cell Response Determines the Tuberculoid-Lepromatous Spectrum`, `Intracellular Residence in Macrophages and Schwann Cells (Cell-Penetrant Drug Requirement)` |
 | `Buruli_Ulcer` | `Bacillus Calmette-Guerin (BCG) Cross-Protective Vaccination` (`NCIT:C298`) | **Completed** | `Mycolactone-mediated tissue destruction` |
-| `Prostate_Adenocarcinoma` | `Sipuleucel-T Autologous Cellular Cancer Vaccine` | **Completed** | `Immune-Suppressive Tumor Microenvironment` |
-| `Cutaneous_Melanoma` | `Talimogene Laherparepvec (T-VEC) Oncolytic Viral Vaccine Immunotherapy` | **Completed** | `PD-L1-Mediated Immune Escape` |
+| `Clostridioides_difficile_Infection` | `Bezlotoxumab Anti-Toxin B Passive Immunization and Investigational Toxoid Vaccination` | **Completed** | `Toxin-Mediated Epithelial Damage` |
+| `Prostate_Adenocarcinoma` | `Sipuleucel-T Autologous Cellular Immunotherapy` | **Completed** | `Immune-Suppressive Tumor Microenvironment` |
+| `Cutaneous_Melanoma` | `Talimogene Laherparepvec (T-VEC) Oncolytic Viral Immunotherapy` | **Completed** | `PD-L1-Mediated Immune Escape` |
 
 ---
 
@@ -451,8 +446,8 @@ We audited all disorder entries with vaccine treatments and curated/enriched **2
 - [x] Enrich bacterial toxoid & enteric VPDs (`Pertussis`, `Tetanus`, `Pneumococcal_Pneumonia`, `Cholera`, `Typhoid_Fever`) with `target_mechanisms` and `NCIT` vaccine agent CURIEs
 - [x] Enrich `Hepatitis_B`, `Ebola_Virus_Disease_EVD`, `Malaria`, and `Transitional_Cell_Carcinoma` (intravesical BCG) with `therapeutic_modality: VACCINE` and `target_mechanisms`
 - [x] Add vaccine treatments and `target_mechanisms` to `Dengue`, `Chikungunya`, `Monkeypox`, `Bacterial_meningitis`, and `Tuberculosis` (BCG)
-- [x] Batch 2 Track 1: Wire `target_mechanisms` (`treatment_effect: INHIBITS`) across all 37 remaining KB disorders with `VACCINE` treatments (infectious VPDs, HPV/HBV/neoantigen cancers, IEIs/asplenia, and febrile-trigger genetic disorders; 99/100 KB disorders with `VACCINE` treatments now have `target_mechanisms` wired)
-- [x] Batch 2 Track 2: Add missing vaccine/immunoprophylaxis entries and module conformance hooks across `Hepatitis_E`, `Hepatitis_C`, `Plague`, `Tularemia`, `Travelers_Diarrhea`, `Lyme_Disease`, `Leprosy`, `Buruli_Ulcer`, `Botulism`, `Clostridioides_difficile_Infection`, `Prostate_Adenocarcinoma`, and `Cutaneous_Melanoma`
+- [x] Batch 2 Track 1: Wire `target_mechanisms` (`treatment_effect: INHIBITS`) with verified `evidence:` blocks across 19 KB disorders with pathogen-matched `VACCINE` treatments (`Adenovirus_Respiratory_Infection`, `Anal_Canal_Carcinoma`, `Cervical_Adenocarcinoma`, `Cervical_Cancer`, `Cervical_Squamous_Cell_Carcinoma`, `Glanders`, `Gonorrhea`, `HPV_Positive_Head_and_Neck_Cancer`, `Hand_Foot_and_Mouth_Disease`, `Hantavirus_Hemorrhagic_Fever_with_Renal_Syndrome`, `Immunodeficiency_123_With_HPV-related_Verrucosis`, `Invasive_Non-Typhoidal_Salmonellosis`, `Late_Complement_Component_Deficiency`, `Leptospirosis`, `Paratyphoid_Fever`, `Penile_Cancer`, `Q_Fever`, `Rabies`, and `Viral_Encephalitis`)
+- [x] Batch 2 Track 2: Add evidence-backed vaccine/immunoprophylaxis entries and module conformance hooks across `Hepatitis_E`, `Buruli_Ulcer`, `Clostridioides_difficile_Infection`, `Prostate_Adenocarcinoma`, `Cutaneous_Melanoma`, and `Respiratory_Syncytial_Virus_Infection`
 
 ## Phase 3: Cross-Repo `ai-gene-review`, `MRO` / IEDB & Module Integration
 - [x] Integrate `MRO` (MHC Restriction Ontology, IEDB's native MHC ontology) into `conf/oak_config.yaml`, `src/dismech/schema/dismech.yaml` (`MHCTerm`, `MHCDescriptor`, `Genetic.mhc_term`, `TreatmentEffectModifier.mhc_term`, plus `ProteinComplexTerm` via `GO:0042611`), `src/dismech/term_tooltips.py`, and `src/dismech/templates/disorder.html.j2`

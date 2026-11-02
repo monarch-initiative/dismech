@@ -52,7 +52,7 @@ uruli ulcer (BU) is a potentially disabling nec -
 rotizing skin and soft tissue disease caused by
 Mycobacterium ulcerans infection. 1,2 Buruli ulcer is
 most common in hot and humid climates and has caused
-considerable morbidity in Western African countries
+considerable morbidity in Western African countries  
 (Côte d’Ivoire, Ghana, and Benin account for 73% of
 annual cases) and the temperate areas of Australia (283
 reported cases in 2017).
@@ -68,7 +68,7 @@ demonstrated in the tropical areas of Sri Lanka, Malaysia,
 Papua New Guinea, Peru, and Mexico,
 4 nontropical
 nations such as Japan also are affected. Since 1981,
-66 cases have been reported in Japan with M ulcerans
+66 cases have been reported in Japan with M ulcerans  
  subspecies—primarily Shinshuense, which has adapted to
 higher latitudes. 1 Herein, we provide an overview of the
 pathogenesis, clinical presentation, and treatment of BU
@@ -107,12 +107,12 @@ CLOSE ENCOUNTERS WITH THE ENVIRONMENT
 VOL. 114 NO. 6  I  DECEMBER 2024  185
 WWW.MDEDGE.COM/DERMATOLOGY
 polyketide synthetases of M ulcerans . Mycolactone
-post- transcriptionally inhibits the development of
-lipopolysaccharide-dependent proinflammatory
+post- transcriptionally inhibits the development of  
+lipopolysaccharide-dependent proinflammatory  
 mediators—specifically by blocking protein transloca -
 tion from the cytosol into the endoplasmic reticulum by
 targeting the SEC61 translocon. 1,6 The lack of transloca -
-tion of 30% to 50% of proteins leads to cellular stress
+tion of 30% to 50% of proteins leads to cellular stress  
 and apoptosis mediated by Bim/Bcl2. A single point
 mutation in the SEC61 translocon subunit alpha 1 gene
 (SEC61A1) is associated with resistance to the cytotoxic
@@ -191,7 +191,7 @@ The nodule progression to ulceration varies and can occur
 within 3 weeks to 1 year of the initial exposure.
 1,8
  The World Health Organization (WHO) classifies
-BU into 3 categories: category 1 includes ulcers less than
+BU into 3 categories: category 1 includes ulcers less than  
 5 cm in diameter; category 2 involves ulcers that are 5 to
 15 cm in diameter; and category 3 involves ulcers that are
 larger than 15 cm in diameter as well as those involving
@@ -237,7 +237,7 @@ and decreased amputation.
 4
 Pharmacotherapy—In the early 2000s, the WHO rec-
 ommended a treatment regimen of once-daily 10 mg/kg
-rifampin (oral) and 15 mg/kg streptomycin  (intramuscular)
+rifampin (oral) and 15 mg/kg streptomycin  (intramuscular)  
 for 8 weeks. This treatment protocol is effective for
 lesions measuring less than 10 cm in diameter and has
 an average cure rate of 50%.
@@ -310,19 +310,19 @@ into its transmission mechanisms, treatment options, and
 preventive measures is crucial for reducing the impact of
 this disease on affected populations.
 REFERENCES
-  1.  Y otsu RR, Suzuki K, Simmonds RE, et al. Buruli ulcer: a review of
+  1.  Y otsu RR, Suzuki K, Simmonds RE, et al. Buruli ulcer: a review of  
 the current knowledge. Curr Trop Med Rep. 2018;5:247-256. doi:10.1007
 /s40475-018-0166-2
   2.  Muleta AJ , Lappan R, Stinear TP , et al. Understanding the transmission
 of Mycobacterium ulcerans: a step towards controlling Buruli ulcer. PLoS
 Negl Trop Dis. 2021;15:E0009678. doi:10.1371/journal.pntd.0009678
-  3.  MacCallum P ,  T olhurst JC. A new mycobacterial infection in man. 
+  3.  MacCallum P ,  T olhurst JC. A new mycobacterial infection in man.   
 J Pathol Bacteriol. 1948;60:93-122.
   4.  V an der Werf TS, Stienstra Y, Johnson RC, et al. Mycobacterium ulcerans
 disease. Bull World Health Organ. 2005;83:785-791.
-  5.  World Health Organization. Buruli ulcer ( Mycobacterium ulcerans
-infection). January 12, 2023. Accessed November 7, 2024. https://www
-.who.int/news-room/fact-sheets/detail/buruli-ulcer-(mycobacterium
+  5.  World Health Organization. Buruli ulcer ( Mycobacterium ulcerans  
+infection). January 12, 2023. Accessed November 7, 2024. https://www  
+.who.int/news-room/fact-sheets/detail/buruli-ulcer-(mycobacterium  
 -ulcerans-infection)
   6.  Hall BS,  Hill K, McKenna M, et al. The pathogenic mechanism of
 the Mycobacterium ulcerans virulence factor, mycolactone, depends
@@ -332,8 +332,8 @@ on blockade of protein translocation into the ER.  PLoS Pathog .
 of mycolactone in the pathogenesis and monitoring of Mycobacterium
 ulcerans infection/Buruli ulcer disease.  Cell Microbiol. 2016;18:17-29.
 doi:10.1111/cmi.12547
-  8.  Guarner J.  Buruli ulcer: review of a neglected skin mycobacterial
-disease.  J Clin Microbiol . 2018;56:E01507- E01517. doi:10.1128
+  8.  Guarner J.  Buruli ulcer: review of a neglected skin mycobacterial  
+disease.  J Clin Microbiol . 2018;56:E01507- E01517. doi:10.1128  
 /JCM.01507-17
   9.  Adusumilli S,  Mve-Obiang A, Sparer T, et al. Mycobacterium ulcerans
 toxic macrolide, mycolactone modulates the host immune response
@@ -343,7 +343,7 @@ and cellular location of M ulcerans in vitro and in vivo.  Cell Microbiol.
 infectious dose and mechanical transmission support insect bites and
 puncturing injuries in the spread of Buruli ulcer.  PLoS Negl Trop Dis.
 2017;11:E0005553. doi:10.1371/journal.pntd.0005553
-11.  Ezzedine K, Pistone T, Cottin J, et al. Buruli ulcer in long-term
+11.  Ezzedine K, Pistone T, Cottin J, et al. Buruli ulcer in long-term  
 traveler to Senegal.  Emerg Infect Dis. 2009;15:118-119. doi:10.3201
 /eid1501.080123
 12.  Eddyani M, Sopoh GE, Ayelo G, et al. Diagnostic accuracy of clinical
