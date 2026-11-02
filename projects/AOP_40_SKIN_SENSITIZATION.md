@@ -17,6 +17,7 @@ diseases:
   - Clostridioides_difficile_Infection
   - Familial_Pityriasis_Rubra_Pilaris
   - G6PC3_Deficiency
+  - Pouchitis
   - Pyoderma_Gangrenosum
   - SAPHO_Syndrome
   - Scabies
@@ -179,26 +180,44 @@ IL-8 Luc included, aligned to KE3. dismech holds an independent body of curated 
 mechanism, assembled from disease literature by curators who were not looking at AOP 40,
 and it can be asked what cell it thinks produces IL-8 and what it thinks follows.
 
-**No dismech pathophysiology node places IL-8 production in a dendritic cell.** Across
-every node in `kb/` whose annotations or causal edges carry IL-8, the bound `cell_types`
-are:
+**The census has two tiers, and the distinction matters for how much weight the answer
+carries.** 54 pathophysiology nodes across 46 files in `kb/` mention IL-8 somewhere. Of
+those, **14 nodes across 13 files** carry it *structurally* — bound in a descriptor, named
+in the node's own `name`, or named in a causal edge's description — and those are the ones
+below. The other **40 nodes across 37 files** mention it only in free-text prose inside the
+node `description`, where no query can reach it and nothing ties it to a particular cell.
+
+Among the 14 structural nodes, the bound `cell_types` are:
 
 | Cell bound on the node | Entries |
 |---|---|
-| keratinocyte | Atopic_Dermatitis, Familial_Pityriasis_Rubra_Pilaris (two nodes), Scabies |
+| keratinocyte | Atopic_Dermatitis (with mast cell), Familial_Pityriasis_Rubra_Pilaris (two nodes), Scabies (with fibroblast) |
 | other epithelium | Bacterial_Vaginosis (vaginal squamous), Chlamydia_Pneumoniae_Pneumonia (respiratory) |
 | microvascular endothelial cell | Spotted_Fever_Rickettsiosis |
 | T-helper 17 / T-helper 1 cell | Pyoderma_Gangrenosum, SAPHO_Syndrome (with macrophage) |
-| neutrophil | G6PC3_Deficiency |
-| none bound | Autoimmune_Pancreatitis (ductal epithelium, stated in prose), Chorioamnionitis, Clostridioides_difficile_Infection |
+| neutrophil | G6PC3_Deficiency, SAPHO_Syndrome (recruitment node) |
+| none bound | Autoimmune_Pancreatitis (ductal epithelium, stated in prose), Chorioamnionitis, Clostridioides_difficile_Infection, Subacute_Inflammatory_Demyelinating_Polyneuropathy |
 
-Keratinocyte is the most frequent single answer and the dendritic cell does not appear at
-all. That is not a refutation of the KE3 alignment — a cell line's readout is a property
-of the assay, not of the disease literature — but it is independent corroboration of the
-article's own doubt, from a corpus with no stake in the question.
+**No structurally-annotated IL-8 node in dismech places production in a dendritic cell,
+and in the description-only tier exactly one node does.** That node is
+Pouchitis → `Mucosal Immune Dysregulation`, which binds neutrophil, dendritic cell and T
+cell on a node whose description names four cytokines at once ("TNF-alpha, IL-1beta, IL-6,
+IL-8") alongside neutrophil infiltration and Th1/Th17 activity, and which has no outgoing
+edges. So the dendritic cell there is part of the node's cellular cast, not an assertion
+that a dendritic cell produces IL-8 — but it is the one place in the corpus where the two
+appear on the same node, and the claim has to be stated with that exception rather than
+without it.
 
-**Every IL-8 causal edge in dismech ends in neutrophil recruitment.** Nine entries, each
-curated separately:
+Keratinocyte remains the most frequent single answer. That is not a refutation of the KE3
+alignment — a cell line's readout is a property of the assay, not of the disease literature
+— but it is independent corroboration of the article's own doubt, from a corpus with no
+stake in the question.
+
+**Almost every IL-8 causal edge in dismech ends in neutrophil recruitment.** Ten entries,
+each curated separately — eight of them terminating in a recruitment or infiltration node:
+
+Source node and `downstream` target are written exactly as they appear in the file, so each
+row can be checked by grepping the entry.
 
 | Entry | Edge carrying IL-8 |
 |---|---|
@@ -207,18 +226,22 @@ curated separately:
 | Clostridioides_difficile_Infection | Toxin Production (TcdA/TcdB) → Neutrophil Recruitment and Inflammation |
 | Pyoderma_Gangrenosum | Th17/Th1-Skewed Cytokine Amplification → Neutrophil Recruitment to the Dermis |
 | Chlamydia_Pneumoniae_Pneumonia | Respiratory Epithelial Cytadherence and IL-8 Signaling → Apoptotic Neutrophil Macrophage Transfer |
-| Bacterial_Vaginosis | Vaginolysin-Mediated Epithelial Pore Formation → Epithelial Barrier Disruption and Mucosal Immune Activation |
-| Scabies | Keratinocyte and Fibroblast Cytokine Response → Dermal Leukocyte and Granulocyte Infiltration |
+| Bacterial_Vaginosis | Vaginolysin-Mediated Epithelial Pore Formation and Signalling → Epithelial Barrier Disruption and Mucosal Immune Activation |
+| Scabies | Keratinocyte and Fibroblast Cytokine and Keratinization Response → Dermal Leukocyte and Granulocyte Infiltration |
 | G6PC3_Deficiency | Neutrophil functional defects → Crohn disease |
+| Familial_Pityriasis_Rubra_Pilaris | Keratinocyte NF-kappaB Hyperactivation → Keratinocyte Chemokine and Cytokine Production |
 | Atopic_Dermatitis | TOPK-STAT3 Signaling Axis → Type 2 Immune Response; → Secondary Inflammatory Amplification |
 
-Atopic_Dermatitis is the sole partial exception: it routes IL-8 into Th2 polarization and
-IgE alongside IL-6 and IL-33 rather than to neutrophils. Nothing in the corpus routes
-IL-8 to dendritic-cell activation, which is the Key Event the assay reading it out is
-aligned to.
+Two rows are the exceptions, and neither points at a dendritic cell.
+Atopic_Dermatitis routes IL-8 into Th2 polarization and IgE alongside IL-6 and IL-33 rather
+than to neutrophils. Familial_Pityriasis_Rubra_Pilaris names CXCL8 on the *upstream* edge —
+NF-kappaB driving its transcription — so that edge ends in cytokine production itself, and
+the chain then continues into IL-23/IL-17 amplification rather than into recruitment.
+Nothing in the corpus routes IL-8 to dendritic-cell activation, which is the Key Event the
+assay reading it out is aligned to.
 
 **Where IL-8 appears as a measurement rather than as a mechanism, it carries no
-direction.** Two entries hold it in `biochemical` instead of the pathograph —
+direction.** Two entries hold it in `biochemical` —
 Shigellosis, as one of a group ("Inflammatory cytokines (IL-1β, IL-18, IL-8)") with
 `frequency: VERY_FREQUENT` and the elevation stated in `notes`, and
 Amniotic_Fluid_Embolism, whose `presence` field reads "Markedly increased in an individual
@@ -226,6 +249,13 @@ fatal case". Neither sets a `direction`. So the corpus's clearest statements tha
 *up* in a disease are the ones a query for an increased readout would miss entirely, which
 is the same encoding problem as the three pathograph spellings below, reached from the
 marker side.
+
+Shigellosis holds it in *both* places, which is worth noting because the second one is
+invisible to the census above: its `Inflammasome sensing and pyroptotic inflammation` node
+names IL-8 release among the pyroptotic cytokines and binds macrophage and enterocyte, but
+only in free text and with no outgoing edges at all. That is the shape of the
+description-only tier in general — a real mechanistic claim, with real bound cells, that
+every structural query misses.
 
 ### What this says to AOP-Wiki, and what it does not
 
@@ -254,7 +284,12 @@ Two things follow that are worth putting to the AOP 40 authors:
 - **The queryable signal is far thinner than the corpus mentions.** IL-8 appears in 267
   strings across 77 files in `kb/`, but only **six** of those are ontology-grounded
   descriptor bindings; 53 are evidence snippets and 50 are node descriptions. The finding
-  above comes from reading prose, not from a query that could be re-run as a gate.
+  above comes from reading prose, not from a query that could be re-run as a gate — and the
+  first version of this section proved the point by missing a node. A census over node
+  names, descriptor bindings and causal-edge descriptions does not see a mechanism stated
+  only in a node's own `description` on a node with no outgoing edges, which is how
+  Shigellosis's inflammasome node and 39 others were absent from the table until a reviewer
+  found one of them.
 - **Increase is encoded three incompatible ways.** SAPHO_Syndrome and
   Spotted_Fever_Rickettsiosis bind `GO:0032637` *interleukin-8 production* with
   `modifier: INCREASED`; Chlamydia_Pneumoniae_Pneumonia binds `GO:0032757` *positive
@@ -273,19 +308,48 @@ Two things follow that are worth putting to the AOP 40 authors:
 
 ## What this case adds to the alignment project
 
-- **The AO row reproduces the endpoint gap from both earlier pilots.** AOP 40's adverse
-  outcome has no assay in the article and no dismech mechanism node; Contact_Dermatitis
-  is the disease entry, not an organ-scale event. That is now three use cases in which the
-  terminal Event is the one with nothing to attach to.
-- **It is the first case where the MIE is instrumented.** The lead and liver pilots both
-  found the molecular initiating event unmapped and unmeasured. Here KE1 is the most
-  thoroughly assayed Event of the five, with three guideline methods plus PPRA and four
-  *in silico* tools — so the absence of a node for the chemical's initiating interaction is
-  a gap on the dismech side specifically, not a general property of how AOPs get measured.
-- **It supplies a test for any future Key Event cross-reference slot.** A slot that can
-  record "this node corresponds to KE3" must also be able to record the IL-8 case, where
-  the assay's own biology sits at KE2 and the alignment is at KE3. A plain identifier
-  cannot.
+- **It is the first case where the MIE is both instrumented and curated.** The lead and
+  liver pilots both found the molecular initiating event unmapped and unmeasured. Here KE1
+  is the most thoroughly assayed Event of the five — three guideline methods plus PPRA and
+  four *in silico* tools — *and* Contact_Dermatitis now carries a direct counterpart node,
+  `Covalent hapten-protein adduct formation` (`biological_scale: MOLECULAR`), wired from
+  `Hapten exposure` and backed by a peptide-adduct snippet (PMID:20631061). So for the
+  first time across the three pilots, both ends of an MIE correspondence exist.
+
+  That node is also the clearest instance yet of the binding problem this project keeps
+  running into: its `notes` record that GO has no term for non-enzymatic covalent
+  modification of a protein by a xenobiotic electrophile, and that CHEBI files *hapten* as
+  a role and so outside the bindable enum. An AOP MIE that nothing in GO or CHEBI can name
+  is a different kind of gap from an unmapped one.
+- **Most of the chain is curated, and the gaps are not where the earlier pilots' were.**
+  Against AOP 40's five Events, the allergic arm of Contact_Dermatitis holds counterparts
+  for KE1, KE3 (`Skin innate immune activation during sensitization`, binding Langerhans
+  cell and dendritic cell) and KE4 (`Allergen-specific T-cell priming`, binding
+  `GO:0042110` *T cell activation* with CD8-positive T cell and dendritic cell). Two
+  observations fall out of that:
+
+  **KE2 is skipped on the arm that needs it.** The entry does carry
+  `Keratinocyte activation and proinflammatory mediator release` with `GO:0032980`
+  *keratinocyte activation*, which is a clean KE 826 counterpart — but it sits on the
+  **irritant** chain (irritant exposure → barrier disruption → keratinocyte activation →
+  inflammatory cell recruitment), not the hapten chain, which runs adduct formation →
+  innate activation → T-cell priming with no keratinocyte step. AOP 40 is a sensitization
+  pathway, so its KE2 belongs on the allergic arm. This is a concrete curation lead, and it
+  is the same compartment the IL-8 section argues the IL-8 Luc assay is really reading.
+
+  **The AO is not missing, it is fused with KE4.** AO 827 *sensitisation, skin* is the
+  established sensitized state, and that is what `Allergen-specific T-cell priming`
+  describes — "establishing the adaptive immune memory required for later flares" — in the
+  same node as the T-cell activation that is KE4. Past that point the entry continues
+  *beyond* the AOP's scope into elicitation: re-exposure-driven recruitment, resident memory
+  T-cell flare, and the `Contact dermatitis` phenotype (`HP:0032282`). So the earlier
+  pilots' endpoint gap does not reproduce here. What replaces it is a harder modelling
+  question: one dismech node standing for two AOP-Wiki Events.
+- **It supplies two tests for any future Key Event cross-reference slot**, and neither can
+  be met by a bare identifier. A slot recording "this node corresponds to KE3" must also be
+  able to record the IL-8 case, where the assay's own biology sits at KE2 while the
+  alignment is at KE3 — and the KE4/AO case, where one node answers to two Events at once.
+  The second needs an explicit aggregation relation, not just a list of identifiers.
 - **It is the first case running in the other direction.** The lead and liver pilots ask
   what an AOP can contribute to dismech. The IL-8 section asks what dismech's corpus says
   about a Key Event assignment the AOP's own review article flags as uncertain, and gets a
@@ -301,3 +365,12 @@ Two things follow that are worth putting to the AOP 40 authors:
       `positive regulation of` GO terms, not specific to IL-8.
 - [ ] Check whether the same KE2/KE3 reading holds for the other TG 442E assays, which the
       article says are "also representative of the events leading up to KE3."
+- [ ] Curate a keratinocyte-activation step onto the **allergic** arm of Contact_Dermatitis.
+      The entry's existing `GO:0032980` node sits on the irritant chain, so AOP 40's KE2 has
+      no counterpart on the chain that corresponds to it. This is the one Event of the five
+      with no node on the right arm, and it is the compartment the IL-8 section argues the
+      IL-8 Luc assay is actually reading.
+- [ ] Decide how a node standing for two AOP-Wiki Events should be recorded, using
+      `Allergen-specific T-cell priming` (KE4 + AO 827) as the test case. This is the
+      aggregation-relation question, and it is now a worked instance rather than a
+      hypothetical.
