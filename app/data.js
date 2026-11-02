@@ -259818,6 +259818,90 @@ window.searchData = [
     "causal_graph_longest_path": "10"
   },
   {
+    "name": "Mannose-binding Lectin Deficiency",
+    "disease_id": "MONDO:0013714",
+    "category": "Mendelian",
+    "parents": [
+      "Complement Disorder"
+    ],
+    "creation_date": "2026-10-30T10:56:34Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mannose-binding lectin (MBL) deficiency is a common, inherited reduction in the concentration or function of MBL, the liver-derived collectin that recognises mannose, fucose and N-acetylglucosamine arrays on microbial surfaces and initiates the lectin pathway of complement. It is caused by common coding and promoter variation in MBL2: the three exon-1 structural alleles D (rs5030737), B (rs1800450) and C (rs1800451) - collectively \"O\", against the wild-type \"A\" - impair assembly of the higher-order oligomers MBL needs for high-avidity binding, while the -221 X promoter allele (rs7096206) lowers transcription. One or two low-producing alleles lower serum MBL in an additive, functionally codominant way.\nThe defining feature of this entry is that the biochemical deficiency is common and its clinical penetrance is very low and context-dependent. By a common \"<100 ng/mL\" cutoff roughly 5% of people are deficient, and far more under broader cutoffs, yet most deficient adults are healthy and prospective studies have not found them prone to severe infection. MBL deficiency is therefore best modelled as an inherited susceptibility state, not a fully penetrant monogenic immunodeficiency. Where it does become clinically relevant, it is chiefly in a second context that removes the compensating redundancy of the immune system - early infancy after maternal antibody has waned, chemotherapy-induced neutropenia, transplantation and other immunosuppression, or a coexisting antibody or structural lung defect. The same low activation can also be protective: reduced complement-assisted uptake of intracellular organisms is associated with lower risk of tuberculosis and modifies leprosy, the \"MBL paradox\".\nBecause \"deficiency\" is defined by many different serum thresholds and because the clinical signal is small and context-dependent, the literature is genuinely conflicting, and this entry curates that conflict rather than resolving it: positive associations (pneumococcal death, pneumococcal meningitis, cryptosporidiosis) are carried beside negative ones (a 5-year respiratory-outcome cohort, a meningococcal-disease cohort, a COPD-exacerbation cohort) as SUPPORT and REFUTE items on the same nodes.",
+    "pathophysiology": [
+      "MBL2 Low-Producing and Structural Variants",
+      "Defective MBL Oligomerization and Reduced Serum MBL",
+      "Impaired Lectin Pathway Complement Activation",
+      "Reduced Opsonophagocytic Clearance of Microbes",
+      "Infection Susceptibility Under a Second Immune Stressor",
+      "Reduced Opsonization of Intracellular Pathogens"
+    ],
+    "cell_types": [
+      "Neutrophil",
+      "Macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000775",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "complement activation, lectin pathway",
+      "complement activation",
+      "opsonization",
+      "phagocytosis"
+    ],
+    "phenotypes": [
+      "Decreased serum mannose-binding lectin",
+      "Recurrent Respiratory Infection",
+      "Recurrent Pneumonia",
+      "Pneumococcal Meningitis",
+      "Recurrent Cryptosporidium Infection",
+      "Bronchiectasis"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Immunological",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0032305",
+      "HP:0002205",
+      "HP:0006532",
+      "HP:0001287",
+      "HP:5210120",
+      "HP:0002110"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MBL2"
+    ],
+    "treatments": [
+      "Prompt organism-directed antimicrobial therapy",
+      "Routine and additional vaccination",
+      "Supportive and pulmonary care",
+      "Experimental MBL replacement"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum mannose-binding lectin concentration",
+      "Mannan-dependent lectin-pathway functional activity"
+    ],
+    "source_file": "Mannose-binding_Lectin_Deficiency.yaml",
+    "page_url": "../pages/disorders/Mannose-binding_Lectin_Deficiency.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Mantle Cell Lymphoma",
     "disease_id": "MONDO:0018876",
     "category": "",
@@ -333984,9 +334068,11 @@ window.searchData = [
       "MYO5B-related cholestasis",
       "USP53-related cholestasis",
       "KIF12-related cholestasis",
-      "ZFYVE19-related cholestasis"
+      "ZFYVE19-related cholestasis",
+      "VPS33B-related cholestasis",
+      "PSKH1-related cholestasis"
     ],
-    "description": "Progressive familial intrahepatic cholestasis (PFIC) is a genetically heterogeneous group of autosomal recessive disorders of hepatocanalicular bile formation that present in infancy or childhood with intrahepatic cholestasis of hepatocellular origin, intractable pruritus, jaundice, fat and fat-soluble vitamin malabsorption, growth failure, and progression to biliary fibrosis, cirrhosis and end-stage liver disease. The central diagnostic axis is the serum gamma-glutamyltransferase (GGT) split: PFIC1 (ATP8B1, encoding the FIC1 P4-ATPase aminophospholipid flippase) and PFIC2 (ABCB11, encoding the bile salt export pump BSEP) are low/normal-GGT diseases in which injury is confined to the hepatocyte, whereas PFIC3 (ABCB4, encoding the MDR3 phosphatidylcholine floppase) is a high-GGT cholangiopathy because bile salts that are not buffered into mixed micelles by biliary phosphatidylcholine attack the cholangiocyte apical membrane and release GGT. Newer forms include TJP2 (PFIC4), NR1H4/FXR (PFIC5), MYO5B (PFIC10) and the emerging USP53 (PFIC7), KIF12 (PFIC8) and ZFYVE19 (PFIC9) cholestases. Management has been transformed by ileal bile acid transporter (IBAT) inhibitors - odevixibat and maralixibat - which interrupt enterohepatic bile acid recirculation pharmacologically, complementing surgical biliary diversion and liver transplantation.",
+    "description": "Progressive familial intrahepatic cholestasis (PFIC) is a genetically heterogeneous group of autosomal recessive disorders of hepatocanalicular bile formation that present in infancy or childhood with intrahepatic cholestasis of hepatocellular origin, intractable pruritus, jaundice, fat and fat-soluble vitamin malabsorption, growth failure, and progression to biliary fibrosis, cirrhosis and end-stage liver disease. The central diagnostic axis is the serum gamma-glutamyltransferase (GGT) split: PFIC1 (ATP8B1, encoding the FIC1 P4-ATPase aminophospholipid flippase) and PFIC2 (ABCB11, encoding the bile salt export pump BSEP) are low/normal-GGT diseases in which injury is confined to the hepatocyte, whereas PFIC3 (ABCB4, encoding the MDR3 phosphatidylcholine floppase) is a high-GGT cholangiopathy because bile salts that are not buffered into mixed micelles by biliary phosphatidylcholine attack the cholangiocyte apical membrane and release GGT. Newer forms include TJP2 (PFIC4), NR1H4/FXR (PFIC5), MYO5B (PFIC10) and the emerging USP53 (PFIC7), KIF12 (PFIC8), ZFYVE19 (PFIC9), VPS33B (PFIC12) and PSKH1 (PFIC13) cholestases. Management has been transformed by ileal bile acid transporter (IBAT) inhibitors - odevixibat and maralixibat - which interrupt enterohepatic bile acid recirculation pharmacologically, complementing surgical biliary diversion and liver transplantation.",
     "pathophysiology": [
       "Canalicular Bile Formation Defect",
       "FIC1 Flippase Loss and Canalicular Membrane Destabilization",
@@ -333996,6 +334082,7 @@ window.searchData = [
       "Canalicular Tight Junction Failure and Paracellular Bile Reflux",
       "FXR Bile Acid Sensing and Transcriptional Failure",
       "Apical Trafficking Failure of Canalicular Transporters",
+      "PSKH1 Kinase Loss and Abnormal Cilia",
       "Hepatocellular Bile Salt Retention",
       "Enterohepatic Bile Acid Recirculation",
       "Systemic Bile Acid Load and Pruritogenesis",
@@ -334026,6 +334113,7 @@ window.searchData = [
       "nuclear receptor-mediated bile acid signaling pathway",
       "negative regulation of bile acid biosynthetic process",
       "establishment of epithelial cell polarity",
+      "cilium organization",
       "bile acid secretion",
       "extracellular matrix organization"
     ],
@@ -334111,7 +334199,9 @@ window.searchData = [
       "MYO5B",
       "USP53",
       "KIF12",
-      "ZFYVE19"
+      "ZFYVE19",
+      "VPS33B",
+      "PSKH1"
     ],
     "treatments": [
       "Odevixibat",
@@ -334135,10 +334225,10 @@ window.searchData = [
     "source_file": "Progressive_Familial_Intrahepatic_Cholestasis.yaml",
     "page_url": "../pages/disorders/Progressive_Familial_Intrahepatic_Cholestasis.html",
     "num_phenotypes": 21,
-    "num_pathophysiology": 16,
-    "num_genes": 9,
+    "num_pathophysiology": 17,
+    "num_genes": 11,
     "num_treatments": 11,
-    "causal_graph_edges": "77",
+    "causal_graph_edges": "81",
     "causal_graph_longest_path": "5"
   },
   {
@@ -422127,17 +422217,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3914,
-  "total_subtypes": 4995,
-  "total_disorders_and_subtypes": 8909,
-  "total_unique_evidence_sources": 58190,
-  "total_unique_publications": 54444,
+  "total_disorder_pages": 3915,
+  "total_subtypes": 4997,
+  "total_disorders_and_subtypes": 8912,
+  "total_unique_evidence_sources": 58210,
+  "total_unique_publications": 54462,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3912,
-  "total_unique_pathological_events": 25669,
+  "total_pathographs": 3913,
+  "total_unique_pathological_events": 25676,
   "total_modules": 226,
-  "total_research_reports": 4026,
+  "total_research_reports": 4027,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
