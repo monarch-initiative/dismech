@@ -21,6 +21,7 @@ diseases:
   - SAPHO_Syndrome
   - Scabies
   - Shigellosis
+  - Amniotic_Fluid_Embolism
   - Spotted_Fever_Rickettsiosis
   - Subacute_Inflammatory_Demyelinating_Polyneuropathy
 ---
@@ -216,6 +217,16 @@ IgE alongside IL-6 and IL-33 rather than to neutrophils. Nothing in the corpus r
 IL-8 to dendritic-cell activation, which is the Key Event the assay reading it out is
 aligned to.
 
+**Where IL-8 appears as a measurement rather than as a mechanism, it carries no
+direction.** Two entries hold it in `biochemical` instead of the pathograph —
+Shigellosis, as one of a group ("Inflammatory cytokines (IL-1β, IL-18, IL-8)") with
+`frequency: VERY_FREQUENT` and the elevation stated in `notes`, and
+Amniotic_Fluid_Embolism, whose `presence` field reads "Markedly increased in an individual
+fatal case". Neither sets a `direction`. So the corpus's clearest statements that IL-8 goes
+*up* in a disease are the ones a query for an increased readout would miss entirely, which
+is the same encoding problem as the three pathograph spellings below, reached from the
+marker side.
+
 ### What this says to AOP-Wiki, and what it does not
 
 The useful claim is narrow and worth keeping narrow. dismech cannot say which Key Event an
@@ -263,7 +274,7 @@ Two things follow that are worth putting to the AOP 40 authors:
 ## What this case adds to the alignment project
 
 - **The AO row reproduces the endpoint gap from both earlier pilots.** AOP 40's adverse
-  outcome has no assay in the article and no dismech mechanism node; `Contact_Dermatitis`
+  outcome has no assay in the article and no dismech mechanism node; Contact_Dermatitis
   is the disease entry, not an organ-scale event. That is now three use cases in which the
   terminal Event is the one with nothing to attach to.
 - **It is the first case where the MIE is instrumented.** The lead and liver pilots both
