@@ -17676,7 +17676,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "15",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "5"
   },
   {
@@ -26232,7 +26232,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "15",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "5"
   },
   {
@@ -66766,7 +66766,8 @@ window.searchData = [
     "genes": [],
     "treatments": [
       "Antimycobacterial therapy",
-      "Surgical management"
+      "Surgical management",
+      "Bacillus Calmette-Guerin (BCG) Cross-Protective Vaccination"
     ],
     "environmental": [],
     "biochemical": [],
@@ -66775,7 +66776,7 @@ window.searchData = [
     "num_phenotypes": 1,
     "num_pathophysiology": 2,
     "num_genes": 0,
-    "num_treatments": 2,
+    "num_treatments": 3,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "1"
   },
@@ -89234,7 +89235,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "5",
     "causal_graph_longest_path": "4"
   },
   {
@@ -89978,15 +89979,20 @@ window.searchData = [
     "creation_date": "2026-09-02T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Charcot-Marie-Tooth disease axonal type 2P (CMT2P, OMIM #614436) is a rare axonal hereditary motor and sensory neuropathy caused by variants in LRSAM1, which encodes a RING-type E3 ubiquitin ligase. Clinically it is an ordinary length-dependent CMT2 phenotype, distinguished mainly by being mild, late in onset - typically the second to fifth decade - slowly progressive, lower-limb predominant, and unusually often painful. Its expressivity is wide enough that asymptomatic carriers exist and are detectable only on lower-limb muscle MRI.\nWhat makes CMT2P mechanistically interesting is not the neuropathy but the genetics. Pathogenic variants cluster in the 3-prime exons that encode the C-terminal RING domain, and that clustering has a consequence: whether a premature termination codon there triggers nonsense-mediated decay or escapes it decides the mode of inheritance. A variant whose transcript is degraded leaves no protein, so disease requires two alleles and is recessive. A variant whose transcript survives produces a truncated RING-domain protein that acts dominant-negatively on the ligase, so one allele suffices. The gene is therefore a worked example of variant position determining inheritance mode, and this entry curates the two routes as separate upstream nodes converging on one functional endpoint.\nThat endpoint is measured directly. Biochemically, disease RING variants abolish the E2-E3 interaction that ubiquitin transfer depends on, so ubiquitylation activity is largely abrogated - while, notably, LRSAM1 dimerisation and binding to its target TSG101 are preserved. The lesion is in catalysis, not in substrate recognition.\nDownstream of that the chain is weaker, and the entry says so. TSG101, an ESCRT-I component, remains the only well-validated LRSAM1 ubiquitylation target, and how impaired endosomal sorting kills the longest peripheral axons has not been demonstrated. The strongest evidence that axons are compromised at all is indirect: Lrsam1-mutant mice have almost no spontaneous neuropathy but degenerate readily when challenged with the axonal neurotoxin acrylamide.\nA separate and still preliminary strand is a central nervous system extension. Three of five affected members of the original dominant Dutch kindred developed parkinsonism between 50 and 65, many years after their neuropathy began. This entry curates that as an emerging hypothesis with its own hypothesis group, not as an established feature.\n",
+    "description": "Charcot-Marie-Tooth disease axonal type 2P (CMT2P) is an LRSAM1-related motor and sensory neuropathy with autosomal dominant or recessive inheritance. Distal weakness, amyotrophy, sensory loss and reduced reflexes usually progress slowly, predominantly in the lower limbs. Sensory ataxia and neuropathic pain can be prominent. Onset and severity vary, including early-onset families, subclinical adult carriers and occasional severe disability. Dominant alleles include missense variants, in-frame indels and frameshifts altering the C-terminal RING domain; the original recessive splice defect lies upstream of that domain. Impaired ubiquitin-ligase activity is supported by biochemical experiments, but the pathways connecting LRSAM1 dysfunction to human axonal degeneration remain unresolved. Altered RNA-binding-protein interactions and intracellular protein localization provide additional experimental mechanisms. Parkinsonism has been reported in several carriers, without an established causal relationship or penetrance estimate.",
     "pathophysiology": [
-      "LRSAM1 RING-Domain Variants",
-      "Nonsense-Mediated Decay and Complete Loss of LRSAM1 Protein",
-      "Dominant-Negative Truncated RING-Domain Protein",
+      "Pathogenic LRSAM1 Variants",
+      "Recessive LRSAM1 Splice Defect",
+      "Altered Dominant LRSAM1 RING-Domain Protein",
       "Failure of E2-E3 Interaction and Loss of Ubiquitylation Activity",
       "Impaired TSG101-Dependent Endosomal Sorting",
       "Increased Vulnerability of Long Peripheral Axons",
-      "Nigral Neuron Degeneration"
+      "Nigrostriatal Dopaminergic Dysfunction",
+      "Disrupted LRSAM1 Interaction with RNA-Binding Proteins",
+      "Reduced Nuclear RNA-Binding Proteins",
+      "Perinuclear Aggregation of Mutant LRSAM1",
+      "Redistribution of TSG101",
+      "Altered Lipid-Droplet Protein Localization"
     ],
     "cell_types": [
       "motor neuron",
@@ -90009,7 +90015,12 @@ window.searchData = [
       "Pes Cavus",
       "Distal Amyotrophy",
       "Reduced Tendon Reflexes",
-      "Parkinsonism"
+      "Parkinsonism",
+      "Sensory Ataxia",
+      "Impaired Vibratory Sensation",
+      "Hammer Toes",
+      "Muscle Cramps",
+      "Elevated Creatine Kinase"
     ],
     "phenotype_categories": [
       "Neurologic",
@@ -90018,6 +90029,7 @@ window.searchData = [
     "phenotype_hpo_categories": [
       "Constitutional",
       "Limbs",
+      "Metabolism",
       "Musculoskeletal",
       "Nervous System"
     ],
@@ -90030,7 +90042,12 @@ window.searchData = [
       "HP:0001761",
       "HP:0003693",
       "HP:0001315",
-      "HP:0001300"
+      "HP:0001300",
+      "HP:0010871",
+      "HP:0002495",
+      "HP:0001765",
+      "HP:0003394",
+      "HP:0003236"
     ],
     "frequencies": [],
     "genes": [
@@ -90041,17 +90058,18 @@ window.searchData = [
       "Ankle-Foot Orthoses",
       "Foot Deformity Surgery",
       "Neuropathic Pain Management",
-      "Genetic Counselling"
+      "Genetic Counselling",
+      "Levodopa for Co-occurring Parkinsonism"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Charcot-Marie-Tooth_Disease_Axonal_Type_2P.yaml",
     "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Axonal_Type_2P.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 7,
+    "num_phenotypes": 14,
+    "num_pathophysiology": 12,
     "num_genes": 1,
-    "num_treatments": 5,
-    "causal_graph_edges": "21",
+    "num_treatments": 6,
+    "causal_graph_edges": "31",
     "causal_graph_longest_path": "7"
   },
   {
@@ -101630,7 +101648,7 @@ window.searchData = [
     "num_pathophysiology": 12,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "6"
   },
   {
@@ -114449,6 +114467,119 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Congenital Rubella Syndrome",
+    "disease_id": "MONDO:0017361",
+    "category": "Infectious Disease",
+    "parents": [
+      "Congenital infection",
+      "Teratogenic syndrome"
+    ],
+    "creation_date": "2026-11-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Congenital rubella syndrome (CRS) is a severe teratogenic disorder resulting from maternal primary infection with rubella virus during early pregnancy, with the highest risk of congenital anomalies occurring during the first trimester. Transplacental viral transmission leads to placental chorionic villus endothelial infection with interferon-driven angiogenic impairment, persistent fetal infection, and capsid-p32-mediated mitochondrial disruption, apoptosis, and mitotic arrest during organogenesis. Classically described by Norman Gregg in 1941 as a triad of sensorineural deafness, congenital cataracts, and congenital heart disease (most commonly branch pulmonary artery stenosis and patent ductus arteriosus), CRS also presents with intrauterine growth restriction, microcephaly, intellectual disability, hepatosplenomegaly, neonatal jaundice, thrombocytopenic purpura, \"blueberry muffin\" lesions of dermal extramedullary hematopoiesis, and delayed-onset manifestations including diabetes mellitus and glaucoma. Universal immunization with live-attenuated rubella-containing vaccines (RA 27/3 strain in MMR) prevents maternal rubella viremia and transplacental transmission.\n",
+    "pathophysiology": [
+      "Maternal Rubella Viremia and Transplacental Viral Entry",
+      "Placental Chorionic Villus Endothelial Infection and Angiogenic Impairment",
+      "Fetal Cytopathic Apoptosis and Mitotic Inhibition During Organogenesis",
+      "Disseminated Fetal Reticuloendothelial Infection and Extramedullary Hematopoiesis",
+      "Postnatal Rubella Viral Persistence and Delayed Autoimmune Endocrinopathy"
+    ],
+    "cell_types": [
+      "Endothelial cell",
+      "Microglial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115",
+      "CL:0000129"
+    ],
+    "biological_processes": [
+      "Viral entry into host cell",
+      "Angiogenesis",
+      "Defense response to virus",
+      "Apoptotic process",
+      "Cell population proliferation",
+      "Autoimmune response"
+    ],
+    "phenotypes": [
+      "Congenital Cataract",
+      "Pigmentary Retinopathy",
+      "Sensorineural Hearing Impairment",
+      "Branch Pulmonary Artery Stenosis",
+      "Patent Ductus Arteriosus",
+      "Intrauterine Growth Restriction",
+      "Microcephaly",
+      "Intellectual Disability",
+      "Hepatosplenomegaly",
+      "Dermal Extramedullary Hematopoiesis (Blueberry Muffin Lesions)",
+      "Neonatal Thrombocytopenic Purpura",
+      "Neonatal Jaundice",
+      "Delayed-Onset Diabetes Mellitus",
+      "Delayed-Onset Thyroid Disease",
+      "Congenital or Delayed-Onset Glaucoma"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Otologic",
+      "Cardiovascular",
+      "Growth",
+      "Neurological",
+      "Hepatic",
+      "Dermatologic",
+      "Hematologic",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000518",
+      "HP:0000580",
+      "HP:0000407",
+      "HP:0004415",
+      "HP:0001643",
+      "HP:0001511",
+      "HP:0000252",
+      "HP:0001249",
+      "HP:0001433",
+      "HP:0001978",
+      "HP:0000979",
+      "HP:0000952",
+      "HP:0000819",
+      "HP:0000821",
+      "HP:0000501"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Pre-Conception and Childhood Live-Attenuated Rubella Vaccination (MMR)",
+      "Multidisciplinary Supportive, Surgical, and Rehabilitative Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_Rubella_Syndrome.yaml",
+    "page_url": "../pages/disorders/Congenital_Rubella_Syndrome.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Congenital Sialidosis Type 2",
     "disease_id": "MONDO:0019682",
     "category": "Mendelian",
@@ -121122,7 +121253,8 @@ window.searchData = [
       "PTEN"
     ],
     "treatments": [
-      "Ipilimumab Plus Nivolumab Checkpoint Blockade"
+      "Ipilimumab Plus Nivolumab Checkpoint Blockade",
+      "Talimogene Laherparepvec (T-VEC) Oncolytic Viral Immunotherapy"
     ],
     "environmental": [
       "Ultraviolet radiation exposure"
@@ -121133,7 +121265,7 @@ window.searchData = [
     "num_phenotypes": 5,
     "num_pathophysiology": 5,
     "num_genes": 4,
-    "num_treatments": 1,
+    "num_treatments": 2,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "3"
   },
@@ -125690,7 +125822,11 @@ window.searchData = [
       "Dilated Cardiomyopathy",
       "Myocarditis-like Hot Phases",
       "Sudden Cardiac Death",
-      "Mild Cutaneous Findings"
+      "Mild Cutaneous Findings",
+      "Curly Hair",
+      "Myocardial Late Gadolinium Enhancement",
+      "Episodic Chest Pain",
+      "Premature Ventricular Contractions"
     ],
     "phenotype_categories": [
       "Cardiovascular",
@@ -125707,7 +125843,11 @@ window.searchData = [
       "HP:0001644",
       "HP:0012819",
       "HP:0001645",
-      "HP:0000982"
+      "HP:0000982",
+      "HP:0002212",
+      "HP:4000004",
+      "HP:0100749",
+      "HP:0006682"
     ],
     "frequencies": [
       "Very frequent",
@@ -125728,11 +125868,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "DSP_Cardiomyopathy.yaml",
     "page_url": "../pages/disorders/DSP_Cardiomyopathy.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 9,
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "8",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "5"
   },
   {
@@ -152102,30 +152242,45 @@ window.searchData = [
     ],
     "creation_date": "2026-07-04T00:00:00Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "ETM1",
+      "ETM4",
+      "ETM5",
+      "ETM6"
+    ],
     "description": "Essential tremor (ET) is one of the most common movement disorders worldwide, characterized by a bilateral, largely symmetric action tremor (postural and kinetic) of the upper limbs at 4-12 Hz, frequently accompanied by tremor of the head, voice, and lower limbs. It is a clinically and genetically heterogeneous syndrome, and the 2018 International Parkinson and Movement Disorder Society consensus redefined it as an isolated tremor syndrome (with an \"ET-plus\" category for additional soft neurological signs). ET is mechanistically and clinically distinct from the rest tremor of Parkinson disease and from the tremor/ataxia of fragile X-associated tremor/ataxia syndrome (FXTAS). The dominant pathophysiologic model implicates pathological rhythmic oscillation within the olivocerebellar and cerebello-thalamo-cortical circuits, with Purkinje-cell pathology, GABAergic (Purkinje-cell/dentate) dysfunction, and, in a subset, degenerative cerebellar change. Prevalence rises steeply with age (about 1% overall and up to ~5% in those over 65), and a positive family history (often autosomal-dominant-like) is present in a large fraction of patients, although the genetic architecture is predominantly complex/polygenic.",
     "pathophysiology": [
       "Inferior olivary oscillation and climbing-fiber entrainment",
       "Purkinje-cell pathology and hypersynchronous firing",
       "Cerebellar GABAergic disinhibition",
-      "Cerebello-thalamo-cortical oscillatory propagation"
+      "Cerebello-thalamo-cortical oscillatory propagation",
+      "DRD3 Gly-9 gain-of-function dopamine signaling",
+      "FUS haploinsufficiency through nonsense-mediated decay",
+      "TENM4 dominant-negative disruption of axon guidance and myelination",
+      "NOTCH2NLC 5' GGC repeat expansion"
     ],
     "cell_types": [
       "neuron",
       "Purkinje cell",
       "GABAergic neuron",
-      "cerebellar granule cell"
+      "cerebellar granule cell",
+      "oligodendrocyte precursor cell"
     ],
     "cell_type_ids": [
       "CL:0000540",
       "CL:0000121",
       "CL:0000617",
-      "CL:0001031"
+      "CL:0001031",
+      "CL:0002453"
     ],
     "biological_processes": [
       "rhythmic synaptic transmission",
       "chemical synaptic transmission",
-      "gamma-aminobutyric acid signaling pathway"
+      "gamma-aminobutyric acid signaling pathway",
+      "G protein-coupled dopamine receptor signaling pathway",
+      "nonsense-mediated decay of the mutant FUS transcript",
+      "axon guidance",
+      "myelination"
     ],
     "phenotypes": [
       "Kinetic tremor of the upper limbs",
@@ -152158,7 +152313,10 @@ window.searchData = [
       "FUS",
       "SLC1A2",
       "CA3",
-      "CPLX1"
+      "CPLX1",
+      "DRD3",
+      "TENM4",
+      "NOTCH2NLC"
     ],
     "treatments": [
       "Propranolol",
@@ -152176,8 +152334,8 @@ window.searchData = [
     "source_file": "Essential_Tremor.yaml",
     "page_url": "../pages/disorders/Essential_Tremor.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 4,
-    "num_genes": 5,
+    "num_pathophysiology": 8,
+    "num_genes": 8,
     "num_treatments": 6,
     "causal_graph_edges": "9",
     "causal_graph_longest_path": "4"
@@ -175855,8 +176013,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Glanzmann Thrombasthenia",
@@ -179465,8 +179623,8 @@ window.searchData = [
     "num_pathophysiology": 15,
     "num_genes": 7,
     "num_treatments": 3,
-    "causal_graph_edges": "32",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Good Syndrome",
@@ -184745,7 +184903,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "15",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "8"
   },
   {
@@ -184904,7 +185062,7 @@ window.searchData = [
     "num_pathophysiology": 12,
     "num_genes": 0,
     "num_treatments": 6,
-    "causal_graph_edges": "24",
+    "causal_graph_edges": "25",
     "causal_graph_longest_path": "6"
   },
   {
@@ -189622,7 +189780,8 @@ window.searchData = [
       "Supportive Care for Acute Infection",
       "Reduction of Immunosuppressive Therapy",
       "Ribavirin",
-      "Pegylated Interferon Alpha (Salvage)"
+      "Pegylated Interferon Alpha (Salvage)",
+      "Recombinant Hepatitis E Capsid Vaccine (HEV 239 / Hecolin)"
     ],
     "environmental": [],
     "biochemical": [],
@@ -189631,9 +189790,9 @@ window.searchData = [
     "num_phenotypes": 2,
     "num_pathophysiology": 5,
     "num_genes": 0,
-    "num_treatments": 4,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 5,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Hepatoblastoma",
@@ -240900,7 +241059,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 6,
     "num_treatments": 3,
-    "causal_graph_edges": "22",
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "5"
   },
   {
@@ -318590,7 +318749,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 3,
     "num_treatments": 7,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "2"
   },
   {
@@ -335266,7 +335425,8 @@ window.searchData = [
       "Enzalutamide",
       "Androgen Deprivation plus AR Pathway Inhibition",
       "Talazoparib plus Enzalutamide",
-      "Pembrolizumab for MSI-H or dMMR Disease"
+      "Pembrolizumab for MSI-H or dMMR Disease",
+      "Sipuleucel-T Autologous Cellular Immunotherapy"
     ],
     "environmental": [],
     "biochemical": [
@@ -335278,7 +335438,7 @@ window.searchData = [
     "num_phenotypes": 6,
     "num_pathophysiology": 19,
     "num_genes": 7,
-    "num_treatments": 8,
+    "num_treatments": 9,
     "causal_graph_edges": "31",
     "causal_graph_longest_path": "6"
   },
@@ -341556,6 +341716,139 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "RNU4-2-Related Autosomal Recessive Neurodevelopmental Disorder",
+    "disease_id": null,
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-11-01T22:08:20Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "RNU4-2-related autosomal recessive neurodevelopmental disorder is a moderate to severe syndromic neurodevelopmental disorder caused by homozygous or compound heterozygous variants in RNU4-2, the gene for the U4 small nuclear RNA of the major spliceosome. The variants lie outside the 18-nucleotide critical region mutated in ReNU syndrome and cluster in other functional elements of U4: stem II, which pairs with U6; the k-turn of the 5' stem loop, which binds SNU13 (15.5K); and the Sm protein binding site needed for snRNA biogenesis and stability, with a few in the terminal stem loop. The disorder was first found from saturation genome editing of RNU4-2 in a haploid human cell line and then characterized in 38 individuals from 28 families, 31 with detailed clinical data. All have global developmental delay or intellectual disability and delayed language, about half are nonverbal, and most have hypotonia; seizures, spasticity, strabismus, microcephaly, short stature and male genital anomalies are common. The distinguishing feature is brain MRI: dilated perivascular spaces in the periventricular and deep white matter, in severe cases coalescing into a tightly packed microcystic pattern, with white matter volume loss, thin corpus callosum and cerebellar atrophy, which can progress on serial imaging. Blood RNA sequencing shows strongly reduced RNU4-2 RNA with upregulation of the paralog RNU4-1, so the disorder acts by loss of function. ReNU syndrome is different on each axis: it is dominant, usually de novo, caused by critical-region variants in the T-loop and stem III, shows raised rather than reduced RNU4-2 levels and a systematic 5' splice site signature that the recessive disorder lacks, and has a different facial gestalt and no comparable microcystic white matter pattern. No splicing defect has yet been detected in the recessive disorder. It is much rarer than ReNU syndrome in outbred populations (0.08% versus 0.69% of undiagnosed neurodevelopmental disorder in the Genomics England 100,000 Genomes Project) and more frequent with parental consanguinity. MONDO has no class for this disease, so disease_term carries a free-text preferred term with no binding and the Mendelian neurodevelopmental disorder class is recorded as a broad match.",
+    "pathophysiology": [
+      "Biallelic RNU4-2 Stem II, K-Turn or Sm-Site Variants",
+      "Reduced RNU4-2 U4 snRNA Level",
+      "Compensatory RNU4-1 Upregulation",
+      "Periventricular Perivascular Space Dilation and White Matter Loss",
+      "Progressive Cerebellar Atrophy",
+      "Impaired Brain Development"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "nervous system development"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Delayed speech and language development",
+      "Absent speech",
+      "Delayed gross motor development",
+      "Inability to walk",
+      "Hypotonia",
+      "Seizure",
+      "Spasticity",
+      "Ataxia",
+      "Dystonia",
+      "Dilation of Virchow-Robin spaces",
+      "Abnormal cerebral white matter morphology",
+      "Cerebral white matter atrophy",
+      "Thin corpus callosum",
+      "Ventriculomegaly",
+      "Cerebellar atrophy",
+      "Microcephaly",
+      "Strabismus",
+      "Feeding difficulties",
+      "Short stature",
+      "Failure to thrive",
+      "Atypical behavior",
+      "Autistic behavior",
+      "Abnormal facial shape",
+      "Synophrys",
+      "High anterior hairline",
+      "Upslanted palpebral fissure",
+      "Diastema",
+      "Micropenis",
+      "Cryptorchidism"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Ophthalmologic",
+      "Gastrointestinal",
+      "Growth",
+      "Behavioral",
+      "Craniofacial",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0001344",
+      "HP:0002194",
+      "HP:0002540",
+      "HP:0001252",
+      "HP:0001250",
+      "HP:0001257",
+      "HP:0001251",
+      "HP:0001332",
+      "HP:0012520",
+      "HP:0002500",
+      "HP:0012762",
+      "HP:0033725",
+      "HP:0002119",
+      "HP:0001272",
+      "HP:0000252",
+      "HP:0000486",
+      "HP:0011968",
+      "HP:0004322",
+      "HP:0001508",
+      "HP:0000708",
+      "HP:0000729",
+      "HP:0001999",
+      "HP:0000664",
+      "HP:0009890",
+      "HP:0000582",
+      "HP:0000699",
+      "HP:0000054",
+      "HP:0000028"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "RNU4-2"
+    ],
+    "treatments": [
+      "Anti-seizure pharmacotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "RNU4-2-Related_Autosomal_Recessive_Neurodevelopmental_Disorder.yaml",
+    "page_url": "../pages/disorders/RNU4-2-Related_Autosomal_Recessive_Neurodevelopmental_Disorder.html",
+    "num_phenotypes": 31,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "RNU5B-1 Related Neurodevelopmental Disorder With Seizures And Joint Laxity",
@@ -397931,17 +398224,23 @@ window.searchData = [
       "Increased cortical catecholamine synthesis",
       "Long QT interval and sudden cardiac death susceptibility",
       "Neurodevelopmental phenotype",
+      "Pancreatic alpha-cell dysfunction and impaired glucagon secretion",
+      "Hypothalamic POMC-neuron dysregulation of glucose homeostasis",
       "Fever-triggered CaV1.2 activation and lowered arrhythmia/seizure threshold",
       "Fever-associated increased seizure susceptibility"
     ],
     "cell_types": [
       "cardiomyocyte",
       "neuron",
+      "pancreatic alpha cell",
+      "POMC neuron of the arcuate nucleus",
       "GABAergic neuron"
     ],
     "cell_type_ids": [
       "CL:0000746",
       "CL:0000540",
+      "CL:0000171",
+      "CL:4042033",
       "CL:0000617"
     ],
     "biological_processes": [
@@ -397951,6 +398250,8 @@ window.searchData = [
       "cardiac conduction",
       "regulation of neuron differentiation",
       "neurotransmitter secretion",
+      "glucagon secretion",
+      "glucose homeostasis",
       "cellular response to heat"
     ],
     "phenotypes": [
@@ -398001,10 +398302,10 @@ window.searchData = [
     "source_file": "Timothy_Syndrome.yaml",
     "page_url": "../pages/disorders/Timothy_Syndrome.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 12,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "20",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "6"
   },
   {
@@ -403798,6 +404099,81 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "U4 and U6 snRNA Gene-Related Retinitis Pigmentosa",
+    "disease_id": null,
+    "category": "Mendelian",
+    "parents": [
+      "Retinitis pigmentosa"
+    ],
+    "creation_date": "2026-11-01T21:45:46Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "U4 and U6 snRNA gene-related retinitis pigmentosa is a nonsyndromic, dominantly transmitted rod-cone dystrophy caused by heterozygous variants in RNU4-2, which encodes the U4 small nuclear RNA, or in four of the five identical RNU6 paralogs (RNU6-1, RNU6-2, RNU6-8 and RNU6-9), which encode the U6 small nuclear RNA. Four recurrent variants account for the reported families: n.18_19insA and n.56T>C in RNU4-2, and n.55_56insG and n.56_57insG in the RNU6 paralogs. Variants are inherited in most families and arise de novo in some isolated cases, and RNU4-2 variants show incomplete penetrance. All of them lie in the three-way junction of the U4/U6 duplex, where the duplex binds the tri-snRNP splicing factors PRPF31 and PRPF3, both themselves causes of dominant retinitis pigmentosa. This is a different structural element from the RNU4-2 region mutated in ReNU syndrome, and patients have no neurodevelopmental phenotype. In ectopic expression assays the variant snRNAs bind the di-snRNP markers SART3 and PRPF31 more strongly, consistent with a delay in snRNP biogenesis at the di-snRNP stage rather than a failure of assembly, and no consistent splicing change was found in patient leukocytes. The presentation is classical retinitis pigmentosa with onset mostly in adolescence, with frequent cystoid macular edema, lens opacities and vitreomacular complications. In a cohort of 4,722 genetically undiagnosed retinitis pigmentosa cases the variants were estimated to explain about 1.4% of cases. Because snRNA genes are not captured by exome sequencing, affected individuals are usually exome-negative. MONDO has no class for this disease, so disease_term carries a free-text preferred term with no binding and the retinitis pigmentosa class is recorded as a broad match.",
+    "pathophysiology": [
+      "U4/U6 Three-Way Junction snRNA Variant",
+      "Increased Di-snRNP Factor Binding and Delayed Tri-snRNP Assembly",
+      "Photoreceptor Degeneration"
+    ],
+    "cell_types": [
+      "rod photoreceptor",
+      "cone photoreceptor"
+    ],
+    "cell_type_ids": [
+      "CL:0000604",
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "delayed spliceosomal tri-snRNP complex assembly"
+    ],
+    "phenotypes": [
+      "Rod-cone dystrophy",
+      "Nyctalopia",
+      "Constriction of peripheral visual field",
+      "Reduced visual acuity",
+      "Cystoid macular edema",
+      "Cataract",
+      "Vitreomacular complications"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000510",
+      "HP:0000662",
+      "HP:0001133",
+      "HP:0007663",
+      "HP:0011505",
+      "HP:0000518",
+      "HP:0004327"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "RNU4-2",
+      "RNU6-1",
+      "RNU6-2",
+      "RNU6-8",
+      "RNU6-9"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "U4_and_U6_snRNA_Gene-Related_Retinitis_Pigmentosa.yaml",
+    "page_url": "../pages/disorders/U4_and_U6_snRNA_Gene-Related_Retinitis_Pigmentosa.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 3,
+    "num_genes": 5,
+    "num_treatments": 0,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "UBA5-Related Developmental and Epileptic Encephalopathy",
     "disease_id": "MONDO:0014933",
     "category": "Mendelian",
@@ -409286,8 +409662,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 8,
     "num_treatments": 3,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Visceral heterotaxy",
@@ -421751,17 +422127,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3911,
-  "total_subtypes": 4991,
-  "total_disorders_and_subtypes": 8902,
-  "total_unique_evidence_sources": 58171,
-  "total_unique_publications": 54426,
+  "total_disorder_pages": 3914,
+  "total_subtypes": 4995,
+  "total_disorders_and_subtypes": 8909,
+  "total_unique_evidence_sources": 58190,
+  "total_unique_publications": 54444,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3909,
-  "total_unique_pathological_events": 25648,
+  "total_pathographs": 3912,
+  "total_unique_pathological_events": 25669,
   "total_modules": 226,
-  "total_research_reports": 4023,
+  "total_research_reports": 4026,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
