@@ -41,7 +41,8 @@ them apart:
 | `MISTAGGED` | a reference tagged `GeneReviews` (or `StatPearls`) is not a chapter of that collection | GeneReviews only |
 | `CITED_UNTAGGED` | a chapter PMID or `NBK` URL is cited somewhere in the file but not tagged in `references:` | GeneReviews only |
 | `UNTAGGED_CHAPTER` | a chapter whose title, normalised, **equals** one of the entry's names exists and is not tagged | GeneReviews only |
-| `TAGGED` | at least one tagged reference is a verified chapter | no |
+| `TAGGED` | at least one tagged reference is a verified, current chapter | no |
+| `TAGGED_RETIRED` | every tagged chapter is one GeneReviews has retired (below) | no |
 | `CANDIDATE_CHAPTER` | only partial title matches, or only a retired chapter | no, by design |
 | `NO_CHAPTER` | nothing in the snapshot names this entry | only when the entry has no synonyms (below) |
 
@@ -55,10 +56,32 @@ Syndrome` finds *FBN1-Related Marfan Syndrome* as `EXACT`.
 *Alpha-Thalassemia X-Linked Intellectual Disability Syndrome* and is not that
 disease's chapter; `Autosomal Dominant Robinow Syndrome 1` sits under *Autosomal
 Dominant Robinow Syndrome* and is. The check lists the title and the match kind
-(`CONTAINS`, `TITLE_IN_NAME`, `NEAR`) and leaves the call to a reader. Two guards
-keep this list short: a numbered title never stands in for a differently numbered
-name (*Usher Syndrome Type I* is not a candidate for `Usher Syndrome Type 4`),
-and two `<GENE>-Related …` forms must name the same gene.
+(`GENE_SUFFIX`, `CONTAINS`, `TITLE_IN_NAME`, `NEAR`, and `GENE_SCOPED`,
+below) and leaves the call to a
+reader. Two guards keep this list short: a numbered title never stands in for a
+differently numbered name (*Usher Syndrome Type I* is not a candidate for `Usher
+Syndrome Type 4`), and two `<GENE>-Related …` forms must name the same gene.
+
+A few chapters put the gene *after* the disease, set off by a spaced dash:
+*Autosomal Dominant Tubulointerstitial Kidney Disease – REN*, with sibling
+chapters for `UMOD` and `MUC1`, *Autosomal Recessive Polycystic Kidney Disease –
+PKHD1*, and *Pyridoxine-Dependent Epilepsy – ALDH7A1*. Normalisation keeps the
+gene as a last word, so before #15904 such a title matched only a name equal to
+the whole title, gene included, or a name found inside it. The ADTKD-REN entry,
+whose synonyms include `ADTKD-REN` and `autosomal dominant tubulointerstitial
+kidney disease due to mutations in REN`, got `NO_CHAPTER`. Such a title is now also read as
+`<disease> – <gene>`, and is reported as `GENE_SUFFIX` when the disease part is
+a phrase in one of the entry's names **and** the gene symbol appears in one of
+its names or in its `genetic:` records (record `name`, `gene_term` preferred
+term or label). The gene condition is what stops the UMOD, REN and MUC1 chapters
+from being offered to each other's entries: the disease words are identical in
+all three. A `GENE_SUFFIX` hit is a candidate, never `EXACT`, so it does not make
+`--strict` fail; an entry whose name is the exact title, gene included, still
+gets `EXACT`. Only a single upper-case symbol after the dash counts as a gene,
+so *Udd Distal Myopathy – Tibial Muscular Dystrophy* is not read this way. An
+entry for the whole family with no gene in it (`Autosomal Dominant
+Tubulointerstitial Kidney Disease`) still sees all three chapters as `CONTAINS`
+candidates, which is the right answer for a grouping-level name.
 
 **A negative from an entry with no synonyms is not a verified negative.** GeneReviews
 often titles a chapter by a synonym: *17q12 Recurrent Duplication* is the chapter
@@ -95,7 +118,9 @@ just check-genereviews --format tsv > census.tsv     # machine-readable census
 ```
 
 `--online` adds a live `"<name>"[TI] AND genereviews[book]` search per name so a
-chapter published after the snapshot is caught. The name is quoted as a phrase:
+chapter published after the snapshot is caught, and a
+`<GENE>[TIAB] AND genereviews[book]` search per causal gene symbol (see
+*Gene-scoped chapters* below). The name is quoted as a phrase:
 unquoted, PubMed drops the words it cannot match and searches what is left, so
 `mesiodens-cataract syndrome` became a search for "syndrome" (#14213). A search
 PubMed reports having rewritten anyway is skipped with a warning. It needs network and is not
@@ -106,6 +131,91 @@ hit is listed with match kind `ONLINE`, after every index match: PubMed's
 normalised-title equality `EXACT` means, so an `ONLINE` hit makes the entry a
 `CANDIDATE_CHAPTER` and never gates. Read the title, and tag the chapter if it
 is this disease's.
+
+## Retired chapters
+
+GeneReviews withdraws a chapter by appending `– RETIRED CHAPTER, FOR HISTORICAL
+REFERENCE ONLY` to its title. The index records that as `retired = 1` (68 of the
+958 GeneReviews chapters in the 2026-09-10 snapshot). A retired chapter is still
+a GeneReviews article, so tagging it `GeneReviews` is correct, and removing the
+tag would only turn the citation into a `CITED_UNTAGGED` finding.
+
+What changes is the verdict. An entry whose tagged GeneReviews chapters are
+*all* retired gets `TAGGED_RETIRED` instead of `TAGGED`, so the entries resting
+on withdrawn content can be listed (#16018). One current chapter tagged beside
+the retired one makes the verdict `TAGGED` again. `TAGGED_RETIRED` never fails
+under `--strict`: most retired chapters have no successor, and a retired chapter
+can still be the fullest clinical description of its disease. The question it
+puts to a curator is whether a current chapter now covers the disease, often a
+spectrum or *Overview* chapter that a `GENE_SCOPED` row or a title search finds.
+If one does, cite and mine it, and re-quote evidence from it rather than
+carrying the retired abstract's sentences over. If none does, the retired
+chapter stays. The schema cannot yet record a source's standing (#9840), so
+say so in `notes:` when it matters to a claim.
+
+## Gene-scoped chapters
+
+GeneReviews often scopes a chapter to a gene rather than to one disease:
+*Autosomal Dominant TRPV4-Related Disorders* covers five skeletal dysplasias,
+SED Maroteaux type among them, and no comparison with the entry's disease names
+reaches it (#9694). So the check also searches from the gene side. Every
+`<GENE>-Related …` or `<GENE>-Associated …` title (about 250 chapters, including
+forms such as *HAMP- and HJV-Related Hemochromatosis* and *MCM8/MCM9-Related
+Syndromes*) is indexed under its gene symbols, and a chapter whose symbol
+matches one of the entry's causal genes is listed as a `GENE_SCOPED` candidate.
+
+The genes come from `genetic:` records that claim to cause the disease:
+`relationship_type` `CAUSATIVE` or absent, `variant_origin` not `SOMATIC`, and no
+"somatic" in the record's `name` or `association`. A susceptibility, modifier or
+somatic-driver gene's chapter is about another disease (*HRAS-Related Costello
+Syndrome* is not a thymoma baseline). Symbols are compared case and all, so
+`HFE` matches and a word does not.
+
+A somatic-mosaic disorder is the exception. When the entry's `inheritance`, or a
+subtype's, binds `HP:0001442` *Typified by somatic mosaicism* (the convention
+the `somatic-mosaicism` skill sets), its somatic causal genes are kept, because
+the variant is post-zygotic by definition and the gene's chapter is the
+baseline: `Hemimegalencephaly`, `angioosteohypertrophic_syndrome`
+(Klippel-Trenaunay) and `Focal_Cortical_Dysplasia_Type_II` all reach
+*PIK3CA-Related Overgrowth Spectrum* this way. Non-causal records stay out even
+then.
+
+`GENE_SCOPED` is a candidate, never a verdict, for the same reason as the other
+partial matches: *POLG-Related Disorders* covers every POLG disease, which may or
+may not include this one. It never changes a gating verdict. When it landed it
+moved 108 entries from `NO_CHAPTER` to `CANDIDATE_CHAPTER`, including
+`GM1_Gangliosidosis_Type_3` (*GLB1-Related Disorders*) and
+`Distal_Hereditary_Motor_Neuronopathy_Autosomal_Dominant` (the GARS1, BSCL2,
+DCTN1 and TRPV4 chapters).
+
+The index holds titles only, so a chapter that names the gene only in its
+abstract, usually an overview (*Nuclear Gene-Encoded Leigh Syndrome Spectrum
+Overview* for SURF1), is out of its reach. `--online` closes that gap with one
+`<GENE>[TIAB] AND genereviews[book]` search per causal symbol, limited to
+symbols in the committed HGNC label cache (`cache/hgnc/terms.csv`), since a token
+such as `II`, `CAG` or `HLA` would match unrelated abstracts. Unlike the name
+search it keeps hits already in the snapshot, since the title match never saw
+them, and it runs for GeneReviews only. A retired hit is marked
+`[retired chapter]`.
+
+### Searching PubMed by hand
+
+`genereviews[book]` is the field that selects chapters. `GeneReviews[TI]`
+searches chapter titles, which never contain the book's name, so it returns zero
+for every disease; that query sat in both curation skills until #9694. To drop
+withdrawn chapters add `NOT retired[TI]`. `NOT "RETIRED CHAPTER"[TI]` looks
+equivalent but PubMed's title index does not hold the phrase: it returns a
+`warninglist` and excludes nothing.
+
+| Query | Hits |
+|---|---|
+| `TRPV4[TI] GeneReviews[TI]` | 0 |
+| `TRPV4[TIAB] AND genereviews[book]` | 3, one retired |
+| `TRPV4[TIAB] AND genereviews[book] NOT retired[TI]` | 2 |
+| `TRPV4[TIAB] AND genereviews[book] NOT "RETIRED CHAPTER"[TI]` | 3, with a `warninglist` |
+| `genereviews[book] AND retired[TI]` | 68 |
+
+(Counts from 2026-10-30.)
 
 ## What to do with a finding
 

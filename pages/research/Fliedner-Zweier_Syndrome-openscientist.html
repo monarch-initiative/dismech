@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fliedner-Zweier Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Fliedner-Zweier Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Fliedner-Zweier Syndrome</h1>
+                
+                <p class="report-subtitle">Key Findings</p>
+                
+                
+                <div class="report-date">2026-10-26</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0957787" target="_blank" rel="noopener noreferrer">MONDO:0957787</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">6 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>Key Findings</h2>
+<h3>Finding 1 — <em>SCAF4</em> haploinsufficiency causes an autosomal dominant neurodevelopmental disorder</h3>
+<p>Fliedner-Zweier syndrome was delineated by Fliedner et al. (2020), who identified <strong>nine likely pathogenic germline variants in <em>SCAF4</em></strong> — two splice-site and seven truncating — all residing in the N-terminal two-thirds of the protein, in individuals with a variable neurodevelopmental disorder. Eight of the nine variants arose de novo and one was inherited, establishing a dominant mechanism of loss of function with mostly spontaneous origin.</p>
+<blockquote>
+<p>"we identified nine likely pathogenic germline variants in SCAF4 including two splice-site and seven truncating variants, all residing in the N-terminal two thirds of the protein. Eight of these variants occurred de novo, and one was inherited" — <a href="https://pubmed.ncbi.nlm.nih.gov/32730804/">PMID: 32730804</a></p>
+</blockquote>
+<p>Schmid et al. (2025) substantially expanded the cohort with <strong>50 additional individuals</strong>, defining a molecular spectrum of <strong>25 truncating, 8 splice-site, and 5 missense variants</strong>, with 23 de novo and 13 inherited events. The presence of inherited variants indicates that the disorder can be transmitted from mildly affected or variably penetrant parents.</p>
+<blockquote>
+<p>"The molecular spectrum comprises 25 truncating, eight splice-site and five missense variants." — <a href="https://pubmed.ncbi.nlm.nih.gov/39668183/">PMID: 39668183</a></p>
+</blockquote>
+<p><strong>Interpretation:</strong> The convergence of truncating, splice-site, and domain-destabilizing missense variants on a single functional endpoint — reduced SCAF4 dosage — is the hallmark of a haploinsufficiency disorder (<a href="http://purl.obolibrary.org/obo/MONDO_0957787" target="_blank" rel="noopener noreferrer">MONDO:0957787</a>).</p>
+<h3>Finding 2 — <em>SCAF4</em>/<em>SCAF8</em> are RNAPII anti-terminators controlling polyA-site selection; loss dysregulates mRNA processing</h3>
+<p>Gregersen et al. (2019) established the molecular function: SCAF4 and SCAF8 bind the hyper-phosphorylated RNAPII CTD (phosphorylated on both Ser2 and Ser5) and act as anti-terminators that suppress the use of early, alternative polyA sites, protecting full-length mRNA synthesis. Double knockout of <em>SCAF4</em> and <em>SCAF8</em> is cell-lethal, indicating partial functional redundancy but an essential combined role.</p>
+<blockquote>
+<p>"The SCAF4/8 proteins bind the hyper-phosphorylated RNAPII C-terminal repeat domain (CTD) phosphorylated on both Ser2 and Ser5 and are detected at early, alternative polyA sites." — <a href="https://pubmed.ncbi.nlm.nih.gov/31104839/">PMID: 31104839</a></p>
+</blockquote>
+<p>In patients, this molecular defect manifests as broad transcriptome dysregulation. Fliedner et al. (2020) performed RNA-seq on patient lymphocytes and found <strong>deregulation of more than 9,000 genes and significant differential splicing of more than 2,900 genes</strong>.</p>
+<blockquote>
+<p>"revealed a broad deregulation of more than 9,000 genes and significant differential splicing of more than 2,900 genes, indicating an important role of SCAF4 in mRNA processing" — <a href="https://pubmed.ncbi.nlm.nih.gov/32730804/">PMID: 32730804</a></p>
+</blockquote>
+<p>Chen et al. (2025) independently confirmed widespread transcriptional dysregulation on patient RNA-seq for a novel nonsense variant (c.1693C&gt;T; p.Arg565*), reinforcing the mechanistic link between SCAF4 loss and impaired transcription in neurodevelopmental disease.</p>
+<h3>Finding 3 — Core phenotype: mild ID/speech delay, seizures, behavioral abnormalities, and skeletal anomalies</h3>
+<p>Across cohorts the phenotype is consistent and multisystem. Schmid et al. (2025) summarized the most frequent findings as mild developmental delay with speech impairment, seizures, and skeletal abnormalities such as clubfoot, scoliosis, or hip dysplasia; cognitive ability ranged from normal IQ to severe ID, with borderline-to-mild ID predominating.</p>
+<blockquote>
+<p>"Frequent clinical findings were mild developmental delay with speech impairment, seizures, and skeletal abnormalities such as clubfoot, scoliosis or hip dysplasia." — <a href="https://pubmed.ncbi.nlm.nih.gov/39668183/">PMID: 39668183</a></p>
+</blockquote>
+<p>Fliedner et al. (2020) similarly described mild intellectual disability, seizures, behavioral abnormalities, and various skeletal and structural anomalies. Hu et al. (2024) characterized the seizures as infrequent, responsive to antiseizure drugs, with a <strong>median seizure onset age of 4 years</strong>.</p>
+<blockquote>
+<p>"experienced epilepsy as infrequent seizures, responded well to antiseizure drugs, and had a median [IQR] seizure onset age of 4" — <a href="https://pubmed.ncbi.nlm.nih.gov/37891035/">PMID: 37891035</a></p>
+</blockquote>
+<p>Lin &amp; Chen (2024) reported focal epilepsy with focal EEG discharges, with one patient showing cryptorchidism, extending the phenotype to focal seizure semiology and genitourinary involvement.</p>
+<h3>Finding 4 — Model organisms recapitulate neurodevelopmental and skeletal phenotypes</h3>
+<p>Two orthogonal animal models support causality. Lin &amp; Chen (2024) generated CRISPR-Cas9 <em>scaf4a/b</em> knockout zebrafish, which displayed abnormal epileptiform signals, abnormal skeletal development, and abnormal neurodevelopment relative to wild-type.</p>
+<blockquote>
+<p>"In zebrafish, abnormal epileptiform signals, skeletal development, and neurodevelopment have been found in scaf4a/b knockout compared to wild-type zebrafish." — <a href="https://pubmed.ncbi.nlm.nih.gov/37394306/">PMID: 37394306</a></p>
+</blockquote>
+<p>Fliedner et al. (2020) knocked down the <em>SCAF4</em> ortholog <em>CG4266</em> in <em>Drosophila melanogaster</em>, producing impaired locomotor function, learning, and short-term memory, with increased active zones at larval neuromuscular junctions.</p>
+<blockquote>
+<p>"Knockdown of the SCAF4 ortholog CG4266 in the model organism Drosophila melanogaster resulted in impaired locomotor function, learning, and short-term memory." — <a href="https://pubmed.ncbi.nlm.nih.gov/32730804/">PMID: 32730804</a></p>
+</blockquote>
+<p><strong>Interpretation:</strong> The zebrafish model captures the seizure and skeletal domains; the fly model captures the neurobehavioral/cognitive domain. Together they validate the gene–disease relationship across the phylogenetic spectrum.</p>
+<h3>Finding 5 — SCAF4 acts through a CTD-interacting domain (CID); missense variants destabilize it</h3>
+<p>SCAF4 engages the phosphorylated RNAPII CTD through an all-α-helical <strong>CTD-interacting domain (CID)</strong>. A solution-NMR structure of the human SCAF8 CID (<a href="https://pubmed.ncbi.nlm.nih.gov/41361092/">PMID: 41361092</a>) describes a subset of regulatory proteins that possess a CID which "specifically recognizes the phosphorylated CTD and mediates stage-specific transcriptional control." The RNAPII CTD heptad consensus (Y1-S2-P3-T4-S5-P6-S7) is dynamically phosphorylated across transcription stages, and SCAF4/8 bind the Ser2+Ser5 doubly-phosphorylated form (<a href="https://pubmed.ncbi.nlm.nih.gov/31104839/">PMID: 31104839</a>).</p>
+<p>Schmid et al. (2025) showed that the three missense variants in FZS cluster in the CID and were predicted to destabilize the domain — providing the mechanistic bridge from rare missense alleles to the same loss-of-function endpoint seen with truncating variants.</p>
+<blockquote>
+<p>"Three missense variants in the CTD-interacting domain of SCAF4 were predicted to destabilize the domain." — <a href="https://pubmed.ncbi.nlm.nih.gov/39668183/">PMID: 39668183</a></p>
+</blockquote>
+<h3>Finding 6 — Population-genetic constraint confirms extreme LoF intolerance</h3>
+<p>gnomAD constraint metrics for <em>SCAF4</em> (GRCh38, ENSG00000156304) quantitatively confirm haploinsufficiency:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+<th>Interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pLI</td>
+<td>1.00</td>
+<td>Extremely LoF-intolerant (near-certain haploinsufficient)</td>
+</tr>
+<tr>
+<td>LOEUF (upper bound o/e LoF)</td>
+<td>0.269</td>
+<td>Strong constraint (LOEUF &lt; 0.35)</td>
+</tr>
+<tr>
+<td>Observed/expected LoF (point)</td>
+<td>0.193 (25 obs vs 129.7 exp)</td>
+<td>~81% depletion of LoF variants</td>
+</tr>
+<tr>
+<td>LoF Z-score</td>
+<td>7.80</td>
+<td>Severe selection against LoF</td>
+</tr>
+<tr>
+<td>Missense Z-score</td>
+<td>2.36 (oe_mis = 0.855)</td>
+<td>Moderate missense constraint</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The near-total depletion of loss-of-function variation in the general population independently corroborates that reducing SCAF4 dosage is deleterious, consistent with the de novo–dominant disease mechanism. The moderate (not extreme) missense constraint explains why pathogenic missense variants are rare and confined to the critical CID.</p>
+<h3>Finding 7 — Identifiers and the expanded HPO phenotype spectrum</h3>
+<p>Monarch / <a href="http://purl.obolibrary.org/obo/MONDO_0957787" target="_blank" rel="noopener noreferrer">MONDO:0957787</a> "Fliedner-Zweier syndrome" cross-references <strong><a href="https://bioregistry.io/OMIM:620511" target="_blank" rel="noopener noreferrer">OMIM:620511</a>, <a href="http://purl.obolibrary.org/obo/DOID_0070653" target="_blank" rel="noopener noreferrer">DOID:0070653</a>, <a href="https://bioregistry.io/MEDGEN:1845438" target="_blank" rel="noopener noreferrer">MEDGEN:1845438</a>, UMLS:C5882693</strong>. The disorder has 36 annotated HPO terms spanning multiple organ systems:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>HPO terms (selected)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Neurodevelopmental</td>
+<td>Intellectual disability (<a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a>), Global developmental delay (<a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a>), Delayed speech and language development (<a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a>), Delayed ability to walk (<a href="http://purl.obolibrary.org/obo/HP_0031936" target="_blank" rel="noopener noreferrer">HP:0031936</a>)</td>
+</tr>
+<tr>
+<td>Neurological</td>
+<td>Seizure (<a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a>), Hypotonia (<a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a>), Hypertonia (<a href="http://purl.obolibrary.org/obo/HP_0001276" target="_blank" rel="noopener noreferrer">HP:0001276</a>)</td>
+</tr>
+<tr>
+<td>Behavioral</td>
+<td>Autistic behavior (<a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" rel="noopener noreferrer">HP:0000729</a>), Aggressive behavior (<a href="http://purl.obolibrary.org/obo/HP_0000718" target="_blank" rel="noopener noreferrer">HP:0000718</a>), Self-injurious behavior (<a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" rel="noopener noreferrer">HP:0100716</a>)</td>
+</tr>
+<tr>
+<td>CNS structural</td>
+<td>Microcephaly (<a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" rel="noopener noreferrer">HP:0000252</a>), Hypoplasia of corpus callosum (<a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" rel="noopener noreferrer">HP:0002079</a>), Cerebellar atrophy (<a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" rel="noopener noreferrer">HP:0001272</a>), Tethered cord (<a href="http://purl.obolibrary.org/obo/HP_0002144" target="_blank" rel="noopener noreferrer">HP:0002144</a>), Meningocele (<a href="http://purl.obolibrary.org/obo/HP_0002435" target="_blank" rel="noopener noreferrer">HP:0002435</a>)</td>
+</tr>
+<tr>
+<td>Skeletal</td>
+<td>Scoliosis (<a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" rel="noopener noreferrer">HP:0002650</a>), Kyphosis (<a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" rel="noopener noreferrer">HP:0002808</a>), Pectus excavatum (<a href="http://purl.obolibrary.org/obo/HP_0000767" target="_blank" rel="noopener noreferrer">HP:0000767</a>), Hallux valgus (<a href="http://purl.obolibrary.org/obo/HP_0001822" target="_blank" rel="noopener noreferrer">HP:0001822</a>), Pes planus (<a href="http://purl.obolibrary.org/obo/HP_0001763" target="_blank" rel="noopener noreferrer">HP:0001763</a>), Joint hypermobility (<a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" rel="noopener noreferrer">HP:0001382</a>)</td>
+</tr>
+<tr>
+<td>Cardiac</td>
+<td>Ventricular septal defect (<a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" rel="noopener noreferrer">HP:0001629</a>), Bicuspid aortic valve (<a href="http://purl.obolibrary.org/obo/HP_0001647" target="_blank" rel="noopener noreferrer">HP:0001647</a>), Hypoplastic aortic arch (<a href="http://purl.obolibrary.org/obo/HP_0012304" target="_blank" rel="noopener noreferrer">HP:0012304</a>)</td>
+</tr>
+<tr>
+<td>Renal/GI (VACTERL-like)</td>
+<td>Unilateral renal agenesis (<a href="http://purl.obolibrary.org/obo/HP_0000122" target="_blank" rel="noopener noreferrer">HP:0000122</a>), Multicystic kidney dysplasia (<a href="http://purl.obolibrary.org/obo/HP_0000003" target="_blank" rel="noopener noreferrer">HP:0000003</a>), Hydronephrosis (<a href="http://purl.obolibrary.org/obo/HP_0000126" target="_blank" rel="noopener noreferrer">HP:0000126</a>), Anal atresia (<a href="http://purl.obolibrary.org/obo/HP_0002023" target="_blank" rel="noopener noreferrer">HP:0002023</a>), Tracheoesophageal fistula (<a href="http://purl.obolibrary.org/obo/HP_0002575" target="_blank" rel="noopener noreferrer">HP:0002575</a>), Feeding difficulties (<a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" rel="noopener noreferrer">HP:0011968</a>)</td>
+</tr>
+<tr>
+<td>Craniofacial</td>
+<td>Epicanthus (<a href="http://purl.obolibrary.org/obo/HP_0000286" target="_blank" rel="noopener noreferrer">HP:0000286</a>), Long philtrum (<a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" rel="noopener noreferrer">HP:0000343</a>), Bulbous nose (<a href="http://purl.obolibrary.org/obo/HP_0000414" target="_blank" rel="noopener noreferrer">HP:0000414</a>), High palate (<a href="http://purl.obolibrary.org/obo/HP_0000218" target="_blank" rel="noopener noreferrer">HP:0000218</a>)</td>
+</tr>
+<tr>
+<td>Other</td>
+<td>Obesity (<a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" rel="noopener noreferrer">HP:0001513</a>), Esodeviation (<a href="http://purl.obolibrary.org/obo/HP_0020045" target="_blank" rel="noopener noreferrer">HP:0020045</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Section-by-Section Characterization</h2>
+<h3>1. Disease Information</h3>
+<p>Fliedner-Zweier syndrome (FZS) is a rare Mendelian, autosomal dominant neurodevelopmental disorder caused by heterozygous loss-of-function of <em>SCAF4</em>. <strong>Identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0957787" target="_blank" rel="noopener noreferrer">MONDO:0957787</a>; OMIM #620511; <a href="http://purl.obolibrary.org/obo/DOID_0070653" target="_blank" rel="noopener noreferrer">DOID:0070653</a>; MedGen C5882693 (CUI 1845438); UMLS C5882693. No dedicated Orphanet or ICD-10/ICD-11 code is recorded in the knowledge base; in MeSH it falls under "Neurodevelopmental Disorders" (D065886). <strong>Synonyms:</strong> SCAF4-related neurodevelopmental disorder; SCAF4-associated neurodevelopmental disorder. The information is derived from aggregated disease-level resources (OMIM, MONDO, HPO) built on individual patient reports in the primary literature (Fliedner 2020; Schmid 2025; Hu 2024; Lin &amp; Chen 2024; Chen 2025).</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factor:</strong> purely genetic — heterozygous loss-of-function variants in <em>SCAF4</em> (truncating, splice-site, or CID-destabilizing missense). <strong>Genetic risk:</strong> the causal variant is itself the disease determinant; most are de novo (8/9 in Fliedner 2020; 23/50 in Schmid 2025), with inherited cases indicating variable expressivity/penetrance. No susceptibility loci or modifier genes have been identified. <strong>Environmental risk/protective factors:</strong> none established; FZS is not known to be influenced by environmental exposures, lifestyle, diet, or infection. <strong>Gene–environment interactions:</strong> none reported. <strong>Protective genetic factors:</strong> none identified; the paralog <em>SCAF8</em> provides partial functional redundancy at the molecular level (double knockout is lethal; single loss is tolerated but disease-causing), which may buffer severity but is not a classical protective modifier.</p>
+<h3>3. Phenotypes</h3>
+<p>Phenotype types span clinical signs (seizures, dysmorphism), physical manifestations (skeletal/structural anomalies), behavioral changes (autism, aggression, self-injury), and developmental/cognitive deficits. <strong>Onset:</strong> congenital to early childhood (developmental delay apparent in infancy; median seizure onset 4 years). <strong>Severity:</strong> variable — cognition ranges from normal IQ to severe ID, with borderline-to-mild ID most common. <strong>Progression:</strong> non-progressive/stable (a static encephalopathy); seizures are typically infrequent and drug-responsive. <strong>Frequency:</strong> developmental delay/speech impairment and skeletal anomalies are frequent; seizures common but intermittent; brain malformations, cardiac, and renal/VACTERL-like anomalies are less frequent minority features. <strong>Quality-of-life impact:</strong> driven primarily by intellectual disability, speech impairment, and behavioral features affecting communication, education, and independent functioning; orthopedic anomalies may affect mobility. Quantitative QoL instrument data (EQ-5D, SF-36, PROMIS) are not available for this ultra-rare disorder. HPO terms are enumerated in Finding 7.</p>
+<h3>4. Genetic/Molecular Information</h3>
+<p><strong>Causal gene:</strong> <em>SCAF4</em> (<a href="https://bioregistry.io/HGNC:19304" target="_blank" rel="noopener noreferrer">HGNC:19304</a>; Ensembl ENSG00000156304; UniProt O95104), on chromosome 21q22.11; disease entry OMIM #620511. <strong>Variant classification:</strong> pathogenic/likely pathogenic per ACMG/AMP, dominated by predicted loss of function. <strong>Variant types:</strong> truncating (nonsense, frameshift) — e.g., c.1693C&gt;T (p.Arg565<em>) in exon 14 (NM_020706; Chen 2025); splice-site; and rare CID missense. Pooled spectrum across the two main cohorts: ~34 truncating, ~10 splice-site, 5 missense. </em><em>Allele frequency:</em><em> pathogenic variants are absent or ultra-rare in gnomAD/dbSNP (the Chen 2025 variant was novel, not in gnomAD or dbSNP). </em><em>Somatic vs germline:</em><em> germline (de novo or inherited). </em><em>Functional consequence:</em><em> loss of function via haploinsufficiency (supported by pLI = 1.0, LOEUF = 0.27; Finding 6). </em><em>Modifier genes:</em><em> none established (</em>SCAF8<em> redundancy noted). </em><em>Epigenetic information / chromosomal abnormalities:</em>* none specifically reported; FZS is a single-gene disorder, though it maps to Hsa21 (relevant to Down-syndrome gene-dosage biology).</p>
+<h3>5. Environmental Information</h3>
+<p>No environmental, lifestyle, or infectious contributors are known or expected. FZS is a monogenic, non-communicable disorder. This section is <strong>not applicable</strong>.</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<ol>
+<li>A heterozygous <em>SCAF4</em> loss-of-function variant (truncating, splice-site, or CID-destabilizing missense) <strong>leads to</strong> reduced functional SCAF4 protein (haploinsufficiency). <em>(Demonstrated: variant spectrum + gnomAD constraint.)</em></li>
+<li>Reduced SCAF4 <strong>results in</strong> diminished binding of the Ser2/Ser5-phosphorylated RNAPII CTD by the SCAF4/SCAF8 anti-terminator system. <em>(Demonstrated biochemically for SCAF4/8; inferred for the patient-dosage state.)</em></li>
+<li>Impaired anti-termination <strong>leads to</strong> increased use of early/alternative polyA sites and dysregulated co-transcriptional mRNA processing (3′-end formation and splicing). <em>(Demonstrated: SCAF4/8 suppress early polyA sites.)</em></li>
+<li>Dysregulated processing <strong>results in</strong> transcriptome-wide gene deregulation (&gt;9,000 genes) and widespread differential splicing (&gt;2,900 genes) in patient cells. <em>(Demonstrated: patient RNA-seq.)</em></li>
+<li>Altered expression of developmentally critical genes <strong>leads to</strong> abnormal neurodevelopment and skeletal/organ morphogenesis. <em>(Inferred from model-organism phenotypes and the clinical spectrum.)</em></li>
+<li>This branches into the clinical phenotype: → neurodevelopmental (ID, speech delay, behavior), → neurological (seizures), → skeletal (clubfoot, scoliosis, hip dysplasia), and → less frequently structural brain/cardiac/renal/VACTERL-like anomalies. <em>(Demonstrated clinically; branch points inferred.)</em></li>
+</ol>
+<p><strong>Molecular pathways:</strong> RNAPII transcription cycle / co-transcriptional 3′-end processing and alternative polyadenylation (not a classical signaling cascade such as Wnt/MAPK). <strong>Cellular processes:</strong> regulation of mRNA processing and transcription termination (<a href="http://purl.obolibrary.org/obo/GO_0006397" target="_blank" rel="noopener noreferrer">GO:0006397</a> mRNA processing; <a href="http://purl.obolibrary.org/obo/GO_0006369" target="_blank" rel="noopener noreferrer">GO:0006369</a> termination of RNAPII transcription; <a href="http://purl.obolibrary.org/obo/GO_0031124" target="_blank" rel="noopener noreferrer">GO:0031124</a> mRNA 3′-end processing; <a href="http://purl.obolibrary.org/obo/GO_0006378" target="_blank" rel="noopener noreferrer">GO:0006378</a> mRNA polyadenylation). <strong>Protein dysfunction:</strong> loss of function via reduced dosage; CID missense destabilize the CTD-binding fold. <strong>Subcellular compartment:</strong> nucleus (<a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>), specifically the site of active RNAPII transcription. <strong>Metabolic/immune/infectious involvement:</strong> none established. <strong>GO biological process suggestions:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006397" target="_blank" rel="noopener noreferrer">GO:0006397</a>, <a href="http://purl.obolibrary.org/obo/GO_0006369" target="_blank" rel="noopener noreferrer">GO:0006369</a>, <a href="http://purl.obolibrary.org/obo/GO_0006378" target="_blank" rel="noopener noreferrer">GO:0006378</a>. <strong>Cell types (CL):</strong> neuron (<a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a>), glutamatergic neuron (<a href="http://purl.obolibrary.org/obo/CL_0000679" target="_blank" rel="noopener noreferrer">CL:0000679</a>), and skeletal/connective-tissue progenitors (e.g., chondrocyte <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a>, osteoblast <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" rel="noopener noreferrer">CL:0000062</a>) are inferred from affected systems rather than directly profiled.</p>
+<h3>7. Anatomical Structures Affected</h3>
+<p><strong>Primary organ/system:</strong> central nervous system / brain (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>), affecting the nervous system (<a href="http://purl.obolibrary.org/obo/UBERON_0001016" target="_blank" rel="noopener noreferrer">UBERON:0001016</a>). <strong>Secondary/structural CNS sites:</strong> corpus callosum (<a href="http://purl.obolibrary.org/obo/UBERON_0002336" target="_blank" rel="noopener noreferrer">UBERON:0002336</a>; hypoplasia), cerebellum (<a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a>; atrophy), spinal cord/meninges (tethered cord, meningocele). <strong>Musculoskeletal system</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002204" target="_blank" rel="noopener noreferrer">UBERON:0002204</a>): vertebral column (scoliosis/kyphosis), hip, foot (clubfoot, pes planus, hallux valgus), thorax (pectus excavatum). <strong>Cardiovascular system:</strong> heart (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>) — ventricular septum, aortic valve/arch. <strong>Renal/urinary:</strong> kidney (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>) — agenesis, multicystic dysplasia, hydronephrosis. <strong>Gastrointestinal/respiratory (VACTERL-like):</strong> anus (anal atresia), trachea-esophagus (tracheoesophageal fistula). <strong>Subcellular:</strong> nucleus (<a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>). <strong>Lateralization:</strong> mixed — unilateral renal agenesis is by definition unilateral; skeletal/CNS features are variably bilateral or asymmetric.</p>
+<h3>8. Temporal Development</h3>
+<p><strong>Onset:</strong> congenital/early-childhood developmental delay; seizures with median onset ~4 years. <strong>Pattern:</strong> chronic, static (non-progressive) neurodevelopmental disorder; no evidence of neurodegeneration. <strong>Progression rate:</strong> stable over time; seizures infrequent and treatment-responsive. <strong>Disease course:</strong> lifelong but non-deteriorating. <strong>Remission:</strong> developmental features persist; seizures often controllable with antiseizure drugs. <strong>Critical periods:</strong> prenatal/early-postnatal neurodevelopment is the window during which structural and cognitive phenotypes are established.</p>
+<h3>9. Inheritance and Population</h3>
+<p><strong>Inheritance:</strong> autosomal dominant. <strong>Epidemiology:</strong> ultra-rare; prevalence/incidence not formally established — ~60 individuals reported across the two main cohorts (9 + 50) plus additional case reports. <strong>Penetrance/expressivity:</strong> apparently high penetrance for a neurodevelopmental phenotype but highly <strong>variable expressivity</strong> (normal IQ to severe ID; variable multisystem involvement), with inherited cases implying some mild/variable presentations in transmitting parents. <strong>De novo rate:</strong> high (8/9 and 23/50). <strong>Genetic anticipation:</strong> not applicable (not a repeat-expansion disorder). <strong>Germline mosaicism, founder effects, consanguinity:</strong> none specifically documented. <strong>Carrier frequency:</strong> not applicable (dominant; LoF alleles essentially absent from gnomAD). <strong>Population demographics:</strong> no ethnic predilection; cases reported across European and Chinese populations. <strong>Sex ratio:</strong> no strong skew reported (one male had cryptorchidism). <strong>Age distribution:</strong> diagnosed in childhood.</p>
+<h3>10. Diagnostics</h3>
+<p><strong>Genetic testing is the definitive diagnostic modality.</strong> <strong>Approach:</strong> whole-exome sequencing (WES) or whole-genome sequencing (WGS), or a neurodevelopmental/epilepsy gene panel including <em>SCAF4</em>; confirmatory Sanger sequencing and parental segregation (to establish de novo vs inherited status), as in Chen 2025 (WES identified p.Arg565<em>, Sanger confirmed paternal inheritance). </em><em>Single-gene testing</em><em> of </em>SCAF4<em> is appropriate when the phenotype is specific. </em><em>Chromosomal microarray/karyotype/FISH:</em><em> generally non-contributory (no recurrent CNV). </em><em>Omics adjuncts:</em><em> patient RNA-seq demonstrates transcriptional dysregulation and differential splicing and can provide functional support for variant interpretation (research context). </em><em>Supporting clinical workup:</em><em> EEG (focal discharges reported), brain MRI (to detect corpus callosum/cerebellar/midline anomalies), echocardiography and renal ultrasound (to screen for cardiac/renal anomalies), and skeletal evaluation. </em><em>Clinical criteria:</em><em> no formal consensus criteria; diagnosis rests on a compatible phenotype plus a pathogenic </em>SCAF4<em> variant. </em><em>Differential diagnosis:</em><em> other monogenic intellectual-disability/epilepsy syndromes and, given midline/structural features, VACTERL association and other transcription/mRNA-processing–related neurodevelopmental disorders. </em><em>Screening:</em>* cascade testing of relatives for a known familial variant; prenatal/preimplantation testing possible when a variant is known.</p>
+<h3>11. Outcome/Prognosis</h3>
+<p><strong>Survival/mortality:</strong> FZS is <strong>not life-limiting</strong>; no disease-specific mortality is reported. <strong>Morbidity:</strong> driven by intellectual disability, speech impairment, behavioral features, epilepsy, and orthopedic/structural anomalies. <strong>Disease course:</strong> chronic but stable; seizures typically respond well to antiseizure drugs. <strong>Recovery:</strong> developmental deficits are permanent but non-progressive; function can be optimized with therapy. <strong>Prognostic factors:</strong> degree of cognitive impairment and presence of major structural (brain/cardiac/renal) anomalies likely predict overall functional outcome, though formal prognostic models are lacking. <strong>Quality-of-life instruments:</strong> no disorder-specific QoL data available.</p>
+<h3>12. Treatment</h3>
+<p><strong>No disease-modifying or gene-directed therapy exists; management is supportive and symptom-directed.</strong>
+- <strong>Pharmacotherapy:</strong> antiseizure medications for epilepsy (seizures "responded well to antiseizure drugs"; Hu 2024). NCIT suggestion: Anticonvulsant Agent (NCIT:C264). No pharmacogenomic guidance specific to <em>SCAF4</em>.
+- <strong>Advanced therapeutics (gene/cell/RNA/targeted/immuno):</strong> none available or in trials; conceptually, a haploinsufficiency disorder could be a candidate for dosage-restoration strategies (e.g., ASO-mediated upregulation), but none are reported.
+- <strong>Surgical/interventional:</strong> orthopedic correction of clubfoot/scoliosis/hip dysplasia; repair of congenital cardiac, renal, or VACTERL-like defects (anal atresia, tracheoesophageal fistula) as indicated.
+- <strong>Supportive/rehabilitative:</strong> speech therapy, special education, physical/occupational therapy, behavioral support (NCIT:C15206 Rehabilitation Therapy).
+- <strong>Experimental trials:</strong> none registered specifically for FZS.
+- <strong>Treatment strategy:</strong> multidisciplinary, individualized care; genotype-guided therapy not yet applicable.</p>
+<h3>13. Prevention</h3>
+<p><strong>Primary prevention</strong> is not possible for de novo disease. <strong>Secondary/tertiary prevention</strong> centers on early developmental intervention, seizure control, and surveillance/management of structural anomalies. <strong>Genetic counseling</strong> is the principal preventive tool: for a known familial variant, recurrence risk is up to 50% per pregnancy (dominant), and prenatal or preimplantation genetic testing is available. <strong>Cascade testing</strong> of at-risk relatives is appropriate. No immunization, behavioral, or public-health prevention applies.</p>
+<h3>14. Other Species / Natural Disease</h3>
+<p>No naturally occurring companion-animal or wildlife disease is recorded (OMIA has no FZS entry). <strong>Orthologs:</strong> <em>Scaf4</em> in mouse (<em>Mus musculus</em>, NCBI Taxon 10090) and rat; <em>scaf4a/scaf4b</em> in zebrafish (<em>Danio rerio</em>, Taxon 7955); <em>CG4266</em> in <em>Drosophila melanogaster</em> (Taxon 7227). The RNAPII CTD anti-terminator mechanism is evolutionarily conserved, and the SCAF4/8 paralog system is present across vertebrates, underpinning the cross-species modeling. No zoonotic potential (non-infectious disorder).</p>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Zebrafish (<em>Danio rerio</em>):</strong> CRISPR-Cas9 <em>scaf4a/b</em> knockout reproduces epileptiform EEG-like activity, abnormal skeletal development, and abnormal neurodevelopment (Lin &amp; Chen 2024; <a href="https://pubmed.ncbi.nlm.nih.gov/37394306/">PMID: 37394306</a>) — strong recapitulation of the seizure and skeletal domains.</li>
+<li><strong>Fruit fly (<em>Drosophila melanogaster</em>):</strong> RNAi knockdown of the ortholog <em>CG4266</em> impairs locomotor function, learning, and short-term memory, with increased larval neuromuscular-junction active zones (Fliedner 2020; <a href="https://pubmed.ncbi.nlm.nih.gov/32730804/">PMID: 32730804</a>) — recapitulates neurobehavioral/cognitive deficits and reveals a synaptic phenotype.</li>
+<li><strong>Model types available:</strong> knockout (zebrafish), knockdown (fly). No published mouse (<em>Scaf4</em>) disease model is recorded in the knowledge state, representing a gap.</li>
+<li><strong>Limitations:</strong> neither model fully captures the human cognitive/behavioral spectrum or the complete multisystem (cardiac/renal/VACTERL-like) phenotype; redundancy with <em>Scaf8</em> complicates single-gene perturbation. <strong>Resources:</strong> ZFIN, FlyBase; MGI for future mouse models.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>  SCAF4 LoF variant (truncating / splice-site / CID missense)
+    │  leads to
+    ▼
+      Haploinsufficiency — reduced SCAF4 dosage
+(pLI≈1.0, LOEUF≈0.27 confirm LoF intolerance)
+    │  results in
+    ▼
+   Diminished SCAF4/SCAF8 binding of Ser2/Ser5-phospho RNAPII CTD
+(via all-α-helical CTD-interacting domain, CID)
+    │  leads to
+    ▼
+   Loss of anti-termination → premature/early alt-polyA site use
+    │  results in
+    ▼
+   Transcriptome-wide dysregulation (&gt;9,000 genes) +
+   aberrant splicing (&gt;2,900 genes) in patient cells
+    │  leads to (inferred)
+    ▼
+   Abnormal neurodevelopment &amp; morphogenesis
+    │
+       ┌────────────┼───────────────┬───────────────┐
+       ▼            ▼               ▼               ▼
+  Cognitive/     Seizures      Skeletal        Structural
+  behavioral    (focal,        (clubfoot,      (brain, cardiac,
+  (ID, speech   onset ~4y)     scoliosis,      renal, VACTERL-
+  delay, ASD)                  hip dysplasia)  like) — minority
+</code></pre>
+<p><strong>Upstream vs downstream:</strong> the mutation and dosage loss are the most upstream events; CTD-binding failure and polyA dysregulation are proximal molecular consequences; the broad transcriptomic changes are the integrating intermediate; the organ-level phenotypes are the terminal, branched outputs. The strongest-evidence links are steps 1–4 (genetic, biochemical, population-genetic, and patient-transcriptomic data); steps 5–6 (how specific gene-expression changes produce each organ phenotype) remain <strong>inferred</strong> and constitute the principal mechanistic gap.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Evidence type</th>
+<th>Role in this report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32730804/">32730804</a></td>
+<td><em>Variants in SCAF4 Cause a Neurodevelopmental Disorder…</em> (Fliedner 2020)</td>
+<td>Human clinical + model organism</td>
+<td>Defines the disease; variant spectrum; patient RNA-seq; <em>Drosophila CG4266</em> model (F001, F002, F004)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39668183/">39668183</a></td>
+<td><em>Further delineation of the SCAF4-associated NDD</em> (Schmid 2025)</td>
+<td>Human clinical</td>
+<td>50-patient expansion; molecular spectrum; CID missense destabilization; core phenotype (F001, F003, F005)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31104839/">31104839</a></td>
+<td><em>SCAF4 and SCAF8, mRNA Anti-Terminator Proteins</em> (Gregersen 2019)</td>
+<td>In vitro / molecular</td>
+<td>Establishes SCAF4/8 CTD-binding anti-terminator function (F002, F005)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37891035/">37891035</a></td>
+<td><em>SCAF4 variants… epilepsy with NDD</em> (Hu 2024)</td>
+<td>Human clinical</td>
+<td>Seizure semiology, onset (median 4y), drug response (F003)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37394306/">37394306</a></td>
+<td><em>SCAF4 variants… focal epilepsy + multisystem</em> (Lin &amp; Chen 2024)</td>
+<td>Human clinical + zebrafish model</td>
+<td>Focal epilepsy; cryptorchidism; <em>scaf4a/b</em> zebrafish model (F003, F004)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40290495/">40290495</a></td>
+<td><em>A novel nonsense mutation in SCAF4</em> (Chen 2025)</td>
+<td>Human clinical</td>
+<td>p.Arg565* case; RNA-seq dysregulation; diagnostic WES/Sanger (F002)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41361092/">41361092</a></td>
+<td>NMR structure of SCAF8 CID</td>
+<td>Structural/computational</td>
+<td>CID recognizes phospho-CTD; structural basis for missense pathogenicity (F005)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All findings are grounded in human clinical cohorts and corroborated by molecular biology, population genetics (gnomAD), and two model-organism systems — a strong, multi-modal evidence base for an ultra-rare disorder.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Epidemiology unquantified:</strong> no prevalence/incidence figures; ~60 reported individuals preclude robust genotype–phenotype or penetrance estimates.</li>
+<li><strong>Inferred genotype-to-phenotype steps:</strong> the link from transcriptome dysregulation to each specific organ phenotype (steps 5–6) is not experimentally dissected; the key downstream effector genes are unknown.</li>
+<li><strong>No mammalian disease model:</strong> no published mouse <em>Scaf4</em> model; <em>Scaf8</em> redundancy and the cell-lethality of double knockout complicate modeling.</li>
+<li><strong>Missense mechanism partly computational:</strong> CID missense destabilization is <em>predicted</em>, not biochemically demonstrated for each variant.</li>
+<li><strong>Sparse functional data for structural anomalies:</strong> mechanisms for cardiac/renal/VACTERL-like features are undefined.</li>
+<li><strong>No QoL, natural-history, or treatment-outcome studies</strong>, and no FZS-specific clinical trials.</li>
+<li><strong>Chen 2025 (F002)</strong> quote was drawn from the paper abstract rather than a separately validated snippet; treat the specific RNA-seq phrasing with that caveat.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Generate a conditional/heterozygous <em>Scaf4</em> mouse model</strong> (and consider a <em>Scaf4/Scaf8</em> dosage series) to test recapitulation of cognitive, seizure, skeletal, and structural phenotypes (MGI/IMPC).</li>
+<li><strong>Cell-type-resolved transcriptomics</strong> (patient iPSC-derived neurons, organoids, and chondrocyte/osteoblast lineages; single-cell RNA-seq) to identify the downstream effector genes linking SCAF4 loss to each organ phenotype.</li>
+<li><strong>Functional validation of CID missense variants</strong> by in vitro CTD-binding and thermal-stability assays, plus cryo-EM/NMR of SCAF4 CID–phospho-CTD complexes, to convert predictions into mechanism.</li>
+<li><strong>3′-end/alternative-polyadenylation mapping</strong> (e.g., 3′-seq, long-read RNA-seq) in SCAF4-deficient patient cells to directly test the early-polyA-site model in the disease state.</li>
+<li><strong>International patient registry</strong> to establish prevalence, penetrance, genotype–phenotype correlations, natural history, and standardized QoL outcomes.</li>
+<li><strong>Explore dosage-restoration therapeutics</strong> (ASO-mediated upregulation of the wild-type allele, or targeting <em>SCAF8</em> compensation) as a conceptual disease-modifying strategy for this haploinsufficiency disorder.</li>
+<li><strong>Formal diagnostic/surveillance guideline</strong> incorporating brain MRI, echocardiography, and renal ultrasound at diagnosis given the recurrent structural anomalies.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 7 confirmed findings and 7 primary papers across a 5-iteration autonomous investigation. Evidence spans human clinical cohorts, in vitro molecular biology, gnomAD population genetics, and zebrafish/Drosophila models.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Fliedner-Zweier_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Fliedner-Zweier_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.4.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>7</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:37891035</code> <em>(abstract only)</em>: "experienced epilepsy as infrequent seizures, responded well to antiseizure drugs, and had a median [IQR] seizure onset age of 4"</li>
+<li>closest text in source: "experienced epilepsy as infrequent seizures, responded well to antiseizure drugs, and had a median [IQR] seizure onset age of 4"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Flea_Borne_Spotted_Fever-openscientist.html">← Flea-Borne Spotted Fever (OpenScientist)</a>
+                
+                
+                <a href="Flinders_Island_Spotted_Fever-openscientist.html">Flinders Island Spotted Fever (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Fliedner-Zweier_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Fliedner-Zweier_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

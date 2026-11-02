@@ -1,0 +1,22 @@
+---
+reference_id: DOI:10.1186/s13048-021-00880-3
+extractor_version: 1
+title: An overview of FSH-FSHR biology and explaining the existing conundrums
+authors:
+- Deepa Bhartiya
+- Hiren Patel
+journal: Journal of Ovarian Research
+year: '2021'
+doi: 10.1186/s13048-021-00880-3
+content_type: abstract_only
+is_preprint: false
+---
+
+# An overview of FSH-FSHR biology and explaining the existing conundrums
+**Authors:** Deepa Bhartiya, Hiren Patel
+**Journal:** Journal of Ovarian Research (2021)
+**DOI:** [10.1186/s13048-021-00880-3](https://doi.org/10.1186/s13048-021-00880-3)
+
+## Content
+
+AbstractFSH was first identified in 1930 and is central to mammalian reproduction. It is indeed intriguing that despite being researched upon for about 90 years, there is still so much more to learn about FSH-FSHR biology. The purpose of this review is to provide an overview of current understanding of FSH-FSHR biology, to review published data on biological and clinical relevance of reported mutations, polymorphisms and alternately spliced isoforms of FSHR. Tissue-resident stem/progenitor cells in multiple adult tissues including ovaries, testes and uterus express FSHR and this observation results in a paradigm shift in the field. The results suggest a direct action of FSH on the stem cells in addition to their well-studied action on Granulosa and Sertoli cells in the ovaries and testes respectively. Present review further addresses various concerns raised in recent times by the scientific community regarding extragonadal expression of FSHR, especially in cancers affecting multiple organs. Similar population of primitive and pluripotent tissue-resident stem cells expressing FSHR exist in multiple adult tissues including bone marrow and reproductive tissues and help maintain homeostasis throughout life. Any dysfunction of these stem cells results in various pathologies and they also most likely get transformed into cancer stem cells and initiate cancer. This explains why multiple solid as well as liquid tumors express OCT-4 and FSHR. More research efforts need to be focused on alternately spliced FSHR isoforms.

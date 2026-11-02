@@ -148,7 +148,7 @@ granularity, which the Mendelian rule never contemplated.
 | **L1 Organ/system pool** ("lung cancer", "lymphoma") | Lean umbrella `Disease` entry or a `Grouping` | Never the curation target for mechanism content; every pathophysiology node must hold for all members |
 | **L2 Histologic entity** (PDAC, SCLC, DLBCL, osteosarcoma) | `Disease` entry — **the default level for a new cancer entry** | The WHO blue-book / ICD-O morphology level; anchor to the entity's MONDO term |
 | **L3 Molecularly defined entity** (IDH-wildtype glioblastoma, APL with PML::RARA, NPM1-mutant AML, Ewing sarcoma) | `Disease` entry | Create when WHO/ICC defines the entity molecularly — the field has already made the promotion call, and MONDO nearly always has the term |
-| **L4 Biomarker/therapy stratum** (EGFR-mutant NSCLC, MSI-H CRC, TNBC, FLT3-mutant AML) | Default: `has_subtypes` on the L2/L3 entry. **Promote to its own entry** only when it passes the disjunction test (issue #7082): ≥2 pathophysiology nodes not true of sibling strata **and** a distinct first-line therapy or diagnostic pathway | On promotion: (a) file a MONDO NTR; until granted, anchor `disease_term` to the parent term but record `mapping_predicate: skos:narrowMatch` in `mappings.mondo_mappings` with a justification — never a bare parent-term reuse presented as exact; (b) record non-disjointness with sibling strata (e.g. FLT3×NPM1 AML, MSI-H×BRAF-V600E CRC) in `notes` and grouping `differentiating_mechanisms`; (c) add or extend the covering `Grouping` (`Molecularly_Defined_NSCLC_Subtypes` is the worked precedent); (d) the parent's `has_subtypes` keeps a *pointer* subtype naming the split file rather than a divergent copy |
+| **L4 Biomarker/therapy stratum** (EGFR-mutant NSCLC, MSI-H CRC, TNBC, FLT3-mutant AML) | Default: `has_subtypes` on the L2/L3 entry. **Promote to its own entry** only when it passes the disjunction test (issue #7082): ≥2 pathophysiology nodes not true of sibling strata **and** a distinct first-line therapy or diagnostic pathway | On promotion: (a) file a MONDO NTR; until granted, anchor `disease_term` to the parent term but record `mapping_predicate: skos:broadMatch` in `mappings.mondo_mappings` with a justification — SKOS mapping predicates read subject to object, so the stratum (subject) records the parent as `broadMatch` (broader), not `narrowMatch`; never a bare parent-term reuse presented as exact; (b) record non-disjointness with sibling strata (e.g. FLT3×NPM1 AML, MSI-H×BRAF-V600E CRC) in `notes` and grouping `differentiating_mechanisms`; (c) add or extend the covering `Grouping` (`Molecularly_Defined_NSCLC_Subtypes` is the worked precedent); (d) the parent's `has_subtypes` keeps a *pointer* subtype naming the split file rather than a divergent copy |
 | **L5 Variant tier** (exon 19 del vs L858R vs T790M) | `has_subtypes` inside the L4 entry | Never its own file. Exception: a variant *is* the L4 stratum when therapy is variant-specific (KRAS G12C is the stratum because sotorasib/adagrasib are G12C-covalent; "KRAS-mutant NSCLC" would be the wrong grain) |
 | **Stage / metastasis** | `stages:` on the parent entry, progression records, and `conforms_to` on the `invasion_and_metastasis` module | **Never a `Disease` entry.** TNM stage is orthogonal to taxonomy in every classification system |
 | **Etiologic stratum** (HPV± oropharyngeal SCC, EBV-associated gastric cancer) | Case-by-case via the same L4 promotion test | HPV-positive oropharyngeal SCC passes (distinct mechanism, AJCC 8 stages it separately); EBV-GC is a TCGA molecular subgroup and sits closer to a subtype |
@@ -419,10 +419,10 @@ by meeting the stated test of another rung.
 |---|---|---|
 | **0 Abstraction** (*infectious disease*, *viral infectious disease*, *bacterial infectious disease*) | `stubs/` entry with `entry_type: OUT_OF_SCOPE` | Too abstract to carry a mechanism. Record the reason in `notes` so the concept is not re-nominated. `Infectious_Disease` (`MONDO:0005550`; three generic host-response nodes headed by "Pathogen Invasion and Replication") was retired under this rung in #12096 |
 | **1 Grouping** (the treponematoses, the enteric fevers, the viral hepatitides) | `kb/groupings/` | A union of diseases the field already names separately, or an organ syndrome spanning unrelated organisms. Explicit `members`, `grouping_basis`, a `grouping_rationale` that states **the axes on which the members were split** and not only what they share, `mondo_mappings` with an explicit predicate; no `pathophysiology` of its own. `Treponematoses` is the reference implementation. An organ syndrome with an organism-independent mechanism is a `kb/modules/` module plus `conforms_to` instead |
-| **2 Named clinical entity** — **the default** | `Disease` entry | `disease_term` bound at the entry's own scope (`skos:narrowMatch` to the nearest class where no exact one exists; never bare parent reuse); ≥1 NCBITaxon-bound `infectious_agent`; ≥1 `transmission` route; `agent_life_cycle` with `hosts` (and `vectors`) wherever a non-human reservoir or arthropod vector exists; `life_cycle_stages` for helminth and protozoan agents; `progression` phases where the disease has a recognised phase structure; ≥1 `pathophysiology` node specific to this entity. **Test for rung 2 over rung 1:** every pathophysiology node is true of every case the entry covers. A node written vaguely enough to span two organisms with different mechanisms means the entry is at the wrong rung |
+| **2 Named clinical entity** — **the default** | `Disease` entry | `disease_term` bound at the entry's own scope (`skos:broadMatch` to the nearest class where no exact one exists; never bare parent reuse); ≥1 NCBITaxon-bound `infectious_agent`; ≥1 `transmission` route; `agent_life_cycle` with `hosts` (and `vectors`) wherever a non-human reservoir or arthropod vector exists; `life_cycle_stages` for helminth and protozoan agents; `progression` phases where the disease has a recognised phase structure; ≥1 `pathophysiology` node specific to this entity. **Test for rung 2 over rung 1:** every pathophysiology node is true of every case the entry covers. A node written vaguely enough to span two organisms with different mechanisms means the entry is at the wrong rung |
 | **3 Organism stratum** (species → subspecies → serovar → serotype) | `has_subtypes` on the rung-2 entry | A stratum earns a subtype when it is **documented to differ** from its siblings on at least one of: presentation or organ involvement; diagnosis; first-line treatment or drug susceptibility; prognosis; transmission route, vector or reservoir; geography or at-risk population. The threshold is documented difference, **not nomenclatural availability, and the default is to lump**. Each subtype's `description` says *what differs* and its `evidence` cites it; `subtype_term` is bound where an honest term exists and omitted rather than bound to the parent |
 | **3a Non-phylogenetic stratum** (pathotype, biotype, lineage, viral genotype, clade) | `has_subtypes` on the rung-2 entry, with `classification: pathotype` (or `biotype`, `lineage`, `genotype`, `clade`) | Defined by gene content or phylogeny below any rank a taxonomy names, so carried **structurally, never by an identifier**: the `description` names the defining determinant (LT/ST enterotoxin; Shiga toxin; *mecA*/SCC*mec*), `subtype_term` is bound only at a genuine serotype-rank node (*E. coli* O157:H7 → `NCBITaxon:83334`) and **never to the parent species** (binding *E. coli* to ETEC is a false grounding), and a genome or assembly accession is never a stratum's identity. The same rung-3 evidence gate applies, and it bites correctly here: ETEC, EPEC, EAEC and EHEC clear it on toxin, syndrome and (for EHEC) management; a serotype with a name and no reported clinical distinction stays lumped |
-| **4 Promoted stratum** | Own `Disease` entry, a covering rung-1 Grouping, and a **pointer** subtype left on the parent | **The Treponematoses test:** promote only when the stratum differs from its siblings on **at least two** of: transmission route or vector; reservoir host; natural history or tempo; organ systems ultimately involved; first-line therapy. Name the satisfied axes in the entry or the grouping's `grouping_rationale`. Own `disease_term`, or `skos:narrowMatch` to the parent. The parent keeps the stratum's row as a pointer (below) and drops any divergent copy of its content: nothing is *curated* at two rungs at once |
+| **4 Promoted stratum** | Own `Disease` entry, a covering rung-1 Grouping, and a **pointer** subtype left on the parent | **The Treponematoses test:** promote only when the stratum differs from its siblings on **at least two** of: transmission route or vector; reservoir host; natural history or tempo; organ systems ultimately involved; first-line therapy. Name the satisfied axes in the entry or the grouping's `grouping_rationale`. Own `disease_term`, or `skos:broadMatch` to the parent (the stratum is the subject; the parent is broader). The parent keeps the stratum's row as a pointer (below) and drops any divergent copy of its content: nothing is *curated* at two rungs at once |
 | **Never a rung** | see below | A phase of one infection; an organ syndrome across unrelated organisms (rung 1 or a module); a post-infectious immune sequela (its own entry, cross-linked to the index infection, because the mechanism is host-immune); an infection-attributed neoplasm (§3a — the pathogen is an annotation, never a granularity axis); a mechanism shared across diseases (`kb/modules/`) |
 
 **The rules, numbered so a review can cite one.** These restate the ladder as law and
@@ -453,8 +453,9 @@ each of its finding classes against the rule it enforces.
   a stratum's identity; a specific isolate belongs in a `datasets:` record or an evidence
   snippet.
 - **R17** Promote only on at least two of the five Treponematoses axes, and name them.
-  **R18** A promoted stratum gets its own `disease_term`, or `skos:narrowMatch` to the
-  parent; never bare parent reuse. **R19** Promoted siblings are covered by a Grouping.
+  **R18** A promoted stratum gets its own `disease_term`, or `skos:broadMatch` to the
+  parent (the stratum is the subject, the parent is broader); never bare parent reuse.
+  **R19** Promoted siblings are covered by a Grouping.
   **R20** The parent keeps a pointer subtype marked `curated_in` and drops any divergent
   copy; nothing is curated at two rungs at once. *(Corrected from the issue body, which
   asked the parent to drop the row entirely — see below.)*
@@ -468,6 +469,22 @@ each of its finding classes against the rule it enforces.
   be evaluated without them. **R27** NCBITaxon is the sole binding vocabulary for
   organisms. **R28** `disease_term` is bound at the entry's own scope; broader is wrong
   and narrower is wrong.
+
+**The predicate direction, stated once.** R18 and §3a L4 record `skos:broadMatch`
+rather than `skos:narrowMatch` for a stratum anchoring to its parent, because SKOS
+mapping predicates read subject to object with the dismech entry as the subject:
+`<entry> skos:narrowMatch <term>` asserts the mapped term is narrower (a child
+concept); `skos:broadMatch` asserts it is broader (a parent or class). A stratum
+anchoring to a broader parent is therefore `broadMatch`. This reading matches the
+one case that already used it correctly (a MONDO phase-specific class recorded as
+`narrowMatch` on its general parent entry, since the phase class is the narrower
+one). It is the opposite of an earlier, internally-consistent-but-nonstandard
+convention some `kb/groupings` mappings and the §3a instruction itself used, under
+which the *entry* described its own narrower/broader relationship to the mapped
+term. `check_shared_disease_terms.py` and `check_granularity.py`'s shared-anchor
+checks accept `broadMatch` as the now-canonical spelling for this case while
+continuing to accept the legacy `narrowMatch` spelling on existing entries, so
+migrating the legacy data is not forced through as a bulk rewrite here.
 
 **Pointer subtypes are marked, not described.** *(Correction 1.)* The issue reported
 `Spotted_Fever_Rickettsiosis` as "modelled twice", because Rocky Mountain spotted fever
@@ -900,7 +917,8 @@ forcing churn on the other.
 The KGX exporter emits typed, directed edges with the knowledge source identifier
 `infores:dismech`. Mapping currently used:
 
-**Entity categories:** `biolink:Disease`, `biolink:PhenotypicFeature`, `biolink:Cell`,
+**Entity categories:** `biolink:PathologicalProcess`, `biolink:Procedure`,
+`biolink:Dataset`, `biolink:ClinicalTrial`, `biolink:Disease`, `biolink:PhenotypicFeature`, `biolink:Cell`,
 `biolink:AnatomicalEntity`, `biolink:BiologicalProcess`, `biolink:Treatment`,
 `biolink:Gene`, `biolink:ExposureEvent`, `biolink:OrganismTaxon`,
 `biolink:GeneticInheritance`, `biolink:MolecularActivity`, `biolink:CellularComponent`,
@@ -923,8 +941,16 @@ The KGX exporter emits typed, directed edges with the knowledge source identifie
 | `biolink:has_mode_of_inheritance` | Disease → GeneticInheritance |
 | `biolink:causes` | OrganismTaxon → Disease; ExposureEvent → Disease (`disease_effect: TRIGGERS`) |
 | `biolink:has_biomarker` | Disease → MolecularEntity |
+| `biolink:disease_has_basis_in` | Disease → PathologicalProcess (a pathophysiology node, `dismech:<Disease>#<Node>`) |
+| `biolink:causes` (also) | PathologicalProcess → PathologicalProcess / PhenotypicFeature (`downstream`); PhenotypicFeature → PhenotypicFeature (`sequelae`, with `disease_context_qualifier`) |
+| `biolink:similar_to` | Disease → Disease (`differential_diagnoses`) |
+| `biolink:is_diagnosed_by` | Disease → Procedure (`diagnosis`) |
+| `biolink:mentions` | Dataset → Disease (`datasets`) |
+| `biolink:related_to_at_instance_level` | ClinicalTrial → Disease / PhenotypicFeature (`clinical_trials`) |
 
-**Known gap:** `differential_diagnoses` and `diagnosis` sections are not yet exported. See *Gaps* below.
+Several of these are the closest canonical predicate rather than an exact one
+(Biolink 4.4 has no differential-diagnosis or trial-to-condition edge); the
+reasoning for each is in [KGX Export](../kgx-export.md).
 
 
 ## 6. Evidence & provenance policy
@@ -1671,7 +1697,6 @@ This section details decisions we have **not yet made or formalized**.
 | `updated_date` field | Deprecated in favor of git history; legacy entries may retain it pending bulk cleanup | — |
 | Deprecated `prevalence.percentage` cleanup | `percentage` superseded by structured prevalence slots (§8) and deprecated. The bare-number unit-ambiguity backlog is effectively resolved: of 199 records, **166 are converted** via `scripts/resolve_bare_prevalence.py` plus reviewed batches — 91 low-value rare-disease prevalences, 47 high-percent population/cohort prevalences (conditional ones qualified by their `population` field), 9 hand-fixed `DISAGREE`, and 19 final records (12 uncorroborated-but-legit + 7 filter false-positives) using the rule **decimal = percent, scientific-notation = proportion** (e.g. CHIME `1e-06` = 1/million; Cockayne `4e-06` = 1/250,000; carrier/birth measures set where stated). All additive; `percentage` preserved. The **33 not converted are not a unit problem**: 32 are records that are *not population prevalence at all* (`MISPLACED_STAT` in `research/prevalence_bare_number_report.md` — metastatic-cancer 5-year survival, staging fractions, complication rates, and fraction-of-category such as "X% of all lymphomas/leukemias/cancers"), which belong in a different slot and need **relocation, not unit-fixing** — a distinct data-quality task pending a schema home for survival/staging/subtype-share data; plus 1 genuinely-ambiguous record (Nephronophthisis `0.1-1.0`, neither a clean percent nor proportion with no corroborating evidence). Plus ~8 free-prose head-counts. `percentage` field removal is deferred until the misplaced-data relocation lands. **Post-migration correction (PR review):** a systematic scan found **19 records across 16 files** where a *fraction-of-category* or *penetrance* value (with the qualifier living in `notes`, so the percentage-only guard missed it) had been wrongly converted to a population `rate_per_100000` — e.g. Osteogenesis_Imperfecta_Type_II `50%` (half of prenatal-onset OI cases → 50,000/100k), HPAH/FXTAS carrier **penetrance** (~40% → 40,000/100k), Minimal_Change_Disease (70–90% of idiopathic NS), Cholesteatoma (419/1710 otitis-media patients). These had their `measure_type`/`prevalence_class`/`rate_*` slots stripped (bare `percentage` preserved). The migration guard was hardened accordingly: `FRACTION_OF_CATEGORY_RE` now also matches cohort head-counts (`N of M`) and `% of <solved/idiopathic/sporadic/typhoidal/…>` categories stated in the percentage, and a new `PENETRANCE_RE` (safe to run against `notes`) catches penetrance/lifetime-risk qualifiers. Bare-percentage cohort fractions whose qualifier is *only* in prose remain inherently ambiguous from the value alone and are corrected by hand rather than by an aggressive notes scan (which would false-positive on records like Lathyrism, whose notes cite a cohort count but whose `percentage` is a genuine population estimate). **Second correction batch (PR review):** a follow-up KB-wide scan surfaced a further class of measure-type/conditional errors on rate-bearing records — (a) **genotype-conditional cumulative incidence / penetrance** stated as "N% diagnosed by age X" (Hemochromatosis male C282Y homozygotes 56.4% by age 80) or "cumulative risk of new cases up to age N" (Oppositional_Defiant_Disorder), which were stripped like the penetrance records; (b) **wrong measure_type** where the type lived only in `notes`/snippet — lifetime prevalence tagged POINT (Anorexia_Nervosa, Migraine_with_Aura → LIFETIME_PREVALENCE) and 12-month prevalence tagged POINT (Obsessive-Compulsive_Disorder → PERIOD_PREVALENCE); (c) **cohort-conditional risk-factor rates** (Furunculosis S. aureus nasal-carriage 60%/36%, Acute_Hypotension 88% intraoperative-event rate in ASA 3–4 surgical patients), stripped; and (d) a **two-figure percentage** where the parser captured the incidence not the prevalence (Systemic_Lupus_Erythematosus North America "23.2/100k incidence; 241/100k prevalence"), split into separate POINT_PREVALENCE (241) and ANNUAL_INCIDENCE (23.2) records. `PENETRANCE_RE` was extended with `cumulative incidence/risk` and `diagnosed by age` (verified against the KB to add no false positives on legitimate rate-bearing records). **Third correction batch (PR review):** a further scan found cohort-conditional / diagnostic-procedure rates whose qualifier lives only in the **`population` label** (not `percentage`/`notes`), which the guards do not parse: e.g. FICUS_syndrome (PICS-F among ICU family members), Coronary_Vasospasm (spasm among ANOCA patients), Refeeding_Syndrome (event rate in hospitalized/PN patients), Aortitis (histology among aortic-surgery patients), Brucellosis (pooled prevalence among included study populations), Silent_Sinus_Syndrome (radiologic finding among head-CT patients), Laryngotracheoesophageal_Cleft (proportion among endoscopy referrals) — structured slots stripped. Plus three `measure_type` corrections to BIRTH_PREVALENCE (Klinefelter_Syndrome, Wolf-Hirschhorn_Syndrome, MECP2_Duplication_Syndrome) where the birth-prevalence language was in the snippet only. Population-label conditionality is deliberately **not** auto-guarded: the label alone cannot separate a selected referral cohort ("adults undergoing head CT") from a legitimate large-scale screening population that approximates the general rate ("Pregnant women undergoing genome-wide NIPS", 333,187 women → 6.9/100,000), so this class stays manual-review. | migration follow-up + schema follow-up (destination for survival/staging/subtype-share) |
 | Per-gene `case_fractions` backfill | New structured `Genetic.case_fractions` slot added (§8). `Bardet-Biedl_Syndrome` backfilled for five genes (BBS1, BBS10, ARL6/BBS3, MKKS/BBS6, BBS9) across European, metabolic, and Indian cohorts. **Method/caveat:** dominant-gene fractions (BBS1, BBS10) appear in citable abstracts; minor-gene fractions are recoverable only from **open-access full-text** cohort papers/reviews whose cache is `full_text_xml` (the Indian-cohort figures came from PMID:27853007), since abstracts and the GeneReviews table (NBK1363 T3) and the Niederlová meta-analysis abstract (PMID:31283077) do not carry them. Backfilling the remaining minor genes is gated on finding such full-text-cacheable sources — figures must **not** be filled from memory (anti-hallucination policy, §6). Whether to deprecate the overloaded `frequency` field is also outstanding; no automated extractor yet. | schema follow-up |
-| KGX export of `differential_diagnoses` / `diagnosis` | Not yet exported; candidate predicate `biolink:disease_has_differential_diagnosis` | [#2100](https://github.com/monarch-initiative/dismech/issues/2100) |
 | RadLex-grade imaging-finding granularity | `ImagingFinding` (§9) grounds findings in NCIT + HP, which is patchy for specific radiologic appearances (e.g. contrast enhancement, T2 hyperintensity resolve to procedures or CTCAE grades). Tightening `ImagingFindingTerm` to a RadLex `reachable_from` (and `finding_term` to REQUIRED) is deferred: RadLex is not on EBI OLS4, so it needs a `bioportal:` adapter + API key in `conf/oak_config.yaml`. | schema/ontology follow-up |
 | `Transmission` route binding | **Open.** `Transmission` is `name`/`description`/`evidence`/`notes`/`effect` with no ontology slot, so §3e R25's "at least one transmission route" is a required free-text string that no query can use and no validator can check beyond presence — and R17 (promotion to a separate entry) turns on transmission route and vector. A bound slot is the prerequisite for enforcing rung 4 mechanically. Candidate vocabularies are ECTO exposure routes (already used by `exposure_term`) or a small closed enum; undecided. | [#10115](https://github.com/monarch-initiative/dismech/issues/10115) |
 | Umbrella-entry pointer backfill (`Subtype.curated_in`) | **Open.** §3e added `curated_in` so a subtype that is curated in full elsewhere is a machine-readable pointer (§3a L4 rule d had asked for one in prose). The promoted `Spotted_Fever_Rickettsiosis` rows carry it as the worked infectious-disease example. `just check-granularity --scope all` finds further subtype rows KB-wide whose `subtype_term` or name is another entry's (`Epilepsy` → `Juvenile Myoclonic Epilepsy`, `Glomerulonephritis` → `IgA Nephropathy`); most are umbrella entries whose rows are pointers in spirit and need the slot, some are the §3a L1 pattern that should be a `Grouping`. Mechanical where the MONDO terms agree; a judgement where only the names do. | [#10116](https://github.com/monarch-initiative/dismech/issues/10116), [#10113](https://github.com/monarch-initiative/dismech/issues/10113) |
@@ -2222,3 +2247,59 @@ plus bands" is enough for this project's tranches; the open row stands.
 Campaign tracking in
 [`projects/LOINC_DIAGNOSTICS.md`](../../projects/LOINC_DIAGNOSTICS.md); schema
 in PR #13636.
+
+## 18. Entry names match entry scope; single-gene entries use established gene-related names (2026-10-29)
+
+**Decision.** An entry's `name` covers exactly what the entry covers: if a
+patient could have the condition the name describes without the entry's
+defining cause, the name is too broad. A single-gene Mendelian entry is named
+`<GENE>-Related <Phenotype>` when that dyadic name is established, meaning it
+appears as the bound MONDO label or an EXACT synonym, as a ClinGen-preferred
+label, as a GeneReviews chapter title for the same scope, as the current OMIM
+title, or in recurring recent primary literature cited in `notes`. The bound
+`disease_term` fixes the entry's identity; the `name` is dismech's own choice,
+and the MONDO label is one candidate for it, not the default. Prior names
+(the MONDO label, eponyms, the OMIM title) are kept in `synonyms`. The working
+procedure is the `entry-naming` skill.
+
+**Why gene-related names.** ClinGen's dyadic nomenclature
+(PMID:33417889, PMID:39241757) names a monogenic disease by its gene and its
+phenotype. For a mechanism resource, the gene is the root of the pathograph, so
+a dyadic name tells a reader where the causal graph starts and separates
+entries that share a clinical label but not a mechanism. Several hundred
+dismech entries are already named this way (`ls kb/disorders | grep -ic
+related` gives the current filename count).
+
+**Why the MONDO label is not the default.** A scan in October 2026 found about
+30 single-gene MONDO classes whose label names a phenotype, tumour type or
+clinical syndrome that other genes or non-genetic causes also produce, and
+around 17 labels with casing errors (monarch-initiative/mondo#10836). Copying
+the label carries those problems into dismech. The curation queue makes copying
+the easy path: the stub `label` is the MONDO label, and the stub filename and
+claim title are built from it. The same scan found about 27 dismech entries
+whose name is broader than the entry, including 17 whose name drops scope words
+that their own MONDO term has.
+
+**What this does not mean.**
+
+- A gene-related name is not required where none is established. dismech does
+  not coin one. A clear eponym or numbered series name is specific, even if it
+  is opaque.
+- An umbrella name (`POLG-Related Disorders`) is never used for a single
+  entry on that spectrum; that would break the scope rule in the other
+  direction. An umbrella is a candidate for a `Grouping` or a parent entry with
+  `has_subtypes` (§3 granularity rules apply).
+- An entry already specific to one gene (cystic fibrosis, Gaucher disease) does
+  not need renaming.
+- When a single-gene MONDO class carries a broad label, the fix may be the
+  entry's binding rather than its name: if the entry is really about the
+  broad condition, it needs a broader `disease_term` and a fuller `genetic`
+  section.
+
+**Open: how a rename moves the file.** Changing `name` alone is safe. Changing
+the file slug moves cross-file references (`File:pathophysiology#...`, grouping
+members, comorbidity entries) and needs a `history/` record with
+`superseded_by`. Whether renames move slugs (with a `rename-entry` tool) or
+slugs stay fixed while names change is undecided. Until it is decided, renames
+change `name` and `synonyms` only. Tracked in dismech#15894, with the tooling
+(`check-entry-names`, stub name candidates) and the content worklist.

@@ -1,0 +1,2407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ganglioneuroma · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Ganglioneuroma</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Ganglioneuroma</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-10-28</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0005033" target="_blank" rel="noopener noreferrer">MONDO:0005033</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-opus-5</span>
+                    
+                    
+                    <span class="meta-chip">92 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<h3>1.1 Overview</h3>
+<p>Ganglioneuroma is a rare, benign, well-differentiated tumour of neural-crest origin arising from the sympathetic nervous system, composed of mature ganglion cells embedded in a dominant Schwannian (Schwann-cell + collagen) stroma. It arises anywhere along the sympathetic chain from skull base to pelvis, most often retroperitoneum, posterior mediastinum, adrenal gland and pelvis.</p>
+<p>Orphanet's definition, verbatim:</p>
+<blockquote>
+<p>"Ganglioneuroma is a rare tumor of neuroepithelial tissue, a benign and well-differentiated tumor of neural crest origin"
+— <a href="https://www.orpha.net/en/disease/detail/251992">Orphanet, ORPHA:251992</a></p>
+</blockquote>
+<p>Orphanet continues that it "originates from the sympathetic nervous system and comprises ganglion cells and stromal Schwann cells," with common sites "adrenal glands, retroperitoneum, posterior mediastinum, and pelvis," and records associations with "neurofibromatosis type I, multiple endocrine neoplasia type 2B, and Turner syndrome."</p>
+<h3>1.2 Position in the INPC</h3>
+<p>The International Neuroblastoma Pathology Classification (INPC, the "Shimada system") defines <strong>four</strong> pNT categories (Shimada et al., <em>Cancer</em> 1999;86:349–363, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/10421272/" target="_blank" rel="noopener noreferrer">PMID:10421272</a></strong>; and <em>Cancer</em> 1999;86:364–372, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/10421273/" target="_blank" rel="noopener noreferrer">PMID:10421273</a></strong>):</p>
+<ol>
+<li>Neuroblastoma — <strong>Schwannian stroma-poor</strong></li>
+<li>Ganglioneuroblastoma, intermixed — <strong>Schwannian stroma-rich</strong> (<a href="http://purl.obolibrary.org/obo/MONDO_0003326" target="_blank" rel="noopener noreferrer">MONDO:0003326</a>)</li>
+<li><strong>Ganglioneuroma — Schwannian stroma-dominant</strong> ← this entry</li>
+<li>Ganglioneuroblastoma, nodular — <strong>composite</strong> (<a href="http://purl.obolibrary.org/obo/MONDO_0003325" target="_blank" rel="noopener noreferrer">MONDO:0003325</a>); revised into favourable/unfavourable subsets by Peuchmaur et al., <em>Cancer</em> 2003;98:2274–2281, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/14601099/" target="_blank" rel="noopener noreferrer">PMID:14601099</a></strong></li>
+</ol>
+<p>GN has two histological subtypes, <strong>maturing</strong> and <strong>mature</strong>, and <em>both</em> are Favorable Histology regardless of patient age (Shimada H, Sano H, Hazard FK. <em>Clin Pediatr Hematol Oncol</em> 2020;27:73–86, <a href="https://www.cpho.or.kr/journal/view.html?doi=10.15264%2Fcpho.2020.27.2.73">doi:10.15264/cpho.2020.27.2.73</a>). That review states GN represents approximately <strong>3%</strong> of cases reviewed at the COG Neuroblastoma Pathology Reference Laboratory.</p>
+<p>A 2026 update of the pathology of pNTs is available: Conces MR, Shibui Y, Shimada H. "Pathology of peripheral neuroblastic tumors." <em>Diagnostic Pathology</em> 2026;21:22, <a href="https://link.springer.com/article/10.1186/s13000-026-01758-y">doi:10.1186/s13000-026-01758-y</a> — open access (full text was paywall-redirected in this session; the abstract confirms the 1984→1999→2003 INPC lineage).</p>
+<h3>1.3 Key identifiers</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>Value</th>
+<th>Verification</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/MONDO_0005033" target="_blank" rel="noopener noreferrer">MONDO:0005033</a></strong> <code>ganglioneuroma</code></td>
+<td>Resolved in <code>cache/mondo/terms.csv</code> (retrieved 2026-10-28)</td>
+</tr>
+<tr>
+<td>HPO (as a phenotype)</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0003005" target="_blank" rel="noopener noreferrer">HP:0003005</a></strong> <code>Ganglioneuroma</code></td>
+<td>Resolved in <code>cache/hp/terms.csv</code></td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><strong><a href="https://bioregistry.io/ORPHA:251992" target="_blank" rel="noopener noreferrer">ORPHA:251992</a></strong></td>
+<td>Orphanet disease page</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td><strong>D36.1</strong> (benign neoplasm, peripheral nerves and autonomic nervous system)</td>
+<td>Orphanet cross-reference</td>
+</tr>
+<tr>
+<td>ICD-O-3 morphology</td>
+<td><strong>9490/0</strong> Ganglioneuroma</td>
+<td>ICD-O-3 morphology listings</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td><strong>2A00.21</strong> as recorded by Orphanet</td>
+<td><code>[Attribution: Orphanet mapping only — this code reads as a CNS/benign-neoplasm stem and was not verified against the WHO ICD-11 browser. Morphology stem XH03L9 appears in third-party aggregators. UNVERIFIED]</code></td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>none</td>
+<td>Orphanet records no OMIM entry ("brak danych")</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>Ganglioneuroma, D005729</td>
+<td><code>[From aggregator listing; UNVERIFIED against NLM MeSH]</code></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Related MONDO terms confirmed present in the local cache: <a href="http://purl.obolibrary.org/obo/MONDO_0003325" target="_blank" rel="noopener noreferrer">MONDO:0003325</a> <code>nodular ganglioneuroblastoma</code>, <a href="http://purl.obolibrary.org/obo/MONDO_0003326" target="_blank" rel="noopener noreferrer">MONDO:0003326</a> <code>intermixed schwannian stroma-rich ganglioneuroblastoma</code>, <a href="http://purl.obolibrary.org/obo/MONDO_0005035" target="_blank" rel="noopener noreferrer">MONDO:0005035</a> <code>ganglioneuroblastoma</code>, <a href="http://purl.obolibrary.org/obo/MONDO_0005072" target="_blank" rel="noopener noreferrer">MONDO:0005072</a> <code>neuroblastoma</code>, <a href="http://purl.obolibrary.org/obo/MONDO_0006076" target="_blank" rel="noopener noreferrer">MONDO:0006076</a> <code>adrenal gland neuroblastoma</code>.</p>
+<h3>1.4 Synonyms</h3>
+<p>ganglioneuroma (Schwannian stroma-dominant); mature ganglioneuroma; maturing ganglioneuroma; benign ganglioneuroma; benign neural crest tumour. Site-qualified variants in common use: adrenal ganglioneuroma (AGN), retroperitoneal ganglioneuroma (RGN), paraspinal/dumbbell ganglioneuroma, presacral ganglioneuroma, <strong>intestinal/diffuse ganglioneuromatosis</strong> (a distinct, usually syndromic, polytopic form — see §2.2 and §6.3).</p>
+<h3>1.5 Evidence provenance</h3>
+<p><strong>All content below is from aggregated disease-level resources and institutional/registry case series. There are no EHR-derived or patient-level datasets for GN.</strong> The three largest modern series — 259 (UK national registry), 101 (single institution, 30 years), 51 (single sarcoma centre) — are all retrospective chart reviews. No randomised trial exists, and none is plausible at this incidence.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors</h3>
+<p>GN is a <strong>somatic neoplasm of a sympathoadrenal neural-crest derivative</strong>. There is no infectious, dietary, or occupational cause described anywhere in the literature reviewed. Two causal models compete (detailed in §6):</p>
+<ul>
+<li><strong>Terminal-maturation model (INPC consensus).</strong> GN is the end-state of a neuroblastic tumour that differentiated. Shimada et al. state this explicitly: ganglioneuromas represent the "final stage of tumor maturation," such that <strong>"all Ganglioneuromas were once Neuroblastomas in their early stage of tumor development"</strong> (<a href="https://www.cpho.or.kr/journal/view.html?doi=10.15264%2Fcpho.2020.27.2.73">Shimada 2020</a>).</li>
+<li><strong>De novo AKT-driven model.</strong> Tao et al. found an active AKT–mTOR–S6 axis in human GN but not neuroblastoma, and showed that constitutive AKT in the zebrafish sympathetic nervous system produces GN <strong>without</strong> passing through a neuroblastoma state (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/32728700/" target="_blank" rel="noopener noreferrer">PMID:32728700</a></strong>). Verbatim from the abstract:</li>
+</ul>
+<blockquote>
+<p>"Zebrafish transgenic for constitutively activated myr-Akt2 in the sympathetic nervous system were found to develop ganglioneuroma without progression to neuroblastoma."
+"Our results implicate activated AKT as a tumorigenic driver in ganglioneuroma."</p>
+</blockquote>
+<p>These are not reconcilable as stated, and the field has not resolved them. Note what each predicts about the <em>same</em> patient: the maturation model predicts GN should carry residual neuroblastoma-type segmental aberrations; the de novo model predicts it should not. The telomere data in §4.2 are the best available discriminating evidence and favour a genomically distinct entity.</p>
+<h3>2.2 Genetic risk factors</h3>
+<p><strong>Germline syndromes.</strong> GN is not itself inherited, but three autosomal-dominant syndromes carry a materially raised risk, and in each the ganglioneuromatous lesion is frequently the <strong>first</strong> manifestation:</p>
+<ul>
+<li><strong>MEN2B (<code>RET</code> hgnc:9967).</strong> A single germline mutation at codon 918 (<strong>M918T</strong>, exon 16) accounts for ~<strong>95%</strong> of MEN2B. Diffuse <strong>intestinal ganglioneuromatosis</strong> is a universal extra-endocrine feature and typically precedes medullary thyroid carcinoma by years. Gastrointestinal onset occurred in <strong>29/55 (52.3%)</strong> of reported cases <strong>before age 1</strong>, and constipation was the commonest symptom (<strong>72.7%</strong>) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10848182">Intestinal ganglioneuromatosis as an early extra-endocrine manifestation of MEN2B, PMC10848182</a>; <a href="https://link.springer.com/article/10.1007/s12020-021-02607-2">Timely diagnosis of MEN2B by identification of intestinal ganglioneuromatosis, Springer</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/27899172/">role of rectal biopsy, PMID:27899172</a>). Germline codon-918 mutation has also been found in <strong>apparently isolated</strong> intestinal ganglioneuromatosis (<a href="https://academic.oup.com/jcem/article/83/12/4191/2865226">J Clin Endocrinol Metab 1998;83:4191</a>).</li>
+<li><strong>PTEN hamartoma tumour syndrome / Cowden syndrome (<code>PTEN</code> hgnc:9588).</strong> Ganglioneuromatous polyposis, diffuse gastric ganglioneuromatosis, and uveal ganglioneuroma are all reported presentations (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5889855/">PMC5889855</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4862217/">PMC4862217</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/23512313/">PMID:23512313</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5566766/">uveal ganglioneuroma, PMC5566766</a>).</li>
+<li><strong>Neurofibromatosis type 1 (<code>NF1</code> hgnc:7765).</strong> GN in NF1 is real but <strong>uncommon</strong>. In an Italian multicentre registry study, 8 children with neuroblastic tumours (<strong>0.2%</strong> of registered patients) met NF1 criteria; of those, 5 were neuroblastoma, 1 ganglioneuroblastoma, <strong>2 ganglioneuroma</strong> (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9673013/">PMC9673013</a>). Co-occurrence with pheochromocytoma is described (<a href="https://pubmed.ncbi.nlm.nih.gov/17954422/">PMID:17954422</a>), and bladder and cervical GN have been reported in NF1 (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9776796/">PMC9776796</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13492013/">PMC13492013</a>).</li>
+<li><strong>Turner syndrome</strong> — recorded by Orphanet as an association. <code>[No primary citation located in this session; treat as Orphanet-level only.]</code></li>
+</ul>
+<p><strong><code>PHOX2B</code> hgnc:9143 — one reported instance, not a susceptibility claim.</strong> In a familial neuroblastic-tumour report, a <em>PHOX2B</em> variant inherited from the father was followed by that father developing a <strong>well-differentiated ganglioneuroma at age 40</strong> — the single clearest human observation that a germline neurocristopathy allele can yield a differentiated rather than malignant tumour (<a href="https://www.sciencedirect.com/science/article/pii/S2405844024026124">Identifying a novel PHOX2B gene variant in a neuroblastoma family, ScienceDirect</a>; see also <a href="https://www.sciencedirect.com/science/article/abs/pii/S2452014418300396">Analysis of sporadic neuroblastic tumors reveals a novel PHOX2B mutation</a>). <em>n</em>=1; do not curate as a susceptibility locus.</p>
+<p><strong>Susceptibility loci / GWAS.</strong> No GWAS, no polygenic risk score, and no common-variant association for GN. The neuroblastoma GWAS literature does not stratify by INPC category.</p>
+<h3>2.3 Environmental risk factors</h3>
+<ul>
+<li><strong>Prior therapeutic irradiation</strong> is the one documented exogenous risk factor, and it acts on <em>outcome</em> rather than occurrence: MPNST has arisen inside a benign ganglioneuroma 12 years after radiotherapy for a childhood neuroblastic tumour (<a href="https://pubmed.ncbi.nlm.nih.gov/10755757/">PMID:10755757</a>), and after radiotherapy for a cerebellopontine-angle ganglioneuroma (<a href="https://pubmed.ncbi.nlm.nih.gov/42120254/">PMID:42120254</a>).</li>
+<li><strong>Age</strong> is the strongest demographic correlate (see §9).</li>
+<li>No toxin, pollutant, occupational exposure, dietary factor, smoking, or alcohol association is reported.</li>
+</ul>
+<h3>2.4 Protective factors</h3>
+<p><strong>None documented, genetic or environmental.</strong> The absence is informative rather than a gap in searching: GN has no modifiable risk factor to protect against, and no gnomAD-level protective allele has been sought. Plausibly the closest thing to a "protective factor" in the pNT family is the differentiation-promoting Schwann-cell stroma itself (§6.2) — but that is a mechanism <em>within</em> the tumour, not a population-level exposure, and should not be curated as <code>PROTECTS_AGAINST</code>.</p>
+<h3>2.5 Gene–environment interactions</h3>
+<p>Only one interaction is evidenced, and it is iatrogenic: <strong>germline <code>NF1</code> loss + therapeutic irradiation → MPNST arising within a ganglioneuroma</strong>. The 2025 rectovaginal-septum case is the worked example — a 29-year-old woman with NF1 whose lesion was called ganglioneuroma on biopsy and proved MPNST on resection (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12221925">PMC12221925</a>). No CTD/PheGenI GxE entry exists for GN.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 The dominant phenotype is <em>absence</em> of phenotype</h3>
+<p>Across all three modern series, most GN are incidental:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Series</th>
+<th>n</th>
+<th>Incidental</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Texakalidis 2026, <em>J Neurosurg</em> (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a></strong>)</td>
+<td>101</td>
+<td><strong>72%</strong></td>
+</tr>
+<tr>
+<td>Li 2025, <em>Front Surg</em> (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/41306794/" target="_blank" rel="noopener noreferrer">PMID:41306794</a></strong>)</td>
+<td>51</td>
+<td><strong>56.9%</strong></td>
+</tr>
+<tr>
+<td>Burnand 2025, UK CCLG (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/39582110/" target="_blank" rel="noopener noreferrer">PMID:39582110</a></strong>)</td>
+<td>259</td>
+<td>— (symptom data by site)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Verbatim: <em>"Most lesions (72%) were incidental findings."</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>)</p>
+<p>This matters for the KB entry: the modal patient has <strong>no</strong> phenotype, and symptomatic phenotypes are almost all <strong>mass effect</strong>, not tumour biology.</p>
+<h3>3.2 Phenotype table with HPO bindings</h3>
+<p>All HP CURIEs below were resolved in <code>cache/hp/terms.csv</code> this session except where flagged.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO term</th>
+<th>Type</th>
+<th>Frequency / source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ganglioneuroma (the lesion itself)</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0003005" target="_blank" rel="noopener noreferrer">HP:0003005</a></strong> Ganglioneuroma</td>
+<td>Neoplasm</td>
+<td>100% by definition</td>
+</tr>
+<tr>
+<td>Abdominal pain</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a></strong> Abdominal pain</td>
+<td>Symptom</td>
+<td><strong>31.4%</strong> of retroperitoneal GN (<a href="https://pubmed.ncbi.nlm.nih.gov/41306794/" target="_blank" rel="noopener noreferrer">PMID:41306794</a>)</td>
+</tr>
+<tr>
+<td>Back pain / lumbago</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" rel="noopener noreferrer">HP:0003418</a></strong> Back pain</td>
+<td>Symptom</td>
+<td><strong>5.8%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41306794/" target="_blank" rel="noopener noreferrer">PMID:41306794</a>)</td>
+</tr>
+<tr>
+<td>Abdominal mass</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0031500" target="_blank" rel="noopener noreferrer">HP:0031500</a></strong> Abdominal mass</td>
+<td>Clinical sign</td>
+<td>Common in paediatric presentation</td>
+</tr>
+<tr>
+<td>Abdominal distention</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0003270" target="_blank" rel="noopener noreferrer">HP:0003270</a></strong> Abdominal distention (OLS4, hp)</td>
+<td>Clinical sign</td>
+<td>Reported with pressure effects</td>
+</tr>
+<tr>
+<td>Vomiting (bowel obstruction)</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" rel="noopener noreferrer">HP:0002013</a></strong> Vomiting</td>
+<td>Symptom</td>
+<td>Reported</td>
+</tr>
+<tr>
+<td>Constipation</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" rel="noopener noreferrer">HP:0002019</a></strong> Constipation</td>
+<td>Symptom</td>
+<td><strong>72.7%</strong> in MEN2B intestinal ganglioneuromatosis (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10848182">PMC10848182</a>)</td>
+</tr>
+<tr>
+<td>Chronic watery diarrhoea (VIP)</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a></strong> Diarrhea</td>
+<td>Symptom</td>
+<td>Rare; VIP-secreting GN (<a href="https://pubmed.ncbi.nlm.nih.gov/1211964/">PMID:1211964</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/7376870">PMID:7376870</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/2833214/">PMID:2833214</a>)</td>
+</tr>
+<tr>
+<td>Hypokalaemia (secretory diarrhoea)</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002900" target="_blank" rel="noopener noreferrer">HP:0002900</a></strong> Hypokalemia</td>
+<td>Lab abnormality</td>
+<td>With VIP syndrome</td>
+</tr>
+<tr>
+<td>Failure to thrive</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a></strong> Failure to thrive</td>
+<td>Clinical sign</td>
+<td>With VIP syndrome (<a href="https://pubmed.ncbi.nlm.nih.gov/2833214/">PMID:2833214</a>)</td>
+</tr>
+<tr>
+<td>Hypertension</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" rel="noopener noreferrer">HP:0000822</a></strong> Hypertension</td>
+<td>Clinical sign</td>
+<td>Catecholamine-secreting GN (<a href="https://www.tandfonline.com/doi/full/10.3109/08037051.2013.796103">Blood Press 2013</a>)</td>
+</tr>
+<tr>
+<td>Flushing</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0031284" target="_blank" rel="noopener noreferrer">HP:0031284</a></strong> Flushing</td>
+<td>Clinical sign</td>
+<td>Hormonally active GN</td>
+</tr>
+<tr>
+<td>Hyperhidrosis / diaphoresis</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0000975" target="_blank" rel="noopener noreferrer">HP:0000975</a></strong> Hyperhidrosis</td>
+<td>Clinical sign</td>
+<td>Hormonally active GN</td>
+</tr>
+<tr>
+<td>Palpitations</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" rel="noopener noreferrer">HP:0001962</a></strong> Palpitations</td>
+<td>Symptom</td>
+<td>Hormonally active GN</td>
+</tr>
+<tr>
+<td>Tremor</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" rel="noopener noreferrer">HP:0001337</a></strong> Tremor</td>
+<td>Clinical sign</td>
+<td>Hormonally active GN</td>
+</tr>
+<tr>
+<td>Anxiety</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" rel="noopener noreferrer">HP:0000739</a></strong> Anxiety</td>
+<td>Behavioural</td>
+<td>Hormonally active GN</td>
+</tr>
+<tr>
+<td>Headache</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a></strong> Headache</td>
+<td>Symptom</td>
+<td>Hormonally active GN</td>
+</tr>
+<tr>
+<td>Horner syndrome</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002277" target="_blank" rel="noopener noreferrer">HP:0002277</a></strong> Horner syndrome</td>
+<td>Clinical sign</td>
+<td>Cervical/apical thoracic GN; also a <em>post-operative complication</em> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13492013/">PMC13492013</a>)</td>
+</tr>
+<tr>
+<td>Spinal cord compression</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002176" target="_blank" rel="noopener noreferrer">HP:0002176</a></strong> Spinal cord compression</td>
+<td>Clinical sign</td>
+<td>Dumbbell/paraspinal GN</td>
+</tr>
+<tr>
+<td>Paraparesis</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002385" target="_blank" rel="noopener noreferrer">HP:0002385</a></strong> Paraparesis</td>
+<td>Clinical sign</td>
+<td>Dumbbell GN; also transient post-operatively (<a href="https://thejns.org/spine/view/journals/j-neurosurg-spine/37/1/article-p130.xml">J Neurosurg Spine 2022;37:130</a>)</td>
+</tr>
+<tr>
+<td>Scoliosis</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" rel="noopener noreferrer">HP:0002650</a></strong> Scoliosis</td>
+<td>Physical manifestation</td>
+<td>Paraspinal GN</td>
+</tr>
+<tr>
+<td>Dyspnoea</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a></strong> Dyspnea</td>
+<td>Symptom</td>
+<td>Mediastinal GN</td>
+</tr>
+<tr>
+<td>Cough</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" rel="noopener noreferrer">HP:0012735</a></strong> Cough</td>
+<td>Symptom</td>
+<td>Mediastinal GN</td>
+</tr>
+<tr>
+<td>Chest pain / tightness</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" rel="noopener noreferrer">HP:0100749</a></strong> Chest pain</td>
+<td>Symptom</td>
+<td><strong>5.8%</strong> "other" group (<a href="https://pubmed.ncbi.nlm.nih.gov/41306794/" target="_blank" rel="noopener noreferrer">PMID:41306794</a>)</td>
+</tr>
+<tr>
+<td>Hydronephrosis</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0000126" target="_blank" rel="noopener noreferrer">HP:0000126</a></strong> Hydronephrosis</td>
+<td>Imaging/lab</td>
+<td>Ureteric compression</td>
+</tr>
+<tr>
+<td>Urinary incontinence</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0000020" target="_blank" rel="noopener noreferrer">HP:0000020</a></strong> Urinary incontinence</td>
+<td>Symptom</td>
+<td>Presacral/sacral GN</td>
+</tr>
+<tr>
+<td>Virilization</td>
+<td><code>[HP term UNVERIFIED]</code></td>
+<td>Clinical sign</td>
+<td>Androgen-secreting GN (very rare)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Deliberately excluded:</strong> opsoclonus (<a href="http://purl.obolibrary.org/obo/HP_0010543" target="_blank" rel="noopener noreferrer">HP:0010543</a>) and myoclonus (<a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" rel="noopener noreferrer">HP:0001336</a>) — opsoclonus-myoclonus syndrome is a neuroblastoma/GNB paraneoplastic phenomenon; I found no evidence it occurs with pure GN, and binding it here would import a neuroblastoma phenotype.</p>
+<h3>3.3 Phenotype characteristics</h3>
+<ul>
+<li><strong>Age of onset.</strong> Bimodal by series type. Paediatric registry: median <strong>62 months</strong> (UK CCLG, n=259, <a href="https://pubmed.ncbi.nlm.nih.gov/39582110/" target="_blank" rel="noopener noreferrer">PMID:39582110</a>). Adult/neurosurgical: mean <strong>26.9 ± 15.9 years</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>); median <strong>28 years</strong>, range 12–73, with <strong>74.5% under 40</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41306794/" target="_blank" rel="noopener noreferrer">PMID:41306794</a>); median <strong>42 years</strong> in a 25-patient adult oncology series (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/41561749/" target="_blank" rel="noopener noreferrer">PMID:41561749</a></strong>). Secondary literature states ~<strong>60% of cases occur under age 20</strong>.</li>
+<li><strong>Severity.</strong> Mild in the great majority; severity is set by <em>size and location</em>, not by grade. Mean maximal dimension <strong>8.5 ± 3.8 cm</strong> on MRI (<a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>); mean <strong>13.06 ± 5.77 cm</strong> (range 4.1–30.2) in the retroperitoneal cohort, where <strong>66.7% encased major vasculature</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41306794/" target="_blank" rel="noopener noreferrer">PMID:41306794</a>).</li>
+<li><strong>Progression.</strong> Indolent and near-static. Median growth <strong>0.3 cm/year</strong> (Alexander 2018, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/29369484/" target="_blank" rel="noopener noreferrer">PMID:29369484</a></strong>); in the observation arm of the 2026 series, <em>"2 tumors exhibited minimal interval growth (0.08–0.17 cm/year)"</em> and <em>"No patient in the observation group developed new symptoms"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>).</li>
+<li><strong>Frequency among affected individuals</strong> — see the table above; the honest summary is that no individual symptom reaches 50%, and asymptomatic status does.</li>
+</ul>
+<h3>3.4 Quality of life</h3>
+<p><strong>No EQ-5D, SF-36, PROMIS, or GN-specific PRO data exist.</strong> This is a real gap, not a search failure. The three available surrogates are all clinician-rated:</p>
+<ul>
+<li>Complete symptom control after gross total resection vs non-GTR: <strong>43% vs 24%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/39582110/" target="_blank" rel="noopener noreferrer">PMID:39582110</a>).</li>
+<li>Global functional status at final follow-up (mean 33.8 months): <em>"46.5% of patients were stable, 42.3% had improved, and 11.3% had worsened from baseline"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>).</li>
+<li>Mean hospital length of stay <strong>4.6 ± 3.7 days</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>).</li>
+</ul>
+<p>The 11.3% who worsened are the clinically important group, and in a benign tumour with no recurrence they are overwhelmingly worsened by <strong>surgery</strong>, not by disease.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>4.1 Causal genes</h3>
+<p><strong>None.</strong> No gene is causative for sporadic ganglioneuroma, and no OMIM entry exists. Do not populate a <code>CAUSATIVE</code> <code>relationship_type</code> for this entry.</p>
+<h3>4.2 Somatic molecular profile — what GN <em>is not</em></h3>
+<p>The most robust molecular statements about GN are negative, and they are what separate it from neuroblastoma.</p>
+<p><strong>Telomere maintenance (Sugawara M, Haruta M, Ohira M, et al. <em>Oncol Lett</em> 2026;31(5):156, <a href="https://pubmed.ncbi.nlm.nih.gov/41858373/" target="_blank" rel="noopener noreferrer">PMID:41858373</a>, <a href="https://doi.org/10.3892/ol.2026.15509" target="_blank" rel="noopener noreferrer">doi:10.3892/ol.2026.15509</a>).</strong> 321 neuroblastic tumours, including <strong>18 GN</strong>. Verbatim:</p>
+<blockquote>
+<p>"ALT was identified in 38 NB cases (38/255, 15%) and 6 GNB cases (6/48, 12.5%), but not in GN."
+"High <em>TERT</em> expression was observed in 38% (64/169), 23% (7/31) and 14% (1/7) of NB, GNB and GN cases, respectively."</p>
+</blockquote>
+<p>No <em>TERT</em> rearrangements and no <code>ATRX</code> hgnc:886 alterations were identified in GN. <strong>Interpretation:</strong> GN activates neither of the two telomere-maintenance routes that immortalise neuroblastoma. That is the strongest single piece of evidence that GN is <em>not</em> simply a differentiated neuroblastoma — a matured tumour would be expected to carry its precursor's immortalisation lesion.</p>
+<p><strong><code>MYCN</code> hgnc:7559.</strong> MYCN amplification is not observed in GN (<a href="https://pubmed.ncbi.nlm.nih.gov/41858373/" target="_blank" rel="noopener noreferrer">PMID:41858373</a>). A separate Chinese paediatric neuroblastoma series reports low-level <em>MYCN</em> <strong>gain</strong> (not amplification) in a small number of ganglioneuroma cases <code>[attribution ambiguous in the available abstract; UNVERIFIED — re-read the primary before quoting a figure]</code>.</p>
+<p><strong>Segmental chromosomal aberrations.</strong> 1p loss, 11q loss and 17q gain are neuroblastoma prognostic markers. I found <strong>no</strong> GN-specific frequency data for them. Older comparative-genomic-hybridisation work on ganglioneuroblastoma found that some samples showed <strong>no</strong> chromosomal abnormalities at all (<a href="https://pubmed.ncbi.nlm.nih.gov/8108298/">PMID:8108298</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/11801306/">PMID:11801306</a>). Do not transfer 17q/11q frequencies from ALT-positive mixed cohorts onto GN — that was an available-but-wrong inference I specifically checked and rejected.</p>
+<h3>4.3 The one positive somatic finding: an active AKT–mTOR–S6 axis</h3>
+<p>Tao T, Shi H, Wang M, Perez-Atayde AR, London WB, Gutierrez A, Lemos B, Durbin AD, Look AT. <em>J Exp Med</em> 2020;217(10):e20191871. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/32728700/" target="_blank" rel="noopener noreferrer">PMID:32728700</a></strong>, <a href="https://doi.org/10.1084/jem.20191871" target="_blank" rel="noopener noreferrer">doi:10.1084/jem.20191871</a>.</p>
+<p>Immunohistochemistry on 11 human GN vs 15 poorly differentiated neuroblastomas:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Marker</th>
+<th>GN</th>
+<th>Poorly differentiated NB</th>
+<th>p</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>phospho-AKT (Ser473)</td>
+<td><strong>10/11 (90.9%)</strong></td>
+<td>1/15 (6.7%)</td>
+<td>&lt; 0.0001</td>
+</tr>
+<tr>
+<td>phospho-mTOR (Ser2448)</td>
+<td><strong>9/11 (81.8%)</strong></td>
+<td>5/15 (33.3%)</td>
+<td>0.0214</td>
+</tr>
+<tr>
+<td>phospho-S6 (Ser235/236)</td>
+<td><strong>10/11 (90.9%)</strong></td>
+<td>7/15 (46.7%)</td>
+<td>0.0362</td>
+</tr>
+<tr>
+<td>pan-AKT (total)</td>
+<td>11/11</td>
+<td>14/15</td>
+<td>1.00 (ns)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Verbatim: <em>"Phosphorylated, activated AKT and the downstream effectors mTOR and ribosomal protein S6 were more frequently detected in human primary ganglioneuromas than in poorly differentiated human neuroblastomas."</em></p>
+<p><strong>Crucially, the upstream lesion in humans is unidentified.</strong> The authors did <strong>not</strong> find somatically acquired <code>PTEN</code> or <code>AKT</code> mutations, and wrote: <em>"Somatically acquired mutations or epigenetic alterations affecting the expression levels of proteins in the PI3K–AKT–mTOR pathway may be responsible for initiating ganglioneuroma in individual patients."</em> One cohort patient had juvenile polyposis syndrome (a <code>PTEN</code>/<code>BMPR1A</code> hgnc:1076 context).</p>
+<p>This is the right level of precision for the KB: the <strong>pathway state</strong> is demonstrated (<code>modifier: GAIN_OF_FUNCTION</code> or <code>INCREASED</code> on a <code>MolecularFunctionDescriptor</code>), the <strong>variant</strong> is not (no <code>genetic_context</code> / <code>functional_impact_category</code> is supportable).</p>
+<h3>4.4 Transcriptional identity</h3>
+<p>From the same study, GN and NB run opposite transcriptional programmes:</p>
+<ul>
+<li>The <strong>adrenergic core regulatory circuit</strong> TFs highly expressed in neuroblastoma — <code>TFAP2B</code>, <code>ISL1</code>, <code>GATA3</code>, <code>PHOX2A</code>, <code>PHOX2B</code> hgnc:9143 — are <strong>down</strong>-regulated in ganglioneuroma.</li>
+<li><code>SOX10</code> hgnc:11190 (neural crest / Schwann-cell lineage) is <strong>up</strong>-regulated in GN and down-regulated in NB.</li>
+</ul>
+<p>This is internally consistent with the IHC literature (§10.5): GN's identity is carried by its Schwannian compartment.</p>
+<h3>4.5 Modifier genes</h3>
+<p>None described.</p>
+<h3>4.6 Epigenetics</h3>
+<p><strong>No GN-specific DNA-methylation, histone-modification, or chromatin data were found</strong> in ENCODE, Roadmap, MethBase or DiseaseMeth-adjacent literature. Tao et al. raise epigenetic silencing as a <em>candidate</em> upstream mechanism for pathway activation (quoted in §4.3) but did not test it. This is a clean, specific, fundable knowledge gap: <strong>methylation profiling of ganglioneuroma against neuroblastoma and against normal sympathetic ganglion.</strong></p>
+<h3>4.7 Chromosomal abnormalities</h3>
+<p>No recurrent aneuploidy, translocation, or inversion is described. GN is not a karyotype-driven entity, and chromosomal microarray has no established role.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> none established. No CTD/TOXNET/EPA association.</li>
+<li><strong>Lifestyle factors:</strong> none established.</li>
+<li><strong>Infectious agents:</strong> <strong>not applicable.</strong> GN has no infectious aetiology and no <code>infectious_agent</code> should be curated.</li>
+<li><strong>Ionising radiation:</strong> prior therapeutic irradiation is associated with later MPNST <em>within</em> a GN (§2.3), i.e. the exposure modifies malignant-transformation risk rather than causing the GN. If curated, this is best modelled as an <code>environmental[]</code> entry with <code>environmental_effect: PREDISPOSES</code> pointing at a transformation node, not at the GN itself.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>6.1 Ordered causal chain — Model A: terminal maturation of a neuroblastic tumour</h3>
+<p>This is the INPC/consensus chain. Steps 1–2 are inferred; steps 3–6 are demonstrated in human tissue and in vitro.</p>
+<ol>
+<li>A somatic lesion arises in a <strong>sympathoadrenal progenitor derived from the migrating neural crest</strong> (<code>CL:0011012</code> neural crest cell → <code>CL:0002676</code> neural crest derived neuroblast) during sympathetic nervous system development (<code>GO:0048485</code> sympathetic nervous system development), <strong>leading to</strong> clonal neuroblastic proliferation — a neuroblastoma. <em>[Inferred for GN specifically; this step is observed for neuroblastoma, not for GN.]</em></li>
+<li>In favourable-biology tumours, the tumour cell retains high <code>NTRK1</code>/TrkA expression, which <strong>results in</strong> upregulated <code>NRG1</code> (neuregulin-1) mRNA. <em>[Demonstrated in vitro]</em></li>
+<li>Secreted NRG1 <strong>leads to</strong> proliferation and migration of adjacent Schwann cells (<code>CL:0002573</code> Schwann cell; <code>CL:0002375</code> Schwann cell precursor) into the tumour, i.e. recruitment of the Schwannian stroma. <em>[Demonstrated: media conditioned by NTRK1-expressing NB cells induced SC proliferation and migration — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4294349/">PMC4294349</a>]</em></li>
+<li>The recruited Schwann cells <strong>adopt a repair-like phenotype</strong>, co-expressing nerve-injury/repair genes, and <strong>secrete</strong> NGF plus <code>EGFL8</code>. <em>[Demonstrated: Weiss T, Taschner-Mandl S, et al. Nat Commun 2021;12:1624, </em><em><a href="https://pubmed.ncbi.nlm.nih.gov/33712610/" target="_blank" rel="noopener noreferrer">PMID:33712610</a></em><em>. Verbatim: "stromal SCs in ganglioneuromas and repair SCs share the expression of nerve repair-associated genes."]</em></li>
+<li>Paracrine NGF and EGFL8 <strong>result in</strong> TrkA/neurotrophin-receptor signalling (<code>GO:0048011</code> neurotrophin TRK receptor signaling pathway) and kinase rewiring in the neuroblastic cells, which <strong>leads to</strong> neuronal differentiation (<code>GO:0030182</code> neuron differentiation), neurite outgrowth (<code>GO:0031175</code> neuron projection development) and <strong>reduced proliferation</strong>. <em>[Demonstrated: "Neuroblastoma cells, derived from aggressive tumors, respond to primary repair-related SCs and their secretome with increased neuronal differentiation and reduced proliferation." (<a href="https://pubmed.ncbi.nlm.nih.gov/33712610/" target="_blank" rel="noopener noreferrer">PMID:33712610</a>)]</em></li>
+<li>Differentiated cells become <strong>mature ganglion cells</strong>; Schwann cells ensheathe the neurites until <em>"all neuritic processes produced by ganglion cells are immediately incorporated in the cytoplasm of Schwann cells, so that no naked neuritic processes are detected"</em> — the histological definition of <strong>mature</strong> GN. Where incorporation is incomplete, the tumour is <strong>maturing</strong> GN. <em>[Demonstrated histologically — <a href="https://www.cpho.or.kr/journal/view.html?doi=10.15264%2Fcpho.2020.27.2.73">Shimada 2020</a>]</em></li>
+<li>The resulting mass is <strong>mitotically inert</strong> (Ki-67 hotspot &lt;1%) and causes disease solely by <strong>space occupation</strong> — vascular encasement, nerve-root and cord compression, ureteric and airway compression (§3.2). <em>[Demonstrated]</em></li>
+</ol>
+<p><strong>Branch at step 5:</strong> If residual naked neurites and microscopic neuroblastic foci persist, the tumour is <strong>ganglioneuroblastoma, intermixed</strong> (<a href="http://purl.obolibrary.org/obo/MONDO_0003326" target="_blank" rel="noopener noreferrer">MONDO:0003326</a>), not GN. If a discrete neuroblastic nodule arises within ganglioneuromatous tissue, it is <strong>ganglioneuroblastoma, nodular</strong> (<a href="http://purl.obolibrary.org/obo/MONDO_0003325" target="_blank" rel="noopener noreferrer">MONDO:0003325</a>) — and <em>that</em> carries real mortality (8-year OS 90.5% favourable subset vs <strong>33.2%</strong> unfavourable subset, <a href="https://pubmed.ncbi.nlm.nih.gov/14601099/" target="_blank" rel="noopener noreferrer">PMID:14601099</a>). The clinical consequence is in §10.6.</p>
+<p><strong>Note this is a positive-feedback loop, not a linear cascade:</strong> differentiating tumour cell → NRG1 → Schwann cell → NGF/EGFL8 → more differentiation. It is self-reinforcing, which is why the mature end-state is stable and why spontaneous <em>de</em>-differentiation is not observed.</p>
+<h3>6.2 Ordered causal chain — Model B: de novo AKT activation</h3>
+<ol>
+<li>An unidentified somatic or epigenetic event <strong>activates</strong> the PI3K–AKT axis in a sympathoadrenal cell. <em>[Mechanism demonstrated by transgene; the initiating human lesion is </em><em>unknown</em><em> — no PTEN or AKT mutation found (<a href="https://pubmed.ncbi.nlm.nih.gov/32728700/" target="_blank" rel="noopener noreferrer">PMID:32728700</a>)]</em></li>
+<li>Activated AKT <strong>leads to</strong> phosphorylation of mTOR (Ser2448) (<code>GO:0043491</code> PI3K/AKT signal transduction → <code>GO:0031929</code> TOR signaling, <code>GO:0032008</code> positive regulation of TOR signaling). <em>[Demonstrated in human tissue, 9/11]</em></li>
+<li>mTOR activation <strong>results in</strong> phosphorylation of ribosomal protein S6 (Ser235/236) and 4E-BP1/EIF4EBP1 (Thr37/46), <strong>leading to</strong> increased cap-dependent translation and enhanced survival. <em>[Demonstrated]</em></li>
+<li>This <strong>results in</strong> expansion and hypertrophy of <strong>differentiated, mature ganglion cells</strong>, with simultaneous <strong>down</strong>-regulation of the adrenergic core regulatory circuit and <strong>up</strong>-regulation of <code>SOX10</code>. <em>[Demonstrated]</em></li>
+<li>The lesion <strong>does not progress</strong> to neuroblastoma. <em>[Demonstrated in zebrafish over 29 weeks at 40–50% penetrance; the same promoter driving MYCN or c-MYC gives high-grade neuroblastoma instead]</em></li>
+<li>mTOR inhibition <strong>reverses</strong> step 3, <strong>leading to</strong> increased apoptosis (TUNEL-confirmed) and a 30–40% reduction in tumour burden. <em>[Demonstrated pharmacologically — §12.4]</em></li>
+</ol>
+<h3>6.3 Branch: enteric ganglioneuromatosis (a different anatomical compartment, the same pathway)</h3>
+<p>This chain is independently demonstrated and is the strongest corroboration of Model B.</p>
+<ol>
+<li>Loss of <code>PTEN</code> — the negative regulator immediately upstream of AKT — in neural-crest-derived enteric nervous system cells (<code>CL:0007011</code> enteric neuron; <code>CL:0002607</code> migratory enteric neural crest cell) <strong>leads to</strong> AKT and S6 hyperphosphorylation. <em>[Demonstrated: Puig I, Champeval D, De Santa Barbara P, Jaubert F, Lyonnet S, Larue L. J Clin Invest 2009;119:3586–96, </em><em><a href="https://pubmed.ncbi.nlm.nih.gov/19884655/" target="_blank" rel="noopener noreferrer">PMID:19884655</a></em><em>, <a href="https://doi.org/10.1172/JCI39929" target="_blank" rel="noopener noreferrer">doi:10.1172/JCI39929</a>. Verbatim: "S6 and AKT phosphorylation levels were clearly higher in HM than in WT samples, this effect being particularly marked for AKT."]</em></li>
+<li>This <strong>results in</strong> enteric neuronal <strong>hyperplasia</strong> (cell counts 3× wild type) and <strong>hypertrophy</strong> (cells double the size), i.e. <strong>ganglioneuromatosis</strong>. <em>[Demonstrated]</em></li>
+<li>Ganglioneuromatosis of the myenteric plexus <strong>leads to</strong> dysmotility → chronic intestinal pseudo-obstruction, cecal dilation, and death between P13 and P20 with 100% penetrance. <em>[Demonstrated in mouse]</em></li>
+<li>Pharmacological AKT inhibition (API2) <strong>prevents</strong> step 2: <em>"After API2 treatment, numbers of TUJ1-positive cells in embryos treated with API2 did not significantly differ between WT and HM."</em> <strong>This is a rescue experiment, and it establishes direction of causation.</strong></li>
+<li>Human corroboration: PTEN expression in the ENS was significantly lower in <strong>2 of 7</strong> chronic intestinal pseudo-obstruction patients, with concomitantly increased S6 phosphorylation. <em>[Demonstrated, small n]</em></li>
+</ol>
+<p><strong>Parallel branch — RET gain of function (MEN2B).</strong> Germline <code>RET</code> M918T <strong>leads to</strong> constitutive RET kinase activity signalling through <strong>both</strong> MAPK <strong>and</strong> PI3K/AKT, which <strong>results in</strong> diffuse hyperplasia of the myenteric and submucosal plexuses → intestinal ganglioneuromatosis → constipation, feeding intolerance, megacolon in the first year of life. Competing/additional proposed mechanisms in this compartment: overexpression of nerve growth factor (<a href="https://www.nejm.org/doi/abs/10.1056/NEJM198303173081106">NEJM 1983;308:634</a>), and increased GDNF <code>GDNF</code> hgnc:4232 / neurturin expression (<code>GO:0035860</code> GDNF receptor signaling pathway) (<a href="https://pubmed.ncbi.nlm.nih.gov/19353842/">PMID:19353842</a>). <em>[The NGF-overproduction hypothesis is 40 years old and has not been confirmed; label it EMERGING or record it as a knowledge gap rather than a node.]</em></p>
+<p>Note that RET loss-of-function causes <strong>Hirschsprung aganglionosis</strong> and RET gain-of-function causes <strong>ganglioneuromatosis</strong> — the same gene, opposite dose, mirror-image enteric phenotypes. That symmetry is worth capturing.</p>
+<h3>6.4 Where the two models leave the field</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Model A (maturation)</th>
+<th>Model B (de novo AKT)</th>
+<th>Best discriminating evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Was every GN once a neuroblastoma?</td>
+<td>Yes (explicit)</td>
+<td>No</td>
+<td>GN has <strong>no ALT and essentially no high TERT</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41858373/" target="_blank" rel="noopener noreferrer">PMID:41858373</a>) — a matured NB should retain its immortalisation lesion. Favours B.</td>
+</tr>
+<tr>
+<td>Why is Schwannian stroma dominant?</td>
+<td>It is the <em>cause</em> of maturation</td>
+<td>Consequence of SOX10-high lineage programme</td>
+<td>Zebrafish AKT tumours have <strong>poor</strong> Schwannian stroma (<a href="https://pubmed.ncbi.nlm.nih.gov/32728700/" target="_blank" rel="noopener noreferrer">PMID:32728700</a>) — Model B's own model fails to reproduce GN's defining feature. Favours A.</td>
+</tr>
+<tr>
+<td>Is there a documented NB→GN transition in a patient?</td>
+<td>Yes, case-level (<a href="https://pubmed.ncbi.nlm.nih.gov/34054050/">PMID:34054050</a>; <a href="https://www.sciencedirect.com/science/article/abs/pii/0022346875901992">complete maturation of NB with bone metastases</a>; <a href="https://www.sciencedirect.com/science/article/abs/pii/S0022346801387067">maturation of mass-screened localized adrenal NB</a>)</td>
+<td>Would call these GNB/NB with maturation, not GN</td>
+<td>Case reports; cannot exclude sampling.</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Recommended curation:</strong> two <code>mechanistic_hypotheses</code> groups (<code>maturation_of_neuroblastic_precursor</code>, status <code>CANONICAL</code>; <code>de_novo_akt_activation</code>, status <code>EMERGING</code>), with causal edges opting into the relevant group via <code>hypothesis_groups</code>, plus a <code>HUMAN_MODEL_MISMATCH</code> discussion for the zebrafish stroma discrepancy (§15.3). Do not pick a winner in the entry prose.</p>
+<h3>6.5 Mechanism checklist coverage</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> PI3K–AKT–mTOR–S6 (<code>GO:0043491</code>, <code>GO:0031929</code>); neurotrophin/TRK (<code>GO:0048011</code>); GDNF/RET (<code>GO:0035860</code>); MAPK (RET-driven, MEN2B); retinoic acid receptor signalling (<code>GO:0048384</code>) — the latter as the pharmacological analogue of the maturation programme, not as a disease mechanism. KEGG/Reactome have no GN-specific map.</li>
+<li><strong>Cellular processes:</strong> neuronal differentiation and maturation (<code>GO:0030182</code>, <code>GO:0048667</code>); neurite outgrowth (<code>GO:0031175</code>); cell-cycle exit / reduced proliferation; Schwann cell differentiation (<code>GO:0014037</code>) and PNS myelination (<code>GO:0022011</code>, <code>GO:0042552</code>); apoptosis (the mTOR-inhibitor effector). <strong>Notably absent:</strong> no genome instability, no telomere maintenance, no invasion/metastasis programme — GN conforms to essentially <em>none</em> of the cancer hallmarks, which is unusual for an entry with an ICD-O morphology code.</li>
+<li><strong>Protein dysfunction:</strong> constitutive AKT kinase activity (gain of function); PTEN phosphatase loss of function (enteric branch); RET kinase gain of function (MEN2B branch). No misfolding or aggregation.</li>
+<li><strong>Metabolic changes:</strong> increased cap-dependent protein synthesis downstream of mTOR is the only one documented. In the minority of secretory GN, retained catecholamine biosynthesis (<code>GO:0042423</code> catecholamine biosynthetic process) producing dopamine <code>CHEBI:18243</code> and its metabolite homovanillic acid <code>CHEBI:545959</code>. No metabolomics or lipidomics study of GN exists (MetaboLights, Metabolomics Workbench, HMDB: nothing).</li>
+<li><strong>Immune involvement:</strong> none established. The pNT single-cell study that includes GN describes an immune microenvironment with low cytotoxic T-lymphocyte content across pNTs (<a href="https://www.omicsdi.org/dataset/geo/GSE192906">GSE192906</a>) but does not isolate a GN-specific immune mechanism.</li>
+<li><strong>Tissue damage mechanisms:</strong> <strong>mechanical compression only</strong> — no oxidative stress, ischaemia, fibrosis, or necrosis mechanism. This is the single most important negative in the pathophysiology: GN damages tissue by occupying space.</li>
+<li><strong>Biochemical abnormalities:</strong> none intrinsic. VIP (<code>VIP</code> hgnc:12693, verified at rest.genenames.org) hypersecretion in the rare VIPoma-like presentation; catecholamine hypersecretion in a minority (§10.1).</li>
+<li><strong>Molecular profiling:</strong> transcriptomics as above. <strong>Proteomics</strong> — the Weiss 2021 study performed secretome proteomics of repair Schwann cells (PRIDE-depositable; accession not verified here). <strong>No GN proteome, metabolome, or lipidome.</strong></li>
+<li><strong>Single-cell / spatial:</strong> <code>GSE192906</code> — <em>"Single-cell RNA-sequencing of peripheral neuroblastic tumors reveals an aggressive transitional cell state at the junction of an adrenergic-mesenchymal transdifferentiation trajectory"</em>, <em>Homo sapiens</em>, 10 pNTs, deposited 2022-10-04. Weiss 2021 lists <code>GSE90711</code>, <code>GSE94035</code>, <code>GSE147635</code>, and uses <code>GSE45547</code> (Kocak) and <code>GSE85047</code> (NRC) as validation cohorts. <code>[Accession-to-GN-sample mapping NOT verified; before curating any of these as a</code>datasets:<code>record, run</code>just verify-datasets<code>and confirm the series actually contains ganglioneuroma samples — the §Dataset-curation rule about relevance triage applies directly, since a search on "neuroblastic tumor" returns neuroblastoma series.]</code></li>
+<li><strong>Functional genomics screens:</strong> no DepMap GN line exists (there is no ganglioneuroma cell line). This is a hard structural limit on GN functional genomics and is worth stating.</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>7.1 Organ level</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Site</th>
+<th>Frequency</th>
+<th>UBERON</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Retroperitoneum</td>
+<td><strong>45.5%</strong> (n=46/101, <a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>); 32–52% in review literature</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/UBERON_0003693" target="_blank" rel="noopener noreferrer">UBERON:0003693</a></strong> retroperitoneal space (OLS4)</td>
+</tr>
+<tr>
+<td>Posterior mediastinum / thoracic paraspinal</td>
+<td><strong>32.7%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>); 39–43% in review literature</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/UBERON_0008822" target="_blank" rel="noopener noreferrer">UBERON:0008822</a></strong> posterior mediastinum (OLS4); <strong><a href="http://purl.obolibrary.org/obo/UBERON_0003728" target="_blank" rel="noopener noreferrer">UBERON:0003728</a></strong> mediastinum</td>
+</tr>
+<tr>
+<td>Presacral space</td>
+<td><strong>17.8%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>)</td>
+<td><code>[No UBERON term verified; UNVERIFIED]</code></td>
+</tr>
+<tr>
+<td>Cervical region</td>
+<td><strong>4%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>)</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/UBERON_0000974" target="_blank" rel="noopener noreferrer">UBERON:0000974</a></strong> neck</td>
+</tr>
+<tr>
+<td>Adrenal gland</td>
+<td>Relatively rare as a primary site; increases with age (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12339323/">PMID:40799243</a>)</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/UBERON_0002369" target="_blank" rel="noopener noreferrer">UBERON:0002369</a></strong> adrenal gland; <strong><a href="http://purl.obolibrary.org/obo/UBERON_0001236" target="_blank" rel="noopener noreferrer">UBERON:0001236</a></strong> adrenal medulla</td>
+</tr>
+<tr>
+<td>Sympathetic chain generally</td>
+<td>Skull base → pelvis</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/UBERON_0001806" target="_blank" rel="noopener noreferrer">UBERON:0001806</a></strong> sympathetic ganglion; <strong><a href="http://purl.obolibrary.org/obo/UBERON_0001807" target="_blank" rel="noopener noreferrer">UBERON:0001807</a></strong> paravertebral ganglion; <strong><a href="http://purl.obolibrary.org/obo/UBERON_0001805" target="_blank" rel="noopener noreferrer">UBERON:0001805</a></strong> autonomic ganglion</td>
+</tr>
+<tr>
+<td>Gastrointestinal tract (ganglioneuromatosis)</td>
+<td>Syndromic (MEN2B, PHTS, NF1)</td>
+<td><code>[colon/stomach UBERON terms not verified this session]</code></td>
+</tr>
+<tr>
+<td>Rare: CNS, heart, bone, bladder, uvea, paratesticular, larynx</td>
+<td>Case-level</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Secondary organ involvement</strong> is compressive, not metastatic: spinal cord (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" rel="noopener noreferrer">UBERON:0002240</a></strong>) compression from dumbbell extension; ureter/kidney (hydronephrosis); great vessels (aorta, IVC, SMA, renal vessels encased in <strong>66.7%</strong> of retroperitoneal cases, <a href="https://pubmed.ncbi.nlm.nih.gov/41306794/" target="_blank" rel="noopener noreferrer">PMID:41306794</a>); airway.</p>
+<p><strong>Body systems:</strong> peripheral/autonomic nervous system (primary); endocrine (adrenal site, and secretory variants); gastrointestinal (ganglioneuromatosis, obstruction); musculoskeletal (scoliosis, vertebral/foraminal remodelling); genitourinary (compression).</p>
+<h3>7.2 Tissue and cell level</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Compartment</th>
+<th>Cell type</th>
+<th>CL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Neuronal (the "ganglio-" half)</td>
+<td>mature ganglion cell / sympathetic neuron</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/CL_0011103" target="_blank" rel="noopener noreferrer">CL:0011103</a></strong> sympathetic neuron (OLS4); <strong><a href="http://purl.obolibrary.org/obo/CL_0008025" target="_blank" rel="noopener noreferrer">CL:0008025</a></strong> noradrenergic neuron; <strong><a href="http://purl.obolibrary.org/obo/CL_0000107" target="_blank" rel="noopener noreferrer">CL:0000107</a></strong> autonomic neuron</td>
+</tr>
+<tr>
+<td>Stromal (the "-neuroma" half, and dominant by volume)</td>
+<td>Schwann cell</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" rel="noopener noreferrer">CL:0002573</a></strong> Schwann cell; <strong><a href="http://purl.obolibrary.org/obo/CL_0000218" target="_blank" rel="noopener noreferrer">CL:0000218</a></strong> myelinating Schwann cell; <strong><a href="http://purl.obolibrary.org/obo/CL_0002375" target="_blank" rel="noopener noreferrer">CL:0002375</a></strong> Schwann cell precursor</td>
+</tr>
+<tr>
+<td>Perineuronal</td>
+<td>satellite cell covering mature ganglion cells</td>
+<td><code>[No CL term verified; UNVERIFIED]</code></td>
+</tr>
+<tr>
+<td>Precursor lineage</td>
+<td>neural crest cell / neural-crest-derived neuroblast</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" rel="noopener noreferrer">CL:0011012</a></strong> neural crest cell; <strong><a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" rel="noopener noreferrer">CL:0000333</a></strong> migratory neural crest cell; <strong><a href="http://purl.obolibrary.org/obo/CL_0002676" target="_blank" rel="noopener noreferrer">CL:0002676</a></strong> neural crest derived neuroblast</td>
+</tr>
+<tr>
+<td>Adrenal context</td>
+<td>chromaffin cell</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/CL_0000166" target="_blank" rel="noopener noreferrer">CL:0000166</a></strong> chromaffin cell; <strong><a href="http://purl.obolibrary.org/obo/CL_0000336" target="_blank" rel="noopener noreferrer">CL:0000336</a></strong> adrenal medulla chromaffin cell</td>
+</tr>
+<tr>
+<td>Enteric ganglioneuromatosis</td>
+<td>enteric neuron</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/CL_0007011" target="_blank" rel="noopener noreferrer">CL:0007011</a></strong> enteric neuron; <strong><a href="http://purl.obolibrary.org/obo/CL_0002607" target="_blank" rel="noopener noreferrer">CL:0002607</a></strong> migratory enteric neural crest cell</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Tissue types: nervous tissue (both neuronal and glial) plus connective tissue (collagen fibres interlacing with Schwann-cell bundles — the origin of the <strong>whorled sign</strong> on MRI, §10.3) and myxoid stroma.</p>
+<h3>7.3 Subcellular level</h3>
+<p>Ganglion cells show <strong>Nissl substance</strong> — abundant rough endoplasmic reticulum — granular eosinophilic cytoplasm, a round nucleus with open chromatin and a prominent nucleolus. The relevant GO cellular-component terms (rough ER, nucleolus) <code>[were not resolved this session; UNVERIFIED]</code>. No mitochondrial, lysosomal or autophagic compartment pathology is described.</p>
+<h3>7.4 Localization and laterality</h3>
+<p>Solitary and <strong>unilateral</strong> in the overwhelming majority. Side distribution in the retroperitoneal cohort: <strong>58.8% right, 41.2% left</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41306794/" target="_blank" rel="noopener noreferrer">PMID:41306794</a>) — consistent with chance, and not a biological asymmetry. Bilateral/multifocal disease should prompt a syndromic work-up (MEN2B, NF1, PHTS) rather than being treated as sporadic GN. Dumbbell (intraspinal + paraspinal) morphology is the configuration with the highest neurological stakes.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>8.1 Onset</h3>
+<ul>
+<li><strong>Age:</strong> see §3.3. Median <strong>62 months</strong> in a national paediatric cohort vs mean <strong>26.9 years</strong> in a neurosurgical cohort — the discrepancy is <strong>ascertainment</strong>, not two diseases: paediatric GN is found through neuroblastic-tumour pathways, adult GN through incidental imaging.</li>
+<li><strong>Pattern: insidious and chronic.</strong> The tumour is typically present for years before detection. Acute presentation occurs only via a complication (obstruction, cord compression).</li>
+<li><strong>Congenital?</strong> Not described as congenital. Secondary GN maturing from a neuroblastoma presents in young children; primary GN in late childhood and adulthood.</li>
+</ul>
+<h3>8.2 Progression</h3>
+<ul>
+<li><strong>No disease-specific staging system.</strong> GN is non-metastatic by definition; where a stage is recorded it is borrowed (INSS/INRGSS) from the pNT family. For surgical planning, <strong>imaging-defined risk factors (IDRFs)</strong> are the operative analogue of stage — and they predict <em>complications</em>, not outcome: IDRF presence correlated with post-operative complications at <strong>p = 0.005</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29369484/" target="_blank" rel="noopener noreferrer">PMID:29369484</a>).</li>
+<li><strong>Progression rate: slow, often zero.</strong> Median <strong>0.3 cm/year</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29369484/" target="_blank" rel="noopener noreferrer">PMID:29369484</a>); <strong>0.08–0.17 cm/year</strong> in the two growing tumours of a 31-patient observation arm followed a mean of <strong>90.9 ± 151 months</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>).</li>
+<li><strong>Course: stable to very slowly progressive.</strong> Not episodic, not relapsing-remitting. In the Alexander series, at median 2.2 years: 27 complete + 10 partial responses, 19 stable, <strong>6 progressive</strong> of 67.</li>
+<li><strong>Duration: lifelong</strong> if unresected, with no natural resolution. Spontaneous regression — the hallmark of infant neuroblastoma — is <strong>not</strong> a feature of GN.</li>
+<li><strong>The one real progression risk is reclassification, not growth.</strong> In the UK CCLG cohort, <em>"In 45 cases (39%), surgical pathology was different from pathology at biopsy, and in 14 (12%) the pathology changed from GN/GNBi to neuroblastoma/GNB nodular."</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39582110/" target="_blank" rel="noopener noreferrer">PMID:39582110</a>). Contrast with the single-centre Toronto series, where <em>"Pathology classification changed at resection for three cases, but no GN was reclassified to NB"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29369484/" target="_blank" rel="noopener noreferrer">PMID:29369484</a>). The two findings are not contradictory — 12% of 259 vs 0% of 67 is within sampling range — but the larger cohort is the one to plan around.</li>
+</ul>
+<h3>8.3 Patterns</h3>
+<ul>
+<li><strong>Remission:</strong> treatment-induced only (resection). No spontaneous remission.</li>
+<li><strong>Critical periods:</strong> two, both iatrogenic. (i) The <strong>first year of life</strong> in MEN2B, when intestinal ganglioneuromatosis presents and a rectal biopsy can make the diagnosis years before medullary thyroid carcinoma — the single highest-yield intervention window in the whole GN space. (ii) The <strong>decision point at diagnosis</strong> in sporadic GN, where the choice between resection and surveillance determines the 20–43% complication exposure (§11.2). There is no window in which GN itself becomes more dangerous with time, which is precisely why surveillance is defensible.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>9.1 Epidemiology</h3>
+<ul>
+<li><strong>Prevalence ≈ 1 per million population.</strong> Verbatim: <em>"Ganglioneuroma is a rare neurogenic tumor with a prevalence of one per million population"</em> (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10512760/">Cureus 2023;15:e43914, <strong>PMID:37746449</strong></a>). <code>[This is a secondary/tertiary claim repeated across the case-report literature; its primary source was not traced. Treat as PrevalenceClassEnum BELOW_1_IN_1000000 / BAND_1_9_PER_1000000 with measure_type UNKNOWN and record the attribution honestly.]</code></li>
+<li><strong>Proportion of primary retroperitoneal tumours: 0.72–1.6%</strong> (same source, verbatim: <em>"Ganglioneuromas constitute only 0.72%–1.6% of all primary retroperitoneal tumors"</em>).</li>
+<li><strong>0.1–0.5% of all neurogenic tumours</strong> (review literature).</li>
+<li><strong>≈3% of peripheral neuroblastic tumours</strong> reviewed at the COG Neuroblastoma Pathology Reference Laboratory (<a href="https://www.cpho.or.kr/journal/view.html?doi=10.15264%2Fcpho.2020.27.2.73">Shimada 2020</a>) — the most defensible denominator-based figure available.</li>
+<li><strong>Incidence:</strong> no population-based incidence rate exists. GN is not separately reported in SEER (SEER work exists for ganglioneuroblastoma: 1,194 patients, 5-year survival ~88%, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11107237/">PMC11107237</a>); because GN is coded benign (ICD-O 9490/<strong>0</strong>), US cancer registries do not capture it. <strong>This is the structural reason no incidence figure exists, and it should be stated rather than approximated.</strong></li>
+</ul>
+<h3>9.2 Genetic etiology parameters</h3>
+<p>GN itself is <strong>not inherited</strong>; the predisposing syndromes are:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Syndrome</th>
+<th>Gene</th>
+<th>Inheritance</th>
+<th>Penetrance for the ganglioneuromatous feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MEN2B</td>
+<td><code>RET</code> hgnc:9967</td>
+<td>Autosomal dominant; ~50% de novo</td>
+<td>Diffuse intestinal ganglioneuromatosis described as a <strong>universal</strong> extra-endocrine feature; GI symptom onset &lt;1 year in 52.3%</td>
+</tr>
+<tr>
+<td>Cowden / PHTS</td>
+<td><code>PTEN</code> hgnc:9588</td>
+<td>Autosomal dominant</td>
+<td>Low/undefined for GN specifically; PTEN LOF in ~80% of Cowden</td>
+</tr>
+<tr>
+<td>NF1</td>
+<td><code>NF1</code> hgnc:7765</td>
+<td>Autosomal dominant; ~50% de novo</td>
+<td>Very low — 2 GN among 8 NF1 patients within 0.2% of an Italian neuroblastic-tumour registry</td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Founder effects / carrier frequency / consanguinity / anticipation / germline mosaicism:</strong> <strong>not applicable to GN.</strong> These belong to the syndrome entries, not here. Do not populate them.</li>
+<li><strong>Expressivity:</strong> highly variable in MEN2B — the same M918T allele gives everything from isolated intestinal ganglioneuromatosis to the full MTC/pheochromocytoma/marfanoid syndrome.</li>
+</ul>
+<h3>9.3 Population demographics</h3>
+<ul>
+<li><strong>Sex.</strong> Adult surgical series are consistently <strong>female-predominant</strong>: 62.3% female (n=101, <a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>); 33/51 = 64.7% female (<a href="https://pubmed.ncbi.nlm.nih.gov/41306794/" target="_blank" rel="noopener noreferrer">PMID:41306794</a>); 18/25 = 72% female (<a href="https://pubmed.ncbi.nlm.nih.gov/41561749/" target="_blank" rel="noopener noreferrer">PMID:41561749</a>). Paediatric review literature quotes M:F ≈ <strong>2:3</strong>. One adrenal-GN review states <em>"There are no significant sex differences in morbidity"</em> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12339323/">PMID:40799243</a>). <strong>Interpretation:</strong> a modest female excess in resected series, possibly reflecting imaging utilisation rather than biology. Record it as observed, not as a sex-specific disease.</li>
+<li><strong>Age distribution.</strong> ~60% under 20 at diagnosis in paediatric-weighted literature; adrenal GN specifically is <em>"rare in children under 10 years of age, with a higher incidence in adults than in children, and its incidence increases with age"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40799243/" target="_blank" rel="noopener noreferrer">PMID:40799243</a>) — i.e. site and age interact.</li>
+<li><strong>Ancestry / geography.</strong> No ethnic predilection and no endemic region described. No HANCESTRO-bindable population effect exists. <code>[Do not curate a population_effects record: there are no population-stratified data.]</code></li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Laboratory tests and biomarkers</h3>
+<ul>
+<li><strong>Core panel:</strong> plasma/urinary metanephrines and catecholamines, urinary <strong>VMA</strong> (<code>CHEBI:20106</code> vanillylmandelic acid) and <strong>HVA</strong> (<code>CHEBI:545959</code> homovanillic acid), plus adrenal-incidentaloma screening (cortisol excess, aldosterone/renin) where adrenal.</li>
+<li><strong>The expected result is normal.</strong> In the 51-patient retroperitoneal cohort, catecholamine/VIP testing was performed in 13 patients and <strong>all were negative</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41306794/" target="_blank" rel="noopener noreferrer">PMID:41306794</a>).</li>
+<li><strong>The informative abnormal pattern</strong> is dopamine/HVA elevation with normal adrenaline, noradrenaline and VMA — reported in four children with GN, and the mirror image of neuroblastoma (where noradrenaline, dopamine, HVA <strong>and</strong> VMA are typically raised) (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0031302516393552"><em>Pathology</em> / catecholamines in urine and tumour tissue</a>). This asymmetry is mechanistically sensible: mature ganglion cells retain upstream synthesis (<code>GO:0042423</code>) without the full secretory phenotype.</li>
+<li><strong>~30% of adrenal GN reported with elevated catecholamines</strong> — widely repeated but <code>[secondary claim, primary source not traced; UNVERIFIED]</code>. Case reports document raised norepinephrine, normetanephrine, VMA and dopamine with suppressed epinephrine (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9242669/">PMC9242669</a>).</li>
+<li><strong>Rare secretory syndromes:</strong> VIP (<code>VIP</code> hgnc:12693) → watery diarrhoea, hypokalaemia, failure to thrive; ACTH/cortisol; androgens → virilization. One 80-case adrenal series reported 3 patients with elevated 24-hour urinary cortisol (<a href="https://pubmed.ncbi.nlm.nih.gov/40799243/" target="_blank" rel="noopener noreferrer">PMID:40799243</a>).</li>
+<li><strong>LOINC.</strong> The relevant measurements (VMA, HVA, plasma free metanephrines, VIP) all have LOINC codes, but <strong>none was looked up in this session.</strong> Per the repo's rule, do <strong>not</strong> type a LOINC label from memory — run <code>just loinc-seed-cache</code> and commit <code>cache/loinc/terms.csv</code> with the entry. <code>[UNVERIFIED]</code></li>
+</ul>
+<h3>10.2 Biomarkers for prognosis</h3>
+<p>None. There is no prognostic biomarker for GN because there is nothing to prognosticate — survival is essentially 100% (§11.1). The only predictive marker of interest is <strong>phospho-S6 / phospho-AKT status</strong> as a candidate biomarker for mTOR-inhibitor responsiveness, which has never been tested prospectively.</p>
+<h3>10.3 Imaging</h3>
+<p><strong>CT</strong> (<code>NCIT:C17204</code> Computed Tomography):
+- Low attenuation, <strong>&lt; 40 HU</strong> unenhanced; homogeneous or slightly heterogeneous.
+- <strong>Gradual and delayed enhancement</strong> — minimal arterial-phase, progressive portal and delayed-phase enhancement. This pattern reflects the myxoid, hypovascular Schwannian stroma and is one of the better discriminators from pheochromocytoma.
+- <strong>Calcification in 42–60%</strong>, characteristically <strong>discrete and punctate</strong> rather than the amorphous coarse calcification of neuroblastoma.
+(<a href="https://ajronline.org/doi/10.2214/AJR.16.16018">AJR imaging reviews</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10341194/"><em>Diagnostics</em> 2023;13:2190, PMC10341194</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/22573298/">PMID:22573298</a>)</p>
+<p><strong>MRI</strong> (<code>NCIT:C16809</code> Magnetic Resonance Imaging):
+- <strong>T1: low</strong> signal; <strong>T2: heterogeneously high</strong> signal; gradual delayed enhancement.
+- <strong>"Whorled sign"</strong> — interlacing thick bundles of Schwann cells and collagen — reported in about <strong>80%</strong> of patients and the most characteristic MRI feature (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10341194/">PMC10341194</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6647925/">PMC6647925</a>).
+- Mean dimensions <strong>8.5 ± 3.8 × 6.6 ± 3.2 × 5.8 ± 3.7 cm</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>).</p>
+<p><strong>Functional imaging:</strong> <strong>low or absent MIBG uptake</strong> and no significant FDG avidity — in contrast to neuroblastoma and pheochromocytoma. Note the exception: an adrenal GN with nodal involvement showing uptake on both ¹²³I-MIBG SPECT/CT and ¹⁸F-FDG PET/CT has been published (<a href="https://www.sciencedirect.com/science/article/pii/S1930043324007155">ScienceDirect</a>), so low uptake is a tendency, not a rule.</p>
+<p><strong>The imaging pitfall is over-reliance.</strong> A giant retroperitoneal GN was misdiagnosed on radiology alone (<a href="https://pubmed.ncbi.nlm.nih.gov/37746449/" target="_blank" rel="noopener noreferrer">PMID:37746449</a>) — the paper's title is literally <em>"Overreliance on Radiological Findings Leading to Misdiagnosed Giant Retroperitoneal Ganglioneuroma."</em> Imaging narrows, histology decides.</p>
+<h3>10.4 Functional tests and electrophysiology</h3>
+<p>No role in diagnosis. Intra-operative neuromonitoring is used during paraspinal/dumbbell resection to limit the 22.2% neurological-deficit rate (§11.2), which is a surgical adjunct rather than a diagnostic test.</p>
+<h3>10.5 Biopsy, histopathology and immunohistochemistry</h3>
+<p><strong>Gross:</strong> well-circumscribed, firm, grey-white to tan, often lobulated, with a whorled cut surface.</p>
+<p><strong>Microscopic:</strong> mature ganglion cells with granular eosinophilic cytoplasm, round nuclei with prominent nucleoli and Nissl substance, scattered individually or in small clusters, embedded in a <strong>dominant</strong> stroma of spindled Schwann cells and collagen within a myxoid background. Satellite cells cover the mature ganglion cells. <strong>Mitoses absent</strong>; Ki-67 hotspot index <strong>&lt;1%</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12339323/">PMID:40799243</a>).</p>
+<p>The <strong>maturing vs mature</strong> distinction turns entirely on neurite incorporation (<a href="https://www.cpho.or.kr/journal/view.html?doi=10.15264%2Fcpho.2020.27.2.73">Shimada 2020</a>):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Subtype</th>
+<th>Criterion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Maturing</strong> GN</td>
+<td>Neuritic processes from neuroblastic cells are <strong>incompletely</strong> incorporated into Schwann-cell cytoplasm; a mixture of mature and maturing ganglion cells</td>
+</tr>
+<tr>
+<td><strong>Mature</strong> GN</td>
+<td><em>"composed only of completely mature ganglion cells covered with satellite cells"</em>; <em>"all neuritic processes produced by ganglion cells are immediately incorporated in the cytoplasm of Schwann cells, so that no naked neuritic processes are detected"</em></td>
+</tr>
+<tr>
+<td><strong>Ganglioneuroblastoma, intermixed</strong> (not GN)</td>
+<td><em>"foci of naked neurites are still identified microscopically"</em></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Immunohistochemistry — note a genuine conflict in the literature:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Marker</th>
+<th>Compartment</th>
+<th>Reported</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>S100</strong></td>
+<td>Schwannian stroma</td>
+<td>Positive (consistent across sources)</td>
+</tr>
+<tr>
+<td><strong>SOX10</strong></td>
+<td>Schwannian stroma</td>
+<td>Positive; <code>SOX10</code> is transcriptionally <strong>up</strong> in GN (<a href="https://pubmed.ncbi.nlm.nih.gov/32728700/" target="_blank" rel="noopener noreferrer">PMID:32728700</a>)</td>
+</tr>
+<tr>
+<td><strong>Synaptophysin</strong></td>
+<td>Ganglion cells</td>
+<td>Positive</td>
+</tr>
+<tr>
+<td><strong>NSE</strong></td>
+<td>Ganglion cells</td>
+<td>Positive</td>
+</tr>
+<tr>
+<td><strong>Neurofilament</strong></td>
+<td>Ganglion cells / neurites</td>
+<td>Positive (composite-tumour literature)</td>
+</tr>
+<tr>
+<td><strong>PHOX2B</strong></td>
+<td>Ganglion cell nuclei</td>
+<td><strong>Conflict.</strong> A 2025 adrenal-GN report records PHOX2B <strong>negative</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12339323/">PMID:40799243</a>), whereas the diagnostic-IHC literature reports <em>"Phox2b expression was seen in all neuroblastomas, ganglioneuroblastomas, and ganglioneuromas"</em> with <em>"nuclear positivity in all of the ganglion cells across the different phases of differentiation"</em>, and 70/76 (92%) of pNTs positive overall (<a href="https://pubmed.ncbi.nlm.nih.gov/28640941/">PMID:28640941</a>; <a href="https://www.researchgate.net/publication/229081877_PHOX2B_Immunolabeling_A_Novel_Tool_for_the_Diagnosis_of_Undifferentiated_Neuroblastomas_Among_Childhood_Small_Round_Blue-cell_Tumors">PHOX2B immunolabeling</a>)</td>
+</tr>
+<tr>
+<td><strong>Tyrosine hydroxylase (TH)</strong></td>
+<td>Ganglion cells</td>
+<td><strong>Conflict</strong>, same pattern: reported negative in one adrenal GN (<a href="https://pubmed.ncbi.nlm.nih.gov/40799243/" target="_blank" rel="noopener noreferrer">PMID:40799243</a>) but <em>"Strong expression of PHOX2A, PHOX2B, and TH in both neuroblastoma and ganglioneuroma"</em> elsewhere, and strongly reactive in all cell types of composite pheochromocytoma-ganglioneuroma (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3685741/">PMC3685741</a>)</td>
+</tr>
+<tr>
+<td><strong>Chromogranin A</strong></td>
+<td>—</td>
+<td>Generally negative in GN (positive in pheochromocytoma)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>How to curate the conflict:</strong> the case-report negatives are <em>n</em>=1–2 observations on a single adrenal tumour; the systematic IHC studies are cohort-level and consistently positive. Bind PHOX2B and TH as expressed in ganglion cells, and record the discordant case-level reports in <code>notes:</code> rather than as a <code>REFUTE</code> evidence item — they most likely reflect antibody, fixation, or a tumour whose ganglion cells are too few to sample, not a biological disagreement.</p>
+<p><strong>Differential diagnosis</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Entity</th>
+<th>Distinguishing features</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Neuroblastoma</td>
+<td>Undifferentiated/poorly differentiated neuroblasts, <strong>Schwannian stroma-poor</strong>, high mitosis-karyorrhexis index; <strong>PHOX2B and NB84 strongly positive</strong>; raised VMA/HVA; avid MIBG; MYCN may be amplified</td>
+</tr>
+<tr>
+<td>Ganglioneuroblastoma, intermixed</td>
+<td>Microscopic <strong>naked neurite</strong> foci persist</td>
+</tr>
+<tr>
+<td><strong>Ganglioneuroblastoma, nodular</strong></td>
+<td>Discrete neuroblastic nodule within ganglioneuromatous tissue — the one differential with real mortality (8-yr OS 33.2% in the unfavourable subset, <a href="https://pubmed.ncbi.nlm.nih.gov/14601099/" target="_blank" rel="noopener noreferrer">PMID:14601099</a>)</td>
+</tr>
+<tr>
+<td>Pheochromocytoma</td>
+<td>Catecholamine excess; chromogranin A, TH positive; avid MIBG; Zellballen architecture</td>
+</tr>
+<tr>
+<td>Schwannoma</td>
+<td>Alternating Antoni A/B, nuclear palisading, <strong>Verocay bodies</strong>, no ganglion cells</td>
+</tr>
+<tr>
+<td>Neurofibroma</td>
+<td>No ganglion cells; different stromal architecture</td>
+</tr>
+<tr>
+<td><strong>Composite pheochromocytoma–ganglioneuroma</strong></td>
+<td>Both components present; <strong>&lt;3% of sympathoadrenal pheochromocytomas</strong>, reported range 1–9% of pheochromocytomas; MEN2A association (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3685741/">PMC3685741</a>; <a href="https://www.ovid.com/jnls/ajsp/abstract/00000478-199701000-00011~composite-pheochromocytomaganglioneuroma-of-the-adrenal?redirectionsource=fulltextview">Am J Surg Pathol 1997</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9518729/">PMC9518729</a>)</td>
+</tr>
+<tr>
+<td>Adrenal schwannoma with GN component</td>
+<td>Reported (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11446904/">PMC11446904</a>)</td>
+</tr>
+<tr>
+<td>Retroperitoneal sarcoma</td>
+<td>The practical misdiagnosis in adults with large masses</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>10.6 The central diagnostic problem: biopsy understaging</h3>
+<p>This deserves its own statement because it governs management. <strong>A needle biopsy showing ganglioneuroma does not exclude a neuroblastic nodule elsewhere in the lesion.</strong> The UK CCLG national cohort is the key evidence: <em>"In 45 cases (39%), surgical pathology was different from pathology at biopsy, and in 14 (12%) the pathology changed from GN/GNBi to neuroblastoma/GNB nodular."</em> And the authors' own caveat: <em>"a small proportion of patients in the observation group had their diagnosis revised to malignant at surgery"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39582110/" target="_blank" rel="noopener noreferrer">PMID:39582110</a>).</p>
+<p>Mechanistically this is unavoidable: GNB-nodular is <strong>defined</strong> by focal heterogeneity, so any sampling strategy short of whole-tumour examination has a non-zero miss rate. This is the strongest argument against unqualified "watch and wait", and the reason the 2026 recommendation is <em>individualised</em>, not surveillance-by-default.</p>
+<h3>10.7 Genetic testing</h3>
+<p><strong>For sporadic GN: none indicated.</strong> WGS, WES, gene panels, CMA, karyotyping, FISH, mtDNA testing and repeat-expansion testing have <strong>no established role</strong>, because there is no causal gene and no recurrent somatic lesion.</p>
+<p><strong>For syndromic suspicion, targeted single-gene testing is high-yield:</strong>
+- <code>RET</code> (exon 16, M918T) when there is mucosal neuroma, marfanoid habitus, alacrima, early-onset constipation, or <strong>any</strong> diffuse intestinal ganglioneuromatosis. <strong>Rectal biopsy is an established early-diagnosis route to MEN2B</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/27899172/">PMID:27899172</a>).
+- <code>PTEN</code> for ganglioneuromatous polyposis, diffuse gastric ganglioneuromatosis, macrocephaly, or Cowden features.
+- <code>NF1</code> where café-au-lait macules/neurofibromas coexist.</p>
+<h3>10.8 Omics-based diagnostics</h3>
+<p><strong>None clinically available or validated.</strong> No RNA-seq, proteomic, metabolomic, epigenomic, or liquid-biopsy diagnostic exists for GN. The honest statement for the KB is that GN diagnosis is histological, and the molecular layer is research-only.</p>
+<h3>10.9 Clinical criteria and screening</h3>
+<ul>
+<li><strong>Diagnostic criteria:</strong> INPC histological criteria (§10.5) are the standard; there is no clinical criterion set, no DSM/ICD symptom checklist, and no society guideline specific to GN.</li>
+<li><strong>Screening of asymptomatic individuals:</strong> no population screening. Historically, Japanese infant neuroblastoma mass screening detected maturing/localised adrenal lesions (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0022346801387067">maturation of mass-screened localized adrenal neuroblastoma</a>) — relevant context, but mass screening was abandoned for overdiagnosis, which is itself the central argument of this entry in miniature.</li>
+<li><strong>Cascade/targeted screening is justified only in the syndromes:</strong> <code>RET</code> cascade testing in MEN2B families; periodic biochemical and imaging evaluation in NF1 given raised pheochromocytoma and GN prevalence.</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<h3>11.1 Survival and mortality — essentially unaffected</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Series</th>
+<th>n</th>
+<th>Follow-up</th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Burnand 2025, UK CCLG (<a href="https://pubmed.ncbi.nlm.nih.gov/39582110/" target="_blank" rel="noopener noreferrer">PMID:39582110</a>)</td>
+<td>259 (163 GN, 93 GNBi)</td>
+<td>1990–2020</td>
+<td><strong>Overall survival 98%</strong></td>
+</tr>
+<tr>
+<td>Li 2025, <em>Front Surg</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41306794/" target="_blank" rel="noopener noreferrer">PMID:41306794</a>)</td>
+<td>51 retroperitoneal</td>
+<td>median <strong>62 months</strong>, 90.2% complete</td>
+<td><em>"no recurrences, metastases, or disease-specific deaths occurred"</em></td>
+</tr>
+<tr>
+<td>Texakalidis 2026, <em>J Neurosurg</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>)</td>
+<td>101</td>
+<td>mean 33.8 ± 42.6 months</td>
+<td>Recurrence <strong>2/70 (2.9%)</strong>; <em>"No malignant transformations were observed"</em></td>
+</tr>
+<tr>
+<td>Ozcelik 2026, <em>Front Oncol</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41561749/" target="_blank" rel="noopener noreferrer">PMID:41561749</a>)</td>
+<td>25 adults</td>
+<td>median <strong>88.3 months</strong> (16.2–217.8)</td>
+<td><em>"no distant metastases or recurrences were observed during follow-up"</em></td>
+</tr>
+<tr>
+<td>Alexander 2018 (<a href="https://pubmed.ncbi.nlm.nih.gov/29369484/" target="_blank" rel="noopener noreferrer">PMID:29369484</a>)</td>
+<td>67</td>
+<td>median 2.2 years</td>
+<td>All patients alive</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Life expectancy is normal. Disease-specific mortality is effectively zero — and note that the one death in the 51-patient cohort was <strong>operative</strong> (post-operative day 8, bowel ischaemia with septic shock), not from GN.</p>
+<p><strong>Regional lymph node involvement occurs and does not matter.</strong> Ozcelik et al. found nodal metastases in <strong>2/25 (8%)</strong> — 5/12 nodes positive in one patient, 4/4 in another — with no distant metastasis or recurrence at median 88.3 months. Their title states the finding: <em>"Ganglioneuroma has a potential for lymph node metastasis, not impacting recurrence."</em> Pathologically this looks alarming on a report; prognostically it is inert. <code>[Important for curation: do not model nodal involvement as a metastasis node with adverse consequence.]</code></p>
+<p><strong>Malignant transformation</strong> to MPNST is the only lethal trajectory, and it is vanishingly rare: approximately <strong>ten reported cases</strong> of MPNST arising in GN, de novo or at a previously irradiated site, as of the early 2000s (<a href="https://pubmed.ncbi.nlm.nih.gov/10755757/">PMID:10755757</a>; <a href="https://onlinelibrary.wiley.com/doi/10.1002/(SICI)1096-911X(199703)28:3%3C216::AID-MPO13%3E3.0.CO;2-C">Drago 1997, <em>Med Pediatr Oncol</em></a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12221925">PMC12221925</a>). Both of the two largest modern cohorts observed <strong>zero</strong> transformations.</p>
+<h3>11.2 Morbidity is iatrogenic, and it is substantial</h3>
+<p>This is the real outcome story, and the asymmetry between it and §11.1 is what the whole management literature is about.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Series</th>
+<th>Complication rate</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Texakalidis 2026 (<a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>)</td>
+<td><strong>43.1%</strong> short-term</td>
+<td><em>"most commonly neurological deficits (22.2%)"</em></td>
+</tr>
+<tr>
+<td>Alexander 2018 (<a href="https://pubmed.ncbi.nlm.nih.gov/29369484/" target="_blank" rel="noopener noreferrer">PMID:29369484</a>)</td>
+<td><strong>30%</strong> (15/50)</td>
+<td>IDRF presence correlated with complications, <strong>p = 0.005</strong></td>
+</tr>
+<tr>
+<td>Li 2025 (<a href="https://pubmed.ncbi.nlm.nih.gov/41306794/" target="_blank" rel="noopener noreferrer">PMID:41306794</a>)</td>
+<td><strong>21.6%</strong></td>
+<td>Clavien-Dindo I/II in 90.9%; <strong>Grade V (death) 9.1% of complications</strong> = 1 patient. Gastroparesis ×3, pancreatic fistula ×3, transaminitis ×2, wound infection ×2. Multivisceral resection in <strong>27.5%</strong></td>
+</tr>
+<tr>
+<td>Burnand 2025 (<a href="https://pubmed.ncbi.nlm.nih.gov/39582110/" target="_blank" rel="noopener noreferrer">PMID:39582110</a>)</td>
+<td><strong>19%</strong> with GTR</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Dumbbell/paraspinal resection carries the highest neurological cost. A systematic review of dumbbell spinal tumours with nerve-root sacrifice (121 patients, 12 studies) found immediate motor deficits in <strong>46%</strong> (95% CI 31–62%) and persistent deficits in <strong>21%</strong> (95% CI 14–31%) (<a href="https://link.springer.com/article/10.1007/s00586-026-09903-3">Eur Spine J</a>). A GN-specific paraspinal series of 15 reported <strong>no permanent</strong> neurological deficits, with one transient bilateral lower-extremity weakness resolving in 4 weeks (<a href="https://thejns.org/spine/view/journals/j-neurosurg-spine/37/1/article-p130.xml">J Neurosurg Spine 2022;37:130</a>).</p>
+<h3>11.3 Complications</h3>
+<p>Of the <strong>disease</strong>: compressive — cord compression, radiculopathy, hydronephrosis, bowel obstruction (especially in ganglioneuromatosis), scoliosis, airway compression; secretory diarrhoea/hypokalaemia; hypertension.
+Of <strong>treatment</strong>: neurological deficit, Horner syndrome, chylothorax, nephrectomy, pancreatic fistula, haemorrhage, gastroparesis, infection, death.
+Of <strong>radiotherapy</strong>: late MPNST.</p>
+<h3>11.4 Recovery potential and prognostic factors</h3>
+<p>Recovery after resection is good: 42.3% improved and 46.5% stable from baseline (<a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>); complete symptom control in 43% with GTR vs 24% without (<a href="https://pubmed.ncbi.nlm.nih.gov/39582110/" target="_blank" rel="noopener noreferrer">PMID:39582110</a>).</p>
+<p><strong>Prognostic factors — note what they are <em>for</em>.</strong> Nothing predicts survival, because survival is near-universal. What is predictable is <strong>surgical morbidity</strong>, and it is predicted by: IDRF presence (p=0.005), vascular encasement (66.7% of large retroperitoneal tumours), tumour size, intraspinal/dumbbell extension, and need for multivisceral resection. <strong>Subtotal resection does not worsen outcome:</strong> <em>"STR provides excellent long-term control when required to avoid morbidity"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>), and the 6 R2-resection patients in the retroperitoneal cohort showed stable disease without progression (<a href="https://pubmed.ncbi.nlm.nih.gov/41306794/" target="_blank" rel="noopener noreferrer">PMID:41306794</a>). That is the single most actionable prognostic statement in the literature.</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 The treatment principle</h3>
+<p>Surgery is the only established therapy, and the only question is whether to use it. Verbatim from Tao et al.: <em>"Surgery is the only effective therapy for ganglioneuroma, which may be challenging due to the location of the tumor and involvement of surrounding structures."</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32728700/" target="_blank" rel="noopener noreferrer">PMID:32728700</a>)</p>
+<h3>12.2 Surgical and interventional</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Treatment</th>
+<th>NCIT (verified in <code>cache/ncit/terms.csv</code>)</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Surgical resection</td>
+<td><strong>NCIT:C15329</strong> Surgical Procedure; <strong>NCIT:C154430</strong> Definitive Surgical Resection; <strong>NCIT:C164212</strong> Tumor Resection</td>
+<td>GTR achieved in <strong>73.6%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>), <strong>79%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/39582110/" target="_blank" rel="noopener noreferrer">PMID:39582110</a>); R0/R1 in <strong>88.2%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41306794/" target="_blank" rel="noopener noreferrer">PMID:41306794</a>)</td>
+</tr>
+<tr>
+<td>Gross total resection</td>
+<td><strong>NCIT:C131672</strong> Gross Total Resection; <strong>NCIT:C175027</strong> Complete Resection</td>
+<td>Best symptom control (43% vs 24%)</td>
+</tr>
+<tr>
+<td>Subtotal / debulking</td>
+<td>—</td>
+<td><strong>Deliberate</strong> strategy when adjacent to critical structures; excellent long-term control</td>
+</tr>
+<tr>
+<td>Adrenalectomy (laparoscopic)</td>
+<td><strong>NCIT:C15177</strong> Adrenalectomy</td>
+<td><em>"Laparoscopic resection is the primary treatment for AGN"</em>, and <em>"laparoscopic surgery is still applicable even when the tumor diameter exceeds 6 cm"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40799243/" target="_blank" rel="noopener noreferrer">PMID:40799243</a>). Open 80.4% vs laparoscopic 19.6% in the large-tumour retroperitoneal cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/41306794/" target="_blank" rel="noopener noreferrer">PMID:41306794</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Where it should be done:</strong> <em>"While surgical resection remains the cornerstone of management, it is best undertaken at specialized, high-volume sarcoma centers to mitigate operative risks."</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41306794/" target="_blank" rel="noopener noreferrer">PMID:41306794</a>)</p>
+<h3>12.3 Active surveillance — a first-line treatment, not a non-treatment</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Treatment</th>
+<th>NCIT</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Observation / active surveillance</td>
+<td><strong>NCIT:C15722</strong> Patient Observation</td>
+<td>58/259 = <strong>22%</strong> observed, OS 98%; <strong>21/58 (36%)</strong> required subsequent surgery, 52% of those for progressive growth (<a href="https://pubmed.ncbi.nlm.nih.gov/39582110/" target="_blank" rel="noopener noreferrer">PMID:39582110</a>). 31/101 observed, mean follow-up <strong>90.9 months</strong>, no new symptoms, 2 tumours grew 0.08–0.17 cm/yr; observation chosen for <strong>proximity to major vascular or neural structures in 74.2%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>). 21/67 observed, 4 later resected (<a href="https://pubmed.ncbi.nlm.nih.gov/29369484/" target="_blank" rel="noopener noreferrer">PMID:29369484</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Verbatim conclusions, which diverge in emphasis and should both be recorded:
+- <em>"Watch and wait approaches should be considered for some GN and GNB-I."</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29369484/" target="_blank" rel="noopener noreferrer">PMID:29369484</a>)
+- <em>"Watchful active observation can be a safe approach, with surgical resection reserved for symptomatic patients. However, a small proportion of patients in the observation group had their diagnosis revised to malignant at surgery."</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39582110/" target="_blank" rel="noopener noreferrer">PMID:39582110</a>)
+- <em>"Observation is safe for asymptomatic tumors, particularly when adjacent to critical structures... These findings support an individualized, risk-based approach to management."</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42537227/" target="_blank" rel="noopener noreferrer">PMID:42537227</a>)</p>
+<p>Also reported: a presacral GN followed <strong>6 years without surgery</strong> (<a href="https://www.sciencedirect.com/science/article/pii/S193004332030282X">ScienceDirect</a>).</p>
+<h3>12.4 Pharmacotherapy — mTOR inhibition is the one real therapeutic hypothesis</h3>
+<p>There is <strong>no approved drug for GN and no completed or active clinical trial.</strong> What exists is a well-constructed preclinical proposal.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>CHEBI</th>
+<th>NCIT</th>
+<th>Preclinical result (<a href="https://pubmed.ncbi.nlm.nih.gov/32728700/" target="_blank" rel="noopener noreferrer">PMID:32728700</a>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sirolimus (rapamycin)</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/CHEBI_9168" target="_blank" rel="noopener noreferrer">CHEBI:9168</a></strong></td>
+<td><strong>NCIT:C1212</strong></td>
+<td>Adult fish with primary GN, 35 days: <strong>30–40% tumour-burden reduction</strong> vs ~1.5-fold increase in DMSO controls. ~50% reduction in transplant assay (p&lt;0.0001)</td>
+</tr>
+<tr>
+<td>Everolimus</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/CHEBI_68478" target="_blank" rel="noopener noreferrer">CHEBI:68478</a></strong></td>
+<td><strong>NCIT:C48387</strong></td>
+<td>Same, 30–40% reduction</td>
+</tr>
+<tr>
+<td>INK128 (TORC1/2)</td>
+<td>—</td>
+<td>—</td>
+<td>~50% reduction in transplant assay; strongest 4E-BP1 inhibition</td>
+</tr>
+<tr>
+<td>MK-2206 (AKT inhibitor)</td>
+<td>—</td>
+<td>—</td>
+<td><strong>No effect</strong> — expected negative control against a myristoylated, membrane-targeted AKT</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Drug class: <strong>NCIT:C2201</strong> mTOR Inhibitor. <code>[If curating as therapeutic_agent, NCIT:C2201 must be checked against the ChemicalEntityTerm dynamic enum rooted at NCIT:C1909 Pharmacologic Substance — run just validate-terms after binding. Prefer the CHEBI terms for the named drugs.]</code></p>
+<p>Mechanism of the response: increased apoptosis (sub-G1 fraction, TUNEL-confirmed) with marked inhibition of phospho-S6.</p>
+<p>The authors' proposal, verbatim: <em>"We propose a clinical trial of mTOR inhibitors as a means to shrink large ganglioneuromas before resection in order to reduce surgical morbidity."</em> The commentary notes sirolimus and everolimus are already FDA-approved in paediatric patients and that mTOR inhibition is established in tuberous sclerosis, so safety is not the barrier (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7849689"><em>Mol Cell Oncol</em> 2020, PMID:33553609</a>).</p>
+<p><strong>Why this is strategically the right target:</strong> GN kills essentially nobody, so there is no survival endpoint to improve. The morbidity is surgical and scales with tumour size and anatomical entanglement. A neoadjuvant agent that shrinks the tumour attacks the <strong>actual</strong> source of harm. That reframing — treat the surgery, not the tumour — is the most interesting clinical idea in this disease.</p>
+<p><strong>No trial exists.</strong> A search of ClinicalTrials.gov returned mTOR-inhibitor trials in MPNST (NCT03433183 selumetinib+sirolimus; NCT01661283 everolimus+bevacizumab) and NF1 plexiform neurofibroma (NCT00634270 sirolimus), <strong>none in ganglioneuroma</strong>. <code>[No NCT identifier is curatable for this entry. Record the proposal as a mechanistic_hypotheses / KNOWLEDGE_GAP with proposed_experiments, not as a clinical_trials entry.]</code></p>
+<h3>12.5 What has no role</h3>
+<ul>
+<li><strong>Chemotherapy</strong> (<code>NCIT:C15632</code>): no role in GN.</li>
+<li><strong>Radiotherapy</strong> (<code>NCIT:C15313</code>): no role, and it is the one documented exogenous risk factor for later MPNST within a GN. This is a treatment that should be recorded with its harm, not just its absence of benefit.</li>
+<li><strong>Gene therapy, cell therapy, CAR-T, RNA therapeutics (ASO/siRNA), immunotherapy, checkpoint inhibitors:</strong> none, none proposed, none plausible for a benign non-progressive lesion. <code>[Leave therapeutic_modality and oligonucleotide_details absent.]</code></li>
+<li><strong>Pharmacogenomics:</strong> nothing — no drug, no PharmGKB/CPIC entry.</li>
+</ul>
+<h3>12.6 Supportive, rehabilitative and counselling</h3>
+<ul>
+<li><strong>NCIT:C15747</strong> Supportive Care — analgesia, bowel management in ganglioneuromatosis, nutritional support with secretory diarrhoea, alpha-blockade before resecting a catecholamine-secreting lesion <code>[perioperative blockade protocol not sourced in this session; UNVERIFIED]</code>.</li>
+<li><strong>NCIT:C15315</strong> Rehabilitation — post-operative physical therapy for the 22.2% with neurological deficits.</li>
+<li><strong>NCIT:C15240</strong> Genetic Counseling — for MEN2B/PHTS/NF1 families, including cascade testing and reproductive options.</li>
+</ul>
+<h3>12.7 Treatment algorithm</h3>
+<ol>
+<li>Lesion identified → cross-sectional imaging (CT/MRI) looking for the GN signature (low HU, delayed enhancement, punctate calcification, whorled sign, low MIBG).</li>
+<li>Biochemical screen (metanephrines/catecholamines, VMA/HVA; adrenal panel if adrenal).</li>
+<li>Tissue diagnosis — <strong>and read §10.6 before trusting it.</strong></li>
+<li>Screen for a syndrome if multifocal, GI-diffuse, or syndromic stigmata → <code>RET</code> / <code>PTEN</code> / <code>NF1</code>.</li>
+<li>Decide on the morbidity axis, not the oncology axis:</li>
+<li><strong>Symptomatic, or growing, or resectable without critical-structure risk</strong> → resection, at a high-volume centre, aiming for GTR but accepting STR over deficit.</li>
+<li><strong>Asymptomatic and abutting major vessels/nerves</strong> → active surveillance with interval imaging, accepting a ~36% eventual-surgery rate and a small reclassification risk.</li>
+<li>Residual tumour after STR → surveillance; it stays stable.</li>
+<li><strong>No</strong> adjuvant chemotherapy or radiotherapy.</li>
+</ol>
+<p><strong>Personalised medicine:</strong> phospho-AKT/phospho-S6 status is the only candidate stratifier (90.9%/90.9% positive), and it has never been used to select therapy. No CIViC, OncoKB or My Cancer Genome entry exists for GN.</p>
+<hr />
+<h2>13. Prevention</h2>
+<h3>13.1 Primary prevention</h3>
+<p><strong>None exists for sporadic GN</strong> — there is no modifiable risk factor to remove, no vaccine target, no behavioural intervention, and no prophylactic agent. This should be stated as a fact about the disease, not a gap.</p>
+<p>The one genuine primary-prevention statement is negative and iatrogenic: <strong>avoid radiotherapy to a ganglioneuroma or its site</strong>, because the small MPNST risk is concentrated in previously irradiated lesions.</p>
+<h3>13.2 Secondary prevention — early detection where it changes outcome</h3>
+<p>The high-value prevention in this space is <strong>not</strong> about GN at all; it is about using GN as a sentinel.</p>
+<ul>
+<li><strong>Rectal biopsy for intestinal ganglioneuromatosis in an infant with severe constipation → <code>RET</code> testing → MEN2B diagnosis → prophylactic thyroidectomy before medullary thyroid carcinoma.</strong> GI symptoms precede age 1 in 52.3% of MEN2B cases, and MTC is the cause of death. This converts a benign nerve lesion into a life-saving diagnostic (<a href="https://pubmed.ncbi.nlm.nih.gov/27899172/">PMID:27899172</a>; <a href="https://link.springer.com/article/10.1007/s12020-021-02607-2">Springer 2021</a>; <a href="https://publications.aap.org/pediatrics/article/154/3/e2022059517/198957/Clues-for-Early-Diagnosis-of-MEN2B-Syndrome-Before">Pediatrics 2024, "Clues for Early Diagnosis of MEN2B Syndrome Before Medullary Thyroid Carcinoma"</a>).</li>
+<li><strong>NF1 surveillance:</strong> periodic clinical evaluation with biochemical testing and imaging, justified by the raised prevalence of pheochromocytoma and GN.</li>
+<li>
+<p><strong>PHTS/Cowden:</strong> standard PTEN surveillance (breast, thyroid, endometrial, renal, GI), with ganglioneuromatous polyposis as a possible index finding.</p>
+</li>
+<li>
+<p><strong>Population screening: not indicated, and actively harmful.</strong> There is no newborn or population screening for GN, and the Japanese infant neuroblastoma mass-screening experience is the cautionary precedent — screening detected lesions that would have matured or regressed.</p>
+</li>
+</ul>
+<h3>13.3 Tertiary prevention</h3>
+<ul>
+<li>Interval imaging surveillance of unresected or subtotally resected tumours (no growth expected; two of 31 grew 0.08–0.17 cm/yr).</li>
+<li>Long-term follow-up after incomplete resection <strong>and especially after radiotherapy</strong>, given the MPNST signal: the literature stresses <em>"the importance of close clinical and radiologic follow-up in patients with high-risk ganglioneuroma... particularly after incomplete resection and radiotherapy."</em></li>
+<li>Operate at high-volume centres to reduce the 20–43% complication exposure — the highest-yield tertiary prevention available.</li>
+<li>Bowel management and nutritional support in ganglioneuromatosis to prevent obstruction and failure to thrive.</li>
+</ul>
+<h3>13.4 Immunization, public health, environmental interventions</h3>
+<p><strong>Not applicable.</strong> No vaccine, no sanitation/vector/health-education intervention, no environmental exposure to reduce. Record as not applicable rather than absent.</p>
+<h3>13.5 Genetic screening and counselling</h3>
+<ul>
+<li><strong>Carrier screening, prenatal testing, PGD:</strong> available for the <em>syndromes</em> (<code>RET</code>, <code>PTEN</code>, <code>NF1</code>) and inappropriate for GN itself.</li>
+<li><strong>Risk stratification:</strong> the only meaningful stratifier is "syndromic vs sporadic", determined clinically (multifocality, diffuse GI involvement, marfanoid habitus, mucosal neuromas, macrocephaly, café-au-lait macules).</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<h3>14.1 Taxonomy and natural occurrence</h3>
+<p>Species with naturally occurring ganglioneuroma or ganglioneuromatosis reported in the veterinary literature (all NCBITaxon CURIEs verified in <code>cache/ncbitaxon/terms.csv</code>):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Species</th>
+<th>NCBITaxon</th>
+<th>Report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Human</td>
+<td><strong>NCBITaxon:9606</strong></td>
+<td>—</td>
+</tr>
+<tr>
+<td>Dog</td>
+<td><strong>NCBITaxon:9615</strong></td>
+<td>Intestinal ganglioneuromatosis reported; a single cutaneous GN case existed in the dog literature as of 2011. Adrenal <strong>neuroblastoma</strong> also described in a young dog (<a href="https://www.frontiersin.org/journals/veterinary-science/articles/10.3389/fvets.2019.00161/pdf">Front Vet Sci 2019;6:161</a>)</td>
+</tr>
+<tr>
+<td>Cattle</td>
+<td><strong>NCBITaxon:9913</strong></td>
+<td><strong>First report of cutaneous ganglioneuroma in cattle</strong>, 2011 (<a href="https://www.researchgate.net/publication/226171812_Cutaneous_ganglioneuroma_in_a_cattle_case_report">ResearchGate</a>)</td>
+</tr>
+<tr>
+<td>Goat (Boer)</td>
+<td><strong>NCBITaxon:9925</strong></td>
+<td>Intestinal ganglioneuromatosis</td>
+</tr>
+<tr>
+<td>Pig (piglet)</td>
+<td><strong>NCBITaxon:9823</strong></td>
+<td>Intestinal ganglioneuromatosis</td>
+</tr>
+<tr>
+<td>Horse</td>
+<td><strong>NCBITaxon:9796</strong></td>
+<td>Intestinal ganglioneuromatosis</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Summary from the veterinary literature: <em>"Intestinal ganglioneuromatosis is exceedingly rare in domestic animals and has only been reported in dogs, a Boer goat, a piglet, and a horse."</em></p>
+<h3>14.2 Breed and OMIA</h3>
+<p><strong>No breed predisposition (no VBO term) and no OMIA entry for ganglioneuroma were located.</strong> This is expected — OMIA catalogues inherited traits, and no animal GN has been shown to be heritable. <code>[Searched; absent rather than unsearched.]</code></p>
+<h3>14.3 Orthologous genes</h3>
+<p>Orthologues exist for every gene in §0 (<code>AKT1/2/3</code>, <code>MTOR</code>, <code>PTEN</code>, <code>RET</code>, <code>NF1</code>, <code>PHOX2B</code>, <code>NTRK1</code>, <code>SOX10</code>) across mouse, rat and zebrafish. <code>[Specific NCBI Gene IDs for non-human orthologues were not resolved this session; UNVERIFIED.]</code> Note that the zebrafish model (§15.1) used <strong>murine</strong> <em>myr-Akt2</em> driven by a <strong>zebrafish</strong> <em>dβh</em> promoter — a cross-species construct, which matters for how faithfully it models human AKT biology.</p>
+<h3>14.4 Comparative biology and evolutionary conservation</h3>
+<p>The sympathoadrenal developmental programme — neural crest migration, PHOX2B/HAND2-driven noradrenergic specification, RET/GDNF-dependent enteric colonisation, and PI3K/AKT control of progenitor survival — is deeply conserved across vertebrates. That conservation is what makes both the zebrafish and mouse models (§15) interpretable at all. The <strong>divergence</strong> worth recording: the zebrafish interrenal gland substitutes for the mammalian adrenal medulla, and the zebrafish AKT tumour has <strong>poor</strong> Schwannian stroma where the human tumour is stroma-<em>dominant</em> — so the conserved part is the neuronal arm, and the glial/stromal arm is not reproduced.</p>
+<h3>14.5 Transmission</h3>
+<p><strong>Not applicable.</strong> GN is a neoplasm: no zoonotic potential, no cross-species susceptibility, no transmission of any kind.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>15.1 Zebrafish — the only dedicated ganglioneuroma model</h3>
+<p><strong>Tao T, Shi H, Wang M, Perez-Atayde AR, London WB, Gutierrez A, Lemos B, Durbin AD, Look AT. <em>J Exp Med</em> 2020;217(10):e20191871. <a href="https://pubmed.ncbi.nlm.nih.gov/32728700/" target="_blank" rel="noopener noreferrer">PMID:32728700</a>.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Species</td>
+<td><em>Danio rerio</em>, <strong>NCBITaxon:7955</strong></td>
+</tr>
+<tr>
+<td>Model type</td>
+<td>Stable transgenic (two independent lines, myr-Akt2#1 and #2)</td>
+</tr>
+<tr>
+<td>Construct</td>
+<td><code>Tg(dβh:mCherry; dβh:myr-Akt2)</code> — constitutively activated <strong>murine</strong> myristoylated Akt2 under the zebrafish <em>dopamine-β-hydroxylase</em> promoter</td>
+</tr>
+<tr>
+<td>Target lineage</td>
+<td>Peripheral sympathetic nervous system progenitors; lesions arise in the <strong>interrenal gland</strong> (zebrafish adrenal-medulla equivalent) from differentiated sympathoadrenal cells</td>
+</tr>
+<tr>
+<td>Onset / penetrance</td>
+<td>Tumours from <strong>13 weeks post-fertilisation</strong>; <strong>40–50% penetrance by 29 wpf</strong></td>
+</tr>
+<tr>
+<td>Phenotype recapitulated</td>
+<td>Differentiated, large, mature ganglion cells; low N:C ratio; open chromatin; prominent nucleoli; abundant eosinophilic cytoplasm. HuC+, synaptophysin+. <strong>No progression to neuroblastoma over 29 weeks.</strong> Adrenergic CRC (<code>TFAP2B</code>, <code>ISL1</code>, <code>GATA3</code>, <code>PHOX2A</code>, <code>PHOX2B</code>) down; <code>SOX10</code> up — matching human GN</td>
+</tr>
+<tr>
+<td>Pharmacological validation</td>
+<td>Sirolimus and everolimus each reduced tumour burden 30–40% over 35 days; INK128 ~50% in transplant assay; MK-2206 no effect (expected)</td>
+</tr>
+<tr>
+<td>Research applications</td>
+<td>Mechanism of AKT-driven ganglion-cell expansion; preclinical mTOR-inhibitor testing; transplantation-based drug screening in <em>casper</em> recipients</td>
+</tr>
+<tr>
+<td>Resource</td>
+<td>ZFIN</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Limitation — and it is the defining one.</strong> The model's tumours <em>"were composed of differentiated, mature ganglion cells with </em><em>poor Schwannian stroma</em><em>."</em> Human ganglioneuroma is, by its INPC definition, <strong>Schwannian stroma-dominant</strong>. So the model reproduces the neuronal half of the disease and not the half the disease is named for — and therefore cannot address the Schwann-cell crosstalk mechanism (§6.1) at all. This is a textbook <code>HUMAN_MODEL_MISMATCH</code>, not a generic knowledge gap: the evidence exists in the model, and its translational validity to the defining human feature is the open question. Recommended curation: <code>kind: HUMAN_MODEL_MISMATCH</code> with a <code>prompt</code> asking whether AKT-driven ganglion-cell expansion without Schwannian stroma is the same disease as human Schwannian stroma-dominant ganglioneuroma, and <code>modeled_mechanisms</code> links carrying <code>relationship: PARTIALLY_RECAPITULATES</code>, <code>fidelity: MODERATE</code>, a <code>BOUNDARY_OMISSION</code> divergence (Schwannian stroma absent from the model) and a <code>SPECIES_MISMATCH</code> divergence (murine Akt2 in a teleost interrenal gland).</p>
+<p>Second limitation: the construct enforces constitutive membrane-targeted AKT, which is <strong>not</strong> the human lesion — no somatic <code>AKT</code> or <code>PTEN</code> mutation was found in the human cohort. The model demonstrates sufficiency of the pathway state; it does not model the human initiating event.</p>
+<h3>15.2 Mouse — enteric ganglioneuromatosis</h3>
+<p><strong>Puig I, Champeval D, De Santa Barbara P, Jaubert F, Lyonnet S, Larue L. <em>J Clin Invest</em> 2009;119(12):3586–96. <a href="https://pubmed.ncbi.nlm.nih.gov/19884655/" target="_blank" rel="noopener noreferrer">PMID:19884655</a>, <a href="https://doi.org/10.1172/JCI39929" target="_blank" rel="noopener noreferrer">doi:10.1172/JCI39929</a>.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Species</td>
+<td><em>Mus musculus</em>, <strong>NCBITaxon:10090</strong></td>
+</tr>
+<tr>
+<td>Model type</td>
+<td>Conditional knockout: <code>Tyr:Cre/°; PTEN^F/F</code> (exon 5 floxed), homozygous = "HM"</td>
+</tr>
+<tr>
+<td>Target lineage</td>
+<td>Tyrosinase-expressing cells, which include <strong>enteric nervous system cells</strong> (plus melanoblasts and a subset of smooth-muscle precursors)</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td>Enteric neuronal <strong>hyperplasia</strong> (3× cell count) and <strong>hypertrophy</strong> (2× cell size) = ganglioneuromatosis; chronic intestinal pseudo-obstruction with cecal dilation and empty colon; <strong>death P13–P20 with 100% penetrance</strong></td>
+</tr>
+<tr>
+<td>Pathway</td>
+<td><em>"S6 and AKT phosphorylation levels were clearly higher in HM than in WT samples, this effect being particularly marked for AKT."</em></td>
+</tr>
+<tr>
+<td>Rescue</td>
+<td>AKT inhibitor <strong>API2</strong> prevented the hyperplasia: TUJ1+ cell counts in treated HM embryos did not differ from WT, versus double WT in untreated HM</td>
+</tr>
+<tr>
+<td>Human validation</td>
+<td>PTEN expression significantly lower in <strong>2/7</strong> CIPO patients, with increased S6 phosphorylation</td>
+</tr>
+<tr>
+<td>Resource</td>
+<td>MGI, IMSR</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Limitations:</strong> (i) the compartment is the <strong>enteric</strong> nervous system, so this is a model of intestinal ganglioneuromatosis, not of sympathetic-chain ganglioneuroma; (ii) the Cre driver is not ENS-specific (tyrosinase is also active in melanoblasts and cardiac/ductus smooth-muscle precursors), so the phenotype is not cell-autonomously attributed with certainty; (iii) perinatal lethality precludes any study of tumour natural history, growth rate, or ageing; (iv) human Cowden-syndrome tissue was not obtainable — <em>"we were unable to obtain appropriate material for immunohistochemical analyses."</em></p>
+<p><strong>Why it still matters:</strong> it is the only <strong>rescue</strong> experiment in this entire disease. The API2 result establishes direction of causation from AKT activity to ganglion-cell expansion, which no human or zebrafish observation does.</p>
+<h3>15.3 Genetic model types available</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Available for GN?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Transgenic (overexpression)</td>
+<td>Yes — zebrafish <code>dβh:myr-Akt2</code></td>
+</tr>
+<tr>
+<td>Conditional knockout</td>
+<td>Yes — mouse <code>Tyr:Cre; Pten^F/F</code></td>
+</tr>
+<tr>
+<td>Knockout (constitutive)</td>
+<td>Not for GN</td>
+</tr>
+<tr>
+<td>Knock-in</td>
+<td>Not for GN. <code>RET</code> M918T knock-in mice exist for MEN2B; <code>[their enteric ganglioneuromatosis phenotype was not characterised in this session — UNVERIFIED and a good follow-up]</code></td>
+</tr>
+<tr>
+<td>Humanised</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Induced (drug/surgical/environmental)</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Adjacent NF1/PTEN Schwann-cell models</td>
+<td><code>Dhh-Cre; Nf1^fl; Pten^fl</code> and <code>Pten</code>/EGFR Schwann-cell models produce <strong>neurofibroma and MPNST</strong>, not ganglioneuroma (<a href="https://pubmed.ncbi.nlm.nih.gov/22700876/?dopt=Abstract">PMID:22700876</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3539440/">PMC3539440</a>) — informative for the transformation branch, not for GN itself</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>15.4 In vitro and cellular systems</h3>
+<ul>
+<li><strong>There is no ganglioneuroma cell line.</strong> No ATCC/Cellosaurus entry, no DepMap model. GN is post-mitotic, which makes a line essentially impossible — a hard structural limit, and the reason all functional work uses neuroblastoma lines as surrogates.</li>
+<li><strong>Neuroblastoma + Schwann cell co-culture</strong> is the working in vitro model of the maturation mechanism: NTRK1-expressing NB cells, primary human repair Schwann cells, conditioned media, and recombinant EGFL8, with neurite outgrowth and proliferation as readouts (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/33712610/" target="_blank" rel="noopener noreferrer">PMID:33712610</a></strong>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4294349/">PMC4294349</a>). Lines used across this literature include SH-SY5Y and SK-N-SH.</li>
+<li><strong>Retinoic-acid differentiation</strong> (<code>CHEBI:15367</code> all-trans-retinoic acid; <code>CHEBI:26536</code> retinoic acid) is the pharmacological proxy for maturation — ATRA causes a ~3-fold increase in TrkA expression and raises <code>NTRK1</code>/<code>RET</code> mRNA in NB lines (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7053487/">systematic ATRA analysis, PMC7053487</a>). <strong>Important caveat for curation:</strong> ATRA-driven differentiation of a neuroblastoma line is <em>not</em> a model of ganglioneuroma — it is a model of neuroblastoma differentiation, which is only the same thing if Model A (§6.1) is correct. Grade any such evidence <code>IN_VITRO</code> with <code>directness: INDIRECT</code>.</li>
+<li><strong>Human nerve-injury tissue</strong> served as the repair-Schwann-cell comparator in Weiss 2021, which is an unusual and well-chosen control: it tests whether GN stroma resembles a physiological repair state rather than a neoplastic one. It does.</li>
+</ul>
+<h3>15.5 What the models collectively cannot do</h3>
+<p>Worth recording explicitly, because it defines the research frontier:</p>
+<ol>
+<li><strong>No model reproduces Schwannian stroma dominance</strong> — the disease's defining feature.</li>
+<li><strong>No model has the human initiating lesion</strong>, because that lesion is unknown.</li>
+<li><strong>No model of the sporadic human sympathetic-chain tumour</strong> exists in a mammal.</li>
+<li><strong>No model of malignant transformation</strong> (GN → MPNST).</li>
+<li><strong>No model permits long-term natural-history study</strong> — the mouse dies at P20 and the zebrafish is not followed beyond 29 wpf.</li>
+</ol>
+<h3>15.6 Resources</h3>
+<p>ZFIN (zebrafish), MGI / IMPC / KOMP / IMSR / EMMA / MMRRC (mouse), Alliance of Genome Resources, Cellosaurus and DepMap (both empty for GN).</p>
+<hr />
+<h2>Appendix A — Verified ontology term suggestions</h2>
+<p>Every CURIE below was resolved this session in <code>cache/&lt;prefix&gt;/terms.csv</code>, the EBI OLS4 API, or <code>rest.genenames.org</code>. <strong>Nothing here was written from memory.</strong> Items marked <code>[UNVERIFIED]</code> in the body are deliberately excluded from this table.</p>
+<p><strong>Disease:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005033" target="_blank" rel="noopener noreferrer">MONDO:0005033</a> ganglioneuroma · <a href="http://purl.obolibrary.org/obo/MONDO_0003326" target="_blank" rel="noopener noreferrer">MONDO:0003326</a> intermixed schwannian stroma-rich ganglioneuroblastoma · <a href="http://purl.obolibrary.org/obo/MONDO_0003325" target="_blank" rel="noopener noreferrer">MONDO:0003325</a> nodular ganglioneuroblastoma · <a href="http://purl.obolibrary.org/obo/MONDO_0005035" target="_blank" rel="noopener noreferrer">MONDO:0005035</a> ganglioneuroblastoma · <a href="http://purl.obolibrary.org/obo/MONDO_0005072" target="_blank" rel="noopener noreferrer">MONDO:0005072</a> neuroblastoma · <a href="http://purl.obolibrary.org/obo/MONDO_0006076" target="_blank" rel="noopener noreferrer">MONDO:0006076</a> adrenal gland neuroblastoma</p>
+<p><strong>Phenotype (HP):</strong> <a href="http://purl.obolibrary.org/obo/HP_0003005" target="_blank" rel="noopener noreferrer">HP:0003005</a> Ganglioneuroma · <a href="http://purl.obolibrary.org/obo/HP_0006747" target="_blank" rel="noopener noreferrer">HP:0006747</a> Ganglioneuroblastoma · <a href="http://purl.obolibrary.org/obo/HP_0003006" target="_blank" rel="noopener noreferrer">HP:0003006</a> Neuroblastoma · <a href="http://purl.obolibrary.org/obo/HP_0002666" target="_blank" rel="noopener noreferrer">HP:0002666</a> Pheochromocytoma · <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a> Abdominal pain · <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" rel="noopener noreferrer">HP:0003418</a> Back pain · <a href="http://purl.obolibrary.org/obo/HP_0031500" target="_blank" rel="noopener noreferrer">HP:0031500</a> Abdominal mass · <a href="http://purl.obolibrary.org/obo/HP_0003270" target="_blank" rel="noopener noreferrer">HP:0003270</a> Abdominal distention · <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" rel="noopener noreferrer">HP:0002013</a> Vomiting · <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" rel="noopener noreferrer">HP:0002019</a> Constipation · <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a> Diarrhea · <a href="http://purl.obolibrary.org/obo/HP_0002900" target="_blank" rel="noopener noreferrer">HP:0002900</a> Hypokalemia · <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a> Failure to thrive · <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" rel="noopener noreferrer">HP:0000822</a> Hypertension · <a href="http://purl.obolibrary.org/obo/HP_0031284" target="_blank" rel="noopener noreferrer">HP:0031284</a> Flushing · <a href="http://purl.obolibrary.org/obo/HP_0000975" target="_blank" rel="noopener noreferrer">HP:0000975</a> Hyperhidrosis · <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" rel="noopener noreferrer">HP:0001962</a> Palpitations · <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" rel="noopener noreferrer">HP:0001337</a> Tremor · <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" rel="noopener noreferrer">HP:0000739</a> Anxiety · <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a> Headache · <a href="http://purl.obolibrary.org/obo/HP_0002277" target="_blank" rel="noopener noreferrer">HP:0002277</a> Horner syndrome · <a href="http://purl.obolibrary.org/obo/HP_0002176" target="_blank" rel="noopener noreferrer">HP:0002176</a> Spinal cord compression · <a href="http://purl.obolibrary.org/obo/HP_0002385" target="_blank" rel="noopener noreferrer">HP:0002385</a> Paraparesis · <a href="http://purl.obolibrary.org/obo/HP_0010550" target="_blank" rel="noopener noreferrer">HP:0010550</a> Paraplegia · <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" rel="noopener noreferrer">HP:0002650</a> Scoliosis · <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a> Dyspnea · <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" rel="noopener noreferrer">HP:0012735</a> Cough · <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" rel="noopener noreferrer">HP:0100749</a> Chest pain · <a href="http://purl.obolibrary.org/obo/HP_0000126" target="_blank" rel="noopener noreferrer">HP:0000126</a> Hydronephrosis · <a href="http://purl.obolibrary.org/obo/HP_0000020" target="_blank" rel="noopener noreferrer">HP:0000020</a> Urinary incontinence</p>
+<p><strong>Cell type (CL):</strong> <a href="http://purl.obolibrary.org/obo/CL_0011103" target="_blank" rel="noopener noreferrer">CL:0011103</a> sympathetic neuron · <a href="http://purl.obolibrary.org/obo/CL_0008025" target="_blank" rel="noopener noreferrer">CL:0008025</a> noradrenergic neuron · <a href="http://purl.obolibrary.org/obo/CL_0000107" target="_blank" rel="noopener noreferrer">CL:0000107</a> autonomic neuron · <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" rel="noopener noreferrer">CL:0002573</a> Schwann cell · <a href="http://purl.obolibrary.org/obo/CL_0000218" target="_blank" rel="noopener noreferrer">CL:0000218</a> myelinating Schwann cell · <a href="http://purl.obolibrary.org/obo/CL_0002375" target="_blank" rel="noopener noreferrer">CL:0002375</a> Schwann cell precursor · <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" rel="noopener noreferrer">CL:0011012</a> neural crest cell · <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" rel="noopener noreferrer">CL:0000333</a> migratory neural crest cell · <a href="http://purl.obolibrary.org/obo/CL_0002676" target="_blank" rel="noopener noreferrer">CL:0002676</a> neural crest derived neuroblast · <a href="http://purl.obolibrary.org/obo/CL_0000166" target="_blank" rel="noopener noreferrer">CL:0000166</a> chromaffin cell · <a href="http://purl.obolibrary.org/obo/CL_0000336" target="_blank" rel="noopener noreferrer">CL:0000336</a> adrenal medulla chromaffin cell · <a href="http://purl.obolibrary.org/obo/CL_0007011" target="_blank" rel="noopener noreferrer">CL:0007011</a> enteric neuron · <a href="http://purl.obolibrary.org/obo/CL_0002607" target="_blank" rel="noopener noreferrer">CL:0002607</a> migratory enteric neural crest cell</p>
+<p><strong>Anatomy (UBERON):</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0003693" target="_blank" rel="noopener noreferrer">UBERON:0003693</a> retroperitoneal space · <a href="http://purl.obolibrary.org/obo/UBERON_0008822" target="_blank" rel="noopener noreferrer">UBERON:0008822</a> posterior mediastinum · <a href="http://purl.obolibrary.org/obo/UBERON_0003728" target="_blank" rel="noopener noreferrer">UBERON:0003728</a> mediastinum · <a href="http://purl.obolibrary.org/obo/UBERON_0002369" target="_blank" rel="noopener noreferrer">UBERON:0002369</a> adrenal gland · <a href="http://purl.obolibrary.org/obo/UBERON_0001236" target="_blank" rel="noopener noreferrer">UBERON:0001236</a> adrenal medulla · <a href="http://purl.obolibrary.org/obo/UBERON_0001806" target="_blank" rel="noopener noreferrer">UBERON:0001806</a> sympathetic ganglion · <a href="http://purl.obolibrary.org/obo/UBERON_0001807" target="_blank" rel="noopener noreferrer">UBERON:0001807</a> paravertebral ganglion · <a href="http://purl.obolibrary.org/obo/UBERON_0001805" target="_blank" rel="noopener noreferrer">UBERON:0001805</a> autonomic ganglion · <a href="http://purl.obolibrary.org/obo/UBERON_0000974" target="_blank" rel="noopener noreferrer">UBERON:0000974</a> neck · <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" rel="noopener noreferrer">UBERON:0002240</a> spinal cord</p>
+<p><strong>Biological process (GO):</strong> <a href="http://purl.obolibrary.org/obo/GO_0048485" target="_blank" rel="noopener noreferrer">GO:0048485</a> sympathetic nervous system development · <a href="http://purl.obolibrary.org/obo/GO_0007422" target="_blank" rel="noopener noreferrer">GO:0007422</a> peripheral nervous system development · <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" rel="noopener noreferrer">GO:0001755</a> neural crest cell migration · <a href="http://purl.obolibrary.org/obo/GO_0030182" target="_blank" rel="noopener noreferrer">GO:0030182</a> neuron differentiation · <a href="http://purl.obolibrary.org/obo/GO_0045664" target="_blank" rel="noopener noreferrer">GO:0045664</a> regulation of neuron differentiation · <a href="http://purl.obolibrary.org/obo/GO_0048667" target="_blank" rel="noopener noreferrer">GO:0048667</a> cell morphogenesis involved in neuron differentiation · <a href="http://purl.obolibrary.org/obo/GO_0048663" target="_blank" rel="noopener noreferrer">GO:0048663</a> neuron fate commitment · <a href="http://purl.obolibrary.org/obo/GO_0031175" target="_blank" rel="noopener noreferrer">GO:0031175</a> neuron projection development · <a href="http://purl.obolibrary.org/obo/GO_0010975" target="_blank" rel="noopener noreferrer">GO:0010975</a> regulation of neuron projection development · <a href="http://purl.obolibrary.org/obo/GO_0048011" target="_blank" rel="noopener noreferrer">GO:0048011</a> neurotrophin TRK receptor signaling pathway · <a href="http://purl.obolibrary.org/obo/GO_0014037" target="_blank" rel="noopener noreferrer">GO:0014037</a> Schwann cell differentiation · <a href="http://purl.obolibrary.org/obo/GO_0022011" target="_blank" rel="noopener noreferrer">GO:0022011</a> myelination in peripheral nervous system · <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" rel="noopener noreferrer">GO:0042552</a> myelination · <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" rel="noopener noreferrer">GO:0043491</a> phosphatidylinositol 3-kinase/protein kinase B signal transduction · <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" rel="noopener noreferrer">GO:0031929</a> TOR signaling · <a href="http://purl.obolibrary.org/obo/GO_0032008" target="_blank" rel="noopener noreferrer">GO:0032008</a> positive regulation of TOR signaling · <a href="http://purl.obolibrary.org/obo/GO_0035860" target="_blank" rel="noopener noreferrer">GO:0035860</a> glial cell-derived neurotrophic factor receptor signaling pathway · <a href="http://purl.obolibrary.org/obo/GO_0048384" target="_blank" rel="noopener noreferrer">GO:0048384</a> retinoic acid receptor signaling pathway · <a href="http://purl.obolibrary.org/obo/GO_0042423" target="_blank" rel="noopener noreferrer">GO:0042423</a> catecholamine biosynthetic process</p>
+<p><strong>Gene (HGNC, lowercase per repo convention):</strong> hgnc:391 AKT1 · hgnc:392 AKT2 · hgnc:393 AKT3 · hgnc:3942 MTOR · hgnc:9588 PTEN · hgnc:9967 RET · hgnc:7765 NF1 · hgnc:9143 PHOX2B · hgnc:427 ALK · hgnc:8031 NTRK1 · hgnc:7997 NRG1 · hgnc:7808 NGF · hgnc:11190 SOX10 · hgnc:4232 GDNF · hgnc:7559 MYCN · hgnc:11782 TH · hgnc:2689 DBH · hgnc:11730 TERT · hgnc:886 ATRX · hgnc:1076 BMPR1A · hgnc:12693 VIP (resolved at rest.genenames.org)</p>
+<p><strong>Chemical (CHEBI):</strong> <a href="http://purl.obolibrary.org/obo/CHEBI_33569" target="_blank" rel="noopener noreferrer">CHEBI:33569</a> noradrenaline · <a href="http://purl.obolibrary.org/obo/CHEBI_33568" target="_blank" rel="noopener noreferrer">CHEBI:33568</a> adrenaline · <a href="http://purl.obolibrary.org/obo/CHEBI_18243" target="_blank" rel="noopener noreferrer">CHEBI:18243</a> dopamine · <a href="http://purl.obolibrary.org/obo/CHEBI_545959" target="_blank" rel="noopener noreferrer">CHEBI:545959</a> homovanillic acid · <a href="http://purl.obolibrary.org/obo/CHEBI_20106" target="_blank" rel="noopener noreferrer">CHEBI:20106</a> vanillylmandelic acid · <a href="http://purl.obolibrary.org/obo/CHEBI_9168" target="_blank" rel="noopener noreferrer">CHEBI:9168</a> sirolimus · <a href="http://purl.obolibrary.org/obo/CHEBI_68478" target="_blank" rel="noopener noreferrer">CHEBI:68478</a> everolimus · <a href="http://purl.obolibrary.org/obo/CHEBI_15367" target="_blank" rel="noopener noreferrer">CHEBI:15367</a> all-trans-retinoic acid · <a href="http://purl.obolibrary.org/obo/CHEBI_26536" target="_blank" rel="noopener noreferrer">CHEBI:26536</a> retinoic acid</p>
+<p><strong>Treatment (NCIT):</strong> NCIT:C15329 Surgical Procedure · NCIT:C154430 Definitive Surgical Resection · NCIT:C164212 Tumor Resection · NCIT:C131672 Gross Total Resection · NCIT:C175027 Complete Resection · NCIT:C15177 Adrenalectomy · NCIT:C15722 Patient Observation · NCIT:C15986 Pharmacotherapy · NCIT:C2201 mTOR Inhibitor · NCIT:C1212 Sirolimus · NCIT:C48387 Everolimus · NCIT:C15747 Supportive Care · NCIT:C15315 Rehabilitation · NCIT:C15240 Genetic Counseling · NCIT:C15313 Radiation Therapy · NCIT:C17204 Computed Tomography · NCIT:C16809 Magnetic Resonance Imaging</p>
+<p><strong>Taxon (NCBITaxon):</strong> NCBITaxon:9606 Homo sapiens · NCBITaxon:7955 Danio rerio · NCBITaxon:10090 Mus musculus · NCBITaxon:9615 Canis lupus familiaris · NCBITaxon:9913 Bos taurus · NCBITaxon:9925 Capra hircus · NCBITaxon:9823 Sus scrofa · NCBITaxon:9796 Equus caballus</p>
+<hr />
+<h2>Appendix B — Primary citations, with PMIDs and quotable abstract sentences</h2>
+<p>Each snippet below was read from the PubMed record or publisher page in this session and is an exact substring of that abstract. They are offered as candidate <code>snippet:</code> values; each still needs <code>just fetch-reference PMID:&lt;id&gt;</code> and <code>just count-verified-snippets</code> before commit.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Citation</th>
+<th>Candidate exact quote</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>32728700</strong></td>
+<td>Tao T, et al. <em>J Exp Med</em> 2020;217(10):e20191871</td>
+<td>"Zebrafish transgenic for constitutively activated myr-Akt2 in the sympathetic nervous system were found to develop ganglioneuroma without progression to neuroblastoma." · "Here, we found that an AKT-mTOR-S6 pathway was active in human ganglioneuroma but not neuroblastoma samples." · "Surgery is the only effective therapy for ganglioneuroma, which may be challenging due to the location of the tumor and involvement of surrounding structures."</td>
+</tr>
+<tr>
+<td><strong>33712610</strong></td>
+<td>Weiss T, Taschner-Mandl S, et al. <em>Nat Commun</em> 2021;12:1624</td>
+<td>"Indeed, stromal SCs in ganglioneuromas and repair SCs share the expression of nerve repair-associated genes." · "Neuroblastoma cells, derived from aggressive tumors, respond to primary repair-related SCs and their secretome with increased neuronal differentiation and reduced proliferation."</td>
+</tr>
+<tr>
+<td><strong>19884655</strong></td>
+<td>Puig I, et al. <em>J Clin Invest</em> 2009;119:3586–96</td>
+<td>"Intestinal ganglioneuromatosis is a benign proliferation of nerve ganglion cells, nerve fibers, and supporting cells of the enteric nervous system (ENS)..." · "S6 and AKT phosphorylation levels were clearly higher in HM than in WT samples, this effect being particularly marked for AKT."</td>
+</tr>
+<tr>
+<td><strong>39582110</strong></td>
+<td>Burnand KM, et al. <em>Pediatr Blood Cancer</em> 2025;72(2):e31445</td>
+<td>"A total of 259 patients were identified (163 GN, 93 GNBi, median age 62 months)." · "In 45 cases (39%), surgical pathology was different from pathology at biopsy, and in 14 (12%) the pathology changed from GN/GNBi to neuroblastoma/GNB nodular." · "Watchful active observation can be a safe approach, with surgical resection reserved for symptomatic patients."</td>
+</tr>
+<tr>
+<td><strong>42537227</strong></td>
+<td>Texakalidis P, Gogoi R, Spinner RJ. <em>J Neurosurg</em> 2026;145(4):1223–9</td>
+<td>"Most lesions (72%) were incidental findings." · "Short-term postoperative complications occurred in 43.1% of cases, most commonly neurological deficits (22.2%)." · "GNs demonstrate indolent behavior, low recurrence rates, and no observed malignant transformation in this large cohort." · "No patient in the observation group developed new symptoms, and 2 tumors exhibited minimal interval growth (0.08-0.17 cm/year)."</td>
+</tr>
+<tr>
+<td><strong>41306794</strong></td>
+<td>Li W, Xiao M, Miao C, et al. <em>Front Surg</em> 2025;12:1701114</td>
+<td>"no recurrences, metastases, or disease-specific deaths occurred" · "While surgical resection remains the cornerstone of management, it is best undertaken at specialized, high-volume sarcoma centers to mitigate operative risks."</td>
+</tr>
+<tr>
+<td><strong>41858373</strong></td>
+<td>Sugawara M, Haruta M, Ohira M, et al. <em>Oncol Lett</em> 2026;31(5):156</td>
+<td>"ALT was identified in 38 NB cases (38/255, 15%) and 6 GNB cases (6/48, 12.5%), but not in GN." · "High TERT expression was observed in 38% (64/169), 23% (7/31) and 14% (1/7) of NB, GNB and GN cases, respectively."</td>
+</tr>
+<tr>
+<td><strong>41561749</strong></td>
+<td>Ozcelik EE, et al. <em>Front Oncol</em> 2026;15:1632294</td>
+<td>"no distant metastases or recurrences were observed during follow-up"</td>
+</tr>
+<tr>
+<td><strong>29369484</strong></td>
+<td>Alexander N, Sullivan K, Shaikh F, Irwin MS. <em>Pediatr Blood Cancer</em> 2018;65(5):e26964</td>
+<td>"GN and GNB-I have a slow growth rate and resection can be associated with significant morbidity." · "Watch and wait approaches should be considered for some GN and GNB-I." · "There were post-operative complications in 15 of the 50 (30%) surgical patients."</td>
+</tr>
+<tr>
+<td><strong>10421272</strong></td>
+<td>Shimada H, et al. <em>Cancer</em> 1999;86:349–63 — "Terminology and morphologic criteria of neuroblastic tumors"</td>
+<td>The four-category INPC definition (quote to be lifted from the fetched record)</td>
+</tr>
+<tr>
+<td><strong>10421273</strong></td>
+<td>Shimada H, et al. <em>Cancer</em> 1999;86:364–72 — "The International Neuroblastoma Pathology Classification (the Shimada system)"</td>
+<td>3-year EFS 85% favourable vs 41% unfavourable histology</td>
+</tr>
+<tr>
+<td><strong>14601099</strong></td>
+<td>Peuchmaur M, et al. <em>Cancer</em> 2003;98:2274–81</td>
+<td>"8-year event free survival rate: 86.1% vs. 32.2%; P = 0.0003; overall survival rate: 90.5% vs. 33.2%"</td>
+</tr>
+<tr>
+<td><strong>37746449</strong></td>
+<td><em>Cureus</em> 2023;15:e43914</td>
+<td>"Ganglioneuroma is a rare neurogenic tumor with a prevalence of one per million population" · "Ganglioneuromas constitute only 0.72%-1.6% of all primary retroperitoneal tumors"</td>
+</tr>
+<tr>
+<td><strong>40799243</strong></td>
+<td><em>Front Oncol</em> 2025;15:1619030 — adrenal GN review</td>
+<td>"AGN is rare in children under 10 years of age, with a higher incidence in adults than in children, and its incidence increases with age." · "Laparoscopic resection is the primary treatment for AGN."</td>
+</tr>
+<tr>
+<td><strong>33553609</strong></td>
+<td><em>Mol Cell Oncol</em> 2020 — "Targeting ganglioneuromas with mTOR inhibitors"</td>
+<td>Commentary on <a href="https://pubmed.ncbi.nlm.nih.gov/32728700/" target="_blank" rel="noopener noreferrer">PMID:32728700</a></td>
+</tr>
+<tr>
+<td><strong>28640941</strong></td>
+<td>"PHOX2B reliably distinguishes neuroblastoma among small round blue cell tumours"</td>
+<td>PHOX2B sensitivity/specificity in pNTs</td>
+</tr>
+<tr>
+<td>—</td>
+<td>Shimada H, Sano H, Hazard FK. <em>Clin Pediatr Hematol Oncol</em> 2020;27:73–86, <a href="https://doi.org/10.15264/cpho.2020.27.2.73" target="_blank" rel="noopener noreferrer">doi:10.15264/cpho.2020.27.2.73</a></td>
+<td>"composed only of completely mature ganglion cells covered with satellite cells" · "all neuritic processes produced by ganglion cells are immediately incorporated in the cytoplasm of Schwann cells, so that no naked neuritic processes are detected" · "all Ganglioneuromas were once Neuroblastomas in their early stage of tumor development"</td>
+</tr>
+<tr>
+<td>—</td>
+<td>Conces MR, Shibui Y, Shimada H. <em>Diagnostic Pathology</em> 2026;21:22, <a href="https://doi.org/10.1186/s13000-026-01758-y" target="_blank" rel="noopener noreferrer">doi:10.1186/s13000-026-01758-y</a></td>
+<td>Current INPC review; full text paywall-redirected in this session, <strong>fetch before curating from it</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Appendix C — Explicit gaps and unverified items</h2>
+<p>Carried forward so nothing here is mistaken for an established fact.</p>
+<ol>
+<li><strong>ICD-11 code.</strong> Orphanet records 2A00.21; this was not verified against the WHO ICD-11 browser, and the morphology stem XH03L9 comes only from third-party aggregators.</li>
+<li><strong>MeSH D005729</strong> taken from an aggregator listing, not NLM directly.</li>
+<li><strong>LOINC codes</strong> for VMA, HVA, metanephrines and VIP — none looked up. Do not type a LOINC label; use <code>just loinc-seed-cache</code>.</li>
+<li><strong>"~30% of adrenal GN have elevated catecholamines"</strong> — widely repeated secondary claim, primary source not traced.</li>
+<li><strong>"1 per million" prevalence</strong> and <strong>"60% under age 20"</strong> — both secondary/tertiary claims.</li>
+<li><strong>MYCN gain in GN</strong> — the one quantitative figure encountered (1.8%) has ambiguous attribution in the available abstract.</li>
+<li><strong>Turner syndrome association</strong> — Orphanet-level only, no primary citation located.</li>
+<li><strong>HPO term for virilization</strong>, <strong>UBERON term for presacral space</strong>, <strong>CL term for satellite cell</strong>, and <strong>GO cellular-component terms for Nissl substance/rough ER</strong> — all unresolved.</li>
+<li><strong>GEO accessions</strong> (GSE192906, GSE90711, GSE94035, GSE147635, GSE45547, GSE85047) — the GN-sample composition of each was <strong>not</strong> confirmed. Relevance triage is mandatory before curating any as a <code>datasets:</code> record.</li>
+<li><strong>PRIDE accession</strong> for the Weiss 2021 secretome proteomics — not resolved.</li>
+<li><strong>RET M918T knock-in mouse enteric phenotype</strong> — not characterised in this session; a likely fourth model organism.</li>
+<li><strong>Perioperative alpha-blockade protocol</strong> for secretory GN — not sourced.</li>
+<li><strong>Non-human orthologue NCBI Gene IDs</strong> — not resolved.</li>
+<li><strong>No GN-specific epigenomic, proteomic, metabolomic or lipidomic study exists.</strong> Searched; genuinely absent.</li>
+<li><strong>No GN-specific QoL instrument data exist.</strong> Searched; genuinely absent.</li>
+<li><strong>No clinical trial, past or present, in ganglioneuroma.</strong> Searched ClinicalTrials.gov; genuinely absent.</li>
+</ol>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://www.orpha.net/en/disease/detail/251992">Orphanet: Ganglioneuroma (ORPHA:251992)</a> · <a href="https://chorobyrzadkie.gov.pl/en/disease_card/251992">Orphanet mirror with codes</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7537400/">Tao et al., Ganglioneuromas are driven by activated AKT and can be therapeutically targeted with mTOR inhibitors (J Exp Med 2020)</a> · <a href="https://rupress.org/jem/article/217/10/e20191871/151986/Ganglioneuromas-are-driven-by-activated-AKT-and">publisher page</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7849689">commentary</a></li>
+<li><a href="https://www.nature.com/articles/s41467-021-21859-0">Weiss et al., Schwann cell plasticity regulates neuroblastic tumor cell differentiation via EGFL8 (Nat Commun 2021)</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4294349/">NTRK1–Schwann cell crosstalk</a></li>
+<li><a href="https://www.jci.org/articles/view/39929">Puig et al., Deletion of Pten in the mouse enteric nervous system induces ganglioneuromatosis (JCI 2009)</a></li>
+<li><a href="https://onlinelibrary.wiley.com/doi/full/10.1002/pbc.31445">Burnand et al., UK CCLG nationwide study (Pediatr Blood Cancer 2025)</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/39582110/?dopt=Abstract">PubMed</a> · <a href="https://pure-oai.bham.ac.uk/ws/files/250952117/Pediatric_Blood_Cancer_-_2024_-_Burnand_-_Management_of_Ganglioneuroma_and_Ganglioneuroblastoma_Intermixed_A_United.pdf">open-access PDF</a></li>
+<li><a href="https://doi.org/10.3171/2026.2.jns252992">Texakalidis et al., 30-year experience of 101 patients (J Neurosurg 2026)</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/42537227/">PubMed</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12644016/">Li et al., primary retroperitoneal ganglioneuroma, 51 patients (Front Surg 2025)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12997032/">Sugawara et al., Telomere maintenance mechanisms in ganglioneuroblastoma and ganglioneuroma (Oncol Lett 2026)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12812659/">Ozcelik et al., Ganglioneuroma has a potential for lymph node metastasis (Front Oncol 2026)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/29369484/">Alexander et al., Characteristics and management of GN and GNB-I (Pediatr Blood Cancer 2018)</a></li>
+<li><a href="https://acsjournals.onlinelibrary.wiley.com/doi/10.1002/(SICI)1097-0142(19990715)86:2%3C364::AID-CNCR21%3E3.0.CO%3B2-7">Shimada et al., The International Neuroblastoma Pathology Classification (Cancer 1999)</a> · <a href="https://acsjournals.onlinelibrary.wiley.com/doi/full/10.1002/(SICI)1097-0142(19990715)86:2%3C349::AID-CNCR20%3E3.0.CO;2-Y">Terminology and morphologic criteria (Cancer 1999)</a> · <a href="https://acsjournals.onlinelibrary.wiley.com/doi/full/10.1002/cncr.11773">Peuchmaur et al., INPC revision (Cancer 2003)</a></li>
+<li><a href="https://www.cpho.or.kr/journal/view.html?doi=10.15264%2Fcpho.2020.27.2.73">Shimada, Sano, Hazard, Pathology of Peripheral Neuroblastic Tumors (Clin Pediatr Hematol Oncol 2020)</a> · <a href="https://link.springer.com/article/10.1186/s13000-026-01758-y">Conces, Shibui, Shimada, Pathology of peripheral neuroblastic tumors (Diagnostic Pathology 2026)</a> · <a href="https://documents.cap.org/protocols/Neuroblastoma_5.0.0.0.REL_CAPCP.pdf">CAP neuroblastoma protocol</a> · <a href="https://www.iccr-cancer.org/wp-content/uploads/2023/11/ICCR-Neuroblastoma-1st-ed-v1.0-bookmark.pdf">ICCR neuroblastoma reporting guide</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10341194/">Imaging of Ganglioneuroma: a literature review (Diagnostics 2023)</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6647925/">Imaging analysis and quantitative analysis of paraspinal ganglioneuroma</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/22573298/">CT and MRI findings of thoracic ganglioneuroma</a> · <a href="https://ajronline.org/doi/10.2214/AJR.16.16018">Imaging of thoracic neurogenic tumors (AJR)</a> · <a href="https://www.sciencedirect.com/science/article/pii/S1930043324007155">Adrenal GN with nodal metastases on MIBG/FDG</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12339323/">Adrenal ganglioneuroma: two case reports and literature review (Front Oncol 2025)</a> · <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10512760/">Overreliance on radiological findings (Cureus 2023)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10848182">Intestinal ganglioneuromatosis as an early extra-endocrine manifestation of MEN2B</a> · <a href="https://academic.oup.com/jcem/article/83/12/4191/2865226">Germline RET codon 918 mutation in apparently isolated intestinal ganglioneuromatosis (JCEM 1998)</a> · <a href="https://erc.bioscientifica.com/view/journals/erc/25/2/ERC-17-0209.xml">Comprehensive review on MEN2B</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/27899172/">Rectal biopsy for early MEN2B diagnosis</a> · <a href="https://link.springer.com/article/10.1007/s12020-021-02607-2">Timely diagnosis of MEN2B</a> · <a href="https://publications.aap.org/pediatrics/article/154/3/e2022059517/198957/Clues-for-Early-Diagnosis-of-MEN2B-Syndrome-Before">Clues for early diagnosis of MEN2B before MTC (Pediatrics 2024)</a> · <a href="https://www.nejm.org/doi/abs/10.1056/NEJM198303173081106">Intestinal ganglioneuromatosis: overproduction of NGF? (NEJM 1983)</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/19353842/">GDNF/neurturin in diffuse ganglioneuromatosis</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5566766/">Uveal ganglioneuroma due to germline PTEN mutation</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5889855/">Diffuse gastric ganglioneuromatosis in PTEN hamartoma syndrome</a> · <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4862217/">Cowden syndrome with ganglioneuromatous polyposis</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/23512313/">Intestinal ganglioneuromatosis as unusual presentation of Cowden syndrome</a> · <a href="https://www.mdpi.com/2079-9721/11/2/69">Colonic ganglioneuroma: 43 patients (Diseases 2023)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9673013/">Neuroblastic tumors and NF1: Italian multicenter study and systematic review</a> · <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9776796/">Ganglioneuroma of the bladder in NF1</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13492013/">Cervical ganglioneuroma in NF1 with postoperative Horner syndrome</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/17954422/">Pheochromocytoma and ganglioneuroma in NF1</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/10755757/">MPNST arising in previously irradiated neuroblastoma</a> · <a href="https://onlinelibrary.wiley.com/doi/10.1002/(SICI)1096-911X(199703)28:3%3C216::AID-MPO13%3E3.0.CO;2-C">MPNST arising in a "de novo" ganglioneuroma (Drago 1997)</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12221925">Malignant transformation of rectovaginal ganglioneuroma to MPNST in NF1</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/42120254/">Mandibular MPNST after radiotherapy for CPA ganglioneuroma</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3685741/">Composite pheochromocytoma-ganglioneuroma: immunohistochemical study</a> · <a href="https://www.ovid.com/jnls/ajsp/abstract/00000478-199701000-00011~composite-pheochromocytomaganglioneuroma-of-the-adrenal?redirectionsource=fulltextview">Composite pheo-GN with MEN2A (Am J Surg Pathol 1997)</a> · <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9518729/">Composite pheo-GN with two distinct radiographic components</a> · <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11446904/">Adrenal schwannoma associated with ganglioneuroma</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/1211964/">Watery diarrhoea and ganglioneuroma with VIP secretion</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/7376870">VIP-producing ganglioneuroma in a child with chronic diarrhea</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/2833214/">VIP-secreting tumours in children</a> · <a href="https://www.tandfonline.com/doi/full/10.3109/08037051.2013.796103">Hormone-secreting large adrenal ganglioneuroma (Blood Press 2013)</a> · <a href="https://www.sciencedirect.com/science/article/abs/pii/S0031302516393552">Catecholamines in urine and tumour tissue in phaeochromocytoma, ganglioneuroma and neuroblastoma</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9242669/">Large catecholamine-secreting ganglioneuroma</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/28640941/">PHOX2B reliably distinguishes neuroblastoma among small round blue cell tumours</a> · <a href="https://www.researchgate.net/publication/229081877_PHOX2B_Immunolabeling_A_Novel_Tool_for_the_Diagnosis_of_Undifferentiated_Neuroblastomas_Among_Childhood_Small_Round_Blue-cell_Tumors">PHOX2B immunolabeling</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S2405844024026124">Identifying a novel PHOX2B gene variant in a neuroblastoma family</a> · <a href="https://www.sciencedirect.com/science/article/abs/pii/S2452014418300396">Analysis of sporadic neuroblastic tumors reveals a novel PHOX2B mutation</a> · <a href="https://www.nature.com/articles/ejhg2011195">ALK germline mutations in neuroblastoma</a> · <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6477091/">ALK-F1174L impairs differentiation of neural crest progenitors in sympathetic ganglia</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7053487/">ATRA-triggered neuroblastoma differentiation and NTRK2</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5918240/">Neuroblastoma pathogenesis: deregulation of embryonic neural crest development</a> · <a href="https://www.pnas.org/doi/10.1073/pnas.2022350118">Single-cell atlas of developing murine adrenal gland and Schwann cell precursor signature (PNAS)</a> · <a href="https://www.omicsdi.org/dataset/geo/GSE192906">GSE192906 (pNT scRNA-seq)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/34054050/">Unusual spontaneous regression from neuroblastoma to ganglioneuroma</a> · <a href="https://www.sciencedirect.com/science/article/abs/pii/0022346875901992">Complete maturation of neuroblastoma with bone metastases</a> · <a href="https://www.sciencedirect.com/science/article/abs/pii/S0022346801387067">Maturation of mass-screened localized adrenal neuroblastoma</a> · <a href="https://www.nature.com/articles/modpathol201490">Nodular GNB neuroblastoma and ganglion components are genetically similar (Mod Pathol)</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/8108298/">Evidence for molecular heterogeneity in human ganglioneuroblastoma</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/11801306/">CGH in ganglioneuroblastomas</a></li>
+<li><a href="https://thejns.org/spine/view/journals/j-neurosurg-spine/37/1/article-p130.xml">Clinical outcomes following resection of paraspinal ganglioneuromas (J Neurosurg Spine 2022)</a> · <a href="https://link.springer.com/article/10.1007/s00586-026-09903-3">Neurological outcomes after nerve root sacrifice in dumbbell tumors (Eur Spine J)</a> · <a href="https://www.sciencedirect.com/science/article/pii/S193004332030282X">Presacral ganglioneuroma, 6-year follow-up without surgery</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12665655/">Dumbbell ganglioneuroma of the lumbar spine</a></li>
+<li><a href="https://www.researchgate.net/publication/226171812_Cutaneous_ganglioneuroma_in_a_cattle_case_report">Cutaneous ganglioneuroma in cattle</a> · <a href="https://www.frontiersin.org/journals/veterinary-science/articles/10.3389/fvets.2019.00161/pdf">Adrenal neuroblastoma in a young dog (Front Vet Sci 2019)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/22700876/?dopt=Abstract">PTEN and NF1 inactivation in Schwann cells promotes nerve sheath tumors</a> · <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3539440/">Conditional Pten inactivation with EGFR overexpression models sporadic MPNST</a></li>
+<li><a href="https://clinicaltrials.gov/study/NCT03433183">SARC031 selumetinib + sirolimus (NCT03433183)</a> · <a href="https://clinicaltrials.gov/study/NCT00634270">Sirolimus in NF1 plexiform neurofibromas (NCT00634270)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11107237/">SEER-based prognostic nomogram for ganglioneuroblastoma</a></li>
+<li>Identifier resolution: <a href="https://www.ebi.ac.uk/ols4">EBI OLS4 API</a> · <a href="https://rest.genenames.org">HGNC REST</a> · <a href="https://eutils.ncbi.nlm.nih.gov/entrez/eutils/">NCBI E-utilities</a> · local <code>cache/*/terms.csv</code> in this checkout</li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.4.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>82</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>82</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>82</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>117</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>116</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>5</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0005033</code> (5 mentions) - the report calls it "if available"; MONDO calls it <strong>ganglioneuroma</strong></li>
+<li><code>MONDO:0003325</code> (4 mentions) - the report calls it "composite", "Ganglioneuroblastoma, nodular — <strong>composite", "ganglioneuroblastoma, nodular"; MONDO calls it </strong>nodular ganglioneuroblastoma**</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>MONDO:0003326</code> (4 mentions) - the report calls it "Schwannian stroma-rich", "Ganglioneuroblastoma, intermixed — <strong>Schwannian stroma-rich", "ganglioneuroblastoma, intermixed"; MONDO calls it </strong>intermixed schwannian stroma-rich ganglioneuroblastoma**</li>
+<li><code>CHEBI:9168</code> (2 mentions) - the report calls it "Sirolimus (rapamycin)"; CHEBI calls it <strong>sirolimus</strong>, and lists "sirolimusum" among its other names</li>
+<li><code>NCBITaxon:9913</code> (2 mentions) - the report calls it "Cattle"; NCBITaxon calls it <strong>Bos taurus</strong>, and lists "domestic cattle" among its other names</li>
+<li><code>NCBITaxon:9925</code> (2 mentions) - the report calls it "Goat (Boer)"; NCBITaxon calls it <strong>Capra hircus</strong>, and lists "goat" among its other names</li>
+<li><code>NCBITaxon:9823</code> (2 mentions) - the report calls it "Pig (piglet)"; NCBITaxon calls it <strong>Sus scrofa</strong>, and lists "pig" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>MONDO:0003326</code> - called "Schwannian stroma-rich", "Ganglioneuroblastoma, intermixed — **Schwannian stroma-rich", "ganglioneuroblastoma, intermixed"</li>
+<li><code>MONDO:0003325</code> - called "composite", "Ganglioneuroblastoma, nodular — **composite", "ganglioneuroblastoma, nodular"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Ganglioneuroblastoma-claude_code.html">← Ganglioneuroblastoma (Claude Code)</a>
+                
+                
+                <a href="GAPO_Syndrome-perplexity.html">GAPO Syndrome (Perplexity) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Ganglioneuroma.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Ganglioneuroma-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

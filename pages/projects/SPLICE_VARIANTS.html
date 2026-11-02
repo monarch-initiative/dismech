@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Splice Variants and Spliceosome Disorders - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+        a.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; text-decoration: none; }
+        a.tag-nih:hover { background: #dfeaff; }
+        span.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html" class="active" aria-current="true">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Splice Variants and Spliceosome Disorders</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                <span class="tag">MECHANISM</span><span class="tag">SPLICING</span><span class="tag">SPLICEOSOMOPATHY</span><span class="tag">NEURODEVELOPMENT</span><span class="tag">NONCODING</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Splice Variants and Spliceosome Disorders</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (35)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/RNU5B-1_Related_Neurodevelopmental_Disorder_With_Seizures_And_Joint_Laxity.html">RNU5B-1 Related Neurodevelopmental Disorder With Seizures And Joint Laxity</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/ReNU_Syndrome.html">ReNU Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/RNU12-related_minor_spliceopathy.html">RNU12-related Minor Spliceopathy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Roifman-syndrome.html">Roifman-syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Microcephalic_Osteodysplastic_Primordial_Dwarfism_Type_I.html">Microcephalic Osteodysplastic Primordial Dwarfism Type I</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Neurodevelopmental_Disorder_with_Hypotonia,_Feeding_Difficulties,_Facial_Dysmorphism,_and_Brain_Abnormalities.html">Neurodevelopmental Disorder with Hypotonia Feeding Difficulties Facial Dysmorphism and Brain Abnormalities</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/SNIP1-Related_Neurodevelopmental_Disorder.html">SNIP1-Related Neurodevelopmental Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Neuromuscular_Disease_And_Ocular_Or_Auditory_Anomalies_With_Or_Without_Seizures.html">Neuromuscular Disease And Ocular Or Auditory Anomalies With Or Without Seizures</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Mandibulofacial_dysostosis_with_microcephaly.html">Mandibulofacial Dysostosis with Microcephaly</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Burn-McKeown_Syndrome.html">Burn-McKeown Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Cerebrocostomandibular_Syndrome.html">Cerebrocostomandibular Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Nager_Acrofacial_Dysostosis.html">Nager Acrofacial Dysostosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Intellectual_Developmental_Disorder,_Autosomal_Dominant_72.html">Intellectual Developmental Disorder Autosomal Dominant 72</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/PRPF31-Related_Retinopathy.html">PRPF31-Related Retinopathy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/PRPF8-Related_Retinopathy.html">PRPF8-Related Retinopathy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/SNRNP200-Related_Dominant_Retinopathy.html">SNRNP200-Related Dominant Retinopathy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/U2AF2-related_neurodevelopmental_disorder.html">U2AF2-Related Neurodevelopmental Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/PRPF19-related_neurodevelopmental_disorder.html">PRPF19-related Neurodevelopmental Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/CWC27-Related_Retinitis_Pigmentosa_With_or_Without_Skeletal_Anomalies.html">CWC27-Related Retinitis Pigmentosa With or Without Skeletal Anomalies</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hypotrichosis_11.html">Hypotrichosis 11</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/LSM7-related_Leukodystrophy_and_Cerebellar_Atrophy.html">LSM7-related Leukodystrophy And Cerebellar Atrophy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Lowry-Wood_Syndrome.html">Lowry-Wood Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Genetic_Developmental_and_Epileptic_Encephalopathy.html">Genetic Developmental and Epileptic Encephalopathy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Craniofacial_Microsomia.html">Craniofacial Microsomia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Orofaciodigital_Syndrome.html">Orofaciodigital Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Mosaic_Variegated_Aneuploidy_Syndrome.html">Mosaic Variegated Aneuploidy Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Myelodysplastic_Syndrome.html">Myelodysplastic Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Spinal_Muscular_Atrophy.html">Spinal Muscular Atrophy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Duchenne_Muscular_Dystrophy.html">Duchenne Muscular Dystrophy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Dravet_syndrome.html">Dravet syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Ataxia-telangiectasia.html">Ataxia Telangiectasia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Neuronal_Ceroid_Lipofuscinosis_7.html">Neuronal Ceroid Lipofuscinosis 7</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Leber_Congenital_Amaurosis_10.html">Leber Congenital Amaurosis 10</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Usher_Syndrome_Type_2.html">Usher Syndrome Type 2</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Stargardt_Disease.html">Stargardt Disease</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Modules (2)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../modules/spliceosome_component_dysfunction.html">spliceosome component dysfunction</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/antisense_oligonucleotide_therapy.html">antisense oligonucleotide therapy</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Groupings (2)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../groupings/Spliceosomopathies.html">Spliceosomopathies</a>
+                            
+                        
+                            
+                            <a class="chip" href="../groupings/RNU4ATAC_Spectrum_Disorder.html">RNU4ATAC Spectrum Disorder</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/SPLICE_VARIANTS.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="splice-variants-and-spliceosome-disorders">Splice Variants and Spliceosome Disorders</h1>
+<h2 id="scope">Scope</h2>
+<p>Splicing goes wrong in disease in three distinct ways, and this project keeps
+them apart because they call for different pathographs:</p>
+<ol>
+<li><strong>The machine is broken (trans).</strong> A variant in a spliceosome component, an
+   snRNA gene or a core protein, changes how many introns across the genome are
+   handled. The disease mechanism is a pattern of mis-splicing, and the open
+   question is usually which affected transcripts produce the phenotype.</li>
+<li><strong>One transcript is broken (cis).</strong> A variant in or near a splice site, or a
+   deep-intronic variant that creates a pseudoexon, mis-splices a single gene.
+   This is a variant-level fact on an ordinary gene entry, not a separate
+   disease.</li>
+<li><strong>Splicing is the treatment.</strong> Splice-switching antisense oligonucleotides
+   and small molecules correct or redirect splicing of a single transcript.</li>
+</ol>
+<p>The first group is the core of the project. The other two are tracked so their
+modelling stays consistent.</p>
+<h2 id="artifacts">Artifacts</h2>
+<table>
+<thead>
+<tr>
+<th>Artifact</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://claude.ai/artifact/NdbjH4KmWzAomJVj6rrecK">U5 Loop I and RNU5B-1</a></td>
+<td>Illustrated explainer: the two steps of splicing, U5 loop I and where RNU5B-1 variants fall, the two 5′ splice-site classes, what patient RNA showed, and the missing link to the brain phenotype. Private until shared from its page.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/RNU5B-1_Related_Neurodevelopmental_Disorder_With_Seizures_And_Joint_Laxity/rnu5b1_missplicing_drives_brain_phenotype/openscientist.md">OpenScientist hypothesis search</a></td>
+<td>Report on whether variant-specific mis-splicing explains the RNU5B-1 phenotype; literature synthesis plus a GEO and SRA availability check.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/monarch-initiative/dismech/blob/main/kb/hypotheses/RNU5B-1_Related_Neurodevelopmental_Disorder_With_Seizures_And_Joint_Laxity/rnu5b1_missplicing_drives_brain_phenotype/assessments/openscientist-assessment-by-claude-code.yaml">Assessment of that search</a></td>
+<td>Verdict WEAKLY_SUPPORTED_UNRESOLVED, with claim-level dispositions and the data-access inventory.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="group-1-spliceosome-component-disorders">Group 1: spliceosome component disorders</h2>
+<h3 id="snrna-genes">snRNA genes</h3>
+<p>These genes are short, noncoding and multi-copy, so variants are missed by
+standard exome capture and the copy that matters is often the one expressed in
+brain. Dominant disease variants cluster in a few nucleotides of one
+structural element.</p>
+<table>
+<thead>
+<tr>
+<th>Entry</th>
+<th>Gene</th>
+<th>snRNA</th>
+<th>Spliceosome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../disorders/RNU5B-1_Related_Neurodevelopmental_Disorder_With_Seizures_And_Joint_Laxity.html">RNU5B-1 Related Neurodevelopmental Disorder With Seizures And Joint Laxity</a></td>
+<td>RNU5B-1</td>
+<td>U5</td>
+<td>major</td>
+</tr>
+<tr>
+<td><a href="../disorders/ReNU_Syndrome.html">ReNU Syndrome</a></td>
+<td>RNU4-2</td>
+<td>U4</td>
+<td>major</td>
+</tr>
+<tr>
+<td><a href="../disorders/RNU12-related_minor_spliceopathy.html">RNU12-related Minor Spliceopathy</a></td>
+<td>RNU12</td>
+<td>U12</td>
+<td>minor</td>
+</tr>
+<tr>
+<td><a href="../disorders/Roifman-syndrome.html">Roifman-syndrome</a></td>
+<td>RNU4ATAC</td>
+<td>U4atac</td>
+<td>minor</td>
+</tr>
+<tr>
+<td><a href="../disorders/Microcephalic_Osteodysplastic_Primordial_Dwarfism_Type_I.html">Microcephalic Osteodysplastic Primordial Dwarfism Type I</a></td>
+<td>RNU4ATAC</td>
+<td>U4atac</td>
+<td>minor</td>
+</tr>
+</tbody>
+</table>
+<h3 id="spliceosome-protein-genes">Spliceosome protein genes</h3>
+<table>
+<thead>
+<tr>
+<th>Entry</th>
+<th>Gene</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../disorders/Neurodevelopmental_Disorder_with_Hypotonia,_Feeding_Difficulties,_Facial_Dysmorphism,_and_Brain_Abnormalities.html">Neurodevelopmental Disorder with Hypotonia Feeding Difficulties Facial Dysmorphism and Brain Abnormalities</a></td>
+<td>WBP4</td>
+</tr>
+<tr>
+<td><a href="../disorders/SNIP1-Related_Neurodevelopmental_Disorder.html">SNIP1-Related Neurodevelopmental Disorder</a></td>
+<td>SNIP1</td>
+</tr>
+<tr>
+<td><a href="../disorders/Neuromuscular_Disease_And_Ocular_Or_Auditory_Anomalies_With_Or_Without_Seizures.html">Neuromuscular Disease And Ocular Or Auditory Anomalies With Or Without Seizures</a></td>
+<td>DHX16</td>
+</tr>
+<tr>
+<td><a href="../disorders/Mandibulofacial_dysostosis_with_microcephaly.html">Mandibulofacial Dysostosis with Microcephaly</a></td>
+<td>EFTUD2</td>
+</tr>
+<tr>
+<td><a href="../disorders/Burn-McKeown_Syndrome.html">Burn-McKeown Syndrome</a></td>
+<td>TXNL4A</td>
+</tr>
+<tr>
+<td><a href="../disorders/Cerebrocostomandibular_Syndrome.html">Cerebrocostomandibular Syndrome</a></td>
+<td>SNRPB</td>
+</tr>
+<tr>
+<td><a href="../disorders/Nager_Acrofacial_Dysostosis.html">Nager Acrofacial Dysostosis</a></td>
+<td>SF3B4</td>
+</tr>
+<tr>
+<td><a href="../disorders/Intellectual_Developmental_Disorder,_Autosomal_Dominant_72.html">Intellectual Developmental Disorder Autosomal Dominant 72</a></td>
+<td>SRRM2</td>
+</tr>
+<tr>
+<td><a href="../disorders/PRPF31-Related_Retinopathy.html">PRPF31-Related Retinopathy</a></td>
+<td>PRPF31</td>
+</tr>
+<tr>
+<td><a href="../disorders/PRPF8-Related_Retinopathy.html">PRPF8-Related Retinopathy</a></td>
+<td>PRPF8</td>
+</tr>
+<tr>
+<td><a href="../disorders/SNRNP200-Related_Dominant_Retinopathy.html">SNRNP200-Related Dominant Retinopathy</a></td>
+<td>SNRNP200</td>
+</tr>
+<tr>
+<td><a href="../disorders/U2AF2-related_neurodevelopmental_disorder.html">U2AF2-Related Neurodevelopmental Disorder</a></td>
+<td>U2AF2</td>
+</tr>
+<tr>
+<td><a href="../disorders/PRPF19-related_neurodevelopmental_disorder.html">PRPF19-related Neurodevelopmental Disorder</a></td>
+<td>PRPF19</td>
+</tr>
+<tr>
+<td><a href="../disorders/CWC27-Related_Retinitis_Pigmentosa_With_or_Without_Skeletal_Anomalies.html">CWC27-Related Retinitis Pigmentosa With or Without Skeletal Anomalies</a></td>
+<td>CWC27</td>
+</tr>
+<tr>
+<td><a href="../disorders/Hypotrichosis_11.html">Hypotrichosis 11</a></td>
+<td>SNRPE</td>
+</tr>
+<tr>
+<td><a href="../disorders/LSM7-related_Leukodystrophy_and_Cerebellar_Atrophy.html">LSM7-related Leukodystrophy And Cerebellar Atrophy</a></td>
+<td>LSM7 (in both the spliceosomal LSm2-8 and the mRNA-decay LSm1-7 rings)</td>
+</tr>
+<tr>
+<td><a href="../disorders/Craniofacial_Microsomia.html">Craniofacial Microsomia</a></td>
+<td>SF3B2 (one of several genes)</td>
+</tr>
+<tr>
+<td><a href="../disorders/Orofaciodigital_Syndrome.html">Orofaciodigital Syndrome</a></td>
+<td>ZRSR2 (one of several genes)</td>
+</tr>
+<tr>
+<td><a href="../disorders/Mosaic_Variegated_Aneuploidy_Syndrome.html">Mosaic Variegated Aneuploidy Syndrome</a></td>
+<td>CENATAC (minor-intron splicing; one of several genes)</td>
+</tr>
+<tr>
+<td><a href="../disorders/Myelodysplastic_Syndrome.html">Myelodysplastic Syndrome</a></td>
+<td>somatic SF3B1, SRSF2, U2AF1, ZRSR2</td>
+</tr>
+</tbody>
+</table>
+<h3 id="covered-as-subtypes-not-entries">Covered as subtypes, not entries</h3>
+<table>
+<thead>
+<tr>
+<th>Disorder</th>
+<th>Gene</th>
+<th>Where it is curated</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Congenital cerebellar ataxia due to RNU12 mutation (MONDO:0033717)</td>
+<td>RNU12</td>
+<td>The SCAR33 subtype of <a href="../disorders/RNU12-related_minor_spliceopathy.html">RNU12-related Minor Spliceopathy</a>; Orphanet's term for the same disease as OMIM:620208</td>
+</tr>
+<tr>
+<td>Developmental and epileptic encephalopathy 119 (MONDO:1060177)</td>
+<td>RNU2-2</td>
+<td>A subtype of <a href="../disorders/Genetic_Developmental_and_Epileptic_Encephalopathy.html">Genetic Developmental and Epileptic Encephalopathy</a></td>
+</tr>
+<tr>
+<td>Recessive RNU4-2-related neurodevelopmental disorder</td>
+<td>RNU4-2</td>
+<td>A subtype of <a href="../disorders/ReNU_Syndrome.html">ReNU Syndrome</a></td>
+</tr>
+<tr>
+<td>RNU4-2- and RNU6-related retinitis pigmentosa</td>
+<td>RNU4-2, RNU6 genes</td>
+<td>A subtype of <a href="../disorders/ReNU_Syndrome.html">ReNU Syndrome</a></td>
+</tr>
+<tr>
+<td>RNU4ATAC spectrum disorder (MONDO:0100558)</td>
+<td>RNU4ATAC</td>
+<td>A grouping over Roifman, MOPD I and Lowry-Wood</td>
+</tr>
+</tbody>
+</table>
+<p>None of these has a stub. MONDO has no term yet for the recessive RNU4-2
+disorder or for snRNA-gene retinitis pigmentosa: OLS searches of MONDO for
+"RNU4-2", "RNU6" and "retinitis pigmentosa small nuclear RNA" returned no such
+term, and retinitis pigmentosa 96 to 101 are caused by other genes (SAG, VWA8,
+TMEM216, IDH3G, TBC1D32, CLN3). A stub can be added once MONDO has a term.</p>
+<h3 id="not-yet-curated">Not yet curated</h3>
+<p>No spliceosome-component stubs remain in <code>stubs/</code>.</p>
+<h2 id="group-2-cis-splice-altering-variants">Group 2: cis splice-altering variants</h2>
+<p>These belong on the gene's own entry, as <code>genetic[].variants</code> with the
+splicing consequence stated, and not as new disease entries. Use the
+<code>noncoding-variant-impact</code> skill for deep-intronic and regulatory variants,
+and keep the physical change, the splicing outcome and the evidence for that
+outcome separate. No audit of how consistently the KB records these has been
+done yet.</p>
+<h2 id="group-3-splice-switching-therapy">Group 3: splice-switching therapy</h2>
+<p>Entries with an oligonucleotide treatment whose
+<code>oligonucleotide_mechanism</code> is <code>SPLICE_MODULATION_EXON_SKIPPING</code> or
+<code>SPLICE_MODULATION_EXON_INCLUSION</code>: <a href="../disorders/Spinal_Muscular_Atrophy.html">Spinal Muscular Atrophy</a>,
+<a href="../disorders/Duchenne_Muscular_Dystrophy.html">Duchenne Muscular Dystrophy</a>, <a href="../disorders/Dravet_syndrome.html">Dravet syndrome</a>, <a href="../disorders/Ataxia-telangiectasia.html">Ataxia Telangiectasia</a>,
+<a href="../disorders/Neuronal_Ceroid_Lipofuscinosis_7.html">Neuronal Ceroid Lipofuscinosis 7</a>, <a href="../disorders/Leber_Congenital_Amaurosis_10.html">Leber Congenital Amaurosis 10</a>,
+<a href="../disorders/Usher_Syndrome_Type_2.html">Usher Syndrome Type 2</a> and <a href="../disorders/Stargardt_Disease.html">Stargardt Disease</a>, among others. Treatments that use
+this mechanism should conform to <code>antisense_oligonucleotide_therapy</code>.</p>
+<h2 id="open-questions">Open questions</h2>
+<ul>
+<li><strong>Which mis-spliced transcripts cause the phenotype?</strong> Not answered for any
+  major-spliceosome snRNA disorder. RNU5B-1 is recorded as a <code>KNOWLEDGE_GAP</code>
+  with two proposed experiments: splicing in isogenic stem-cell-derived
+  neurons, and the level and spliceosome incorporation of the mutant U5B-1.</li>
+<li><strong>Neomorphic or loss of function?</strong> For dominant snRNA variants, the mutant
+  RNA may redirect splice-site choice, or be degraded by snRNA quality control,
+  or poison spliceosomes broadly. The RNU5B-1 entry carries both models as
+  competing <code>mechanistic_hypotheses</code>, and <a href="../disorders/ReNU_Syndrome.html">ReNU Syndrome</a> has a matching gap.</li>
+<li><strong>Why are the phenotypes tissue-restricted?</strong> Mutations in core, ubiquitous
+  machinery give craniofacial dysostoses (EFTUD2, SF3B4, SNRPB, TXNL4A),
+  isolated retinopathy (PRPF31, PRPF8, SNRNP200) or neurodevelopmental disease
+  (RNU4-2, RNU5B-1, RNU2-2). This is recorded as a <code>KNOWLEDGE_GAP</code> on
+  <code>spliceosome_component_dysfunction</code>. The Eftud2 work shows the P53 branch
+  contributes but is not sufficient: deleting Trp53 in neural crest did not
+  rescue development.</li>
+<li><strong>Is RPE failure primary in the PRPF retinopathies?</strong> Prpf8 knock-in mice
+  show an RPE phagocytosis defect that patient-derived RPE did not reproduce,
+  while retinal organoids degenerate without any RPE. Recorded as a
+  <code>HUMAN_MODEL_MISMATCH</code> on PRPF8-Related_Retinopathy.</li>
+</ul>
+<h2 id="progress">Progress</h2>
+<ul>
+<li><code>spliceosome_component_dysfunction</code> module: component variant, then
+  mis-splicing of a sensitive transcript subset (the key conformance target),
+  an optional P53 branch, failure of splicing-sensitive cells, and
+  tissue-restricted disease.</li>
+<li><code>Spliceosomopathies</code> grouping: 22 members defined by a single
+  <code>CONFORMS_TO_MODULE</code> criterion, three of them through the nested
+  <a href="../groupings/RNU4ATAC_Spectrum_Disorder.html">RNU4ATAC Spectrum Disorder</a> grouping.</li>
+<li>Curated from stubs: PRPF8, SNRNP200, U2AF2, PRPF19, CWC27, SNRPE (Hypotrichosis
+  11) and LSM7. RNU12 cerebellar ataxia was folded into the existing SCAR33
+  subtype.</li>
+<li>Wired to the module: SNIP1, DHX16, WBP4 and SRRM2. <a href="../disorders/Craniofacial_Microsomia.html">Craniofacial Microsomia</a>
+  is left out, because its SF3B2 node also carries FOXI3, GBX2 and SHROOM3.</li>
+<li>Not every member conforms at the mis-splicing node. Mis-splicing is not
+  shown for Hypotrichosis 11 (the founding study found none in patient
+  lymphocytes) or LSM7 (no splicing assay yet), and for PRPF19 it rests on fly
+  ortholog knockdown only.</li>
+</ul>
+<h2 id="possible-next-steps">Possible next steps</h2>
+<ul>
+<li>Test which LSm ring LSM7 variants disrupt: the entry proposes a patient-cell
+  experiment that separates splicing from mRNA decay.</li>
+<li>Add stubs for the recessive RNU4-2 and snRNA retinitis pigmentosa disorders
+  once MONDO has terms for them.</li>
+<li>Audit how consistently Group 2 splice variants are recorded on gene entries.</li>
+</ul>
+        </article>
+    </div>
+</body>
+</html>

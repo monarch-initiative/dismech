@@ -52,6 +52,12 @@ Watch for:
   radiographic finding. Usually `GROUPING`.
 - **Phenotypes, not diseases** — `microcephaly` is a finding. `OUT_OF_SCOPE`,
   unless the specific disease entity is meant.
+- **A phenotype label on a single-gene term** — when the stub has one gene
+  in `genes:` but its label is a phenotype or a broad clinical name, the
+  specific disease *is* meant, and the label is too broad for it. Claim it as
+  usual, but the entry gets a name of its own (see the `entry-naming` skill).
+  The claim title keeps the stub label, because it is the key claims are
+  matched on.
 - **Susceptibility / predisposition terms** — usually `OUT_OF_SCOPE`.
 - **Cancers** — deprioritize for now. The project does not yet have a settled
   lump/split strategy for neoplasms (see #7082). Prefer a non-cancer candidate,
@@ -93,7 +99,7 @@ are one intake path; the `curation`-labelled literature-scan issues worked by
 the curation-scanner are another, and the two do not talk. A scanner agent that
 goes straight from a `curation` issue to a PR never files a claim issue, so its
 work is absent from phase 1 — and absent from phase 2 too, since the stub
-survives until that PR merges. That is why step 5 searches open PRs as a third
+survives until that PR merges. That is why step 6 searches open PRs as a third
 surface. Assume neither phase knows about a PR.
 
 ## The stub already holds the lump/split evidence
@@ -162,7 +168,33 @@ turns on. Enriching an issue body with a definition or an OMIM ID is not that.
    `mcp__github__get_me` where there is no `gh`. This is the assignee — the
    person driving the agent, never a hardcoded name.
 
-3. **Fetch the claims and pick, in one pass:**
+3. **Sync with `origin/main` before reading the queue.** `git fetch` only
+   updates the remote-tracking ref `origin/main`; it does not move your local
+   `main` or your checkout. `next-unclaimed`, `check-stubs` and `tidy-stubs`
+   read `stubs/` and `kb/` from the working tree, so a stale checkout offers
+   diseases that were curated (and stubs that were deleted) after it was last
+   updated. Check how far behind you are first:
+
+   ```bash
+   git fetch origin main
+   git status -sb
+   git rev-list --count HEAD..origin/main   # 0 means the checkout is current
+   ```
+
+   If that count is not 0, bring the checkout up to date before step 4. In the
+   primary checkout on `main`, fast-forward it:
+
+   ```bash
+   git merge --ff-only origin/main
+   ```
+
+   On a feature branch or in a worktree, do not merge `main` into that branch to
+   refresh the queue. Start the claim work on a new branch made from
+   `origin/main` instead (see *One PR per disease*), and run the pool there.
+   If `--ff-only` refuses because local `main` has commits `origin/main` lacks,
+   stop and find out what they are rather than resetting over them.
+
+4. **Fetch the claims and pick, in one pass:**
 
    ```bash
    just fetch-claims                        # -> tmp/claims.json, one API call
@@ -180,6 +212,24 @@ turns on. Enriching an issue body with a definition or an OMIM ID is not that.
    stubs whose MONDO ID the KB covers; a `[advisory] possible_kb_duplicate`
    line under a candidate (`advisories` in `--json`) means an entry with the
    same name exists under another MONDO ID, so open that entry before choosing.
+
+   **`gh` present but GraphQL blocked (Claude Code cloud sessions).** These
+   sessions have an authenticated `gh`, but their proxy answers every GraphQL
+   call with HTTP 403, and `gh issue list` is GraphQL. `just fetch-claims`
+   handles this: when `gh issue list` fails it falls back to
+   `gh api --paginate` over REST, says so on stderr, and writes the file as
+   usual. The same fallback covers a `gh` older than v2.73.0, which rejects the
+   `closedByPullRequestsReferences` field (#11814). Nothing to do by hand.
+   What you lose is the linked-PR field, which REST has no equivalent for, so
+   `check-claims` prints a note that its **stale** list may over-report; check
+   an issue for an open PR before treating its claim as stale.
+
+   **If `just fetch-claims` exits non-zero, stop and read the error.** A failed
+   fetch leaves `tmp/claims.json` as it was (or absent) rather than writing an
+   empty file, and `next-unclaimed` / `check-claims` refuse an empty file, so a
+   failure can no longer pass as "nobody has claimed anything". Do not work
+   around it by writing `[]` by hand: an empty claims list offers every claimed
+   disease as free.
 
    **No `gh` CLI (web and remote sessions).** `just fetch-claims` shells out to
    `gh`, which is absent there — and `curl https://api.github.com` fails too:
@@ -204,12 +254,12 @@ turns on. Enriching an issue body with a definition or an OMIM ID is not that.
    path, so its **stale** list over-reports — it errs toward flagging, and a
    stale claim is only ever reported for a human, never auto-taken.
 
-4. **Read the pool and choose deliberately.** Do not take rows in order — within
+5. **Read the pool and choose deliberately.** Do not take rows in order — within
    a priority band the order is an arbitrary hash spread. Prefer candidates you
    can curate well; apply the suspicion list above. Note what you skipped and
    why; you will report it.
 
-5. **Duplicate preflight, for every candidate you intend to claim.** The claim
+6. **Duplicate preflight, for every candidate you intend to claim.** The claim
    check is by MONDO ID, so it cannot see a disease curated or claimed under a
    different term. Do this for **all** your candidates in one pass, not one
    candidate at a time:
@@ -260,13 +310,13 @@ turns on. Enriching an issue body with a definition or an OMIM ID is not that.
    that PR merges. If the PR is stalled on something you can supply, that is
    worth reporting to the user; it is usually more valuable than a fresh claim.
 
-6. **File the claim issue.** This is the claim — file it *before* starting work,
+7. **File the claim issue.** This is the claim — file it *before* starting work,
    not after.
 
-7. **Report**: the issue URLs, and — explicitly — every candidate you skipped
+8. **Report**: the issue URLs, and — explicitly — every candidate you skipped
    with the reason. If you filed fewer than N, say so; do not pad the count.
 
-8. **Do we the work**: start curating the entries. Unless the user says to
+9. **Do we the work**: start curating the entries. Unless the user says to
    hold off
 
 ## Filing a claim
@@ -336,7 +386,17 @@ work and check back later.
 
 **N diseases means N branches and N pull requests.** Never package a multi-disease
 claim run into a single branch or a single commit. Each disease gets its own
-branch off `main`, carrying only:
+branch, created from `origin/main` rather than from local `main` (which a
+`git fetch` never moves, and which can be hundreds of commits behind):
+
+```bash
+git fetch origin main
+git worktree add -b <branch> ../dismech-<slug> origin/main   # primary checkout stays on main
+# or, where worktrees are not in use (e.g. a cloud session on an assigned branch):
+git switch -c <branch> origin/main
+```
+
+The branch then carries only:
 
 ```
 + kb/disorders/<Disease>.yaml
@@ -397,6 +457,26 @@ Once a PR is approved, stop working it. Do not merge it yourself, do not dismiss
 a review to clear a gate, and do not keep polishing an approved PR. Approved is
 the finish line. Only tear the worktrees down once every PR in the run is
 approved (or closed).
+
+## Re-check for a competitor before you open the PR
+
+The claim preflight runs when you *file* the claim, and cannot see a sibling
+claim filed seconds later or one that only becomes a PR while you curate. So the
+last step before opening a curation PR is to re-check, keyed on the MONDO ID,
+over open claim issues **and** open PRs:
+
+```bash
+just preflight-claim-conflict MONDO:0014821 --self-issue <your claim> --self-branch <your branch>
+```
+
+It exits non-zero and names the competitor if another open claim or PR covers
+the same MONDO ID. If it does, **do not open a duplicate PR** — drop to the
+protocol below. This is the layer that would have caught #16098 → PR #16142:
+its filing preflight was clean, and the sibling claim #16096 had become PR
+#16116 by the time the PR opened, with nothing re-checking (issue #16202). The
+creation-time guard (`.github/workflows/claim-dedupe-guard.yml`) is the other
+half: it labels a duplicate claim `duplicate-claim` at open time, so check your
+own claim issue for that label before starting.
 
 ## When two PRs curate the same disease anyway
 

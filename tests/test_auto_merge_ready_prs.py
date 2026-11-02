@@ -1619,6 +1619,155 @@ def test_main_holds_a_repeatedly_failing_pr_and_never_marks_it_ready(
     )
 
 
+# --- telling a held PR why it is held (#10988) ---------------------------
+
+HELD_HEAD = "cafe1234beef5678"
+
+TWO_STRIKES_WITH_OID = json.dumps({"data": {"repository": {"pullRequest": {
+    "commits": {"nodes": [{"commit": {
+        "oid": HELD_HEAD, "committedDate": "2026-09-01T00:00:00Z",
+    }}]},
+    "timelineItems": {"nodes": [
+        {"createdAt": "2026-09-03T01:00:00Z", "reason": "failed_checks"},
+        {"createdAt": "2026-09-03T02:00:00Z", "reason": "failed_checks"},
+    ]},
+}}}})
+
+
+def _held(strikes=2, head=HELD_HEAD):
+    return auto_merge.EjectionMemory(True, strikes, "held", head_oid=head)
+
+
+def test_ejection_memory_reports_the_head_it_counted_against(monkeypatch):
+    monkeypatch.setattr(
+        auto_merge, "_gh", lambda a, token=None: TWO_STRIKES_WITH_OID
+    )
+    memory = auto_merge.ejection_memory("o/r", 7)
+    assert memory.blocked is True
+    assert memory.head_oid == HELD_HEAD
+
+
+def test_hold_notice_is_posted_once_with_the_writer(monkeypatch):
+    calls = []
+
+    def fake_gh(args, *, token=None):
+        calls.append((args, token))
+        return ""  # no earlier comments
+
+    monkeypatch.setattr(auto_merge, "_gh", fake_gh)
+    outcome = auto_merge.notify_ejection_hold("o/r", 7, _held(), "writer")
+    assert outcome == "notified on the PR"
+    reads = [c for c in calls if c[0][:1] == ["api"]]
+    posts = [c for c in calls if c[0][:2] == ["pr", "comment"]]
+    assert len(reads) == 1 and reads[0][1] is None, (
+        "the comment lookup is discovery and must not carry the writer"
+    )
+    assert len(posts) == 1 and posts[0][1] == "writer"
+    body = posts[0][0][posts[0][0].index("--body") + 1]
+    assert auto_merge.EJECTION_HOLD_MARKER.format(head=HELD_HEAD) in body
+    assert "2 times" in body
+    assert "push a commit" in body
+
+
+def test_hold_notice_is_not_repeated_for_the_same_head(monkeypatch):
+    """The hold persists across hourly sweeps; the notice must not."""
+    earlier = "some text\n" + auto_merge.EJECTION_HOLD_MARKER.format(
+        head=HELD_HEAD
+    ) + "\nmore text\n"
+    posts = []
+
+    def fake_gh(args, *, token=None):
+        if args[:2] == ["pr", "comment"]:
+            posts.append(args)
+        return earlier
+
+    monkeypatch.setattr(auto_merge, "_gh", fake_gh)
+    outcome = auto_merge.notify_ejection_hold("o/r", 7, _held(), "writer")
+    assert outcome == "already notified"
+    assert posts == []
+
+
+def test_a_new_held_head_gets_its_own_notice(monkeypatch):
+    """A notice for an older head does not cover a new head that is also held."""
+    earlier = auto_merge.EJECTION_HOLD_MARKER.format(head="0ldhead")
+    posts = []
+
+    def fake_gh(args, *, token=None):
+        if args[:2] == ["pr", "comment"]:
+            posts.append(args)
+            return ""
+        return earlier
+
+    monkeypatch.setattr(auto_merge, "_gh", fake_gh)
+    auto_merge.notify_ejection_hold("o/r", 7, _held(), "writer")
+    assert len(posts) == 1
+
+
+def test_hold_notice_is_not_posted_blind_when_comments_cannot_be_read(
+    monkeypatch,
+):
+    """Posting without the dedup read could repeat the notice every hour."""
+    posts = []
+
+    def fake_gh(args, *, token=None):
+        if args[:2] == ["pr", "comment"]:
+            posts.append(args)
+            return ""
+        raise subprocess.CalledProcessError(1, ["gh"], stderr="HTTP 502")
+
+    monkeypatch.setattr(auto_merge, "_gh", fake_gh)
+    outcome = auto_merge.notify_ejection_hold("o/r", 7, _held(), "writer")
+    assert outcome.startswith("not notified")
+    assert posts == []
+
+
+def test_a_failed_hold_notice_does_not_raise(monkeypatch):
+    """The hold has already been applied; the notice is best-effort."""
+    def fake_gh(args, *, token=None):
+        if args[:2] == ["pr", "comment"]:
+            raise subprocess.CalledProcessError(1, ["gh"], stderr="HTTP 403")
+        return ""
+
+    monkeypatch.setattr(auto_merge, "_gh", fake_gh)
+    outcome = auto_merge.notify_ejection_hold("o/r", 7, _held(), "writer")
+    assert outcome == "not notified (posting failed)"
+
+
+def test_hold_notice_needs_a_known_head(monkeypatch):
+    def fail(*a, **k):
+        raise AssertionError("no gh call expected without a head to key on")
+
+    monkeypatch.setattr(auto_merge, "_gh", fail)
+    outcome = auto_merge.notify_ejection_hold("o/r", 7, _held(head=""), "w")
+    assert outcome == "not notified (head commit unknown)"
+
+
+def test_main_posts_the_hold_notice_and_does_not_merge(monkeypatch, tmp_path):
+    held = make_pr(number=42, mergeable="MERGEABLE")
+    code, calls = _run_main(
+        monkeypatch, tmp_path, view=held, listed=[held],
+        ejection_payload=TWO_STRIKES_WITH_OID,
+    )
+    assert code == 0
+    assert [c for c in calls if c[:2] == ["pr", "merge"]] == []
+    comments = [c for c in calls if c[:2] == ["pr", "comment"]]
+    assert len(comments) == 1
+    assert "notified on the PR" in (tmp_path / "summary.md").read_text()
+
+
+def test_dry_run_reports_but_does_not_post_the_hold_notice(
+    monkeypatch, tmp_path
+):
+    held = make_pr(number=42, mergeable="MERGEABLE")
+    code, calls = _run_main(
+        monkeypatch, tmp_path, view=held, listed=[held],
+        ejection_payload=TWO_STRIKES_WITH_OID, extra_args=("--dry-run",),
+    )
+    assert code == 0
+    assert [c for c in calls if c[:2] == ["pr", "comment"]] == []
+    assert "hold notice not posted" in (tmp_path / "summary.md").read_text()
+
+
 # --- conflict-aware enqueue batching -------------------------------------
 
 ACTIVE_QUEUE = json.dumps(
