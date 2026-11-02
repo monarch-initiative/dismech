@@ -52420,6 +52420,87 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Bamforth-Lazarus Syndrome",
+    "disease_id": "MONDO:0009437",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary disease",
+      "Endocrine system disorder",
+      "Syndromic disease"
+    ],
+    "creation_date": "2026-11-02T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Bamforth-Lazarus syndrome is a rare autosomal recessive syndromic form of congenital hypothyroidism caused by biallelic pathogenic variants in FOXE1 (TTF-2 / FKHL15), a forkhead/winged-helix-domain transcription factor required for thyroid gland morphogenesis and secondary palate fusion. The cardinal features are congenital hypothyroidism from thyroid dysgenesis (usually athyreosis), cleft palate and spiky hair, with variable choanal atresia and bifid epiglottis. ClinGen's Craniofacial Malformations GCEP splits the FOXE1 disease associations into three entities; this entry is scoped to the autosomal recessive Bamforth-Lazarus syndrome (MIM 241850), distinct from FOXE1-associated nonmedullary thyroid cancer and from isolated athyreosis.",
+    "pathophysiology": [
+      "FOXE1 Forkhead Transcription Factor Dysfunction",
+      "Thyroid Dysgenesis",
+      "Thyroid Hormone Deficiency from Thyroid Dysgenesis",
+      "Impaired Palatal Shelf Fusion",
+      "Impaired Hair Follicle Morphogenesis"
+    ],
+    "cell_types": [
+      "thyroid follicular cell",
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002258",
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "regulation of DNA-templated transcription",
+      "thyroid gland development",
+      "thyroid hormone generation",
+      "roof of mouth development",
+      "hair follicle morphogenesis"
+    ],
+    "phenotypes": [
+      "Congenital hypothyroidism",
+      "Thyroid agenesis",
+      "Cleft palate",
+      "Choanal atresia",
+      "Bifid epiglottis",
+      "Spiky hair",
+      "Global developmental delay"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Head and Neck",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000851",
+      "HP:0008191",
+      "HP:0000175",
+      "HP:0000453",
+      "HP:0010564",
+      "HP:0001263"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "FOXE1"
+    ],
+    "treatments": [
+      "Levothyroxine replacement",
+      "Cleft palate surgical repair",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Bamforth-Lazarus_Syndrome.yaml",
+    "page_url": "../pages/disorders/Bamforth-Lazarus_Syndrome.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Bannayan-Riley-Ruvalcaba Syndrome",
     "disease_id": "MONDO:0007924",
     "category": "Mendelian",
@@ -89341,7 +89422,7 @@ window.searchData = [
     "creation_date": "2026-07-31T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Charcot-Marie-Tooth disease-hearing loss-intellectual disability syndrome, also described in the neurological literature as hereditary motor and sensory neuropathy with deafness, mental retardation, and absence of (sensory) large myelinated fibers (HMSN-ADM), is a rare, presumably autosomal recessive hereditary motor and sensory neuropathy. It is defined by early-onset, slowly progressive distal muscle weakness and atrophy, sensorineural deafness, and mild intellectual disability, with the pathognomonic finding of absence of large myelinated fibers (with a preserved complement of small myelinated fibers) on sural nerve biopsy. Autopsy evidence indicates the peripheral fiber loss reflects a primary lack of large-caliber neurons in the dorsal root ganglia and spinal anterior horns \u2014 a neuronopathy \u2014 together with cerebellar dentate neuron loss; variable demyelinating features and, rarely, epilepsy have been reported. The disorder was delineated from a small number of families (notably from a single geographic area of southern Italy); its causal gene remains unidentified, with the SMN1 and PMP22 genes explicitly excluded in the autopsied case.\n",
+    "description": "Charcot-Marie-Tooth disease-hearing loss-intellectual disability syndrome (HMSN-ADM) is a rare, presumed autosomal recessive sensorimotor neuropathy associated with sensorineural hearing impairment and intellectual disability. Early distal weakness and atrophy accompany selective absence of large myelinated fibers on sural nerve biopsy, with relative preservation of small myelinated fibers. One autopsied child also lacked large neurons in dorsal root ganglia and spinal anterior horns and nearly all dentate nucleus neurons. These observations support a neuronopathy; faulty neuronal growth followed by axonal atrophy remains a hypothesis rather than a proven developmental mechanism. Demyelination was variable in the reported brothers. Epilepsy occurred in the autopsied child, but its population frequency is unknown. The reviewed sources do not establish a causal gene. This clinicopathological entity is distinct from AIFM1-related Cowchock syndrome (CMTX4).",
     "pathophysiology": [
       "Loss of Large-Caliber Neurons in Dorsal Root Ganglia and Anterior Horns",
       "Absence of Large Myelinated Nerve Fibers",
@@ -89355,41 +89436,67 @@ window.searchData = [
     ],
     "cell_type_ids": [
       "CL:0000100",
+      "CL:1001451",
       "CL:0000101",
       "CL:1001611"
     ],
-    "biological_processes": [
-      "Neuron development"
-    ],
+    "biological_processes": [],
     "phenotypes": [
       "Peripheral Neuropathy",
       "Decreased Number of Large Peripheral Myelinated Nerve Fibers",
       "Distal Muscle Weakness",
       "Sensorineural Hearing Impairment",
       "Mild Intellectual Disability",
-      "Seizures"
+      "Seizures",
+      "Decreased Nerve Conduction Velocity",
+      "Reduced Sensory Action Potentials",
+      "Lower Limb Amyotrophy",
+      "Global Developmental Delay",
+      "Absent Speech",
+      "Dysarthria",
+      "Failure to Thrive in Infancy",
+      "Pes Cavus",
+      "Gait Ataxia",
+      "Lower Limb Areflexia",
+      "Respiratory Insufficiency"
     ],
     "phenotype_categories": [
       "Neurological",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Growth",
+      "Respiratory"
     ],
     "phenotype_hpo_categories": [
       "Ear",
+      "Growth",
+      "Limbs",
       "Musculoskeletal",
-      "Nervous System"
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
-      "HP:0009830",
+      "HP:0007141",
       "HP:0003387",
       "HP:0002460",
       "HP:0000407",
       "HP:0001256",
-      "HP:0001250"
+      "HP:0001250",
+      "HP:0000762",
+      "HP:0007078",
+      "HP:0007210",
+      "HP:0001263",
+      "HP:0001344",
+      "HP:0001260",
+      "HP:0001531",
+      "HP:0001761",
+      "HP:0002066",
+      "HP:0002522",
+      "HP:0002093"
     ],
     "frequencies": [
-      "OBLIGATE",
       "VERY_FREQUENT",
-      "VERY_RARE"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [],
     "treatments": [
@@ -89401,11 +89508,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Charcot-Marie-Tooth_Disease-Hearing_Loss-Intellectual_Disability_Syndrome.yaml",
     "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease-Hearing_Loss-Intellectual_Disability_Syndrome.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 17,
     "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "4",
     "causal_graph_longest_path": "2"
   },
   {
@@ -104428,34 +104535,69 @@ window.searchData = [
     "cell_type_ids": [],
     "biological_processes": [
       "malonyl-CoA biosynthetic process",
-      "dicarboxylic acid metabolic process"
+      "dicarboxylic acid metabolic process",
+      "protein malonylation",
+      "oxidative phosphorylation"
     ],
     "phenotypes": [
-      "Variable neurologic and metabolic manifestations",
+      "Methylmalonic aciduria",
+      "Malonic aciduria",
       "Seizure",
       "Global developmental delay",
       "Failure to thrive",
-      "Favorable screen-detected course"
+      "Ketoacidosis",
+      "Hypoglycemia",
+      "Microcephaly",
+      "Dystonia",
+      "Axial hypotonia",
+      "Memory impairment",
+      "Psychiatric disease",
+      "Cognitive decline",
+      "Coma",
+      "Elevated hepatic transaminases"
     ],
     "phenotype_categories": [
-      "Clinical",
+      "Metabolic",
       "Neurological",
-      "Developmental"
+      "Developmental",
+      "Growth",
+      "Psychiatric",
+      "Hepatic"
     ],
     "phenotype_hpo_categories": [
+      "Genitourinary",
       "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
+      "HP:0012120",
+      "HP:0034657",
       "HP:0001250",
       "HP:0001263",
-      "HP:0001508"
+      "HP:0001508",
+      "HP:0001993",
+      "HP:0001943",
+      "HP:0000252",
+      "HP:0001332",
+      "HP:0008936",
+      "HP:0002354",
+      "HP:0000708",
+      "HP:0001268",
+      "HP:0001259",
+      "HP:0002910"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "OCCASIONAL"
+    ],
     "genes": [
       "ACSF3"
     ],
-    "treatments": [],
+    "treatments": [
+      "Clinical Monitoring and Conservative Management"
+    ],
     "environmental": [],
     "biochemical": [
       "Methylmalonic acid",
@@ -104463,11 +104605,11 @@ window.searchData = [
     ],
     "source_file": "Combined_Malonic_and_Methylmalonic_Aciduria.yaml",
     "page_url": "../pages/disorders/Combined_Malonic_and_Methylmalonic_Aciduria.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 15,
     "num_pathophysiology": 3,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "8",
+    "num_treatments": 1,
+    "causal_graph_edges": "19",
     "causal_graph_longest_path": "5"
   },
   {
@@ -169861,6 +170003,83 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "GNAT2-Related Retinopathy",
+    "disease_id": "MONDO:0800392",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-11-02T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "ACHM4"
+    ],
+    "description": "GNAT2-related retinopathy is an autosomal recessive cone photoreceptor disorder caused by biallelic pathogenic variants in GNAT2, which encodes the cone-specific alpha subunit of transducin, the heterotrimeric G protein that couples photoactivated cone opsin to cone cGMP phosphodiesterase (PDE6) in the phototransduction cascade. Loss of cone transducin breaks the cascade at the G-protein coupling step, so the cone cannot translate light into a response. The usual phenotype is complete or incomplete achromatopsia (ACHM4) -- a congenital, largely stationary loss of cone function -- although a progressive cone-dystrophy presentation with slow visual-acuity deterioration has also been reported. This entry captures the GNAT2-specific gene-disease mechanism and spectrum; Achromatopsia.yaml models the ACHM4 subtype within the broader achromatopsia umbrella and should be consulted for cross-gene comparison within that phenotype.",
+    "pathophysiology": [
+      "GNAT2 Cone Transducin Deficiency",
+      "Failure of Cone Light Response Activation",
+      "Congenital Cone Dysfunction"
+    ],
+    "cell_types": [
+      "retinal cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "phototransduction, visible light",
+      "detection of light stimulus involved in visual perception",
+      "visual perception"
+    ],
+    "phenotypes": [
+      "Color vision defect",
+      "Reduced visual acuity",
+      "Photophobia",
+      "Nystagmus",
+      "Undetectable cone electroretinogram",
+      "Cone/cone-rod dystrophy",
+      "Hypermetropia",
+      "Central scotoma"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000551",
+      "HP:0007663",
+      "HP:0000613",
+      "HP:0000639",
+      "HP:0030465",
+      "HP:0000548",
+      "HP:0000540",
+      "HP:0000603"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GNAT2"
+    ],
+    "treatments": [
+      "AAV cone-directed gene therapy (preclinical)",
+      "Low vision aids and tinted filters",
+      "Genetic counseling",
+      "Ophthalmologic surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "GNAT2-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/GNAT2-Related_Retinopathy.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "GNB5-Related Neurodevelopmental Disorder",
@@ -296558,16 +296777,31 @@ window.searchData = [
       "Autism spectrum disorder",
       "Aggressive behavior",
       "Corpus callosum abnormality",
-      "Facial dysmorphism"
+      "Abnormal putamen morphology",
+      "Abnormal globus pallidus morphology",
+      "Facial dysmorphism",
+      "Chronic constipation",
+      "Feeding difficulties",
+      "Gastroesophageal reflux",
+      "Attention deficit hyperactivity disorder",
+      "Sleep disturbance",
+      "Minor hand anomalies",
+      "Seizure",
+      "Hypotonia"
     ],
     "phenotype_categories": [
       "Clinical",
       "Behavioral",
       "Neurologic",
-      "Craniofacial"
+      "Craniofacial",
+      "Gastrointestinal",
+      "Musculoskeletal"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
       "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
@@ -296576,9 +296810,23 @@ window.searchData = [
       "HP:0000729",
       "HP:0000718",
       "HP:0001273",
-      "HP:0001999"
+      "HP:0031982",
+      "HP:0002453",
+      "HP:0001999",
+      "HP:0012450",
+      "HP:0011968",
+      "HP:0002020",
+      "HP:0007018",
+      "HP:0002360",
+      "HP:0001155",
+      "HP:0001250",
+      "HP:0001252"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
     "genes": [
       "MED12L haploinsufficiency"
     ],
@@ -296591,12 +296839,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Nizon-Isidor_Syndrome.yaml",
     "page_url": "../pages/disorders/Nizon-Isidor_Syndrome.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 16,
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Nocardiosis",
@@ -308912,6 +309160,94 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "PDE6C-Related Retinopathy",
+    "disease_id": "MONDO:1040028",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-11-02T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "ACHM5",
+      "Cone Dystrophy 4"
+    ],
+    "description": "PDE6C-related retinopathy is an autosomal recessive cone photoreceptor disorder caused by biallelic pathogenic variants in PDE6C, which encodes the catalytic alpha-prime subunit of the cone-specific cGMP phosphodiesterase 6. In the light response, activated cone transducin stimulates PDE6 to hydrolyse cGMP to 5'-GMP, lowering outer-segment cGMP and closing the cyclic nucleotide-gated channels. Loss of PDE6C catalytic activity leaves cone cGMP (and, through the open CNG channels, Ca2+) chronically elevated, so the cone cannot generate a normal light response and the same second messengers become cytotoxic. The phenotype is a clinical spectrum from complete/incomplete achromatopsia (ACHM5) to progressive early-onset cone and cone-rod dystrophy (cone dystrophy 4), distinguished largely by the rate of structural cone loss. This entry captures the PDE6C-specific gene-disease mechanism and spectrum; Achromatopsia.yaml models the ACHM5 subtype within the broader achromatopsia umbrella and should be consulted for cross-gene comparison within that phenotype.",
+    "pathophysiology": [
+      "PDE6C Catalytic Deficiency",
+      "Elevated Cone cGMP and Calcium Overload",
+      "Failure of the Cone Light Response",
+      "Progressive Cone Photoreceptor Degeneration"
+    ],
+    "cell_types": [
+      "retinal cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "phototransduction, visible light",
+      "cGMP catabolic process",
+      "detection of light stimulus involved in visual perception",
+      "photoreceptor cell maintenance"
+    ],
+    "phenotypes": [
+      "Color vision defect",
+      "Reduced visual acuity",
+      "Photophobia",
+      "Nystagmus",
+      "High myopia",
+      "Abnormal cone electroretinogram",
+      "Macular dystrophy",
+      "Central scotoma",
+      "Cone/cone-rod dystrophy",
+      "Constriction of peripheral visual field",
+      "Nyctalopia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000551",
+      "HP:0007663",
+      "HP:0000613",
+      "HP:0000639",
+      "HP:0011003",
+      "HP:0000512",
+      "HP:0007754",
+      "HP:0000603",
+      "HP:0000548",
+      "HP:0001133",
+      "HP:0000662"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "PDE6C"
+    ],
+    "treatments": [
+      "Low vision aids and tinted filters",
+      "Genetic counseling",
+      "Ophthalmologic surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "PDE6C-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/PDE6C-Related_Retinopathy.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "PDE6G-Related Retinopathy",
@@ -378012,7 +378348,7 @@ window.searchData = [
     "pathophysiology": [
       "ITPR1 Haploinsufficiency",
       "Purkinje Cell Dysfunction and Degeneration",
-      "Cerebellar Atrophy"
+      "Cerebellar Cortical and Vermian Volume Loss"
     ],
     "cell_types": [
       "cerebellar Purkinje cell"
@@ -378064,8 +378400,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Spinocerebellar ataxia type 17",
@@ -388953,17 +389289,20 @@ window.searchData = [
       "Uncontrolled HSV-1 Replication in the CNS"
     ],
     "cell_types": [
+      "fibroblast",
       "cortical neuron",
       "pulmonary epithelial cell"
     ],
     "cell_type_ids": [
+      "CL:0000057",
       "CL:0010012",
       "CL:0000082"
     ],
     "biological_processes": [
       "toll-like receptor 3 signaling pathway",
       "type I interferon production",
-      "type III interferon production"
+      "type III interferon production",
+      "defense response to virus"
     ],
     "phenotypes": [
       "Herpes simplex encephalitis",
@@ -388999,8 +389338,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "TLR7-Related Systemic Lupus Erythematosus",
@@ -421199,17 +421538,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3906,
-  "total_subtypes": 4988,
-  "total_disorders_and_subtypes": 8894,
-  "total_unique_evidence_sources": 58087,
-  "total_unique_publications": 54350,
+  "total_disorder_pages": 3909,
+  "total_subtypes": 4991,
+  "total_disorders_and_subtypes": 8900,
+  "total_unique_evidence_sources": 58117,
+  "total_unique_publications": 54376,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3904,
-  "total_unique_pathological_events": 25621,
+  "total_pathographs": 3907,
+  "total_unique_pathological_events": 25634,
   "total_modules": 226,
-  "total_research_reports": 4018,
+  "total_research_reports": 4021,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
