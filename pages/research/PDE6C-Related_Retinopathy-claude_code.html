@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDE6C-Related Retinopathy · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>PDE6C-Related Retinopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>PDE6C-Related Retinopathy</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-11-02</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_1040028" target="_blank" rel="noopener noreferrer">MONDO:1040028</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-5-5</span>
+                    
+                    
+                    <span class="meta-chip">15 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> PDE6C-related retinopathy is an autosomal recessive disorder of the cone photoreceptors. It is caused by biallelic pathogenic variants in <strong>PDE6C</strong> (phosphodiesterase 6C; hgnc:8787; OMIM *600827; 10q23.33; UniProt P51160; Ensembl ENSG00000095464; MANE transcript NM_006204.4). PDE6C encodes the catalytic α′ subunit of the cone-specific cGMP phosphodiesterase. The clinical picture spans:</p>
+<ul>
+<li>complete and incomplete <strong>achromatopsia (ACHM5)</strong>;</li>
+<li>early-onset <strong>cone dystrophy (COD4)</strong>;</li>
+<li><strong>cone-rod dystrophy</strong> in some patients.</li>
+</ul>
+<blockquote>
+<p>"The PDE6C gene encodes the cone alpha subunit of cyclic guanosine monophosphate (cGMP) phosphodiesterase, which converts cGMP to 5'-GMP, and thereby plays an essential role in cone phototransduction." (<a href="https://pubmed.ncbi.nlm.nih.gov/19615668/" target="_blank" rel="noopener noreferrer">PMID:19615668</a>, verified)</p>
+<p>"Our findings identify PDE6C as a gene for cone photoreceptor disorders and show that arCD and ACHM constitute genetically and clinically overlapping phenotypes." (<a href="https://pubmed.ncbi.nlm.nih.gov/19615668/" target="_blank" rel="noopener noreferrer">PMID:19615668</a>, verified)</p>
+</blockquote>
+<p><strong>Identifiers</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>ID</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_1040028" target="_blank" rel="noopener noreferrer">MONDO:1040028</a> <em>PDE6C-related retinopathy</em></td>
+<td>the entry's anchor</td>
+</tr>
+<tr>
+<td>MONDO subtypes</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0800196" target="_blank" rel="noopener noreferrer">MONDO:0800196</a> <em>achromatopsia 5</em> ✓; <a href="http://purl.obolibrary.org/obo/MONDO_0013129" target="_blank" rel="noopener noreferrer">MONDO:0013129</a> <em>cone dystrophy 4</em></td>
+<td>both already in the KB entry</td>
+</tr>
+<tr>
+<td>OMIM (phenotype)</td>
+<td>#613093 <em>Cone dystrophy 4; COD4</em></td>
+<td>OMIM files ACHM5 inside this entry; it has no separate phenotype number (<a href="https://git.lsit.ucsb.edu/publicdata/nih-gov/raw/commit/16b4b23030b9c25e5a647a69ebd82dc9aecccaad/www.ncbi.nlm.nih.gov/omim/613093">OMIM mirror</a>)</td>
+</tr>
+<tr>
+<td>OMIM (gene)</td>
+<td>*600827 PDE6C</td>
+<td></td>
+</tr>
+<tr>
+<td>MedGen</td>
+<td>416518</td>
+<td>lists COD4, achromatopsia 5, cone dystrophy 4, PDE6C cone dystrophy</td>
+</tr>
+<tr>
+<td>ClinGen</td>
+<td>Definitive, AR, PDE6C ↔ <a href="http://purl.obolibrary.org/obo/MONDO_1040028" target="_blank" rel="noopener noreferrer">MONDO:1040028</a>; Retina GCEP; 2023-11-02</td>
+<td><code>CGGV:assertion_73ed48ac-bdd6-4608-953d-773da6ade759-2023-11-02T160000.000Z</code> (from <code>kb/genes/ingest/clingen_gene_validity.tsv</code>)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>not confirmed</td>
+<td>the disease likely sits under <a href="https://bioregistry.io/ORPHA:49382" target="_blank" rel="noopener noreferrer">ORPHA:49382</a> (achromatopsia) and the cone/cone-rod dystrophy groups. Not verified.</td>
+</tr>
+<tr>
+<td>ICD-10-CM / ICD-11</td>
+<td>H53.51 (achromatopsia); H35.5 (hereditary retinal dystrophy)</td>
+<td>general codes only; nothing specific to PDE6C. Not verified in the repo.</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>Color Vision Defects; Cone-Rod Dystrophies</td>
+<td>general headings</td>
+</tr>
+<tr>
+<td>OMIA (animal)</td>
+<td><a href="https://bioregistry.io/OMIA:002163" target="_blank" rel="noopener noreferrer">OMIA:002163</a>-9544 <em>Cone dystrophy 4, PDE6C-related</em> in rhesus macaque (<a href="https://omia.org/4146">OMIA</a>)</td>
+<td></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms:</strong> achromatopsia 5 (ACHM5); cone dystrophy 4 (COD4); PDE6C-related cone dystrophy; PDE6C-related cone-rod dystrophy; PDE6C-associated achromatopsia; rod monochromacy (PDE6C).</p>
+<p><strong>Source of information:</strong> Aggregated disease-level resources (OMIM, ClinGen, GeneReviews) plus small case series and individual case reports. No EHR-derived data were found.</p>
+<h2>2. Etiology</h2>
+<ul>
+<li><strong>Cause:</strong> Monogenic, autosomal recessive. Patients carry biallelic loss-of-function variants in PDE6C, either homozygous or compound heterozygous.</li>
+<li><strong>Genetic risk factors:</strong> Only the biallelic causal variants are known. Consanguinity raises the chance of homozygosity. In the original study, homozygous regions were found by homozygosity mapping: "identified large homozygous regions spanning the PDE6C gene in one sibling pair with early-onset arCD and one sibling pair with incomplete ACHM" (<a href="https://pubmed.ncbi.nlm.nih.gov/19615668/" target="_blank" rel="noopener noreferrer">PMID:19615668</a>, verified).</li>
+<li><strong>Modifier genes:</strong> None established in humans. Possible molecular modifiers:</li>
+<li>Correct maturation of PDE6C depends on the chaperone AIPL1 and the inhibitory γ′ subunit (PDE6H) (<a href="https://pubmed.ncbi.nlm.nih.gov/38110033/" target="_blank" rel="noopener noreferrer">PMID:38110033</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28378769/" target="_blank" rel="noopener noreferrer">PMID:28378769</a>, mouse).</li>
+<li>Mouse data show that the γ′ subunit stabilises the cone PDE6 holoenzyme (<a href="https://pubmed.ncbi.nlm.nih.gov/30038560/" target="_blank" rel="noopener noreferrer">PMID:30038560</a>).</li>
+<li><strong>Environmental risk factors:</strong> None known. Light exposure causes photophobia but has not been shown to change the course of the disease.</li>
+<li><strong>Protective factors and gene–environment interactions:</strong> None documented in humans.</li>
+</ul>
+<h2>3. Phenotypes</h2>
+<p>The best human data are two deep-phenotyping series: Georgiou et al. 2019 (n=8; <a href="https://pubmed.ncbi.nlm.nih.gov/31826238/" target="_blank" rel="noopener noreferrer">PMID:31826238</a>) and Daich Varela et al. 2020 (n=4; <a href="https://pubmed.ncbi.nlm.nih.gov/33001157/" target="_blank" rel="noopener noreferrer">PMID:33001157</a>). Larger genetic cohorts are Grau 2011 (12 patients from 7 families; <a href="https://pubmed.ncbi.nlm.nih.gov/21127010/" target="_blank" rel="noopener noreferrer">PMID:21127010</a>) and Weisschuh 2018 (15 index cases; <a href="https://pubmed.ncbi.nlm.nih.gov/30080950/" target="_blank" rel="noopener noreferrer">PMID:30080950</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO term</th>
+<th>Onset</th>
+<th>Frequency</th>
+<th>Course</th>
+<th>Key evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Colour vision loss (severe; often total)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000551" target="_blank" rel="noopener noreferrer">HP:0000551</a> Color vision defect ✓; <a href="http://purl.obolibrary.org/obo/HP_0011516" target="_blank" rel="noopener noreferrer">HP:0011516</a> Achromatopsia ✓</td>
+<td>congenital or infancy</td>
+<td>8/8 (Georgiou)</td>
+<td>stable or slowly progressive</td>
+<td>"severe color vision loss" ‡ (<a href="https://pubmed.ncbi.nlm.nih.gov/31826238/" target="_blank" rel="noopener noreferrer">PMID:31826238</a>)</td>
+</tr>
+<tr>
+<td>Nystagmus, early onset</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a> Nystagmus ✓</td>
+<td>first months of life</td>
+<td>8/8; also present in the Daich Varela series</td>
+<td>may lessen with age</td>
+<td>"early-onset nystagmus" ‡ (<a href="https://pubmed.ncbi.nlm.nih.gov/31826238/" target="_blank" rel="noopener noreferrer">PMID:31826238</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33001157/" target="_blank" rel="noopener noreferrer">PMID:33001157</a>)</td>
+</tr>
+<tr>
+<td>Photophobia / day blindness</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" rel="noopener noreferrer">HP:0000613</a> Photophobia ✓</td>
+<td>infancy</td>
+<td>8/8</td>
+<td>lifelong</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31826238/" target="_blank" rel="noopener noreferrer">PMID:31826238</a></td>
+</tr>
+<tr>
+<td>Reduced visual acuity, usually about 20/200</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" rel="noopener noreferrer">HP:0007663</a> Reduced visual acuity ✓; <a href="http://purl.obolibrary.org/obo/HP_0001141" target="_blank" rel="noopener noreferrer">HP:0001141</a> Severely reduced visual acuity ✓</td>
+<td>infancy</td>
+<td>8/8</td>
+<td>slowly worsens in adults</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31826238/" target="_blank" rel="noopener noreferrer">PMID:31826238</a></td>
+</tr>
+<tr>
+<td>High myopia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011003" target="_blank" rel="noopener noreferrer">HP:0011003</a> High myopia ✓</td>
+<td>childhood</td>
+<td>5/8</td>
+<td>—</td>
+<td>"five of them had high myopia" ‡ (<a href="https://pubmed.ncbi.nlm.nih.gov/31826238/" target="_blank" rel="noopener noreferrer">PMID:31826238</a>)</td>
+</tr>
+<tr>
+<td>Absent or severely reduced cone ERG; rod ERG normal or later reduced</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008275" target="_blank" rel="noopener noreferrer">HP:0008275</a> Abnormal light-adapted electroretinogram ✓; <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" rel="noopener noreferrer">HP:0000512</a> Abnormal electroretinogram ✓</td>
+<td>infancy</td>
+<td>universal</td>
+<td>rod responses may decline (cone-rod pattern)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33001157/" target="_blank" rel="noopener noreferrer">PMID:33001157</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42525358/" target="_blank" rel="noopener noreferrer">PMID:42525358</a></td>
+</tr>
+<tr>
+<td>Foveal outer retinal disruption (absent EZ, hyporeflective zone, or atrophy); <strong>no foveal hypoplasia</strong></td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030613" target="_blank" rel="noopener noreferrer">HP:0030613</a> Abnormal foveal morphology on macular OCT ✓; <a href="http://purl.obolibrary.org/obo/HP_0000493" target="_blank" rel="noopener noreferrer">HP:0000493</a> Abnormal foveal morphology ✓</td>
+<td>childhood onward</td>
+<td>8/8 abnormal; 0/8 foveal hypoplasia</td>
+<td>progressive: EZ lesion grows a mean of 48.3 µm per year</td>
+<td>"No subjects had foveal hypoplasia" ‡ (<a href="https://pubmed.ncbi.nlm.nih.gov/31826238/" target="_blank" rel="noopener noreferrer">PMID:31826238</a>)</td>
+</tr>
+<tr>
+<td>Maculopathy / macular atrophy (adults)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007754" target="_blank" rel="noopener noreferrer">HP:0007754</a> Macular dystrophy ✓; <a href="http://purl.obolibrary.org/obo/HP_0007401" target="_blank" rel="noopener noreferrer">HP:0007401</a> Macular atrophy ✓</td>
+<td>adulthood</td>
+<td>adults in both series</td>
+<td>slowly progressive; hypoautofluorescent area grows about 0.13 mm² per year</td>
+<td>"the adults had clear macular dystrophy" ‡ (<a href="https://pubmed.ncbi.nlm.nih.gov/33001157/" target="_blank" rel="noopener noreferrer">PMID:33001157</a>)</td>
+</tr>
+<tr>
+<td>Cone-rod dystrophy phenotype</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000548" target="_blank" rel="noopener noreferrer">HP:0000548</a> Cone/cone-rod dystrophy ✓</td>
+<td>childhood to adult</td>
+<td>3/4 (Daich Varela)</td>
+<td>progressive</td>
+<td>"Three of the four patients had a cone-rod dystrophy" ‡ (<a href="https://pubmed.ncbi.nlm.nih.gov/33001157/" target="_blank" rel="noopener noreferrer">PMID:33001157</a>)</td>
+</tr>
+<tr>
+<td>Central scotoma</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000603" target="_blank" rel="noopener noreferrer">HP:0000603</a> Central scotoma ✓</td>
+<td>—</td>
+<td>frequency not reported</td>
+<td>—</td>
+<td>inferred from maculopathy</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Quality of life:</strong> No PDE6C-specific quality-of-life studies were found. Achromatopsia generally impairs reading, outdoor and daylight activities, and driving eligibility. Validated instruments exist (for example the NEI-VFQ-25 and achromatopsia-specific instruments used in CNGA3/CNGB3 trials), but none have been applied to PDE6C cohorts.</p>
+<h2>4. Genetic / Molecular Information</h2>
+<ul>
+<li><strong>Gene:</strong> PDE6C. It encodes PDE6α′, the cone-specific catalytic subunit (HGNC previous symbols: PDEA2, ACHM5, COD4). Cone PDE6 is a homodimer of α′ subunits bound to two inhibitory γ′ subunits (PDE6H).</li>
+<li><strong>Variant spectrum:</strong></li>
+<li>Original discovery (<a href="https://pubmed.ncbi.nlm.nih.gov/19615668/" target="_blank" rel="noopener noreferrer">PMID:19615668</a>, verified):<ul>
+<li>homozygous missense <strong>p.R29W</strong> and <strong>p.Y323N</strong>;</li>
+<li>compound heterozygous frameshift + splice variant;</li>
+<li>splice variant + <strong>p.M455V</strong>.</li>
+</ul>
+</li>
+<li>Grau 2011: "Eleven different PDE6C mutations were found" ‡, comprising nonsense, splice (shown by minigene assay), a 1-bp insertion, and missense variants (<a href="https://pubmed.ncbi.nlm.nih.gov/21127010/" target="_blank" rel="noopener noreferrer">PMID:21127010</a>).</li>
+<li>Weisschuh 2018: "The mutation spectrum comprises 18 different alleles, 15 of which are novel" ‡ (<a href="https://pubmed.ncbi.nlm.nih.gov/30080950/" target="_blank" rel="noopener noreferrer">PMID:30080950</a>).</li>
+<li>Georgiou 2019: three further novel variants (<a href="https://pubmed.ncbi.nlm.nih.gov/31826238/" target="_blank" rel="noopener noreferrer">PMID:31826238</a>).</li>
+<li>Later reports: novel variants from Iran, China and Saudi Arabia (<a href="https://pubmed.ncbi.nlm.nih.gov/32306724/" target="_blank" rel="noopener noreferrer">PMID:32306724</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/32787476/" target="_blank" rel="noopener noreferrer">PMID:32787476</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/34720973/" target="_blank" rel="noopener noreferrer">PMID:34720973</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/35422133/" target="_blank" rel="noopener noreferrer">PMID:35422133</a>).</li>
+<li>Nonhuman primate: macaque <strong>p.R565Q</strong> in the catalytic domain (<a href="https://pubmed.ncbi.nlm.nih.gov/30667376/" target="_blank" rel="noopener noreferrer">PMID:30667376</a>).</li>
+<li><strong>Classification:</strong> ClinGen rates the gene–disease relationship <strong>Definitive</strong> (AR). For individual variants, use ClinVar: most protein-truncating and splice alleles are Pathogenic or Likely Pathogenic, and many missense alleles are VUS. One recent report describes a likely-pathogenic frameshift in trans with a VUS (<a href="https://pubmed.ncbi.nlm.nih.gov/42525358/" target="_blank" rel="noopener noreferrer">PMID:42525358</a>).</li>
+<li><strong>Functional consequence:</strong> Loss of function. Most missense variants act as functional nulls: "Four of the six PDE6C missense mutations led to baseline PDE activities" ‡. Two other missense variants showed about 60% and 80% loss of activity together with altered activation properties (<a href="https://pubmed.ncbi.nlm.nih.gov/21127010/" target="_blank" rel="noopener noreferrer">PMID:21127010</a>). These partial-loss alleles may underlie the milder, incomplete ACHM or cone dystrophy end of the spectrum. This genotype–phenotype link is inferred, not formally shown.</li>
+<li><strong>Variant origin:</strong> Germline. No somatic or mosaic reports were found.</li>
+<li><strong>Allele frequency:</strong> Every allele is rare (check gnomAD per variant). No founder allele has been established.</li>
+<li><strong>Epigenetics:</strong> None reported in humans. In cpfl1 mice, H3K27 trimethylation and HDAC activity influence cone survival: "Increased H3K27 trimethylation contributes to cone survival" (title of <a href="https://pubmed.ncbi.nlm.nih.gov/35810394/" target="_blank" rel="noopener noreferrer">PMID:35810394</a>; mouse); HDAC inhibition protects cones (<a href="https://pubmed.ncbi.nlm.nih.gov/28172811/" target="_blank" rel="noopener noreferrer">PMID:28172811</a>).</li>
+<li><strong>Chromosomal abnormalities:</strong> None characteristic.</li>
+</ul>
+<h2>5. Environmental Information</h2>
+<p>There are no environmental, lifestyle or infectious causes. Bright light provokes photophobia; tinted or filter lenses manage it but do not change the course of disease. Not applicable otherwise.</p>
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Causal chain</strong></p>
+<ol>
+<li><strong>Biallelic PDE6C loss-of-function variants</strong> (truncating, splice, or catalytically dead missense) <strong>lead to</strong> absent or severely reduced cone PDE6α′ catalytic activity (<a href="https://pubmed.ncbi.nlm.nih.gov/21127010/" target="_blank" rel="noopener noreferrer">PMID:21127010</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/30667376/" target="_blank" rel="noopener noreferrer">PMID:30667376</a> shows a stable but catalytically dead protein: "is unable to hydrolyze cyclic GMP (cGMP)" ‡).</li>
+<li>Loss of cone PDE6 <strong>results in</strong> failure of light-activated cGMP hydrolysis in cone outer segments. Transducin (GNAT2) activates nothing, so the CNG channels (CNGA3/CNGB3) stay open after light: <strong>cone phototransduction fails</strong>.</li>
+<li><strong>Branch A (function).</strong> Absent cone light responses <strong>lead to</strong> absent photopic ERG, day blindness, photophobia, loss of colour vision and poor acuity. Without foveal fixation, <strong>nystagmus</strong> develops. This is congenital or infantile.</li>
+<li><strong>Branch B (degeneration).</strong> Unhydrolysed cGMP <strong>accumulates</strong> in cones (shown in mouse: "cpfl1 cone photoreceptor cell death was associated with an accumulation of cyclic guanosine monophosphate (cGMP)" ‡, <a href="https://pubmed.ncbi.nlm.nih.gov/20593360/" target="_blank" rel="noopener noreferrer">PMID:20593360</a>). This <strong>leads to</strong> excess Ca²⁺ entry through CNG channels and activation of cGMP-dependent protein kinase (PKG), calpain and HDAC activity (<a href="https://pubmed.ncbi.nlm.nih.gov/27402880/" target="_blank" rel="noopener noreferrer">PMID:27402880</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/25392995/" target="_blank" rel="noopener noreferrer">PMID:25392995</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28172811/" target="_blank" rel="noopener noreferrer">PMID:28172811</a>), and then to non-apoptotic cone death. In zebrafish the death is <strong>RIP3-dependent necroptosis</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/24413151/" target="_blank" rel="noopener noreferrer">PMID:24413151</a>). Whether this happens in human cones is <em>inferred</em> from animal models.</li>
+<li>Progressive cone loss <strong>leads to</strong> expanding foveal ellipsoid-zone loss and outer retinal atrophy, which appears clinically as <strong>progressive maculopathy</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/31826238/" target="_blank" rel="noopener noreferrer">PMID:31826238</a>).</li>
+<li><strong>Secondary rod involvement</strong> (a subset of patients) leads to a <strong>cone-rod dystrophy</strong> pattern (<a href="https://pubmed.ncbi.nlm.nih.gov/33001157/" target="_blank" rel="noopener noreferrer">PMID:33001157</a>). In macaques, rod responses fall late: "The oldest homozygote (11 years) had reduced rod responses" ‡ (<a href="https://pubmed.ncbi.nlm.nih.gov/39641747/" target="_blank" rel="noopener noreferrer">PMID:39641747</a>). In zebrafish, rods die as bystanders through a caspase-dependent pathway (<a href="https://pubmed.ncbi.nlm.nih.gov/24413151/" target="_blank" rel="noopener noreferrer">PMID:24413151</a>). The mechanism in humans is unproven.</li>
+<li><strong>Myopia</strong> is common (5/8 patients). Its mechanism is unknown; a link to abnormal cone signalling during eye growth is speculative.</li>
+</ol>
+<p><strong>Other mechanistic detail</strong></p>
+<ul>
+<li><strong>Protein maturation:</strong> Folding of PDE6C needs the chaperones HSP90 and AIPL1 together with the γ′ subunit. Without Pγ, PDE6C mostly misassembles (<a href="https://pubmed.ncbi.nlm.nih.gov/38110033/" target="_blank" rel="noopener noreferrer">PMID:38110033</a>, in vitro). Structural work: "the dynamic nature of PDE6C association with its regulatory γ-subunit" ‡ (cryo-EM; <a href="https://pubmed.ncbi.nlm.nih.gov/39739818/" target="_blank" rel="noopener noreferrer">PMID:39739818</a>). Prenylation targets cone PDE6 to the outer segment (<a href="https://pubmed.ncbi.nlm.nih.gov/37384398/" target="_blank" rel="noopener noreferrer">PMID:37384398</a>).</li>
+<li><strong>Trafficking:</strong> In mouse, "functional PDE6 is required for trafficking of M-opsin to cone outer segments" ‡ (<a href="https://pubmed.ncbi.nlm.nih.gov/21799013/" target="_blank" rel="noopener noreferrer">PMID:21799013</a>).</li>
+<li><strong>Immune / inflammatory involvement:</strong> Microglia change state during degeneration and regeneration in zebrafish pde6c mutants (<a href="https://pubmed.ncbi.nlm.nih.gov/41995141/" target="_blank" rel="noopener noreferrer">PMID:41995141</a>). STAT3-related genes are induced in cpfl1 cones (<a href="https://pubmed.ncbi.nlm.nih.gov/20467778/" target="_blank" rel="noopener noreferrer">PMID:20467778</a>). Neither has been studied in humans.</li>
+<li><strong>Transcriptomics:</strong> Whole-retina RNA-seq of zebrafish pde6c at 5 dpf (<a href="https://pubmed.ncbi.nlm.nih.gov/29231925/" target="_blank" rel="noopener noreferrer">PMID:29231925</a>; check GEO for the accession). No human omics data were found.</li>
+</ul>
+<p><strong>Suggested terms</strong></p>
+<ul>
+<li><strong>GO:</strong></li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0007602" target="_blank" rel="noopener noreferrer">GO:0007602</a> phototransduction ✓ (DECREASED)</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0047555" target="_blank" rel="noopener noreferrer">GO:0047555</a> 3',5'-cyclic-GMP phosphodiesterase activity ✓ (DECREASED / LOSS_OF_FUNCTION)</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0046068" target="_blank" rel="noopener noreferrer">GO:0046068</a> cGMP metabolic process ✓</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0050908" target="_blank" rel="noopener noreferrer">GO:0050908</a> detection of light stimulus involved in visual perception ✓</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0070266" target="_blank" rel="noopener noreferrer">GO:0070266</a> necroptotic process ✓ (zebrafish evidence)</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0097190" target="_blank" rel="noopener noreferrer">GO:0097190</a> apoptotic signaling pathway ✓ (rod bystander death)</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0001750" target="_blank" rel="noopener noreferrer">GO:0001750</a> photoreceptor outer segment ✓ (cellular component); also <a href="http://purl.obolibrary.org/obo/GO_0120199" target="_blank" rel="noopener noreferrer">GO:0120199</a> "cone photoreceptor outer segment" — <strong>not verified</strong></li>
+<li><strong>CHEBI:</strong> <a href="http://purl.obolibrary.org/obo/CHEBI_16356" target="_blank" rel="noopener noreferrer">CHEBI:16356</a> 3',5'-cyclic GMP ✓ (accumulates)</li>
+<li><strong>CL:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a> retinal cone cell ✓ (primary); <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a> retinal rod cell ✓ (secondary)</li>
+</ul>
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ:</strong> Eye, bilateral and symmetric. Visual system only. No extra-ocular involvement has been reported.</li>
+<li>The one reported co-occurrence with hearing loss came from a separate PDZD7 variant segregating in the same family (<a href="https://pubmed.ncbi.nlm.nih.gov/38956522/" target="_blank" rel="noopener noreferrer">PMID:38956522</a>). It is not part of PDE6C disease.</li>
+<li><strong>UBERON:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a> eye ✓; <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a> retina ✓; <a href="http://purl.obolibrary.org/obo/UBERON_0001787" target="_blank" rel="noopener noreferrer">UBERON:0001787</a> photoreceptor layer of retina ✓; <a href="http://purl.obolibrary.org/obo/UBERON_0000053" target="_blank" rel="noopener noreferrer">UBERON:0000053</a> macula lutea ✓; <a href="http://purl.obolibrary.org/obo/UBERON_0001786" target="_blank" rel="noopener noreferrer">UBERON:0001786</a> fovea centralis ✓.</li>
+<li><strong>Cells:</strong> Cone photoreceptors (<a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a>) primarily; rods (<a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a>) secondarily.</li>
+<li><strong>Subcellular:</strong> Cone outer segment disc membranes, where PDE6 is held by prenylation.</li>
+</ul>
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Congenital or early infancy. Nystagmus and photophobia appear in the first months. Patients in one cohort were diagnosed between birth and 5 years.</li>
+<li><strong>Progression:</strong></li>
+<li>Children: function is severely reduced from the start, with few structural changes.</li>
+<li>Adults: progressive maculopathy (EZ lesion grows a mean of 48.3 µm/yr; hypoautofluorescent area grows a mean of 0.13 mm²/yr; <a href="https://pubmed.ncbi.nlm.nih.gov/31826238/" target="_blank" rel="noopener noreferrer">PMID:31826238</a>). Some patients develop a cone-rod dystrophy pattern.</li>
+<li>Older adults: "few or no residual foveal cones" (paraphrase of <a href="https://pubmed.ncbi.nlm.nih.gov/31826238/" target="_blank" rel="noopener noreferrer">PMID:31826238</a>).</li>
+<li><strong>Course:</strong> Lifelong, slowly progressive. There is no remission.</li>
+<li><strong>Critical window:</strong> Childhood, while cones remain, is the likely window for gene therapy. In macaques, cone ERG is already absent at 3 months but foveal ONL thinning progresses over years (<a href="https://pubmed.ncbi.nlm.nih.gov/39641747/" target="_blank" rel="noopener noreferrer">PMID:39641747</a>). In mice, the gene therapy window narrows with age (shown for a related cone disease, <a href="https://pubmed.ncbi.nlm.nih.gov/41286353/" target="_blank" rel="noopener noreferrer">PMID:41286353</a>).</li>
+</ul>
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> Autosomal recessive (<a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank" rel="noopener noreferrer">HP:0000007</a> ✓). Penetrance is complete for biallelic null genotypes. Heterozygous carriers are unaffected: in macaques, "Heterozygotes could not be distinguished from wildtypes in any parameters" ‡ (<a href="https://pubmed.ncbi.nlm.nih.gov/39641747/" target="_blank" rel="noopener noreferrer">PMID:39641747</a>).</li>
+<li><strong>Expressivity:</strong> Variable, from complete ACHM through incomplete ACHM and cone dystrophy to cone-rod dystrophy. Allelic severity probably contributes (<a href="https://pubmed.ncbi.nlm.nih.gov/21127010/" target="_blank" rel="noopener noreferrer">PMID:21127010</a>).</li>
+<li><strong>Anticipation and germline mosaicism:</strong> Not applicable / not reported.</li>
+<li><strong>Epidemiology:</strong></li>
+<li>Achromatopsia overall: about 1 in 30,000 (GeneReviews <a href="https://pubmed.ncbi.nlm.nih.gov/20301591/" target="_blank" rel="noopener noreferrer">PMID:20301591</a>; check the exact wording in the cached file).</li>
+<li>PDE6C accounts for a small share of ACHM: "less than 2% of the cases" (<a href="https://pubmed.ncbi.nlm.nih.gov/32306724/" target="_blank" rel="noopener noreferrer">PMID:32306724</a>, secondary statement).</li>
+<li>In the Tübingen cohort, 15 index cases came from a pre-selected group of 176, within an overall ACHM cohort of 1,074 independent families ‡ (<a href="https://pubmed.ncbi.nlm.nih.gov/30080950/" target="_blank" rel="noopener noreferrer">PMID:30080950</a>). That would put PDE6C roughly in the 1–2% range of ACHM; this is my inference, not a figure the paper states.</li>
+<li>Implied prevalence is well under 1 in 1,000,000 (prevalence class <code>BELOW_1_IN_1000000</code>, or report as <code>CASES_IN_LITERATURE</code>).</li>
+<li><strong>Geography / populations:</strong> Reported from Europe (Netherlands, Germany, UK, Denmark), the Middle East (Iran, Saudi Arabia, UAE; <a href="https://pubmed.ncbi.nlm.nih.gov/39024658/" target="_blank" rel="noopener noreferrer">PMID:39024658</a>), Pakistan, China, Japan and Korea. Enrichment in consanguineous families is expected; no specific founder alleles have been documented.</li>
+<li><strong>Sex ratio:</strong> 1:1 (autosomal).</li>
+</ul>
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Clinical examination:</strong> Nystagmus, photophobia, reduced acuity, and colour vision testing (HRR, Farnsworth D-15, anomaloscope).</li>
+<li><strong>Electrophysiology:</strong> Full-field ERG (ISCEV) shows absent or near-absent light-adapted and 30-Hz flicker responses. Rod responses are normal or later reduced. S-cone ERG is also absent; this separates the disease from blue cone monochromacy.</li>
+<li><strong>Imaging:</strong> OCT shows EZ disruption, a foveal hyporeflective zone, or atrophy, and typically <strong>no foveal hypoplasia</strong>. This helps distinguish PDE6C disease from ATF6-ACHM, which does show foveal hypoplasia. Fundus autofluorescence shows central hypo- or hyper-autofluorescence. Adaptive optics can quantify residual cones.</li>
+<li><strong>Genetic testing:</strong> An inherited retinal disease (IRD) gene panel or exome that includes CNGA3, CNGB3, GNAT2, PDE6C, PDE6H, ATF6 and RPGRIP1. GeneReviews: "biallelic pathogenic (or likely pathogenic) variants in ATF6, CNGA3, CNGB3, GNAT2, PDE6C, or PDE6H confirms the clinical diagnosis" (<a href="https://pubmed.ncbi.nlm.nih.gov/20301591/" target="_blank" rel="noopener noreferrer">PMID:20301591</a>, cached). Confirm splice variants with minigene or RNA assays (<a href="https://pubmed.ncbi.nlm.nih.gov/21127010/" target="_blank" rel="noopener noreferrer">PMID:21127010</a>). CNV analysis is advisable.</li>
+<li><strong>Differential diagnosis:</strong></li>
+<li>other ACHM genes (CNGA3, CNGB3, GNAT2, PDE6H, ATF6, RPGRIP1 exon-18 deletion);</li>
+<li>blue cone monochromacy (X-linked; S-cone ERG preserved);</li>
+<li>early cone/cone-rod dystrophies (ABCA4, GUCY2D, CRX, KCNV2);</li>
+<li>Leber congenital amaurosis;</li>
+<li>albinism and congenital stationary night blindness (nystagmus with different ERG patterns).</li>
+<li><strong>Screening:</strong> No newborn screening. Cascade carrier testing within families is possible.</li>
+<li><strong>LOINC:</strong> None specific to this disease. Measurement codes for ERG or genetic panels would be generic.</li>
+</ul>
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Life expectancy:</strong> Normal. There is no disease-specific mortality.</li>
+<li><strong>Morbidity:</strong> Lifelong legal blindness or low vision is common (acuity about 20/200). Patients are photophobic and colour-blind, and adults lose central vision slowly.</li>
+<li><strong>Prognostic factors:</strong> Probably allele severity (partial versus null), age, and myopia, which is linked to atrophy. Not formally validated.</li>
+<li><strong>Complications:</strong> High myopia, macular atrophy and amblyopia.</li>
+</ul>
+<h2>12. Treatment</h2>
+<p>There is <strong>no approved disease-modifying therapy</strong>, and <strong>no PDE6C-specific clinical trial</strong> was found. AAV gene-augmentation trials have run for CNGA3 and CNGB3 achromatopsia (for example NCT02599922, NCT02935517, NCT03758404, NCT03001310), but they do not include PDE6C. Check ClinicalTrials.gov again for any new PDE6C trials.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Approach</th>
+<th>NCIT term</th>
+<th>Status / evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tinted / filter lenses, red contact lenses, low-vision aids</td>
+<td>NCIT:C15747 Supportive Care ✓; NCIT:C15315 Rehabilitation ✓</td>
+<td>standard of care (GeneReviews <a href="https://pubmed.ncbi.nlm.nih.gov/20301591/" target="_blank" rel="noopener noreferrer">PMID:20301591</a>)</td>
+</tr>
+<tr>
+<td>Refractive correction of high myopia</td>
+<td>(term not looked up)</td>
+<td>routine care</td>
+</tr>
+<tr>
+<td>Genetic counselling</td>
+<td>NCIT:C15240 Genetic Counseling ✓</td>
+<td>recommended</td>
+</tr>
+<tr>
+<td>AAV gene augmentation (PDE6C ± PDE6H)</td>
+<td>NCIT:C15238 Gene Therapy ✓; modality <code>GENE_THERAPY</code></td>
+<td>preclinical. In rd10/cpfl1 mice, cone rescue needed both PDE6α′ and γ′: "improved photopic cone responses were achieved only after supplementation of both cone PDE6α' and PDE6γ' subunits" (<a href="https://pubmed.ncbi.nlm.nih.gov/30038560/" target="_blank" rel="noopener noreferrer">PMID:30038560</a>; quote taken from the search summary, verify)</td>
+</tr>
+<tr>
+<td>HDAC inhibition (trichostatin A)</td>
+<td>Pharmacotherapy</td>
+<td>preclinical. "increased cone survival for up to 16 days post-injection" ‡ (<a href="https://pubmed.ncbi.nlm.nih.gov/28172811/" target="_blank" rel="noopener noreferrer">PMID:28172811</a>, mouse)</td>
+</tr>
+<tr>
+<td>Necroptosis inhibition (RIP1/RIP3)</td>
+<td>Pharmacotherapy</td>
+<td>preclinical (zebrafish, <a href="https://pubmed.ncbi.nlm.nih.gov/24413151/" target="_blank" rel="noopener noreferrer">PMID:24413151</a>)</td>
+</tr>
+<tr>
+<td>CRISPR correction in patient iPSCs</td>
+<td><code>GENE_EDITING</code></td>
+<td>in vitro (<a href="https://pubmed.ncbi.nlm.nih.gov/36835061/" target="_blank" rel="noopener noreferrer">PMID:36835061</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40083649/" target="_blank" rel="noopener noreferrer">PMID:40083649</a>; check which gene each study corrected; see also review <a href="https://pubmed.ncbi.nlm.nih.gov/42264060/" target="_blank" rel="noopener noreferrer">PMID:42264060</a>)</td>
+</tr>
+<tr>
+<td>Photoreceptor transplantation</td>
+<td><code>CELL_THERAPY</code></td>
+<td>preclinical (cpfl1; <a href="https://pubmed.ncbi.nlm.nih.gov/25183393/" target="_blank" rel="noopener noreferrer">PMID:25183393</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/27367586/" target="_blank" rel="noopener noreferrer">PMID:27367586</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Pharmacogenomics: none relevant. PDE5 inhibitors (sildenafil) also inhibit PDE6, but there are no data on their use in this disease.</p>
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Genetic counselling. Carrier testing of relatives and partners in consanguineous families. Prenatal diagnosis or PGT when the familial variants are known.</li>
+<li><strong>Secondary prevention:</strong> Early molecular diagnosis to support enrolment in future gene therapy while cones remain.</li>
+<li><strong>Tertiary prevention:</strong> Photoprotection and treatment of refractive error and amblyopia. Whether photoprotection slows degeneration is unproven.</li>
+<li>No vaccines or public-health measures apply.</li>
+</ul>
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Rhesus macaque</strong> (<em>Macaca mulatta</em>, NCBITaxon:9544): naturally occurring homozygous <strong>PDE6C R565Q</strong> (<a href="https://bioregistry.io/OMIA:002163" target="_blank" rel="noopener noreferrer">OMIA:002163</a>-9544).</li>
+<li>"a homozygous R565Q missense mutation in the catalytic domain of PDE6C" ‡ (<a href="https://pubmed.ncbi.nlm.nih.gov/30667376/" target="_blank" rel="noopener noreferrer">PMID:30667376</a>). The mutant protein is stable and correctly localised but catalytically dead.</li>
+<li>Natural history from 102 eyes of 51 animals: cone ERG absent from 3 months, foveal ONL thinning with age, and late rod decline (<a href="https://pubmed.ncbi.nlm.nih.gov/39641747/" target="_blank" rel="noopener noreferrer">PMID:39641747</a>).</li>
+<li>This model has a fovea, which makes it the closest model of the human disease.</li>
+<li><strong>Evolution:</strong> PDE6 genes are conserved across vertebrates (<a href="https://pubmed.ncbi.nlm.nih.gov/27296292/" target="_blank" rel="noopener noreferrer">PMID:27296292</a>). Pde6c has been lost in the common vampire bat (<a href="https://pubmed.ncbi.nlm.nih.gov/35333583/" target="_blank" rel="noopener noreferrer">PMID:35333583</a>), and premature termination codons appear in cavefish (<a href="https://pubmed.ncbi.nlm.nih.gov/39833658/" target="_blank" rel="noopener noreferrer">PMID:39833658</a>). These are natural gene losses in species adapted to dim light.</li>
+<li><strong>Zoonotic potential:</strong> None.</li>
+</ul>
+<h2>15. Model Organisms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Genotype</th>
+<th>Recapitulation</th>
+<th>Limitations</th>
+<th>Key PMIDs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>cpfl1 mouse</strong> (<em>Mus musculus</em>)</td>
+<td>spontaneous Pde6c mutation (CXB-1 strain, chr 19), loss of function</td>
+<td>no cone function; rapid cone degeneration that peaks around P24 with cGMP accumulation</td>
+<td>mice have no fovea and few cones; degeneration is faster than in humans</td>
+<td>19887631, 20593360, 20238063, 28172811</td>
+</tr>
+<tr>
+<td><strong>rd10/cpfl1 double mutant</strong></td>
+<td>Pde6b + Pde6c loss</td>
+<td>both rods and cones degenerate; used for gene therapy</td>
+<td>double-mutant background is artificial</td>
+<td>30038560</td>
+</tr>
+<tr>
+<td><strong>Zebrafish pde6c^w59</strong> (<em>Danio rerio</em>)</td>
+<td>nonsense mutation (Stearns et al. 2007, J Neurosci 27:13866; PMID not confirmed)</td>
+<td>rapid cone degeneration from 4 dpf; rod bystander death; RIP3-dependent necroptosis</td>
+<td>cone-rich retina that regenerates</td>
+<td>24413151, 20053919, 23365220, 29231925, 41995141</td>
+</tr>
+<tr>
+<td><strong>Rhesus macaque</strong></td>
+<td>PDE6C R565Q homozygous</td>
+<td>absent cone ERG; progressive foveal cone loss; late rod decline</td>
+<td>colony-limited; few animals</td>
+<td>30667376, 39641747</td>
+</tr>
+<tr>
+<td><strong>Human iPSC / organoids</strong></td>
+<td>patient-derived</td>
+<td>CRISPR correction studies</td>
+<td>does not reproduce fovea or degeneration timing</td>
+<td>36835061, 40083649 (gene to be confirmed)</td>
+</tr>
+<tr>
+<td><strong>In vitro enzymology</strong></td>
+<td>recombinant PDE6C mutants in insect cells</td>
+<td>quantifies loss of catalytic activity</td>
+<td>lacks cellular context</td>
+<td>21127010, 38110033, 39739818</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Resources: MGI (cpfl1 allele), ZFIN (ZDB-PUB-071219-20 for pde6c^w59), OMIA, JAX.</p>
+<hr />
+<h2>Notes for curating the KB entry</h2>
+<p>The existing <code>kb/disorders/PDE6C-Related_Retinopathy.yaml</code> is a 59-line skeleton. It has a gene, one pathophysiology node with no evidence, and one phenotype. Priorities:</p>
+<ol>
+<li>Add the phenotypes in the §3 table. Each phenotype's evidence can quote <a href="https://pubmed.ncbi.nlm.nih.gov/31826238/" target="_blank" rel="noopener noreferrer">PMID:31826238</a> or <a href="https://pubmed.ncbi.nlm.nih.gov/33001157/" target="_blank" rel="noopener noreferrer">PMID:33001157</a> after <code>just fetch-reference</code>.</li>
+<li>Build the §6 causal chain as pathophysiology nodes wired to the phenotypes, and consider <code>conforms_to</code> against <code>kb/modules/phototransduction_cascade_dysfunction.yaml</code>.</li>
+<li>Record the ClinGen Definitive assertion in <code>gene_disease_validity</code>.</li>
+<li>Add the macaque, cpfl1 mouse and zebrafish models under <code>animal_models</code> with <code>modeled_mechanisms</code>.</li>
+<li>Find the PMID for Stearns 2007; it was not resolved in this session.</li>
+</ol>
+<h2>Sources</h2>
+<ul>
+<li>Thiadens et al. 2009, <a href="https://pubmed.ncbi.nlm.nih.gov/19615668/" target="_blank" rel="noopener noreferrer">PMID:19615668</a> (abstract cached locally); <a href="https://pure.eur.nl/en/publications/homozygosity-mapping-reveals-pde6c-mutations-in-patients-with-ear/">EUR repository</a></li>
+<li>Chang et al. 2009 PNAS, <a href="https://pubmed.ncbi.nlm.nih.gov/19887631/" target="_blank" rel="noopener noreferrer">PMID:19887631</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2780790">PMC2780790</a></li>
+<li>Grau et al. 2011 Hum Mol Genet, <a href="https://pubmed.ncbi.nlm.nih.gov/21127010/" target="_blank" rel="noopener noreferrer">PMID:21127010</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3269206">PMC3269206</a></li>
+<li>Weisschuh et al. 2018 Hum Mutat, <a href="https://pubmed.ncbi.nlm.nih.gov/30080950/" target="_blank" rel="noopener noreferrer">PMID:30080950</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/30080950/">PubMed</a></li>
+<li>Georgiou et al. 2019 IOVS, <a href="https://pubmed.ncbi.nlm.nih.gov/31826238/" target="_blank" rel="noopener noreferrer">PMID:31826238</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6905659">PMC6905659</a></li>
+<li>Daich Varela et al. 2020 IOVS, <a href="https://pubmed.ncbi.nlm.nih.gov/33001157/" target="_blank" rel="noopener noreferrer">PMID:33001157</a></li>
+<li>Bushehri et al. 2020, <a href="https://pubmed.ncbi.nlm.nih.gov/32306724/" target="_blank" rel="noopener noreferrer">PMID:32306724</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7275818/">PMC7275818</a></li>
+<li>Moshiri et al. 2019 JCI, <a href="https://pubmed.ncbi.nlm.nih.gov/30667376/" target="_blank" rel="noopener noreferrer">PMID:30667376</a>; Ardon et al. 2024 IOVS, <a href="https://pubmed.ncbi.nlm.nih.gov/39641747/" target="_blank" rel="noopener noreferrer">PMID:39641747</a>; <a href="https://omia.org/4146">OMIA 4146</a></li>
+<li>Trifunović et al. 2010, <a href="https://pubmed.ncbi.nlm.nih.gov/20593360/" target="_blank" rel="noopener noreferrer">PMID:20593360</a>; Trifunović et al. 2016, <a href="https://pubmed.ncbi.nlm.nih.gov/28172811/" target="_blank" rel="noopener noreferrer">PMID:28172811</a>; Viringipurampeer et al. 2014, <a href="https://pubmed.ncbi.nlm.nih.gov/24413151/" target="_blank" rel="noopener noreferrer">PMID:24413151</a>; Kolandaivelu et al. 2011, <a href="https://pubmed.ncbi.nlm.nih.gov/21799013/" target="_blank" rel="noopener noreferrer">PMID:21799013</a></li>
+<li>Deng et al. 2018, <a href="https://pubmed.ncbi.nlm.nih.gov/30038560/" target="_blank" rel="noopener noreferrer">PMID:30038560</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6046437/">PMC6046437</a></li>
+<li>Singh et al. 2024 JBC, <a href="https://pubmed.ncbi.nlm.nih.gov/38110033/" target="_blank" rel="noopener noreferrer">PMID:38110033</a>; Singh et al. 2025 PNAS, <a href="https://pubmed.ncbi.nlm.nih.gov/39739818/" target="_blank" rel="noopener noreferrer">PMID:39739818</a></li>
+<li>O'Connell et al. 2026, <a href="https://pubmed.ncbi.nlm.nih.gov/42525358/" target="_blank" rel="noopener noreferrer">PMID:42525358</a>; Lecigne et al. 2026, <a href="https://pubmed.ncbi.nlm.nih.gov/42660982/" target="_blank" rel="noopener noreferrer">PMID:42660982</a> (no abstract available)</li>
+<li>GeneReviews: Achromatopsia, <a href="https://pubmed.ncbi.nlm.nih.gov/20301591/" target="_blank" rel="noopener noreferrer">PMID:20301591</a> (cached locally)</li>
+<li><a href="https://git.lsit.ucsb.edu/publicdata/nih-gov/raw/commit/16b4b23030b9c25e5a647a69ebd82dc9aecccaad/www.ncbi.nlm.nih.gov/omim/613093">OMIM #613093 mirror</a>; <a href="https://medlineplus.gov/genetics/gene/pde6c">MedlinePlus PDE6C</a>; <a href="https://panelapp-aus.org/panels/3762/gene/PDE6C/">PanelApp Australia</a></li>
+<li><a href="https://www.zfin.org/ZDB-PUB-071219-20">ZFIN pde6c^w59 publication</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5726315/">zebrafish expression profiling, PMC5726315</a></li>
+<li><a href="https://www.frontiersin.org/journals/molecular-neuroscience/articles/10.3389/fnmol.2018.00233/full">Frontiers Mol Neurosci 2018 (rd10/cpfl1)</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12036465/">BCM AAV therapeutic window, PMC12036465</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.4.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>49</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>49</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>2</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>49</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>35</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:31826238</code> <em>(abstract only)</em>: "few or no residual foveal cones"</li>
+<li>closest text in source: "Nonconfocal adaptive optics scanning light ophthalmoscopy revealed residual foveal cones in only one of two cases"</li>
+<li><code>PMID:32306724</code> <em>(abstract only)</em>: "less than 2% of the cases"</li>
+<li>Text part not found as substring: 'less than 2% of the cases' (note: only abstract available for <a href="https://pubmed.ncbi.nlm.nih.gov/32306724/" target="_blank" rel="noopener noreferrer">PMID:32306724</a>, full text may contain this excerpt)</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>42</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>CL:0000573</code> (2 mentions) - the report calls it "Cells:<strong> Cone photoreceptors"; CL calls it </strong>retinal cone cell**</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>, <code>OMIA</code>.</p>
+<p>40 of 42 terms resolved to a current term; the rest could not be looked up either way.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="PCWH_syndrome-falcon.html">← PCWH syndrome (Falcon)</a>
+                
+                
+                <a href="PDE6G-Related_Retinopathy-openscientist.html">PDE6G-Related Retinopathy (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/PDE6C-Related_Retinopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/PDE6C-Related_Retinopathy-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

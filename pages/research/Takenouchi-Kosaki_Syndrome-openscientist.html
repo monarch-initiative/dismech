@@ -1,0 +1,1552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Takenouchi-Kosaki Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Takenouchi-Kosaki Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Takenouchi-Kosaki Syndrome</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-10-31</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0014757" target="_blank" rel="noopener noreferrer">MONDO:0014757</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">33 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Takenouchi-Kosaki syndrome is a congenital, multisystem developmental disorder arising from dysregulation of <em>CDC42</em>, a critical cytoskeletal regulator. It was identified through the Japanese Initiative on Rare and Undiagnosed Diseases (IRUD) and reported as a recognizable syndromic form of thrombocytopenia combined with intellectual disability (<a href="https://pubmed.ncbi.nlm.nih.gov/41567106/">PMID: 41567106</a>). The cardinal features "include macrothrombocytopenia, developmental delay, lymphedema in the lower extremities, camptodactyly, and distinctive facial features" (<a href="https://pubmed.ncbi.nlm.nih.gov/26708094/">PMID: 26708094</a>).</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OMIM</td>
+<td>#616737</td>
+</tr>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0014757" target="_blank" rel="noopener noreferrer">MONDO:0014757</a></td>
+</tr>
+<tr>
+<td>Gene (HGNC)</td>
+<td>CDC42, <a href="https://bioregistry.io/HGNC:1736" target="_blank" rel="noopener noreferrer">HGNC:1736</a></td>
+</tr>
+<tr>
+<td>Gene OMIM</td>
+<td>*116952</td>
+</tr>
+<tr>
+<td>NCBI Gene</td>
+<td>998</td>
+</tr>
+<tr>
+<td>UniProt</td>
+<td>P60953 (CDC42_HUMAN)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>Takenouchi-Kosaki syndrome (CDC42-related disorder)</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>No dedicated descriptor; indexed via CDC42 / Thrombocytopenia / Intellectual Disability</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names.</strong> TKS; macrothrombocytopenia and mental retardation syndrome; Macrothrombocytopenia-lymphedema-developmental delay-facial dysmorphism-camptodactyly syndrome; "CDC42-related disorder" (umbrella term for the spectrum).</p>
+<p><strong>Information source.</strong> The knowledge base is derived almost entirely from <strong>aggregated, individual case reports and small case series</strong> (ultra-rare disease) plus functional/model-organism studies, rather than large EHR cohorts. Published patient numbers are in the low tens worldwide.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause (genetic).</strong> TKS is caused by <strong>de novo heterozygous missense variants in <em>CDC42</em></strong>. Whole-exome sequencing identified de novo <em>CDC42</em> missense variants in unrelated patients with a recurrent syndromic phenotype: "Whole exome sequencing revealed a de novo amino acid substitution in CDC42, a critical regulator of the cytoskeleton" (<a href="https://pubmed.ncbi.nlm.nih.gov/26386261/">PMID: 26386261</a>). A second unrelated patient confirmed the entity: "We, herein, report another unrelated female patient with a similar phenotype and a de novo mutation in the same CDC42" (<a href="https://pubmed.ncbi.nlm.nih.gov/26708094/">PMID: 26708094</a>).</p>
+<p><strong>Genetic risk factors.</strong> The causal variant <em>is</em> the disease; there are no known susceptibility loci or polygenic contributions. The disease arises from a single dominant-acting missense allele. Variant position is the principal determinant of phenotype (see Section 4).</p>
+<p><strong>Environmental risk factors.</strong> None established. As an essentially fully penetrant monogenic disorder of de novo origin, no toxin, lifestyle, occupational, or infectious trigger is implicated. Advanced parental age is a general (non-specific) correlate of de novo mutation but has not been specifically demonstrated for TKS.</p>
+<p><strong>Protective factors.</strong> None known at genetic or environmental level.</p>
+<p><strong>Gene-environment interactions.</strong> No validated gene-environment interactions are described for TKS. <strong>This information is not available / not applicable</strong> for this disorder.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>TKS is a multisystem disorder. The table below summarizes the principal phenotypes, their typical character, frequency where quantified, and suggested HPO terms.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Onset</th>
+<th>Frequency</th>
+<th>Suggested HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Macrothrombocytopenia (low count, giant platelets)</td>
+<td>Lab abnormality</td>
+<td>Congenital/neonatal</td>
+<td>Cardinal; near-universal in classic TKS</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a> (Thrombocytopenia), <a href="http://purl.obolibrary.org/obo/HP_0011877" target="_blank" rel="noopener noreferrer">HP:0011877</a> (Increased mean platelet volume)</td>
+</tr>
+<tr>
+<td>Developmental delay / intellectual disability</td>
+<td>Clinical/behavioral</td>
+<td>Infancy/childhood</td>
+<td>Cardinal; near-universal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a>, <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+</tr>
+<tr>
+<td>Sensorineural hearing loss</td>
+<td>Clinical sign</td>
+<td>Childhood, progressive</td>
+<td>84.6% (11/13 reviewed)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a></td>
+</tr>
+<tr>
+<td>Distinctive facial dysmorphism</td>
+<td>Physical</td>
+<td>Congenital</td>
+<td>Cardinal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" rel="noopener noreferrer">HP:0001999</a></td>
+</tr>
+<tr>
+<td>Camptodactyly</td>
+<td>Physical</td>
+<td>Congenital</td>
+<td>Cardinal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012385" target="_blank" rel="noopener noreferrer">HP:0012385</a></td>
+</tr>
+<tr>
+<td>Lymphedema (lower extremities)</td>
+<td>Clinical sign</td>
+<td>Congenital/early</td>
+<td>Frequent</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001004" target="_blank" rel="noopener noreferrer">HP:0001004</a></td>
+</tr>
+<tr>
+<td>Short stature / growth dysregulation</td>
+<td>Physical</td>
+<td>Childhood</td>
+<td>Frequent</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a></td>
+</tr>
+<tr>
+<td>Structural brain anomalies</td>
+<td>Imaging</td>
+<td>Congenital</td>
+<td>Variable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank" rel="noopener noreferrer">HP:0012443</a></td>
+</tr>
+<tr>
+<td>Ocular colobomas (iris/chorioretinal)</td>
+<td>Physical</td>
+<td>Congenital</td>
+<td>Rare (variant-specific)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" rel="noopener noreferrer">HP:0000589</a></td>
+</tr>
+<tr>
+<td>Autoimmune hemolytic anemia</td>
+<td>Lab/clinical</td>
+<td>Variable</td>
+<td>Rare</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001890" target="_blank" rel="noopener noreferrer">HP:0001890</a></td>
+</tr>
+<tr>
+<td>Autoinflammation / HLH (NOCARH)</td>
+<td>Clinical</td>
+<td>Neonatal</td>
+<td>Variant-specific subgroup</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012647" target="_blank" rel="noopener noreferrer">HP:0012647</a> (Abnormal inflammatory response)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Hearing loss</strong> is quantitatively the most consistently reported non-cardinal feature: a systematic review found that "Hearing loss (HL) occurs in a great percentage of patients (84.6%)" (<a href="https://pubmed.ncbi.nlm.nih.gov/39202334/">PMID: 39202334</a>), and it tends to be progressive. <strong>Ocular colobomas</strong> were reported with a novel p.Glu127Lys variant (<a href="https://pubmed.ncbi.nlm.nih.gov/40371891/">PMID: 40371891</a>), broadening the recognized phenotype. <strong>Autoimmune hemolytic anemia</strong> has been documented and, in one case, resolved after splenectomy, which also improved macrothrombocytopenia (<a href="https://pubmed.ncbi.nlm.nih.gov/34403170/">PMID: 34403170</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36459360/">PMID: 36459360</a>).</p>
+<p><strong>Severity / progression.</strong> Severity is <strong>variable and governed by variant position</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29394990/">PMID: 29394990</a>). Classic Y64C patients have severe developmental delay; hearing loss is progressive; the autoinflammatory subgroup can be life-threatening in the neonatal period.</p>
+<p><strong>Quality of life.</strong> Combined intellectual disability, hearing loss, motor/hand involvement (camptodactyly), and bleeding risk from thrombocytopenia substantially impair daily functioning, communication, and independence. Disease-specific QoL instruments have not been applied; this is a knowledge gap.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <em>CDC42</em> (Cell Division Control protein 42 homolog; <a href="https://bioregistry.io/HGNC:1736" target="_blank" rel="noopener noreferrer">HGNC:1736</a>; gene OMIM *116952), located on chromosome 1p36.12, encodes a ~21 kDa Rho-subfamily small GTPase that cycles between an inactive GDP-bound and active GTP-bound state and regulates actin cytoskeleton dynamics, cell polarity, migration, and vesicle trafficking.</p>
+<p><strong>Pathogenic variants.</strong> All established disease-causing variants are <strong>heterozygous missense</strong> substitutions. The recurrent hot-spot is <strong>c.191A&gt;G, p.Tyr64Cys (Y64C)</strong>, which "encodes a key small GTP-binding protein of the Rho-subfamily, was identified in two unrelated patients with TKS" (<a href="https://pubmed.ncbi.nlm.nih.gov/29335451/">PMID: 29335451</a>) and is "a hot-spot missense variant... strictly related to TKS" (<a href="https://pubmed.ncbi.nlm.nih.gov/34624555/">PMID: 34624555</a>).</p>
+<p><strong>Genotype-phenotype correlation by variant position.</strong> Martinelli et al. demonstrated that "missense variants in CDC42... underlie a clinically heterogeneous group of phenotypes characterized by variable growth dysregulation, facial dysmorphism, and neurodevelopmental, immunological, and hematological anomalies," and that "mutations variably perturb CDC42 function by altering the switch between the active and inactive states of the GTPase and/or affecting CDC42 interaction with effectors, and differentially disturb cellular and developmental processes" (<a href="https://pubmed.ncbi.nlm.nih.gov/29394990/">PMID: 29394990</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant class (location)</th>
+<th>Representative variants</th>
+<th>Dominant phenotype</th>
+<th>Functional mechanism</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Effector-specificity region</td>
+<td><strong>p.Tyr64Cys</strong></td>
+<td>Classic TKS</td>
+<td>Impaired RhoGDI binding + effector binding; membrane-hyperactive</td>
+</tr>
+<tr>
+<td>Nucleotide-binding / switch region</td>
+<td>p.Glu171Lys, p.Glu127Lys</td>
+<td>Noonan-like / RASopathy-like; colobomas</td>
+<td>Altered GTPase switch</td>
+</tr>
+<tr>
+<td>C-terminal (CAAX/prenylation)</td>
+<td>p.Arg186Cys, p.*192 (extension)</td>
+<td>Neonatal autoinflammation / NOCARH</td>
+<td>Disrupted prenylation/membrane targeting; pyrin activation</td>
+</tr>
+<tr>
+<td>N-terminal (selected)</td>
+<td>p.Thr43Ile, p.Met45Leu</td>
+<td>Autoinflammation</td>
+<td>Pyrin-inflammasome activation</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Variant classification.</strong> Recurrent variants (Y64C, R186C, E171K) are <strong>pathogenic</strong> per ACMG/AMP criteria (de novo occurrence, functional data, recurrence, absence from population databases). Novel variants (e.g., E127K) are <strong>likely pathogenic</strong>.</p>
+<p><strong>Allele frequency.</strong> Pathogenic variants are <strong>absent from gnomAD/population databases</strong> — consistent with de novo, highly penetrant dominant disease.</p>
+<p><strong>Somatic vs germline.</strong> Variants are <strong>germline</strong> (de novo in the proband; rare familial transmission documented). No somatic mosaicism is required (contrast with the related RHOA disorder, which is typically mosaic — <a href="https://pubmed.ncbi.nlm.nih.gov/40414526/">PMID: 40414526</a>).</p>
+<p><strong>Functional consequence.</strong> Predominantly a <strong>dominant gain-of-function / dominant-negative</strong> effect depending on variant. Y64C is a hyperactivating, membrane-retained gain-of-function: "the Y64C mutant was concentrated at the membrane compartment due to impaired binding to Rho-GDI and more active than the wild-type. The Y64C mutant also had lower association with its effectors Pak1/2 and N-WASP" (<a href="https://pubmed.ncbi.nlm.nih.gov/34504210/">PMID: 34504210</a>). A newly described quality-control axis is also disrupted: "the CDC42-Y64C germline variant in Takenouchi-Kosaki Syndrome escapes KLHL23-mediated degradation" (<a href="https://pubmed.ncbi.nlm.nih.gov/40846997/">PMID: 40846997</a>).</p>
+<p><strong>Modifier genes / epigenetics / chromosomal abnormalities.</strong> No validated modifier genes, methylation signatures, or large chromosomal rearrangements are established for TKS. <strong>Not applicable / not available.</strong></p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No environmental, lifestyle, toxic, or infectious factors contribute to TKS causation or triggering. The disorder is <strong>purely genetic (de novo germline)</strong>. This section is <strong>not applicable</strong> for this disease. (In the autoinflammatory CDC42 subgroup, infection/inflammatory stress may act as a non-specific flare trigger, but this is not an etiologic factor.)</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (classic TKS, Y64C)</h3>
+<ol>
+<li>A <strong>de novo heterozygous missense variant</strong> (c.191A&gt;G, p.Tyr64Cys) arises in <em>CDC42</em> → <strong>leads to</strong> a single amino-acid substitution in the effector-specificity region of the CDC42 GTPase.</li>
+<li>The substitution <strong>impairs binding to RhoGDI</strong> (the guanine-nucleotide dissociation inhibitor that sequesters CDC42·GDP in the cytosol) and <strong>impairs KLHL23-Cul3–mediated ubiquitin degradation</strong> of CDC42·GTP → <strong>results in</strong> failure of normal spatiotemporal inactivation/turnover (<a href="https://pubmed.ncbi.nlm.nih.gov/34504210/">PMID: 34504210</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40846997/">PMID: 40846997</a>).</li>
+<li>CDC42-Y64C <strong>accumulates at the plasma membrane and is constitutively more active</strong> than wild-type, while paradoxically showing <strong>reduced association with CRIB-motif effectors Pak1/2 and N-WASP</strong> → <strong>leads to</strong> dysregulated (mislocalized and mistimed) actin-nucleation signaling.</li>
+<li>Dysregulated effector signaling (N-WASP → Arp2/3) <strong>disrupts F-actin and microtubule dynamics</strong> → <strong>results in</strong> branch points to several tissues:</li>
+<li><strong>Megakaryocyte branch:</strong> impaired "F-actin dynamics for proplatelet extension, which is necessary for platelet production" → defective proplatelet formation → <strong>macrothrombocytopenia</strong> (low count, giant platelets) (<a href="https://pubmed.ncbi.nlm.nih.gov/34504210/">PMID: 34504210</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37918315/">PMID: 37918315</a>).</li>
+<li><strong>Neuronal branch:</strong> impaired neurite outgrowth → <strong>developmental delay / intellectual disability</strong> (inferred from Neuro2A models; <a href="https://pubmed.ncbi.nlm.nih.gov/41581414/">PMID: 41581414</a>).</li>
+<li><strong>Cochlear hair-cell branch:</strong> loss of CDC42 (acting with RHOQ) function in hair cells → <strong>progressive sensorineural hearing loss</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42567517/">PMID: 42567517</a>).</li>
+<li><strong>Neural-crest / endothelial branch:</strong> disrupted NCC migration and endothelial lumen/filopodia formation → <strong>craniofacial dysmorphism, congenital anomalies, lymphatic/vascular defects (lymphedema)</strong> (inferred from conditional knockouts; <a href="https://pubmed.ncbi.nlm.nih.gov/24056078/">PMID: 24056078</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/26253403/">PMID: 26253403</a>).</li>
+</ol>
+<h3>Branch: autoinflammatory variants (C-terminal / selected N-terminal)</h3>
+<ol>
+<li>A <strong>C-terminal variant</strong> (e.g., p.Arg186Cys, p.<em>192) </em><em>disrupts CAAX-motif prenylation and membrane targeting</em><em>, or an </em><em>N-terminal variant</em><em> (p.Thr43Ile, p.Met45Leu) alters CDC42 conformation → </em><em>leads to</em>* aberrant CDC42 subcellular localization.</li>
+<li>Mislocalized CDC42 <strong>binds the B30.2 domain of pyrin</strong> aberrantly → <strong>results in</strong> <strong>pyrin-inflammasome activation</strong>: "Three studies identify CDC42 as binding partner of the pyrin B30.2 domain, establishing a previously unrecognized mechanism regulating pyrin inflammasome activation" (<a href="https://pubmed.ncbi.nlm.nih.gov/42566502/">PMID: 42566502</a>).</li>
+<li>Pyrin inflammasome assembly → <strong>caspase-1 activation</strong> → <strong>IL-1β and IL-18 maturation/release</strong> → <strong>neonatal-onset cytopenia, dyshematopoiesis, rash, autoinflammation, and hemophagocytic lymphohistiocytosis (NOCARH)</strong>: "we identify a novel hematological/autoinflammatory condition (NOCARH syndrome) in four unrelated patients with superimposable features, including neonatal-onset cytopenia with dyshematopoiesis, autoinflammation, rash, and HLH" (<a href="https://pubmed.ncbi.nlm.nih.gov/31601675/">PMID: 31601675</a>).</li>
+<li>Therapeutic branch point: <strong>IL-1β blockade</strong> interrupts the cascade and is effective (<a href="https://pubmed.ncbi.nlm.nih.gov/31271789/">PMID: 31271789</a>); serum IL-18 serves as a biomarker (<a href="https://pubmed.ncbi.nlm.nih.gov/40204564/">PMID: 40204564</a>).</li>
+</ol>
+<h3>Molecular detail</h3>
+<ul>
+<li><strong>Molecular pathways.</strong> Rho-GTPase signaling; CDC42 → N-WASP/WASP → Arp2/3 actin nucleation; CDC42 → Pak1/2; pyrin-inflammasome → caspase-1 → IL-1β/IL-18. GO terms: <strong><a href="http://purl.obolibrary.org/obo/GO_0007264" target="_blank" rel="noopener noreferrer">GO:0007264</a></strong> (small GTPase mediated signal transduction), <strong><a href="http://purl.obolibrary.org/obo/GO_0030036" target="_blank" rel="noopener noreferrer">GO:0030036</a></strong> (actin cytoskeleton organization), <strong><a href="http://purl.obolibrary.org/obo/GO_0032731" target="_blank" rel="noopener noreferrer">GO:0032731</a></strong> (positive regulation of IL-1β production), <strong><a href="http://purl.obolibrary.org/obo/GO_0097194" target="_blank" rel="noopener noreferrer">GO:0097194</a></strong> (execution phase of apoptosis/inflammasome-adjacent).</li>
+<li><strong>Cellular processes.</strong> Cell migration, cell polarity, filopodia formation, proplatelet formation, neurite outgrowth, inflammasome-driven pyroptosis. <a href="http://purl.obolibrary.org/obo/GO_0030031" target="_blank" rel="noopener noreferrer">GO:0030031</a> (cell projection assembly), <a href="http://purl.obolibrary.org/obo/GO_0030041" target="_blank" rel="noopener noreferrer">GO:0030041</a> (actin filament polymerization).</li>
+<li><strong>Protein dysfunction.</strong> Gain-of-function/dominant-negative GTPase switch perturbation; impaired regulator (RhoGDI, KLHL23) and effector (Pak1/2, N-WASP) interactions; disrupted prenylation (C-terminal variants). UniProt: <strong>P60953</strong> (CDC42_HUMAN).</li>
+<li><strong>Cell types involved.</strong> Megakaryocytes (<strong><a href="http://purl.obolibrary.org/obo/CL_0000556" target="_blank" rel="noopener noreferrer">CL:0000556</a></strong>), platelets (<strong><a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" rel="noopener noreferrer">CL:0000233</a></strong>), neurons (<strong><a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a></strong>), cochlear hair cells (<strong><a href="http://purl.obolibrary.org/obo/CL_0000202" target="_blank" rel="noopener noreferrer">CL:0000202</a></strong>), neural crest cells (<strong><a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" rel="noopener noreferrer">CL:0000333</a></strong>), endothelial cells (<strong><a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a></strong>), macrophages/myeloid cells (<strong><a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a></strong>).</li>
+<li><strong>Immune involvement.</strong> Pyrin-inflammasome autoinflammation in C-terminal/N-terminal variant subgroup; autoimmune hemolytic anemia in rare classic cases. "Cdc42 missense variants cause various pathological phenotypes, including severe autoinflammation, suggesting previously unknown involvement of Cdc42 in innate immunity" (<a href="https://pubmed.ncbi.nlm.nih.gov/40296562/">PMID: 40296562</a>).</li>
+<li><strong>Metabolic / epigenetic changes.</strong> None established as disease-specific (not applicable).</li>
+</ul>
+<h3>Mechanistic diagram</h3>
+<pre><code> de novo heterozygous CDC42 missense variant (germline)
+         │
+┌────────┴──────────── variant POSITION determines branch ───────────────┐
+│                              │                                          │
+ EFFECTOR region (Y64C)      SWITCH/nucleotide region            C-TERMINAL (R186C,*192) /
+│                     (E171K, E127K)                      N-TERMINAL (T43I, M45L)
+│                              │                                          │
+ impaired RhoGDI binding       altered GDP/GTP switch              disrupted prenylation /
+ + escapes KLHL23 degradation          │                           aberrant conformation
+│                              │                                          │
+ membrane-retained,            dysregulated GTPase cycling         aberrant CDC42–pyrin
+ HYPERACTIVE CDC42                     │                           B30.2 binding
+│                              │                                          │
+ reduced Pak1/2 &amp; N-WASP        Noonan-like / RASopathy             PYRIN INFLAMMASOME
+ effector coupling             developmental phenotype              activation
+│                              │                                   │
+ disrupted F-actin dynamics            │                            caspase-1 → IL-1β/IL-18
+│                              │                                   │
+ ┌──────┼───────┬──────────┬─────────┐ │                            NEONATAL autoinflammation,
+ │      │       │          │         │ │                            cytopenia, HLH (NOCARH)
+MEGA-  NEURON  HAIR    NEURAL-CREST ENDOTHELIUM                            │
+KARYO   │      CELL    /CRANIOFACE   /LYMPHATIC                      Rx: IL-1 blockade;
+CYTE    │       │          │         │                              biomarker: serum IL-18
+ │   impaired  hearing  dysmorphism, lymphedema,
+macro-  neurite loss     cleft, CHD  vascular anomaly
+thrombo growth
+cytopenia
+ │
+developmental delay / ID
+</code></pre>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Hematopoietic system (primary):</strong> bone marrow megakaryocytes and circulating platelets. <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a> (bone marrow), <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a> (blood).</li>
+<li><strong>Nervous system (primary):</strong> brain/CNS (developmental delay, structural anomalies). <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a> (brain).</li>
+<li><strong>Auditory system:</strong> cochlea, inner-ear hair cells. <a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" rel="noopener noreferrer">UBERON:0001844</a> (cochlea).</li>
+<li><strong>Lymphatic/vascular system:</strong> lower-extremity lymphatics (lymphedema). <a href="http://purl.obolibrary.org/obo/UBERON_0005211" target="_blank" rel="noopener noreferrer">UBERON:0005211</a> (lymphatic vessel), <a href="http://purl.obolibrary.org/obo/UBERON_0002049" target="_blank" rel="noopener noreferrer">UBERON:0002049</a> (vasculature).</li>
+<li><strong>Craniofacial skeleton:</strong> facial bones/soft tissue (dysmorphism), palate. <a href="http://purl.obolibrary.org/obo/UBERON_0002104" target="_blank" rel="noopener noreferrer">UBERON:0002104</a> / <a href="http://purl.obolibrary.org/obo/UBERON_0001716" target="_blank" rel="noopener noreferrer">UBERON:0001716</a>.</li>
+<li><strong>Musculoskeletal (hands):</strong> flexed digits (camptodactyly). <a href="http://purl.obolibrary.org/obo/UBERON_0002398" target="_blank" rel="noopener noreferrer">UBERON:0002398</a> (manus).</li>
+<li><strong>Eye (variant-specific):</strong> iris and chorioretina (colobomas). <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a> (eye).</li>
+<li><strong>Subcellular compartments:</strong> plasma membrane (<strong><a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a></strong>; site of mutant CDC42 accumulation), actin cytoskeleton (<strong><a href="http://purl.obolibrary.org/obo/GO_0015629" target="_blank" rel="noopener noreferrer">GO:0015629</a></strong>), cytosol (<strong><a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" rel="noopener noreferrer">GO:0005829</a></strong>).</li>
+<li><strong>Lateralization:</strong> bilateral/symmetric for hearing loss, lymphedema, and camptodactyly; colobomas reported bilaterally.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> <strong>Congenital / neonatal.</strong> Macrothrombocytopenia and dysmorphism are present from birth; developmental delay becomes apparent in infancy/childhood.</li>
+<li><strong>Onset pattern:</strong> chronic/congenital; the autoinflammatory (NOCARH) subgroup has <strong>acute neonatal-onset</strong> life-threatening inflammation.</li>
+<li><strong>Progression:</strong> The multisystem structural features are <strong>stable/non-degenerative</strong>, but <strong>hearing loss is progressive</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/39202334/">PMID: 39202334</a>). Thrombocytopenia can be <strong>intermittent</strong> in some patients (<a href="https://pubmed.ncbi.nlm.nih.gov/34624555/">PMID: 34624555</a>).</li>
+<li><strong>Disease duration:</strong> <strong>chronic, lifelong.</strong></li>
+<li><strong>Critical periods:</strong> the neonatal period is critical for the autoinflammatory subgroup (window for IL-1 blockade); early childhood is the window for developmental/hearing intervention.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance pattern:</strong> <strong>Autosomal dominant</strong>, essentially always <strong>de novo</strong>. Rare <strong>familial autosomal dominant transmission</strong> is documented: a mother and child both carried c.511G&gt;A (p.Glu171Lys) with variable expressivity — "we report a mother and her child carrying the previously reported pathogenic CDC42 variant c.511G&gt;A (p.Glu171Lys)" (<a href="https://pubmed.ncbi.nlm.nih.gov/33283961/">PMID: 33283961</a>).</li>
+<li><strong>Penetrance:</strong> essentially <strong>complete</strong> for recurrent pathogenic variants.</li>
+<li><strong>Expressivity:</strong> <strong>variable</strong> — strongly influenced by variant position.</li>
+<li><strong>Genetic anticipation:</strong> not applicable (not a repeat-expansion disorder).</li>
+<li><strong>Germline mosaicism / founder effects / consanguinity / carrier frequency:</strong> no established founder effect; consanguinity not relevant (dominant, de novo); carrier frequency effectively zero in the general population.</li>
+<li><strong>Epidemiology:</strong> <strong>ultra-rare</strong>; precise prevalence/incidence not established (low tens of published cases worldwide). Orphanet lists it as rare without a firm prevalence estimate.</li>
+<li><strong>Population demographics:</strong> reported across diverse populations including the <strong>first African patient</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33936654/">PMID: 33936654</a>); many early cases from Japan reflect ascertainment via the IRUD program rather than true geographic clustering. <strong>No sex predilection</strong> expected for de novo autosomal dominant disease.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Hematology:</strong> CBC showing <strong>thrombocytopenia with increased mean platelet volume (giant platelets)</strong>; peripheral smear confirming macrothrombocytes. LOINC: platelet count (26515-7), MPV (32623-1).</li>
+<li><strong>Genetic testing (definitive):</strong> <strong>Whole-exome sequencing (WES)</strong> was the original and remains the principal diagnostic route (<a href="https://pubmed.ncbi.nlm.nih.gov/26386261/">PMID: 26386261</a>); <strong>targeted single-gene/panel testing of <em>CDC42</em></strong> (including thrombocytopenia panels, intellectual-disability panels, and RASopathy/Noonan panels, which now include <em>CDC42</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/37987971/">PMID: 37987971</a>) confirms the diagnosis. <strong>WGS</strong> and <strong>trio exome</strong> resolve novel variants (<a href="https://pubmed.ncbi.nlm.nih.gov/40371891/">PMID: 40371891</a>).</li>
+<li><strong>Imaging:</strong> brain MRI for structural anomalies; audiometry/ABR for hearing loss; echocardiography/vascular imaging for cardiac and lymphatic involvement.</li>
+<li><strong>Biomarker (autoinflammatory subgroup):</strong> <strong>serum IL-18</strong> is specifically elevated — "The highest IL-18 levels were observed in diseases involving the pyrin inflammasome, such as Familial Mediterranean fever, mevalonate kinase deficiency, CDC42-associated AID and PSTPIP1-associated AID" (AUC 0.87; cutoff 412 pg/mL) (<a href="https://pubmed.ncbi.nlm.nih.gov/40204564/">PMID: 40204564</a>).</li>
+<li><strong>Differential diagnosis:</strong> other inherited macrothrombocytopenias (MYH9-related disorders, Bernard-Soulier, DOCK2/DOCK8-related — <a href="https://pubmed.ncbi.nlm.nih.gov/39836640/">PMID: 39836640</a>); <strong>Noonan syndrome/RASopathies</strong> for the switch-region phenotype (<a href="https://pubmed.ncbi.nlm.nih.gov/37987971/">PMID: 37987971</a>); other RAC-subfamily GTPase disorders (RAC1, RAC3, RHOA — <a href="https://pubmed.ncbi.nlm.nih.gov/40414526/">PMID: 40414526</a>); and other autoinflammatory/HLH syndromes for the NOCARH subgroup.</li>
+<li><strong>Screening:</strong> no population newborn screening; <strong>cascade genetic testing</strong> of family members is relevant where a familial variant is identified.</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival/mortality:</strong> Classic TKS is <strong>not typically life-limiting</strong>; chronic morbidity dominates. The <strong>autoinflammatory/NOCARH subgroup carries significant mortality risk</strong> from neonatal HLH if untreated (<a href="https://pubmed.ncbi.nlm.nih.gov/31601675/">PMID: 31601675</a>).</li>
+<li><strong>Morbidity/disability:</strong> substantial and lifelong — intellectual disability, progressive hearing loss, hand/motor involvement (camptodactyly), bleeding risk, and lymphedema impair function.</li>
+<li><strong>Complications:</strong> bleeding from thrombocytopenia; autoimmune hemolytic anemia (<a href="https://pubmed.ncbi.nlm.nih.gov/34403170/">PMID: 34403170</a>); infections and gastrostomy-site complications in severely affected children (<a href="https://pubmed.ncbi.nlm.nih.gov/37347054/">PMID: 37347054</a>); HLH in the autoinflammatory subgroup.</li>
+<li><strong>Prognostic factors:</strong> <strong>variant position is the dominant prognostic determinant</strong> — C-terminal/N-terminal autoinflammatory variants have the most acute, highest-risk neonatal course; effector-region (Y64C) variants give severe developmental disability but a more chronic trajectory.</li>
+<li><strong>Recovery potential:</strong> structural/developmental deficits are permanent; autoinflammation is controllable with IL-1 blockade.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p>There is <strong>no curative or disease-specific approved therapy</strong>; management is <strong>multidisciplinary, supportive, and genotype-guided</strong>.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Intervention</th>
+<th>Evidence / notes</th>
+<th>Suggested NCIT</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Autoinflammation (NOCARH subgroup)</td>
+<td><strong>IL-1β inhibition</strong> (anakinra, canakinumab)</td>
+<td>"Severe autoinflammation in 4 patients with C-terminal variants in CDC42 successfully treated with IL-1β inhibition" (<a href="https://pubmed.ncbi.nlm.nih.gov/31271789/">PMID: 31271789</a>)</td>
+<td>NCIT:C2028 (Interleukin-1 Antagonist)</td>
+</tr>
+<tr>
+<td>Severe refractory autoinflammation/HLH</td>
+<td>HLH-directed immunosuppression ± HSCT</td>
+<td>Case-based (<a href="https://pubmed.ncbi.nlm.nih.gov/31601675/">PMID: 31601675</a>)</td>
+<td>NCIT:C15431 (HSCT)</td>
+</tr>
+<tr>
+<td>Macrothrombocytopenia / AIHA</td>
+<td><strong>Splenectomy</strong></td>
+<td>Improved both anemia and macrothrombocytopenia in a TKS patient refractory to drug therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/36459360/">PMID: 36459360</a>)</td>
+<td>NCIT:C51771 (Splenectomy)</td>
+</tr>
+<tr>
+<td>AIHA</td>
+<td>Corticosteroids (prednisolone)</td>
+<td>Initial response, may become refractory (<a href="https://pubmed.ncbi.nlm.nih.gov/34403170/">PMID: 34403170</a>)</td>
+<td>NCIT:C683 (Prednisolone)</td>
+</tr>
+<tr>
+<td>Growth</td>
+<td><strong>Recombinant human growth hormone</strong></td>
+<td>Explored for short stature in a TKS patient (<a href="https://pubmed.ncbi.nlm.nih.gov/42746537/">PMID: 42746537</a>)</td>
+<td>NCIT:C1301 (Recombinant Human Growth Hormone)</td>
+</tr>
+<tr>
+<td>Hearing loss</td>
+<td>Hearing aids / cochlear implants, speech therapy</td>
+<td>Standard of care given 84.6% HL frequency (<a href="https://pubmed.ncbi.nlm.nih.gov/39202334/">PMID: 39202334</a>)</td>
+<td>NCIT:C99279 (Cochlear Implant)</td>
+</tr>
+<tr>
+<td>Developmental</td>
+<td>Early intervention, PT/OT/speech therapy</td>
+<td>Standard supportive care</td>
+<td>NCIT:C15317 (Rehabilitation Therapy)</td>
+</tr>
+<tr>
+<td>Nutrition</td>
+<td>Gastrostomy where feeding impaired</td>
+<td>Reported, with infection complication risk (<a href="https://pubmed.ncbi.nlm.nih.gov/37347054/">PMID: 37347054</a>)</td>
+<td>NCIT:C79426 (Gastrostomy)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Experimental / targeted (preclinical).</strong> CDC42 is an emerging druggable target. <strong>Prenylation/lipidation inhibitors</strong> rescue mutant phenotypes: "Both the neurite outgrowth defect and the enhanced membrane localization induced by Y64C overexpression were restored by GGTI-298 treatment but not by ML141" (<a href="https://pubmed.ncbi.nlm.nih.gov/41581414/">PMID: 41581414</a>); in megakaryoblasts, macrothrombocytopenia "is ameliorated by CDC42 specific- and lipidation inhibitors in MEG-01 cells" (<a href="https://pubmed.ncbi.nlm.nih.gov/34504210/">PMID: 34504210</a>). CDC42-subfamily inhibitors "have recently produced lead compounds demonstrating disease-modifying effects in vivo" (<a href="https://pubmed.ncbi.nlm.nih.gov/42168045/">PMID: 42168045</a>). <strong>No gene/cell/RNA therapy</strong> exists for TKS.</p>
+<p><strong>Pharmacogenomics / treatment algorithms.</strong> No TKS-specific pharmacogenomic guidance. Strategy is genotype-stratified: autoinflammatory variants → anti–IL-1; cytopenias → hematologic management (± splenectomy); all → developmental/hearing support.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> not possible for de novo disease. <strong>Genetic counseling</strong> is central: recurrence risk for parents of a de novo case is low (small residual from gonadal mosaicism); an affected individual (rare familial cases) has 50% transmission risk (<a href="https://pubmed.ncbi.nlm.nih.gov/33283961/">PMID: 33283961</a>).</li>
+<li><strong>Reproductive options:</strong> <strong>prenatal diagnosis</strong> and <strong>preimplantation genetic testing (PGT-M)</strong> are available once a familial pathogenic variant is known.</li>
+<li><strong>Secondary prevention:</strong> early audiology screening and developmental surveillance to enable timely intervention; monitoring platelet counts and for autoimmune cytopenias.</li>
+<li><strong>Tertiary prevention:</strong> bleeding-risk management, infection prevention around procedures, and prompt IL-1 blockade in the autoinflammatory subgroup to prevent HLH-related mortality.</li>
+<li><strong>Immunization / public-health / environmental measures:</strong> not applicable (non-infectious, non-environmental genetic disorder).</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy / orthologs:</strong> <em>CDC42</em> is <strong>deeply evolutionarily conserved</strong> across eukaryotes — human (NCBI Gene 998), mouse <em>Cdc42</em> (NCBI Gene 12540), zebrafish, <em>Drosophila</em>, <em>C. elegans</em>, and functional homologs in fungi (e.g., <em>Cryptococcus</em> Wsp1/Cin1 pathway — <a href="https://pubmed.ncbi.nlm.nih.gov/22327008/">PMID: 22327008</a>). The downstream WASP/N-WASP effector axis is conserved from yeast to human (<a href="https://pubmed.ncbi.nlm.nih.gov/20501656/">PMID: 20501656</a>).</li>
+<li><strong>Natural disease in other species:</strong> No naturally occurring animal ortholog of TKS is catalogued in OMIA; disease knowledge comes from engineered models, not spontaneous veterinary disease. <strong>Not applicable</strong> for natural disease.</li>
+<li><strong>Comparative biology:</strong> Lineage-specific <em>Cdc42</em> functions are conserved — neural crest, endothelial, megakaryocyte, hair-cell, and myeloid roles demonstrated in mouse recapitulate human phenotype domains (see Section 15).</li>
+<li><strong>Zoonotic potential:</strong> none (non-transmissible genetic disorder).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Phenotype recapitulated</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TKS patient iPSC-derived megakaryocytes</td>
+<td>Human cellular (iPSC)</td>
+<td>Fewer hematopoietic progenitors, defective megakaryopoiesis, "released platelets with an abnormally low count and giant morphology"</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37918315/">PMID: 37918315</a></td>
+</tr>
+<tr>
+<td>MEG-01 megakaryoblasts expressing Y64C</td>
+<td>In vitro overexpression</td>
+<td>Short cytoplasmic protrusions, aberrant F-actin/microtubules, reduced platelet-like particles; rescued by CDC42/lipidation inhibitors</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34504210/">PMID: 34504210</a></td>
+</tr>
+<tr>
+<td>HEK293 expressing Y64C</td>
+<td>In vitro</td>
+<td>Membrane-localized hyperactive CDC42; impaired RhoGDI/effector binding</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34504210/">PMID: 34504210</a></td>
+</tr>
+<tr>
+<td>Neuro2A neuroblastoma expressing Y64C</td>
+<td>In vitro</td>
+<td>Impaired neurite outgrowth, rescued by GGTI-298 (prenylation inhibitor), not ML141</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41581414/">PMID: 41581414</a></td>
+</tr>
+<tr>
+<td>Atoh1-Cre hair-cell–specific <em>Cdc42</em> KO mouse</td>
+<td>Conditional mouse KO</td>
+<td>Progressive sensorineural hearing loss; CDC42+RHOQ synergy in cochlear hair cells</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42567517/">PMID: 42567517</a></td>
+</tr>
+<tr>
+<td>Wnt1-Cre neural-crest <em>Cdc42</em> KO mouse</td>
+<td>Conditional mouse KO</td>
+<td>Embryonic lethality with cleft lip, craniofacial and cardiovascular outflow defects via impaired NCC migration</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24056078/">PMID: 24056078</a></td>
+</tr>
+<tr>
+<td>Endothelial <em>Cdc42</em> KO mouse</td>
+<td>Conditional mouse KO</td>
+<td>Failed vascular lumen formation, reduced filopodia; relevant to lymphatic/vascular anomalies</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26253403/">PMID: 26253403</a></td>
+</tr>
+<tr>
+<td>Myeloid-specific <em>Cdc42</em> KO mouse</td>
+<td>Conditional mouse KO</td>
+<td>Macrophage pyroptosis / inflammatory models (immune axis)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42363173/">PMID: 42363173</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Model strengths:</strong> The iPSC-megakaryocyte model directly reproduces the hallmark macrothrombocytopenia in a patient-specific genetic background; cellular overexpression models dissect the membrane-hyperactivation mechanism and enable drug rescue; lineage-specific conditional knockouts map individual phenotype domains to specific tissues.</p>
+<p><strong>Model limitations:</strong> Conditional knockouts model <strong>loss-of-function</strong>, whereas TKS variants are predominantly <strong>gain-of-function/dominant-negative</strong>; no single model yet reproduces the full multisystem human syndrome. A knock-in Y64C mouse would be the key missing resource.</p>
+<p><strong>Resources:</strong> MGI (mouse <em>Cdc42</em>), Cellosaurus (TKS iPSC lines), ZFIN/FlyBase/WormBase for orthologs.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Role in this report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26386261/">26386261</a></td>
+<td>Original TKS delineation; de novo <em>CDC42</em> by WES</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26708094/">26708094</a></td>
+<td>Second unrelated patient; defines cardinal features</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29335451/">29335451</a></td>
+<td>Establishes p.Tyr64Cys as recurrent hot-spot</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34624555/">34624555</a></td>
+<td>Y64C as TKS-specific; intermittent thrombocytopenia</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29394990/">29394990</a></td>
+<td>Genotype-phenotype spectrum; functional heterogeneity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34504210/">34504210</a></td>
+<td>Y64C mechanism: membrane hyperactivity, F-actin defect, drug rescue</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40846997/">40846997</a></td>
+<td>KLHL23/RhoGDI turnover axis; Y64C escapes degradation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37918315/">37918315</a></td>
+<td>Patient iPSC model recapitulates macrothrombocytopenia</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31601675/">31601675</a></td>
+<td>NOCARH syndrome (C-terminal variant autoinflammation/HLH)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31271789/">31271789</a></td>
+<td>IL-1β blockade effective in C-terminal variant autoinflammation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42567517/">42567517</a></td>
+<td>Hair-cell Cdc42 KO mouse; CDC42+RHOQ hearing mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39202334/">39202334</a></td>
+<td>Hearing loss frequency 84.6% systematic review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33283961/">33283961</a></td>
+<td>Familial AD transmission (E171K); spectrum breadth</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41581414/">41581414</a></td>
+<td>Prenylation inhibitor rescues neurite defect (druggability)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42168045/">42168045</a></td>
+<td>CDC42 inhibitor development with in vivo efficacy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24056078/">24056078</a></td>
+<td>Neural-crest Cdc42 KO → craniofacial/cardiac defects</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26253403/">26253403</a></td>
+<td>Endothelial Cdc42 KO → vascular morphogenesis defect</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42566502/">42566502</a></td>
+<td>CDC42–pyrin B30.2 interaction establishes inflammasome mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40204564/">40204564</a></td>
+<td>Serum IL-18 biomarker for pyrin-inflammasome CDC42 AID</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40296562/">40296562</a></td>
+<td>Review: CDC42 variants span NDD to autoinflammation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40371891/">40371891</a></td>
+<td>Novel E127K variant; ocular colobomas</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36459360/">36459360</a></td>
+<td>Splenectomy improves macrothrombocytopenia/AIHA</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41567106/">41567106</a></td>
+<td>IRUD identification; clinical characterization</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Ultra-rare disease / small N.</strong> Evidence rests on case reports and small series; no prevalence/incidence figures, no robust natural-history cohort, and no validated QoL data.</li>
+<li><strong>Loss-of-function vs gain-of-function model mismatch.</strong> Available mouse models are conditional knockouts; no knock-in of the human gain-of-function Y64C allele exists, limiting faithful organismal modeling of classic TKS.</li>
+<li><strong>Mechanistic inference for CNS phenotype.</strong> The neurite-outgrowth → developmental-delay link is inferred from Neuro2A cells, not demonstrated in vivo.</li>
+<li><strong>Genotype-phenotype boundaries are still being mapped</strong>, with novel variants (E127K, E171K) expanding the phenotype and blurring class boundaries.</li>
+<li><strong>No approved targeted therapy.</strong> CDC42 and prenylation inhibitors remain preclinical; IL-1 blockade is established only for the autoinflammatory subgroup.</li>
+<li><strong>Epidemiologic and demographic data are essentially absent</strong> (sex ratio, true geographic distribution, carrier/founder analysis all not established).</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Generate a Y64C knock-in mouse</strong> (and other variant-class knock-ins) to model the gain-of-function multisystem syndrome and test candidate drugs in vivo.</li>
+<li><strong>Establish an international TKS/CDC42 patient registry</strong> to define prevalence, natural history, variant-stratified outcomes, and validated QoL measures.</li>
+<li><strong>Advance CDC42/prenylation inhibitors</strong> (GGTI-298, CASIN, ML141-class) toward clinical translation with tissue-selective delivery, prioritizing platelet and neuronal endpoints.</li>
+<li><strong>Prospective evaluation of serum IL-18</strong> as a diagnostic/monitoring biomarker across the full CDC42 variant spectrum, not only the autoinflammatory subgroup.</li>
+<li><strong>Systematic audiologic natural-history study</strong> to time cochlear intervention, given 84.6% progressive hearing loss.</li>
+<li><strong>Functional classification pipeline</strong> (RhoGDI binding, KLHL23 turnover, membrane localization, pyrin binding) applied to each new variant to prospectively assign phenotype class and guide management.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 10 confirmed findings and 55 reviewed papers over 5 investigation iterations. Evidence types span human clinical case reports/series, patient-derived iPSC models, in vitro overexpression systems, conditional mouse genetics, and computational/structural analyses.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Takenouchi-Kosaki_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Takenouchi-Kosaki_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.4.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Quoted claims with nothing to check against</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>33</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>1 of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:34624555</code> <em>(abstract only)</em>: "a hot-spot missense variant... strictly related to TKS"</li>
+<li>closest text in source: "Takenouchi-Kosaki syndrome (TKS) is a recently delineated syndromic form of thrombocytopenia strictly related to an hot-spot missense variant, p.Tyr64Cys, in CDC42 (Cell Division Control protein 42)"</li>
+<li><code>PMID:34504210</code>: "is ameliorated by CDC42 specific- and lipidation inhibitors in MEG-01 cells"</li>
+<li>closest text in source: "This suggests that reduced PLP production by Y64C was ameliorated by Cdc42-specific inhibitors and GGTI-298"</li>
+</ul>
+<h3>Quotes that could not be checked</h3>
+<p>There was no text to compare these against, so they are neither confirmed nor contradicted:</p>
+<ul>
+<li><code>PMID:31271789</code>: "Severe autoinflammation in 4 patients with C-terminal variants in CDC42 successfully treated with IL-1β inhibition"</li>
+<li>Reference resolved but exposes no abstract or full text to search</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>49</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>48</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0014757</code> (3 mentions) - the report calls it "MONDO"; MONDO calls it <strong>Takenouchi-Kosaki syndrome</strong></li>
+<li><code>HP:0000407</code> (1 mention) - the report calls it "84.6% (11/13 reviewed)"; HP calls it <strong>Sensorineural hearing impairment</strong></li>
+<li><code>HP:0001999</code> (1 mention) - the report calls it "Cardinal"; HP calls it <strong>Abnormal facial shape</strong></li>
+<li><code>HP:0012385</code> (1 mention) - the report calls it "Cardinal"; HP calls it <strong>Camptodactyly</strong></li>
+<li><code>HP:0001004</code> (1 mention) - the report calls it "Frequent"; HP calls it <strong>Lymphedema</strong></li>
+<li><code>HP:0004322</code> (1 mention) - the report calls it "Frequent"; HP calls it <strong>Short stature</strong></li>
+<li><code>HP:0012443</code> (1 mention) - the report calls it "Variable"; HP calls it <strong>Abnormal brain morphology</strong></li>
+<li><code>HP:0000589</code> (1 mention) - the report calls it "Rare (variant-specific)"; HP calls it <strong>Coloboma</strong></li>
+<li><code>HP:0001890</code> (1 mention) - the report calls it "Rare"; HP calls it <strong>Autoimmune hemolytic anemia</strong></li>
+<li><code>UBERON:0005211</code> (1 mention) - the report calls it "lymphatic vessel"; UBERON calls it <strong>renal medulla interstitium</strong></li>
+<li><code>NCIT:C2028</code> (1 mention) - the report calls it "Interleukin-1 Antagonist"; NCIT calls it <strong>Tyrphostin AG 370</strong></li>
+<li><code>NCIT:C683</code> (1 mention) - the report calls it "Prednisolone"; NCIT calls it <strong>Neomycin</strong></li>
+<li><code>NCIT:C1301</code> (1 mention) - the report calls it "Recombinant Human Growth Hormone"; NCIT calls it <strong>Esperamicin A1</strong></li>
+<li><code>NCIT:C99279</code> (1 mention) - the report calls it "Cochlear Implant"; NCIT calls it <strong>FUS/DDIT3 Fusion Gene</strong></li>
+<li><code>NCIT:C15317</code> (1 mention) - the report calls it "Rehabilitation Therapy"; NCIT calls it <strong>Second-Look Surgery</strong></li>
+<li><code>NCIT:C79426</code> (1 mention) - the report calls it "Gastrostomy"; NCIT calls it <strong>Cancer Diagnostic or Therapeutic Procedure</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>NCIT:C51771</code> (1 mention) - the report calls it "Splenectomy"; NCIT calls it <strong>Total Laryngectomy</strong></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Takayasu_Arteritis-falcon.html">← Takayasu Arteritis (Falcon)</a>
+                
+                
+                <a href="Takotsubo_Cardiomyopathy-claude_code.html">Takotsubo Cardiomyopathy (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Takenouchi-Kosaki_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Takenouchi-Kosaki_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

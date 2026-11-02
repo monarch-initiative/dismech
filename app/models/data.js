@@ -5151,10 +5151,20 @@ window.searchData = [
       "Dermatological Disease",
       "Inflammatory Disease"
     ],
-    "variables": [],
+    "variables": [
+      "Human repeat insult patch test result",
+      "Local lymph node assay result",
+      "Direct peptide reactivity assay result",
+      "KeratinoSens result",
+      "Human cell line activation test result",
+      "U-SENS result",
+      "Sensitiser potency metric",
+      "Margin of exposure",
+      "Probability that an exposure is low risk"
+    ],
     "variable_ids": [],
     "variable_terms": [],
-    "num_variables": 0,
+    "num_variables": 9,
     "perturbations": [],
     "perturbation_ids": [],
     "modeled_mechanisms": [],
@@ -5162,12 +5172,67 @@ window.searchData = [
     "findings": [],
     "num_findings": 0,
     "evidence_refs": [
-      "PMID:35311660"
+      "PMID:35311660",
+      "PMID:35835397"
     ],
-    "num_evidence": 1,
+    "num_evidence": 2,
     "notes": "Carries no mechanism link, because what it predicts is the sensitization outcome and this entry has no adverse-outcome node to attach that to; see the no_node_for_integrated_outcome_prediction discussion. The potency metric is inferred statistically rather than measured, and the model is anchored on human patch test and local lymph node assay reference data, so it inherits those reference sets' domains. Whether the safety assessment factors used with animal data suit a non-animal point of departure is unresolved.",
     "creation_date": "2026-03-13T18:40:33Z",
     "page_url": "../../pages/disorders/Contact_Dermatitis.html#computational-model-skin-allergy-risk-assessment-sara-model",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Contact_Dermatitis.yaml"
+  },
+  {
+    "model_key": "Contact_Dermatitis--computational-model-skin-allergy-risk-assessment-integrated-chemical-environment-sara-ice--3",
+    "name": "Skin Allergy Risk Assessment - Integrated Chemical Environment (SARA-ICE)",
+    "description": "A Bayesian framework for quantitative skin sensitization hazard and potency assessment, developed by NICEATM and Unilever, that estimates the ED01: the dermal dose associated with a 1 percent sensitization probability in humans. It integrates in chemico and in vitro assay results and can also take historical human and murine data. Two implementations share the one model. SARA-ICE DA is a fixed defined approach accepted into OECD Guideline 497 for deriving a point of departure and usable under Mutual Acceptance of Data; it reports the point of departure as the geometric mean of the ED01 distribution. SARA-ICE Extended returns the full ED01 distribution, a prediction uncertainty ratio, and probabilities for the GHS subcategories.",
+    "model_type": "Machine Learning",
+    "model_type_raw": "MACHINE_LEARNING",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:41816003",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Contact Dermatitis",
+    "disease_id": "MONDO:0005480",
+    "category": "Complex",
+    "parents": [
+      "Dermatological Disease",
+      "Inflammatory Disease"
+    ],
+    "variables": [
+      "Direct peptide reactivity assay result",
+      "Kinetic direct peptide reactivity assay result",
+      "KeratinoSens result",
+      "Human cell line activation test result",
+      "U937 cell line activation test result",
+      "Human predictive patch test result",
+      "Local lymph node assay result",
+      "ED01",
+      "SARA-ICE DA point of departure",
+      "SARA-ICE prediction uncertainty ratio",
+      "GHS subcategory probability"
+    ],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 11,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [],
+    "num_mechanisms": 0,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:41816003"
+    ],
+    "num_evidence": 1,
+    "notes": "Carries no mechanism link for the same reason as the SARA model above: it predicts the sensitization outcome from inputs spanning several key events, and this entry has no adverse-outcome node to attach that to; see the no_node_for_integrated_outcome_prediction discussion. A separate record from the SARA model rather than a re-curation of it, because SARA-ICE was built on the Unilever SARA model with an expanded training set drawn from the NICEATM Integrated Chemical Environment database and a curated human predictive patch test set, names the ED01 as its output quantity, and takes kinetic direct peptide reactivity assay results, which SARA does not. The two implementations are recorded as one model because the source presents them as two implementations of one Bayesian framework, differing in output and in whether a user can change them: the defined approach is fixed and cannot be altered outside a guideline update, while Extended is versioned and may gain input types. The human input is the same quantity the SARA record calls human repeat insult patch test; the later paper uses the umbrella term human predictive patch test for the maximization and repeat-insult tests together. The defined approach requires at least two key event inputs to be acceptable under Mutual Acceptance of Data. Two limits on what the evaluation supports. Specificity for non-sensitizers was lower than sensitivity, so the model is more reliable at identifying a sensitizer than at clearing a non-sensitizer; and GHS subcategorization accuracy of 33 to 77 percent means the potency category is considerably weaker than the hazard call, as it is for the defined approach recorded above. The input enumeration and every per-assay count in this record come from the source's Methods section 2.1.1, which describes a database of 434 distinct chemicals and nearly 5000 data points; that section is not in the cached abstract, so no snippet here covers those figures. Two further statements in this record are beyond the cached abstract in the same way, and no snippet covers them either: the abstract records acceptance by the OECD and use under Mutual Acceptance of Data without naming Guideline 497, which the source identifies in its introduction, and the defined approach's two-key-event input requirement, which is in Methods section 2.1.2. The 180 substances in the evidence below are the evaluation set, tested in the direct peptide reactivity assay, KeratinoSens and the human cell line activation test only, and are not the training database. What this source does not give is each input's measured endpoint and unit as the model consumes it: it states the assay names and defers the model's internals to Reinke et al. 2025 and Reynolds et al. 2019 and 2022. The endpoints are therefore recorded here only where this entry already curates the assay as its own model.",
+    "creation_date": "2026-03-13T18:40:33Z",
+    "page_url": "../../pages/disorders/Contact_Dermatitis.html#computational-model-skin-allergy-risk-assessment-integrated-chemical-environment-sara-ice",
     "model_page_url": "",
     "source_file": "kb/disorders/Contact_Dermatitis.yaml"
   },
@@ -6776,7 +6841,7 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 139,
+  "total_models": 140,
   "total_source_entries": 64,
   "total_model_types": 11,
   "total_runnable": 4,
