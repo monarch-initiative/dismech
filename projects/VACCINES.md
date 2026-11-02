@@ -414,12 +414,22 @@ We audited all disorder entries with vaccine treatments and curated/enriched **2
 | `Monkeypox` | `MVA-BN Vaccination (Jynneos / Imvanex)` | **Completed** | `Viral Entry and Systemic Dissemination`, `Evasion of Host Antiviral Immunity` |
 | `Bacterial_meningitis` | `Conjugate Vaccination (Hib, Pneumococcal, Meningococcal)` (`NCIT:C80473`) | **Completed** | `Blood-Brain Barrier Penetration`, `Intrathecal Bacterial Replication` |
 | `Tuberculosis` | `BCG Vaccination` (`NCIT:C298`) | **Completed** | `Alveolar Macrophage Entry and Phagosome Maturation Arrest`, `Extrapulmonary Hematogenous Dissemination` |
-| `Congenital_Rubella_Syndrome` | `Pre-Conception and Childhood Live-Attenuated Rubella Vaccination (MMR)` (`NCIT:C103063`) | **Completed (New Entry)** | `Maternal Rubella Viremia and Transplacental Viral Entry` |
-| `Hepatitis_E` | `Recombinant Hepatitis E Capsid Vaccine (HEV 239 / Hecolin)` | **Completed** | `Enteric HEV Entry and Quasi-Enveloped Viremia` |
-| `Buruli_Ulcer` | `Bacillus Calmette-Guerin (BCG) Cross-Protective Vaccination` (`NCIT:C15346`) | **Completed** | *(Preventive treatment entry; `Subcutaneous Inoculation and Intracellular Macrophage Phase` conformed to `vaccine_induced_mucosal_iga_neutralization`)* |
-| `Clostridioides_difficile_Infection` | `Investigational Toxoid Vaccination (PF-06425090 / VLA84)` (`NCIT:C15346`) | **Completed** | `Clostridial Toxin Production` |
-| `Prostate_Adenocarcinoma` | `Sipuleucel-T Autologous Cellular Immunotherapy` (`NCIT:C15262`, `CELL_THERAPY`) | **Completed** | *(Autologous cellular immunotherapy treatment entry)* |
-| `Cutaneous_Melanoma` | `Personalized mRNA Neoantigen Vaccine (mRNA-4157 / V940) Plus Pembrolizumab` (`NCIT:C15262`, `VACCINE`) | **Completed** | `Melanoma Progression and Metastasis` |
+| `Congenital_Rubella_Syndrome` | `Pre-Conception and Childhood Live-Attenuated Rubella Vaccination (MMR)` (`NCIT:C15346`) | **Completed (New Entry)** | `Maternal Rubella Viremia and Transplacental Viral Entry` |
+| `Hepatitis_E` | `Recombinant Hepatitis E Capsid Vaccine (HEV 239 / Hecolin)` (`NCIT:C15346`) | **Completed** | `Hepatotropic HEV Infection and Replication` |
+| `Buruli_Ulcer` | `Bacillus Calmette-Guerin (BCG) Cross-Protective Vaccination` (`NCIT:C15346`, `NCIT:C298`) | **Completed** | *(Preventive benchmark treatment entry; `PMID:34119347`)* |
+| `Clostridioides_difficile_Infection` | `Bezlotoxumab` (`NCIT:C153084`, `MONOCLONAL_ANTIBODY`) | **Completed** | `Epithelial Cell Death and Barrier Disruption` (+ `Toxin Production (TcdA/TcdB)` conformed to `toxoid_neutralizing_humoral_immunity`) |
+| `Prostate_Adenocarcinoma` | `Sipuleucel-T Autologous Cellular Immunotherapy` (`NCIT:C15262`, `CELL_THERAPY`) | **Completed** | *(Autologous cellular immunotherapy treatment entry; `PMID:40315400`)* |
+| `Cutaneous_Melanoma` | `Talimogene Laherparepvec (T-VEC) Oncolytic Viral Immunotherapy` (`NCIT:C15262`, `OTHER`) | **Completed** | *(Oncolytic viral immunotherapy treatment entry; `PMID:32714859`)* |
+| `Adenovirus_Respiratory_Infection` | `Live, oral adenovirus type 4 and type 7 vaccine` (`NCIT:C15346`) | **Completed** | `Respiratory Epithelial Infection and Viral Replication` |
+| `Anal_Canal_Carcinoma` | `HPV Vaccination` (`NCIT:C15346`) | **Completed** | `HPV Infection of Anal Squamous Epithelium` |
+| `Cervical_Squamous_Cell_Carcinoma` | `HPV Vaccination` (`NCIT:C15346`) | **Completed** | `Persistent High-Risk HPV Infection` |
+| `Glanders` | `Experimental vaccine platforms` (`NCIT:C15346`) | **Completed** | `Intracellular macrophage survival and T6SS-1 actin-based spread` |
+| `Gonorrhea` | `Meningococcal B OMV vaccine (4CMenB)` (`NCIT:C15346`) | **Completed** | `Gonococcal Mucosal Attachment and Microcolony Formation` |
+| `Hand_Foot_and_Mouth_Disease` | `EV-A71 inactivated vaccine` (`NCIT:C15346`) | **Completed** | `Receptor-mediated viral entry and endosomal uncoating`, `Viremia and systemic dissemination` |
+| `Hantavirus_Hemorrhagic_Fever_with_Renal_Syndrome` | `Hantavax` (`NCIT:C15346`) | **Completed** | `Noncytopathic microvascular endothelial infection` |
+| `Late_Complement_Component_Deficiency` | `Meningococcal Vaccination (MenACWY and MenB)` (`NCIT:C15346`) | **Completed** | `Recurrent Invasive Neisserial Infection` |
+| `Penile_Cancer` | `Prophylactic HPV Vaccination` (`NCIT:C15346`) | **Completed** | `HPV E6/E7 Oncoprotein-Driven Transformation` |
+| `Viral_Encephalitis` | `Vaccination` (`NCIT:C15346`) | **Completed** | `Viral Neuroinvasion` |
 
 ---
 
