@@ -1627,6 +1627,42 @@ systems. Before `AnimalModel` had `modeled_mechanisms`, curators routed animal
 models through `ExperimentalModel` with `experimental_model_type: OTHER` to reach
 the pathograph; that workaround is no longer needed (#8199).
 
+**Which `experimental_model_type`? Ask whether intact cells were present during
+the readout** (#16000). If they were, use a cell-based value. If they were not,
+use `CELL_FREE`: purified protein or enzyme, a reconstituted complex, a liposome
+or proteoliposome system, cell-free translation or a cell lysate, a membrane
+fraction, or isolated organelles. Where the reagent came from does not matter. A
+protein expressed in *E. coli* and then purified is `CELL_FREE`
+(`AHCY_Deficiency`, `Vitamin_D-Dependent_Rickets_Type_3`). Permeabilized tissue
+is not, because its cells are permeabilized rather than absent; it is
+`EX_VIVO_TISSUE` (`Dilated_Cardiomyopathy_1Z`).
+
+- **Record what the missing cells exclude.** With no cells there is no
+  metabolism, no transport and no cellular context, so a negative result can mean
+  the mechanism is absent or that the system cannot host it. On each
+  `modeled_mechanisms` link, record that as a `BOUNDARY_OMISSION` divergence. On
+  a model with no link, put it in `notes`.
+- **One record holds one model system.** A record that pairs a biochemical assay
+  with a cell assay ("PTEN lipid-phosphatase biochemical and 293-cell assays" in
+  `Bannayan-Riley-Ruvalcaba_Syndrome`) should be split into two records, so each
+  gets its own type, link, fidelity and limitations. Where the biochemical arm is
+  only a minor control, keep one cell-based record and say so in `notes`.
+- **Use `PSC_DERIVED_MODEL` for any pluripotent stem cell line, induced or
+  embryonic** (#12806), and record which kind in `cell_source` where the source
+  says. `IPSC_DERIVED_MODEL` is deprecated but still valid: curators had been
+  putting ESC models under it (`Spastic_Paraplegia_89_Autosomal_Recessive`) or
+  under `CELL_LINE` (`Fabry_Disease`) for lack of a better value.
+- **Intact tissue kept outside the body is `EX_VIVO_TISSUE`**: an explant, an
+  organotypic or precision-cut slice, an organ culture, or an isolated
+  preparation such as a vessel ring. Dissociated cells grown from that tissue
+  are `PRIMARY_CELL_CULTURE`. Record the species in `organism`.
+- **Retyping existing records is opportunistic, not a migration.** `OTHER` is
+  not narrowed, and neither existing `IPSC_DERIVED_MODEL` values nor existing
+  `OTHER` ones need changing. Retype a record when you are already editing that
+  entry, and read its description first. A keyword sweep for cell-free terms
+  finds whole-organism models too (#13774), and those belong in
+  `animal_models:`.
+
 **The link records four things beyond the target:**
 
 | Slot | What it says |
