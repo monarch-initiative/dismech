@@ -88208,14 +88208,18 @@ window.searchData = [
     "creation_date": "2026-08-31T15:10:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Cerebrocostomandibular syndrome (CCMS) is a rare autosomal dominant malformation disorder caused by heterozygous variants in SNRPB, which encodes the core Sm proteins SmB/SmB' of the major spliceosome. The variants fall in a conserved alternative exon that carries a premature termination codon; including that exon routes the transcript to nonsense-mediated decay, so the variants raise inclusion of the exon and lower overall SNRPB expression. The resulting mis-splicing of developmental transcripts produces a narrowly skeletal phenotype: severe micrognathia with Pierre Robin sequence, and posterior rib gaps with reduced rib number and abnormal costovertebral articulation. Neonatal respiratory failure dominates the early course.",
+    "description": "Cerebrocostomandibular syndrome (CCMS) is a rare autosomal dominant malformation disorder associated with heterozygous SNRPB variants. SNRPB encodes the core spliceosomal proteins SmB/SmB'. Most molecularly characterized cases carry variants in a regulatory alternative exon containing a premature termination codon. Increased inclusion of this exon promotes nonsense-mediated decay and reduces overall SNRPB expression. Disturbed splicing of developmental transcripts contributes to severe micrognathia with Pierre Robin sequence and posterior rib gaps, reduced rib number and abnormal costovertebral articulation. Airway obstruction and thoracic restriction dominate the early clinical course; severity and penetrance vary.",
     "pathophysiology": [
       "SNRPB Alternative-Exon Variants Increase Inclusion of a PTC-Containing Exon",
       "Reduced SNRPB Expression Through Nonsense-Mediated Decay",
       "Mis-Splicing of Developmental Transcripts",
       "P53 Pathway Activation in Neural Crest Cells",
-      "Attenuated Wnt/beta-Catenin and Enhanced BMP Signalling",
-      "Impaired Osteogenic and Altered Chondrogenic Differentiation",
+      "Increased Apoptosis in Cranial Neural Crest Lineages",
+      "Abnormal Craniofacial Morphogen Expression",
+      "Attenuated Wnt/beta-Catenin Signalling",
+      "Enhanced BMP Signalling",
+      "Impaired Osteogenic Differentiation",
+      "Promoted Chondrogenesis in HEPM Cells",
       "Neural Crest-Derived First Arch Hypoplasia",
       "Costal Patterning Failure",
       "Restrictive and Unstable Thorax",
@@ -88223,20 +88227,17 @@ window.searchData = [
       "Neonatal Respiratory Failure"
     ],
     "cell_types": [
-      "neural crest cell",
-      "osteoblast",
-      "chondrocyte"
+      "neural crest cell"
     ],
     "cell_type_ids": [
-      "CL:0011012",
-      "CL:0000062",
-      "CL:0000138"
+      "CL:0011012"
     ],
     "biological_processes": [
-      "regulation of alternative mRNA splicing",
-      "spliceosomal snRNP assembly",
+      "regulation of alternative mRNA splicing, via spliceosome",
+      "nuclear-transcribed mRNA catabolic process, nonsense-mediated decay",
       "mRNA splicing, via spliceosome",
       "signal transduction by p53 class mediator",
+      "apoptotic process",
       "canonical Wnt signaling pathway",
       "BMP signaling pathway",
       "osteoblast differentiation",
@@ -88257,7 +88258,8 @@ window.searchData = [
       "Microcephaly",
       "Horseshoe kidney",
       "Hypospadias",
-      "Septal heart defect"
+      "Septal heart defect",
+      "Conductive hearing impairment"
     ],
     "phenotype_categories": [
       "Craniofacial",
@@ -88267,11 +88269,13 @@ window.searchData = [
       "Neurologic",
       "Renal",
       "Genitourinary",
-      "Cardiovascular"
+      "Cardiovascular",
+      "Auditory"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Digestive",
+      "Ear",
       "Genitourinary",
       "Head and Neck",
       "Musculoskeletal",
@@ -88293,7 +88297,8 @@ window.searchData = [
       "HP:0000252",
       "HP:0000085",
       "HP:0000047",
-      "HP:0001629"
+      "HP:0001671",
+      "HP:0000405"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -88308,19 +88313,20 @@ window.searchData = [
       "Ex utero intrapartum treatment (EXIT)",
       "Cleft palate repair",
       "Gastrostomy and nutritional support",
-      "Scoliosis surveillance and surgery",
-      "Supportive respiratory and nutritional care"
+      "Scoliosis surveillance",
+      "Supportive respiratory and nutritional care",
+      "Mandibular distraction osteogenesis"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Cerebrocostomandibular_Syndrome.yaml",
     "page_url": "../pages/disorders/Cerebrocostomandibular_Syndrome.html",
-    "num_phenotypes": 15,
-    "num_pathophysiology": 11,
+    "num_phenotypes": 16,
+    "num_pathophysiology": 15,
     "num_genes": 1,
-    "num_treatments": 6,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "8"
+    "num_treatments": 7,
+    "causal_graph_edges": "43",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Cerebrotendinous xanthomatosis",
@@ -134750,7 +134756,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "4"
   },
   {
@@ -143847,6 +143853,130 @@ window.searchData = [
     "num_treatments": 8,
     "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "ETV6-Related Thrombocytopenia",
+    "disease_id": "MONDO:0014536",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited thrombocytopenia",
+      "Hereditary hematologic malignancy predisposition syndrome"
+    ],
+    "creation_date": "2026-10-31T19:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "ETV6-related thrombocytopenia (thrombocytopenia 5, THC5) is an autosomal dominant inherited platelet disorder with predisposition to haematological malignancy, caused by heterozygous germline variants in ETV6, which encodes an ETS-family transcriptional repressor. Affected individuals have lifelong, usually mild-to-moderate thrombocytopenia with normal platelet size, mild bleeding that can exceed what the platelet count predicts, and red cell macrocytosis in a subset. The most consequential feature is an incompletely penetrant risk of haematological malignancy, most often childhood B-cell acute lymphoblastic leukaemia, with myelodysplastic syndrome and myeloid leukaemias also reported. Most pathogenic variants are missense changes in the ETS DNA-binding domain or the central linker domain; the mutant protein is retained in the cytoplasm, dimerises with and sequesters wild-type ETV6, and so acts as a dominant negative, abolishing transcriptional repression. In megakaryocytes this produces a maturation defect with impaired proplatelet formation, and the resulting platelets show cytoskeletal and functional defects. Leukaemic progression is accompanied by somatic second hits, including loss of the wild-type ETV6 allele.",
+    "pathophysiology": [
+      "Dominant-Negative Cytoplasmic Retention of ETV6",
+      "Loss of ETV6 Transcriptional Repression",
+      "Cytoplasmic Mislocalization of the HDAC3-NCOR2 Corepressor Complex",
+      "Interferon Response Gene Derepression",
+      "Megakaryocyte Maturation Arrest",
+      "Megakaryocyte and Platelet Actin Cytoskeletal Dysregulation",
+      "Impaired Proplatelet Formation",
+      "Expansion of Megakaryocyte Progenitors and Circulating CD34+ Cells",
+      "Dyserythropoiesis",
+      "Sterile Bone Marrow Inflammation",
+      "Impaired B-Lymphoid Development of Multipotent Progenitors",
+      "Clonal Leukemic Transformation"
+    ],
+    "cell_types": [
+      "megakaryocyte",
+      "platelet",
+      "megakaryocyte progenitor cell",
+      "erythroblast",
+      "multipotent progenitor 4 (MPP4)"
+    ],
+    "cell_type_ids": [
+      "CL:0000556",
+      "CL:0000233",
+      "CL:0000553",
+      "CL:0000765",
+      "CL:0000837"
+    ],
+    "biological_processes": [
+      "XPO1-dependent nuclear export of ETV6 p.Pro214Leu",
+      "negative regulation of transcription by RNA polymerase II",
+      "megakaryocyte differentiation",
+      "actin cytoskeleton organization",
+      "platelet formation",
+      "inflammatory response",
+      "B cell differentiation"
+    ],
+    "phenotypes": [
+      "Thrombocytopenia",
+      "Abnormal Bleeding",
+      "Petechiae",
+      "Ecchymosis",
+      "Gingival Bleeding",
+      "Epistaxis",
+      "Menorrhagia",
+      "Abnormal Platelet Shape",
+      "Impaired Arachidonic Acid-Induced Platelet Aggregation",
+      "Impaired Clot Retraction",
+      "Megakaryocyte Nucleus Hypolobulation",
+      "Erythroid Dysplasia",
+      "Increased Mean Corpuscular Volume",
+      "B Acute Lymphoblastic Leukemia",
+      "Myelodysplasia",
+      "Acute Myeloid Leukemia",
+      "Chronic Myelomonocytic Leukemia"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Neoplasm"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0001873",
+      "HP:0001892",
+      "HP:0000967",
+      "HP:0031364",
+      "HP:0000225",
+      "HP:0000421",
+      "HP:0000132",
+      "HP:0012524",
+      "HP:0011870",
+      "HP:0031126",
+      "HP:0031385",
+      "HP:0031688",
+      "HP:0005518",
+      "HP:0004812",
+      "HP:0002863",
+      "HP:0004808",
+      "HP:0012325"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "ETV6"
+    ],
+    "treatments": [
+      "Antifibrinolytic and Desmopressin Therapy for Bleeding",
+      "Platelet Transfusion",
+      "Haematological Malignancy Surveillance",
+      "Allogeneic Hematopoietic Cell Transplantation with Carrier-Aware Donor Selection",
+      "Genetic Counseling and Cascade Testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ETV6-Related_Thrombocytopenia.yaml",
+    "page_url": "../pages/disorders/ETV6-Related_Thrombocytopenia.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 12,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "39",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "EVEN-PLUS Syndrome",
@@ -198316,6 +198446,75 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Hyperbiliverdinemia",
+    "disease_id": "MONDO:0013595",
+    "category": "Mendelian",
+    "parents": [
+      "Liver Disease",
+      "Inherited Metabolic Disorder"
+    ],
+    "creation_date": "2026-10-31T19:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Rare inborn error of heme catabolism caused by loss of biliverdin reductase A (BVR-A, encoded by BLVRA), the enzyme that reduces biliverdin IXalpha to bilirubin IXalpha. Without BVR-A activity biliverdin is not converted to bilirubin, but it can still be cleared in bile, so affected individuals are usually asymptomatic. When bile flow fails, as in episodes of biliary obstruction or decompensated liver cirrhosis, biliverdin accumulates in the circulation and colours the skin, sclerae, plasma, urine and other body fluids green (\"green jaundice\"), typically with normal or only moderately raised bilirubin. The discoloration resolved when the cholestasis was corrected. The human literature consists of a few case reports: two unrelated Greenlandic Inuit women homozygous for the truncating founder variant c.214C>A (p.Ser44Ter), and a Swedish man with alcoholic cirrhosis who carried a single truncating allele (p.Arg18Ter). Complete absence of BVR-A activity is compatible with life, and no long-term health effect of the deficiency has been described.",
+    "pathophysiology": [
+      "Biallelic BLVRA Loss of Function",
+      "Impaired Reduction of Biliverdin IXalpha to Bilirubin",
+      "Cholestatic Impairment of Biliary Biliverdin Clearance",
+      "Systemic Biliverdin Accumulation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "heme catabolic process"
+    ],
+    "phenotypes": [
+      "Elevated Circulating Biliverdin",
+      "Biliverdinuria",
+      "Green Urine",
+      "Green Discoloration of Skin",
+      "Cholelithiasis"
+    ],
+    "phenotype_categories": [
+      "Metabolism/Laboratory",
+      "Genitourinary",
+      "Integument",
+      "Digestive"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0034383",
+      "HP:0025743",
+      "HP:0032003",
+      "HP:0001000",
+      "HP:0001081"
+    ],
+    "frequencies": [],
+    "genes": [
+      "BLVRA"
+    ],
+    "treatments": [
+      "Surgical Relief of Biliary Obstruction"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum and urine biliverdin IXalpha"
+    ],
+    "source_file": "Hyperbiliverdinemia.yaml",
+    "page_url": "../pages/disorders/Hyperbiliverdinemia.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Hypercalciuria, Absorptive, 2",
     "disease_id": "MONDO:0007748",
     "category": "Mendelian",
@@ -204142,6 +204341,123 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "14",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Hypomyelinating Leukodystrophy 17",
+    "disease_id": "MONDO:0054817",
+    "category": "Mendelian",
+    "parents": [
+      "leukodystrophy"
+    ],
+    "creation_date": "2026-10-31T19:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypomyelinating leukodystrophy 17 (HLD17) is an ultra-rare autosomal recessive neurodevelopmental disorder caused by biallelic loss-of-function variants in AIMP2. AIMP2 (also called p38 or JTV-1) is a non-enzymatic scaffold of the cytoplasmic multi-tRNA synthetase complex (MSC), the assembly of eight aminoacyl-tRNA synthetases and three scaffold proteins (AIMP1-3) that charges tRNAs for translation. Affected children, most from consanguineous families, have microcephaly (present at birth in some), early and often refractory seizures, spastic quadriparesis, severe developmental delay and intellectual disability. Brain MRI shows delayed myelination and white matter abnormality together with prominent and progressive atrophy of the cerebrum, cerebellum and spinal cord, a thin corpus callosum, an enlarged cisterna magna and T2-hypointense basal ganglia. The picture closely resembles hypomyelinating leukodystrophy 3, caused by the sibling scaffold gene AIMP1. ClinGen classifies the AIMP2 relationship as Definitive with loss of function as the mechanism. In patient fibroblasts the variants reduce AIMP2 protein, attenuate protein synthesis and dysregulate the MSC synthetase MARS1, and aimp2 disruption in zebrafish increases cell death and atrophy in the developing brain. A separate line of work, overexpression of the truncating p.Tyr35Ter product in a mouse oligodendroglial cell line, proposes Golgi stress and caspase-2 activation as a cause of failed oligodendrocyte differentiation; how far that applies to patients, whose alleles are loss of function, is open. AIMP2 also has functions outside the MSC (p53-mediated apoptosis, TNF and TGF-beta signalling), but none has been tested in this disease. No disease-modifying treatment is reported.",
+    "pathophysiology": [
+      "Biallelic AIMP2 Loss-of-Function Variants",
+      "Reduced AIMP2 Protein",
+      "Multi-tRNA Synthetase Complex Destabilization",
+      "Attenuated Protein Synthesis",
+      "Increased Neural Cell Death",
+      "Progressive Brain Atrophy",
+      "Mutant AIMP2 Golgi Aggregation and Caspase-2 Golgi Stress",
+      "Impaired Oligodendroglial Differentiation",
+      "Deficient CNS Myelination"
+    ],
+    "cell_types": [
+      "oligodendrocyte precursor cell",
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002453",
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "translation",
+      "cell death",
+      "oligodendrocyte differentiation",
+      "central nervous system myelination"
+    ],
+    "phenotypes": [
+      "Microcephaly",
+      "Seizure",
+      "Intellectual Disability",
+      "Global Developmental Delay",
+      "Spastic Quadriparesis",
+      "Joint Contractures",
+      "Cerebral Atrophy",
+      "Cerebellar Atrophy",
+      "Spinal Cord Atrophy",
+      "Enlarged Cisterna Magna",
+      "T2-Hypointense Basal Ganglia",
+      "Thin Corpus Callosum",
+      "Ventriculomegaly",
+      "Delayed Myelination",
+      "CNS Hypomyelination",
+      "Abnormal Cerebral White Matter",
+      "Feeding Difficulties",
+      "Facial Dysmorphism",
+      "Anemia",
+      "Weight Loss",
+      "Short Extremities"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Gastrointestinal",
+      "Craniofacial",
+      "Hematological",
+      "Growth",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000252",
+      "HP:0001250",
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0002510",
+      "HP:0034392",
+      "HP:0002059",
+      "HP:0001272",
+      "HP:0006827",
+      "HP:0002280",
+      "HP:0012753",
+      "HP:0033725",
+      "HP:0002119",
+      "HP:0012448",
+      "HP:0003429",
+      "HP:0002500",
+      "HP:0011968",
+      "HP:0001999",
+      "HP:0001903",
+      "HP:0001824",
+      "HP:0009826"
+    ],
+    "frequencies": [],
+    "genes": [
+      "AIMP2"
+    ],
+    "treatments": [
+      "Antiseizure Medication"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypomyelinating_Leukodystrophy_17.yaml",
+    "page_url": "../pages/disorders/Hypomyelinating_Leukodystrophy_17.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "36",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Hypomyelinating Leukodystrophy 2",
@@ -232347,8 +232663,8 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "KLICK Syndrome",
@@ -391948,6 +392264,151 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Takenouchi-Kosaki Syndrome",
+    "disease_id": "MONDO:0014757",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited thrombocytopenia",
+      "Multiple congenital anomalies/dysmorphic syndrome-intellectual disability"
+    ],
+    "creation_date": "2026-10-31T19:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Group I",
+      "Group II",
+      "Group III"
+    ],
+    "description": "Autosomal dominant syndromic macrothrombocytopenia caused by heterozygous, typically de novo, missense variants in CDC42, the gene for the Rho-family small GTPase that acts as a signaling node for actin cytoskeleton remodeling, cell polarity and migration. The prototypic and recurrent variant is p.Tyr64Cys in the switch II region; together with p.Arg66Gly and p.Arg68Gln it forms the group I (switch II) class that defines classical Takenouchi-Kosaki syndrome. Group I mutants are insensitive to GTPase-activating and exchange factors, are held in a GTP-bound, membrane-associated state because they bind RhoGDI poorly, and bind the effectors PAK1, WASP, FMNL2 and IQGAP1 less well. In megakaryocytes this disturbs F-actin and microtubule dynamics during proplatelet extension, so fewer, larger platelets are released; in developing cortex the mutant impairs neuronal migration and axon elongation. The cardinal features are macrothrombocytopenia, moderate to severe intellectual disability and developmental delay, sensorineural hearing loss with nonspecific structural brain anomalies (ventriculomegaly, cerebellar atrophy), camptodactyly, lymphedema of the lower limbs and distinctive facial features, with frequent hypothyroidism, recurrent infections and a progressive B and T lymphocyte deficiency. Other heterozygous CDC42 missense variants (nucleotide-pocket group II and CRIB-region group III) give a related but less thrombocytopenic, variably Noonan-like developmental disorder under the same OMIM number. The C-terminal p.Arg186Cys variant, which causes neonatal-onset cytopenia with autoinflammation, rash and hemophagocytic lymphohistiocytosis (NOCARH), has a distinct mechanism and is not curated here.",
+    "pathophysiology": [
+      "CDC42 Switch II Missense Variant",
+      "Dysregulated CDC42 GTPase Cycling",
+      "Impaired CDC42 Effector Binding",
+      "Membrane Accumulation of Active CDC42",
+      "Impaired F-Actin Cytoskeleton Dynamics",
+      "Defective Megakaryopoiesis and Proplatelet Formation",
+      "Impaired Neuronal Migration and Axon Elongation",
+      "Combined B and T Lymphocyte Deficiency"
+    ],
+    "cell_types": [
+      "megakaryocyte",
+      "cerebral cortex neuron",
+      "B cell",
+      "T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000556",
+      "CL:0010012",
+      "CL:0000236",
+      "CL:0000084"
+    ],
+    "biological_processes": [
+      "protein localization to plasma membrane",
+      "actin cytoskeleton organization",
+      "platelet formation",
+      "megakaryocyte differentiation",
+      "neuron migration",
+      "axon extension"
+    ],
+    "phenotypes": [
+      "Macrothrombocytopenia",
+      "Abnormal Platelet Alpha-Granule Number",
+      "Intellectual Disability",
+      "Global Developmental Delay",
+      "Ventriculomegaly",
+      "Cerebellar Atrophy",
+      "Abnormal Muscle Tone",
+      "Sensorineural Hearing Loss",
+      "Camptodactyly",
+      "Lymphedema",
+      "Protein-Losing Enteropathy",
+      "Facial Dysmorphism",
+      "Hypothyroidism",
+      "Short Stature",
+      "Microcephaly",
+      "Congenital Heart Defect",
+      "Recurrent Infections",
+      "Decreased Total B Cell Count",
+      "Decreased Total T Cell Count",
+      "Hypogammaglobulinemia",
+      "Autoimmune Hemolytic Anemia"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Neurologic",
+      "Otologic",
+      "Musculoskeletal",
+      "Lymphatic",
+      "Gastrointestinal",
+      "Craniofacial",
+      "Endocrine",
+      "Growth",
+      "Cardiovascular",
+      "Immunologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0040185",
+      "HP:0012528",
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0002119",
+      "HP:0001272",
+      "HP:0003808",
+      "HP:0000407",
+      "HP:0012385",
+      "HP:0003550",
+      "HP:0002243",
+      "HP:0001999",
+      "HP:0000821",
+      "HP:0004322",
+      "HP:0000252",
+      "HP:0001627",
+      "HP:0002718",
+      "HP:0010976",
+      "HP:0005403",
+      "HP:0004313",
+      "HP:0001890"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "CDC42"
+    ],
+    "treatments": [
+      "Splenectomy",
+      "Corticosteroids for Autoimmune Hemolytic Anemia",
+      "Antibiotic Prophylaxis",
+      "Recombinant Growth Hormone",
+      "Auditory Rehabilitation",
+      "CDC42 Prenylation or Activity Inhibition (preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Takenouchi-Kosaki_Syndrome.yaml",
+    "page_url": "../pages/disorders/Takenouchi-Kosaki_Syndrome.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Takotsubo Cardiomyopathy",
     "disease_id": "MONDO:0019018",
     "category": "Complex",
@@ -420738,17 +421199,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3902,
-  "total_subtypes": 4985,
-  "total_disorders_and_subtypes": 8887,
-  "total_unique_evidence_sources": 58024,
-  "total_unique_publications": 54292,
+  "total_disorder_pages": 3906,
+  "total_subtypes": 4988,
+  "total_disorders_and_subtypes": 8894,
+  "total_unique_evidence_sources": 58087,
+  "total_unique_publications": 54350,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3900,
-  "total_unique_pathological_events": 25589,
+  "total_pathographs": 3904,
+  "total_unique_pathological_events": 25621,
   "total_modules": 226,
-  "total_research_reports": 4014,
+  "total_research_reports": 4018,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
