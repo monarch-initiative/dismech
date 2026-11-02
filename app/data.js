@@ -9434,6 +9434,122 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "ANKRD26-Related Thrombocytopenia",
+    "disease_id": "MONDO:0008555",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited thrombocytopenia",
+      "Germline predisposition to myeloid neoplasm"
+    ],
+    "creation_date": "2026-10-31T19:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "ANKRD26-related thrombocytopenia (thrombocytopenia 2, THC2, OMIM 188000) is a non-syndromic autosomal dominant inherited thrombocytopenia with predisposition to myeloid neoplasms. It is caused by heterozygous single nucleotide variants in a short, highly conserved stretch of the ANKRD26 5' untranslated region. The variants abolish binding of the transcription factors RUNX1 and FLI1, which normally silence ANKRD26 during late megakaryopoiesis, so ANKRD26 stays expressed. Excess ANKRD26 binds and stabilizes the thrombopoietin receptor MPL (and the EPO and G-CSF receptors) at the cell surface, prevents their internalization and strengthens MAPK/ERK signalling; in megakaryocytes this impairs proplatelet formation, and polyploid megakaryocytes undergo apoptosis, giving dysmegakaryopoiesis and a lifelong mild to moderate thrombocytopenia with normal platelet size. Most patients have absent or mild mucocutaneous bleeding; some have erythrocytosis or leukocytosis. The risk of myeloid malignancy (myelodysplastic syndrome, acute myeloid leukemia, chronic myeloid and chronic myelomonocytic leukemia) is increased, with somatic driver mutations thought to be needed for transformation. The disorder is a germline predisposition syndrome; the myeloid neoplasms that arise in carriers are separate disease entities.",
+    "pathophysiology": [
+      "ANKRD26 5' UTR Variant Abolishing RUNX1 and FLI1 Binding",
+      "Persistent ANKRD26 Expression During Late Megakaryopoiesis",
+      "Impaired Cytokine Receptor Internalization and Hypersignaling",
+      "MAPK/ERK Hyperactivation in Megakaryocytes",
+      "Impaired Proplatelet Formation",
+      "Apoptosis of Polyploid Megakaryocytes",
+      "Somatic Driver Mutation Acquisition and Myeloid Transformation"
+    ],
+    "cell_types": [
+      "megakaryocyte",
+      "common myeloid progenitor",
+      "megakaryocyte progenitor cell",
+      "hematopoietic multipotent progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000556",
+      "CL:0000049",
+      "CL:0000553",
+      "CL:0000837"
+    ],
+    "biological_processes": [
+      "RUNX1/FLI1-mediated repression of ANKRD26 transcription",
+      "cytokine receptor internalization",
+      "thrombopoietin-mediated signaling pathway",
+      "ERK1/2 cascade",
+      "proplatelet formation",
+      "apoptosis of polyploid megakaryocytes",
+      "megakaryocyte maturation"
+    ],
+    "phenotypes": [
+      "Thrombocytopenia",
+      "Mild Bleeding Tendency",
+      "Bruising Susceptibility",
+      "Epistaxis",
+      "Gingival Bleeding",
+      "Menorrhagia",
+      "Reduced Platelet Alpha Granules",
+      "Megakaryocyte Dysplasia",
+      "Increased Megakaryocyte Count",
+      "Erythrocytosis",
+      "Leukocytosis",
+      "Myelodysplastic Syndrome",
+      "Acute Myeloid Leukemia",
+      "Chronic Myeloid Leukemia",
+      "Chronic Myelomonocytic Leukemia"
+    ],
+    "phenotype_categories": [
+      "Hematological",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0001873",
+      "HP:0001892",
+      "HP:0000978",
+      "HP:0000421",
+      "HP:0000225",
+      "HP:0000132",
+      "HP:0033536",
+      "HP:0031689",
+      "HP:0005513",
+      "HP:0001901",
+      "HP:0001974",
+      "HP:0002863",
+      "HP:0004808",
+      "HP:0005506",
+      "HP:0012325"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ANKRD26"
+    ],
+    "treatments": [
+      "Hemostatic Agents",
+      "Platelet Transfusion",
+      "Eltrombopag",
+      "Myeloid Malignancy Surveillance",
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Genetic Counseling and Testing of Relatives"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ANKRD26-Related_Thrombocytopenia.yaml",
+    "page_url": "../pages/disorders/ANKRD26-Related_Thrombocytopenia.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Acute Promyelocytic Leukemia, PML-RARA",
     "disease_id": "MONDO:0012883",
     "category": "",
@@ -278915,6 +279031,8 @@ window.searchData = [
       "Axonal Damage",
       "EBNA1-GlialCAM Molecular Mimicry",
       "Th1/Th17-Mediated Neuroinflammation",
+      "SEMA4A-Driven Th1/Th17 Skewing",
+      "Semaphorin-Impaired Oligodendrocyte Precursor Recruitment",
       "Inflammatory Lesions",
       "Compartmentalized CNS Inflammation",
       "Oligodendrocyte Precursor and Microglial Autophagic-Mitophagic Dysregulation",
@@ -278933,8 +279051,9 @@ window.searchData = [
       "Cerebrospinal-fluid plasmablast",
       "T-helper 17 cell",
       "T-helper 1 cell",
-      "Macrophage",
+      "Dendritic cell",
       "Oligodendrocyte precursor cell",
+      "Macrophage",
       "Neuron"
     ],
     "cell_type_ids": [
@@ -278947,8 +279066,9 @@ window.searchData = [
       "CL:0000980",
       "CL:0000899",
       "CL:0000545",
-      "CL:0000235",
+      "CL:0000451",
       "CL:0002453",
+      "CL:0000235",
       "CL:0000540"
     ],
     "biological_processes": [
@@ -278961,6 +279081,11 @@ window.searchData = [
       "Humoral immune response mediated by circulating immunoglobulin",
       "T-helper 17 type immune response",
       "Inflammatory response",
+      "T-helper 1 cell differentiation",
+      "T-helper 17 cell differentiation",
+      "Oligodendrocyte precursor cell migration",
+      "Remyelination",
+      "Microglial cell activation",
       "Macroautophagy",
       "Mitophagy",
       "Cellular senescence",
@@ -279061,6 +279186,7 @@ window.searchData = [
       "Disease-Modifying Therapies (DMTs)",
       "Anti-CD19 CAR-T Cell Therapy",
       "Anti-CD20 B-cell Depletion Therapy",
+      "Anti-SEMA4D Antibody (Pepinemab, VX15/2503)",
       "Symptomatic Treatments",
       "Physical Therapy and Rehabilitation",
       "Corticosteroids"
@@ -279075,10 +279201,10 @@ window.searchData = [
     "source_file": "Multiple_Sclerosis.yaml",
     "page_url": "../pages/disorders/Multiple_Sclerosis.html",
     "num_phenotypes": 23,
-    "num_pathophysiology": 11,
+    "num_pathophysiology": 13,
     "num_genes": 18,
-    "num_treatments": 6,
-    "causal_graph_edges": "35",
+    "num_treatments": 7,
+    "causal_graph_edges": "38",
     "causal_graph_longest_path": "5"
   },
   {
@@ -344747,6 +344873,93 @@ window.searchData = [
     "num_treatments": 9,
     "causal_graph_edges": "32",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Renal Hypomagnesemia 2",
+    "disease_id": "MONDO:0007937",
+    "category": "Mendelian",
+    "parents": [
+      "Primary Hypomagnesemia",
+      "Renal Tubulopathy"
+    ],
+    "creation_date": "2026-10-31T14:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Renal hypomagnesemia 2 (HOMG2), also called isolated dominant hypomagnesemia (IDH), is an autosomal dominant renal magnesium-wasting disorder caused by a heterozygous missense variant in FXYD2, the gene for the gamma subunit of the Na,K-ATPase. Every genetically confirmed patient carries the same variant, p.Gly41Arg, which places a charged arginine in the single transmembrane helix of the subunit. The mutant subunit is misrouted and retained inside the cell, and it binds wild-type FXYD2 and impairs its routing as well, which explains why one mutant allele is enough to cause disease while loss of one FXYD2 copy is not. FXYD2 normally sits with the Na,K-ATPase at the basolateral membrane of the distal convoluted tubule (DCT), the segment that sets final urinary magnesium. How its loss produces magnesium wasting is not settled: one model holds that the pump is destabilized and the apical driving force for magnesium entry falls, another that FXYD2 itself carries basolateral magnesium exit. Patients have low serum magnesium with inappropriately high urinary magnesium and low urinary calcium. Many carriers are asymptomatic; others have muscle cramps, tetany, seizures and, in adults, chondrocalcinosis. All known patients belong to three Dutch and Belgian families that share a founder haplotype.",
+    "pathophysiology": [
+      "Heterozygous FXYD2 p.Gly41Arg Variant",
+      "Misrouting and Intracellular Retention of G41R FXYD2",
+      "Dominant-Negative Retention of Wild-Type FXYD2",
+      "Loss of FXYD2 Regulation of the DCT Na,K-ATPase",
+      "Reduced DCT Transcellular Magnesium Reabsorption",
+      "Hypomagnesemia",
+      "Neuromuscular Hyperexcitability"
+    ],
+    "cell_types": [
+      "kidney distal convoluted tubule epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:1000849"
+    ],
+    "biological_processes": [
+      "protein localization to basolateral plasma membrane",
+      "protein homooligomerization",
+      "magnesium ion transmembrane transport",
+      "magnesium ion homeostasis"
+    ],
+    "phenotypes": [
+      "Hypomagnesemia",
+      "Renal magnesium wasting",
+      "Hypocalciuria",
+      "Muscle cramps",
+      "Tetany",
+      "Seizure",
+      "Chondrocalcinosis",
+      "Generalized muscle weakness",
+      "Hypokalemia",
+      "Metabolic alkalosis"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Renal",
+      "Musculoskeletal",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002917",
+      "HP:0005567",
+      "HP:0003127",
+      "HP:0003394",
+      "HP:0001281",
+      "HP:0001250",
+      "HP:0000934",
+      "HP:0003324",
+      "HP:0002900",
+      "HP:0200114"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FXYD2"
+    ],
+    "treatments": [
+      "Magnesium supplementation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Renal_Hypomagnesemia_2.yaml",
+    "page_url": "../pages/disorders/Renal_Hypomagnesemia_2.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Renal Hypomagnesemia 4",
@@ -421538,17 +421751,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3909,
+  "total_disorder_pages": 3911,
   "total_subtypes": 4991,
-  "total_disorders_and_subtypes": 8900,
-  "total_unique_evidence_sources": 58117,
-  "total_unique_publications": 54376,
+  "total_disorders_and_subtypes": 8902,
+  "total_unique_evidence_sources": 58171,
+  "total_unique_publications": 54426,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3907,
-  "total_unique_pathological_events": 25634,
+  "total_pathographs": 3909,
+  "total_unique_pathological_events": 25648,
   "total_modules": 226,
-  "total_research_reports": 4021,
+  "total_research_reports": 4023,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 129
